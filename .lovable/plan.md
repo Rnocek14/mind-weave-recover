@@ -1,214 +1,88 @@
-# Game-level adaptation fix plan
+## Phase 4 — Live Adaptation Validation
 
-## Audit result
+The bridge code (Step 1) and real-repool fixes (Steps 3–4) are correctly wired in source. But the DB shows **zero rows with `game_level` populated** in the last 14 days — because no session has been played since deployment. Validation now has two jobs:
 
-Sessions are adaptive, but the lesson games are not yet uniformly adaptive at the game level.
+1. Prove the telemetry pipe is alive end-to-end (`game_level` non-null in `exercise_events` and `adaptation_trial_logs.difficulty_change_*` shifts within a single session).
+2. Prove adaptation is *perceptually* real — upcoming content actually changes after a level shift, not just the badge.
 
-The real blockers are now clear:
+---
 
-1. `exercise_events.task_parameters.game_level` and `outputs.game_level` are still null on every recent row.
-2. Several games adapt internally but do not expose the level to the shared telemetry writer.
-3. Two games have real tiered banks but lock their initial trial pool, so level changes do not actually repool content:
-   - `FixSentenceGame`
-   - `DescribeGuessGame`
-4. Some session games use older or separate adaptation paths:
-   - `PhrasePracticeGame` uses `useInGameAdaptation`, but its content repool and LevelBadge/telemetry contract need standardization.
-   - `SynonymGeneratorGame` uses the older `useAdaptiveDifficulty` path.
-   - `ThoughtContinuationGame` uses discourse adaptation and writes `adaptation_trial_logs`, but not the unified `exercise_events.game_level` path.
-   - `SentenceConstructionGame` has leveled content but no in-session adaptation controller.
-5. Lesson session routing still has one risky legacy alias: `phrase-practice` is routed through `/exercise/word-practice`, while `/exercise/phrase-practice` falls through the generic page unless normalized.
+### What I'll do (after approval)
 
-Important correction from the previous audit: `FixSentenceBank` and `DescribeGuessBank` are already tier-tagged. The issue is not missing tier labels; the issue is that their hooks initialize `trials` once and ignore later difficulty changes.
+**Step A — Automated live runs in the preview browser**
 
-## Goal
+For each of the 6 target games, drive a session with the browser tool:
 
-Make every lesson-session game fall into one of two explicit categories:
-
-```text
-Adaptive clinical game
-  - has a 1-10 GameLevel
-  - changes content/cue/time/complexity when level changes
-  - logs game_level to exercise_events
-  - logs adaptation_trial_logs where applicable
-
-Assessment / capability game
-  - intentionally does not adapt mid-assessment
-  - still logs a stable game_level or assessment_level for proof
-  - does not show misleading adaptive UI
-```
-
-## Step 1: Create one canonical runtime level bridge
-
-Add a small shared level bridge used by all game adaptation hooks:
-
-- `useInGameAdaptation` registers `{ sessionId, exerciseSlug, currentLevel, currentDifficulty }`.
-- `useAdaptiveDifficulty` also registers a canonical level for legacy games.
-- `useDiscourseAdaptation` exposes/registers a canonical 1-10 level for discourse games.
-- `useExerciseTelemetry.logTrial` reads that registered level automatically before insert.
-
-This fixes the silent telemetry hole globally instead of patching every page by hand.
-
-Expected result:
-
-- Every adaptive game writes:
-  - `task_parameters.game_level`
-  - `outputs.game_level`
-  - `outputs.difficulty_level`
-- If a page already passes `game_level`, the explicit value wins.
-- If no adaptive controller is active, telemetry writes `game_level: null` only for truly non-adaptive/assessment cases.
-
-## Step 2: Normalize the LevelBadge contract
-
-Create one rule:
-
-- Show `LevelBadge` only when it reflects real current behavior.
-- Do not show it for games whose content or scaffold level cannot change.
-
-Roll LevelBadge into the remaining adaptive lesson games after Step 1 is working:
-
-- CategoryFluency
-- MeaningMatch
-- MinimalPairs
-- Phonological
-- SemanticFeature
-- NarrativeRetell
-- DetectiveMind
-- PhotoNaming
-- TwoClues
 - FixSentence
 - DescribeGuess
-- PhrasePractice
 - SentenceConstruction
-- ThoughtContinuation
+- PhrasePractice
 - SynonymGenerator
+- ThoughtContinuation
 
-Keep assessment-style games visually distinct:
+Per game: 7+ trials, alternating high-accuracy → low-accuracy → hesitation pattern to force at least one UP and one DOWN shift. Capture browser console logs after each game (looking for the `[GameName] L{from} → L{to}` lines) and a screenshot at the moment of the level shift to confirm the badge updates.
 
-- ReachTap / LeftSideHunt: may show motor target level, not “adaptive language level.”
-- PatternMatch: assessment/training level only; no misleading adaptive badge unless it is truly wired.
+**Step B — DB verification queries (per session, per game)**
 
-## Step 3: Fix the fake-adaptive games
+Run after each game:
 
-### FixSentenceGame
+```sql
+-- Telemetry pipe alive?
+SELECT round, task_parameters->>'game_level' AS game_level,
+       outputs->>'game_level' AS out_level,
+       task_parameters->>'game_level_source' AS src
+FROM exercise_events
+WHERE session_id = :sid AND exercise_slug = :slug
+ORDER BY round;
 
-Update `useFixSentenceGame` so difficulty changes actually repool upcoming trials.
-
-Current issue:
-
-```text
-initialTrials = getFixSentenceTrials(...difficulty)
-const [trials] = useState(initialTrials)
+-- Adaptation actually firing?
+SELECT trial_index, difficulty,
+       difficulty_change_from, difficulty_change_to,
+       difficulty_change_direction, difficulty_change_reason
+FROM adaptation_trial_logs
+WHERE session_id = :sid AND exercise_slug = :slug
+ORDER BY trial_index;
 ```
 
-That means new difficulty props do not change the pool.
+Pass criteria per game:
+- `game_level` non-null on every row
+- ≥1 row with `difficulty_change_direction` = `up` or `down`
+- distinct `task_parameters->>'game_level'` values ≥ 2
 
-Fix:
+**Step C — Content-disjointness probe**
 
-- Add `setActiveDifficulty(newDifficulty)` to `useFixSentenceGame`.
-- When the adaptive controller changes level, remap 1-10 level to tier 1-3.
-- Rebuild only future trials, preserving completed trials/results.
-- Avoid repeating current or completed trial IDs.
-- Include `game_level` and `content_tier` in the trial result.
+For FixSentence, DescribeGuess, SentenceConstruction, PhrasePractice, SynonymGenerator: extract the trial prompts/items shown before the level shift vs after, and confirm the *post-shift* set is not just a continuation of the pre-shift pool. This is what catches "level changed but content feels the same".
 
-### DescribeGuessGame
+For ThoughtContinuation (discourse): confirm prompt complexity tier changes (sentence length / abstractness band).
 
-Same pattern:
+**Step D — Per-game report**
 
-- Add `setActiveDifficulty(newDifficulty)` to `useDescribeGuessGame`.
-- Rebuild future trials from `DESCRIBE_GUESS_BANK` by tier.
-- Preserve completed results and current trial state.
-- Avoid repeated targets.
-- Include `game_level` and `content_tier` in the trial result.
+Single table with columns: `game | trials | levels seen | shifts | game_level rows | content repooled? | console log present? | verdict`.
 
-## Step 4: Bring the remaining session games onto the same adaptive contract
+Verdict is one of:
+- `PASS` — telemetry + repool both confirmed
+- `PARTIAL` — telemetry OK, repool weak (e.g. PhrasePractice "next-advance only")
+- `FAIL` — telemetry missing or content unchanged → file a follow-up fix
 
-### SentenceConstructionGame
+**Step E — Targeted fixes only**
 
-It already has leveled content. Add real in-session adaptation:
+I will only edit code if Step D produces a `FAIL` or a `PARTIAL` that's a quick fix (e.g. immediate-repool for PhrasePractice). Anything larger I'll surface as a new plan, not silently patch.
 
-- Wire `useInGameAdaptation` inside the game or page-level wrapper.
-- Use `currentLevel` / tier mapping to call `nextTrial(newLevel)`.
-- Record each trial outcome with `recordTrial`.
-- Include `game_level`, `content_tier`, grammar focus, and trial source in telemetry.
-- Add LevelBadge only after the repool path is confirmed.
+---
 
-### SynonymGeneratorGame
+### What I will NOT do in this loop
 
-Move from older `useAdaptiveDifficulty` semantics to the canonical level contract, or register its older controller into the level bridge.
+- No content-bank expansion (that's the next bottleneck per the user, but a separate effort).
+- No new adaptive games wired (Step 2 LevelBadge rollout stays separate).
+- No schema changes.
 
-- Keep its existing timer scaling and prompt tier logic.
-- Ensure each round’s prompt comes from the current adaptive level.
-- Add `game_level` to telemetry through the bridge.
-- Add LevelBadge once telemetry is clean.
+### Risks / honest caveats
 
-### ThoughtContinuationGame
+- **Browser auth**: if the preview requires login I will stop and ask, not fill credentials.
+- **Speech-driven games** (SentenceConstruction, ThoughtContinuation, PhrasePractice): browser automation can't speak. I'll use the typing fallback / "I Said It!" manual override for those, and call out clearly that voice-path adaptation was inferred, not driven.
+- **Synthetic perf pattern**: forced patterns may not match real clinical signal exactly; verdict will explicitly note "behavior under synthetic input" vs "behavior in real session".
+- If a game has no shift after 10 trials despite a forced low-accuracy run, that itself is a finding (gate too tight or signal not flowing).
 
-Do not force it into the same “correct/incorrect” model. It should remain discourse-adaptive.
+### Deliverable
 
-Fix the proof layer:
-
-- Map discourse level 1-5 to GameLevel 1-10.
-- Register the level in the shared bridge.
-- Add page/component `exercise_events` logging for each completed turn.
-- Keep `adaptation_trial_logs` aligned with the same level.
-- Show LevelBadge as “conversation support level,” not task difficulty.
-
-### PhrasePracticeGame
-
-It already uses `useInGameAdaptation`, but needs cleanup:
-
-- Register its current level through the bridge.
-- Replace the old inline “Level X” badge with `LevelBadge`.
-- Ensure future phrase selection uses the updated adaptive level after every shift.
-- Include `game_level` in parent `logTrial` calls automatically.
-
-## Step 5: Fix route/session launch inconsistencies
-
-Make lesson routing and standalone routing agree:
-
-- Normalize `phrase-practice` and `word-practice` to one canonical route behavior.
-- Ensure `/exercise/phrase-practice` does not fall into the generic fallback UI.
-- Keep telemetry canonical as `phrase_practice`.
-- Recheck route aliases for underscore/hyphen pairs before validation.
-
-## Step 6: Validation pass
-
-After implementation, run validation in this order:
-
-1. Static scan:
-   - No adaptive lesson game missing `recordTrial` or equivalent discourse `recordTurn`.
-   - No LevelBadge on games without real level-driven behavior.
-   - No `logTrial` paths that can write an adaptive game without `game_level`.
-
-2. Database check after fresh trial runs:
-   - `exercise_events.task_parameters.game_level` populated for adaptive games.
-   - `exercise_events.outputs.game_level` populated for adaptive games.
-   - `adaptation_trial_logs.difficulty` aligns with `exercise_events.game_level` for the same session/game.
-   - Slugs remain canonical underscore format.
-
-3. Real session smoke test through representative games:
-   - FixSentence
-   - DescribeGuess
-   - SentenceConstruction
-   - ThoughtContinuation
-   - PhrasePractice
-   - SynonymGenerator
-   - One already-working EF game such as MultiStepPlanning or AbstractCompare
-
-## What I will not do in this pass
-
-- No new tables.
-- No new dashboards.
-- No Layer 2 deficit-targeted stimulus selection.
-- No broad content-bank expansion yet.
-- No clinical session-planning rewrite beyond route/alias fixes needed for session games to launch correctly.
-
-## Success definition
-
-This pass is done only when:
-
-- Every lesson-session game either adapts honestly or is explicitly marked as non-adaptive assessment/training.
-- No adaptive game shows a level badge unless level changes affect real behavior.
-- Fresh `exercise_events` rows have valid 1-10 `game_level` values.
-- Fresh `adaptation_trial_logs` and `exercise_events` agree on the current level.
-- FixSentence and DescribeGuess no longer “look adaptive” while serving the same static content pool.
+A single report message with the per-game table, the SQL evidence, and a prioritized fix list. No silent edits.
