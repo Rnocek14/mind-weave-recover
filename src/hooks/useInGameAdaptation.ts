@@ -4,6 +4,7 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 // ============================================================================
@@ -168,6 +169,13 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     sessionId: sessionId ?? null,
     exerciseSlug: normalizeExerciseSlug(exerciseSlug),
     enabled: autoLog && !!user?.id,
+  });
+
+  // Centralized adaptation_events writer — every game using this hook now
+  // emits a `difficulty_up` / `difficulty_down` / `frustration_stepdown` row
+  // whenever the controller actually moves a level. No per-game wiring needed.
+  const { logDifficultyChange: autoLogDifficultyEvent } = useAdaptationEventLogger({
+    userId: user?.id,
   });
 
   // ===========================================================================
@@ -436,6 +444,27 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
           if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);
         }
       }
+
+      // Centralized adaptation_events emit — fires whenever the controller
+      // actually moved difficulty (up, down, or frustration step-down).
+      // No-op for games passing autoLog=false (PhotoNaming/TwoClues already
+      // log this event themselves to avoid duplication).
+      if (autoLog && evtChange && user?.id) {
+        try {
+          autoLogDifficultyEvent(
+            evtChange.direction,
+            evtChange.from,
+            evtChange.to,
+            successRateRef.current,
+            consecutiveErrorsRef.current,
+            sessionId ?? null,
+            normalizeExerciseSlug(exerciseSlug),
+            trialCountRef.current - 1,
+          );
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn('[useInGameAdaptation] difficulty event log failed', err);
+        }
+      }
     }
 
     return {
@@ -459,6 +488,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     minTrialsAtLevelForEscalation,
     autoLog,
     autoLogTrial,
+    autoLogDifficultyEvent,
+    sessionId,
+    exerciseSlug,
     user?.id,
   ]);
 
