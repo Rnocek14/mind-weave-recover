@@ -171,6 +171,13 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     enabled: autoLog && !!user?.id,
   });
 
+  // Centralized adaptation_events writer — every game using this hook now
+  // emits a `difficulty_up` / `difficulty_down` / `frustration_stepdown` row
+  // whenever the controller actually moves a level. No per-game wiring needed.
+  const { logDifficultyChange: autoLogDifficultyEvent } = useAdaptationEventLogger({
+    userId: user?.id,
+  });
+
   // ===========================================================================
   // AUTHORITATIVE REFS - these are the source of truth inside recordTrial
   // to avoid stale closure issues when trials come quickly
