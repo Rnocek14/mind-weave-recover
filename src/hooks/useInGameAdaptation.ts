@@ -488,6 +488,9 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     minTrialsAtLevelForEscalation,
     autoLog,
     autoLogTrial,
+    autoLogDifficultyEvent,
+    sessionId,
+    exerciseSlug,
     user?.id,
   ]);
 
