@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
@@ -29,7 +30,7 @@ import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
-import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus } from 'lucide-react';
+import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus, Keyboard, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
@@ -61,6 +62,10 @@ export function FixSentenceGame({
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [validationHint, setValidationHint] = useState<string | null>(null);
   const [prevWrongAttempt, setPrevWrongAttempt] = useState<string | null>(null);
+  const [showTextInput, setShowTextInput] = useState(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('preferTypingInput') === 'true'
+  );
+  const [typedAnswer, setTypedAnswer] = useState('');
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScoredRef = useRef<string>('');
@@ -170,6 +175,85 @@ export function FixSentenceGame({
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
 
+  // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
+  const handleTypedSubmit = useCallback(async () => {
+    const text = typedAnswer.trim();
+    if (!text || processingRef.current || showFeedback) return;
+    if (!game.currentTrial) return;
+
+    processingRef.current = true;
+    setIsProcessing(true);
+    lastScoredRef.current = text;
+    setDisplayTranscript(text);
+
+    try {
+      const selfCorrected = !!prevWrongAttempt;
+      const result = await game.scoreAnswer(text, selfCorrected);
+      if (!result) {
+        processingRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      // No mic/audio in typed mode — log a text-source utterance for parity.
+      if (sessionId && userId) {
+        try {
+          await logFinalAnalysis({
+            transcript: text,
+            transcriptSource: 'typed' as any,
+            isCorrect: result.isCorrect,
+            errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+            semanticSimilarity: result.semanticSimilarity,
+          });
+        } catch (e) {
+          console.debug('[fix_sentence] typed logFinalAnalysis skipped', e);
+        }
+      }
+
+      // Adaptive engine — same as speech path.
+      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
+
+      game.submitResult(result);
+      setShowFeedback(true);
+      setTypedAnswer('');
+
+      if (!result.isCorrect && !result.isPartialCredit) {
+        setPrevWrongAttempt(text);
+        if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = setTimeout(() => {
+          // Reset for typed retry — don't re-open mic.
+          setShowFeedback(false);
+          lastScoredRef.current = '';
+          setDisplayTranscript('');
+          processingRef.current = false;
+          resetAttempt();
+          if (sessionId && userId && game.currentTrial) {
+            startAttempt({
+              sessionId,
+              userId,
+              exerciseSlug: 'fix_sentence',
+              trialIndex: game.currentIndex,
+              attemptNumber: game.currentAttempt + 1,
+              targetWord: game.currentTrial.acceptedFixes[0],
+              category: game.currentTrial.category,
+            });
+          }
+        }, WRONG_ANSWER_DISPLAY_MS);
+      }
+
+      if (result.isCorrect || result.isPartialCredit) {
+        setTimeout(() => {
+          resetAttempt();
+          game.nextTrial();
+          setShowFeedback(false);
+        }, AUTO_ADVANCE_DELAY_MS);
+      }
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+    }
+  }, [typedAnswer, showFeedback, game, prevWrongAttempt, sessionId, userId, logFinalAnalysis, recordAdaptiveTrial, engagement, resetAttempt, startAttempt]);
 
   const handleSpeechResult = useCallback((result: string) => {
     logBrowserTranscript(result);
@@ -231,7 +315,7 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        if (sessionId && userId) {
+        if (sessionId && userId && !showTextInput) {
           startListening();
           setIsListening(true);
           if (isRecordingSupported) startRecording();
@@ -629,28 +713,83 @@ export function FixSentenceGame({
         </Card>
       )}
 
+      {/* Typing fallback input */}
+      {showTextInput && !showFeedback && (
+        <div className="flex gap-2">
+          <Input
+            value={typedAnswer}
+            onChange={(e) => setTypedAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleTypedSubmit();
+              }
+            }}
+            placeholder="Type the replacement word + Enter"
+            className="min-h-[48px] text-base"
+            disabled={isProcessing}
+            autoFocus
+          />
+          <Button
+            size="icon"
+            onClick={handleTypedSubmit}
+            disabled={!typedAnswer.trim() || isProcessing}
+            className="min-h-[48px] min-w-[48px]"
+          >
+            <Send className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center items-center gap-3 flex-wrap">
         {isProcessing ? (
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Checking...
           </Badge>
-        ) : (
-          <>
-            <div className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
-              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
-            )}>
-              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-              {isListening ? 'Listening...' : 'Mic off'}
-            </div>
-          </>
-        )}
+        ) : !showTextInput ? (
+          <div className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
+            isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+          )}>
+            {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+            {isListening ? 'Listening...' : 'Mic off'}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => {
+            const next = !showTextInput;
+            setShowTextInput(next);
+            sessionStorage.setItem('preferTypingInput', String(next));
+            if (next) {
+              // Stop mic when switching to typing
+              if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+              if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+              stopListening();
+              setIsListening(false);
+              if (isRecording) cancelRecording();
+            } else {
+              // Switching back to speech: open mic if session is active
+              if (sessionId && userId) {
+                startListening();
+                setIsListening(true);
+                if (isRecordingSupported) startRecording();
+              }
+            }
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+        >
+          {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+          {showTextInput ? 'Switch to speech' : 'Switch to typing'}
+        </button>
 
         <Button variant="ghost" size="sm" onClick={handleSkip}>
           <SkipForward className="h-4 w-4 mr-1" /> Skip
         </Button>
       </div>
+
     </div>
   );
 }
