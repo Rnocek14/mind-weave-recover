@@ -109,6 +109,7 @@ export const SentenceConstructionGame = ({
   difficultyLevel,
   focusPhonemes = [],
   adaptations,
+  sessionId,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
@@ -126,9 +127,41 @@ export const SentenceConstructionGame = ({
     clearAnswer,
     submitAnswer,
     nextTrial,
+    setActiveDifficulty,
     getWeakestGrammarArea,
     getAnswerAsWords
   } = useSentenceGame(10, difficultyLevel, focusPhonemes);
+
+  // In-Game Adaptation: drives mid-session level shifts based on performance.
+  // Publishes the canonical 1–10 game_level to the adaptive level registry,
+  // and triggers content repooling when the level changes.
+  const setActiveDifficultyRef = useRef<((lvl: number) => void) | null>(null);
+  const prevLevelLogRef = useRef<number>(difficultyLevel);
+  useEffect(() => {
+    setActiveDifficultyRef.current = setActiveDifficulty;
+  }, [setActiveDifficulty]);
+
+  const {
+    currentDifficulty,
+    recordTrial: recordAdaptiveTrial,
+  } = useInGameAdaptation({
+    exerciseSlug: 'sentence_construction',
+    sessionId: sessionId || null,
+    initialDifficulty: difficultyLevel,
+    bounds,
+    windowSize: 5,
+    targetSuccessRate: 0.75,
+    enableDifficultyAutoStepDown: true,
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLvl, reason) => {
+      setActiveDifficultyRef.current?.(newLvl);
+      if (import.meta.env.DEV) {
+        console.log(`[SentenceConstruction] L${prevLevelLogRef.current} → L${newLvl}, reason: ${reason}`);
+        prevLevelLogRef.current = newLvl;
+      }
+    },
+  });
 
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'sentence-construction' });
