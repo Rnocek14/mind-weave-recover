@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 interface RestoredLessonContext {
   fromLesson: boolean;
@@ -59,9 +60,10 @@ export function useRestoredLessonContext(exerciseSlug: string): RestoredLessonCo
       const savedBlock = parsed?.lesson?.blocks?.[savedIndex];
       const savedExerciseId = savedBlock?.exerciseId;
 
-      const normalize = (s: string) => s.replace(/_/g, '-');
-      const normalizedSaved = typeof savedExerciseId === 'string' ? normalize(savedExerciseId) : null;
-      const normalizedTarget = normalize(exerciseSlug);
+      // Canonicalize through the slug alias map so route slugs (e.g.
+      // "multi-step-plan") match exercise constants (e.g. "multi_step_planning").
+      const normalizedSaved = typeof savedExerciseId === 'string' ? normalizeExerciseSlug(savedExerciseId) : null;
+      const normalizedTarget = normalizeExerciseSlug(exerciseSlug);
 
       if (!savedBlock || normalizedSaved !== normalizedTarget) {
         return { fromLesson: false, sessionId: null, adaptations: undefined, returnTo: defaultReturn };
