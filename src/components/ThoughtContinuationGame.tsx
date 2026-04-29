@@ -144,6 +144,15 @@ export function ThoughtContinuationGame({
   // Discourse Adaptation Bridge — mirrors the trial-based games' visible
   // up/down/hold cues based on conversational signals.
   const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+  const previousAdaptationLevelRef = useRef(adaptation.level);
+
+  // Phase 4 — per-trial logging into adaptation_trial_logs for real-world
+  // adaptive validation. Discourse games log one row per spoken turn.
+  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+    userId,
+    sessionId,
+    exerciseSlug: 'thought_continuation',
+  });
 
   // LLM-first clinical scorer (with local fallback). Replaces stuck-type-only
   // heuristics with semantic / target-achievement / error-type judgement.
