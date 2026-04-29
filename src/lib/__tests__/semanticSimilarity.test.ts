@@ -35,13 +35,13 @@ vi.mock('@/integrations/supabase/client', () => {
   return {
     supabase: {
       functions: {
-        invoke: async ({ body }: any) => {
-          const t = (body?.text ?? '').toLowerCase();
-          if (t in banks) return { data: { embedding: banks[t] } };
+        invoke: async (_fnName: string, opts: any) => {
+          const t = (opts?.body?.text ?? '').toLowerCase();
+          if (t in banks) return { data: { embedding: banks[t] }, error: null };
           // Unknown words: deterministic pseudo-random vector
           let seed = 0;
           for (const ch of t) seed += ch.charCodeAt(0);
-          return { data: { embedding: vec(seed * 7) } };
+          return { data: { embedding: vec(seed * 7 + 1) }, error: null };
         },
       },
     },
