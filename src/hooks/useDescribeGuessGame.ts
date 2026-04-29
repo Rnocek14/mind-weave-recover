@@ -409,5 +409,6 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     recordWordRetrieval,
     nextTrial,
     startRound,
+    setActiveDifficulty,
   };
 }
