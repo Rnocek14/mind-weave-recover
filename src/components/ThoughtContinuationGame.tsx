@@ -555,6 +555,10 @@ export function ThoughtContinuationGame({
       const isChange = direction === 'up' || direction === 'down';
       previousAdaptationLevelRef.current = toLevel;
 
+      if (isChange && import.meta.env.DEV) {
+        console.log(`[ThoughtContinuation] L${fromLevel} → L${toLevel}, reason: ${lastDecision?.reason ?? 'discourse_adaptation'}`);
+      }
+
       logAdaptationTrial({
         trialIndex: promptCount,
         difficulty: toLevel,
