@@ -116,9 +116,14 @@ export function FixSentenceGame({
       console.debug('[fix_sentence] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
       void engagement.logIntervention('cue_dependency_gate', 'hold_difficulty', 'auto');
     },
-    onDifficultyChange: (_lvl, reason, dir) => {
+    onDifficultyChange: (newLvl, reason, dir) => {
       const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
       signalShift(dir, narration || reason);
+      // Repool upcoming trials at the new level (real adaptation, not cosmetic)
+      game.setActiveDifficulty(newLvl);
+      if (import.meta.env.DEV) {
+        console.log(`[FixSentence] L${currentDifficulty} → L${newLvl}, reason: ${reason}`);
+      }
     },
   });
 
