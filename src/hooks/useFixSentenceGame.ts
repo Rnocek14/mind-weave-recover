@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
-import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
+import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
 import { useGameSounds } from '@/hooks/useGameSounds';
 
 export interface FixSentenceTrialResult {
@@ -160,8 +160,14 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       }
     }
 
-    const isCorrect = bestSim >= 0.80;
-    const isPartialCredit = !isCorrect && bestSim >= 0.60;
+    // Tightened thresholds (Apr 2026 signal-quality fix):
+    //  - "correct" requires strong embedding agreement (semantic match)
+    //  - "partial" requires BOTH a moderate embedding score AND lexical
+    //    overlap with at least one accepted fix. Without that overlap,
+    //    embedding noise alone is not enough to award partial credit.
+    const isCorrect = bestSim >= 0.78;
+    const hasOverlapWithAnyFix = currentTrial.acceptedFixes.some(f => hasLexicalOverlap(spoken, f));
+    const isPartialCredit = !isCorrect && bestSim >= 0.55 && hasOverlapWithAnyFix;
 
     if (isCorrect) {
       playSuccess();
