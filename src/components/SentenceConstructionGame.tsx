@@ -33,6 +33,7 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useMayaExerciseFrame } from "@/hooks/useMayaExerciseFrame";
 import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
+import { useInGameAdaptation } from "@/hooks/useInGameAdaptation";
 import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
 import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
