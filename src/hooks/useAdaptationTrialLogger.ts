@@ -98,6 +98,11 @@ export function useAdaptationTrialLogger(opts: Options) {
   const cueThreshold = opts.cueDependencyThreshold ?? 0.5;
   const minTrials = opts.minTrialsAtLevel ?? 8;
   const staleWindow = opts.staleAdaptationWindow ?? 15;
+  // Canonical slug — guarantees adaptation_trial_logs joins with exercise_events.
+  const canonicalSlug = useMemo(
+    () => normalizeExerciseSlug(opts.exerciseSlug),
+    [opts.exerciseSlug]
+  );
 
   const trialBuf = useRef<PendingRow[]>([]);
   const anomalyBuf = useRef<AnomalyRow[]>([]);
