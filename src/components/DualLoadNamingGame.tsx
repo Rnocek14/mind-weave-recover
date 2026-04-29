@@ -20,6 +20,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -343,7 +344,10 @@ export function DualLoadNamingGame({
           <span className="font-medium">Dual-Load Naming</span>
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
-        <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
+        <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          <span className="text-muted-foreground">Set {currentSetIndex + 1} of {totalSets}</span>
+        </div>
       </div>
       <Progress value={(currentSetIndex / totalSets) * 100} className="h-1.5" />
       {shiftDirection && (
