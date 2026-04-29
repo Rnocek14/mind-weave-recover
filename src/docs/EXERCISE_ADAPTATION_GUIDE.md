@@ -61,8 +61,25 @@ Inside `useMyGame`:
   2. fetches fresh trials for the new level
   3. replaces only the upcoming slice, keeping played + current trial intact
 
+## Signal-quality contract (Apr 2026)
+
+The adaptation engine is only as good as the signal feeding it. Two rules:
+
+1. **`partial_credit` is NOT `correct`.** Any score in the partial band must be reported to `recordAdaptiveTrial` as `correct: false`. This is already true everywhere — preserve it.
+2. **Telemetry must match clinical truth.** Do not log `error_type='partial_credit'` for failed trials; use `incorrect_close` with a `close_miss: true` flag in `taskParameters`. `partial_credit` polluted downstream learning-rate / phoneme analytics. (Fix: FixSentence Apr 2026; same change pending DescribeGuess.)
+3. **Embedding cosine is NOT rescaled.** `getSemanticSimilarity` returns clamped raw cosine in `[0, 1]`. We previously did `(cos+1)/2`, which made unrelated common English words score ~0.65 — squarely in the old "partial credit" band. Removed.
+4. **Lexical-overlap guard** caps embedding noise: if the spoken word shares no ≥3-char substring or token with the target, similarity is capped at `0.45` regardless of the embedding score.
+
+## Validating adaptation: the harness
+
+`/dev/signal-harness` runs three deterministic scripts (CLIMB / FALL / OSCILLATE) against `useInGameAdaptation` for each exercise. No DB writes, no UI game. Use it after any change to the controller, scorer, or thresholds. The output is the artifact you give clinicians — replaces "I played it and it felt right".
+
+For end-to-end manual runs, append `?validation=1` to any exercise URL to bump trial count from 5 → 10 (production users still get 5). This makes one session capable of showing both an UP and a DOWN move.
+
 ## Open gaps to fix later
 
 - **Photo Naming**: tag the photo bank by syllable count + frequency so word retrieval difficulty scales (not just UI mode).
 - **Fix the Sentence / Describe & Guess**: add visible AdaptationBadge so users see when difficulty shifts.
+- **DescribeGuess scorer**: apply the same `partial_credit` → `incorrect_close` mapping used in FixSentence.
 - **Telemetry**: add a per-session signal `{ level_started, level_ended, content_tier_shifts }` to `exercise_events.inputs`, then surface a "Adaptation active?" column on the Telemetry dashboard. Games where `level_started === level_ended` for >80% of sessions are suspect.
+
