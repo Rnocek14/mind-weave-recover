@@ -61,6 +61,8 @@ export function useDiscourseAdaptation(
     initialLevel = 2,
     badgeAutoClearMs = 4000,
     onShift,
+    sessionId = null,
+    exerciseSlug,
   } = options;
 
   const [level, setLevel] = useState(initialLevel);
