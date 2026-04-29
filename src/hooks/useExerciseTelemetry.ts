@@ -158,6 +158,10 @@ export const useExerciseTelemetry = (
             // digging through nested task_params (e.g. outputs->>'difficulty_level').
             // Falls back to null when the game does not produce these fields.
             difficulty_level: tp.difficulty_level ?? tp.difficulty ?? null,
+            // Universal 1–10 GameLevel — the patient/clinician-facing scale.
+            // Games that wire useInGameAdaptation pass this via taskParameters
+            // so dashboards can query a single canonical level across exercises.
+            game_level: tp.game_level ?? null,
             adaptation_applied: tp.adaptation_applied ?? false,
             adaptation_mode: tp.adaptation_mode ?? 'none',
             task_params: trial.taskParameters,
