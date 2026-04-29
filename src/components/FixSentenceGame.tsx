@@ -236,7 +236,7 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        if (sessionId && userId) {
+        if (sessionId && userId && !showTextInput) {
           startListening();
           setIsListening(true);
           if (isRecordingSupported) startRecording();
