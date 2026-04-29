@@ -62,6 +62,10 @@ export function FixSentenceGame({
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [validationHint, setValidationHint] = useState<string | null>(null);
   const [prevWrongAttempt, setPrevWrongAttempt] = useState<string | null>(null);
+  const [showTextInput, setShowTextInput] = useState(() =>
+    typeof window !== 'undefined' && sessionStorage.getItem('preferTypingInput') === 'true'
+  );
+  const [typedAnswer, setTypedAnswer] = useState('');
 
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScoredRef = useRef<string>('');
