@@ -34,6 +34,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
@@ -417,7 +418,10 @@ export function AbstractCompareGame({
           <Layers className="h-4 w-4 text-primary" />
           <span className="font-medium">Abstract Comparison</span>
         </div>
-        <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
+        <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
+        </div>
       </div>
       <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
 

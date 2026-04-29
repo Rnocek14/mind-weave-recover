@@ -6,6 +6,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import {
+  type LevelScale,
+  type LevelDescriptor,
+  tierToLevel,
+  describeLevel,
+} from '@/lib/gameLevels';
 
 // ============================================================================
 // In-Game Adaptive Layer
@@ -109,6 +115,13 @@ export interface InGameAdaptationOptions {
    * logger (e.g. PhotoNaming, TwoClues) to avoid double inserts.
    */
   autoLog?: boolean;
+
+  /**
+   * Game's internal tier scale (e.g. {min:1,max:3} or {min:1,max:10}).
+   * Used to map `currentDifficulty` onto the canonical 1–10 GameLevel
+   * exposed via `currentLevel`. Defaults to {min:1,max:10}.
+   */
+  levelScale?: LevelScale;
 }
 
 // Exported state for external use
@@ -157,6 +170,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onEscalationBlocked,
     onTrialLogged,
     autoLog = true,
+    levelScale = { min: 1, max: 10 },
   } = options;
 
   // ── Auto-wired Phase 4 trial logger ──────────────────────────────────────
@@ -641,9 +655,21 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     };
   }, [clearStallTimer]);
 
+  // Universal 1–10 GameLevel — derived from currentDifficulty + the
+  // game's registered levelScale. Source of truth for patient/clinician UI
+  // and analytics; internal `currentDifficulty` remains the per-game tier.
+  const currentLevel = tierToLevel(currentDifficulty, levelScale);
+  const levelDescriptor: LevelDescriptor = describeLevel(currentLevel);
+
   return {
     // State (synced from refs for React re-renders)
     currentDifficulty,
+    /** Canonical 1–10 game level for UI + telemetry. */
+    currentLevel,
+    /** Patient-facing label, band, and levers for the current level. */
+    levelDescriptor,
+    /** Game's tier scale (echoed back for callers that need it). */
+    levelScale,
     frustrationLevel,
     consecutiveErrors,
     trialCount,
