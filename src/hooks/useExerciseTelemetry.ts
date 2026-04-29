@@ -126,6 +126,40 @@ export const useExerciseTelemetry = (
         //    every game using the shared adaptation contract gets the dedicated
         //    column populated without per-game changes.
         const tp = (trial.taskParameters ?? {}) as Record<string, any>;
+
+        // 3. Auto-inject canonical 1–10 game_level from the adaptive level
+        //    registry. Adaptation hooks (useInGameAdaptation, useAdaptiveDifficulty,
+        //    useDiscourseAdaptation) publish their current level under the
+        //    same (sessionId, exerciseSlug) key. If the caller already passed
+        //    `task_parameters.game_level`, the explicit value wins.
+        let resolvedGameLevel: number | null =
+          typeof tp.game_level === 'number' ? tp.game_level : null;
+        let resolvedInternalDifficulty: number | null =
+          typeof tp.difficulty_level === 'number'
+            ? tp.difficulty_level
+            : (typeof tp.difficulty === 'number' ? tp.difficulty : null);
+        let resolvedLevelSource: string | null = null;
+        if (resolvedGameLevel == null) {
+          const entry = readAdaptiveLevel(sessionId, exerciseSlug);
+          if (entry) {
+            resolvedGameLevel = entry.gameLevel;
+            if (resolvedInternalDifficulty == null) {
+              resolvedInternalDifficulty = entry.internalDifficulty;
+            }
+            resolvedLevelSource = entry.source;
+          }
+        }
+        // Persist the resolved level back into task_parameters so any
+        // downstream consumer (analytics, exports, replay) sees a single
+        // canonical value regardless of who wrote the row.
+        if (resolvedGameLevel != null) tp.game_level = resolvedGameLevel;
+        if (resolvedInternalDifficulty != null && tp.difficulty_level == null) {
+          tp.difficulty_level = resolvedInternalDifficulty;
+        }
+        if (resolvedLevelSource && tp.game_level_source == null) {
+          tp.game_level_source = resolvedLevelSource;
+        }
+
         const inferredAdaptations = trial.adaptationsActive ?? (
           tp.adaptation_applied !== undefined || tp.adaptation_mode !== undefined
             ? {
@@ -158,14 +192,14 @@ export const useExerciseTelemetry = (
             // Top-level mirrors so analytics queries can read these without
             // digging through nested task_params (e.g. outputs->>'difficulty_level').
             // Falls back to null when the game does not produce these fields.
-            difficulty_level: tp.difficulty_level ?? tp.difficulty ?? null,
+            difficulty_level: resolvedInternalDifficulty ?? null,
             // Universal 1–10 GameLevel — the patient/clinician-facing scale.
-            // Games that wire useInGameAdaptation pass this via taskParameters
-            // so dashboards can query a single canonical level across exercises.
-            game_level: tp.game_level ?? null,
+            // Auto-populated from the adaptive level registry if the page
+            // didn't pass it explicitly.
+            game_level: resolvedGameLevel,
             adaptation_applied: tp.adaptation_applied ?? false,
             adaptation_mode: tp.adaptation_mode ?? 'none',
-            task_params: trial.taskParameters,
+            task_params: tp,
             timestamp: new Date().toISOString(),
             ...sanitizeTrialOutputs(trial.trialOutputs, exerciseSlug),
           },
