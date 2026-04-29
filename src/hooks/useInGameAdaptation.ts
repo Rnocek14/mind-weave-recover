@@ -655,9 +655,21 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     };
   }, [clearStallTimer]);
 
+  // Universal 1–10 GameLevel — derived from currentDifficulty + the
+  // game's registered levelScale. Source of truth for patient/clinician UI
+  // and analytics; internal `currentDifficulty` remains the per-game tier.
+  const currentLevel = tierToLevel(currentDifficulty, levelScale);
+  const levelDescriptor: LevelDescriptor = describeLevel(currentLevel);
+
   return {
     // State (synced from refs for React re-renders)
     currentDifficulty,
+    /** Canonical 1–10 game level for UI + telemetry. */
+    currentLevel,
+    /** Patient-facing label, band, and levers for the current level. */
+    levelDescriptor,
+    /** Game's tier scale (echoed back for callers that need it). */
+    levelScale,
     frustrationLevel,
     consecutiveErrors,
     trialCount,
