@@ -294,6 +294,8 @@ export const SentenceConstructionGame = ({
       if (trial?.modelAudio) speak(trial.modelAudio);
       recordGrammarResult(result.trial.grammarFocus, result.correct);
       setShowPurpose(false);
+      // Feed the adaptive engine — drives mid-session level shifts + telemetry.
+      recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
       if (onTrialComplete && !trialCompletedRef.current) {
         trialCompletedRef.current = true;
         onTrialComplete({
@@ -305,7 +307,7 @@ export const SentenceConstructionGame = ({
         });
       }
     }, 300);
-  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult]);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial]);
 
   useEffect(() => {
     if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
