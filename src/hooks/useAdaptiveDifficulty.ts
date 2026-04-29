@@ -58,6 +58,7 @@ export const useAdaptiveDifficulty = ({
   cueDependencyEscalationThreshold = 0.5,
   minTrialsAtLevelForEscalation = 8,
   autoLog = true,
+  levelScale = { min: 1, max: 10 },
 }: UseAdaptiveDifficultyOptions) => {
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const trialIndexRef = useRef(0);
