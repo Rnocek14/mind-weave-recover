@@ -12,6 +12,10 @@ import {
   tierToLevel,
   describeLevel,
 } from '@/lib/gameLevels';
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from '@/lib/adaptiveLevelRegistry';
 
 // ============================================================================
 // In-Game Adaptive Layer
