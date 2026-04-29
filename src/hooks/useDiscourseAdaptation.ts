@@ -28,6 +28,13 @@ interface UseDiscourseAdaptationOptions {
   badgeAutoClearMs?: number;
   /** Optional logger called on every shift. */
   onShift?: (decision: DiscourseAdaptationDecision) => void;
+  /**
+   * Optional context so this hook can publish its current 1–10 game level
+   * into the adaptive level registry. Required for `game_level` telemetry
+   * on discourse exercises (ThoughtContinuation, ConversationPartner, …).
+   */
+  sessionId?: string | null;
+  exerciseSlug?: string;
 }
 
 export interface DiscourseAdaptationState {
