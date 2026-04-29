@@ -1083,6 +1083,41 @@ export function generateDailyLesson(
     }
   }
 
+  // === EXECUTIVE FUNCTION REACHABILITY GUARANTEE ===
+  // multi-step-plan / dual-load-naming target executive_function but rarely
+  // outscore expressive/semantic exercises for anomic profiles. Ensure ≥1 EF
+  // exercise appears when the session has room and none was included yet.
+  const EF_EXERCISE_IDS = new Set(['multi-step-plan', 'dual-load-naming', 'detective-mind', 'pattern-match']);
+  const sessionHasEF = blocks.some(b => EF_EXERCISE_IDS.has(b.exerciseId));
+  if (!sessionHasEF && totalDuration >= 6 && remainingTime >= 2) {
+    const efCandidate = scoredExercises.find(ex =>
+      ex && !usedExerciseIds.has(ex.id) && EF_EXERCISE_IDS.has(ex.id)
+    );
+    if (efCandidate) {
+      const duration = Math.min(efCandidate.baseMinutes, remainingTime, 3);
+      if (duration >= 1) {
+        const effectiveStartDifficulty = todayFocusAdaptations?.startDifficulty
+          ?? Math.max(0, capabilityScores.attention - 2);
+        blocks.push({
+          exerciseId: efCandidate.id,
+          duration,
+          priority: 'secondary',
+          adaptations: {
+            startDifficulty: effectiveStartDifficulty,
+            cueLevel: 1,
+            timeout: performanceSignals.avgReactionTime * 1.5,
+            visualSupport: capabilityScores.vision < 6,
+          },
+          reasoning: `EF reachability: ${efCandidate.id} (executive_function not yet covered)`,
+        });
+        remainingTime -= duration;
+        usedExerciseIds.add(efCandidate.id);
+        lastAddedExercise = efCandidate;
+        reasoning.push(`Added ${efCandidate.id} to guarantee executive function coverage`);
+      }
+    }
+  }
+
   // 4. CONSOLIDATION (1-2 min) - easy success (flexible, not motor-only)
   if (remainingTime >= 1) {
     // Prefer exercise from different component than last; motor is fine but not required
