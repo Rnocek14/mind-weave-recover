@@ -181,7 +181,7 @@ interface SynonymGeneratorGameProps {
   sessionId?: string | null;
 }
 
-const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart: 1 };
+const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 10, suggestedStart: 1 };
 
 export function SynonymGeneratorGame({
   difficulty = 1,
