@@ -154,6 +154,12 @@ export const useExerciseTelemetry = (
             error_type: resolvedErrorType,
           },
           outputs: {
+            // Top-level mirrors so analytics queries can read these without
+            // digging through nested task_params (e.g. outputs->>'difficulty_level').
+            // Falls back to null when the game does not produce these fields.
+            difficulty_level: tp.difficulty_level ?? tp.difficulty ?? null,
+            adaptation_applied: tp.adaptation_applied ?? false,
+            adaptation_mode: tp.adaptation_mode ?? 'none',
             task_params: trial.taskParameters,
             timestamp: new Date().toISOString(),
             ...sanitizeTrialOutputs(trial.trialOutputs, exerciseSlug),
