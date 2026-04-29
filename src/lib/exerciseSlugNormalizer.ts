@@ -48,9 +48,30 @@ const EXERCISE_SLUG_ALIASES: Record<string, string> = {
   'phrase_practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
 };
 
+// Track warned non-canonical slugs once per session to avoid log spam.
+const _warnedSlugs = new Set<string>();
+
 export const normalizeExerciseSlug = (rawSlug: string): string => {
-  const normalized = rawSlug.replace(/-/g, '_').toLowerCase();
-  return EXERCISE_SLUG_ALIASES[rawSlug.toLowerCase()] ?? EXERCISE_SLUG_ALIASES[normalized] ?? normalized;
+  if (!rawSlug || typeof rawSlug !== 'string') return rawSlug as unknown as string;
+  const lower = rawSlug.toLowerCase();
+  const underscored = lower.replace(/-/g, '_');
+  const canonical = EXERCISE_SLUG_ALIASES[lower] ?? EXERCISE_SLUG_ALIASES[underscored] ?? underscored;
+
+  // Dev-only warning when caller passed a non-canonical form.
+  if (
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any).env?.DEV &&
+    rawSlug !== canonical &&
+    !_warnedSlugs.has(rawSlug)
+  ) {
+    _warnedSlugs.add(rawSlug);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[slug] Non-canonical exercise slug "${rawSlug}" was normalized to "${canonical}". ` +
+      `Update the call site to use the canonical underscore form (or CANONICAL_SLUGS).`
+    );
+  }
+  return canonical;
 };
 
 /**

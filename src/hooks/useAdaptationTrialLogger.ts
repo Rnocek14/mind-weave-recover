@@ -10,9 +10,10 @@
  * Buffered + best-effort: never throws into the gameplay loop.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { classifyReason, narrateAdaptation, type AdaptationDirection } from '@/lib/adaptationNarrator';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 export interface TrialLogInput {
   trialIndex: number;
@@ -97,6 +98,11 @@ export function useAdaptationTrialLogger(opts: Options) {
   const cueThreshold = opts.cueDependencyThreshold ?? 0.5;
   const minTrials = opts.minTrialsAtLevel ?? 8;
   const staleWindow = opts.staleAdaptationWindow ?? 15;
+  // Canonical slug — guarantees adaptation_trial_logs joins with exercise_events.
+  const canonicalSlug = useMemo(
+    () => normalizeExerciseSlug(opts.exerciseSlug),
+    [opts.exerciseSlug]
+  );
 
   const trialBuf = useRef<PendingRow[]>([]);
   const anomalyBuf = useRef<AnomalyRow[]>([]);
@@ -139,7 +145,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     if (!opts.sessionId) {
       if (import.meta.env.DEV) {
         console.debug('[adaptationLogger] skipping trial — sessionId not yet ready', {
-          exercise: opts.exerciseSlug,
+          exercise: canonicalSlug,
           trialIndex: input.trialIndex,
         });
       }
@@ -163,7 +169,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     const row: PendingRow = {
       user_id: opts.userId,
       session_id: opts.sessionId ?? null,
-      exercise_slug: opts.exerciseSlug,
+      exercise_slug: canonicalSlug,
       trial_index: input.trialIndex,
       difficulty: input.difficulty,
       cue_level: input.cueLevel ?? null,
@@ -196,7 +202,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'unsafe_escalation',
         severity: 'critical',
@@ -218,7 +224,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'missing_narration',
         severity: 'warn',
@@ -238,7 +244,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'stale_adaptation',
         severity: 'warn',
@@ -249,7 +255,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     }
 
     if (trialBuf.current.length >= MAX_BUFFER) void flush();
-  }, [enabled, opts.userId, opts.sessionId, opts.exerciseSlug, cueThreshold, minTrials, staleWindow, flush]);
+  }, [enabled, opts.userId, opts.sessionId, canonicalSlug, cueThreshold, minTrials, staleWindow, flush]);
 
   return { logTrial, flush };
 }

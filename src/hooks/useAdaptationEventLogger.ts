@@ -12,6 +12,7 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 // Adaptation types matching the database schema
 export type AdaptationType =
@@ -118,7 +119,7 @@ export const useAdaptationEventLogger = ({
         user_id: userId,
         profile_id: profileId || null,
         session_id: event.sessionId || null,
-        exercise_slug: event.exerciseSlug || null,
+        exercise_slug: event.exerciseSlug ? normalizeExerciseSlug(event.exerciseSlug) : null,
         trial_index: event.trialIndex ?? null,
         adaptation_type: event.adaptationType,
         layer: event.layer,
@@ -223,7 +224,7 @@ export const useAdaptationEventLogger = ({
           user_id: userId,
           profile_id: profileId || null,
           session_id: event.sessionId || null,
-          exercise_slug: event.exerciseSlug || null,
+          exercise_slug: event.exerciseSlug ? normalizeExerciseSlug(event.exerciseSlug) : null,
           trial_index: event.trialIndex ?? null,
           adaptation_type: event.adaptationType,
           layer: event.layer,

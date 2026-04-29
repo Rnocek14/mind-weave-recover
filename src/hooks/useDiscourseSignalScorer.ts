@@ -12,6 +12,7 @@
 
 import { useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeExerciseSlug } from "@/lib/exerciseSlugNormalizer";
 import {
   scoreDiscourseTurn,
   type ClinicalSignal,
@@ -50,7 +51,7 @@ export function useDiscourseSignalScorer(opts: UseDiscourseSignalScorerOptions) 
 
         await supabase.from("exercise_events").insert({
           session_id: sessionId,
-          exercise_slug: exerciseSlug,
+          exercise_slug: normalizeExerciseSlug(exerciseSlug),
           round: input.turnNumber ?? turnIndexRef.current,
           score: Math.round(signal.successScore * 100),
           reaction_time_ms: input.latencyToFirstWordMs ?? null,
