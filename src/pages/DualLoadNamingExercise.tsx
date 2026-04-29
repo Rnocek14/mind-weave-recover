@@ -16,6 +16,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
+import { tierToLevel } from '@/lib/gameLevels';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -114,6 +115,8 @@ export default function DualLoadNamingExercise() {
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
+        // Universal 1–10 GameLevel for analytics + UI consistency
+        game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
         ...adaptationTelemetry,
       },
       adaptationsActive: dynamicTier.getAdaptationsActive(),
