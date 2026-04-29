@@ -332,6 +332,8 @@ export const SentenceConstructionGame = ({
     if (trial?.modelAudio) speak(trial.modelAudio);
     recordGrammarResult(result.trial.grammarFocus, result.correct);
     setShowPurpose(false);
+    // Feed the adaptive engine — drives mid-session level shifts + telemetry.
+    recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
     if (onTrialComplete && !trialCompletedRef.current) {
       trialCompletedRef.current = true;
       onTrialComplete({
