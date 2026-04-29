@@ -202,7 +202,7 @@ export function FixSentenceGame({
             transcript: text,
             transcriptSource: 'typed' as any,
             isCorrect: result.isCorrect,
-            errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+            errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
             semanticSimilarity: result.semanticSimilarity,
           });
         } catch (e) {
@@ -453,7 +453,7 @@ export function FixSentenceGame({
           transcript: rawTranscriptRef.current,
           transcriptSource: 'browser',
           isCorrect: result.isCorrect,
-          errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+          errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
           semanticSimilarity: result.semanticSimilarity,
           audioStoragePath,
           recordingDurationMs,
