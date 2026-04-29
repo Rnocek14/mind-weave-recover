@@ -10,9 +10,10 @@
  * Buffered + best-effort: never throws into the gameplay loop.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { classifyReason, narrateAdaptation, type AdaptationDirection } from '@/lib/adaptationNarrator';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 export interface TrialLogInput {
   trialIndex: number;
