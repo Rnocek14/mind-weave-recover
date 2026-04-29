@@ -72,8 +72,10 @@ describe('getSemanticSimilarity — signal contract', () => {
   });
 
   it('unrelated common words are capped below partial-credit threshold', async () => {
+    // Signal-quality regression: "banana" vs "knife" used to return ~0.65
+    // after the (cos+1)/2 rescale, putting nonsense into "partial credit".
+    // Must now stay below the partial-credit floor (0.55).
     const sim = await getSemanticSimilarity('banana', 'knife');
-    console.log('[DBG] banana-knife sim =', sim);
     expect(sim).toBeLessThan(0.55);
   });
 
