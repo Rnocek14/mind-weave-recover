@@ -11,14 +11,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Mock the supabase client BEFORE importing the SUT ───────────────────────
 vi.mock('@/integrations/supabase/client', () => {
   // Stable pseudo-embeddings keyed by text — reproducible cosine values
-  const vec = (seed: number, dim = 32) => {
+  // Stable pseudo-embeddings keyed by text. We center each vector around 0
+  // (subtract its mean) so cosine values reflect real semantic distance
+  // rather than a shared positive bias from the PRNG.
+  const vec = (seed: number, dim = 64) => {
     const out: number[] = [];
-    let s = seed;
+    let s = seed || 1;
     for (let i = 0; i < dim; i++) {
       s = (s * 9301 + 49297) % 233280;
-      out.push((s / 233280) - 0.5);
+      out.push(s / 233280);
     }
-    return out;
+    const mean = out.reduce((a, b) => a + b, 0) / dim;
+    return out.map(v => v - mean);
   };
   const banks: Record<string, number[]> = {
     knife: vec(1),
@@ -53,9 +57,11 @@ describe('getSemanticSimilarity — signal contract', () => {
     expect(await getSemanticSimilarity('knife', 'knife')).toBe(1.0);
   });
 
-  it('nonsense input (keyboard mash) returns 0', async () => {
-    expect(await getSemanticSimilarity('asdfgh', 'knife')).toBe(0);
-    expect(await getSemanticSimilarity('xkqzv', 'knife')).toBe(0);
+  it('keyboard-mash input is suppressed below partial-credit threshold', async () => {
+    // "asdfgh" technically has a vowel ('a') so it bypasses the nonsense
+    // short-circuit, but the lexical-overlap guard must still cap it.
+    expect(await getSemanticSimilarity('asdfgh', 'knife')).toBeLessThan(0.55);
+    expect(await getSemanticSimilarity('xkqzv', 'knife')).toBe(0); // no vowels
   });
 
   it('filler-only input returns 0', async () => {
