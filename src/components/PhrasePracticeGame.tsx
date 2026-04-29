@@ -217,6 +217,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     enableDifficultyToasts: true,
     enableAutoHints: false,
     onDifficultyChange: (newLevel) => {
+      if (import.meta.env.DEV) {
+        console.log(`[PhrasePractice] L${currentDifficultyRef.current} → L${newLevel}, reason: adaptive`);
+      }
+      currentDifficultyRef.current = newLevel;
       onDifficultyChange?.(newLevel);
     },
   });
