@@ -43,6 +43,15 @@ export default function MultiStepPlanExercise() {
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
+  // Safety: if we can't acquire a session within 12s, surface a recovery UI
+  // instead of leaving users on a blank "Loading..." screen (clinical safety).
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  React.useEffect(() => {
+    if (activeSessionId) return;
+    const timer = setTimeout(() => setLoadTimedOut(true), 12_000);
+    return () => clearTimeout(timer);
+  }, [activeSessionId]);
+
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
@@ -146,6 +155,24 @@ export default function MultiStepPlanExercise() {
   }, [fromLesson, navigate]);
 
   if (isCreatingSession || !activeSessionId) {
+    if (loadTimedOut) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background p-6">
+          <div className="max-w-md text-center space-y-4">
+            <h2 className="text-lg font-semibold">We couldn't start this exercise</h2>
+            <p className="text-sm text-muted-foreground">
+              {!user ? 'Please sign in and try again.'
+                : !activeProfile ? 'No active profile found. Pick a profile and retry.'
+                : 'Something interrupted setup. Please try again or head back to today.'}
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => navigate('/today')}>Back to today</Button>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
   }
 
