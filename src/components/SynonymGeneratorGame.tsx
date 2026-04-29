@@ -207,6 +207,9 @@ export function SynonymGeneratorGame({
     adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
       const dir = newLevel > currentDifficulty ? 'up' : 'down';
+      if (import.meta.env.DEV) {
+        console.log(`[SynonymGenerator] L${currentDifficulty} → L${newLevel}, reason: adaptive`);
+      }
       onDifficultyChange?.(newLevel, dir);
     },
     userId,
