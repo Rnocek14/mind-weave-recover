@@ -917,6 +917,7 @@ const Exercise = () => {
           ) : exerciseId === 'word-practice' ? (
             <PhrasePracticeGame
               ref={phraseGameRef}
+              sessionId={sessionId}
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
