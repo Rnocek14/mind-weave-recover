@@ -22,7 +22,7 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
-const EXERCISE_SLUG = 'narrative-retell';
+const EXERCISE_SLUG = 'narrative_retell';
 
 export default function NarrativeRetellExercise() {
   const navigate = useNavigate();

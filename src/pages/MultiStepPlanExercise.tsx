@@ -22,7 +22,7 @@ import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { tierToLevel } from '@/lib/gameLevels';
 
-const EXERCISE_SLUG = 'multi-step-plan';
+const EXERCISE_SLUG = 'multi_step_planning';
 
 export default function MultiStepPlanExercise() {
   const navigate = useNavigate();
