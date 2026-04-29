@@ -479,6 +479,31 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
           if (import.meta.env.DEV) console.warn('[useInGameAdaptation] difficulty event log failed', err);
         }
       }
+
+      // Dev-only level-change console log — gives an immediate, human-readable
+      // signal that the adaptive controller actually moved difficulty.
+      // Format: [slug] L{from} → L{to} · success {pct}% · {reason}
+      if (import.meta.env.DEV && evtChange) {
+        const arrow = evtChange.direction === 'up' ? '↑' : '↓';
+        // eslint-disable-next-line no-console
+        console.log(
+          `%c[adapt] ${normalizeExerciseSlug(exerciseSlug)} ${arrow} L${evtChange.from} → L${evtChange.to}` +
+          ` · success ${(successRateRef.current * 100).toFixed(0)}%` +
+          ` · trials_at_level reset` +
+          ` · reason: ${evtChange.reason}`,
+          evtChange.direction === 'up'
+            ? 'color:#16a34a;font-weight:600'
+            : 'color:#dc2626;font-weight:600',
+        );
+      }
+      if (import.meta.env.DEV && evtBlocked) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `%c[adapt] ${normalizeExerciseSlug(exerciseSlug)} ⛔ escalation blocked at L${evtBlocked.level}` +
+          ` · ${evtBlocked.reason}`,
+          'color:#d97706;font-weight:600',
+        );
+      }
     }
 
     return {

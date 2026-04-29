@@ -32,6 +32,17 @@ export const CANONICAL_SLUGS = {
   SENTENCE_CONSTRUCTION: 'sentence_construction',
   CATEGORY_FLUENCY: 'category_fluency',
   SYNONYM_GENERATOR: 'synonym_generator',
+
+  // Discourse / generative
+  NARRATIVE_RETELL: 'narrative_retell',
+  THOUGHT_CONTINUATION: 'thought_continuation',
+  CONVERSATION_COACH: 'conversation_coach',
+  CONVERSATION_PARTNER: 'conversation_partner',
+
+  // Executive function games
+  ABSTRACT_COMPARE: 'abstract_compare',
+  MULTI_STEP_PLANNING: 'multi_step_planning',
+  DUAL_LOAD_NAMING: 'dual_load_naming',
 } as const;
 
 // Exercise modality types
@@ -46,6 +57,12 @@ const EXERCISE_SLUG_ALIASES: Record<string, string> = {
   'word_practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
   'phrase-practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
   'phrase_practice': CANONICAL_SLUGS.PHRASE_PRACTICE,
+  // EF game route slugs map to canonical analytics slugs
+  'multi-step-plan': CANONICAL_SLUGS.MULTI_STEP_PLANNING,
+  'multi_step_plan': CANONICAL_SLUGS.MULTI_STEP_PLANNING,
+  'multi-step-planning': CANONICAL_SLUGS.MULTI_STEP_PLANNING,
+  'dual-load-naming': CANONICAL_SLUGS.DUAL_LOAD_NAMING,
+  'abstract-compare': CANONICAL_SLUGS.ABSTRACT_COMPARE,
 };
 
 // Track warned non-canonical slugs once per session to avoid log spam.

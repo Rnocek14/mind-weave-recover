@@ -19,6 +19,7 @@ import { useCallback, useMemo } from 'react';
 import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import type { RecentTrialData, PivotRecommendation } from '@/lib/midSessionPivot';
 import type { DomainScore } from '@/lib/cognitiveStateEngine';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 interface UseExerciseMidSessionPivotOptions {
   exerciseSlug: string;
@@ -63,7 +64,8 @@ interface UseExerciseMidSessionPivotResult {
 export function useExerciseMidSessionPivot(
   options: UseExerciseMidSessionPivotOptions
 ): UseExerciseMidSessionPivotResult {
-  const { exerciseSlug, domainSlug, fromLesson = false, forceEnabled = false, domainScores } = options;
+  const { exerciseSlug: rawExerciseSlug, domainSlug, fromLesson = false, forceEnabled = false, domainScores } = options;
+  const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
 
   const {
     pivotRecommendation,

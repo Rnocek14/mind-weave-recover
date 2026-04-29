@@ -21,7 +21,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
 
-const EXERCISE_SLUG = 'abstract-compare';
+const EXERCISE_SLUG = 'abstract_compare';
 
 export default function AbstractCompareExercise() {
   const navigate = useNavigate();

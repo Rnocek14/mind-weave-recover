@@ -21,7 +21,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 
-const EXERCISE_SLUG = 'thought-continuation';
+const EXERCISE_SLUG = 'thought_continuation';
 
 export default function ThoughtContinuationExercise() {
   const navigate = useNavigate();

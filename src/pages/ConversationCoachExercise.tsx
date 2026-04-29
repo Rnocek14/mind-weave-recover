@@ -13,7 +13,7 @@ import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 
-const EXERCISE_SLUG = 'conversation-coach';
+const EXERCISE_SLUG = 'conversation_coach';
 
 interface SessionSummary {
   turnsCompleted: number;

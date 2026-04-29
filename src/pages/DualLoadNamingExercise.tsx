@@ -22,7 +22,7 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
-const EXERCISE_SLUG = 'dual-load-naming';
+const EXERCISE_SLUG = 'dual_load_naming';
 
 export default function DualLoadNamingExercise() {
   const navigate = useNavigate();

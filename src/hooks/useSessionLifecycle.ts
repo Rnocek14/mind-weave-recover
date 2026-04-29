@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { localYYYYMMDD } from '@/lib/localDate';
 import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -69,12 +70,15 @@ export const useSessionLifecycle = ({
   sessionId,
   userId,
   profileId,
-  exerciseSlug,
+  exerciseSlug: rawExerciseSlug,
   getSessionStats,
   onSessionEnded,
   visibilityTimeoutMs = 5 * 60 * 1000, // 5 minutes
   ownedByParentFlow,
 }: SessionLifecycleOptions) => {
+  // Normalize once — guarantees summary.scores keys, lastExerciseSlug, and
+  // dose_logs.metadata.exercise_slug all use the canonical slug.
+  const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   // Capture values at mount time to prevent stale closure issues
   const sessionRef = useRef<string | null>(null);
   const userRef = useRef<string | undefined>(undefined);
