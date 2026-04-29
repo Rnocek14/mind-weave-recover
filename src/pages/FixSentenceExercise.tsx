@@ -92,7 +92,7 @@ export default function FixSentenceExercise() {
     logTrial({
       correct: result.isCorrect,
       reactionTimeMs: result.reactionTimeMs,
-      errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+      errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
       taskParameters: {
         trial_id: result.trialId,
         sentence: result.sentence,
@@ -105,6 +105,7 @@ export default function FixSentenceExercise() {
         trial_source: 'fix_sentence_bank',
         phoneme_matched: phonemeMatched,
         phoneme_targets: result.phonemeTargets,
+        close_miss: !result.isCorrect && result.isPartialCredit,
         // Shared adaptation telemetry
         ...adaptationTelemetry,
       },
