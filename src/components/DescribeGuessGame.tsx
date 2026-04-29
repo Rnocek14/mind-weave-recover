@@ -136,6 +136,11 @@ export function DescribeGuessGame({
   // Phase 2: engagement monitor — describe & guess relies on prompts as implicit cues.
   const engagement = useEngagementMonitor(sessionId || null);
 
+  // Forward-ref so onDifficultyChange can call game.setActiveDifficulty
+  // (which is declared below this hook).
+  const setActiveDifficultyRef = useRef<((lvl: number) => void) | null>(null);
+  const prevLevelLogRef = useRef<number>(bounds.suggestedStart);
+
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -155,9 +160,16 @@ export function DescribeGuessGame({
       console.debug('[describe_guess] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
       void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_prompts', 'auto');
     },
-    onDifficultyChange: (_lvl, reason, dir) => {
+    onDifficultyChange: (newLvl, reason, dir) => {
       const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
       signalShift(dir, narration || reason);
+      // Repool upcoming trials at the new tier
+      const tier = Math.min(3, Math.max(1, Math.ceil(newLvl / 3.5)));
+      setActiveDifficultyRef.current?.(tier);
+      if (import.meta.env.DEV) {
+        console.log(`[DescribeGuess] L${prevLevelLogRef.current} → L${newLvl}, reason: ${reason}`);
+        prevLevelLogRef.current = newLvl;
+      }
     },
   });
 
@@ -186,12 +198,18 @@ export function DescribeGuessGame({
     onGameComplete,
   });
 
+  // Bind ref so onDifficultyChange (above) can repool trials.
+  useEffect(() => {
+    setActiveDifficultyRef.current = game.setActiveDifficulty;
+  }, [game.setActiveDifficulty]);
+
   // Get photo image for current trial
   const currentImage = useMemo(() => {
     if (!game.currentTrial) return null;
     const photo = PHOTO_BANK.find(p => p.id === game.currentTrial!.photoBankId);
     return photo?.imageUrl ?? null;
   }, [game.currentTrial]);
+
 
   const currentTrialRef = useRef(game.currentTrial);
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
