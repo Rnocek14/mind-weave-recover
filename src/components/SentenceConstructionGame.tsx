@@ -44,6 +44,7 @@ interface SentenceConstructionGameProps {
   difficultyLevel: number;
   focusPhonemes?: string[];
   adaptations?: ExerciseAdaptation | null;
+  sessionId?: string | null;
   onTrialComplete?: (data: {
     correct: boolean;
     reactionTime: number;
