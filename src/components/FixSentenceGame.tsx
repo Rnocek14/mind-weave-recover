@@ -175,6 +175,85 @@ export function FixSentenceGame({
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
 
+  // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
+  const handleTypedSubmit = useCallback(async () => {
+    const text = typedAnswer.trim();
+    if (!text || processingRef.current || showFeedback) return;
+    if (!game.currentTrial) return;
+
+    processingRef.current = true;
+    setIsProcessing(true);
+    lastScoredRef.current = text;
+    setDisplayTranscript(text);
+
+    try {
+      const selfCorrected = !!prevWrongAttempt;
+      const result = await game.scoreAnswer(text, selfCorrected);
+      if (!result) {
+        processingRef.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      // No mic/audio in typed mode — log a text-source utterance for parity.
+      if (sessionId && userId) {
+        try {
+          await logFinalAnalysis({
+            transcript: text,
+            transcriptSource: 'typed' as any,
+            isCorrect: result.isCorrect,
+            errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+            semanticSimilarity: result.semanticSimilarity,
+          });
+        } catch (e) {
+          console.debug('[fix_sentence] typed logFinalAnalysis skipped', e);
+        }
+      }
+
+      // Adaptive engine — same as speech path.
+      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
+
+      game.submitResult(result);
+      setShowFeedback(true);
+      setTypedAnswer('');
+
+      if (!result.isCorrect && !result.isPartialCredit) {
+        setPrevWrongAttempt(text);
+        if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = setTimeout(() => {
+          // Reset for typed retry — don't re-open mic.
+          setShowFeedback(false);
+          lastScoredRef.current = '';
+          setDisplayTranscript('');
+          processingRef.current = false;
+          resetAttempt();
+          if (sessionId && userId && game.currentTrial) {
+            startAttempt({
+              sessionId,
+              userId,
+              exerciseSlug: 'fix_sentence',
+              trialIndex: game.currentIndex,
+              attemptNumber: game.currentAttempt + 1,
+              targetWord: game.currentTrial.acceptedFixes[0],
+              category: game.currentTrial.category,
+            });
+          }
+        }, WRONG_ANSWER_DISPLAY_MS);
+      }
+
+      if (result.isCorrect || result.isPartialCredit) {
+        setTimeout(() => {
+          resetAttempt();
+          game.nextTrial();
+          setShowFeedback(false);
+        }, AUTO_ADVANCE_DELAY_MS);
+      }
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+    }
+  }, [typedAnswer, showFeedback, game, prevWrongAttempt, sessionId, userId, logFinalAnalysis, recordAdaptiveTrial, engagement, resetAttempt, startAttempt]);
 
   const handleSpeechResult = useCallback((result: string) => {
     logBrowserTranscript(result);
