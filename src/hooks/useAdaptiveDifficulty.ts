@@ -99,6 +99,25 @@ export const useAdaptiveDifficulty = ({
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
+  // Publish current adaptive level into the registry so useExerciseTelemetry
+  // can auto-inject `game_level` without per-page wiring. Cleared on unmount.
+  useEffect(() => {
+    if (!exerciseSlug) return;
+    publishAdaptiveLevel({
+      sessionId: sessionId ?? null,
+      exerciseSlug,
+      gameLevel: tierToLevel(currentDifficulty, levelScale),
+      internalDifficulty: currentDifficulty,
+      source: 'adaptive_difficulty',
+    });
+  }, [exerciseSlug, sessionId, currentDifficulty, levelScale]);
+
+  useEffect(() => {
+    return () => {
+      if (exerciseSlug) clearAdaptiveLevel(sessionId ?? null, exerciseSlug);
+    };
+  }, [exerciseSlug, sessionId]);
+
   // Update a trial result — feeds both the legacy controller AND success-band
   const updateTrial = useCallback((wasCorrect: boolean, reactionTimeMs?: number) => {
     controllerRef.current.update(wasCorrect);
