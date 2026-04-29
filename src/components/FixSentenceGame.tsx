@@ -98,6 +98,11 @@ export function FixSentenceGame({
   // Phase 2: engagement monitor for cue dependency / fatigue signals.
   const engagement = useEngagementMonitor(sessionId || null);
 
+  // Forward-ref so onDifficultyChange can call game.setActiveDifficulty
+  // (which is declared below this hook).
+  const setActiveDifficultyRef = useRef<((lvl: number) => void) | null>(null);
+  const currentDifficultyForLogRef = useRef<number>(bounds.suggestedStart);
+
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
@@ -120,9 +125,11 @@ export function FixSentenceGame({
       const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
       signalShift(dir, narration || reason);
       // Repool upcoming trials at the new level (real adaptation, not cosmetic)
-      game.setActiveDifficulty(newLvl);
+      setActiveDifficultyRef.current?.(newLvl);
       if (import.meta.env.DEV) {
-        console.log(`[FixSentence] L${currentDifficulty} → L${newLvl}, reason: ${reason}`);
+        const prev = currentDifficultyForLogRef.current;
+        console.log(`[FixSentence] L${prev} → L${newLvl}, reason: ${reason}`);
+        currentDifficultyForLogRef.current = newLvl;
       }
     },
   });
@@ -153,10 +160,16 @@ export function FixSentenceGame({
     onGameComplete,
   });
 
+  // Bind ref so onDifficultyChange (declared above) can repool trials.
+  useEffect(() => {
+    setActiveDifficultyRef.current = game.setActiveDifficulty;
+  }, [game.setActiveDifficulty]);
+
   const currentTrialRef = useRef(game.currentTrial);
   const currentIndexRef = useRef(game.currentIndex);
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
+
 
   const handleSpeechResult = useCallback((result: string) => {
     logBrowserTranscript(result);
