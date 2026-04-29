@@ -12,6 +12,10 @@ import {
   tierToLevel,
   describeLevel,
 } from '@/lib/gameLevels';
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from '@/lib/adaptiveLevelRegistry';
 
 // ============================================================================
 // In-Game Adaptive Layer
@@ -677,14 +681,29 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   useEffect(() => {
     return () => {
       clearStallTimer();
+      clearAdaptiveLevel(sessionId, exerciseSlug);
     };
-  }, [clearStallTimer]);
+  }, [clearStallTimer, sessionId, exerciseSlug]);
 
   // Universal 1–10 GameLevel — derived from currentDifficulty + the
   // game's registered levelScale. Source of truth for patient/clinician UI
   // and analytics; internal `currentDifficulty` remains the per-game tier.
   const currentLevel = tierToLevel(currentDifficulty, levelScale);
   const levelDescriptor: LevelDescriptor = describeLevel(currentLevel);
+
+  // Publish to the registry so useExerciseTelemetry can auto-inject game_level
+  // without each page hand-threading it. Re-publishes whenever the level
+  // moves; cleared in the unmount effect above.
+  useEffect(() => {
+    publishAdaptiveLevel({
+      sessionId,
+      exerciseSlug,
+      gameLevel: currentLevel,
+      internalDifficulty: currentDifficulty,
+      source: 'in_game_adaptation',
+    });
+  }, [sessionId, exerciseSlug, currentLevel, currentDifficulty]);
+
 
   return {
     // State (synced from refs for React re-renders)

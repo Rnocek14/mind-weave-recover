@@ -6,6 +6,11 @@ import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } 
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAuth } from '@/hooks/useAuth';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { tierToLevel, type LevelScale } from '@/lib/gameLevels';
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from '@/lib/adaptiveLevelRegistry';
 
 interface UseAdaptiveDifficultyOptions {
   initialDifficulty: number;
@@ -29,6 +34,12 @@ interface UseAdaptiveDifficultyOptions {
   minTrialsAtLevelForEscalation?: number;     // default 8
   /** Auto-write per-trial rows into adaptation_trial_logs. Default true. */
   autoLog?: boolean;
+  /**
+   * Game's internal tier scale used to compute the canonical 1–10 level
+   * published into the adaptive level registry. Defaults to {min:1,max:10}
+   * (i.e. passthrough), matching how this hook has historically been used.
+   */
+  levelScale?: LevelScale;
 }
 
 export const useAdaptiveDifficulty = ({
@@ -47,6 +58,7 @@ export const useAdaptiveDifficulty = ({
   cueDependencyEscalationThreshold = 0.5,
   minTrialsAtLevelForEscalation = 8,
   autoLog = true,
+  levelScale = { min: 1, max: 10 },
 }: UseAdaptiveDifficultyOptions) => {
   const [currentDifficulty, setCurrentDifficulty] = useState(initialDifficulty);
   const trialIndexRef = useRef(0);
@@ -86,6 +98,25 @@ export const useAdaptiveDifficulty = ({
   useEffect(() => {
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
+
+  // Publish current adaptive level into the registry so useExerciseTelemetry
+  // can auto-inject `game_level` without per-page wiring. Cleared on unmount.
+  useEffect(() => {
+    if (!exerciseSlug) return;
+    publishAdaptiveLevel({
+      sessionId: sessionId ?? null,
+      exerciseSlug,
+      gameLevel: tierToLevel(currentDifficulty, levelScale),
+      internalDifficulty: currentDifficulty,
+      source: 'adaptive_difficulty',
+    });
+  }, [exerciseSlug, sessionId, currentDifficulty, levelScale]);
+
+  useEffect(() => {
+    return () => {
+      if (exerciseSlug) clearAdaptiveLevel(sessionId ?? null, exerciseSlug);
+    };
+  }, [exerciseSlug, sessionId]);
 
   // Update a trial result — feeds both the legacy controller AND success-band
   const updateTrial = useCallback((wasCorrect: boolean, reactionTimeMs?: number) => {

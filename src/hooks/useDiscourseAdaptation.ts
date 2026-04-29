@@ -7,7 +7,7 @@
  * `direction`/`reason` pair that drives the AdaptationBadge.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   decideDiscourseShift,
   scoreDiscourseTurn,
@@ -15,6 +15,11 @@ import {
   type DiscourseDirection,
   type DiscourseTurnSignals,
 } from "@/lib/discourseAdaptation";
+import { tierToLevel } from "@/lib/gameLevels";
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from "@/lib/adaptiveLevelRegistry";
 
 interface UseDiscourseAdaptationOptions {
   /** Starting level (1..5). Defaults to 2 (a comfortable middle). */
@@ -23,6 +28,13 @@ interface UseDiscourseAdaptationOptions {
   badgeAutoClearMs?: number;
   /** Optional logger called on every shift. */
   onShift?: (decision: DiscourseAdaptationDecision) => void;
+  /**
+   * Optional context so this hook can publish its current 1–10 game level
+   * into the adaptive level registry. Required for `game_level` telemetry
+   * on discourse exercises (ThoughtContinuation, ConversationPartner, …).
+   */
+  sessionId?: string | null;
+  exerciseSlug?: string;
 }
 
 export interface DiscourseAdaptationState {
@@ -49,6 +61,8 @@ export function useDiscourseAdaptation(
     initialLevel = 2,
     badgeAutoClearMs = 4000,
     onShift,
+    sessionId = null,
+    exerciseSlug,
   } = options;
 
   const [level, setLevel] = useState(initialLevel);
@@ -123,6 +137,26 @@ export function useDiscourseAdaptation(
     setTurnCount(0);
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
   }, [initialLevel]);
+
+  // Publish current discourse level (1..5) into the registry as a 1..10
+  // GameLevel so useExerciseTelemetry can auto-inject `game_level` for
+  // discourse exercises (ThoughtContinuation, ConversationPartner, …).
+  useEffect(() => {
+    if (!exerciseSlug) return;
+    publishAdaptiveLevel({
+      sessionId,
+      exerciseSlug,
+      gameLevel: tierToLevel(level, { min: 1, max: 5 }),
+      internalDifficulty: level,
+      source: 'discourse_adaptation',
+    });
+  }, [exerciseSlug, sessionId, level]);
+
+  useEffect(() => {
+    return () => {
+      if (exerciseSlug) clearAdaptiveLevel(sessionId, exerciseSlug);
+    };
+  }, [exerciseSlug, sessionId]);
 
   return {
     level,
