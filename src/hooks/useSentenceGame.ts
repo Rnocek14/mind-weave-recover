@@ -195,23 +195,11 @@ export const useSentenceGame = (
     };
   };
 
-  const nextTrial = (newDifficultyLevel: number = difficultyLevel) => {
+  const nextTrial = (_newDifficultyLevel: number = difficultyLevel) => {
+    // NOTE: difficulty changes are handled by setActiveDifficulty, NOT here.
+    // Restarting trials on level change destroys session progress.
     const nextIndex = gameState.currentTrial + 1;
 
-    // If difficulty changed, regenerate trials
-    if (newDifficultyLevel !== difficultyLevel) {
-      const newTrials = getMixedTrials(newDifficultyLevel, totalTrials);
-      setGameState(prev => ({
-        ...prev,
-        trials: newTrials,
-        currentTrial: 0,
-        currentAnswer: [],
-        showFeedback: false
-      }));
-      return;
-    }
-
-    // Check if game is complete
     if (nextIndex >= gameState.trials.length) {
       setGameState(prev => ({
         ...prev,
