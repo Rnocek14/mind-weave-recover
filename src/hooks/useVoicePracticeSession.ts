@@ -129,7 +129,7 @@ export function useVoicePracticeSession(
 
       await supabase.from('exercise_events').insert({
         session_id: sessionId,
-        exercise_slug: 'voice-practice',
+        exercise_slug: 'voice_practice',
         round: roundIndex + 1,
         score: Math.round(roundResult.score * 100) / 100,
         error_type: resolvedErrorType,

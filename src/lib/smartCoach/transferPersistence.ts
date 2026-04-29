@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import type { TransferCheckResult, TransferTarget } from './transferScoring';
 
 export interface TransferCheckEvent {
@@ -31,7 +32,7 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
 
     const { error } = await supabase.from('exercise_events').insert([{
       session_id: event.sessionId,
-      exercise_slug: event.drillSlug,
+      exercise_slug: normalizeExerciseSlug(event.drillSlug),
       round: event.turnNumber,
       score: passed ? 1 : 0, // Integer column — store as binary pass/fail
       error_type: resolvedErrorType,

@@ -170,7 +170,7 @@ export async function emitConversationTurnEvent(
 
     const { error } = await supabase.from('exercise_events').insert({
       session_id: event.sessionId,
-      exercise_slug: 'conversation-turn',
+      exercise_slug: 'conversation_turn',
       round: event.turnNumber,
       score,
       reaction_time_ms: event.latencyToFirstWordMs,

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { 
   FollowupType, 
   getFollowupLine, 
@@ -256,7 +257,7 @@ async function logConversationTurn(
 
     await supabase.from('exercise_events').insert({
       session_id: sessionId,
-      exercise_slug: 'conversation-partner',
+      exercise_slug: normalizeExerciseSlug('conversation-partner'),
       round: 1,
       score: isCorrect ? 1 : 0,
       reaction_time_ms: userTurn.latencyMs,
