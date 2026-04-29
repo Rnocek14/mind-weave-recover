@@ -523,7 +523,14 @@ export function ThoughtContinuationGame({
 
     // Score this turn with the LLM-first clinical scorer (with local fallback).
     // The scorer drives both the adaptation badge AND DB logging for the
-    // clinician audit trail.
+    // clinician audit trail. We wrap recordTurn so we can capture the decision
+    // and forward it to the universal adaptation_trial_logs telemetry.
+    let lastDecision: ReturnType<typeof adaptation.recordTurn> | null = null;
+    const recordTurnWithCapture = (signals: Parameters<typeof adaptation.recordTurn>[0]) => {
+      const decision = adaptation.recordTurn(signals);
+      lastDecision = decision;
+      return decision;
+    };
     await scorer.scoreAndRecord(
       {
         exerciseSlug: 'thought_continuation',
@@ -536,8 +543,37 @@ export function ThoughtContinuationGame({
         taskGoal: `Finish the thought (${currentPrompt.intentType}, theme: ${currentPrompt.theme})`,
         turnNumber: promptCount,
       },
-      adaptation.recordTurn,
+      recordTurnWithCapture,
     );
+
+    // Mirror the discourse-adaptation decision into adaptation_trial_logs so
+    // this game shows up in the same telemetry surface as trial-based games.
+    {
+      const fromLevel = previousAdaptationLevelRef.current;
+      const toLevel = lastDecision?.level ?? fromLevel;
+      const direction = lastDecision?.direction;
+      const isChange = direction === 'up' || direction === 'down';
+      previousAdaptationLevelRef.current = toLevel;
+
+      logAdaptationTrial({
+        trialIndex: promptCount,
+        difficulty: toLevel,
+        cueLevel: narrowingLevel,
+        cueDependency: null,
+        successRate: null,
+        correct: flowMetrics.didSpeak && flowMetrics.utteranceComplete,
+        reactionTimeMs: latencyToFirstWordMs ?? null,
+        trialsAtLevel: null,
+        difficultyChange: isChange
+          ? {
+              direction: direction as 'up' | 'down',
+              from: fromLevel,
+              to: toLevel,
+              reason: lastDecision?.reason ?? 'discourse_adaptation',
+            }
+          : null,
+      });
+    }
 
 
     
