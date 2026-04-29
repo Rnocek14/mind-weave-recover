@@ -443,6 +443,8 @@ function PhotoNamingExerciseInner() {
           photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
           interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
           difficulty_level: result.difficultyLevel,
+          // Universal 1–10 GameLevel — PhotoNaming already uses 1–10 natively.
+          game_level: typeof result.difficultyLevel === 'number' ? result.difficultyLevel : null,
           custom_photo_id: trial.id,           // Useful for per-photo analysis
           is_custom_photo: trial.category === 'personal',
           target_word: trial.target,

@@ -20,6 +20,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
+import { tierToLevel } from '@/lib/gameLevels';
 
 const EXERCISE_SLUG = 'abstract_compare';
 
@@ -100,6 +101,9 @@ export default function AbstractCompareExercise() {
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
+        tier: dynamicTier.currentTier,
+        // Universal 1–10 GameLevel for analytics + UI consistency
+        game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
         ...adaptationTelemetry,
       },
       adaptationsActive: dynamicTier.getAdaptationsActive(),

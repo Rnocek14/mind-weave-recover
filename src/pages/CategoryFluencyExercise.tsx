@@ -13,6 +13,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { tierToLevel } from '@/lib/gameLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -121,6 +122,10 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         words: result.words,
         difficulty: result.difficulty,
+        // Universal 1–10 GameLevel — Category Fluency uses a 1–3 internal tier.
+        game_level: typeof result.difficulty === 'number'
+          ? tierToLevel(result.difficulty, { min: 1, max: 3 })
+          : null,
         difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
