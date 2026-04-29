@@ -7,7 +7,7 @@
  * `direction`/`reason` pair that drives the AdaptationBadge.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   decideDiscourseShift,
   scoreDiscourseTurn,
@@ -15,6 +15,11 @@ import {
   type DiscourseDirection,
   type DiscourseTurnSignals,
 } from "@/lib/discourseAdaptation";
+import { tierToLevel } from "@/lib/gameLevels";
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from "@/lib/adaptiveLevelRegistry";
 
 interface UseDiscourseAdaptationOptions {
   /** Starting level (1..5). Defaults to 2 (a comfortable middle). */
