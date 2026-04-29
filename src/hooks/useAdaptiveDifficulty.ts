@@ -6,6 +6,11 @@ import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } 
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAuth } from '@/hooks/useAuth';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { tierToLevel, type LevelScale } from '@/lib/gameLevels';
+import {
+  publishAdaptiveLevel,
+  clearAdaptiveLevel,
+} from '@/lib/adaptiveLevelRegistry';
 
 interface UseAdaptiveDifficultyOptions {
   initialDifficulty: number;
