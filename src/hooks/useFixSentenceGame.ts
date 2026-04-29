@@ -246,5 +246,6 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     submitResult,
     nextTrial,
     startRound,
+    setActiveDifficulty,
   };
 }
