@@ -138,6 +138,26 @@ export function useDiscourseAdaptation(
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
   }, [initialLevel]);
 
+  // Publish current discourse level (1..5) into the registry as a 1..10
+  // GameLevel so useExerciseTelemetry can auto-inject `game_level` for
+  // discourse exercises (ThoughtContinuation, ConversationPartner, …).
+  useEffect(() => {
+    if (!exerciseSlug) return;
+    publishAdaptiveLevel({
+      sessionId,
+      exerciseSlug,
+      gameLevel: tierToLevel(level, { min: 1, max: 5 }),
+      internalDifficulty: level,
+      source: 'discourse_adaptation',
+    });
+  }, [exerciseSlug, sessionId, level]);
+
+  useEffect(() => {
+    return () => {
+      if (exerciseSlug) clearAdaptiveLevel(sessionId, exerciseSlug);
+    };
+  }, [exerciseSlug, sessionId]);
+
   return {
     level,
     shiftDirection,
