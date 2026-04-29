@@ -4,6 +4,7 @@ import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
