@@ -713,28 +713,83 @@ export function FixSentenceGame({
         </Card>
       )}
 
+      {/* Typing fallback input */}
+      {showTextInput && !showFeedback && (
+        <div className="flex gap-2">
+          <Input
+            value={typedAnswer}
+            onChange={(e) => setTypedAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleTypedSubmit();
+              }
+            }}
+            placeholder="Type the replacement word + Enter"
+            className="min-h-[48px] text-base"
+            disabled={isProcessing}
+            autoFocus
+          />
+          <Button
+            size="icon"
+            onClick={handleTypedSubmit}
+            disabled={!typedAnswer.trim() || isProcessing}
+            className="min-h-[48px] min-w-[48px]"
+          >
+            <Send className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
       {/* Controls */}
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center items-center gap-3 flex-wrap">
         {isProcessing ? (
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Checking...
           </Badge>
-        ) : (
-          <>
-            <div className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
-              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
-            )}>
-              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-              {isListening ? 'Listening...' : 'Mic off'}
-            </div>
-          </>
-        )}
+        ) : !showTextInput ? (
+          <div className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
+            isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+          )}>
+            {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+            {isListening ? 'Listening...' : 'Mic off'}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => {
+            const next = !showTextInput;
+            setShowTextInput(next);
+            sessionStorage.setItem('preferTypingInput', String(next));
+            if (next) {
+              // Stop mic when switching to typing
+              if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+              if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+              stopListening();
+              setIsListening(false);
+              if (isRecording) cancelRecording();
+            } else {
+              // Switching back to speech: open mic if session is active
+              if (sessionId && userId) {
+                startListening();
+                setIsListening(true);
+                if (isRecordingSupported) startRecording();
+              }
+            }
+          }}
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+        >
+          {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+          {showTextInput ? 'Switch to speech' : 'Switch to typing'}
+        </button>
 
         <Button variant="ghost" size="sm" onClick={handleSkip}>
           <SkipForward className="h-4 w-4 mr-1" /> Skip
         </Button>
       </div>
+
     </div>
   );
 }
