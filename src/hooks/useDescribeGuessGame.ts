@@ -88,12 +88,15 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const pendingTrialRef = useRef<DescribeGuessTrialResult | null>(null);
   const wordRetrievalTimeRef = useRef<number | null>(null);
 
+  // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
+  // changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
     () => getDescribeGuessTrials({ difficulty, count: trialCount }),
-    [difficulty, trialCount]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trialCount]
   );
 
-  const [trials] = useState(initialTrials);
+  const [trials, setTrials] = useState(initialTrials);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DescribeGuessTrialResult[]>([]);
   const [isComplete, setIsComplete] = useState(false);
