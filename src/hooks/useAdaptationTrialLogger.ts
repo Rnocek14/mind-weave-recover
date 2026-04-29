@@ -132,6 +132,19 @@ export function useAdaptationTrialLogger(opts: Options) {
 
   const logTrial = useCallback((input: TrialLogInput) => {
     if (!enabled || !opts.userId) return;
+    // Skip rows that would land with session_id = NULL — these are the result of
+    // a logger being initialized before the standalone session row finishes
+    // creating. Dropping them is preferable to polluting telemetry with
+    // un-attributable trials.
+    if (!opts.sessionId) {
+      if (import.meta.env.DEV) {
+        console.debug('[adaptationLogger] skipping trial — sessionId not yet ready', {
+          exercise: opts.exerciseSlug,
+          trialIndex: input.trialIndex,
+        });
+      }
+      return;
+    }
 
     const dir: AdaptationDirection | null = input.escalationBlocked
       ? 'hold'

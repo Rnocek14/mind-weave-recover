@@ -130,9 +130,13 @@ export class EngagementMonitor {
     const timeouts = this.recentTrials.filter(t => t.timeout).length;
     const timeoutRate = timeouts / this.recentTrials.length;
 
-    // Calculate cue dependency
-    const totalCues = this.recentTrials.reduce((sum, t) => sum + t.cueLevel, 0);
-    const cueDependency = totalCues / this.recentTrials.length;
+    // Calculate cue dependency, normalized to 0..1.
+    // cueLevel ranges 0..3 (0=no cue, 3=full reveal). Normalize so safety
+    // gates (threshold ~0.5) operate on a fraction, not a raw average.
+    const MAX_CUE_LEVEL = 3;
+    const totalCues = this.recentTrials.reduce((sum, t) => sum + (t.cueLevel || 0), 0);
+    const rawAvg = totalCues / this.recentTrials.length;
+    const cueDependency = Math.min(1, rawAvg / MAX_CUE_LEVEL);
 
     // Calculate RT trend (first half vs second half)
     let rtTrend = 0;

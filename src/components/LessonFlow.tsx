@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import { resetFeedbackHistory } from "@/lib/sessionFeedbackCopy";
+import { endSession as endSessionTracking } from "@/lib/sessionTracking";
 import {
   trackFirstExerciseLaunch,
   trackExerciseComplete,
@@ -433,7 +434,29 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
-      trackSessionComplete(sessionId, runtimeBlocks.length, Date.now() - sessionStartTimeRef.current);
+      const elapsedMs = Date.now() - sessionStartTimeRef.current;
+      trackSessionComplete(sessionId, runtimeBlocks.length, elapsedMs);
+
+      // Close the session row so telemetry doesn't see it as permanently open.
+      // Best-effort: any failure is logged but does not block the summary screen.
+      if (sessionId) {
+        const scores = recentScoresRef.current;
+        const avgScore = scores.length > 0
+          ? scores.reduce((a, b) => a + b, 0) / scores.length
+          : 0;
+        endSessionTracking(
+          sessionId,
+          {
+            durationSec: Math.floor(elapsedMs / 1000),
+            scores: { average: avgScore },
+            reps: runtimeBlocks.length,
+          },
+          'completed',
+        ).catch((err) => {
+          console.warn('[LessonFlow] endSession failed:', err);
+        });
+      }
+
       setPhase("summary");
     } else {
       const nextIndex = currentBlockIndex + 1;
