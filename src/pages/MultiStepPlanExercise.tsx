@@ -20,6 +20,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
+import { tierToLevel } from '@/lib/gameLevels';
 
 const EXERCISE_SLUG = 'multi-step-plan';
 
@@ -107,6 +108,8 @@ export default function MultiStepPlanExercise() {
         steps_found: result.stepsFound, steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore, trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
+        // Universal 1–10 GameLevel for analytics + UI consistency
+        game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
         ...adaptationTelemetry,
       },
       adaptationsActive: dynamicTier.getAdaptationsActive(),
