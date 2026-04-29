@@ -72,6 +72,7 @@ import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
 import SessionReplayDev from "./pages/dev/SessionReplayDev";
+import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -151,6 +152,7 @@ const App = () => (
                   <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
                   <Route path="/dev/session-replay" element={<SessionReplayDev />} />
                   <Route path="/dev/session-replay/:sessionId" element={<SessionReplayDev />} />
+                  <Route path="/dev/signal-harness" element={<AdaptationSignalHarness />} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />

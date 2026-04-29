@@ -1,88 +1,130 @@
-## Phase 4 — Live Adaptation Validation
 
-The bridge code (Step 1) and real-repool fixes (Steps 3–4) are correctly wired in source. But the DB shows **zero rows with `game_level` populated** in the last 14 days — because no session has been played since deployment. Validation now has two jobs:
+# Are we on the right path? Honest answer.
 
-1. Prove the telemetry pipe is alive end-to-end (`game_level` non-null in `exercise_events` and `adaptation_trial_logs.difficulty_change_*` shifts within a single session).
-2. Prove adaptation is *perceptually* real — upcoming content actually changes after a level shift, not just the badge.
+**Yes on architecture. No on signal.** The advisor's instinct is correct in spirit but wrong in the mechanism. Here is what the code actually shows, why FixSentence didn't move, and what to fix before any more games.
 
 ---
 
-### What I'll do (after approval)
+## What's actually happening (verified in code)
 
-**Step A — Automated live runs in the preview browser**
+### 1. The adaptation engine is sound
+`useInGameAdaptation` + `AdaptiveDifficultyController` correctly:
+- Maintains a rolling window (`windowSize=5` for FixSentence)
+- Compares success rate to `targetSuccessRate=0.75 ± 0.10`
+- Calls `onDifficultyChange` and `setActiveDifficulty` to repool trials
+- Clamps to `bounds.floor`/`bounds.ceiling`
 
-For each of the 6 target games, drive a session with the browser tool:
+This is real, not cosmetic. PhrasePractice already proved it (1→2→3→4).
 
-- FixSentence
-- DescribeGuess
-- SentenceConstruction
-- PhrasePractice
-- SynonymGenerator
-- ThoughtContinuation
+### 2. Why FixSentence stayed at L1 — three compounding causes
+1. **Floor clamp.** `bounds.suggestedStart=1` and `floor=1`. Every "down" computation clamps to 1, so down-shifts are invisible.
+2. **Window math kills movement.** `trialCount=5`, `windowSize=5` → exactly **one** decision point (after trial 5). The session ended before any second adjustment was possible.
+3. **The signal feeding the controller is noisy.** This is the real story below.
 
-Per game: 7+ trials, alternating high-accuracy → low-accuracy → hesitation pattern to force at least one UP and one DOWN shift. Capture browser console logs after each game (looking for the `[GameName] L{from} → L{to}` lines) and a screenshot at the moment of the level shift to confirm the badge updates.
-
-**Step B — DB verification queries (per session, per game)**
-
-Run after each game:
-
-```sql
--- Telemetry pipe alive?
-SELECT round, task_parameters->>'game_level' AS game_level,
-       outputs->>'game_level' AS out_level,
-       task_parameters->>'game_level_source' AS src
-FROM exercise_events
-WHERE session_id = :sid AND exercise_slug = :slug
-ORDER BY round;
-
--- Adaptation actually firing?
-SELECT trial_index, difficulty,
-       difficulty_change_from, difficulty_change_to,
-       difficulty_change_direction, difficulty_change_reason
-FROM adaptation_trial_logs
-WHERE session_id = :sid AND exercise_slug = :slug
-ORDER BY trial_index;
+### 3. The actual scoring bug (advisor was right, wrong reason)
+In `useFixSentenceGame.scoreAnswer`:
 ```
+isCorrect       = bestSim >= 0.80
+isPartialCredit = bestSim in [0.60, 0.80)
+```
+`bestSim` comes from `getSemanticSimilarity` → OpenAI embeddings → cosine → **rescaled `(cos+1)/2`**.
 
-Pass criteria per game:
-- `game_level` non-null on every row
-- ≥1 row with `difficulty_change_direction` = `up` or `down`
-- distinct `task_parameters->>'game_level'` values ≥ 2
+That rescale is the problem. Raw cosine of two unrelated common English words from `text-embedding-3-small` is typically **0.15–0.40**. After `(x+1)/2` it becomes **0.57–0.70** — i.e. **nonsense words land squarely in "partial credit" territory** (≥0.60), and even reach "correct" (≥0.80) for loosely related words.
 
-**Step C — Content-disjointness probe**
+**Important nuance the advisor missed:** the adaptation controller treats `partial_credit` as **incorrect** (`recordAdaptiveTrial({ correct: result.isCorrect })`, line 214 — `isPartialCredit` alone is `correct:false`). So partial credit doesn't make the system "think the user is doing okay." It just gives the **user** misleading positive UX while silently logging failure. Both bad, but in different ways:
+- Clinically: false reassurance to the patient
+- Telemetrically: error_type is `partial_credit` instead of `incorrect`, polluting downstream learning-rate / phoneme / cue analytics
 
-For FixSentence, DescribeGuess, SentenceConstruction, PhrasePractice, SynonymGenerator: extract the trial prompts/items shown before the level shift vs after, and confirm the *post-shift* set is not just a continuation of the pre-shift pool. This is what catches "level changed but content feels the same".
-
-For ThoughtContinuation (discourse): confirm prompt complexity tier changes (sentence length / abstractness band).
-
-**Step D — Per-game report**
-
-Single table with columns: `game | trials | levels seen | shifts | game_level rows | content repooled? | console log present? | verdict`.
-
-Verdict is one of:
-- `PASS` — telemetry + repool both confirmed
-- `PARTIAL` — telemetry OK, repool weak (e.g. PhrasePractice "next-advance only")
-- `FAIL` — telemetry missing or content unchanged → file a follow-up fix
-
-**Step E — Targeted fixes only**
-
-I will only edit code if Step D produces a `FAIL` or a `PARTIAL` that's a quick fix (e.g. immediate-repool for PhrasePractice). Anything larger I'll surface as a new plan, not silently patch.
+### 4. System-wide spread of the same bug
+The `(sim+1)/2` rescale lives in **one file** (`src/lib/semanticSimilarity.ts`) and is consumed by FixSentence, DescribeGuess (`bestSimilarity >= 0.5`), and several other scorers. Fixing it once helps everywhere; not fixing it means every remaining game in the validation pass will produce the same misleading signal.
 
 ---
 
-### What I will NOT do in this loop
+## So — are we on the right path?
 
-- No content-bank expansion (that's the next bottleneck per the user, but a separate effort).
-- No new adaptive games wired (Step 2 LevelBadge rollout stays separate).
-- No schema changes.
+- **Architecture:** yes. Bridge, telemetry, repooling, gates, logger — all working.
+- **Signal quality:** no. We've been validating plumbing with a leaky pressure gauge.
+- **Validation harness:** no. 5 trials + windowSize 5 + floor=1 makes it mathematically impossible to observe both an UP and a DOWN in one sitting. We need a deterministic harness, not more manual playthroughs.
 
-### Risks / honest caveats
+For clinical trials, **signal correctness > more game coverage**. Fix this now.
 
-- **Browser auth**: if the preview requires login I will stop and ask, not fill credentials.
-- **Speech-driven games** (SentenceConstruction, ThoughtContinuation, PhrasePractice): browser automation can't speak. I'll use the typing fallback / "I Said It!" manual override for those, and call out clearly that voice-path adaptation was inferred, not driven.
-- **Synthetic perf pattern**: forced patterns may not match real clinical signal exactly; verdict will explicitly note "behavior under synthetic input" vs "behavior in real session".
-- If a game has no shift after 10 trials despite a forced low-accuracy run, that itself is a finding (gate too tight or signal not flowing).
+---
 
-### Deliverable
+## Plan (in this exact order — no game-by-game pass until step 1–3 are green)
 
-A single report message with the per-game table, the SQL evidence, and a prioritized fix list. No silent edits.
+### Step 1 — Fix the semantic similarity scale (root cause, one file)
+File: `src/lib/semanticSimilarity.ts`
+
+- Remove the `(sim + 1) / 2` rescale. Embeddings from OpenAI are normalized; raw cosine is already in `[-1, 1]` and almost always in `[0, 1]` for English text. Return `Math.max(0, cos)` directly.
+- Add a **lexical guard**: if `spoken` and `target` share no normalized substring of length ≥3 AND share no aliased form, cap returned similarity at `0.45` (forces "incorrect" regardless of embedding noise).
+- Add an **identity short-circuit for nonsense**: if `spoken` is not in any English-letters-only pattern of length ≥2, or matches a known filler, return `0`.
+- Add a small **regression test** with fixed cases:
+  - `("knife","knife") → 1.0`
+  - `("blade","knife") → ≥0.75`
+  - `("cutter","knife") → ∈[0.55,0.80)` (true partial)
+  - `("banana","knife") → <0.45` (incorrect)
+  - `("asdfgh","knife") → 0`
+
+### Step 2 — Re-tier the FixSentence thresholds and adapt the contract
+Files: `src/hooks/useFixSentenceGame.ts`, `src/components/FixSentenceGame.tsx`
+
+- Tighten thresholds: `isCorrect >= 0.78` (unchanged-ish), `isPartialCredit ∈ [0.55, 0.78)` only when `localMatch` returned null AND there's lexical overlap with an accepted fix or alias root.
+- **Critical clinical decision**: stop reporting `error_type='partial_credit'` to telemetry when `isPartialCredit && !isCorrect`. Map it to `incorrect_close` so downstream analytics treat it as a failure with a hint flag (`closeMiss: true` in `taskParameters`). Adaptation already counts it as failure — telemetry should match.
+- Document this rule in `src/docs/EXERCISE_ADAPTATION_GUIDE.md`.
+
+### Step 3 — Build a deterministic adaptation harness (replaces manual playthroughs)
+New file: `src/pages/dev/AdaptationSignalHarness.tsx` (route `/dev/signal-harness`).
+
+Already-existing pieces to reuse: `AdaptationSimDev`, `useAdaptationTrialLogger`, `useInGameAdaptation`.
+
+The harness drives `useInGameAdaptation` directly (no UI game) for each exercise slug with three scripted trial streams:
+1. **Climb script:** 8 correct → expect at least one `up` (when above floor)
+2. **Fall script:** start at L4, 6 incorrect → expect at least one `down`
+3. **Oscillate:** mixed 12 trials → expect one up AND one down
+
+For each game it asserts:
+- `game_level` non-null in `exercise_events`
+- `adaptation_trial_logs` row count == trials submitted
+- session_id alignment (no orphans)
+- At least one `up` and one `down` in oscillate, given non-floor/non-ceiling start
+
+Output: a single PASS/PARTIAL/FAIL table per game. This is the artifact you give Mercy. No more "I played it and it felt right."
+
+### Step 4 — Validation-only `trialCount` bump
+Behind a `?validation=1` query flag in each Exercise page (FixSentence, DescribeGuess, SentenceConstruction, ThoughtContinuation, SynonymGenerator, PhrasePractice), bump `trialCount` from 5 → 10. Production users still get 5. This makes manual end-to-end runs capable of showing both directions.
+
+### Step 5 — Re-run FixSentence, then proceed game by game
+Only after steps 1–4 are merged:
+1. Run the harness — must show PASS for FixSentence on all three scripts.
+2. Run a manual `?validation=1` session — confirm console logs show at least one UP and one DOWN.
+3. Move to DescribeGuess (apply same threshold review since it shares `getSemanticSimilarity`).
+4. Then SentenceConstruction, ThoughtContinuation, SynonymGenerator (PhrasePractice already validated).
+
+Add typing fallbacks per game in this same loop (already planned), but only after the signal is verified for that game.
+
+---
+
+## What I am explicitly **not** doing (and why)
+
+- **Not** writing a new "robust scoring model for stroke rehab" from scratch right now. Embeddings + lexical guard + tightened thresholds is the minimum viable correct signal. A custom phoneme/semantic-feature model is a Phase-2 research deliverable, not a blocker for clinical trial validation of the adaptive engine.
+- **Not** changing `windowSize` globally. Five is clinically defensible; the harness exposes the true behavior without us hand-tuning the engine to hide a signal bug.
+- **Not** re-architecting telemetry. The bridge is proven. The fix is in the scorer, not the bus.
+
+---
+
+## Files that will change in implementation
+
+- `src/lib/semanticSimilarity.ts` — remove rescale, add lexical guard + nonsense short-circuit
+- `src/lib/__tests__/semanticSimilarity.test.ts` — new regression tests
+- `src/hooks/useFixSentenceGame.ts` — tighten thresholds, require lexical overlap for partial
+- `src/components/FixSentenceGame.tsx` — change reported `error_type` for close-miss
+- `src/pages/FixSentenceExercise.tsx` (and 4 sibling Exercise pages) — `?validation=1` trialCount override
+- `src/pages/dev/AdaptationSignalHarness.tsx` — new deterministic harness page
+- `src/App.tsx` — register `/dev/signal-harness` route
+- `src/docs/EXERCISE_ADAPTATION_GUIDE.md` — document the close-miss rule
+
+---
+
+## Bottom line for clinical trials
+
+You were right to stop and ask. Continuing the 6-game pass on the current scorer would produce data that looks fine and is wrong. After step 1–3 land, the system will be both technically and behaviorally adaptive, and the harness gives you a reproducible artifact instead of a feeling.

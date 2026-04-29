@@ -18,6 +18,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useValidationTrialCount } from '@/hooks/useValidationTrialCount';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -32,6 +33,9 @@ export default function FixSentenceExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  // Validation harness: ?validation=1 → 10 trials so adaptation can show both
+  // UP and DOWN within one session. Production users still get 5.
+  const validationTrialCount = useValidationTrialCount(5, 10);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -92,7 +96,7 @@ export default function FixSentenceExercise() {
     logTrial({
       correct: result.isCorrect,
       reactionTimeMs: result.reactionTimeMs,
-      errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'partial_credit' : 'incorrect_fix'),
+      errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
       taskParameters: {
         trial_id: result.trialId,
         sentence: result.sentence,
@@ -105,6 +109,7 @@ export default function FixSentenceExercise() {
         trial_source: 'fix_sentence_bank',
         phoneme_matched: phonemeMatched,
         phoneme_targets: result.phonemeTargets,
+        close_miss: !result.isCorrect && result.isPartialCredit,
         // Shared adaptation telemetry
         ...adaptationTelemetry,
       },
@@ -176,7 +181,7 @@ export default function FixSentenceExercise() {
           <FixSentenceGame
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
-            trialCount={5}
+            trialCount={validationTrialCount}
             focusPhonemes={adaptation.focusPhonemes}
             sessionId={activeSessionId}
             userId={user?.id}
