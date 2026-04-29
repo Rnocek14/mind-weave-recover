@@ -1083,6 +1083,22 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
               </div>
             )}
 
+            {/* Manual override: same scoring path as a perfect speech match */}
+            {!showFeedback && !processingAnswer && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
+                  if (isListening) stopListening();
+                  handleCorrectAnswer(1.0, currentTrial.phrase);
+                }}
+                className="mt-2"
+              >
+                I Said It!
+              </Button>
+            )}
+
             {currentWordAccuracy > 0 && currentWordAccuracy < 0.8 && !showFeedback && (
               <div className="text-sm text-amber-600 dark:text-amber-400">
                 {Math.round(currentWordAccuracy * 100)}% correct - keep trying!
