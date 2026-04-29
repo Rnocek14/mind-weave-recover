@@ -444,6 +444,27 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
           if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);
         }
       }
+
+      // Centralized adaptation_events emit — fires whenever the controller
+      // actually moved difficulty (up, down, or frustration step-down).
+      // No-op for games passing autoLog=false (PhotoNaming/TwoClues already
+      // log this event themselves to avoid duplication).
+      if (autoLog && evtChange && user?.id) {
+        try {
+          autoLogDifficultyEvent(
+            evtChange.direction,
+            evtChange.from,
+            evtChange.to,
+            successRateRef.current,
+            consecutiveErrorsRef.current,
+            sessionId ?? null,
+            normalizeExerciseSlug(exerciseSlug),
+            trialCountRef.current - 1,
+          );
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn('[useInGameAdaptation] difficulty event log failed', err);
+        }
+      }
     }
 
     return {
