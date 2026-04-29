@@ -169,7 +169,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     const row: PendingRow = {
       user_id: opts.userId,
       session_id: opts.sessionId ?? null,
-      exercise_slug: opts.exerciseSlug,
+      exercise_slug: canonicalSlug,
       trial_index: input.trialIndex,
       difficulty: input.difficulty,
       cue_level: input.cueLevel ?? null,
@@ -202,7 +202,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'unsafe_escalation',
         severity: 'critical',
@@ -224,7 +224,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'missing_narration',
         severity: 'warn',
@@ -244,7 +244,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       anomalyBuf.current.push({
         user_id: opts.userId,
         session_id: opts.sessionId ?? null,
-        exercise_slug: opts.exerciseSlug,
+        exercise_slug: canonicalSlug,
         trial_index: input.trialIndex,
         anomaly_type: 'stale_adaptation',
         severity: 'warn',
@@ -255,7 +255,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     }
 
     if (trialBuf.current.length >= MAX_BUFFER) void flush();
-  }, [enabled, opts.userId, opts.sessionId, opts.exerciseSlug, cueThreshold, minTrials, staleWindow, flush]);
+  }, [enabled, opts.userId, opts.sessionId, canonicalSlug, cueThreshold, minTrials, staleWindow, flush]);
 
   return { logTrial, flush };
 }
