@@ -30,6 +30,7 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
+import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
