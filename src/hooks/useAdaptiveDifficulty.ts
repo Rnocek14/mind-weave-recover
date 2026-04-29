@@ -34,6 +34,12 @@ interface UseAdaptiveDifficultyOptions {
   minTrialsAtLevelForEscalation?: number;     // default 8
   /** Auto-write per-trial rows into adaptation_trial_logs. Default true. */
   autoLog?: boolean;
+  /**
+   * Game's internal tier scale used to compute the canonical 1–10 level
+   * published into the adaptive level registry. Defaults to {min:1,max:10}
+   * (i.e. passthrough), matching how this hook has historically been used.
+   */
+  levelScale?: LevelScale;
 }
 
 export const useAdaptiveDifficulty = ({
