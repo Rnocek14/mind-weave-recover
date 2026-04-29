@@ -33,6 +33,7 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useMayaExerciseFrame } from "@/hooks/useMayaExerciseFrame";
 import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
+import { useInGameAdaptation } from "@/hooks/useInGameAdaptation";
 import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
 import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ interface SentenceConstructionGameProps {
   difficultyLevel: number;
   focusPhonemes?: string[];
   adaptations?: ExerciseAdaptation | null;
+  sessionId?: string | null;
   onTrialComplete?: (data: {
     correct: boolean;
     reactionTime: number;
@@ -107,6 +109,7 @@ export const SentenceConstructionGame = ({
   difficultyLevel,
   focusPhonemes = [],
   adaptations,
+  sessionId,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
@@ -124,9 +127,41 @@ export const SentenceConstructionGame = ({
     clearAnswer,
     submitAnswer,
     nextTrial,
+    setActiveDifficulty,
     getWeakestGrammarArea,
     getAnswerAsWords
   } = useSentenceGame(10, difficultyLevel, focusPhonemes);
+
+  // In-Game Adaptation: drives mid-session level shifts based on performance.
+  // Publishes the canonical 1–10 game_level to the adaptive level registry,
+  // and triggers content repooling when the level changes.
+  const setActiveDifficultyRef = useRef<((lvl: number) => void) | null>(null);
+  const prevLevelLogRef = useRef<number>(difficultyLevel);
+  useEffect(() => {
+    setActiveDifficultyRef.current = setActiveDifficulty;
+  }, [setActiveDifficulty]);
+
+  const {
+    currentDifficulty,
+    recordTrial: recordAdaptiveTrial,
+  } = useInGameAdaptation({
+    exerciseSlug: 'sentence_construction',
+    sessionId: sessionId || null,
+    initialDifficulty: difficultyLevel,
+    bounds,
+    windowSize: 5,
+    targetSuccessRate: 0.75,
+    enableDifficultyAutoStepDown: true,
+    enableDifficultyToasts: false,
+    enableAutoHints: false,
+    onDifficultyChange: (newLvl, reason) => {
+      setActiveDifficultyRef.current?.(newLvl);
+      if (import.meta.env.DEV) {
+        console.log(`[SentenceConstruction] L${prevLevelLogRef.current} → L${newLvl}, reason: ${reason}`);
+        prevLevelLogRef.current = newLvl;
+      }
+    },
+  });
 
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'sentence-construction' });
@@ -259,6 +294,8 @@ export const SentenceConstructionGame = ({
       if (trial?.modelAudio) speak(trial.modelAudio);
       recordGrammarResult(result.trial.grammarFocus, result.correct);
       setShowPurpose(false);
+      // Feed the adaptive engine — drives mid-session level shifts + telemetry.
+      recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
       if (onTrialComplete && !trialCompletedRef.current) {
         trialCompletedRef.current = true;
         onTrialComplete({
@@ -270,7 +307,7 @@ export const SentenceConstructionGame = ({
         });
       }
     }, 300);
-  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult]);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial]);
 
   useEffect(() => {
     if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
@@ -295,6 +332,8 @@ export const SentenceConstructionGame = ({
     if (trial?.modelAudio) speak(trial.modelAudio);
     recordGrammarResult(result.trial.grammarFocus, result.correct);
     setShowPurpose(false);
+    // Feed the adaptive engine — drives mid-session level shifts + telemetry.
+    recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
     if (onTrialComplete && !trialCompletedRef.current) {
       trialCompletedRef.current = true;
       onTrialComplete({

@@ -48,13 +48,39 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const roundStartTimeRef = useRef<number>(Date.now());
   const pendingTrialRef = useRef<FixSentenceTrialResult | null>(null);
 
+  // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
+  // difficulty changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
     () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes }),
-    [difficulty, trialCount, focusPhonemes.join(',')]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trialCount, focusPhonemes.join(',')]
   );
 
-  const [trials] = useState(initialTrials);
+  const [trials, setTrials] = useState(initialTrials);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  /**
+   * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
+   * Preserves currentIndex, results, attempt history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    const tier = (Math.min(3, Math.max(1, Math.ceil(newLevel / 3.5))) as 1 | 2 | 3);
+    setTrials(prev => {
+      const upcomingNeeded = prev.length - (currentIndex + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const fresh = getFixSentenceTrials({
+        difficulty: tier,
+        count: upcomingNeeded * 3,
+        focusPhonemes,
+      }).filter(t => !prev.slice(0, currentIndex + 1).some(p => p.id === t.id))
+        .slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+      const padded = fresh.length < upcomingNeeded
+        ? [...fresh, ...prev.slice(currentIndex + 1 + fresh.length)]
+        : fresh;
+      return [...prev.slice(0, currentIndex + 1), ...padded];
+    });
+  }, [currentIndex, focusPhonemes]);
   const [results, setResults] = useState<FixSentenceTrialResult[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [lastResult, setLastResult] = useState<FixSentenceTrialResult | null>(null);
@@ -220,5 +246,6 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     submitResult,
     nextTrial,
     startRound,
+    setActiveDifficulty,
   };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   SentenceTrial,
   GrammarErrorType,
@@ -42,7 +42,10 @@ export const useSentenceGame = (
     recentErrors: []
   });
 
-  // Initialize trials with graded sentence injection
+  // Initialize trials with graded sentence injection.
+  // CRITICAL: difficultyLevel is intentionally NOT a dep — mid-session level
+  // changes must NOT reset score/progress. Use setActiveDifficulty().
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Get phoneme-targeted graded trials (up to 40% of total)
     const gradedCount = focusPhonemes.length > 0 ? Math.ceil(totalTrials * 0.4) : 0;
@@ -81,7 +84,34 @@ export const useSentenceGame = (
       completed: false,
       currentAnswer: []
     }));
-  }, [difficultyLevel, totalTrials, focusPhonemes.join(',')]);
+  }, [totalTrials, focusPhonemes.join(',')]);
+
+  /**
+   * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
+   * Preserves currentTrial index, score, and history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    setGameState(prev => {
+      const upcomingNeeded = prev.trials.length - (prev.currentTrial + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const playedIds = new Set(prev.trials.slice(0, prev.currentTrial + 1).map(t => t.id));
+      const fresh = getMixedTrials(newLevel, upcomingNeeded * 3)
+        .filter(t => !playedIds.has(t.id) && !shownTrialsRef.current.has(t.id))
+        .slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+      fresh.forEach(t => {
+        shownTrialsRef.current.add(t.id);
+        markItemShown(t.id, 'sentence_game');
+      });
+      const padded = fresh.length < upcomingNeeded
+        ? [...fresh, ...prev.trials.slice(prev.currentTrial + 1 + fresh.length)]
+        : fresh;
+      return {
+        ...prev,
+        trials: [...prev.trials.slice(0, prev.currentTrial + 1), ...padded],
+      };
+    });
+  }, []);
 
   const getCurrentTrial = (): SentenceTrial | null => {
     if (gameState.trials.length === 0) return null;
@@ -165,23 +195,11 @@ export const useSentenceGame = (
     };
   };
 
-  const nextTrial = (newDifficultyLevel: number = difficultyLevel) => {
+  const nextTrial = (_newDifficultyLevel: number = difficultyLevel) => {
+    // NOTE: difficulty changes are handled by setActiveDifficulty, NOT here.
+    // Restarting trials on level change destroys session progress.
     const nextIndex = gameState.currentTrial + 1;
 
-    // If difficulty changed, regenerate trials
-    if (newDifficultyLevel !== difficultyLevel) {
-      const newTrials = getMixedTrials(newDifficultyLevel, totalTrials);
-      setGameState(prev => ({
-        ...prev,
-        trials: newTrials,
-        currentTrial: 0,
-        currentAnswer: [],
-        showFeedback: false
-      }));
-      return;
-    }
-
-    // Check if game is complete
     if (nextIndex >= gameState.trials.length) {
       setGameState(prev => ({
         ...prev,
@@ -235,6 +253,7 @@ export const useSentenceGame = (
     submitAnswer,
     nextTrial,
     reset,
+    setActiveDifficulty,
     getWeakestGrammarArea,
     getAnswerAsWords
   };

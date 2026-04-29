@@ -88,12 +88,15 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const pendingTrialRef = useRef<DescribeGuessTrialResult | null>(null);
   const wordRetrievalTimeRef = useRef<number | null>(null);
 
+  // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
+  // changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
     () => getDescribeGuessTrials({ difficulty, count: trialCount }),
-    [difficulty, trialCount]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trialCount]
   );
 
-  const [trials] = useState(initialTrials);
+  const [trials, setTrials] = useState(initialTrials);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DescribeGuessTrialResult[]>([]);
   const [isComplete, setIsComplete] = useState(false);
@@ -105,6 +108,26 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const [promptsShown, setPromptsShown] = useState<string[]>([]);
 
   const currentTrial = trials[currentIndex] ?? null;
+
+  /**
+   * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
+   * Preserves currentIndex, results, attempt history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    setTrials(prev => {
+      const upcomingNeeded = prev.length - (currentIndex + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const playedIds = new Set(prev.slice(0, currentIndex + 1).map(t => t.id));
+      const fresh = getDescribeGuessTrials({ difficulty: newLevel, count: upcomingNeeded * 3 })
+        .filter(t => !playedIds.has(t.id))
+        .slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+      const padded = fresh.length < upcomingNeeded
+        ? [...fresh, ...prev.slice(currentIndex + 1 + fresh.length)]
+        : fresh;
+      return [...prev.slice(0, currentIndex + 1), ...padded];
+    });
+  }, [currentIndex]);
 
   /**
    * Check if user said the target word directly (local match)
@@ -386,5 +409,6 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     recordWordRetrieval,
     nextTrial,
     startRound,
+    setActiveDifficulty,
   };
 }
