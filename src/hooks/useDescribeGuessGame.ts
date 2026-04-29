@@ -110,6 +110,26 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const currentTrial = trials[currentIndex] ?? null;
 
   /**
+   * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
+   * Preserves currentIndex, results, attempt history.
+   */
+  const setActiveDifficulty = useCallback((newLevel: number) => {
+    setTrials(prev => {
+      const upcomingNeeded = prev.length - (currentIndex + 1);
+      if (upcomingNeeded <= 0) return prev;
+      const playedIds = new Set(prev.slice(0, currentIndex + 1).map(t => t.id));
+      const fresh = getDescribeGuessTrials({ difficulty: newLevel, count: upcomingNeeded * 3 })
+        .filter(t => !playedIds.has(t.id))
+        .slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+      const padded = fresh.length < upcomingNeeded
+        ? [...fresh, ...prev.slice(currentIndex + 1 + fresh.length)]
+        : fresh;
+      return [...prev.slice(0, currentIndex + 1), ...padded];
+    });
+  }, [currentIndex]);
+
+  /**
    * Check if user said the target word directly (local match)
    */
   const checkWordMatch = useCallback((transcript: string, trial: DescribeGuessTrial): boolean => {
