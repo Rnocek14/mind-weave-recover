@@ -16,19 +16,21 @@ vi.mock('@/integrations/supabase/client', () => {
   // rather than a shared positive bias from the PRNG.
   const vec = (seed: number, dim = 64) => {
     const out: number[] = [];
-    let s = seed || 1;
+    // Mix the seed into a 32-bit state so small differences spread across all dims.
+    let s = Math.imul(seed | 0, 2654435761) >>> 0 || 1;
     for (let i = 0; i < dim; i++) {
-      s = (s * 9301 + 49297) % 233280;
-      out.push(s / 233280);
+      s = Math.imul(s ^ (s >>> 15), 2246822507) >>> 0;
+      s = Math.imul(s ^ (s >>> 13), 3266489909) >>> 0;
+      out.push((s >>> 0) / 0xffffffff);
     }
     const mean = out.reduce((a, b) => a + b, 0) / dim;
     return out.map(v => v - mean);
   };
   const banks: Record<string, number[]> = {
-    knife: vec(1),
-    blade: vec(1.05),    // very close to knife
-    cutter: vec(1.2),    // moderately close
-    banana: vec(800),    // unrelated
+    knife:  vec(101),
+    blade:  vec(102),    // adjacent seed → fairly close cosine
+    cutter: vec(150),    // farther
+    banana: vec(99991),  // unrelated
   };
   return {
     supabase: {
