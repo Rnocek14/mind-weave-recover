@@ -18,6 +18,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useValidationTrialCount } from '@/hooks/useValidationTrialCount';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -177,7 +178,7 @@ export default function FixSentenceExercise() {
           <FixSentenceGame
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
-            trialCount={5}
+            trialCount={validationTrialCount}
             focusPhonemes={adaptation.focusPhonemes}
             sessionId={activeSessionId}
             userId={user?.id}
