@@ -145,7 +145,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     if (!opts.sessionId) {
       if (import.meta.env.DEV) {
         console.debug('[adaptationLogger] skipping trial — sessionId not yet ready', {
-          exercise: opts.exerciseSlug,
+          exercise: canonicalSlug,
           trialIndex: input.trialIndex,
         });
       }
