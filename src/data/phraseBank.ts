@@ -230,6 +230,57 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['bye', 'later'],
     semanticAlternatives: ["Bye", "See you"]
   },
+  {
+    id: 'yes',
+    phrase: "Yes",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 5,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['yes', 'yeah'],
+    semanticAlternatives: ["Yeah", "Yep"]
+  },
+  {
+    id: 'no',
+    phrase: "No",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 6,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['no', 'nope'],
+    semanticAlternatives: ["Nope"]
+  },
+  {
+    id: 'please',
+    phrase: "Please",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 25,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['please'],
+    semanticAlternatives: ["Please?"]
+  },
 
   // LEVEL 2: Common requests (3-4 words, moderate frequency)
   {
