@@ -831,6 +831,74 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['outside', 'go'],
     semanticAlternatives: ["Take me outside", "Fresh air please"]
   },
+  {
+    id: 'water_glass',
+    phrase: "Could I have a glass of water",
+    category: 'daily_needs',
+    difficulty: 4,
+    features: {
+      syllable_count: 8,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 480,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['water', 'glass'],
+    semanticAlternatives: ["Can I get some water", "I would like water"]
+  },
+  {
+    id: 'too_loud_here',
+    phrase: "It is too loud in here",
+    category: 'daily_needs',
+    difficulty: 4,
+    features: {
+      syllable_count: 7,
+      word_count: 6,
+      contains_pronouns: false,
+      motor_complexity: 'complex',
+      frequency_rank: 600,
+      emotional_valence: 'negative',
+      social_context: 'caregiver'
+    },
+    cueWords: ['loud', 'noisy'],
+    semanticAlternatives: ["It's too noisy", "Can we lower the volume"]
+  },
+  {
+    id: 'remind_pills',
+    phrase: "Please remind me to take my pills",
+    category: 'medical',
+    difficulty: 4,
+    features: {
+      syllable_count: 9,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 720,
+      emotional_valence: 'neutral',
+      social_context: 'medical'
+    },
+    cueWords: ['remind', 'pills'],
+    semanticAlternatives: ["Don't forget my medication", "Help me remember my meds"]
+  },
+  {
+    id: 'right_word_struggle',
+    phrase: "I am trying to find the right word",
+    category: 'social',
+    difficulty: 4,
+    features: {
+      syllable_count: 9,
+      word_count: 8,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 800,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['trying', 'word'],
+    semanticAlternatives: ["I'm searching for the word", "Give me a moment for the word"]
+  },
 
   // LEVEL 5: Complex social/emotional phrases (harder motor planning, abstract concepts)
   {
