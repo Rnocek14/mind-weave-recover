@@ -910,6 +910,111 @@ export type Database = {
           },
         ]
       }
+      consent_documents: {
+        Row: {
+          audio_url: string | null
+          body_md: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_until: string | null
+          id: string
+          plain_summary: string | null
+          title: string
+          version: number
+        }
+        Insert: {
+          audio_url?: string | null
+          body_md: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          plain_summary?: string | null
+          title: string
+          version: number
+        }
+        Update: {
+          audio_url?: string | null
+          body_md?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          plain_summary?: string | null
+          title?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      consent_records: {
+        Row: {
+          capacity_confirmed_at: string | null
+          capacity_confirmed_by: string | null
+          consent_document_id: string
+          consent_version: number
+          created_at: string
+          document_text_snapshot: string
+          enrollment_id: string
+          id: string
+          ip_hash: string | null
+          signed_at: string
+          signed_name: string
+          surrogate_relationship: string | null
+          surrogate_signed_name: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          capacity_confirmed_at?: string | null
+          capacity_confirmed_by?: string | null
+          consent_document_id: string
+          consent_version: number
+          created_at?: string
+          document_text_snapshot: string
+          enrollment_id: string
+          id?: string
+          ip_hash?: string | null
+          signed_at?: string
+          signed_name: string
+          surrogate_relationship?: string | null
+          surrogate_signed_name?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          capacity_confirmed_at?: string | null
+          capacity_confirmed_by?: string | null
+          consent_document_id?: string
+          consent_version?: number
+          created_at?: string
+          document_text_snapshot?: string
+          enrollment_id?: string
+          id?: string
+          ip_hash?: string | null
+          signed_at?: string
+          signed_name?: string
+          surrogate_relationship?: string | null
+          surrogate_signed_name?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_records_consent_document_id_fkey"
+            columns: ["consent_document_id"]
+            isOneToOne: false
+            referencedRelation: "consent_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consent_records_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "study_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_readiness: {
         Row: {
           checkin_date: string
@@ -1124,6 +1229,50 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eligibility_screenings: {
+        Row: {
+          criterion_key: string
+          criterion_kind: string
+          criterion_label: string
+          enrollment_id: string
+          id: string
+          met: boolean
+          notes: string | null
+          screened_at: string
+          screened_by: string
+        }
+        Insert: {
+          criterion_key: string
+          criterion_kind: string
+          criterion_label: string
+          enrollment_id: string
+          id?: string
+          met: boolean
+          notes?: string | null
+          screened_at?: string
+          screened_by: string
+        }
+        Update: {
+          criterion_key?: string
+          criterion_kind?: string
+          criterion_label?: string
+          enrollment_id?: string
+          id?: string
+          met?: boolean
+          notes?: string | null
+          screened_at?: string
+          screened_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eligibility_screenings_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "study_enrollments"
             referencedColumns: ["id"]
           },
         ]
@@ -2450,6 +2599,107 @@ export type Database = {
           },
         ]
       }
+      studies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ended_at: string | null
+          engine_version_pin: string | null
+          exclusion_criteria: Json
+          id: string
+          inclusion_criteria: Json
+          name: string
+          pi_clinician_id: string | null
+          scorer_version_pin: string | null
+          started_at: string | null
+          status: string
+          target_enrollment: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ended_at?: string | null
+          engine_version_pin?: string | null
+          exclusion_criteria?: Json
+          id?: string
+          inclusion_criteria?: Json
+          name: string
+          pi_clinician_id?: string | null
+          scorer_version_pin?: string | null
+          started_at?: string | null
+          status?: string
+          target_enrollment?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ended_at?: string | null
+          engine_version_pin?: string | null
+          exclusion_criteria?: Json
+          id?: string
+          inclusion_criteria?: Json
+          name?: string
+          pi_clinician_id?: string | null
+          scorer_version_pin?: string | null
+          started_at?: string | null
+          status?: string
+          target_enrollment?: number | null
+        }
+        Relationships: []
+      }
+      study_enrollments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          enrolled_at: string | null
+          enrolled_by: string | null
+          id: string
+          profile_id: string
+          status: string
+          study_id: string
+          user_id: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          enrolled_at?: string | null
+          enrolled_by?: string | null
+          id?: string
+          profile_id: string
+          status?: string
+          study_id: string
+          user_id: string
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          enrolled_at?: string | null
+          enrolled_by?: string | null
+          id?: string
+          profile_id?: string
+          status?: string
+          study_id?: string
+          user_id?: string
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_enrollments_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       thought_decision_logs: {
         Row: {
           id: string
@@ -2578,6 +2828,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      trial_runtime_config: {
+        Row: {
+          engine_version: string
+          id: string
+          notes: string | null
+          pinned_at: string
+          pinned_by: string | null
+          runtime_config: Json
+          scorer_version: string
+          study_id: string
+        }
+        Insert: {
+          engine_version: string
+          id?: string
+          notes?: string | null
+          pinned_at?: string
+          pinned_by?: string | null
+          runtime_config?: Json
+          scorer_version: string
+          study_id: string
+        }
+        Update: {
+          engine_version?: string
+          id?: string
+          notes?: string | null
+          pinned_at?: string
+          pinned_by?: string | null
+          runtime_config?: Json
+          scorer_version?: string
+          study_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_runtime_config_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: true
+            referencedRelation: "studies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_adaptation_profiles: {
         Row: {
@@ -3361,6 +3652,28 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_active_study_enrollment: {
+        Args: { _user_id: string }
+        Returns: {
+          completed_at: string | null
+          created_at: string
+          enrolled_at: string | null
+          enrolled_by: string | null
+          id: string
+          profile_id: string
+          status: string
+          study_id: string
+          user_id: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_enrollments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_cluster_assignments: {
         Args: never
         Returns: {
@@ -3455,6 +3768,10 @@ export type Database = {
       }
       is_assigned_clinician: {
         Args: { _clinician_id: string; _profile_id: string }
+        Returns: boolean
+      }
+      is_study_clinician: {
+        Args: { _clinician_id: string; _study_id: string }
         Returns: boolean
       }
       merge_profile_pref: {
