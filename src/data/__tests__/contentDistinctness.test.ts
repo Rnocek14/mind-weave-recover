@@ -17,6 +17,7 @@ import { getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { getTrialsForLevel as getPhraseTrials, mapEngineLevelToPhraseTier } from '@/data/phraseBank';
 import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
 import { selectNextPrompt, createEmptySessionHistory } from '@/lib/adaptivePromptSelector';
+import { getSynonymTrials, mapEngineLevelToSynonymTier, SYNONYM_PROMPTS } from '@/data/synonymBank';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
