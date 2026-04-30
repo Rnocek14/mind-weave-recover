@@ -1176,6 +1176,10 @@ export type Database = {
           audio_storage_path: string | null
           browser_transcript: string | null
           classification_confidence: number | null
+          clinician_override_at: string | null
+          clinician_override_by: string | null
+          clinician_override_note: string | null
+          clinician_validity_override: string | null
           counts_toward_score: boolean
           created_at: string | null
           cue_level: number | null
@@ -1216,6 +1220,10 @@ export type Database = {
           audio_storage_path?: string | null
           browser_transcript?: string | null
           classification_confidence?: number | null
+          clinician_override_at?: string | null
+          clinician_override_by?: string | null
+          clinician_override_note?: string | null
+          clinician_validity_override?: string | null
           counts_toward_score?: boolean
           created_at?: string | null
           cue_level?: number | null
@@ -1256,6 +1264,10 @@ export type Database = {
           audio_storage_path?: string | null
           browser_transcript?: string | null
           classification_confidence?: number | null
+          clinician_override_at?: string | null
+          clinician_override_by?: string | null
+          clinician_override_note?: string | null
+          clinician_validity_override?: string | null
           counts_toward_score?: boolean
           created_at?: string | null
           cue_level?: number | null
@@ -2755,6 +2767,10 @@ export type Database = {
           avg_pause_duration_ms: number | null
           category: string | null
           classification_confidence: number | null
+          clinician_override_at: string | null
+          clinician_override_by: string | null
+          clinician_override_note: string | null
+          clinician_validity_override: string | null
           coherence_score: number | null
           counts_toward_score: boolean
           created_at: string | null
@@ -2828,6 +2844,10 @@ export type Database = {
           avg_pause_duration_ms?: number | null
           category?: string | null
           classification_confidence?: number | null
+          clinician_override_at?: string | null
+          clinician_override_by?: string | null
+          clinician_override_note?: string | null
+          clinician_validity_override?: string | null
           coherence_score?: number | null
           counts_toward_score?: boolean
           created_at?: string | null
@@ -2901,6 +2921,10 @@ export type Database = {
           avg_pause_duration_ms?: number | null
           category?: string | null
           classification_confidence?: number | null
+          clinician_override_at?: string | null
+          clinician_override_by?: string | null
+          clinician_override_note?: string | null
+          clinician_validity_override?: string | null
           coherence_score?: number | null
           counts_toward_score?: boolean
           created_at?: string | null
