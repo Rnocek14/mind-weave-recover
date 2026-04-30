@@ -16,7 +16,7 @@ import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, V
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
-import { QuestionType } from '@/data/detectiveMindCases';
+import { QuestionType, mapEngineLevelToDetectiveTier } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
@@ -33,12 +33,8 @@ interface DetectiveMindGameProps {
   sessionId?: string | null;
 }
 
-/** Map adaptive level (1-10) → content tier (1-3) */
-function levelToTierLocal(level: number): number {
-  if (level <= 3) return 1;
-  if (level <= 7) return 2;
-  return 3;
-}
+/** Map adaptive level (1-10) → content tier (1-3) — Phase 1.5: single source of truth */
+const levelToTierLocal = mapEngineLevelToDetectiveTier;
 
 const RANK_ICONS: Record<DetectiveRank, React.ReactNode> = {
   'Rookie': <Search className="h-5 w-5" />,
