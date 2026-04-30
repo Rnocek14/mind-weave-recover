@@ -41,7 +41,7 @@ import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 750;
+const SCORING_DEBOUNCE_MS = 1500;
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
