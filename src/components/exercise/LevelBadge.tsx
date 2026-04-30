@@ -57,7 +57,7 @@ export function LevelBadge({ descriptor, className, compact = false }: LevelBadg
               pulse && 'ring-2 ring-current ring-offset-1 scale-105',
               className,
             )}
-            aria-label={`Difficulty level ${level} of 10, ${label}`}
+            aria-label={`Game Level ${level} of 10, ${label}`}
             role="status"
           >
             <span className="font-semibold tabular-nums">L{level}</span>
@@ -68,7 +68,7 @@ export function LevelBadge({ descriptor, className, compact = false }: LevelBadg
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-          <div className="font-semibold mb-1">Level {level} · {label}</div>
+          <div className="font-semibold mb-1">Game Level {level} · {label}</div>
           {levers.length > 0 ? (
             <ul className="list-disc pl-4 space-y-0.5 opacity-90">
               {levers.map((l) => (
