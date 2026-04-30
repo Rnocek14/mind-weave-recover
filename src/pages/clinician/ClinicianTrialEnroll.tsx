@@ -189,17 +189,18 @@ export default function ClinicianTrialEnroll() {
       });
       if (cErr) throw cErr;
 
-      // Promote enrollment to active
-      const { error: updErr } = await supabase
-        .from('study_enrollments')
-        .update({ status: 'active', enrolled_at: new Date().toISOString() })
-        .eq('id', enrollmentId);
-      if (updErr) {
-        console.warn('Enrollment status not advanced (append-only); admin must promote.', updErr);
+      // Promote enrollment to active via security-definer RPC (validates consent)
+      const { data: advanced, error: advErr } = await supabase
+        .rpc('advance_enrollment_after_consent', { _enrollment_id: enrollmentId });
+      if (advErr) {
+        console.error('advance_enrollment_after_consent failed', advErr);
+        toast.error('Consent saved, but failed to activate enrollment. Contact admin.');
+      } else {
+        const newStatus = (advanced as any)?.status as EnrollmentStatus | undefined;
+        setEnrollmentStatus(newStatus ?? 'active');
+        setStep('done');
+        toast.success('Consent recorded — enrollment active');
       }
-      setEnrollmentStatus('active');
-      setStep('done');
-      toast.success('Consent recorded');
     } catch (err) {
       console.error(err);
       toast.error('Failed to record consent');
