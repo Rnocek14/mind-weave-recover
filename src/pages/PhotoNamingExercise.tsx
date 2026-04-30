@@ -20,6 +20,7 @@ import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
 import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
@@ -423,6 +424,14 @@ function PhotoNamingExerciseInner() {
     });
     
     if (hasSession) {
+      // Speech Validity Gate — classify before scoring is recorded
+      const validity = classifyUtteranceValidity({
+        transcript: result.whisperTranscript,
+        asrConfidence: result.whisperConfidence ?? null,
+        recordingDurationMs: result.recordingDurationMs ?? null,
+        acousticMetrics: result.acousticMetrics ?? null,
+        targetWord: trial.target,
+      });
       await logTrial({
         correct: result.correct,
         reactionTimeMs: result.reactionTimeMs,
