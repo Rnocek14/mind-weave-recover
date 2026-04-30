@@ -2,7 +2,7 @@
  * Session Summary Strip — six chips of session-level facts.
  * Compact, mobile-first; wraps on narrow viewports.
  */
-import { Calendar, Clock, Gamepad2, Target, TrendingUp, Lightbulb } from "lucide-react";
+import { Calendar, Clock, Gamepad2, Target, TrendingUp, Lightbulb, ShieldCheck } from "lucide-react";
 
 interface SessionSummaryStripProps {
   startedAt: string;
@@ -11,6 +11,13 @@ interface SessionSummaryStripProps {
   accuracyPct: number;
   highestLevel: number | null;
   cueDependencyPct: number; // 0–100
+  validityBuckets?: {
+    valid: number;
+    filler: number;
+    silence: number;
+    noise: number;
+    flagged: number;
+  } | null;
 }
 
 function fmtDate(iso: string) {
