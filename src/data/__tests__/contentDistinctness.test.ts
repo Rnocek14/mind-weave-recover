@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getDescribeGuessTrials } from '@/data/describeGuessBank';
+import { getTrialsForLevel as getPhraseTrials, mapEngineLevelToPhraseTier } from '@/data/phraseBank';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
@@ -143,5 +144,71 @@ describe('Content distinctness — DescribeGuess', () => {
     const playedIds = new Set(played.map(t => t.id));
     expect(next.filter(t => playedIds.has(t.id)).length).toBe(0);
     expect(next.every(t => t.difficulty !== 1)).toBe(true);
+  });
+});
+
+describe('Content distinctness — PhrasePractice', () => {
+  // Engine emits 1..10. The phrase bank has 5 motor-graded tiers.
+  // Mapping: 1-2→T1, 3-4→T2, 5-6→T3, 7-8→T4, 9-10→T5.
+  it('engine→tier mapping is monotonic across all 10 levels', () => {
+    const tiers = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToPhraseTier);
+    // eslint-disable-next-line no-console
+    console.log(`  PhrasePractice engine→tier: ${tiers.join(' ')}`);
+    for (let i = 1; i < tiers.length; i++) {
+      expect(tiers[i]).toBeGreaterThanOrEqual(tiers[i - 1]);
+    }
+    expect(tiers[0]).toBe(1);
+    expect(tiers[9]).toBe(5);
+  });
+
+  it('engine L1 (count=10) is exclusively tier 1', () => {
+    const trials = getPhraseTrials(1, 10);
+    expect(trials.every(t => t.difficulty === 1)).toBe(true);
+  });
+
+  it('engine L5 (count=10) is exclusively tier 3', () => {
+    const trials = getPhraseTrials(5, 10);
+    expect(trials.every(t => t.difficulty === 3)).toBe(true);
+  });
+
+  it('engine L8 (count=10) is exclusively tier 4', () => {
+    const trials = getPhraseTrials(8, 10);
+    expect(trials.every(t => t.difficulty === 4)).toBe(true);
+  });
+
+  it('engine L10 (count=10) is exclusively tier 5 — NO L6→L5 collapse anymore', () => {
+    const trials = getPhraseTrials(10, 10);
+    expect(trials.every(t => t.difficulty === 5)).toBe(true);
+  });
+
+  it('engine L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(getPhraseTrials(1, 10).map(t => t.id));
+    const B = new Set(getPhraseTrials(5, 10).map(t => t.id));
+    const C = new Set(getPhraseTrials(10, 10).map(t => t.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥10 unique trials after L1–L10 expansion', () => {
+    const sizes: Record<number, number> = {};
+    for (const lvl of [1, 3, 5, 7, 10]) {
+      const trials = getPhraseTrials(lvl, 200);
+      sizes[mapEngineLevelToPhraseTier(lvl)] = new Set(trials.map(t => t.id)).size;
+    }
+    // eslint-disable-next-line no-console
+    console.log(`  PhrasePractice tier sizes: ${JSON.stringify(sizes)}`);
+    for (const tier of [1,2,3,4,5]) expect(sizes[tier]).toBeGreaterThanOrEqual(10);
+  });
+
+  it('mid-session re-pool from L1 to L9 returns 100% new tier-5 trials', () => {
+    const played = getPhraseTrials(1, 5);
+    const next = getPhraseTrials(9, 5);
+    const playedIds = new Set(played.map(t => t.id));
+    expect(next.filter(t => playedIds.has(t.id)).length).toBe(0);
+    expect(next.every(t => t.difficulty === 5)).toBe(true);
   });
 });

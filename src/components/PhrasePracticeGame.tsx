@@ -184,19 +184,18 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     uploadRecording 
   } = useAudioRecorder();
   
+  // Engine emits levels 1..10. The phraseBank selector now centrally maps
+  // engine level → content tier (5 motor-graded tiers). Do NOT clamp to 5
+  // here — that silently throws away the engine's L6-L10 signal and forces
+  // every "hard" user back into tier 5 content.
   const safeInitialDifficulty = useMemo(
-    () => Math.max(1, Math.min(initialDifficulty, 5)),
+    () => Math.max(1, Math.min(initialDifficulty, 10)),
     [initialDifficulty]
   );
 
-  // Capability-based difficulty bounds
+  // Capability-based difficulty bounds (full 1..10 engine range)
   const bounds = useMemo(() => {
-    const baseBounds = getCapabilityDifficultyBounds(CANONICAL_SLUGS.PHRASE_PRACTICE, null);
-    return {
-      ...baseBounds,
-      suggestedStart: Math.max(1, Math.min(baseBounds.suggestedStart, 5)),
-      ceiling: Math.min(baseBounds.ceiling, 5),
-    };
+    return getCapabilityDifficultyBounds(CANONICAL_SLUGS.PHRASE_PRACTICE, null);
   }, []);
 
   // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)

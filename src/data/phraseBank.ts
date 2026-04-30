@@ -230,6 +230,57 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['bye', 'later'],
     semanticAlternatives: ["Bye", "See you"]
   },
+  {
+    id: 'yes',
+    phrase: "Yes",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 5,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['yes', 'yeah'],
+    semanticAlternatives: ["Yeah", "Yep"]
+  },
+  {
+    id: 'no',
+    phrase: "No",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 6,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['no', 'nope'],
+    semanticAlternatives: ["Nope"]
+  },
+  {
+    id: 'please',
+    phrase: "Please",
+    category: 'social',
+    difficulty: 1,
+    features: {
+      syllable_count: 1,
+      word_count: 1,
+      contains_pronouns: false,
+      motor_complexity: 'simple',
+      frequency_rank: 25,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['please'],
+    semanticAlternatives: ["Please?"]
+  },
 
   // LEVEL 2: Common requests (3-4 words, moderate frequency)
   {
@@ -780,6 +831,74 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['outside', 'go'],
     semanticAlternatives: ["Take me outside", "Fresh air please"]
   },
+  {
+    id: 'water_glass',
+    phrase: "Could I have a glass of water",
+    category: 'daily_needs',
+    difficulty: 4,
+    features: {
+      syllable_count: 8,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 480,
+      emotional_valence: 'neutral',
+      social_context: 'caregiver'
+    },
+    cueWords: ['water', 'glass'],
+    semanticAlternatives: ["Can I get some water", "I would like water"]
+  },
+  {
+    id: 'too_loud_here',
+    phrase: "It is too loud in here",
+    category: 'daily_needs',
+    difficulty: 4,
+    features: {
+      syllable_count: 7,
+      word_count: 6,
+      contains_pronouns: false,
+      motor_complexity: 'complex',
+      frequency_rank: 600,
+      emotional_valence: 'negative',
+      social_context: 'caregiver'
+    },
+    cueWords: ['loud', 'noisy'],
+    semanticAlternatives: ["It's too noisy", "Can we lower the volume"]
+  },
+  {
+    id: 'remind_pills',
+    phrase: "Please remind me to take my pills",
+    category: 'medical',
+    difficulty: 4,
+    features: {
+      syllable_count: 9,
+      word_count: 7,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 720,
+      emotional_valence: 'neutral',
+      social_context: 'medical'
+    },
+    cueWords: ['remind', 'pills'],
+    semanticAlternatives: ["Don't forget my medication", "Help me remember my meds"]
+  },
+  {
+    id: 'right_word_struggle',
+    phrase: "I am trying to find the right word",
+    category: 'social',
+    difficulty: 4,
+    features: {
+      syllable_count: 9,
+      word_count: 8,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 800,
+      emotional_valence: 'neutral',
+      social_context: 'social'
+    },
+    cueWords: ['trying', 'word'],
+    semanticAlternatives: ["I'm searching for the word", "Give me a moment for the word"]
+  },
 
   // LEVEL 5: Complex social/emotional phrases (harder motor planning, abstract concepts)
   {
@@ -935,42 +1054,153 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['proud', 'trying'],
     semanticAlternatives: ["I did well", "Good effort today"]
   },
+  {
+    id: 'explain_doctor_clearly',
+    phrase: "I want to explain things clearly to my doctor",
+    category: 'medical',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 920,
+      emotional_valence: 'neutral',
+      social_context: 'medical'
+    },
+    cueWords: ['explain', 'doctor'],
+    semanticAlternatives: ["I want the doctor to understand me", "I'd like to be clear with the doctor"]
+  },
+  {
+    id: 'frustrated_but_not_giving_up',
+    phrase: "I am frustrated but I am not giving up",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 11,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 890,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['frustrated', 'giving up'],
+    semanticAlternatives: ["This is hard but I will keep going", "I'm frustrated but still trying"]
+  },
+  {
+    id: 'remember_when_we_used',
+    phrase: "I remember when we used to do this together",
+    category: 'social',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 950,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['remember', 'together'],
+    semanticAlternatives: ["I miss our routine", "This used to be our thing"]
+  },
+  {
+    id: 'celebrate_small_progress',
+    phrase: "It feels good to celebrate the small wins",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 11,
+      word_count: 8,
+      contains_pronouns: false,
+      motor_complexity: 'complex',
+      frequency_rank: 900,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['celebrate', 'wins'],
+    semanticAlternatives: ["The small victories matter", "Every bit of progress counts"]
+  },
+  {
+    id: 'keep_going_one_step',
+    phrase: "I am going to take this one step at a time",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 11,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 880,
+      emotional_valence: 'positive',
+      social_context: 'self_care'
+    },
+    cueWords: ['step', 'time'],
+    semanticAlternatives: ["I'll take it slow", "One step at a time"]
+  },
 ];
 
-// Get phrases for a specific difficulty level
+/**
+ * Map an engine difficulty (1..10) to the PhrasePractice content tier (1..5).
+ *
+ * The phrase bank is organized in 5 motor-/length-graded tiers. The engine emits
+ * 1..10, so we collapse pairs of engine levels onto each tier. This is the SAME
+ * contract used by FixSentence/DescribeGuess: callers pass an engine level, the
+ * selector centralizes the tier mapping. NEVER use a ±1 cumulative band — that
+ * causes silent tier blending and breaks perceptual progression.
+ */
+export function mapEngineLevelToPhraseTier(engineLevel: number): 1 | 2 | 3 | 4 | 5 {
+  if (!Number.isFinite(engineLevel)) return 1;
+  const lvl = Math.max(1, Math.min(10, Math.round(engineLevel)));
+  if (lvl <= 2) return 1;       // engine 1-2  → tier 1 (warm-up: 1-3 word automatic phrases)
+  if (lvl <= 4) return 2;       // engine 3-4  → tier 2 (short functional phrases)
+  if (lvl <= 6) return 3;       // engine 5-6  → tier 3 (4-word commands/questions)
+  if (lvl <= 8) return 4;       // engine 7-8  → tier 4 (5-7 word complex phrases)
+  return 5;                     // engine 9-10 → tier 5 (multi-clause, expressive)
+}
+
+// Get phrases for a specific TIER (1..5). Pure helper for tests/dev tools.
 export function getPhrasesForLevel(level: number, count: number = 10): PhraseTrial[] {
-  const levelPhrases = PHRASE_BANK.filter(p => p.difficulty === level);
-  
-  // Shuffle and return requested count
+  const tier = Math.max(1, Math.min(5, Math.round(level)));
+  const levelPhrases = PHRASE_BANK.filter(p => p.difficulty === tier);
   const shuffled = [...levelPhrases].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-// Get mixed phrases across difficulty range
-export function getTrialsForLevel(difficultyLevel: number, totalTrials: number): PhraseTrial[] {
-  const requestedTrials = Math.max(0, totalTrials);
-  if (requestedTrials === 0 || PHRASE_BANK.length === 0) return [];
+/**
+ * Selector used by PhrasePracticeGame.
+ *
+ * Accepts an ENGINE level (1..10) and returns trials drawn EXCLUSIVELY from the
+ * mapped tier. No cumulative ±1 band, no tier blending. If the tier pool is
+ * smaller than the requested count we cycle within the tier (never fall back
+ * to other tiers) so perceptual difficulty is preserved.
+ */
+export function getTrialsForLevel(engineLevel: number, totalTrials: number): PhraseTrial[] {
+  const requested = Math.max(0, totalTrials);
+  if (requested === 0 || PHRASE_BANK.length === 0) return [];
 
-  // Phrase bank currently supports levels 1-5 only.
-  const safeDifficulty = Math.max(1, Math.min(5, difficultyLevel));
+  const tier = mapEngineLevelToPhraseTier(engineLevel);
+  const pool = PHRASE_BANK.filter(p => p.difficulty === tier);
 
-  // For level N, include phrases from level N-1, N, and N+1 (if they exist)
-  const minDiff = Math.max(1, safeDifficulty - 1);
-  const maxDiff = Math.min(5, safeDifficulty + 1);
+  // Defensive: if a tier is empty (shouldn't happen — guarded by tests),
+  // fall back to the nearest populated tier rather than the whole bank.
+  let sourcePool = pool;
+  if (sourcePool.length === 0) {
+    for (let delta = 1; delta <= 4 && sourcePool.length === 0; delta++) {
+      sourcePool = PHRASE_BANK.filter(
+        p => p.difficulty === tier - delta || p.difficulty === tier + delta,
+      );
+    }
+    if (sourcePool.length === 0) sourcePool = PHRASE_BANK;
+  }
 
-  const availablePhrases = PHRASE_BANK.filter(
-    p => p.difficulty >= minDiff && p.difficulty <= maxDiff
-  );
-
-  const sourcePool = availablePhrases.length > 0 ? availablePhrases : PHRASE_BANK;
   const selected: PhraseTrial[] = [];
-
-  while (selected.length < requestedTrials) {
+  while (selected.length < requested) {
     const shuffled = [...sourcePool].sort(() => Math.random() - 0.5);
     selected.push(...shuffled);
   }
-
-  return selected.slice(0, requestedTrials);
+  return selected.slice(0, requested);
 }
 
 // Generate semantic alternatives (no multiple choice for phrases, but useful for partial credit)
