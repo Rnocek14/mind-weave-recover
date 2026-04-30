@@ -23,6 +23,7 @@ import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
+import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
