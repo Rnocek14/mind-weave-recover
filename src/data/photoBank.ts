@@ -3230,45 +3230,36 @@ export const getTrialsForLevel = (
   let filtered = PHOTO_BANK.filter(trial => {
     // Session-level deduplication: skip already-shown targets
     if (excludeSet.has(trial.target)) return false;
-    
-    // Primary filter: difficulty match (±1 tolerance)
-    if (Math.abs(trial.computed_difficulty - linguisticDifficulty) > 1) return false;
-    
+
+    // STRICT tier match — Phase 1.5 honesty contract (no ±1 blending).
+    if (computePhotoTier(trial) !== targetTier) return false;
+
     // Optional filters
-    if (filterOptions?.categories && 
+    if (filterOptions?.categories &&
         !filterOptions.categories.includes(trial.features.semantic_category)) {
       return false;
     }
-    
-    if (filterOptions?.excludeAtypical && 
+
+    if (filterOptions?.excludeAtypical &&
         trial.features.typicality_rating > 5) {
       return false;
     }
-    
-    if (filterOptions?.requirePhonologicalFoils && 
+
+    if (filterOptions?.requirePhonologicalFoils &&
         !trial.phonologicalFoils?.length) {
       return false;
     }
-    
+
     return true;
   });
-  
-  // If no matches, expand tolerance (but still respect excludeTargets)
-  if (filtered.length === 0) {
-    filtered = PHOTO_BANK.filter(trial => 
-      !excludeSet.has(trial.target) &&
-      Math.abs(trial.computed_difficulty - linguisticDifficulty) <= 2
-    );
-  }
-  
-  // If STILL no matches (all targets exhausted), allow repeats as last resort
+
+  // If pool exhausted by exclusions only (still respect tier), allow repeats
+  // within the SAME tier — never blend across tiers.
   if (filtered.length === 0 && excludeSet.size > 0) {
-    console.warn('⚠️ Photo pool exhausted, allowing repeats');
-    filtered = PHOTO_BANK.filter(trial => 
-      Math.abs(trial.computed_difficulty - linguisticDifficulty) <= 2
-    );
+    console.warn(`⚠️ Photo pool exhausted at tier ${targetTier}, allowing repeats within tier`);
+    filtered = PHOTO_BANK.filter(trial => computePhotoTier(trial) === targetTier);
   }
-  
+
   // Pre-compute random values for stable sorting (avoid Math.random() in comparator)
   // Use lowercase keys for consistent lookup regardless of target casing
   const randomValues = new Map(filtered.map(t => [t.target.toLowerCase(), Math.random()]));
