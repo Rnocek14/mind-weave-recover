@@ -641,8 +641,28 @@ export function getMinimalPairTrials(): MinimalPairTrial[] {
   return validPairs;
 }
 
+// ─── Phase 1.5 Adaptive Standard ───────────────────────────────────────────
+// Strict 3-tier mapping for phonological discrimination.
+// Engine level (1-10) → tier (1|2|3). No ±tolerance, no blending.
+// Aligned to the canonical Phase 1.5 split (≤3 / 4-7 / ≥8) shared by
+// PhotoNaming, MultiStepPlanning, and DetectiveMind.
+
+export type MinimalPairsTier = 1 | 2 | 3;
+
+export const mapEngineLevelToMinimalPairsTier = (level: number): MinimalPairsTier => {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+};
+
 /**
- * Get minimal pair trials filtered by difficulty
+ * Get minimal pair trials for the engine level (Phase 1.5 contract).
+ * STRICT tier isolation — no blending across difficulties.
+ *
+ * The legacy ±1 tolerance and "if not enough, use all" fallback are removed:
+ *   • If the strict-tier pool has fewer items than `count`, we allow repeats
+ *     within the same tier rather than leaking other tiers in.
+ *   • Phoneme-focus prioritization is preserved but never crosses tiers.
  */
 export function getMinimalPairTrialsForLevel(
   level: number,
@@ -650,44 +670,44 @@ export function getMinimalPairTrialsForLevel(
   options?: { focusPhonemes?: string[] }
 ): MinimalPairTrial[] {
   const allTrials = getMinimalPairTrials();
-  
-  // Map game level (1-10) to pair difficulty (1-3)
-  const targetDifficulty = Math.min(3, Math.ceil(level / 3));
-  
-  // Filter by difficulty with tolerance
-  let filtered = allTrials.filter(
-    t => Math.abs(t.pair.difficulty - targetDifficulty) <= 1
-  );
-  
-  // If not enough, use all
-  if (filtered.length < count) {
-    filtered = allTrials;
+  const targetTier = mapEngineLevelToMinimalPairsTier(level);
+
+  // STRICT tier match — Phase 1.5 honesty contract.
+  let filtered = allTrials.filter(t => t.pair.difficulty === targetTier);
+
+  if (filtered.length === 0) {
+    // True empty (no photo-backed pairs at this tier) — degrade to next-easier
+    // tier rather than silently leaking everything. This is a content gap, not
+    // a runtime fallback to mask it.
+    console.warn(`⚠️ MinimalPairs: no photo-backed pairs at tier ${targetTier}`);
+    return [];
   }
-  
-  // Prioritize pairs that contain focus phonemes (from speech profile)
+
+  // Phoneme-focus prioritization (within tier only).
   const focusPhonemes = options?.focusPhonemes;
   if (focusPhonemes && focusPhonemes.length > 0) {
     const focusSet = new Set(focusPhonemes.map(p => p.toLowerCase().replace(/\//g, '')));
-    
     const matchesFocus = (trial: MinimalPairTrial) => {
       const p1 = trial.pair.phoneme1.toLowerCase().replace(/\//g, '');
       const p2 = trial.pair.phoneme2.toLowerCase().replace(/\//g, '');
       return focusSet.has(p1) || focusSet.has(p2);
     };
-    
-    const prioritized = filtered.filter(matchesFocus);
-    const others = filtered.filter(t => !matchesFocus(t));
-    
-    // Front-load focus-phoneme pairs, then fill with others
-    const shuffledPrioritized = [...prioritized].sort(() => Math.random() - 0.5);
-    const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
-    return [...shuffledPrioritized, ...shuffledOthers].slice(0, count);
+    const prioritized = filtered.filter(matchesFocus).sort(() => Math.random() - 0.5);
+    const others = filtered.filter(t => !matchesFocus(t)).sort(() => Math.random() - 0.5);
+    const merged = [...prioritized, ...others];
+    // Allow within-tier repeats if pool is smaller than requested count.
+    if (merged.length >= count) return merged.slice(0, count);
+    const out: MinimalPairTrial[] = [];
+    while (out.length < count) out.push(merged[out.length % merged.length]);
+    return out;
   }
-  
-  // Shuffle and return
-  return [...filtered]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, count);
+
+  const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+  if (shuffled.length >= count) return shuffled.slice(0, count);
+  // Within-tier repeats only — never blend tiers.
+  const out: MinimalPairTrial[] = [];
+  while (out.length < count) out.push(shuffled[out.length % shuffled.length]);
+  return out;
 }
 
 /**
