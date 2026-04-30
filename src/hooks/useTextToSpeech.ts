@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MAYA_VOICE_ID } from '@/lib/constants/voice';
+import { MAYA_VOICE_ID, type MayaTtsMode } from '@/lib/constants/voice';
 
 // Use environment variables for Supabase config
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -10,6 +10,15 @@ interface TTSOptions {
   voiceId?: string;
   autoPlay?: boolean;
   useStreaming?: boolean;
+  /**
+   * 'fast' (default) — eleven_turbo_v2_5, ~300ms TTFB, used for live conversation.
+   * 'natural' — eleven_multilingual_v2, richer prosody for intros, summaries,
+   *             instructions and any non-time-critical speech.
+   */
+  mode?: MayaTtsMode;
+  /** Optional stitching context for multi-segment narration. */
+  previousText?: string;
+  nextText?: string;
 }
 
 let globalAudio: HTMLAudioElement | null = null;
@@ -210,7 +219,12 @@ export const useTextToSpeech = () => {
     text: string,
     options: TTSOptions = {}
   ): Promise<void> => {
-    const { voiceId = MAYA_VOICE_ID } = options;
+    const {
+      voiceId = MAYA_VOICE_ID,
+      mode = 'fast',
+      previousText,
+      nextText,
+    } = options;
 
     setIsLoading(true);
     setIsSpeaking(false);
@@ -233,7 +247,7 @@ export const useTextToSpeech = () => {
             'Authorization': `Bearer ${session?.access_token}`,
             'apikey': ANON_KEY,
           },
-          body: JSON.stringify({ text, voiceId }),
+          body: JSON.stringify({ text, voiceId, mode, previousText, nextText }),
           signal: abortControllerRef.current.signal,
         }
       );
