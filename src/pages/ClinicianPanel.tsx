@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   Stethoscope, Users, AlertTriangle, Clock, X, RefreshCw,
-  Brain, ExternalLink
+  Brain, ExternalLink, ClipboardList
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
@@ -141,6 +141,15 @@ export default function ClinicianPanel() {
           <Badge variant="secondary" className="text-xs">{patients.length} patients</Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/clinician/trial")}
+            className="h-7 gap-1.5 text-xs"
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            Trial
+          </Button>
           <span>
             {lastUpdatedAt
               ? lastUpdatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })

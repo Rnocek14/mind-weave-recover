@@ -73,6 +73,8 @@ import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
 import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
+import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
+import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
@@ -176,6 +178,8 @@ const App = () => (
                   <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
                   <Route path="/clinician/report" element={<Navigate to="/clinician/review" replace />} />
                   <Route path="/clinician/telemetry" element={<AppLayout><AdminProtectedRoute><ClinicianTelemetry /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/clinician/trial" element={<AppLayout><ClinicianProtectedRoute><ClinicianTrialDashboard /></ClinicianProtectedRoute></AppLayout>} />
+                  <Route path="/clinician/trial/enroll/:profileId" element={<AppLayout><ClinicianProtectedRoute><ClinicianTrialEnroll /></ClinicianProtectedRoute></AppLayout>} />
                   
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
