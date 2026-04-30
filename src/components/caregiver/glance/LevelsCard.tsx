@@ -99,10 +99,27 @@ export function LevelsCard({ userId }: LevelsCardProps) {
     };
   }, [userId]);
 
+  // Caregivers think in "are they improving?", not "level number".
+  // Lead with the human verb, keep the level as quiet supporting detail.
   const dirStyle = {
-    up: { Icon: ArrowUp, color: "text-emerald-600 bg-emerald-500/10", label: "moving up" },
-    down: { Icon: ArrowDown, color: "text-amber-600 bg-amber-500/10", label: "stepped back" },
-    flat: { Icon: ArrowRight, color: "text-muted-foreground bg-muted", label: "holding" },
+    up: {
+      Icon: ArrowUp,
+      color: "text-emerald-600 bg-emerald-500/10",
+      verb: "Improving",
+      verbColor: "text-emerald-700",
+    },
+    down: {
+      Icon: ArrowDown,
+      color: "text-amber-600 bg-amber-500/10",
+      verb: "Easing back",
+      verbColor: "text-amber-700",
+    },
+    flat: {
+      Icon: ArrowRight,
+      color: "text-muted-foreground bg-muted",
+      verb: "Holding steady",
+      verbColor: "text-muted-foreground",
+    },
   };
 
   return (
@@ -132,17 +149,14 @@ export function LevelsCard({ userId }: LevelsCardProps) {
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-foreground truncate">{pretty(r.slug)}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {r.trials} trial{r.trials === 1 ? "" : "s"} this week
+                  <div className={`text-[11px] font-medium ${ds.verbColor}`}>
+                    {ds.verb} <span className="text-muted-foreground font-normal">· Level {r.level}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="text-right">
-                    <div className="text-base font-bold text-foreground leading-tight">L{r.level}</div>
-                  </div>
+                <div className="flex items-center shrink-0">
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center ${ds.color}`}
-                    title={ds.label}
+                    title={ds.verb}
                   >
                     <ds.Icon className="w-3.5 h-3.5" />
                   </div>
