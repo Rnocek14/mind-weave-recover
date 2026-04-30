@@ -195,7 +195,7 @@ const App = () => (
                   <Route path="/progress" element={<Progress />} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
-                  <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
+                  <Route path="/smart-coach-lab" element={<AdminProtectedRoute><SmartCoachLab /></AdminProtectedRoute>} />
                   <Route path="/smart-coach" element={<Navigate to="/today" replace />} />
                   
                   {/* Redirect old routes to canonical routes */}
