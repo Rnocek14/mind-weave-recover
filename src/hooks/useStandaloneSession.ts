@@ -119,19 +119,19 @@ export const useStandaloneSession = (
     if (existingMutex) {
       if (existingMutex.exerciseSlug !== exerciseSlug) {
         clearStandaloneSessionMutex();
-      } else
-      if (existingMutex.sessionId) {
+      } else if (existingMutex.sessionId) {
         console.log('[useStandaloneSession] reusing session from mutex:', existingMutex.sessionId);
         setLocalSessionId(existingMutex.sessionId);
         return;
+      } else {
+        // Acquisition in flight elsewhere — wait, then check again
+        console.log('[useStandaloneSession] mutex held by concurrent acquisition, waiting…');
+        const waitId = setTimeout(() => {
+          const refreshed = readMutex();
+          if (refreshed?.sessionId && !localSessionId) setLocalSessionId(refreshed.sessionId);
+        }, 250);
+        return () => clearTimeout(waitId);
       }
-      // Acquisition in flight elsewhere — wait, then check again
-      console.log('[useStandaloneSession] mutex held by concurrent acquisition, waiting…');
-      const waitId = setTimeout(() => {
-        const refreshed = readMutex();
-        if (refreshed?.sessionId && !localSessionId) setLocalSessionId(refreshed.sessionId);
-      }, 250);
-      return () => clearTimeout(waitId);
     }
 
     // Acquire mutex BEFORE async work
