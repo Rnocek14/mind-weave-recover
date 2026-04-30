@@ -73,18 +73,27 @@ export const useStandaloneSession = (
 
   const { disabled = false, mode = 'standalone' } = options;
 
-  // Defensive: detect an in-flight lesson/coach session via sessionStorage.
+  // Defensive: detect an in-flight lesson/coach session for THIS exercise only.
+  // Stale state from a different exercise must not block standalone launch.
   const hasOwnedSessionContext = (): boolean => {
     try {
       const lessonRaw = sessionStorage.getItem('lessonFlowState');
       if (lessonRaw) {
         const parsed = JSON.parse(lessonRaw);
-        if (parsed?.sessionId) return true;
+        const savedIndex = typeof parsed?.currentBlockIndex === 'number' ? parsed.currentBlockIndex : -1;
+        const savedExercise = parsed?.lesson?.blocks?.[savedIndex]?.exerciseId;
+        if (parsed?.sessionId && savedExercise && normalizeExerciseSlug(savedExercise) === exerciseSlug) return true;
       }
       const coachRaw = sessionStorage.getItem('smartCoachState');
       if (coachRaw) {
         const parsed = JSON.parse(coachRaw);
-        if (parsed?.sessionId) return true;
+        const slot = parsed?.returningFromGame;
+        const savedExercise = slot === 1
+          ? parsed?.plan?.game1?.exerciseSlug
+          : slot === 2
+            ? parsed?.plan?.game2?.exerciseSlug
+            : null;
+        if (parsed?.sessionId && savedExercise && normalizeExerciseSlug(savedExercise) === exerciseSlug) return true;
       }
     } catch { /* ignore */ }
     return false;
@@ -101,13 +110,16 @@ export const useStandaloneSession = (
       return;
     }
     if (hasOwnedSessionContext()) {
-      console.log('[useStandaloneSession] skipped: lessonFlowState/smartCoachState present in sessionStorage', { exerciseSlug });
+      console.log('[useStandaloneSession] skipped: active lesson/coach context owns this exercise', { exerciseSlug });
       return;
     }
 
     // sessionStorage mutex — survives React 18 double-effect AND remounts
     const existingMutex = readMutex();
     if (existingMutex) {
+      if (existingMutex.exerciseSlug !== exerciseSlug) {
+        clearStandaloneSessionMutex();
+      } else
       if (existingMutex.sessionId) {
         console.log('[useStandaloneSession] reusing session from mutex:', existingMutex.sessionId);
         setLocalSessionId(existingMutex.sessionId);
