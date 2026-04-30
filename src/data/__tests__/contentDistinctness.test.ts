@@ -529,3 +529,99 @@ describe('Content distinctness — MultiStepPlanning', () => {
     expect(s(3).length).toBeGreaterThan(0);
   });
 });
+
+// ───────────────────────── DetectiveMind (Phase 1.5) ─────────────────────────
+import {
+  DETECTIVE_CASES,
+  mapEngineLevelToDetectiveTier,
+  getDetectiveCasesForLevel,
+  computeDetectiveDifficulty,
+} from '@/data/detectiveMindCases';
+
+describe('Content distinctness — DetectiveMind', () => {
+  it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
+    const map = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToDetectiveTier);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind engine→tier: ${map.join(' ')}`);
+    expect(map[0]).toBe(1);
+    expect(map[4]).toBe(2);
+    expect(map[9]).toBe(3);
+    for (let i = 1; i < map.length; i++) expect(map[i]).toBeGreaterThanOrEqual(map[i-1]);
+  });
+
+  it('engine L1 returns ONLY tier-1 cases', () => {
+    const cases = getDetectiveCasesForLevel(1, 50);
+    expect(cases.every(c => c.tier === 1)).toBe(true);
+  });
+
+  it('engine L5 returns ONLY tier-2 cases', () => {
+    const cases = getDetectiveCasesForLevel(5, 50);
+    expect(cases.every(c => c.tier === 2)).toBe(true);
+  });
+
+  it('engine L10 returns ONLY tier-3 cases', () => {
+    const cases = getDetectiveCasesForLevel(10, 50);
+    expect(cases.every(c => c.tier === 3)).toBe(true);
+  });
+
+  it('L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(getDetectiveCasesForLevel(1, 100).map(c => c.id));
+    const B = new Set(getDetectiveCasesForLevel(5, 100).map(c => c.id));
+    const C = new Set(getDetectiveCasesForLevel(10, 100).map(c => c.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind pool sizes L1=${A.size} L5=${B.size} L10=${C.size}`);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥6 unique cases', () => {
+    const sizes = { T1: 0, T2: 0, T3: 0 } as Record<string, number>;
+    for (const c of DETECTIVE_CASES) sizes[`T${c.tier}`]++;
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind tier sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(6);
+    expect(sizes.T2).toBeGreaterThanOrEqual(6);
+    expect(sizes.T3).toBeGreaterThanOrEqual(6);
+  });
+
+  it('perceptual curve: T1 → T2 → T3 monotonic in story_length, options, inference_depth', () => {
+    const mean = (xs: number[]) => xs.reduce((a,b)=>a+b,0) / Math.max(1,xs.length);
+    const byTier = (t: number) => DETECTIVE_CASES.filter(c => c.tier === t).map(computeDetectiveDifficulty);
+    const t1 = byTier(1), t2 = byTier(2), t3 = byTier(3);
+    const sl = [mean(t1.map(x=>x.story_length)), mean(t2.map(x=>x.story_length)), mean(t3.map(x=>x.story_length))];
+    const oc = [mean(t1.map(x=>x.options_count)), mean(t2.map(x=>x.options_count)), mean(t3.map(x=>x.options_count))];
+    const id = [mean(t1.map(x=>x.inference_depth)), mean(t2.map(x=>x.inference_depth)), mean(t3.map(x=>x.inference_depth))];
+    const co = [mean(t1.map(x=>x.composite)), mean(t2.map(x=>x.composite)), mean(t3.map(x=>x.composite))];
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind story_length T1→T2→T3:    ${sl.map(n=>n.toFixed(1)).join(' → ')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind options_count T1→T2→T3:   ${oc.map(n=>n.toFixed(1)).join(' → ')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind inference_depth T1→T2→T3: ${id.map(n=>n.toFixed(2)).join(' → ')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind composite T1→T2→T3:       ${co.map(n=>n.toFixed(2)).join(' → ')}`);
+    expect(sl[1]).toBeGreaterThan(sl[0]);
+    expect(sl[2]).toBeGreaterThan(sl[1]);
+    expect(id[1]).toBeGreaterThan(id[0]);
+    expect(id[2]).toBeGreaterThan(id[1]);
+    expect(co[1]).toBeGreaterThan(co[0]);
+    expect(co[2]).toBeGreaterThan(co[1]);
+  });
+
+  it('perceptual preview: question types shift literal → inference → prediction/figurative', () => {
+    const types = (t: number) => DETECTIVE_CASES.filter(c => c.tier === t).map(c => c.questionType);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind L1 question types:  ${JSON.stringify(types(1))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind L5 question types:  ${JSON.stringify(types(2))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  DetectiveMind L10 question types: ${JSON.stringify(types(3))}`);
+    // T1 must contain literal; T3 must NOT contain literal
+    expect(types(1).some(t => t === 'literal')).toBe(true);
+    expect(types(3).every(t => t !== 'literal')).toBe(true);
+  });
+});
