@@ -73,10 +73,10 @@ export default function ClinicianTrialEnroll() {
       }
       setStudyName(study.name);
       const inc = Array.isArray(study.inclusion_criteria) && study.inclusion_criteria.length > 0
-        ? (study.inclusion_criteria as EligibilityCriterion[])
+        ? (study.inclusion_criteria as unknown as EligibilityCriterion[])
         : DEFAULT_INCLUSION_CRITERIA;
       const exc = Array.isArray(study.exclusion_criteria) && study.exclusion_criteria.length > 0
-        ? (study.exclusion_criteria as EligibilityCriterion[])
+        ? (study.exclusion_criteria as unknown as EligibilityCriterion[])
         : DEFAULT_EXCLUSION_CRITERIA;
       setInclusion(inc);
       setExclusion(exc);
