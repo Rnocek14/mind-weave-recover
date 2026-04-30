@@ -11,7 +11,7 @@
 
 import type { ThoughtPrompt, IntentType, PromptTheme, TimeAnchor } from '@/types/thoughtContinuation';
 import type { StuckType } from './stuckTypeClassifier';
-import { THOUGHT_PROMPTS } from '@/data/thoughtPromptBank';
+import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
 
 export interface SessionHistory {
   stuckTypes: StuckType[];
