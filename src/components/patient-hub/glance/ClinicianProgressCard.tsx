@@ -101,28 +101,23 @@ export function ClinicianProgressCard({ userId, accuracySlope, recentTrials, pri
 
   return (
     <Card className="p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div>
+      <div className="flex items-start justify-between mb-3 gap-3">
+        <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
             Trajectory
           </div>
-          <div className="flex items-baseline gap-2">
-            <div className="text-2xl font-bold text-foreground leading-tight">
-              {hasData ? `${thisWeekAvg}%` : "—"}
-            </div>
-            <span className="text-xs text-muted-foreground">7-day accuracy</span>
+          <div className={`text-2xl font-bold leading-tight ${ts.color}`}>
+            {ts.label}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {accuracySlope !== null
+              ? `${accuracySlope > 0 ? "+" : ""}${Math.round(accuracySlope)}%/wk`
+              : "slope unavailable"}
+            {hasData && <span> · {thisWeekAvg}% this week</span>}
           </div>
         </div>
-        <div className={`flex items-center gap-1 ${ts.color}`}>
+        <div className={`flex items-center justify-center w-9 h-9 rounded-full bg-muted/40 ${ts.color} shrink-0`}>
           <ts.Icon className="w-4 h-4" />
-          <span className="text-sm font-semibold">
-            {ts.label}
-            {accuracySlope !== null && (
-              <span className="ml-1 font-normal">
-                ({accuracySlope > 0 ? "+" : ""}{Math.round(accuracySlope)}%/wk)
-              </span>
-            )}
-          </span>
         </div>
       </div>
       {loading ? (

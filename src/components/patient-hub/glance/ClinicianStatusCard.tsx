@@ -32,7 +32,7 @@ export function ClinicianStatusCard({
   activeDays,
   lastActiveDate,
 }: ClinicianStatusCardProps) {
-  const { tier, headline, reasons } = useMemo(() => {
+  const { tier, headline, reasons, suggestion } = useMemo(() => {
     const reasons: string[] = [];
     let tier: Tier = "stable";
 
@@ -60,7 +60,27 @@ export function ClinicianStatusCard({
         ? "Monitor closely"
         : "Stable";
 
-    return { tier, headline, reasons };
+    // Lightweight clinician assist — what to do next
+    let suggestion: string;
+    if (tier === "attention") {
+      if (accuracySlope !== null && accuracySlope <= -10) {
+        suggestion = "Next: reduce difficulty one level and add cues; review struggle clip below.";
+      } else {
+        suggestion = "Next: review red flags before next session and consider scaling back challenge.";
+      }
+    } else if (tier === "watch") {
+      if (activeDays < 2) {
+        suggestion = "Next: outreach to caregiver — practice volume below dose target.";
+      } else if (accuracySlope !== null && accuracySlope <= -5) {
+        suggestion = "Next: hold current level, increase cueing, monitor cue dependency.";
+      } else {
+        suggestion = "Next: continue current plan, recheck after 2–3 sessions.";
+      }
+    } else {
+      suggestion = "Next: continue current plan; consider stretching one exercise up a level.";
+    }
+
+    return { tier, headline, reasons, suggestion };
   }, [redFlagCount, orangeFlagCount, unacknowledgedAlerts, accuracySlope, activeDays]);
 
   const styles = {
@@ -102,6 +122,10 @@ export function ClinicianStatusCard({
               No flags. Slope and engagement within target.
             </div>
           )}
+          <div className="mt-2 text-[12px] text-foreground/80 leading-snug">
+            <span className="font-semibold text-foreground">Suggested: </span>
+            {suggestion.replace(/^Next:\s*/, "")}
+          </div>
         </div>
       </div>
     </Card>
