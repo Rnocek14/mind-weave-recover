@@ -105,6 +105,7 @@ export function ExerciseModalHost({
             difficulty={config.difficultyTier ?? 1}
             totalTrials={config.totalTrials ?? 5}
             focusPhonemes={config.targetPhonemes}
+            sessionId={sessionId}
             onComplete={(results) => {
               handleGameComplete('minimal-pairs', results);
             }}

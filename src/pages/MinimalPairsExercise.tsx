@@ -19,7 +19,6 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -53,18 +52,7 @@ export default function MinimalPairsExercise() {
     cueSensitive: false,
   });
 
-  // Per-trial dynamic tier — adapts based on rolling success rate.
-  const dynamicTier = useDynamicTier({
-    exerciseSlug: 'minimal-pairs',
-    sessionId,
-    userId: user?.id,
-    profileId: activeProfile?.id,
-    initialTier: adaptation.difficultyTier,
-    minTier: 1,
-    maxTier: 3,
-    targetSuccessRate: 0.80, // listening is high-success domain
-  });
-  const difficulty = dynamicTier.currentTier;
+  const difficulty = adaptation.difficultyTier;
   
   // Get stats about available pairs
   const stats = getMinimalPairStats();
@@ -130,12 +118,6 @@ export default function MinimalPairsExercise() {
   }) => {
     startTrial();
 
-    // Drive adaptive tier based on per-trial outcome
-    dynamicTier.recordTrial({
-      correct: trialData.isCorrect,
-      errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
-    });
-
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -146,7 +128,6 @@ export default function MinimalPairsExercise() {
         pair: trialData.pair,
         ...adaptationTelemetry,
       },
-      adaptationsActive: dynamicTier.getAdaptationsActive(),
     });
   };
   
@@ -253,6 +234,7 @@ export default function MinimalPairsExercise() {
         <div className="max-w-2xl mx-auto">
           <MinimalPairsGame
             difficulty={difficulty}
+            sessionId={sessionId}
             totalTrials={Math.min(stats.total, 10)}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
             onComplete={handleComplete}

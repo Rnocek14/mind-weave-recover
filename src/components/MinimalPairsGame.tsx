@@ -29,6 +29,7 @@ interface MinimalPairsGameProps {
   difficulty?: number;
   totalTrials?: number;
   focusPhonemes?: string[];
+  sessionId?: string | null;
   onComplete?: (results: {
     score: number;
     correctCount: number;
@@ -47,6 +48,7 @@ export function MinimalPairsGame({
   difficulty = 1,
   totalTrials = 10,
   focusPhonemes,
+  sessionId = null,
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
@@ -67,11 +69,11 @@ export function MinimalPairsGame({
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
   const lastTierRef = useRef(levelToBankTier(difficulty));
 
-  const engagement = useEngagementMonitor(null);
+  const engagement = useEngagementMonitor(sessionId);
 
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'minimal-pairs',
-    sessionId: null,
+    sessionId,
     initialDifficulty: difficulty,
     bounds,
     enableDifficultyToasts: false,
