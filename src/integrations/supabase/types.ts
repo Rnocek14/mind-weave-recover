@@ -1176,6 +1176,7 @@ export type Database = {
           audio_storage_path: string | null
           browser_transcript: string | null
           classification_confidence: number | null
+          counts_toward_score: boolean
           created_at: string | null
           cue_level: number | null
           cue_trigger: string | null
@@ -1199,6 +1200,10 @@ export type Database = {
           task_parameters: Json | null
           time_to_success_after_cue_ms: number | null
           trial_index: number | null
+          validity_confidence: number | null
+          validity_label: string | null
+          validity_reason: string | null
+          validity_signals: Json | null
           whisper_confidence: number | null
           whisper_transcript: string | null
         }
@@ -1211,6 +1216,7 @@ export type Database = {
           audio_storage_path?: string | null
           browser_transcript?: string | null
           classification_confidence?: number | null
+          counts_toward_score?: boolean
           created_at?: string | null
           cue_level?: number | null
           cue_trigger?: string | null
@@ -1234,6 +1240,10 @@ export type Database = {
           task_parameters?: Json | null
           time_to_success_after_cue_ms?: number | null
           trial_index?: number | null
+          validity_confidence?: number | null
+          validity_label?: string | null
+          validity_reason?: string | null
+          validity_signals?: Json | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
@@ -1246,6 +1256,7 @@ export type Database = {
           audio_storage_path?: string | null
           browser_transcript?: string | null
           classification_confidence?: number | null
+          counts_toward_score?: boolean
           created_at?: string | null
           cue_level?: number | null
           cue_trigger?: string | null
@@ -1269,6 +1280,10 @@ export type Database = {
           task_parameters?: Json | null
           time_to_success_after_cue_ms?: number | null
           trial_index?: number | null
+          validity_confidence?: number | null
+          validity_label?: string | null
+          validity_reason?: string | null
+          validity_signals?: Json | null
           whisper_confidence?: number | null
           whisper_transcript?: string | null
         }
@@ -2741,6 +2756,7 @@ export type Database = {
           category: string | null
           classification_confidence: number | null
           coherence_score: number | null
+          counts_toward_score: boolean
           created_at: string | null
           cue_trigger: string | null
           cue_type_given: string | null
@@ -2793,6 +2809,10 @@ export type Database = {
           updated_at: string | null
           user_id: string
           utterance_complete: boolean | null
+          validity_confidence: number | null
+          validity_label: string | null
+          validity_reason: string | null
+          validity_signals: Json | null
         }
         Insert: {
           alignment_data?: Json | null
@@ -2809,6 +2829,7 @@ export type Database = {
           category?: string | null
           classification_confidence?: number | null
           coherence_score?: number | null
+          counts_toward_score?: boolean
           created_at?: string | null
           cue_trigger?: string | null
           cue_type_given?: string | null
@@ -2861,6 +2882,10 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           utterance_complete?: boolean | null
+          validity_confidence?: number | null
+          validity_label?: string | null
+          validity_reason?: string | null
+          validity_signals?: Json | null
         }
         Update: {
           alignment_data?: Json | null
@@ -2877,6 +2902,7 @@ export type Database = {
           category?: string | null
           classification_confidence?: number | null
           coherence_score?: number | null
+          counts_toward_score?: boolean
           created_at?: string | null
           cue_trigger?: string | null
           cue_type_given?: string | null
@@ -2929,6 +2955,10 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           utterance_complete?: boolean | null
+          validity_confidence?: number | null
+          validity_label?: string | null
+          validity_reason?: string | null
+          validity_signals?: Json | null
         }
         Relationships: [
           {
@@ -3330,13 +3360,18 @@ export type Database = {
           accuracy: number
           avg_cue_level: number
           avg_rt_ms: number
+          background_noise_count: number
           cue_reduction: number
           end_difficulty: number
           error_breakdown: Json
+          filler_count: number
+          flagged_count: number
           median_rt_ms: number
+          no_response_count: number
           start_difficulty: number
           timeout_count: number
           total_trials: number
+          valid_trials: number
         }[]
       }
       has_role: {
