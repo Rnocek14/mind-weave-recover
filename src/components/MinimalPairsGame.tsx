@@ -60,8 +60,8 @@ export function MinimalPairsGame({
   const vg = useVoiceGuidance('minimal-pairs');
 
   // ============ Adaptive Difficulty Layer ============
-  // Map difficulty 1-10 → MinimalPairs internal 1-3 tier
-  const levelToBankTier = (lvl: number): number => (lvl <= 3 ? 1 : lvl <= 6 ? 2 : 3);
+  // Phase 1.5: single source of truth — canonical engine→tier mapper.
+  const levelToBankTier = mapEngineLevelToMinimalPairsTier;
   const bounds = useMemo(() => getCapabilityDifficultyBounds('minimal-pairs', null), []);
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
   const lastTierRef = useRef(levelToBankTier(difficulty));
