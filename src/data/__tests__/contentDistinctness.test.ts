@@ -12,8 +12,8 @@
  * To prove tier isolation, we probe at engine levels 1, 5, and 10.
  */
 import { describe, it, expect } from 'vitest';
-import { getFixSentenceTrials, FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
-import { getDescribeGuessTrials, DESCRIBE_GUESS_BANK } from '@/data/describeGuessBank';
+import { getFixSentenceTrials } from '@/data/fixSentenceBank';
+import { getDescribeGuessTrials } from '@/data/describeGuessBank';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
@@ -35,7 +35,7 @@ describe('Content distinctness — FixSentence', () => {
     summarize('engine L10 (→ tier 3)', getFixSentenceTrials({ difficulty: 10, count: 10 }));
   });
 
-  it('engine L1 (count=10) is exclusively tier 1 — no leak from higher tiers', () => {
+  it('engine L1 (count=10) is exclusively tier 1', () => {
     const small = getFixSentenceTrials({ difficulty: 1, count: 10 });
     expect(small.every(t => t.difficulty === 1)).toBe(true);
   });
@@ -50,7 +50,7 @@ describe('Content distinctness — FixSentence', () => {
     expect(small.every(t => t.difficulty === 3)).toBe(true);
   });
 
-  it('engine L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard ≈ 0)', () => {
+  it('engine L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
     const A = new Set(getFixSentenceTrials({ difficulty: 1, count: 10 }).map(t => t.id));
     const B = new Set(getFixSentenceTrials({ difficulty: 5, count: 10 }).map(t => t.id));
     const C = new Set(getFixSentenceTrials({ difficulty: 10, count: 10 }).map(t => t.id));
@@ -62,20 +62,18 @@ describe('Content distinctness — FixSentence', () => {
     expect(bc).toBe(0);
   });
 
-  it('engine L4 and L7 collapse to the same content tier (tier 2) — documented limitation pending L4–L10 content', () => {
+  it('engine L4 and L7 collapse to the same content tier 2 — documented limitation pending L4–L10 content', () => {
     const a = getFixSentenceTrials({ difficulty: 4, count: 10 });
     const b = getFixSentenceTrials({ difficulty: 7, count: 10 });
     expect(a.every(t => t.difficulty === 2)).toBe(true);
     expect(b.every(t => t.difficulty === 2)).toBe(true);
   });
 
-  it('mid-session re-pool returns DIFFERENT trials than the played set when tier changes', () => {
-    // Simulate: player did 5 tier-1 trials, then engine moved them to L8 (tier 3).
+  it('mid-session re-pool from L1 to L8 returns 100% new tier-3 trials', () => {
     const played = getFixSentenceTrials({ difficulty: 1, count: 5 });
     const next = getFixSentenceTrials({ difficulty: 8, count: 5 });
     const playedIds = new Set(played.map(t => t.id));
-    const overlap = next.filter(t => playedIds.has(t.id)).length;
-    expect(overlap).toBe(0);
+    expect(next.filter(t => playedIds.has(t.id)).length).toBe(0);
     expect(next.every(t => t.difficulty === 3)).toBe(true);
   });
 });
@@ -111,12 +109,11 @@ describe('Content distinctness — DescribeGuess', () => {
     expect(jaccard(B, C)).toBe(0);
   });
 
-  it('mid-session re-pool returns DIFFERENT trials when tier changes', () => {
+  it('mid-session re-pool from L1 to L9 returns 100% new tier-3 trials', () => {
     const played = getDescribeGuessTrials({ difficulty: 1, count: 5 });
     const next = getDescribeGuessTrials({ difficulty: 9, count: 5 });
     const playedIds = new Set(played.map(t => t.id));
     expect(next.filter(t => playedIds.has(t.id)).length).toBe(0);
     expect(next.every(t => t.difficulty === 3)).toBe(true);
   });
-});
 });
