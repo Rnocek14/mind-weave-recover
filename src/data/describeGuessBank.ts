@@ -462,20 +462,20 @@ export const DESCRIBE_GUESS_BANK: DescribeGuessTrial[] = [
 
   // Difficulty 3
   {
-    id: 'dg_bridge',
-    target: 'bridge',
-    photoBankId: 'bridge_1',
-    acceptedWords: ['bridge'],
-    wordAliases: { bridge: ['bridges', 'brij'] },
+    id: 'dg_rabbit',
+    target: 'rabbit',
+    photoBankId: 'rabbit_1',
+    acceptedWords: ['rabbit', 'bunny', 'hare'],
+    wordAliases: { rabbit: ['rabbits', 'rabit'], bunny: ['bunnies'], hare: ['hares'] },
     featureKeywords: {
-      function: ['cross', 'connect', 'walk over', 'drive over', 'span'],
-      location: ['river', 'water', 'road', 'highway', 'city'],
-      appearance: ['long', 'arches', 'cables', 'tall', 'wide', 'railings'],
-      material: ['steel', 'concrete', 'stone', 'wood', 'metal', 'iron'],
-      category: ['structure', 'infrastructure', 'construction'],
+      function: ['hop', 'jump', 'run', 'burrow', 'nibble', 'pet'],
+      location: ['garden', 'field', 'hutch', 'meadow', 'forest', 'burrow'],
+      appearance: ['long ears', 'fluffy', 'tail', 'whiskers', 'soft', 'small', 'fur'],
+      material: ['fur', 'hair'],
+      category: ['animal', 'mammal', 'pet', 'rodent'],
     },
     difficulty: 3,
-    category: 'places',
+    category: 'animals',
   },
   {
     id: 'dg_candle',
