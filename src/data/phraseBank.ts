@@ -1054,6 +1054,91 @@ export const PHRASE_BANK: PhraseTrial[] = [
     cueWords: ['proud', 'trying'],
     semanticAlternatives: ["I did well", "Good effort today"]
   },
+  {
+    id: 'explain_doctor_clearly',
+    phrase: "I want to explain things clearly to my doctor",
+    category: 'medical',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 920,
+      emotional_valence: 'neutral',
+      social_context: 'medical'
+    },
+    cueWords: ['explain', 'doctor'],
+    semanticAlternatives: ["I want the doctor to understand me", "I'd like to be clear with the doctor"]
+  },
+  {
+    id: 'frustrated_but_not_giving_up',
+    phrase: "I am frustrated but I am not giving up",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 11,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 890,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['frustrated', 'giving up'],
+    semanticAlternatives: ["This is hard but I will keep going", "I'm frustrated but still trying"]
+  },
+  {
+    id: 'remember_when_we_used',
+    phrase: "I remember when we used to do this together",
+    category: 'social',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 9,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 950,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['remember', 'together'],
+    semanticAlternatives: ["I miss our routine", "This used to be our thing"]
+  },
+  {
+    id: 'celebrate_small_progress',
+    phrase: "It feels good to celebrate the small wins",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 11,
+      word_count: 8,
+      contains_pronouns: false,
+      motor_complexity: 'complex',
+      frequency_rank: 900,
+      emotional_valence: 'positive',
+      social_context: 'social'
+    },
+    cueWords: ['celebrate', 'wins'],
+    semanticAlternatives: ["The small victories matter", "Every bit of progress counts"]
+  },
+  {
+    id: 'keep_going_one_step',
+    phrase: "I am going to take this one step at a time",
+    category: 'emotional',
+    difficulty: 5,
+    features: {
+      syllable_count: 12,
+      word_count: 11,
+      contains_pronouns: true,
+      motor_complexity: 'complex',
+      frequency_rank: 880,
+      emotional_valence: 'positive',
+      social_context: 'self_care'
+    },
+    cueWords: ['step', 'time'],
+    semanticAlternatives: ["I'll take it slow", "One step at a time"]
+  },
 ];
 
 /**
