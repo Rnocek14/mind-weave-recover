@@ -952,7 +952,8 @@ export function TwoCluesGame({
           game.nextRound();
         }, AUTO_ADVANCE_DELAY_MS);
       } else {
-        // Wrong answer: auto-retry after brief feedback
+        // Wrong answer: auto-retry after brief feedback (3.5s — gives time to
+        // read the cue without making frustration worse).
         shouldHoldProcessing = true;
         const currentAttemptNum = currentAttemptNumRef.current || 1;
         autoRetryTimerRef.current = setTimeout(() => {
@@ -961,7 +962,7 @@ export function TwoCluesGame({
           resetAttempt();
           setProcessingGuard(false);
           beginAttempt(currentAttemptNum + 1);
-        }, 6000);
+        }, 3500);
       }
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
