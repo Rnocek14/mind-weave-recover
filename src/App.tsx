@@ -179,7 +179,7 @@ const App = () => (
                   
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
-                  <Route path="/admin/pipeline" element={<AppLayout><AdminPipeline /></AppLayout>} />
+                  <Route path="/admin/pipeline" element={<AppLayout><AdminProtectedRoute><AdminPipeline /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/analytics" element={<AppLayout><AdminProtectedRoute><ParserAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/research-export" element={<AppLayout><AdminProtectedRoute><ResearchExport /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/analytics/cluster" element={<AppLayout><AdminProtectedRoute><ClusterAnalytics /></AdminProtectedRoute></AppLayout>} />
