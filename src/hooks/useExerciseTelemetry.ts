@@ -262,6 +262,29 @@ export const useExerciseTelemetry = (
           eventData.time_to_success_after_cue_ms = trial.timeToSuccessAfterCueMs ?? null;
         }
 
+        // ── Speech Validity Gate (Phase 1 — observation only) ──
+        // Always record the gate decision when a validity result was supplied,
+        // regardless of label. Analytics filters non-`valid_attempt` rows out of
+        // accuracy/adaptation aggregates; UI surfaces them in Session Review.
+        if (trial.validity) {
+          const gate = applyValidityGate(trial.validity);
+          tp.speech_validity = {
+            label: gate.label,
+            bucket: gate.bucket,
+            should_score: gate.shouldScore,
+            should_feed_adaptation: gate.shouldFeedAdaptation,
+            confidence: trial.validity.confidence,
+            reason: gate.reason,
+            signals: trial.validity.signals,
+          };
+          eventData.engagement_flags = {
+            ...(eventData.engagement_flags ?? {}),
+            validity_label: gate.label,
+            validity_bucket: gate.bucket,
+            counts_toward_score: gate.shouldScore,
+          };
+        }
+
         const { error } = await supabase.from('exercise_events').insert(eventData);
 
         if (error) throw error;
