@@ -65,9 +65,15 @@ export function SessionSummaryStrip({
   cueDependencyPct,
   validityBuckets,
 }: SessionSummaryStripProps) {
-  const hasFiltered =
-    !!validityBuckets &&
-    (validityBuckets.filler + validityBuckets.silence + validityBuckets.noise + validityBuckets.flagged) > 0;
+  const filteredCount = validityBuckets
+    ? validityBuckets.filler + validityBuckets.silence + validityBuckets.noise + validityBuckets.flagged
+    : 0;
+  const totalCount = validityBuckets ? validityBuckets.valid + filteredCount : 0;
+  const filterRatePct = totalCount > 0 ? Math.round((filteredCount / totalCount) * 100) : 0;
+  const hasFiltered = filteredCount > 0;
+  // Health-signal coloring: >30% filtered indicates noisy environment or over-filtering.
+  const filterRateTone =
+    filterRatePct >= 30 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground";
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
