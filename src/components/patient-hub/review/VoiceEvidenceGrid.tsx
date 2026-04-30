@@ -55,7 +55,7 @@ function difficultyOf(t: TrialData): number {
 }
 
 function pickClips(trials: TrialData[]): ClipPick[] {
-  const withAudio = trials.filter(hasAudio);
+  const withAudio = trials.filter((t) => hasAudio(t) && isValidPatientAttempt(t));
   if (withAudio.length === 0) return [];
 
   const correct = withAudio.filter((t) => t.is_correct === true);
