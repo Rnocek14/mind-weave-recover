@@ -23,6 +23,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { Button } from '@/components/ui/button';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';
@@ -451,8 +452,12 @@ export function DualLoadNamingGame({
 
       {/* Results phase */}
       {phase === 'results' && lastResult && (
-        <div className="space-y-3">
-          <Card className={cn("border-2",
+        <RoundDoneAutoAdvance
+          onAdvance={handleContinue}
+          buttonLabel={currentSetIndex + 1 < totalSets ? 'Next Set' : 'Finish'}
+          delayMs={3000}
+        >
+          <Card className={cn("border-2 w-full",
             lastResult.recallAccuracy >= 0.67 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.recallAccuracy >= 0.33 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
@@ -479,10 +484,7 @@ export function DualLoadNamingGame({
               </div>
             </CardContent>
           </Card>
-          <Button onClick={handleContinue} className="w-full" size="lg">
-            {currentSetIndex + 1 < totalSets ? 'Next Set' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+        </RoundDoneAutoAdvance>
       )}
     </div>
   );

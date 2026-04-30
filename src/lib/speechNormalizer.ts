@@ -117,12 +117,32 @@ export const extractAnswerFromTranscript = (raw: string): string => {
 
   // Tokenize and remove fillers
   const tokens = t.split(' ').filter(Boolean);
-  const meaningful = tokens.filter(word => !FILLER_WORDS.has(word));
+  let meaningful = tokens.filter(word => !FILLER_WORDS.has(word));
 
   if (meaningful.length === 0) return '';
 
-  // Heuristic: answer is usually the last 1-2 meaningful tokens
-  // e.g., "a little blue jay" → "blue jay"
+  // Self-correction handling: if the user said "X no Y" or "X wait Y",
+  // prefer the chunk AFTER the correction marker (their final answer).
+  const SELF_CORRECT = new Set(['no', 'wait', 'nope', 'scratch', 'mean']);
+  for (let i = meaningful.length - 1; i >= 0; i--) {
+    if (SELF_CORRECT.has(meaningful[i])) {
+      const after = meaningful.slice(i + 1);
+      if (after.length > 0) {
+        meaningful = after;
+        break;
+      }
+    }
+  }
+
+  // Heuristic: answer is usually the last 1-2 meaningful tokens.
+  // If the last token is a short, content-bearing single word (3+ chars),
+  // prefer just that token to avoid pairing it with a stray adjective/article.
+  const lastToken = meaningful[meaningful.length - 1];
+  if (meaningful.length === 1 || (lastToken && lastToken.length >= 3 && meaningful.length >= 2)) {
+    // Return last 1-2 tokens, but trust single-noun answers
+    if (meaningful.length === 1) return lastToken;
+  }
+
   const last = meaningful.slice(-2).join(' ').trim();
   return last;
 };
