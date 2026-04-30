@@ -101,13 +101,22 @@ describe('Content distinctness — DescribeGuess', () => {
     expect(small.every(t => t.difficulty === 1)).toBe(true);
   });
 
-  it('engine L5 (count=8) has zero tier-1 leak — pads upward to tier 3 when tier 2 pool is short', () => {
-    // Tier 2 has only ~6 valid trials after photo validation; count=8 forces
-    // padding. Policy: pad with HARDER neighbor first, never easier. So an
-    // L5 request never serves tier-1 trials.
+  it('engine L5 (count=8) is exclusively tier 2 after L4–L7 expansion', () => {
+    // After tier-2 expansion (banana, basket, glove, lemon, frog) the playable
+    // tier-2 pool is large enough to satisfy count=8 from the tier alone.
     const small = getDescribeGuessTrials({ difficulty: 5, count: 8 });
-    expect(small.every(t => t.difficulty !== 1)).toBe(true);
-    expect(small.some(t => t.difficulty === 2)).toBe(true);
+    expect(small.every(t => t.difficulty === 2)).toBe(true);
+  });
+
+  it('each playable tier now has ≥8 trials after DescribeGuess L1–L10 expansion', () => {
+    const t1 = getDescribeGuessTrials({ difficulty: 1, count: 100 }).filter(t => t.difficulty === 1);
+    const t2 = getDescribeGuessTrials({ difficulty: 5, count: 100 }).filter(t => t.difficulty === 2);
+    const t3 = getDescribeGuessTrials({ difficulty: 10, count: 100 }).filter(t => t.difficulty === 3);
+    // eslint-disable-next-line no-console
+    console.log(`  DescribeGuess playable tier sizes: T1=${t1.length} T2=${t2.length} T3=${t3.length}`);
+    expect(t1.length).toBeGreaterThanOrEqual(8);
+    expect(t2.length).toBeGreaterThanOrEqual(8);
+    expect(t3.length).toBeGreaterThanOrEqual(8);
   });
 
   it('engine L10 (count=8) contains tier-3 trials and ZERO tier-1 leak', () => {
