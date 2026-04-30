@@ -28,11 +28,10 @@ export function SessionPauseControl() {
   const [isPaused, setIsPaused] = useState(false);
   const pauseStartRef = useRef<number | null>(null);
 
-  // Show only on /exercise/* routes when an active lesson is in progress.
+  // Show on any /exercise/* route. Pause is universally useful, so we don't
+  // gate on lesson resume state (which only exists mid-flow).
   const onExerciseRoute = location.pathname.startsWith('/exercise/');
-  const inLessonSession = typeof window !== 'undefined' &&
-    !!localStorage.getItem('lessonFlowState_resume');
-  const visible = onExerciseRoute && inLessonSession;
+  const visible = onExerciseRoute;
 
   // ── Pause side effects: stop mic + TTS centrally ────────────────
   const enterPause = useCallback(() => {
