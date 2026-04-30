@@ -1,59 +1,92 @@
-## Goal
-Give all 6 priority games **10 real, distinct difficulty levels of content** so the adaptation engine produces visible behavioral change, not just telemetry shifts.
+## Short answer
 
-## Approach
-For each game:
-1. **Audit** the existing content bank — count actual difficulty tiers.
-2. **Generate** new content with AI to fill the missing bands. I write to a `*_v2.ts` file in `src/data/` so the original is preserved for diff/review.
-3. **You review** the new content in chat (I'll show level-1 vs level-5 vs level-10 samples for each game). Approve or revise.
-4. **Wire** the game's hook to use `clamp(L, 1, 10)` instead of collapsing — content selected directly by canonical level.
-5. **Smoke test** by playing a session with `?validation=1` (start at L4) — confirm content visibly changes when the controller moves.
+Yes — upgrading the games we already have is the right move. It is dramatically faster than building new ones, and it takes Phase 1 coverage from **~25%** of full stroke recovery to roughly **~70%** without writing a single new game shell.
 
-## Per-game content design
+We don't need 20 more games. We need to apply the **Phase 1 honesty pattern** (engine-level mapping, no tier blending, distinctness audit, perceptual curve) to the existing exercises that already touch other recovery domains.
 
-What "harder" means is game-specific. I'll use these rubrics when generating:
+---
 
-**FixSentence** (currently 3 tiers → needs 10)
-- L1–2: concrete category errors, 4–6 word sentences, household items ("She brushed her teeth with a *fork*")
-- L3–4: semantic swaps, 6–8 words, common verbs
-- L5–6: function errors, 8–10 words, less common nouns
-- L7–8: subtle near-synonym confusions, 10–12 words, abstract domains (work, emotions)
-- L9–10: idiomatic/figurative errors, 12–15 words, low-frequency vocabulary
+## Coverage today vs. after upgrade
 
-**PhrasePractice** (currently 5 tiers, capped → needs 10)
-- L1–5: existing bank
-- L6–7: longer phrases (5–7 words), less frequent vocab
-- L8–9: idiomatic phrases, multi-clause
-- L10: complex idioms / proverbs
+### Stroke recovery domains (from the research framing)
+1. Language / aphasia
+2. Cognition — attention, memory, executive function
+3. Comprehension (auditory + reading)
+4. Visuospatial / neglect
+5. Motor / coordination
+6. Social-emotional
 
-**DescribeGuess, SentenceConstruction, ThoughtContinuation, SynonymGenerator** — I'll audit each bank first, then propose a per-game rubric in the same loop before generating. (Some may already be deeper than I think.)
+### Where each existing exercise sits
 
-## Engine changes (small, mechanical)
+| Domain | Already in catalog | Validated adaptive (Phase 1) |
+|---|---|---|
+| Language — word finding | photo-naming, word-finding, two-clues, dual-load-naming, describe-guess, synonym-generator, semantic-features, meaning-match, category-fluency | describe-guess, synonym-generator |
+| Language — syntax/sentence | fix-sentence, sentence-construction, sentence-game, phrase-practice | fix-sentence, phrase-practice |
+| Language — discourse | thought-continuation, thought-organization, narrative-retell, conversation-coach, conversation-partner | thought-continuation |
+| Phonology / speech sound | minimal-pairs, phonological-awareness | — |
+| Comprehension | detective-mind, follow-directions, abstract-compare | — |
+| Executive / planning | multi-step-plan, sequence-builder, detective-mind | — |
+| Visuospatial / neglect | left-side-hunt, pattern-match | — |
+| Motor / coordination | reach-tap | — |
+| Social-emotional | none | — |
 
-After content lands:
-- `useFixSentenceGame.ts` — change `Math.ceil(currentDifficulty / 3.5)` → `Math.max(1, Math.min(10, Math.round(currentDifficulty)))`. Update `FixSentenceTrial.difficulty` type from `1|2|3` to `number`.
-- `PhrasePracticeGame.tsx` — remove the `Math.min(initialDifficulty, 5)` clamp.
-- `SynonymGeneratorGame.tsx` — change `windowSize: 3` → `4` for consistency (no clinical reason for the outlier).
-- All games using `useInGameAdaptation`: standardize `windowSize: 4` (matches the documented default).
+### Coverage math
 
-## Validation flag
-Extend `useValidationTrialCount` to also override `initialDifficulty` to L4 when `?validation=1` is present, so a single manual run can demonstrate both UP and DOWN shifts.
+- **Today (5 validated):** ~25% of true stroke-recovery breadth — strong on language, weak everywhere else.
+- **After this upgrade pass (target 12–14 validated across all 6 domains):** ~70%. The only remaining real gaps are social-emotional recognition and a dedicated reading/spelling game.
 
-## Smoke-test protocol per game
-1. Open `/exercise/<slug>?validation=1`
-2. Force 4 successes — confirm console shows L4→L5 (or higher) AND the new trial content visibly differs from the previous.
-3. Force 4 failures — confirm L5→L4→L3 AND content visibly easier.
-4. Confirm DB row in `adaptation_trial_logs` shows ≥3 distinct `difficulty` values for that session.
+That last 30% is genuine new-build territory (Phase 3+). The other 70% is already sitting in the codebase, unvalidated.
 
-## What I will NOT do this loop
-- No new harness pages, no provenance columns, no DB migrations. Those were ceremony — they don't fix the core problem. They become real follow-ups *after* content depth is real.
-- No scoring engine changes.
-- No typing-fallback expansion. Typing fallback for FixSentence already exists from yesterday; the others can wait until content is fixed.
+---
 
-## Out of scope (deferred follow-ups)
-- Clinician-reviewed content sign-off pass. I'll mark generated content with `// AI-generated, pending SLP review` so it's grep-able later.
-- Per-trial decision provenance columns in `adaptation_trial_logs`.
-- DB-backed end-to-end harness.
+## Recommended upgrade plan (Phase 1.5)
 
-## Why this is right
-Every previous plan tried to instrument or guard the engine. The engine already works — PhotoNaming and NarrativeRetell prove it daily in the DB. The thing that's broken is **the content layer doesn't have 10 levels for the engine to express**. Fix that, the rest works for free.
+Apply the same five Phase 1 standards to one exercise per domain so each recovery area has at least one game that's truly adaptive and audited.
+
+**Standards applied to each:**
+- Move content to `src/data/<name>Bank.ts`
+- Add `mapEngineLevelTo<Game>Tier(level)` — strict isolation, no cumulative blending
+- Build a real L1 → L10 perceptual curve specific to the domain
+- Add a distinctness test in `src/data/__tests__/contentDistinctness.test.ts` (0% Jaccard between L1/L5/L10 pools)
+- Wire engine signal end-to-end so adaptation is visible
+
+**Batch order (by clinical impact + effort):**
+
+1. **photo-naming** — language: confrontation naming. Highest-frequency clinical exercise. Tier curve: high-frequency concrete → low-frequency abstract / multi-syllabic.
+2. **multi-step-plan** — executive function. Tier curve: 2-step familiar routines → 6-step novel sequences with distractors.
+3. **detective-mind** — comprehension + reasoning. Tier curve: 2-clue single-inference → 5-clue multi-constraint deduction.
+4. **minimal-pairs** — phonology. Tier curve: maximally contrastive pairs (p/m) → minimal place/voice contrasts in noise.
+5. **left-side-hunt** — visuospatial / neglect. Tier curve: large high-contrast targets centered → small low-contrast targets in left periphery with distractors.
+6. **reach-tap** — motor. Tier curve: large slow targets, long dwell → small fast targets, short dwell, dual-task overlay.
+7. **narrative-retell** — discourse (already partially adaptive, just needs the audit + curve formalization).
+
+That's 7 upgrades, each ~1 short build cycle. After them: every recovery domain has at least one validated game.
+
+### What NOT to do in this pass
+
+- Do not build new game shells.
+- Do not start phoneme-level personalization (Phase 2).
+- Do not touch the 5 already-validated games.
+- Do not promise social-emotional or reading/spelling coverage — flag those as Phase 3 gaps in the docs.
+
+---
+
+## Deliverables
+
+1. Code: 7 game upgrades following the Phase 1 pattern.
+2. Tests: extend `contentDistinctness.test.ts` to cover all 12 validated games (target: 80+/80+ passing, 0% overlap).
+3. Doc update: revise `src/docs/PHASE_1_ADAPTIVE_SYSTEM_VALIDATION.md` (or add `PHASE_1_5_DOMAIN_COVERAGE.md`) with the new coverage matrix and a one-page domain map showing 70% coverage, remaining gaps, and Phase 2/3 boundaries.
+4. Refresh the stakeholder docx (`NeuroSpark_Phase1_Summary_v2.docx`) so Mercy sees the real breadth, not just the 5-game language slice.
+
+---
+
+## Suggested execution
+
+Do this in two approval checkpoints, not one giant batch:
+
+- **Batch A (language + cognition):** photo-naming, multi-step-plan, detective-mind, minimal-pairs. Approve after audit passes.
+- **Batch B (visuospatial + motor + discourse):** left-side-hunt, reach-tap, narrative-retell. Approve, then refresh docs + docx.
+
+Visuospatial and motor adaptation use different difficulty axes than language (target size, dwell time, contrast, distractor load) — worth treating those as their own mini-design conversation when we get to Batch B rather than assuming the language pattern transfers cleanly.
+
+Approve this and I'll start with Batch A.
