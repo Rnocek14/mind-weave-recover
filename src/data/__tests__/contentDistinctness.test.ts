@@ -15,6 +15,8 @@ import { describe, it, expect } from 'vitest';
 import { getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { getTrialsForLevel as getPhraseTrials, mapEngineLevelToPhraseTier } from '@/data/phraseBank';
+import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
+import { selectNextPrompt, createEmptySessionHistory } from '@/lib/adaptivePromptSelector';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
