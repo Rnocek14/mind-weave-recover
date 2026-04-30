@@ -472,6 +472,7 @@ function PhotoNamingExerciseInner() {
           // Shared adaptation contract telemetry
           ...adaptationTelemetry,
         },
+        validity,
       });
 
       // Log pivot telemetry if a pivot was recommended
