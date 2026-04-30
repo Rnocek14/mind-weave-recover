@@ -29,6 +29,22 @@ interface ClipPick {
 
 const QUALITY_MIN_MS = 400;
 
+/**
+ * Voice Evidence MUST respect the Speech Validity Gate.
+ * Excluded labels (filler / silence / noise / low-confidence) never appear
+ * as "best clip" or "representative error" — that would break clinician trust.
+ * Clinician override `patient` re-admits a clip; `not_patient`/`noise`/`filler` excludes it.
+ */
+function isValidPatientAttempt(t: TrialData): boolean {
+  const ov = t.clinician_validity_override;
+  if (ov === 'patient') return true;
+  if (ov === 'not_patient' || ov === 'noise' || ov === 'filler') return false;
+  // Phase-1 gate: only `valid_attempt` (or no label at all, for legacy rows) counts.
+  if (t.validity_label && t.validity_label !== 'valid_attempt') return false;
+  if (t.counts_toward_score === false) return false;
+  return true;
+}
+
 function hasAudio(t: TrialData): boolean {
   return !!t.audio_storage_path && (t.recording_duration_ms ?? 0) >= QUALITY_MIN_MS;
 }
