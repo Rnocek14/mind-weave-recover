@@ -24,6 +24,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
