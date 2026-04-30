@@ -210,6 +210,7 @@ export function CategoryFluencyGame({
   const [config, setConfig] = useState(() => {
     const cat = pickCategory(currentDifficulty);
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     return cat;
   });
   const [words, setWords] = useState<Array<{ text: string; status: WordValidation }>>([]);
@@ -439,6 +440,7 @@ export function CategoryFluencyGame({
     vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
@@ -475,6 +477,7 @@ export function CategoryFluencyGame({
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     setConfig(cat);
     setPhase('countdown');
     
