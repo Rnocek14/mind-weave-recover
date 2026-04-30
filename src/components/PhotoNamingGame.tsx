@@ -340,6 +340,7 @@ export const PhotoNamingGame = ({
     stepDown,
     reset: resetAdaptation,
     controller: adaptiveController,
+    levelDescriptor,
   } = useInGameAdaptation({
     autoLog: false, // we forward via onTrialLogged below
 
