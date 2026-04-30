@@ -138,19 +138,54 @@ export function ListenCard({ userId }: ListenCardProps) {
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
       const { data } = await supabase
         .from("utterance_analyses")
-        .select("id, target_word, transcript, audio_storage_path, created_at, is_correct")
+        .select(
+          "id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type"
+        )
         .eq("user_id", userId)
         .gte("created_at", since)
         .not("audio_storage_path", "is", null)
         .not("transcript", "is", null)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(120);
 
       if (!mounted) return;
 
       const rows = (data || []) as any[];
-      const best = rows.find((r) => r.is_correct === true) || null;
-      const struggle = rows.find((r) => r.is_correct === false) || null;
+
+      // Quality filter: must have actually spoken something meaningful.
+      // Reject empty/noise (<400ms duration, transcript length < 2 chars).
+      const meaningful = rows.filter((r) => {
+        const transcriptLen = (r.transcript || "").trim().length;
+        const dur = r.recording_duration_ms ?? 0;
+        if (r.did_speak === false) return false;
+        if (transcriptLen < 2) return false;
+        if (dur > 0 && dur < 400) return false;
+        return true;
+      });
+
+      // Best = correct, prefer high ASR confidence then longer attempt.
+      // This avoids one-syllable trivial successes when richer wins exist.
+      const bestPool = meaningful.filter((r) => r.is_correct === true);
+      bestPool.sort((a, b) => {
+        const ac = a.asr_confidence ?? 0;
+        const bc = b.asr_confidence ?? 0;
+        if (Math.abs(bc - ac) > 0.05) return bc - ac;
+        const al = (a.transcript || "").length;
+        const bl = (b.transcript || "").length;
+        return bl - al;
+      });
+      const best = bestPool[0] || null;
+
+      // Struggle = incorrect with a real attempt — drop "no_response"-style
+      // error types so caregiver hears actual effort, not silence.
+      const strugglePool = meaningful.filter(
+        (r) =>
+          r.is_correct === false &&
+          r.error_type !== "no_response" &&
+          r.error_type !== "no_attempt"
+      );
+      // Most recent meaningful struggle so it feels current.
+      const struggle = strugglePool[0] || null;
 
       const toClip = (r: any | null): Clip | null =>
         r

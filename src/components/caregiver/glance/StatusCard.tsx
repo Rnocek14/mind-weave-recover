@@ -29,21 +29,28 @@ export function StatusCard({ userId, patientName }: StatusCardProps) {
     if (redCount > 0) {
       return {
         status: "concern" as Status,
-        headline: "Needs attention",
-        sub: `${redCount} alert${redCount === 1 ? "" : "s"} to review below`,
+        headline: "Needs your attention",
+        sub: `${redCount} thing${redCount === 1 ? "" : "s"} to look at together — see below.`,
       };
     }
-    if (orangeCount > 0 || recent < 2) {
+    if (orangeCount > 0) {
       return {
         status: "watch" as Status,
-        headline: "Could use support",
-        sub: recent < 2 ? "Practice has been light this week" : "Some signals to watch",
+        headline: "Worth a gentle check-in",
+        sub: "A few small signals to watch — nothing urgent.",
+      };
+    }
+    if (recent < 2) {
+      return {
+        status: "watch" as Status,
+        headline: "Could use a little encouragement",
+        sub: "Practice has been light this week — even 5 minutes helps.",
       };
     }
     return {
       status: "good" as Status,
       headline: "Doing well",
-      sub: `${patientName} is on track`,
+      sub: `${patientName} is making steady progress this week.`,
     };
   }, [sessions, flags, patientName]);
 

@@ -66,17 +66,30 @@ export function ProgressCard({ userId }: ProgressCardProps) {
     };
   }, [userId]);
 
-  const { thisWeekAvg, lastWeekAvg, hasData } = useMemo(() => {
+  const { thisWeekAvg, lastWeekAvg, hasData, thisWeekTrials, lastWeekTrials } = useMemo(() => {
     const last7 = points.slice(-7).filter((p) => p.count > 0);
     const prev7 = points.slice(0, 7).filter((p) => p.count > 0);
     const avg = (arr: DayPoint[]) =>
       arr.length === 0 ? null : Math.round(arr.reduce((s, p) => s + p.accuracy, 0) / arr.length);
+    const sum = (arr: DayPoint[]) => arr.reduce((s, p) => s + p.count, 0);
     return {
       thisWeekAvg: avg(last7),
       lastWeekAvg: avg(prev7),
       hasData: last7.length > 0,
+      thisWeekTrials: sum(points.slice(-7)),
+      lastWeekTrials: sum(points.slice(0, 7)),
     };
   }, [points]);
+
+  // Plain-language volume context — caregivers think in "more practice", not trial counts.
+  const volumeNote = useMemo(() => {
+    if (!hasData) return null;
+    const diff = thisWeekTrials - lastWeekTrials;
+    if (lastWeekTrials === 0 && thisWeekTrials > 0) return "First full week of practice";
+    if (diff >= 10) return `More practice this week (+${diff} attempts)`;
+    if (diff <= -10) return `Less practice this week (${diff} attempts)`;
+    return `Similar practice volume (${thisWeekTrials} attempts)`;
+  }, [hasData, thisWeekTrials, lastWeekTrials]);
 
   const delta = thisWeekAvg !== null && lastWeekAvg !== null ? thisWeekAvg - lastWeekAvg : null;
   const trend = delta === null ? "flat" : delta > 3 ? "up" : delta < -3 ? "down" : "flat";
@@ -150,7 +163,10 @@ export function ProgressCard({ userId }: ProgressCardProps) {
           <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      <div className="text-[11px] text-muted-foreground mt-1.5 text-center">Last 14 days</div>
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1.5">
+        <span>Last 14 days</span>
+        {hasData && volumeNote && <span>{volumeNote}</span>}
+      </div>
     </Card>
   );
 }
