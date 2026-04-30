@@ -212,3 +212,82 @@ describe('Content distinctness — PhrasePractice', () => {
     expect(next.every(t => t.difficulty === 5)).toBe(true);
   });
 });
+
+describe('Content distinctness — ThoughtContinuation', () => {
+  // The discourse engine emits 1..5; the prompt bank has 3 graded tiers.
+  // Mapping: 1-2→T1 (concrete recall), 3-4→T2 (structured expansion),
+  // 5→T3 (abstract / multi-step discourse).
+  const { selectNextPrompt, createEmptySessionHistory } = require('@/lib/adaptivePromptSelector');
+  const { mapDiscourseLevelToPromptTier, THOUGHT_PROMPTS } = require('@/data/thoughtPromptBank');
+
+  function poolAtLevel(level: number, count: number) {
+    const used: string[] = [];
+    const out: any[] = [];
+    let history = createEmptySessionHistory();
+    while (out.length < count && used.length < THOUGHT_PROMPTS.length) {
+      const sel = selectNextPrompt(null, history, used, level);
+      out.push(sel.prompt);
+      used.push(sel.prompt.id);
+    }
+    return out;
+  }
+
+  it('discourse→tier mapping is monotonic across all 5 levels', () => {
+    const tiers = [1,2,3,4,5].map(mapDiscourseLevelToPromptTier);
+    // eslint-disable-next-line no-console
+    console.log(`  ThoughtContinuation discourse→tier: ${tiers.join(' ')}`);
+    for (let i = 1; i < tiers.length; i++) {
+      expect(tiers[i]).toBeGreaterThanOrEqual(tiers[i - 1]);
+    }
+    expect(tiers[0]).toBe(1);
+    expect(tiers[4]).toBe(3);
+  });
+
+  it('discourse L1 pool is exclusively tier 1', () => {
+    const pool = poolAtLevel(1, 8);
+    expect(pool.every(p => p.difficultyTier === 1)).toBe(true);
+  });
+
+  it('discourse L3 pool is exclusively tier 2', () => {
+    const pool = poolAtLevel(3, 8);
+    expect(pool.every(p => p.difficultyTier === 2)).toBe(true);
+  });
+
+  it('discourse L5 pool is exclusively tier 3 — NO leakage from concrete recall', () => {
+    const pool = poolAtLevel(5, 8);
+    expect(pool.every(p => p.difficultyTier === 3)).toBe(true);
+  });
+
+  it('L1 vs L3 vs L5 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(poolAtLevel(1, 8).map(p => p.id));
+    const B = new Set(poolAtLevel(3, 8).map(p => p.id));
+    const C = new Set(poolAtLevel(5, 8).map(p => p.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L3=${ab.toFixed(2)} L1↔L5=${ac.toFixed(2)} L3↔L5=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥10 unique prompts after T3 expansion', () => {
+    const sizes = {
+      T1: THOUGHT_PROMPTS.filter((p: any) => p.difficultyTier === 1 && p.isActive).length,
+      T2: THOUGHT_PROMPTS.filter((p: any) => p.difficultyTier === 2 && p.isActive).length,
+      T3: THOUGHT_PROMPTS.filter((p: any) => p.difficultyTier === 3 && p.isActive).length,
+    };
+    // eslint-disable-next-line no-console
+    console.log(`  ThoughtContinuation tier sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(10);
+    expect(sizes.T2).toBeGreaterThanOrEqual(10);
+    expect(sizes.T3).toBeGreaterThanOrEqual(10);
+  });
+
+  it('mid-session re-pool from L1 to L5 returns 100% new tier-3 prompts', () => {
+    const played = poolAtLevel(1, 4);
+    const playedIds = new Set(played.map(p => p.id));
+    const next = poolAtLevel(5, 4);
+    expect(next.filter(p => playedIds.has(p.id)).length).toBe(0);
+    expect(next.every(p => p.difficultyTier === 3)).toBe(true);
+  });
+});
