@@ -113,6 +113,35 @@ export function ExcludedClipsAudit({ trials, sessionId, profileId, onOverridden 
           .update(patch)
           .eq("attempt_id", trial.attempt_id);
         if (error) throw error;
+
+        // Override telemetry — fire-and-forget. Failures must not block the override.
+        try {
+          let patientUserId: string | null = null;
+          if (profileId) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("user_id")
+              .eq("id", profileId)
+              .maybeSingle();
+            patientUserId = prof?.user_id ?? null;
+          }
+          await supabase.from("validity_override_events").insert({
+            clinician_id: uid,
+            patient_user_id: patientUserId,
+            profile_id: profileId ?? null,
+            session_id: sessionId ?? null,
+            attempt_id: trial.attempt_id,
+            source_table: table,
+            original_validity_label: trial.validity_label ?? null,
+            original_counts_toward_score: trial.counts_toward_score ?? null,
+            new_override: override,
+            exercise_slug: (trial as any).exercise_slug ?? null,
+            validity_reason: trial.validity_reason ?? null,
+          });
+        } catch (telemetryErr) {
+          console.warn("[validity-override-telemetry] log failed:", telemetryErr);
+        }
+
         toast({
           title:
             override === "patient"
