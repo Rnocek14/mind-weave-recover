@@ -26,6 +26,7 @@ import { SoundsToWatch } from "./review/SoundsToWatch";
 import { CueResponsePanel } from "./review/CueResponsePanel";
 import { SessionNotesPanel } from "./review/SessionNotesPanel";
 import { AcrossTimeView } from "./review/AcrossTimeView";
+import { ExcludedClipsAudit } from "./review/ExcludedClipsAudit";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Volume2, VolumeX } from "lucide-react";
 
