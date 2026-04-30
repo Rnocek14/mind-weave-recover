@@ -161,6 +161,23 @@ export function useAdaptationTrialLogger(opts: Options) {
       return;
     }
 
+    // Speech Validity Gate — invalid attempts must NOT feed adaptation.
+    // Record an audit-only anomaly so clinicians can see what was filtered.
+    if (input.validity && input.validity.label !== 'valid_attempt') {
+      anomalyBuf.current.push({
+        user_id: opts.userId,
+        session_id: opts.sessionId ?? null,
+        exercise_slug: canonicalSlug,
+        trial_index: input.trialIndex,
+        anomaly_type: `validity_filtered:${input.validity.label}`,
+        severity: 'info',
+        detail: input.validity.reason ?? `Trial filtered by validity gate (${input.validity.label}).`,
+        evidence: { validity: input.validity.label },
+      });
+      if (anomalyBuf.current.length >= MAX_BUFFER) void flush();
+      return;
+    }
+
     const dir: AdaptationDirection | null = input.escalationBlocked
       ? 'hold'
       : (input.difficultyChange?.direction ?? null);
