@@ -173,14 +173,16 @@ export default function PatientHub() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline" size="sm"
-            className="gap-1.5 h-8 text-xs"
-            onClick={() => navigate("/admin/cohort-research")}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Cohort
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={() => navigate("/admin/cohort-research")}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Cohort
+            </Button>
+          )}
           <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
             <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
