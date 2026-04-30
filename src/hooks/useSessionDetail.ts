@@ -91,6 +91,8 @@ export function useSessionDetail() {
           validity_label: (ev as any).validity_label ?? null,
           validity_reason: (ev as any).validity_reason ?? null,
           counts_toward_score: (ev as any).counts_toward_score ?? null,
+          clinician_validity_override: (ev as any).clinician_validity_override ?? null,
+          source_table: 'exercise_events' as const,
         }));
         setTrials(mapped);
       }
