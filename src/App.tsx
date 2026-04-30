@@ -150,11 +150,11 @@ const App = () => (
                   <Route path="/exercise/voice-practice" element={<VoicePractice />} />
                   <Route path="/lesson" element={<Lesson />} />
 
-                  {/* Dev-only validation harness */}
-                  <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
-                  <Route path="/dev/session-replay" element={<SessionReplayDev />} />
-                  <Route path="/dev/session-replay/:sessionId" element={<SessionReplayDev />} />
-                  <Route path="/dev/signal-harness" element={<AdaptationSignalHarness />} />
+                  {/* Dev-only validation harness — admin-gated */}
+                  <Route path="/dev/adaptation-sim" element={<AdminProtectedRoute><AdaptationSimDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/session-replay" element={<AdminProtectedRoute><SessionReplayDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/session-replay/:sessionId" element={<AdminProtectedRoute><SessionReplayDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/signal-harness" element={<AdminProtectedRoute><AdaptationSignalHarness /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
