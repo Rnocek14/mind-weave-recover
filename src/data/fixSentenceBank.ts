@@ -211,6 +211,192 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     category: 'craft', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/n/', '/iː/', '/d/', '/l/'],
   },
+
+  // ══════════════ TIER 1 EXPANSION (engine L1–L3): obvious cross-category errors ══════════════
+  {
+    id: 'fs_31', sentence: 'I ate my soup with a sock.', wrongWord: 'sock', wrongWordIndex: 6,
+    acceptedFixes: ['spoon'], fixAliases: { spoon: ['spoons', 'spune'] },
+    category: 'kitchen', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/s/', '/p/', '/uː/', '/n/'],
+  },
+  {
+    id: 'fs_32', sentence: 'I sat down on a sandwich.', wrongWord: 'sandwich', wrongWordIndex: 5,
+    acceptedFixes: ['chair', 'couch', 'sofa', 'bench'], fixAliases: { chair: ['chairs'], couch: ['couches'], sofa: ['sofas'] },
+    category: 'furniture', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/tʃ/', '/ɛ/', '/r/'],
+  },
+  {
+    id: 'fs_33', sentence: 'I opened the door with my elbow.', wrongWord: 'elbow', wrongWordIndex: 6,
+    acceptedFixes: ['hand', 'hands', 'key'], fixAliases: { hand: ['hands'], key: ['keys'] },
+    category: 'home', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/h/', '/æ/', '/n/', '/d/'],
+  },
+  {
+    id: 'fs_34', sentence: 'The fish swam in the sky.', wrongWord: 'sky', wrongWordIndex: 5,
+    acceptedFixes: ['water', 'pond', 'lake', 'ocean', 'sea'], fixAliases: { water: ['waters'], pond: ['ponds'], ocean: ['oceans'] },
+    category: 'nature', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/w/', '/ɔː/', '/t/', '/r/'],
+  },
+  {
+    id: 'fs_35', sentence: 'I wore a hat on my foot.', wrongWord: 'foot', wrongWordIndex: 6,
+    acceptedFixes: ['head'], fixAliases: { head: ['heads'] },
+    category: 'body', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/h/', '/ɛ/', '/d/'],
+  },
+  {
+    id: 'fs_36', sentence: 'She drank a glass of bread.', wrongWord: 'bread', wrongWordIndex: 5,
+    acceptedFixes: ['water', 'milk', 'juice', 'wine'], fixAliases: { water: ['waters'], milk: ['milks'], juice: ['juices'] },
+    category: 'food', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/w/', '/m/', '/dʒ/'],
+  },
+  {
+    id: 'fs_37', sentence: 'The car drove down the river.', wrongWord: 'river', wrongWordIndex: 5,
+    acceptedFixes: ['road', 'street', 'highway', 'lane'], fixAliases: { road: ['roads'], street: ['streets'], highway: ['highways'] },
+    category: 'driving', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/r/', '/oʊ/', '/d/', '/s/'],
+  },
+  {
+    id: 'fs_38', sentence: 'I cooked the eggs in a hat.', wrongWord: 'hat', wrongWordIndex: 6,
+    acceptedFixes: ['pan', 'skillet', 'pot'], fixAliases: { pan: ['pans'], skillet: ['skillets'], pot: ['pots'] },
+    category: 'kitchen', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/p/', '/æ/', '/n/'],
+  },
+  {
+    id: 'fs_39', sentence: 'The dentist cleaned my shoes.', wrongWord: 'shoes', wrongWordIndex: 4,
+    acceptedFixes: ['teeth'], fixAliases: { teeth: ['tooth'] },
+    category: 'health', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/t/', '/iː/', '/θ/'],
+  },
+  {
+    id: 'fs_40', sentence: 'I cut the paper with a banana.', wrongWord: 'banana', wrongWordIndex: 6,
+    acceptedFixes: ['scissors', 'knife'], fixAliases: { scissors: ['scissor'], knife: ['knives'] },
+    category: 'office', difficulty: 1, errorType: 'category_error',
+    phonemeTargets: ['/s/', '/ɪ/', '/z/'],
+  },
+
+  // ══════════════ TIER 2 EXPANSION (engine L4–L7): same-category swaps, longer sentences ══════════════
+  {
+    id: 'fs_41', sentence: 'I sliced the bread with a spoon from the drawer.', wrongWord: 'spoon', wrongWordIndex: 6,
+    acceptedFixes: ['knife'], fixAliases: { knife: ['knives', 'nife'] },
+    category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/n/', '/aɪ/', '/f/'],
+  },
+  {
+    id: 'fs_42', sentence: 'After dinner she rinsed the plates and dried each cup with a fork.', wrongWord: 'fork', wrongWordIndex: 12,
+    acceptedFixes: ['towel', 'cloth', 'rag'], fixAliases: { towel: ['towels'], cloth: ['cloths'], rag: ['rags'] },
+    category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/t/', '/aʊ/', '/əl/'],
+  },
+  {
+    id: 'fs_43', sentence: 'He grabbed his keys, his wallet, and his shirt before driving to work.', wrongWord: 'shirt', wrongWordIndex: 8,
+    acceptedFixes: ['phone', 'jacket', 'coat', 'glasses'], fixAliases: { phone: ['phones'], jacket: ['jackets'] },
+    category: 'daily', difficulty: 2, errorType: 'multiple_valid_repairs',
+    phonemeTargets: ['/f/', '/oʊ/', '/n/'],
+  },
+  {
+    id: 'fs_44', sentence: 'She walked into the bedroom and turned on the oven before getting dressed.', wrongWord: 'oven', wrongWordIndex: 9,
+    acceptedFixes: ['light', 'lamp', 'fan', 'tv', 'television'], fixAliases: { light: ['lights'], lamp: ['lamps'], tv: ['t.v.'] },
+    category: 'home', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/l/', '/aɪ/', '/t/'],
+  },
+  {
+    id: 'fs_45', sentence: 'The waiter brought the menu and a glass of wine to our window.', wrongWord: 'window', wrongWordIndex: 12,
+    acceptedFixes: ['table', 'booth', 'seat'], fixAliases: { table: ['tables'], booth: ['booths'], seat: ['seats'] },
+    category: 'restaurant', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/t/', '/eɪ/', '/b/', '/əl/'],
+  },
+  {
+    id: 'fs_46', sentence: 'I packed the suitcase with shirts, pants, socks, and dishes for my trip.', wrongWord: 'dishes', wrongWordIndex: 10,
+    acceptedFixes: ['shoes', 'underwear', 'sweaters', 'jackets'], fixAliases: { shoes: ['shoe'], sweaters: ['sweater'] },
+    category: 'travel', difficulty: 2, errorType: 'multiple_valid_repairs',
+    phonemeTargets: ['/ʃ/', '/uː/', '/z/'],
+  },
+  {
+    id: 'fs_47', sentence: 'He turned the key, started the engine, and pressed the keyboard to drive away.', wrongWord: 'keyboard', wrongWordIndex: 10,
+    acceptedFixes: ['gas', 'pedal', 'accelerator', 'gas pedal'], fixAliases: { gas: ['gases'], pedal: ['pedals'] },
+    category: 'driving', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/p/', '/ɛ/', '/d/', '/əl/'],
+  },
+  {
+    id: 'fs_48', sentence: 'The teacher wrote the math problem on the carpet for the whole class.', wrongWord: 'carpet', wrongWordIndex: 8,
+    acceptedFixes: ['board', 'whiteboard', 'blackboard', 'chalkboard'], fixAliases: { board: ['boards'], whiteboard: ['white board'] },
+    category: 'school', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/b/', '/ɔː/', '/r/', '/d/'],
+  },
+  {
+    id: 'fs_49', sentence: 'She put the laundry in the refrigerator and turned the dial to start.', wrongWord: 'refrigerator', wrongWordIndex: 6,
+    acceptedFixes: ['washer', 'washing machine', 'dryer'], fixAliases: { washer: ['washers'], 'washing machine': ['washing'] },
+    category: 'home', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/w/', '/ɑː/', '/ʃ/', '/r/'],
+  },
+  {
+    id: 'fs_50', sentence: 'Before the meeting she opened her laptop, took out her notes, and sharpened her shoe.', wrongWord: 'shoe', wrongWordIndex: 14,
+    acceptedFixes: ['pencil', 'pen'], fixAliases: { pencil: ['pencils'], pen: ['pens'] },
+    category: 'office', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/p/', '/ɛ/', '/n/', '/s/', '/əl/'],
+  },
+
+  // ══════════════ TIER 3 EXPANSION (engine L8–L10): subtle function errors, complex sentences ══════════════
+  {
+    id: 'fs_51', sentence: 'After the storm passed I swept the broken glass off the porch with a brush.', wrongWord: 'brush', wrongWordIndex: 14,
+    acceptedFixes: ['broom', 'dustpan'], fixAliases: { broom: ['brooms'], dustpan: ['dust pan', 'dustpans'] },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/b/', '/r/', '/uː/', '/m/'],
+  },
+  {
+    id: 'fs_52', sentence: 'The chef seasoned the chicken, set the table, and lit the table with a match.', wrongWord: 'table', wrongWordIndex: 11,
+    acceptedFixes: ['candle', 'candles', 'fire', 'fireplace'], fixAliases: { candle: ['candles'], fireplace: ['fire place'] },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/k/', '/æ/', '/n/', '/d/', '/əl/'],
+  },
+  {
+    id: 'fs_53', sentence: 'When the bread was done she pulled the tray out of the freezer using oven mitts.', wrongWord: 'freezer', wrongWordIndex: 11,
+    acceptedFixes: ['oven', 'stove'], fixAliases: { oven: ['ovens'], stove: ['stoves'] },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/ʌ/', '/v/', '/ə/', '/n/'],
+  },
+  {
+    id: 'fs_54', sentence: 'The mechanic raised the car on the lift, opened the hood, and drained the oil into a plate.', wrongWord: 'plate', wrongWordIndex: 16,
+    acceptedFixes: ['pan', 'bucket', 'container', 'tray'], fixAliases: { pan: ['pans'], bucket: ['buckets'], container: ['containers'] },
+    category: 'tools', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/p/', '/æ/', '/n/', '/b/'],
+  },
+  {
+    id: 'fs_55', sentence: 'He gathered his fishing pole, a tackle box, some bait, and a piano before heading to the lake.', wrongWord: 'piano', wrongWordIndex: 13,
+    acceptedFixes: ['cooler', 'net', 'bucket', 'chair', 'rod'], fixAliases: { cooler: ['coolers'], net: ['nets'] },
+    category: 'outdoor', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/k/', '/uː/', '/l/', '/r/'],
+  },
+  {
+    id: 'fs_56', sentence: 'The nurse cleaned the wound, applied antiseptic, and wrapped it tightly with a rope.', wrongWord: 'rope', wrongWordIndex: 13,
+    acceptedFixes: ['bandage', 'gauze', 'wrap'], fixAliases: { bandage: ['bandages', 'band aid', 'bandaid'], gauze: ['gauzes'] },
+    category: 'health', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/b/', '/æ/', '/n/', '/d/', '/ɪ/', '/dʒ/'],
+  },
+  {
+    id: 'fs_57', sentence: 'After raking the leaves into a large pile she scooped them into the freezer to take out back.', wrongWord: 'freezer', wrongWordIndex: 14,
+    acceptedFixes: ['bag', 'wheelbarrow', 'bin', 'trash bag', 'cart'], fixAliases: { bag: ['bags'], bin: ['bins'], wheelbarrow: ['wheel barrow'] },
+    category: 'garden', difficulty: 3, errorType: 'multiple_valid_repairs',
+    phonemeTargets: ['/b/', '/æ/', '/g/'],
+  },
+  {
+    id: 'fs_58', sentence: 'She poured the dry pasta into a pot of boiling milk and stirred it with a spoon.', wrongWord: 'milk', wrongWordIndex: 9,
+    acceptedFixes: ['water'], fixAliases: { water: ['waters'] },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/w/', '/ɔː/', '/t/', '/r/'],
+  },
+  {
+    id: 'fs_59', sentence: 'The painter set up the ladder, taped the trim, and rolled the wall using a sponge.', wrongWord: 'sponge', wrongWordIndex: 14,
+    acceptedFixes: ['roller', 'brush', 'paint roller', 'paintbrush'], fixAliases: { roller: ['rollers', 'roll her'], brush: ['brushes'] },
+    category: 'tools', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/r/', '/oʊ/', '/l/', '/r/'],
+  },
+  {
+    id: 'fs_60', sentence: 'Before the guests arrived she vacuumed the rugs, wiped the counters, and watered the carpet.', wrongWord: 'carpet', wrongWordIndex: 13,
+    acceptedFixes: ['plants', 'flowers', 'garden'], fixAliases: { plants: ['plant'], flowers: ['flower'], garden: ['gardens'] },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/p/', '/l/', '/æ/', '/n/', '/t/'],
+  },
 ];
 
 /**
