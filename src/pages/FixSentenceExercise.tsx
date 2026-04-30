@@ -20,6 +20,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useValidationTrialCount } from '@/hooks/useValidationTrialCount';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -93,6 +94,14 @@ export default function FixSentenceExercise() {
     const phonemeMatched = result.phonemeTargets.length > 0 && 
       result.phonemeTargets.some(p => focusSet.has(p));
 
+    // Speech Validity Gate — transcript-only classification (no audio metadata
+    // available from FixSentence pipeline yet). Catches filler-only / empty.
+    const validity = classifyUtteranceValidity({
+      transcript: result.spokenWord,
+      asrConfidence: null,
+      recordingDurationMs: result.reactionTimeMs,
+    });
+
     logTrial({
       correct: result.isCorrect,
       reactionTimeMs: result.reactionTimeMs,
@@ -113,6 +122,7 @@ export default function FixSentenceExercise() {
         // Shared adaptation telemetry
         ...adaptationTelemetry,
       },
+      validity,
     });
   }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
