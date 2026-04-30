@@ -89,13 +89,18 @@ export function SessionSummaryStrip({
         <Chip icon={Lightbulb} label="Cue dependency" value={`${cueDependencyPct}%`} />
       </div>
       {hasFiltered && validityBuckets && (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Scored: {validityBuckets.valid}</span>
-          {validityBuckets.filler > 0 && <span>· Filler: {validityBuckets.filler}</span>}
-          {validityBuckets.silence > 0 && <span>· Silent: {validityBuckets.silence}</span>}
-          {validityBuckets.noise > 0 && <span>· Noise: {validityBuckets.noise}</span>}
-          {validityBuckets.flagged > 0 && <span>· Flagged: {validityBuckets.flagged}</span>}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className={filterRateTone}>
+            {filterRatePct}% of responses filtered
+          </span>
+          <span className="text-muted-foreground">
+            · Scored: {validityBuckets.valid}
+            {validityBuckets.filler > 0 && ` · Filler: ${validityBuckets.filler}`}
+            {validityBuckets.silence > 0 && ` · Silent: ${validityBuckets.silence}`}
+            {validityBuckets.noise > 0 && ` · Noise: ${validityBuckets.noise}`}
+            {validityBuckets.flagged > 0 && ` · Flagged: ${validityBuckets.flagged}`}
+          </span>
         </div>
       )}
     </div>
