@@ -20,6 +20,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { Button } from '@/components/ui/button';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Layers, ChevronRight, SkipForward } from 'lucide-react';

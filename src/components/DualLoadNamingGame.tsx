@@ -23,6 +23,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { Button } from '@/components/ui/button';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';

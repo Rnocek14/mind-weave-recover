@@ -15,6 +15,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, ListChecks, ChevronRight, SkipForward } from 'lucide-react';
