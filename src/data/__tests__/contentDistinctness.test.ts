@@ -62,11 +62,22 @@ describe('Content distinctness — FixSentence', () => {
     expect(bc).toBe(0);
   });
 
-  it('engine L4 and L7 collapse to the same content tier 2 — documented limitation pending L4–L10 content', () => {
+  it('engine L4 and L7 both resolve to tier 2 (denser pool after L4–L10 expansion: ~20 trials)', () => {
     const a = getFixSentenceTrials({ difficulty: 4, count: 10 });
     const b = getFixSentenceTrials({ difficulty: 7, count: 10 });
     expect(a.every(t => t.difficulty === 2)).toBe(true);
     expect(b.every(t => t.difficulty === 2)).toBe(true);
+  });
+
+  it('each tier now has ≥20 trials after FixSentence L1–L10 expansion', () => {
+    const t1 = getFixSentenceTrials({ difficulty: 1, count: 100 }).filter(t => t.difficulty === 1);
+    const t2 = getFixSentenceTrials({ difficulty: 5, count: 100 }).filter(t => t.difficulty === 2);
+    const t3 = getFixSentenceTrials({ difficulty: 10, count: 100 }).filter(t => t.difficulty === 3);
+    // eslint-disable-next-line no-console
+    console.log(`  FixSentence tier sizes: T1=${t1.length} T2=${t2.length} T3=${t3.length}`);
+    expect(t1.length).toBeGreaterThanOrEqual(20);
+    expect(t2.length).toBeGreaterThanOrEqual(20);
+    expect(t3.length).toBeGreaterThanOrEqual(20);
   });
 
   it('mid-session re-pool from L1 to L8 returns 100% new tier-3 trials', () => {
