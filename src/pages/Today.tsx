@@ -28,19 +28,31 @@ interface AdherenceStats {
 }
 
 async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
+  // Count completed *lesson flows* (multi-block sessions). Standalone single-exercise
+  // practice and timeout-swept sessions don't count. Source-of-truth = `sessions` table
+  // (the legacy `coach_conversation_summaries` is no longer written by the new flow).
   const { data, error } = await supabase
-    .from('coach_conversation_summaries')
-    .select('created_at')
+    .from('sessions')
+    .select('ended_at, plan')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .eq('ended_reason', 'completed')
+    .not('ended_at', 'is', null)
+    .order('ended_at', { ascending: false })
+    .limit(1000);
 
   if (error || !data || data.length === 0) {
     return { totalSessions: 0, currentStreak: 0 };
   }
 
-  const totalSessions = data.length;
+  // Filter to lesson flows: plan.blocks length > 1
+  const lessonFlows = data.filter((row: any) => {
+    const blocks = row?.plan?.blocks;
+    return Array.isArray(blocks) && blocks.length > 1;
+  });
+
+  const totalSessions = lessonFlows.length;
   const toDay = (ts: string) => Math.floor(Date.parse(ts) / 86400000);
-  const uniqueDays = [...new Set(data.map(r => toDay(r.created_at)))].sort((a, b) => b - a);
+  const uniqueDays = [...new Set(lessonFlows.map((r: any) => toDay(r.ended_at)))].sort((a, b) => b - a);
   const today = toDay(new Date().toISOString());
 
   let currentStreak = 0;
