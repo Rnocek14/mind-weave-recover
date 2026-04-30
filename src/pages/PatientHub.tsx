@@ -29,6 +29,7 @@ import {
   ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText, Users, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useProfile } from "@/hooks/useProfile";
 import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useWeeklySessionTimeline } from "@/hooks/useWeeklySessionTimeline";
