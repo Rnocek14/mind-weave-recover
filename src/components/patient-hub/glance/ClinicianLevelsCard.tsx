@@ -8,6 +8,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowDown, ArrowRight, Layers, ShieldAlert } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -148,10 +149,19 @@ export function ClinicianLevelsCard({ userId }: Props) {
                     <span className="text-sm font-medium text-foreground truncate">{pretty(r.slug)}</span>
                     <span className="text-[11px] text-muted-foreground">L{r.level}</span>
                     {r.cueBlocked && (
-                      <Badge variant="outline" className="text-[10px] font-normal text-amber-700 border-amber-500/30 gap-1">
-                        <ShieldAlert className="w-2.5 h-2.5" />
-                        cue gate
-                      </Badge>
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="text-[10px] font-normal text-amber-700 border-amber-500/30 gap-1 cursor-help">
+                              <ShieldAlert className="w-2.5 h-2.5" />
+                              cue gate
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px] text-xs">
+                            Patient required cues to maintain success — level not increased.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
