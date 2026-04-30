@@ -29,6 +29,9 @@ export interface TrialData {
   validity_label?: string | null;
   validity_reason?: string | null;
   counts_toward_score?: boolean | null;
+  clinician_validity_override?: string | null;
+  /** Which underlying table the row came from — needed for clinician overrides. */
+  source_table?: 'utterance_analyses' | 'exercise_events';
 }
 
 export function useSessionDetail() {
