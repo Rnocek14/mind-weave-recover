@@ -3162,12 +3162,55 @@ export const calculateDifficulty = (features: LinguisticFeatures): number => {
   return Math.max(1, Math.min(5, Math.round(score * 5 + 1)));
 };
 
+// ─── Phase 1.5 Adaptive Standard ───────────────────────────────────────────
+// Strict 3-tier mapping: engine level (1-10) → tier (1|2|3), no blending.
+// Tier is derived from real linguistic features (NOT the legacy
+// `computed_difficulty` field, which is noisy — e.g. it tagged "cat" as cd4).
+//
+// Tier 1 = concrete, monosyllabic, high-frequency, early-acquired (warm-up).
+// Tier 2 = mid-frequency, 1-2 syllables, modest phonological complexity.
+// Tier 3 = lower-frequency OR multi-syllabic OR complex phonology / atypical.
+
+export type PhotoTier = 1 | 2 | 3;
+
+export const computePhotoTier = (trial: PhotoTrial): PhotoTier => {
+  const f = trial.features;
+  // Hard signals (any one of these → tier 3)
+  if (
+    f.frequency_rank >= 3000 ||
+    f.syllable_count >= 3 ||
+    f.phonological_complexity >= 3 ||
+    f.age_of_acquisition >= 8 ||
+    f.typicality_rating >= 5
+  ) {
+    return 3;
+  }
+  // Easy signals (all must hold → tier 1)
+  if (
+    f.frequency_rank < 1500 &&
+    f.syllable_count === 1 &&
+    f.phonological_complexity <= 1 &&
+    f.age_of_acquisition <= 4 &&
+    f.typicality_rating <= 2
+  ) {
+    return 1;
+  }
+  return 2;
+};
+
+export const mapEngineLevelToPhotoTier = (level: number): PhotoTier => {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+};
+
 /**
- * Get trials appropriate for current difficulty level (1-10)
- * Maps game difficulty to linguistic difficulty (1-5)
+ * Get trials appropriate for current engine level (1-10).
+ * Phase 1.5 contract: STRICT tier isolation. No ±1 tolerance, no blending.
+ * Engine level → tier via mapEngineLevelToPhotoTier; trial → tier via computePhotoTier.
  */
 export const getTrialsForLevel = (
-  level: number, 
+  level: number,
   count: number,
   filterOptions?: {
     categories?: string[];
@@ -3178,9 +3221,8 @@ export const getTrialsForLevel = (
     focusWords?: string[]; // Specific words to prioritize
   }
 ): PhotoTrial[] => {
-  // Map game level (1-10) to linguistic difficulty (1-5)
-  const linguisticDifficulty = Math.ceil(level / 2);
-  
+  const targetTier = mapEngineLevelToPhotoTier(level);
+
   const excludeSet = new Set(filterOptions?.excludeTargets || []);
   const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
   const focusPhonemes = filterOptions?.focusPhonemes || [];
