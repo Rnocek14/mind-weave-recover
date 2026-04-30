@@ -186,6 +186,15 @@ export function MinimalPairsGame({
       });
     }
   }, [showFeedback, currentTrial, state.selectedIndex, state.isCorrect, onTrialComplete]);
+
+  // Auto-advance after selection — keeps rhythm flowing.
+  // Correct: 1.2s. Incorrect: 2.2s (extra time to read the contrast info).
+  useEffect(() => {
+    if (!showFeedback || isComplete) return;
+    const delay = state.isCorrect ? 1200 : 2200;
+    const t = setTimeout(() => { nextTrial(); }, delay);
+    return () => clearTimeout(t);
+  }, [showFeedback, isComplete, state.isCorrect, nextTrial]);
   
   if (!currentTrial && !isComplete) {
     return (
@@ -361,7 +370,7 @@ export function MinimalPairsGame({
         })}
       </div>
       
-      {/* Contrast info + Next — compact */}
+      {/* Contrast info + Next — compact. Auto-advances; tap Next to skip ahead. */}
       {showFeedback && (
         <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
           <div className="min-w-0">
@@ -374,9 +383,9 @@ export function MinimalPairsGame({
               {currentTrial.pair.contrastDescription}
             </p>
           </div>
-          <Button onClick={nextTrial} size="lg" className="gap-2 min-h-[48px] shrink-0 ml-3">
-            Next
-            <ArrowRight className="w-4 h-4" />
+          <Button onClick={nextTrial} variant="ghost" size="sm" className="gap-1 shrink-0 ml-3 text-muted-foreground">
+            Skip
+            <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </div>
       )}

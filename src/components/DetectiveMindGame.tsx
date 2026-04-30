@@ -246,6 +246,16 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
+  // Auto-advance from feedback → next case to keep session rhythm.
+  // Correct: 3.5s (most users want to move on). Incorrect: 6s (read the "why").
+  // Tapping "Next Case" or "Explain why" before timer fires cancels it.
+  useEffect(() => {
+    if (phase !== 'feedback' || !lastResult) return;
+    const delay = lastResult.correct ? 3500 : 6000;
+    const t = setTimeout(() => { handleSkipExplain(); }, delay);
+    return () => clearTimeout(t);
+  }, [phase, lastResult, handleSkipExplain]);
+
   // Handle explanation completion
   const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
     if (explainResult.skipped) {

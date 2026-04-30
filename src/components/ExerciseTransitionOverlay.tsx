@@ -76,9 +76,10 @@ export const ExerciseTransitionOverlay = ({
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
-  // Coaching-mode-aware duration: longer when guidance content is present
+  // Coaching-mode-aware duration: brief enough to feel like flow, long enough to read.
+  // Tightened from 3.5s/1.5s → 2.2s/1.2s to remove ~8s of waiting per session.
   const hasGuidanceContent = !!(microGuidance || coachingBridge);
-  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 1.5;
+  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 2.2 : 1.2;
   const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
 
   // Sync timeLeft to computed duration on mount
