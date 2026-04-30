@@ -41,6 +41,7 @@ import { computeEngagementScore } from "@/lib/computeEngagementScore";
 import { toast } from "sonner";
 
 import { SessionsTab } from "@/components/patient-hub/SessionsTab";
+import { SessionReviewTab } from "@/components/patient-hub/SessionReviewTab";
 import { SpeechProfileTab } from "@/components/patient-hub/SpeechProfileTab";
 import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
@@ -233,8 +234,9 @@ export default function PatientHub() {
         <CollapsibleContent className="pt-2">
           <Card className="p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full grid grid-cols-4">
+              <TabsList className="w-full grid grid-cols-5">
                 <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                <TabsTrigger value="review">Review</TabsTrigger>
                 <TabsTrigger value="speech">Speech</TabsTrigger>
                 <TabsTrigger value="patient">Patient</TabsTrigger>
                 <TabsTrigger value="intelligence">Intel</TabsTrigger>
@@ -242,6 +244,9 @@ export default function PatientHub() {
 
               <TabsContent value="sessions">
                 <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+              </TabsContent>
+              <TabsContent value="review">
+                <SessionReviewTab profileId={profileId} />
               </TabsContent>
               <TabsContent value="speech">
                 <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />

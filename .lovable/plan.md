@@ -1,92 +1,103 @@
-## Short answer
+## Goal
 
-Yes — upgrading the games we already have is the right move. It is dramatically faster than building new ones, and it takes Phase 1 coverage from **~25%** of full stroke recovery to roughly **~70%** without writing a single new game shell.
+Add a **Session Review** experience inside Clinical Detail that gives SLPs the recording-level evidence they actually use clinically — without cluttering the top Glance cards.
 
-We don't need 20 more games. We need to apply the **Phase 1 honesty pattern** (engine-level mapping, no tier blending, distinctness audit, perceptual curve) to the existing exercises that already touch other recovery domains.
+## My analysis of your spec
 
----
+Your 5 sections are exactly right. After auditing the codebase + clinical literature (WAB, Boston Naming Test scoring, PACE therapy), I'd add 3 things and flag 2 limits:
 
-## Coverage today vs. after upgrade
+**Strong additions worth including:**
 
-### Stroke recovery domains (from the research framing)
-1. Language / aphasia
-2. Cognition — attention, memory, executive function
-3. Comprehension (auditory + reading)
-4. Visuospatial / neglect
-5. Motor / coordination
-6. Social-emotional
+1. **Cue-fade trajectory across sessions** — not just "X correct after phonemic cue this session," but "phonemic-cue dependency dropped from 60% → 35% over 4 weeks." This is the single most-cited evidence of true recovery vs. compensation. We already log `cue_type_given` + `cue_was_effective`, so it's free.
+2. **Latency / response time per error type** — slow-but-correct vs. fast-and-wrong have totally different clinical meanings. SLPs use this to distinguish word-finding deficit from semantic loss. We already capture `reaction_time_ms`.
+3. **Self-correction tracking** — patient said "duh… dog!" — clinically huge (intact monitoring) and we already classify `self_corrected`.
 
-### Where each existing exercise sits
+**Two honest limits to flag in the UI rather than fake:**
 
-| Domain | Already in catalog | Validated adaptive (Phase 1) |
-|---|---|---|
-| Language — word finding | photo-naming, word-finding, two-clues, dual-load-naming, describe-guess, synonym-generator, semantic-features, meaning-match, category-fluency | describe-guess, synonym-generator |
-| Language — syntax/sentence | fix-sentence, sentence-construction, sentence-game, phrase-practice | fix-sentence, phrase-practice |
-| Language — discourse | thought-continuation, thought-organization, narrative-retell, conversation-coach, conversation-partner | thought-continuation |
-| Phonology / speech sound | minimal-pairs, phonological-awareness | — |
-| Comprehension | detective-mind, follow-directions, abstract-compare | — |
-| Executive / planning | multi-step-plan, sequence-builder, detective-mind | — |
-| Visuospatial / neglect | left-side-hunt, pattern-match | — |
-| Motor / coordination | reach-tap | — |
-| Social-emotional | none | — |
+- **Phoneme-level errors** (final /t/, /r/-/l/ confusion): we have `phonological_similarity` (Levenshtein) and Azure pronunciation scores when present, but no true phoneme-substitution log. We can derive *approximate* sound-pattern hints by diffing transcript vs. target on the consonant level — useful as a hypothesis, not a diagnosis. Label it "Sound patterns to investigate" not "Phoneme errors."
+- **Perseveration** requires looking across trials within a session (same wrong answer reused). Doable — we have ordered trials — but should be derived, not assumed in the schema.
 
-### Coverage math
+## What I'll build
 
-- **Today (5 validated):** ~25% of true stroke-recovery breadth — strong on language, weak everywhere else.
-- **After this upgrade pass (target 12–14 validated across all 6 domains):** ~70%. The only remaining real gaps are social-emotional recognition and a dedicated reading/spelling game.
+A new **`SessionReviewTab`** added as a 5th tab inside the existing Clinical Detail drawer (next to Sessions / Speech / Patient / Intel). Selecting a session opens a focused review panel with 5 stacked sections. Mobile-first, single column, evidence-first.
 
-That last 30% is genuine new-build territory (Phase 3+). The other 70% is already sitting in the codebase, unvalidated.
+```text
+Clinical Detail (drawer)
+└── Tabs: Sessions | Review | Speech | Patient | Intel
+                    ▲ NEW
+    └── Session picker (last 10 sessions, dated)
+        └── 1. Session Summary strip
+            2. Voice Evidence (4 clips)
+            3. Error Pattern Breakdown
+            4. Sounds to Watch (derived, hedged)
+            5. Cue Response + cross-session fade chart
+            6. Clinician Notes (existing component, embedded)
+```
 
----
+## Section-by-section build
 
-## Recommended upgrade plan (Phase 1.5)
+### 1. Session Summary strip
+One row, six chips: date · duration · games played · accuracy · highest level reached · cue dependency %. Pulls from `sessions` + `useSessionDetail` (already exists).
 
-Apply the same five Phase 1 standards to one exercise per domain so each recovery area has at least one game that's truly adaptive and audited.
+### 2. Voice Evidence — 4 curated clips
+Reuses the same audio playback + signing pattern as `useSessionDetail.playAudio`. Quality filter (≥400ms, non-empty transcript) already established in caregiver `ListenCard`.
 
-**Standards applied to each:**
-- Move content to `src/data/<name>Bank.ts`
-- Add `mapEngineLevelTo<Game>Tier(level)` — strict isolation, no cumulative blending
-- Build a real L1 → L10 perceptual curve specific to the domain
-- Add a distinctness test in `src/data/__tests__/contentDistinctness.test.ts` (0% Jaccard between L1/L5/L10 pools)
-- Wire engine signal end-to-end so adaptation is visible
+- **Best response** — highest score, fastest RT, no cue
+- **Representative error** — most-frequent error type this session
+- **Hardest successful** — highest difficulty level where they got it right (with or without cue)
+- **Most recent attempt** — last trial chronologically
 
-**Batch order (by clinical impact + effort):**
+Each clip card shows: ▶ play · target word · transcript · error type chip · cue chip · RT.
 
-1. **photo-naming** — language: confrontation naming. Highest-frequency clinical exercise. Tier curve: high-frequency concrete → low-frequency abstract / multi-syllabic.
-2. **multi-step-plan** — executive function. Tier curve: 2-step familiar routines → 6-step novel sequences with distractors.
-3. **detective-mind** — comprehension + reasoning. Tier curve: 2-clue single-inference → 5-clue multi-constraint deduction.
-4. **minimal-pairs** — phonology. Tier curve: maximally contrastive pairs (p/m) → minimal place/voice contrasts in noise.
-5. **left-side-hunt** — visuospatial / neglect. Tier curve: large high-contrast targets centered → small low-contrast targets in left periphery with distractors.
-6. **reach-tap** — motor. Tier curve: large slow targets, long dwell → small fast targets, short dwell, dual-task overlay.
-7. **narrative-retell** — discourse (already partially adaptive, just needs the audit + curve formalization).
+### 3. Error Pattern Breakdown
+Horizontal bar chart, counts + %, derived from `error_type` column on `exercise_events` / `utterance_analyses`:
+- phonemic paraphasia · semantic paraphasia · circumlocution · self-corrected · no response · neologism · perseveration (derived: same wrong answer ≥2 trials) · agrammatic (derived from word count + target type for sentence tasks)
 
-That's 7 upgrades, each ~1 short build cycle. After them: every recovery domain has at least one validated game.
+Click any bar → filters the trial list below to just those trials with their audio.
 
-### What NOT to do in this pass
+### 4. Sounds to Watch (hedged)
+Computed client-side from incorrect trials only. For each (target, transcript) pair we diff the consonant skeleton and surface the top 3 recurring patterns, e.g. "Final /t/ dropped 4× · /r/ → /w/ 3× · /s/-blend reduced 2×". Header reads **"Patterns to investigate (auto-detected — confirm clinically)"** so SLPs know it's a hypothesis. If we have <5 incorrect trials with audio, hide the section instead of showing noise.
 
-- Do not build new game shells.
-- Do not start phoneme-level personalization (Phase 2).
-- Do not touch the 5 already-validated games.
-- Do not promise social-emotional or reading/spelling coverage — flag those as Phase 3 gaps in the docs.
+### 5. Cue Response + Fade Trajectory
+Two parts:
+- **This session**: stacked bar — correct without cue / correct after semantic / correct after phonemic / correct after repetition / still incorrect. Pulls `cue_type_given` + `cue_was_effective`.
+- **Across last 8 sessions**: small line chart of "% trials needing any cue." This is the recovery signal SLPs care most about — cue dependency dropping = real generalization.
 
----
+### 6. Clinician Notes
+Embed existing per-session note input from `clinician_session_notes` table (already has RLS for assigned clinicians). Shows prior notes for this session, allows new note. No new table.
 
-## Deliverables
+## Files
 
-1. Code: 7 game upgrades following the Phase 1 pattern.
-2. Tests: extend `contentDistinctness.test.ts` to cover all 12 validated games (target: 80+/80+ passing, 0% overlap).
-3. Doc update: revise `src/docs/PHASE_1_ADAPTIVE_SYSTEM_VALIDATION.md` (or add `PHASE_1_5_DOMAIN_COVERAGE.md`) with the new coverage matrix and a one-page domain map showing 70% coverage, remaining gaps, and Phase 2/3 boundaries.
-4. Refresh the stakeholder docx (`NeuroSpark_Phase1_Summary_v2.docx`) so Mercy sees the real breadth, not just the 5-game language slice.
+**New:**
+- `src/components/patient-hub/SessionReviewTab.tsx` — the tab container + session picker
+- `src/components/patient-hub/review/SessionSummaryStrip.tsx`
+- `src/components/patient-hub/review/VoiceEvidenceGrid.tsx` — 4 clip cards + audio
+- `src/components/patient-hub/review/ErrorPatternBreakdown.tsx` — bar chart + filter
+- `src/components/patient-hub/review/SoundsToWatch.tsx` — consonant-diff heuristic
+- `src/components/patient-hub/review/CueResponsePanel.tsx` — this-session + fade chart
+- `src/components/patient-hub/review/SessionNotesPanel.tsx` — wraps `clinician_session_notes`
+- `src/lib/clinical/derivePerseveration.ts` — pure helper, scans trial sequence
+- `src/lib/clinical/deriveSoundPatterns.ts` — pure helper, consonant-level diff
 
----
+**Edited:**
+- `src/pages/PatientHub.tsx` — add 5th tab `<TabsTrigger value="review">Review</TabsTrigger>` and `<TabsContent>`. Grid changes from `grid-cols-4` → `grid-cols-5`.
 
-## Suggested execution
+**Reused (no edits):** `useSessionDetail`, `useSessionSummary`, `useClinicalNotes`, `AccuracySparkline`, audio storage signing.
 
-Do this in two approval checkpoints, not one giant batch:
+## Constraints I'll respect
 
-- **Batch A (language + cognition):** photo-naming, multi-step-plan, detective-mind, minimal-pairs. Approve after audit passes.
-- **Batch B (visuospatial + motor + discourse):** left-side-hunt, reach-tap, narrative-retell. Approve, then refresh docs + docx.
+- No new tables, no migrations — every signal already exists in `exercise_events` / `utterance_analyses` / `clinician_session_notes`.
+- No changes to top Glance cards.
+- Sounds-to-Watch is clearly labeled as auto-derived hypothesis, hidden when data is too thin.
+- Mobile-first single column; clip cards stack on narrow viewports.
+- Performance: only fetch trials for the *selected* session (lazy), not all sessions.
 
-Visuospatial and motor adaptation use different difficulty axes than language (target size, dwell time, contrast, distractor load) — worth treating those as their own mini-design conversation when we get to Batch B rather than assuming the language pattern transfers cleanly.
+## What I'm explicitly NOT adding
 
-Approve this and I'll start with Batch A.
+- True phoneme-level ASR alignment (would need server-side Montreal Forced Aligner or equivalent — out of scope, and would mislead if half-built).
+- New tabs or sections in the top Glance row.
+- Cross-patient comparisons (lives in cohort analytics, separate page).
+
+## Open question for you
+
+For **Voice Evidence**, I picked Best / Representative Error / Hardest Successful / Most Recent. You also mentioned "before/after comparison" and "repeated target attempts over time." Those are powerful but cross-session — they'd live better as a **second view inside Voice Evidence**: a toggle "This session / Same target across time" that, when a target word is selected, pulls every attempt of that word from the last N sessions. Want me to include that toggle in v1, or ship the 4-clip view first and add it next?
