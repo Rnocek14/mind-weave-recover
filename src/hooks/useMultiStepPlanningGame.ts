@@ -13,6 +13,7 @@ import { scoreExplanation } from '@/lib/explanationScorer';
 export interface PlanningTrialResult {
   itemId: string;
   goal: string;
+  tier: number;
   transcript: string;
   stepCount: number;
   stepsFound: number;
@@ -110,6 +111,7 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
     const result: PlanningTrialResult = {
       itemId: currentItem.id,
       goal: currentItem.goal,
+      tier: activeTier,
       transcript,
       stepCount,
       stepsFound: score.conceptsFound,
@@ -128,7 +130,7 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
 
     setResults(prev => [...prev, result]);
     return result;
-  }, [currentItem]);
+  }, [currentItem, activeTier]);
 
   const nextItem = useCallback(() => {
     setCurrentIndex(prev => prev + 1);
