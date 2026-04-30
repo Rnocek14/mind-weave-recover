@@ -4297,6 +4297,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 1, minLevel: 1, maxLevel: 4,
   },
 ];
+/**
  * Calculate difficulty score (1-5) from linguistic features
  * Based on research: frequency, imageability, AoA, length, typicality
  */
