@@ -198,7 +198,7 @@ export default function PatientHub() {
 
       <ProfileCompletenessBanner
         profile={activeProfile}
-        onEditProfile={() => setActiveTab("patient")}
+        onEditProfile={() => setActiveTab("plan")}
       />
 
       {/* === The five Glance Cards === */}
