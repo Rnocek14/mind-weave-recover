@@ -44,7 +44,7 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
