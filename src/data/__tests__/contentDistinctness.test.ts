@@ -460,7 +460,7 @@ describe('Content distinctness — PhotoNaming', () => {
         Number(f.syllable_count >= 3) +
         Number(f.age_of_acquisition >= 7) +
         Number((f.phonological_complexity ?? 0) >= 3) +
-        Number((f.semantic_typicity ?? 0) >= 5);
+        Number((f.typicality_rating ?? 0) >= 5);
       const extreme =
         f.frequency_rank >= 15000 || f.age_of_acquisition >= 9 || f.syllable_count >= 4;
       return hardSignals >= 2 || extreme;
