@@ -904,17 +904,22 @@ export function generateDailyLesson(
   let lastAddedExercise: typeof scoredExercises[0] = null;
 
   // 1. WARMUP (1-2 min) - confidence-building exercise
-  // Profile-aware: prefer exercises that match the user's PRIMARY domain but are easy,
-  // so the warmup is therapeutically relevant, not just motor for everyone.
+  // Profile-aware: prefer exercises that match the user's PRIMARY domain but are easy.
+  // CRITICAL: respect recencyPenalty (already baked into `score`) so we don't pick the
+  // same warmup game day after day. Previously this sort ignored score and always
+  // picked the lowest-baseMinutes primary-match → Category Fluency every session.
   const warmupCandidates = scoredExercises
     .filter(e => e && e.baseMinutes <= 3)
     .sort((a, b) => {
       if (!a || !b) return 0;
-      // Prefer exercises matching primary domains (therapeutic relevance)
+      // Primary-domain match still matters most (therapeutic relevance)
       const aMatchesPrimary = a.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
       const bMatchesPrimary = b.domains.some(d => mappedPrimaryDomains.includes(d)) ? 1 : 0;
       if (bMatchesPrimary !== aMatchesPrimary) return bMatchesPrimary - aMatchesPrimary;
-      // Then prefer lower cognitive load (easy exercises first)
+      // Then prefer higher overall score (includes recency penalty + struggle boost)
+      // → automatically rotates warmups while still respecting clinical fit.
+      if (b.score !== a.score) return b.score - a.score;
+      // Tiebreak: shorter exercises win (true warmup feel)
       return a.baseMinutes - b.baseMinutes;
     });
 

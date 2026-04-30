@@ -68,14 +68,44 @@ function getTimerForDifficulty(difficulty: number): number {
   return 20;
 }
 
+// Cross-session category recency: remember the last N categories the user got
+// so we don't open every warmup with "animals". Soft window — once it fills up,
+// the oldest entry rolls off and that category becomes eligible again.
+const RECENT_CATEGORY_KEY = 'categoryFluency_recentCategories';
+const RECENT_WINDOW = 7;
+
+function loadRecentCategories(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_CATEGORY_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.slice(-RECENT_WINDOW) : [];
+  } catch { return []; }
+}
+
+function rememberCategory(category: string) {
+  try {
+    const recent = loadRecentCategories().filter(c => c !== category);
+    recent.push(category);
+    const trimmed = recent.slice(-RECENT_WINDOW);
+    localStorage.setItem(RECENT_CATEGORY_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+
 function pickCategory(difficulty: number, usedCategories: Set<string> = new Set()) {
   const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), CATEGORY_TIERS.length - 1);
   const tier = CATEGORY_TIERS[Math.max(0, tierIndex)];
-  const unused = tier.filter(c => !usedCategories.has(c.category));
+  // Combine in-session used + cross-session recent for full freshness gate.
+  const recent = new Set([...loadRecentCategories(), ...usedCategories]);
+  const unused = tier.filter(c => !recent.has(c.category));
   if (unused.length > 0) return unused[Math.floor(Math.random() * unused.length)];
+  // Tier exhausted: try any non-recent category from any tier (still avoiding repeats)
   const allCategories = CATEGORY_TIERS.flat();
-  const allUnused = allCategories.filter(c => !usedCategories.has(c.category));
+  const allUnused = allCategories.filter(c => !recent.has(c.category));
   if (allUnused.length > 0) return allUnused[Math.floor(Math.random() * allUnused.length)];
+  // Everything's been seen recently → fall back to in-session-only filter (soft recovery)
+  const sessionUnused = tier.filter(c => !usedCategories.has(c.category));
+  if (sessionUnused.length > 0) return sessionUnused[Math.floor(Math.random() * sessionUnused.length)];
   usedCategories.clear();
   return tier[Math.floor(Math.random() * tier.length)];
 }
@@ -180,6 +210,7 @@ export function CategoryFluencyGame({
   const [config, setConfig] = useState(() => {
     const cat = pickCategory(currentDifficulty);
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     return cat;
   });
   const [words, setWords] = useState<Array<{ text: string; status: WordValidation }>>([]);
@@ -409,6 +440,7 @@ export function CategoryFluencyGame({
     vg.interrupt(); // Stop any active speech
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
@@ -445,6 +477,7 @@ export function CategoryFluencyGame({
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
+    rememberCategory(cat.category);
     setConfig(cat);
     setPhase('countdown');
     
