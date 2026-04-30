@@ -40,6 +40,15 @@ export interface TrialLogInput {
     trialsAtLevel: number;
     level: number;
   } | null;
+  /**
+   * Speech Validity Gate (Phase 1).
+   * If present and not 'valid_attempt', the trial is dropped from
+   * adaptation logs and only an audit anomaly is recorded.
+   */
+  validity?: {
+    label: string;
+    reason?: string;
+  } | null;
 }
 
 interface Options {
