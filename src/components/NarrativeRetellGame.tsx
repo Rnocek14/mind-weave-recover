@@ -20,6 +20,7 @@ import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useAutoResponseMic } from '@/hooks/useAutoResponseMic';
 import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { Button } from '@/components/ui/button';
+import { RoundDoneAutoAdvance } from '@/components/RoundDoneAutoAdvance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } from 'lucide-react';
