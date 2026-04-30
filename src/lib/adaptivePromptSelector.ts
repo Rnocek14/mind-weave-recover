@@ -11,7 +11,7 @@
 
 import type { ThoughtPrompt, IntentType, PromptTheme, TimeAnchor } from '@/types/thoughtContinuation';
 import type { StuckType } from './stuckTypeClassifier';
-import { THOUGHT_PROMPTS } from '@/data/thoughtPromptBank';
+import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
 
 export interface SessionHistory {
   stuckTypes: StuckType[];
@@ -73,15 +73,24 @@ const SELECTION_RULES: Record<StuckType, Partial<SelectionConstraints>> = {
 };
 
 /**
- * Select the next prompt based on previous stuck type and session history
+ * Select the next prompt based on previous stuck type and session history.
+ *
+ * `discourseLevel` (1..5) is the AUTHORITATIVE engine signal. The selector
+ * collapses it to an exact content tier (1..3) and selects ONLY from that
+ * tier — never blends across tiers, never silently relaxes the band. Stuck-
+ * type rules can still pull cue/intent preferences but cannot escape the
+ * tier the engine has chosen. If `discourseLevel` is omitted, the selector
+ * falls back to the legacy stuck-type-only `maxDifficultyTier` heuristic
+ * (kept for back-compat with callers that don't yet thread the engine).
  */
 export function selectNextPrompt(
   previousStuckType: StuckType | null,
   sessionHistory: SessionHistory,
-  usedPromptIds: string[] = []
+  usedPromptIds: string[] = [],
+  discourseLevel?: number,
 ): PromptSelection {
   const availablePrompts = THOUGHT_PROMPTS.filter(p => !usedPromptIds.includes(p.id));
-  
+
   if (availablePrompts.length === 0) {
     // Fallback: reuse prompts if we've exhausted the bank
     return selectFromPool(THOUGHT_PROMPTS, null, sessionHistory, 'fallback');
@@ -90,18 +99,36 @@ export function selectNextPrompt(
   // Determine selection strategy based on previous attempt
   const strategy = determineStrategy(previousStuckType, sessionHistory);
   const constraints = buildConstraints(previousStuckType, sessionHistory);
-  
-  // Filter prompts by constraints
-  let candidatePrompts = filterByConstraints(availablePrompts, constraints);
-  
-  // If too restrictive, relax constraints
-  if (candidatePrompts.length === 0) {
-    candidatePrompts = availablePrompts.filter(p => 
+
+  // Engine-tier hard band: when the discourse engine emits a level, that
+  // tier is authoritative. Stuck-type rules are NOT allowed to leak content
+  // from other tiers (which was the silent blending bug).
+  const engineTier = discourseLevel !== undefined
+    ? mapDiscourseLevelToPromptTier(discourseLevel)
+    : null;
+
+  // Filter prompts by constraints (and enforce the engine tier first)
+  let candidatePrompts = availablePrompts;
+  if (engineTier !== null) {
+    candidatePrompts = candidatePrompts.filter(p => p.difficultyTier === engineTier);
+  }
+  candidatePrompts = filterByConstraints(candidatePrompts, constraints, /*ignoreDifficulty=*/ engineTier !== null);
+
+  // If preferences were too restrictive within the tier, drop intent/anchor
+  // preferences but DO NOT widen the difficulty band.
+  if (candidatePrompts.length === 0 && engineTier !== null) {
+    candidatePrompts = availablePrompts.filter(p => p.difficultyTier === engineTier);
+  }
+
+  // Legacy path (no engine signal): retain old behaviour but guard against
+  // the cumulative-blend bug — only relax difficulty by one tier max.
+  if (candidatePrompts.length === 0 && engineTier === null) {
+    candidatePrompts = availablePrompts.filter(p =>
       p.difficultyTier <= (constraints.maxDifficultyTier + 1)
     );
   }
-  
-  // Still empty? Use all available
+
+  // Final safety fallback — never leave the user empty-handed.
   if (candidatePrompts.length === 0) {
     candidatePrompts = availablePrompts;
   }
@@ -180,11 +207,18 @@ function buildConstraints(
 
 function filterByConstraints(
   prompts: ThoughtPrompt[],
-  constraints: SelectionConstraints
+  constraints: SelectionConstraints,
+  /**
+   * When true, the engine has already band-isolated the candidate pool to a
+   * specific tier. We must NOT additionally apply the stuck-type
+   * `maxDifficultyTier` filter — doing so could empty the pool and silently
+   * trigger fallback to other tiers.
+   */
+  ignoreDifficulty: boolean = false,
 ): ThoughtPrompt[] {
   return prompts.filter(prompt => {
-    // Check difficulty
-    if (prompt.difficultyTier > constraints.maxDifficultyTier) {
+    // Check difficulty (skip when the engine tier is already enforced)
+    if (!ignoreDifficulty && prompt.difficultyTier > constraints.maxDifficultyTier) {
       return false;
     }
 

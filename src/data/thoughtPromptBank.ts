@@ -546,6 +546,49 @@ const PROMPT_TEMPLATES: PromptTemplate[] = [
     ],
     difficultyTier: 3,
   },
+  // ==========================================================================
+  // EXPLAIN_REASON / HYPOTHETICAL - Tier 3 (abstract, multi-step discourse)
+  // ==========================================================================
+  {
+    intentType: 'explain_reason',
+    theme: 'preferences',
+    promptText: "Talk about why one thing matters more to you than another.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about people, time, or comfort?" },
+      { level: 2, text: "Has it always been this way for you?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'compare_contrast',
+    theme: 'memories',
+    promptText: "Talk about how a friendship has changed over time.",
+    narrowingSteps: [
+      { level: 1, text: "Is it closer or more distant now?" },
+      { level: 2, text: "What caused the change?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'solve_problem',
+    theme: 'health',
+    promptText: "Talk about what you would tell someone starting recovery.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about patience, effort, or hope?" },
+      { level: 2, text: "What helped you the most?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'explain_reason',
+    theme: 'family',
+    promptText: "Talk about a tradition that means something to your family.",
+    narrowingSteps: [
+      { level: 1, text: "Is it tied to a season, holiday, or everyday life?" },
+      { level: 2, text: "Why does it matter to the people involved?" },
+    ],
+    difficultyTier: 3,
+  },
 ];
 
 // =============================================================================
@@ -567,6 +610,24 @@ export const THOUGHT_PROMPTS: ThoughtPrompt[] = PROMPT_TEMPLATES.map((template, 
 // Helper Functions
 // =============================================================================
 
+/**
+ * Map a discourse adaptation level (1..5) to the prompt content tier (1..3).
+ *
+ * `useDiscourseAdaptation` emits 1..5; the prompt bank is graded into 3 tiers
+ * (Tier 1 = recall_recent / daily_routine, Tier 2 = describe_event / opinions,
+ * Tier 3 = compare_contrast / solve_problem / explain_reason). This is the
+ * SAME engine→tier contract used by FixSentence, DescribeGuess and
+ * PhrasePractice. NEVER use a cumulative `<=` band — that causes silent tier
+ * blending and breaks perceptual progression.
+ */
+export function mapDiscourseLevelToPromptTier(discourseLevel: number): 1 | 2 | 3 {
+  if (!Number.isFinite(discourseLevel)) return 1;
+  const lvl = Math.max(1, Math.min(5, Math.round(discourseLevel)));
+  if (lvl <= 2) return 1;       // discourse 1-2 → tier 1 (concrete recall)
+  if (lvl <= 4) return 2;       // discourse 3-4 → tier 2 (structured expansion)
+  return 3;                     // discourse 5   → tier 3 (abstract / multi-step)
+}
+
 export function getPromptsByDifficulty(tier: 1 | 2 | 3): ThoughtPrompt[] {
   return THOUGHT_PROMPTS.filter(p => p.difficultyTier === tier && p.isActive);
 }
@@ -579,31 +640,41 @@ export function getPromptsByIntent(intent: IntentType): ThoughtPrompt[] {
   return THOUGHT_PROMPTS.filter(p => p.intentType === intent && p.isActive);
 }
 
+/**
+ * Random prompt selection. The `tier` option enforces an EXACT tier band
+ * (no cumulative blending). The legacy `maxDifficulty` option is now
+ * interpreted as "exactly this tier" to preserve callers while removing the
+ * old `<=` bug. Pass `tier` for new code.
+ */
 export function selectRandomPrompts(
-  count: number, 
-  options?: { 
-    preferredThemes?: PromptTheme[]; 
+  count: number,
+  options?: {
+    preferredThemes?: PromptTheme[];
+    /** Exact content tier band (preferred, no blending). */
+    tier?: 1 | 2 | 3;
+    /** @deprecated use `tier`. Now treated as EXACT tier match, not `<=`. */
     maxDifficulty?: 1 | 2 | 3;
     excludeIds?: string[];
   }
 ): ThoughtPrompt[] {
   let pool = THOUGHT_PROMPTS.filter(p => p.isActive);
-  
-  if (options?.maxDifficulty) {
-    pool = pool.filter(p => p.difficultyTier <= options.maxDifficulty!);
+
+  const exactTier = options?.tier ?? options?.maxDifficulty;
+  if (exactTier) {
+    pool = pool.filter(p => p.difficultyTier === exactTier);
   }
-  
+
   if (options?.preferredThemes && options.preferredThemes.length > 0) {
     const themed = pool.filter(p => options.preferredThemes!.includes(p.theme));
     if (themed.length >= count) {
       pool = themed;
     }
   }
-  
+
   if (options?.excludeIds) {
     pool = pool.filter(p => !options.excludeIds!.includes(p.id));
   }
-  
+
   // Shuffle and take
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);

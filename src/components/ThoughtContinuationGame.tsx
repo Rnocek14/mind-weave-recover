@@ -187,14 +187,22 @@ export function ThoughtContinuationGame({
   // ---------------------------------------------------------------------------
   
   const selectAndSetNextPrompt = useCallback(async () => {
-    // Use adaptive selector
-    const selection = selectNextPrompt(previousStuckType, sessionHistory, usedPromptIds);
-    
+    // Pass the engine discourse level so the selector enforces the mapped
+    // content tier as a hard band — no cumulative blending across tiers.
+    const selection = selectNextPrompt(
+      previousStuckType,
+      sessionHistory,
+      usedPromptIds,
+      adaptation.level,
+    );
+
     console.log('[ThoughtGame] Prompt selected:', {
       strategy: selection.strategy,
       reason: selection.reason,
       promptTheme: selection.prompt.theme,
       promptIntent: selection.prompt.intentType,
+      promptTier: selection.prompt.difficultyTier,
+      engineLevel: adaptation.level,
       previousStuckType,
     });
     
@@ -214,7 +222,7 @@ export function ThoughtContinuationGame({
     setCurrentPrompt(selection.prompt);
     setUsedPromptIds(prev => [...prev, selection.prompt.id]);
     setPromptCount(prev => prev + 1);
-  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision]);
+  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
 
   // ---------------------------------------------------------------------------
   // Initialize first prompt
