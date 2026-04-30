@@ -59,11 +59,13 @@ type WindowSize = 7 | 14 | 30;
 export default function PatientHub() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin } = useUserPermissions(user?.id);
   const { activeProfile } = useProfile();
   const profileId = activeProfile?.id;
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
-  const [activeTab, setActiveTab] = useState("sessions");
+  // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
+  const [activeTab, setActiveTab] = useState("overview");
   const [streak, setStreak] = useState(0);
 
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
