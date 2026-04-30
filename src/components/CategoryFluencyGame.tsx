@@ -473,37 +473,37 @@ export function CategoryFluencyGame({
   }, [currentDifficulty, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
-  const beginCountdown = useCallback(() => {
+  const beginCountdown = useCallback(async () => {
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
     rememberCategory(cat.category);
     setConfig(cat);
     setPhase('countdown');
-    
-    // Speak the category-specific intro in Full Coaching mode (fire-and-forget)
-    // Don't await — TTS may fail without gesture context on auto-start,
-    // and we don't want to block the countdown
+
+    // Sync-Wait protocol — await TTS completion before starting the
+    // visual countdown so audio never overlaps the 3-2-1 ticks. Falls
+    // back to a tiny grace period if TTS fails or is unavailable.
     if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+      try {
+        await vg.speakIfVoiceLed(`Name as many ${cat.label.toLowerCase()} as you can.`);
+      } catch (err) {
+        console.warn('[CategoryFluency] TTS failed before countdown — proceeding silently', err);
+      }
     }
 
-    // Start 3-2-1 countdown after a brief pause (gives speech time to begin)
-    const speechDelay = vg.shouldAutoSpeak ? 2200 : 0;
-    setTimeout(() => {
-      setCountdown(3);
-      let count = 3;
-      const interval = setInterval(() => {
-        count -= 1;
-        if (count <= 0) {
-          clearInterval(interval);
-          setCountdown(null);
-          startRoundWithConfig(cat);
-        } else {
-          setCountdown(count);
-        }
-      }, 800);
-    }, speechDelay);
+    setCountdown(3);
+    let count = 3;
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        setCountdown(null);
+        startRoundWithConfig(cat);
+      } else {
+        setCountdown(count);
+      }
+    }, 800);
   }, [currentDifficulty, vg]);
 
   // Keep ref updated so the auto-start timeout always calls the latest version

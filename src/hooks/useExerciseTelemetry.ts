@@ -5,6 +5,8 @@ import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
+import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
+import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -47,6 +49,11 @@ export interface TrialData {
   timeToSuccessAfterCueMs?: number | null;
   // Structured outputs for CSE consumption (explanation + depth)
   trialOutputs?: Record<string, any>;
+  // Speech Validity Gate result — Phase 1 observation. When present and
+  // the label is non-`valid_attempt`, the row is still inserted but flagged
+  // in task_parameters.speech_validity + engagement_flags so analytics can
+  // exclude it from accuracy/adaptation aggregates.
+  validity?: ValidityResult | null;
 }
 
 /**
@@ -253,6 +260,29 @@ export const useExerciseTelemetry = (
           eventData.cue_type_given = trial.cueTypeGiven;
           eventData.cue_was_effective = trial.cueWasEffective ?? null;
           eventData.time_to_success_after_cue_ms = trial.timeToSuccessAfterCueMs ?? null;
+        }
+
+        // ── Speech Validity Gate (Phase 1 — observation only) ──
+        // Always record the gate decision when a validity result was supplied,
+        // regardless of label. Analytics filters non-`valid_attempt` rows out of
+        // accuracy/adaptation aggregates; UI surfaces them in Session Review.
+        if (trial.validity) {
+          const gate = applyValidityGate(trial.validity);
+          tp.speech_validity = {
+            label: gate.label,
+            bucket: gate.bucket,
+            should_score: gate.shouldScore,
+            should_feed_adaptation: gate.shouldFeedAdaptation,
+            confidence: trial.validity.confidence,
+            reason: gate.reason,
+            signals: trial.validity.signals,
+          };
+          eventData.engagement_flags = {
+            ...(eventData.engagement_flags ?? {}),
+            validity_label: gate.label,
+            validity_bucket: gate.bucket,
+            counts_toward_score: gate.shouldScore,
+          };
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);
