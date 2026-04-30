@@ -546,6 +546,49 @@ const PROMPT_TEMPLATES: PromptTemplate[] = [
     ],
     difficultyTier: 3,
   },
+  // ==========================================================================
+  // EXPLAIN_REASON / HYPOTHETICAL - Tier 3 (abstract, multi-step discourse)
+  // ==========================================================================
+  {
+    intentType: 'explain_reason',
+    theme: 'preferences',
+    promptText: "Talk about why one thing matters more to you than another.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about people, time, or comfort?" },
+      { level: 2, text: "Has it always been this way for you?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'compare_contrast',
+    theme: 'memories',
+    promptText: "Talk about how a friendship has changed over time.",
+    narrowingSteps: [
+      { level: 1, text: "Is it closer or more distant now?" },
+      { level: 2, text: "What caused the change?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'solve_problem',
+    theme: 'health',
+    promptText: "Talk about what you would tell someone starting recovery.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about patience, effort, or hope?" },
+      { level: 2, text: "What helped you the most?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'explain_reason',
+    theme: 'family',
+    promptText: "Talk about a tradition that means something to your family.",
+    narrowingSteps: [
+      { level: 1, text: "Is it tied to a season, holiday, or everyday life?" },
+      { level: 2, text: "Why does it matter to the people involved?" },
+    ],
+    difficultyTier: 3,
+  },
 ];
 
 // =============================================================================
