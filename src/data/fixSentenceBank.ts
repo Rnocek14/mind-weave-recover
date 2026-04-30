@@ -249,11 +249,13 @@ export function getFixSentenceTrials(options?: {
     if (exact.length >= requested) {
       pool = exact;
     } else {
-      // Pad from the nearest neighbor tier(s), nearest first.
+      // Padding policy: prefer the HARDER neighbor first to preserve the
+      // engine's challenge direction. (Easier-first padding silently drops
+      // perceived difficulty — the exact bug we just removed.)
       const neighbors: number[] =
         targetTier === 1 ? [2, 3] :
         targetTier === 3 ? [2, 1] :
-        [1, 3]; // tier 2 falls back to 1 then 3
+        [3, 1]; // tier 2: prefer tier 3 over tier 1
       const padded = [...exact];
       for (const n of neighbors) {
         if (padded.length >= requested) break;
