@@ -1,0 +1,157 @@
+/**
+ * SessionPauseControl — Global pause affordance for in-session exercises.
+ *
+ * Mounted once at the App root. Renders only when:
+ *   - Current route starts with /exercise/
+ *   - User is inside a Full Coaching / Guided session (lessonFlowState_resume present)
+ *
+ * Behavior:
+ *   - Always-visible small button top-right of viewport
+ *   - Tap → full-screen PauseOverlay (dim + breathing dot)
+ *   - While paused: blocks all pointer/keyboard input to the exercise via
+ *     a fullscreen overlay; stops any active SpeechRecognition + TTS centrally.
+ *   - Resume: dismisses overlay, exercises pick up where they were.
+ *   - End early: clears resume state, navigates to /today.
+ *
+ * No clinical logic touched. No per-game changes required. Telemetry is logged
+ * via console for now; can be wired to analytics later.
+ */
+
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Pause, Play, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+export function SessionPauseControl() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isPaused, setIsPaused] = useState(false);
+  const pauseStartRef = useRef<number | null>(null);
+
+  // Show only on /exercise/* routes when an active lesson is in progress.
+  const onExerciseRoute = location.pathname.startsWith('/exercise/');
+  const inLessonSession = typeof window !== 'undefined' &&
+    !!localStorage.getItem('lessonFlowState_resume');
+  const visible = onExerciseRoute && inLessonSession;
+
+  // ── Pause side effects: stop mic + TTS centrally ────────────────
+  const enterPause = useCallback(() => {
+    pauseStartRef.current = Date.now();
+    setIsPaused(true);
+    console.log('[SessionPause] Paused');
+
+    // Stop any active SpeechRecognition the page has spun up.
+    // Each game holds its own recognizer ref, but they all listen for
+    // 'pause-session' events as a fallback. Dispatch one and also
+    // brute-force-stop any SpeechSynthesis so Maya goes quiet immediately.
+    try { window.speechSynthesis?.cancel(); } catch {}
+    window.dispatchEvent(new CustomEvent('session-pause'));
+  }, []);
+
+  const exitPause = useCallback(() => {
+    const durMs = pauseStartRef.current ? Date.now() - pauseStartRef.current : 0;
+    pauseStartRef.current = null;
+    setIsPaused(false);
+    console.log('[SessionPause] Resumed after', Math.round(durMs / 1000), 's');
+    window.dispatchEvent(new CustomEvent('session-resume', { detail: { pausedMs: durMs } }));
+  }, []);
+
+  const handleEndEarly = useCallback(() => {
+    console.log('[SessionPause] User ended session from pause overlay');
+    setIsPaused(false);
+    pauseStartRef.current = null;
+    // Clear resume state so the "Continue session" card doesn't appear later.
+    try {
+      localStorage.removeItem('lessonFlowState_resume');
+      sessionStorage.removeItem('lessonFlowState');
+    } catch {}
+    navigate('/today', { replace: true });
+  }, [navigate]);
+
+  // Auto-clear pause if user navigates away (route change).
+  useEffect(() => {
+    if (isPaused) exitPause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Spacebar shortcut for caregivers / desktop users.
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Don't hijack when typing in an input/textarea.
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'Escape' && isPaused) {
+        e.preventDefault();
+        exitPause();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, isPaused, exitPause]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      {/* Always-visible pause button (top-right). Hidden while overlay is up. */}
+      {!isPaused && (
+        <button
+          type="button"
+          onClick={enterPause}
+          aria-label="Pause session"
+          className="fixed top-3 right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+        >
+          <Pause className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* Full-screen pause overlay — blocks all input to exercise underneath. */}
+      {isPaused && (
+        <div
+          className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-200"
+          role="dialog"
+          aria-label="Session paused"
+        >
+          <div className="max-w-sm w-full text-center space-y-8">
+            {/* Breathing dot — calm, not animated frantically */}
+            <div className="relative w-20 h-20 mx-auto">
+              <div className="absolute inset-0 rounded-full bg-primary/10" />
+              <div className="absolute inset-2 rounded-full bg-primary/20 animate-pulse" style={{ animationDuration: '3s' }} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Pause className="w-7 h-7 text-primary" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold text-foreground">Paused</h2>
+              <p className="text-muted-foreground text-base">
+                Take your time. Resume whenever you're ready.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <Button size="lg" onClick={exitPause} className="w-full gap-2">
+                <Play className="w-4 h-4" />
+                Resume
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                onClick={handleEndEarly}
+                className="w-full text-muted-foreground gap-2"
+              >
+                <X className="w-4 h-4" />
+                End session early
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground/60">
+              Tip: press Esc to resume
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

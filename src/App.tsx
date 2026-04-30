@@ -112,6 +112,7 @@ const App = () => (
                 <Toaster />
                 <Sonner />
                 <MayaSessionOverlay />
+                <SessionPauseControl />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
