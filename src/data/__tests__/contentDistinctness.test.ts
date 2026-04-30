@@ -364,3 +364,79 @@ describe('Content distinctness — SynonymGenerator', () => {
     expect(t3Verbs).toBeGreaterThan(t1Verbs);
   });
 });
+
+// ───────────────────────── PhotoNaming (Phase 1.5) ─────────────────────────
+import {
+  PHOTO_BANK,
+  computePhotoTier,
+  mapEngineLevelToPhotoTier,
+  getTrialsForLevel as getPhotoTrials,
+} from '@/data/photoBank';
+
+describe('Content distinctness — PhotoNaming', () => {
+  it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
+    const map = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToPhotoTier);
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming engine→tier: ${map.join(' ')}`);
+    expect(map[0]).toBe(1);
+    expect(map[4]).toBe(2);
+    expect(map[9]).toBe(3);
+    for (let i = 1; i < map.length; i++) expect(map[i]).toBeGreaterThanOrEqual(map[i-1]);
+  });
+
+  it('every PHOTO_BANK trial resolves to a strict tier (1|2|3)', () => {
+    for (const t of PHOTO_BANK) {
+      const tier = computePhotoTier(t);
+      expect([1,2,3]).toContain(tier);
+    }
+  });
+
+  it('engine L1 returns ONLY tier-1 trials', () => {
+    const trials = getPhotoTrials(1, 50);
+    expect(trials.every(t => computePhotoTier(t) === 1)).toBe(true);
+  });
+
+  it('engine L5 returns ONLY tier-2 trials', () => {
+    const trials = getPhotoTrials(5, 50);
+    expect(trials.every(t => computePhotoTier(t) === 2)).toBe(true);
+  });
+
+  it('engine L10 returns ONLY tier-3 trials', () => {
+    const trials = getPhotoTrials(10, 50);
+    expect(trials.every(t => computePhotoTier(t) === 3)).toBe(true);
+  });
+
+  it('L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(getPhotoTrials(1, 200).map(t => t.target));
+    const B = new Set(getPhotoTrials(5, 200).map(t => t.target));
+    const C = new Set(getPhotoTrials(10, 200).map(t => t.target));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming pool sizes L1=${A.size} L5=${B.size} L10=${C.size}`);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥8 unique targets', () => {
+    const sizes = { T1: 0, T2: 0, T3: 0 } as Record<string, number>;
+    for (const t of PHOTO_BANK) sizes[`T${computePhotoTier(t)}`]++;
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming tier sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(8);
+    expect(sizes.T2).toBeGreaterThanOrEqual(8);
+    expect(sizes.T3).toBeGreaterThanOrEqual(8);
+  });
+
+  it('perceptual curve: T1 mean frequency_rank << T3 mean frequency_rank', () => {
+    const mean = (xs: number[]) => xs.reduce((a,b)=>a+b,0) / Math.max(1,xs.length);
+    const t1 = PHOTO_BANK.filter(t => computePhotoTier(t) === 1).map(t => t.features.frequency_rank);
+    const t3 = PHOTO_BANK.filter(t => computePhotoTier(t) === 3).map(t => t.features.frequency_rank);
+    const m1 = mean(t1), m3 = mean(t3);
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming mean frequency_rank: T1=${m1.toFixed(0)} T3=${m3.toFixed(0)} (lower=more common)`);
+    expect(m3).toBeGreaterThan(m1);
+  });
+});
