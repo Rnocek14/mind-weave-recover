@@ -3175,26 +3175,44 @@ export type PhotoTier = 1 | 2 | 3;
 
 export const computePhotoTier = (trial: PhotoTrial): PhotoTier => {
   const f = trial.features;
-  // Hard signals (any one of these → tier 3)
-  if (
-    f.frequency_rank >= 3000 ||
-    f.syllable_count >= 3 ||
-    f.phonological_complexity >= 3 ||
-    f.age_of_acquisition >= 8 ||
-    f.typicality_rating >= 5
-  ) {
+
+  // ─── Tier 3 (Stretch) ──────────────────────────────────────────────
+  // Genuinely difficult: low-frequency, multi-syllable, late-acquired,
+  // phonologically complex, or atypical exemplars.
+  // Requires AT LEAST TWO hard signals OR one extreme signal.
+  const hardSignals = [
+    f.frequency_rank >= 8000,
+    f.syllable_count >= 3,
+    f.age_of_acquisition >= 7,
+    f.phonological_complexity >= 3,
+    f.typicality_rating >= 5,
+  ].filter(Boolean).length;
+
+  const extremeSignal =
+    f.frequency_rank >= 15000 ||
+    f.age_of_acquisition >= 9 ||
+    f.syllable_count >= 4;
+
+  if (extremeSignal || hardSignals >= 2) {
     return 3;
   }
-  // Easy signals (all must hold → tier 1)
+
+  // ─── Tier 1 (Warm-up) ──────────────────────────────────────────────
+  // Concrete, monosyllabic, very high-frequency, early-acquired, typical.
+  // ALL gates must hold (these are "obvious" naming targets).
   if (
-    f.frequency_rank < 1500 &&
+    f.frequency_rank < 2000 &&
     f.syllable_count === 1 &&
     f.phonological_complexity <= 1 &&
     f.age_of_acquisition <= 4 &&
-    f.typicality_rating <= 2
+    f.typicality_rating <= 2 &&
+    f.imageability >= 6
   ) {
     return 1;
   }
+
+  // ─── Tier 2 (Core) ─────────────────────────────────────────────────
+  // Everything in between: mid-frequency, 1-2 syllables, modest complexity.
   return 2;
 };
 
