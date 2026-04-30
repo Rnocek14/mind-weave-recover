@@ -2994,6 +2994,54 @@ export type Database = {
           },
         ]
       }
+      validity_override_events: {
+        Row: {
+          attempt_id: string | null
+          clinician_id: string
+          created_at: string
+          exercise_slug: string | null
+          id: string
+          new_override: string
+          original_counts_toward_score: boolean | null
+          original_validity_label: string | null
+          patient_user_id: string | null
+          profile_id: string | null
+          session_id: string | null
+          source_table: string
+          validity_reason: string | null
+        }
+        Insert: {
+          attempt_id?: string | null
+          clinician_id: string
+          created_at?: string
+          exercise_slug?: string | null
+          id?: string
+          new_override: string
+          original_counts_toward_score?: boolean | null
+          original_validity_label?: string | null
+          patient_user_id?: string | null
+          profile_id?: string | null
+          session_id?: string | null
+          source_table: string
+          validity_reason?: string | null
+        }
+        Update: {
+          attempt_id?: string | null
+          clinician_id?: string
+          created_at?: string
+          exercise_slug?: string | null
+          id?: string
+          new_override?: string
+          original_counts_toward_score?: boolean | null
+          original_validity_label?: string | null
+          patient_user_id?: string | null
+          profile_id?: string | null
+          session_id?: string | null
+          source_table?: string
+          validity_reason?: string | null
+        }
+        Relationships: []
+      }
       voice_session_summaries: {
         Row: {
           avg_confidence: number | null

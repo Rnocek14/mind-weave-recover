@@ -40,11 +40,15 @@ function isExcluded(t: TrialData): boolean {
 
 interface Props {
   trials: TrialData[];
+  /** Session being reviewed — included in override telemetry. */
+  sessionId?: string | null;
+  /** Profile being reviewed — used to resolve patient_user_id for telemetry. */
+  profileId?: string | null;
   /** Called after a clinician override succeeds, so the parent can refetch. */
   onOverridden?: () => void;
 }
 
-export function ExcludedClipsAudit({ trials, onOverridden }: Props) {
+export function ExcludedClipsAudit({ trials, sessionId, profileId, onOverridden }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -109,6 +113,35 @@ export function ExcludedClipsAudit({ trials, onOverridden }: Props) {
           .update(patch)
           .eq("attempt_id", trial.attempt_id);
         if (error) throw error;
+
+        // Override telemetry — fire-and-forget. Failures must not block the override.
+        try {
+          let patientUserId: string | null = null;
+          if (profileId) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("user_id")
+              .eq("id", profileId)
+              .maybeSingle();
+            patientUserId = prof?.user_id ?? null;
+          }
+          await supabase.from("validity_override_events").insert({
+            clinician_id: uid,
+            patient_user_id: patientUserId,
+            profile_id: profileId ?? null,
+            session_id: sessionId ?? null,
+            attempt_id: trial.attempt_id,
+            source_table: table,
+            original_validity_label: trial.validity_label ?? null,
+            original_counts_toward_score: trial.counts_toward_score ?? null,
+            new_override: override,
+            exercise_slug: (trial as any).exercise_slug ?? null,
+            validity_reason: trial.validity_reason ?? null,
+          });
+        } catch (telemetryErr) {
+          console.warn("[validity-override-telemetry] log failed:", telemetryErr);
+        }
+
         toast({
           title:
             override === "patient"

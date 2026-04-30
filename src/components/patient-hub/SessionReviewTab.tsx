@@ -236,6 +236,8 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
                 <VoiceEvidenceGrid trials={trials} />
                 <ExcludedClipsAudit
                   trials={trials}
+                  sessionId={selectedId}
+                  profileId={profileId}
                   onOverridden={() => selectedId && fetchTrials(selectedId)}
                 />
               </TabsContent>
