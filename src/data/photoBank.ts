@@ -169,6 +169,14 @@ import porkImg from '@/assets/photos/pork.jpg';
 import sheepImg from '@/assets/photos/sheep.jpg';
 import hamImg from '@/assets/photos/ham.jpg';
 import lambImg from '@/assets/photos/lamb.jpg';
+// MinimalPairs T1 unlocking — Phase 2 (Apr 2026)
+import tieImg from '@/assets/photos/tie.jpg';
+import sunImg from '@/assets/photos/sun.jpg';
+import bunImg from '@/assets/photos/bun.jpg';
+import beeImg from '@/assets/photos/bee.jpg';
+import dishImg from '@/assets/photos/dish.jpg';
+import sockImg from '@/assets/photos/sock.jpg';
+import lockImg from '@/assets/photos/lock.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
