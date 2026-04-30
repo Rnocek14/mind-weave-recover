@@ -156,6 +156,19 @@ import acornImg from '@/assets/photos/acorn.jpg';
 import iglooImg from '@/assets/photos/igloo.jpg';
 import broccoliImg from '@/assets/photos/broccoli.jpg';
 import xylophoneImg from '@/assets/photos/xylophone.jpg';
+// MinimalPairs T3 expansion (Phase 2)
+import robeImg from '@/assets/photos/robe.jpg';
+import reefImg from '@/assets/photos/reef.jpg';
+import rampImg from '@/assets/photos/ramp.jpg';
+import ironImg from '@/assets/photos/iron.jpg';
+import cloveImg from '@/assets/photos/clove.jpg';
+import mouthImg from '@/assets/photos/mouth.jpg';
+import mouseImg from '@/assets/photos/mouse.jpg';
+import forkImg from '@/assets/photos/fork.jpg';
+import porkImg from '@/assets/photos/pork.jpg';
+import sheepImg from '@/assets/photos/sheep.jpg';
+import hamImg from '@/assets/photos/ham.jpg';
+import lambImg from '@/assets/photos/lamb.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
