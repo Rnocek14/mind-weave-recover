@@ -295,9 +295,7 @@ describe('Content distinctness — ThoughtContinuation', () => {
 describe('Content distinctness — SynonymGenerator', () => {
   // Engine 1..10 → 3 tiers (1-3→T1, 4-7→T2, 8-10→T3).
   // Probe at engine L1, L5, L10 to prove tier isolation.
-  const { getSynonymTrials, mapEngineLevelToSynonymTier, SYNONYM_PROMPTS } =
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('@/data/synonymBank');
+  // Imported at top of file from '@/data/synonymBank'
 
   it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
     const tiers = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToSynonymTier);
