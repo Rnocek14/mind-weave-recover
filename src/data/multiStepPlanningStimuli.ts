@@ -200,3 +200,65 @@ export const PLANNING_ITEMS: PlanningItem[] = [
 export function getPlanningItemsByTier(tier: number): PlanningItem[] {
   return PLANNING_ITEMS.filter(item => item.tier === tier);
 }
+
+// ─── Phase 1.5 Adaptive Standard ───────────────────────────────────────────
+// Strict 3-tier mapping for executive-function exercise.
+// Engine level (1-10) → tier (1|2|3). No ±tolerance, no blending.
+
+export type PlanningTier = 1 | 2 | 3;
+
+export const mapEngineLevelToPlanningTier = (level: number): PlanningTier => {
+  if (level <= 3) return 1;
+  if (level <= 7) return 2;
+  return 3;
+};
+
+/**
+ * Strict tier-isolated selector (Phase 1.5 contract).
+ * Returns ONLY items at the tier corresponding to the engine level.
+ */
+export function getPlanningItemsForLevel(
+  level: number,
+  count: number,
+  excludeIds: string[] = []
+): PlanningItem[] {
+  const targetTier = mapEngineLevelToPlanningTier(level);
+  const excludeSet = new Set(excludeIds);
+  let pool = PLANNING_ITEMS.filter(
+    item => item.tier === targetTier && !excludeSet.has(item.id)
+  );
+  if (pool.length === 0) {
+    // Pool exhausted by exclusions — allow repeats WITHIN tier (never blend).
+    pool = PLANNING_ITEMS.filter(item => item.tier === targetTier);
+  }
+  const order = pool.map(p => [Math.random(), p] as const).sort((a, b) => a[0] - b[0]);
+  return order.slice(0, Math.min(count, order.length)).map(([, p]) => p);
+}
+
+/**
+ * Perceptual difficulty score per item — used by the audit harness to
+ * confirm an L1 → L10 curve actually exists for executive function.
+ *   • step_density: avg chars per keyStep (proxy for sub-planning depth)
+ *   • initiative: count of decision/abstraction verbs in goal + steps
+ */
+export function computePlanningDifficulty(item: PlanningItem): {
+  step_density: number;
+  initiative: number;
+  composite: number;
+} {
+  const stepLens = item.keySteps.map(s => s.length);
+  const step_density = stepLens.reduce((a, b) => a + b, 0) / Math.max(1, stepLens.length);
+
+  const INITIATIVE_TOKENS = [
+    'plan', 'decide', 'choose', 'set', 'pick', 'review', 'research',
+    'budget', 'schedule', 'goal', 'arrange', 'follow up', 'practice',
+    'track', 'adjust', 'apply', 'prepare', 'organize', 'host',
+    'resolve', 'invite', 'design', 'manage', 'consider',
+  ];
+  const haystack = (item.goal + ' ' + item.keySteps.join(' ')).toLowerCase();
+  let initiative = 0;
+  for (const tok of INITIATIVE_TOKENS) if (haystack.includes(tok)) initiative++;
+
+  const composite = (step_density / 60) * 0.5 + (initiative / 6) * 0.5;
+  return { step_density, initiative, composite };
+}

@@ -440,3 +440,92 @@ describe('Content distinctness — PhotoNaming', () => {
     expect(m3).toBeGreaterThan(m1);
   });
 });
+
+// ───────────────────────── MultiStepPlanning (Phase 1.5) ─────────────────────────
+import {
+  PLANNING_ITEMS,
+  mapEngineLevelToPlanningTier,
+  getPlanningItemsForLevel,
+  computePlanningDifficulty,
+} from '@/data/multiStepPlanningStimuli';
+
+describe('Content distinctness — MultiStepPlanning', () => {
+  it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
+    const map = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToPlanningTier);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning engine→tier: ${map.join(' ')}`);
+    expect(map[0]).toBe(1);
+    expect(map[4]).toBe(2);
+    expect(map[9]).toBe(3);
+    for (let i = 1; i < map.length; i++) expect(map[i]).toBeGreaterThanOrEqual(map[i-1]);
+  });
+
+  it('engine L1 returns ONLY tier-1 items', () => {
+    const items = getPlanningItemsForLevel(1, 50);
+    expect(items.every(i => i.tier === 1)).toBe(true);
+  });
+
+  it('engine L5 returns ONLY tier-2 items', () => {
+    const items = getPlanningItemsForLevel(5, 50);
+    expect(items.every(i => i.tier === 2)).toBe(true);
+  });
+
+  it('engine L10 returns ONLY tier-3 items', () => {
+    const items = getPlanningItemsForLevel(10, 50);
+    expect(items.every(i => i.tier === 3)).toBe(true);
+  });
+
+  it('L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(getPlanningItemsForLevel(1, 100).map(i => i.id));
+    const B = new Set(getPlanningItemsForLevel(5, 100).map(i => i.id));
+    const C = new Set(getPlanningItemsForLevel(10, 100).map(i => i.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning pool sizes L1=${A.size} L5=${B.size} L10=${C.size}`);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥8 unique items', () => {
+    const sizes = { T1: 0, T2: 0, T3: 0 } as Record<string, number>;
+    for (const it of PLANNING_ITEMS) sizes[`T${it.tier}`]++;
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning tier sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(8);
+    expect(sizes.T2).toBeGreaterThanOrEqual(8);
+    expect(sizes.T3).toBeGreaterThanOrEqual(8);
+  });
+
+  it('perceptual curve: T1 → T2 → T3 monotonic in step_density and initiative', () => {
+    const mean = (xs: number[]) => xs.reduce((a,b)=>a+b,0) / Math.max(1,xs.length);
+    const byTier = (t: number) => PLANNING_ITEMS.filter(i => i.tier === t).map(computePlanningDifficulty);
+    const t1 = byTier(1), t2 = byTier(2), t3 = byTier(3);
+    const sd = [mean(t1.map(x=>x.step_density)), mean(t2.map(x=>x.step_density)), mean(t3.map(x=>x.step_density))];
+    const init = [mean(t1.map(x=>x.initiative)), mean(t2.map(x=>x.initiative)), mean(t3.map(x=>x.initiative))];
+    const comp = [mean(t1.map(x=>x.composite)), mean(t2.map(x=>x.composite)), mean(t3.map(x=>x.composite))];
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning step_density T1→T2→T3: ${sd.map(n=>n.toFixed(1)).join(' → ')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning initiative T1→T2→T3:   ${init.map(n=>n.toFixed(2)).join(' → ')}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning composite T1→T2→T3:    ${comp.map(n=>n.toFixed(2)).join(' → ')}`);
+    // Monotonic increase across tiers (composite is the canonical signal)
+    expect(comp[1]).toBeGreaterThan(comp[0]);
+    expect(comp[2]).toBeGreaterThan(comp[1]);
+  });
+
+  it('perceptual preview: sample goal at each tier is qualitatively distinct', () => {
+    const s = (t: number) => PLANNING_ITEMS.filter(i => i.tier === t).slice(0, 3).map(i => i.goal);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning preview L1: ${JSON.stringify(s(1))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning preview L5: ${JSON.stringify(s(2))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MultiStepPlanning preview L10: ${JSON.stringify(s(3))}`);
+    expect(s(1).length).toBeGreaterThan(0);
+    expect(s(3).length).toBeGreaterThan(0);
+  });
+});

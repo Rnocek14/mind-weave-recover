@@ -31,13 +31,10 @@ import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { TypingFallbackBar, getPreferTyping, setPreferTyping } from '@/components/TypingFallbackBar';
 import { Keyboard } from 'lucide-react';
+import { mapEngineLevelToPlanningTier } from '@/data/multiStepPlanningStimuli';
 
-/** Map adaptive level (1-10) → content tier (1-3) */
-function levelToTierLocal(level: number): number {
-  if (level <= 3) return 1;
-  if (level <= 7) return 2;
-  return 3;
-}
+/** Map adaptive level (1-10) → content tier (1-3) — Phase 1.5: single source of truth */
+const levelToTierLocal = mapEngineLevelToPlanningTier;
 
 interface MultiStepPlanningGameProps {
   userId?: string;
