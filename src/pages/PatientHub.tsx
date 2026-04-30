@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import {
   ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText, Users, ChevronDown,
+  Activity, Headphones, Target, Brain, BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -240,52 +241,96 @@ export default function PatientHub() {
           <Card className="p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="overview" title="Should I worry? What's the picture?">
+                <TabsTrigger value="overview" title="Triage — should I worry?">
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="review" title="What happened? What does it sound like?">
+                <TabsTrigger value="review" title="Listen — what does it sound like?">
                   Review
                 </TabsTrigger>
-                <TabsTrigger value="plan" title="What do I do next?">
+                <TabsTrigger value="plan" title="Decide — what do I do next?">
                   Plan
                 </TabsTrigger>
               </TabsList>
 
-              {/* Overview — Triage. Sessions trend + Intelligence summary. */}
-              <TabsContent value="overview" className="space-y-6 pt-4">
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {/* === Overview — Triage === */}
+              <TabsContent value="overview" className="space-y-5 pt-4">
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Status and trends — should I worry?
+                </p>
+                {/* Jump-to chips */}
+                <div className="flex flex-wrap gap-1.5 pb-1 border-b border-border">
+                  <a href="#overview-sessions" className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground">
                     Sessions
-                  </h3>
+                  </a>
+                  <a href="#overview-intel" className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground">
+                    Intelligence
+                  </a>
+                </div>
+
+                <section id="overview-sessions" className="scroll-mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BarChart3 className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Sessions</h3>
+                    <span className="text-[11px] text-muted-foreground">Recent activity & accuracy</span>
+                  </div>
                   <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
                 </section>
-                <section className="border-t border-border pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Intelligence
-                  </h3>
+
+                <section id="overview-intel" className="scroll-mt-4 border-t border-border pt-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Intelligence</h3>
+                    <span className="text-[11px] text-muted-foreground">Learning rate, cohort, predictions</span>
+                  </div>
                   <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
-              {/* Review — Listen + look at errors. */}
-              <TabsContent value="review" className="space-y-6 pt-4">
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {/* === Review — Listen + analyze === */}
+              <TabsContent value="review" className="space-y-5 pt-4">
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Voice clips and error patterns — what does it sound like?
+                </p>
+                <div className="flex flex-wrap gap-1.5 pb-1 border-b border-border">
+                  <a href="#review-session" className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground">
                     Session Review
-                  </h3>
+                  </a>
+                  <a href="#review-speech" className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground">
+                    Speech Profile
+                  </a>
+                </div>
+
+                <section id="review-session" className="scroll-mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Headphones className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Session Review</h3>
+                    <span className="text-[11px] text-muted-foreground">Voice clips, errors, cue response</span>
+                  </div>
                   <SessionReviewTab profileId={profileId} />
                 </section>
-                <section className="border-t border-border pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Speech Profile
-                  </h3>
+
+                <section id="review-speech" className="scroll-mt-4 border-t border-border pt-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Activity className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Speech Profile</h3>
+                    <span className="text-[11px] text-muted-foreground">Phoneme patterns & fade trajectory</span>
+                  </div>
                   <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
-              {/* Plan — Decide what's next. Profile, goals, deficits, notes. */}
-              <TabsContent value="plan" className="pt-4">
-                <PatientInfoTab userId={user?.id || ""} profileId={profileId} timeline={timeline} />
+              {/* === Plan — Decide === */}
+              <TabsContent value="plan" className="space-y-3 pt-4">
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Profile, goals, deficits, notes — what do I do next?
+                </p>
+                <section id="plan-info" className="scroll-mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">Patient Plan</h3>
+                  </div>
+                  <PatientInfoTab userId={user?.id || ""} profileId={profileId} timeline={timeline} />
+                </section>
               </TabsContent>
             </Tabs>
           </Card>
