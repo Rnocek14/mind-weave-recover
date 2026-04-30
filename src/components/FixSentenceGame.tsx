@@ -111,6 +111,7 @@ export function FixSentenceGame({
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
+    levelDescriptor,
   } = useInGameAdaptation({
     exerciseSlug: 'fix_sentence',
     sessionId: sessionId || null,
