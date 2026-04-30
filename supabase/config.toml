@@ -3,12 +3,6 @@ project_id = "wjedbpjaiqdxhmjzkcxo"
 [functions.parse-clinical-notes]
 verify_jwt = false
 
-[functions.text-to-speech]
-verify_jwt = true
-
-[functions.text-to-speech-elevenlabs]
-verify_jwt = true
-
 [functions.text-to-speech-stream]
 verify_jwt = true
 
