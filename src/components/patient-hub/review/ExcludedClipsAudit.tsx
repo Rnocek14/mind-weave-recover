@@ -40,11 +40,15 @@ function isExcluded(t: TrialData): boolean {
 
 interface Props {
   trials: TrialData[];
+  /** Session being reviewed — included in override telemetry. */
+  sessionId?: string | null;
+  /** Profile being reviewed — used to resolve patient_user_id for telemetry. */
+  profileId?: string | null;
   /** Called after a clinician override succeeds, so the parent can refetch. */
   onOverridden?: () => void;
 }
 
-export function ExcludedClipsAudit({ trials, onOverridden }: Props) {
+export function ExcludedClipsAudit({ trials, sessionId, profileId, onOverridden }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
