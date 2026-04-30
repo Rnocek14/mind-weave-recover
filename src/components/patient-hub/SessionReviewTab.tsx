@@ -26,6 +26,7 @@ import { SoundsToWatch } from "./review/SoundsToWatch";
 import { CueResponsePanel } from "./review/CueResponsePanel";
 import { SessionNotesPanel } from "./review/SessionNotesPanel";
 import { AcrossTimeView } from "./review/AcrossTimeView";
+import { ExcludedClipsAudit } from "./review/ExcludedClipsAudit";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Volume2, VolumeX } from "lucide-react";
 
@@ -104,23 +105,52 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
     [sessions, selectedId]
   );
 
-  // Derived session-level metrics
+  // Derived session-level metrics — Speech Validity Gate aware.
+  // Accuracy / cue-dependency / level reflect ONLY clips that count toward score
+  // (clinician override `patient` re-admits an excluded clip).
   const metrics = useMemo(() => {
-    const total = trials.length;
-    const correct = trials.filter((t) => t.is_correct === true).length;
-    const slugs = new Set(trials.map((t) => t.exercise_slug || "").filter(Boolean));
-    const cued = trials.filter((t) => !!t.cue_type_given).length;
-    const levels = trials
+    const isScored = (t: TrialData) => {
+      if (t.clinician_validity_override === "patient") return true;
+      if (t.clinician_validity_override === "not_patient" || t.clinician_validity_override === "noise" || t.clinician_validity_override === "filler") return false;
+      if (t.counts_toward_score === false) return false;
+      if (t.validity_label && t.validity_label !== "valid_attempt") return false;
+      return true;
+    };
+    const scored = trials.filter(isScored);
+    const total = scored.length;
+    const correct = scored.filter((t) => t.is_correct === true).length;
+    const slugs = new Set(scored.map((t) => t.exercise_slug || "").filter(Boolean));
+    const cued = scored.filter((t) => !!t.cue_type_given).length;
+    const levels = scored
       .map((t) => {
         const tp = t.taskParameters as any;
         return Number(tp?.difficulty ?? tp?.level ?? 0) || 0;
       })
       .filter((n) => n > 0);
+
+    // Validity buckets across ALL trials (for the trust strip)
+    const buckets = { valid: 0, filler: 0, silence: 0, noise: 0, flagged: 0 };
+    for (const t of trials) {
+      if (isScored(t)) { buckets.valid += 1; continue; }
+      const label = t.clinician_validity_override || t.validity_label || "";
+      switch (label) {
+        case "filler":
+        case "filler_only": buckets.filler += 1; break;
+        case "no_response": buckets.silence += 1; break;
+        case "noise":
+        case "background_noise": buckets.noise += 1; break;
+        case "low_confidence":
+        case "not_patient": buckets.flagged += 1; break;
+        default: buckets.flagged += 1; break;
+      }
+    }
+
     return {
       gamesPlayed: slugs.size,
       accuracyPct: total > 0 ? Math.round((correct / total) * 100) : 0,
       cueDependencyPct: total > 0 ? Math.round((cued / total) * 100) : 0,
       highestLevel: levels.length > 0 ? Math.max(...levels) : null,
+      validityBuckets: buckets,
     };
   }, [trials]);
 
@@ -189,6 +219,7 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
             accuracyPct={metrics.accuracyPct}
             highestLevel={metrics.highestLevel}
             cueDependencyPct={metrics.cueDependencyPct}
+            validityBuckets={metrics.validityBuckets}
           />
 
           {/* 2. Voice Evidence */}
@@ -201,8 +232,12 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
                 <TabsTrigger value="session" className="text-xs">This session</TabsTrigger>
                 <TabsTrigger value="across" className="text-xs">Across time</TabsTrigger>
               </TabsList>
-              <TabsContent value="session" className="mt-3">
+              <TabsContent value="session" className="mt-3 space-y-3">
                 <VoiceEvidenceGrid trials={trials} />
+                <ExcludedClipsAudit
+                  trials={trials}
+                  onOverridden={() => selectedId && fetchTrials(selectedId)}
+                />
               </TabsContent>
               <TabsContent value="across" className="mt-3">
                 <AcrossTimeView

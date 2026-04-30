@@ -29,6 +29,9 @@ export interface TrialData {
   validity_label?: string | null;
   validity_reason?: string | null;
   counts_toward_score?: boolean | null;
+  clinician_validity_override?: string | null;
+  /** Which underlying table the row came from — needed for clinician overrides. */
+  source_table?: 'utterance_analyses' | 'exercise_events';
 }
 
 export function useSessionDetail() {
@@ -44,7 +47,7 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -52,13 +55,13 @@ export function useSessionDetail() {
       if (uaError) throw uaError;
 
       if (uaData && uaData.length > 0) {
-        setTrials(uaData);
+        setTrials(uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const })));
       } else {
         // Fallback to exercise_events
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
-            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score"
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
@@ -88,6 +91,8 @@ export function useSessionDetail() {
           validity_label: (ev as any).validity_label ?? null,
           validity_reason: (ev as any).validity_reason ?? null,
           counts_toward_score: (ev as any).counts_toward_score ?? null,
+          clinician_validity_override: (ev as any).clinician_validity_override ?? null,
+          source_table: 'exercise_events' as const,
         }));
         setTrials(mapped);
       }
