@@ -572,10 +572,15 @@ export function getDescribeGuessTrials(options?: {
     if (exact.length >= requested) {
       pool = exact;
     } else {
+      // Padding policy: prefer the HARDER neighbor first.
+      // Rationale — when an adaptive engine asks for tier N and the bank
+      // can't fill the request, contaminating with easier content silently
+      // drops the perceived difficulty (the exact bug we just fixed).
+      // Padding upward preserves the challenge direction.
       const neighbors: number[] =
-        targetTier === 1 ? [2, 3] :
-        targetTier === 3 ? [2, 1] :
-        [1, 3];
+        targetTier === 1 ? [2, 3] :          // tier 1 has nowhere to go but up
+        targetTier === 3 ? [2, 1] :          // tier 3 falls to 2 first, then 1
+        [3, 1];                              // tier 2: prefer tier 3 over tier 1
       const padded = [...exact];
       for (const n of neighbors) {
         if (padded.length >= requested) break;
