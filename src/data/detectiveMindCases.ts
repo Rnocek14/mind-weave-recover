@@ -415,11 +415,77 @@ export const getCasesByTier = (tier: 1 | 2 | 3): DetectiveCase[] => {
   return DETECTIVE_CASES.filter(c => c.tier === tier);
 };
 
-/**
- * Map adaptive difficulty level (1-10) to case tier
- */
-export const levelToTier = (level: number): 1 | 2 | 3 => {
+// ─── Phase 1.5 Adaptive Standard ───────────────────────────────────────────
+// Strict 3-tier mapping for comprehension + reasoning exercise.
+// Engine level (1-10) → tier (1|2|3). No ±tolerance, no blending.
+// Aligned to the canonical Phase 1.5 split (≤3 / 4-7 / ≥8) used by
+// PhotoNaming and MultiStepPlanning so all games share one engine contract.
+
+export type DetectiveTier = 1 | 2 | 3;
+
+export const mapEngineLevelToDetectiveTier = (level: number): DetectiveTier => {
   if (level <= 3) return 1;
-  if (level <= 6) return 2;
+  if (level <= 7) return 2;
   return 3;
 };
+
+/**
+ * Legacy alias — kept for backward compatibility with existing imports.
+ * @deprecated use mapEngineLevelToDetectiveTier
+ */
+export const levelToTier = mapEngineLevelToDetectiveTier;
+
+/**
+ * Strict tier-isolated selector (Phase 1.5 contract).
+ * Returns ONLY cases at the tier corresponding to the engine level.
+ * Never blends across tiers; if the pool is exhausted by exclusions,
+ * repeats are allowed within the same tier.
+ */
+export function getDetectiveCasesForLevel(
+  level: number,
+  count: number,
+  excludeIds: string[] = []
+): DetectiveCase[] {
+  const targetTier = mapEngineLevelToDetectiveTier(level);
+  const excludeSet = new Set(excludeIds);
+  let pool = DETECTIVE_CASES.filter(
+    c => c.tier === targetTier && !excludeSet.has(c.id)
+  );
+  if (pool.length === 0) {
+    pool = DETECTIVE_CASES.filter(c => c.tier === targetTier);
+  }
+  const order = pool.map(p => [Math.random(), p] as const).sort((a, b) => a[0] - b[0]);
+  return order.slice(0, Math.min(count, order.length)).map(([, p]) => p);
+}
+
+/**
+ * Per-case difficulty signal — used by the audit harness to confirm
+ * an L1 → L10 perceptual curve actually exists for comprehension/reasoning.
+ *   • story_length: number of sentences (working-memory load)
+ *   • options_count: number of choices (decision load)
+ *   • inference_depth: 0 literal, 1 cause/effect, 2 inference, 3 prediction/figurative
+ */
+const QUESTION_INFERENCE_DEPTH: Record<QuestionType, number> = {
+  literal: 0,
+  cause_effect: 1,
+  inference: 2,
+  prediction: 3,
+  figurative: 3,
+};
+
+export function computeDetectiveDifficulty(c: DetectiveCase): {
+  story_length: number;
+  options_count: number;
+  inference_depth: number;
+  composite: number;
+} {
+  const story_length = c.story.length;
+  const options_count = c.options.length;
+  const inference_depth = QUESTION_INFERENCE_DEPTH[c.questionType] ?? 0;
+  // Normalize roughly to 0-1 and weight inference heaviest.
+  const composite =
+    (story_length / 8) * 0.25 +
+    (options_count / 5) * 0.15 +
+    (inference_depth / 3) * 0.6;
+  return { story_length, options_count, inference_depth, composite };
+}
