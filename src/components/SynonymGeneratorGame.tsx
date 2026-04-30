@@ -40,11 +40,8 @@ function getTimerForDifficulty(difficulty: number): number {
 }
 
 function pickPrompt(difficulty: number, usedWords: Set<string>): SynonymPrompt {
-  const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), SYNONYM_TIERS.length - 1);
-  const tier = SYNONYM_TIERS[Math.max(0, tierIndex)];
-  const available = tier.filter(p => !usedWords.has(p.word));
-  const pool = available.length > 0 ? available : tier;
-  return pool[Math.floor(Math.random() * pool.length)];
+  // Strict engine→tier mapping (no cumulative blending, no ±1 banding)
+  return pickSynonymPrompt({ difficulty, usedWords });
 }
 
 function levenshtein(a: string, b: string): number {
