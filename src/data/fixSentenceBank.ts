@@ -216,34 +216,64 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
 /**
  * Get trials filtered by difficulty and optionally by phoneme targets
  */
+/**
+ * Map an engine difficulty (1..10) to the FixSentence content tier (1..3).
+ * Until L4-L10 content lands, the bank only has 3 tiers; this collapse is
+ * explicit and centralized so callers can pass either a tier or an engine level.
+ */
+function toFixSentenceTier(d: number): 1 | 2 | 3 {
+  if (!Number.isFinite(d)) return 2;
+  if (d <= 3) return 1;
+  if (d <= 7) return 2;
+  return 3;
+}
+
 export function getFixSentenceTrials(options?: {
-  difficulty?: 1 | 2 | 3;
+  /** Tier 1..3 OR engine level 1..10. Both are accepted; engine levels collapse to a tier. */
+  difficulty?: number;
   count?: number;
   focusPhonemes?: string[];
 }): FixSentenceTrial[] {
-  let trials = [...FIX_SENTENCE_BANK];
-  
-  if (options?.difficulty) {
-    trials = trials.filter(t => t.difficulty <= options.difficulty!);
+  // ── BAND-ISOLATED selection (no more cumulative `<=` filter) ──
+  // Pick the exact target tier. If the resulting pool is too small for the
+  // requested count, fall back to the immediately adjacent tier (±1) — never
+  // the full bank. This guarantees L1 vs L2 vs L3 produce visibly different
+  // content while still preventing empty pools.
+  let pool: FixSentenceTrial[];
+
+  if (options?.difficulty != null) {
+    const targetTier = toFixSentenceTier(options.difficulty);
+    const exact = FIX_SENTENCE_BANK.filter(t => t.difficulty === targetTier);
+    const requested = options.count ?? exact.length;
+
+    if (exact.length >= requested) {
+      pool = exact;
+    } else {
+      // Padding policy: prefer the HARDER neighbor first to preserve the
+      // engine's challenge direction. (Easier-first padding silently drops
+      // perceived difficulty — the exact bug we just removed.)
+      const neighbors: number[] =
+        targetTier === 1 ? [2, 3] :
+        targetTier === 3 ? [2, 1] :
+        [3, 1]; // tier 2: prefer tier 3 over tier 1
+      const padded = [...exact];
+      for (const n of neighbors) {
+        if (padded.length >= requested) break;
+        padded.push(...FIX_SENTENCE_BANK.filter(t => t.difficulty === n));
+      }
+      pool = padded;
+    }
+  } else {
+    pool = [...FIX_SENTENCE_BANK];
   }
-  
+
+  let trials = [...pool];
+
   // Phoneme-aware prioritization: sort phoneme-matching trials first
-  if (options?.focusPhonemes && options.focusPhonemes.length > 0) {
-    const focus = new Set(options.focusPhonemes);
-    trials.sort((a, b) => {
-      const aMatch = a.phonemeTargets.filter(p => focus.has(p)).length;
-      const bMatch = b.phonemeTargets.filter(p => focus.has(p)).length;
-      return bMatch - aMatch; // more matches first
-    });
-  }
-  
-  // Shuffle within priority groups (phoneme-matched first, then rest)
   if (options?.focusPhonemes && options.focusPhonemes.length > 0) {
     const focus = new Set(options.focusPhonemes);
     const matched = trials.filter(t => t.phonemeTargets.some(p => focus.has(p)));
     const unmatched = trials.filter(t => !t.phonemeTargets.some(p => focus.has(p)));
-    
-    // Shuffle each group
     for (const arr of [matched, unmatched]) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -252,16 +282,15 @@ export function getFixSentenceTrials(options?: {
     }
     trials = [...matched, ...unmatched];
   } else {
-    // Plain shuffle
     for (let i = trials.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [trials[i], trials[j]] = [trials[j], trials[i]];
     }
   }
-  
+
   if (options?.count) {
     trials = trials.slice(0, options.count);
   }
-  
+
   return trials;
 }

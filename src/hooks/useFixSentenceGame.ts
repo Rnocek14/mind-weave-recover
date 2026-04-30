@@ -64,12 +64,15 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    * Preserves currentIndex, results, attempt history.
    */
   const setActiveDifficulty = useCallback((newLevel: number) => {
-    const tier = (Math.min(3, Math.max(1, Math.ceil(newLevel / 3.5))) as 1 | 2 | 3);
+    // Pass the engine level straight through. The bank centrally maps
+    // engine level → tier and now uses BAND-ISOLATED selection so adjacent
+    // engine levels in the same tier still produce that tier's content,
+    // but cross-tier moves swap pools cleanly (no cumulative `<=` overlap).
     setTrials(prev => {
       const upcomingNeeded = prev.length - (currentIndex + 1);
       if (upcomingNeeded <= 0) return prev;
       const fresh = getFixSentenceTrials({
-        difficulty: tier,
+        difficulty: newLevel,
         count: upcomingNeeded * 3,
         focusPhonemes,
       }).filter(t => !prev.slice(0, currentIndex + 1).some(p => p.id === t.id))
