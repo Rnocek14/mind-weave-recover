@@ -163,7 +163,10 @@ export function ProgressCard({ userId }: ProgressCardProps) {
           <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      <div className="text-[11px] text-muted-foreground mt-1.5 text-center">Last 14 days</div>
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1.5">
+        <span>Last 14 days</span>
+        {hasData && volumeNote && <span>{volumeNote}</span>}
+      </div>
     </Card>
   );
 }
