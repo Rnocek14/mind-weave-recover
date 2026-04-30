@@ -2232,9 +2232,12 @@ export const PhotoNamingGame = ({
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
       {/* Progress bar - compact on mobile */}
       <div className="space-y-1">
-        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+        <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{state.trialNumber}/{state.totalTrials}</span>
-          <span>Score: {state.score}</span>
+          <div className="flex items-center gap-2">
+            <LevelBadge descriptor={levelDescriptor} compact />
+            <span>Score: {state.score}</span>
+          </div>
         </div>
         <Progress 
           value={(state.trialNumber / state.totalTrials) * 100} 
