@@ -20,21 +20,30 @@ interface ProgressStats {
 }
 
 async function loadProgressStats(userId: string): Promise<ProgressStats> {
+  // Source-of-truth = `sessions` table; count completed lesson flows (multi-block).
   const { data, error } = await supabase
-    .from('coach_conversation_summaries')
-    .select('created_at, metadata')
+    .from('sessions')
+    .select('ended_at, plan, summary')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .eq('ended_reason', 'completed')
+    .not('ended_at', 'is', null)
+    .order('ended_at', { ascending: false })
+    .limit(1000);
 
   if (error || !data || data.length === 0) {
     return { totalSessions: 0, currentStreak: 0, totalWords: 0 };
   }
 
-  const totalSessions = data.length;
+  const lessonFlows = data.filter((row: any) => {
+    const blocks = row?.plan?.blocks;
+    return Array.isArray(blocks) && blocks.length > 1;
+  });
+
+  const totalSessions = lessonFlows.length;
 
   // Streak
   const toDay = (ts: string) => Math.floor(Date.parse(ts) / 86400000);
-  const uniqueDays = [...new Set(data.map(r => toDay(r.created_at)))].sort((a, b) => b - a);
+  const uniqueDays = [...new Set(lessonFlows.map((r: any) => toDay(r.ended_at)))].sort((a, b) => b - a);
   const today = toDay(new Date().toISOString());
 
   let currentStreak = 0;
@@ -47,10 +56,10 @@ async function loadProgressStats(userId: string): Promise<ProgressStats> {
     }
   }
 
-  // Total words
-  const totalWords = data.reduce((sum, r) => {
-    const meta = r.metadata as any;
-    return sum + (meta?.metrics?.wordsProduced || 0);
+  // Total words — sum any wordsProduced/score totals from summary if present.
+  const totalWords = lessonFlows.reduce((sum, r: any) => {
+    const s = r?.summary;
+    return sum + (s?.wordsProduced || s?.scores?.wordsProduced || 0);
   }, 0);
 
   return { totalSessions, currentStreak, totalWords };
