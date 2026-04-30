@@ -82,6 +82,7 @@ import { AppLayout } from "@/components/layout";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
+import { SessionPauseControl } from "@/components/SessionPauseControl";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 
@@ -112,6 +113,7 @@ const App = () => (
                 <Toaster />
                 <Sonner />
                 <MayaSessionOverlay />
+                <SessionPauseControl />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
