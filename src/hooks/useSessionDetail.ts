@@ -85,6 +85,9 @@ export function useSessionDetail() {
           created_at: ev.created_at,
           taskParameters: ev.task_parameters,
           outputs: ev.outputs,
+          validity_label: (ev as any).validity_label ?? null,
+          validity_reason: (ev as any).validity_reason ?? null,
+          counts_toward_score: (ev as any).counts_toward_score ?? null,
         }));
         setTrials(mapped);
       }
