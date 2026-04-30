@@ -195,6 +195,20 @@ export const PLANNING_ITEMS: PlanningItem[] = [
   { id: 'plan-42', goal: 'Learn a new skill (like cooking)', emoji: '🎓',
     keySteps: ['pick the specific skill', 'find lessons or videos', 'gather tools or ingredients', 'practice a little each day', 'track progress and adjust'],
     idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+
+  // === Phase 2 floor-completion fill (Apr 2026) ===
+  // T2 +1 — coordinated multi-actor errand
+  { id: 'plan-43', goal: 'Drop a friend at the airport', emoji: '🛫',
+    keySteps: ['confirm flight time and terminal', 'plan to leave with extra time for traffic', 'help load luggage in the car', 'drive to the correct departures door', 'say goodbye and drive away'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+
+  // T3 +2 — abstract / decision-heavy initiation
+  { id: 'plan-44', goal: 'Set up a weekly home budget', emoji: '📊',
+    keySteps: ['list all monthly income', 'review recent expenses by category', 'decide spending limits per category', 'choose a tool to track it weekly', 'review and adjust each month'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+  { id: 'plan-45', goal: 'Plan a return to driving after a long break', emoji: '🚗',
+    keySteps: ['decide on a goal date and route', 'review traffic rules and any new laws', 'practice in an empty lot first', 'take a few short supervised drives', 'gradually drive on busier roads alone'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
 ];
 
 export function getPlanningItemsByTier(tier: number): PlanningItem[] {
