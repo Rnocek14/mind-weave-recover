@@ -219,13 +219,10 @@ describe('Content distinctness — ThoughtContinuation', () => {
   // The discourse engine emits 1..5; the prompt bank has 3 graded tiers.
   // Mapping: 1-2→T1 (concrete recall), 3-4→T2 (structured expansion),
   // 5→T3 (abstract / multi-step discourse).
-  const { selectNextPrompt, createEmptySessionHistory } = require('@/lib/adaptivePromptSelector');
-  const { mapDiscourseLevelToPromptTier, THOUGHT_PROMPTS } = require('@/data/thoughtPromptBank');
-
   function poolAtLevel(level: number, count: number) {
     const used: string[] = [];
     const out: any[] = [];
-    let history = createEmptySessionHistory();
+    const history = createEmptySessionHistory();
     while (out.length < count && used.length < THOUGHT_PROMPTS.length) {
       const sel = selectNextPrompt(null, history, used, level);
       out.push(sel.prompt);
