@@ -25,63 +25,11 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
-
-// ── Word bank ──
-interface SynonymPrompt {
-  word: string;
-  partOfSpeech: 'adjective' | 'verb' | 'noun' | 'adverb';
-  acceptedSynonyms: string[];
-  /** Short explanation of why these are synonyms */
-  meaningNote: string;
-}
-
-const SYNONYM_TIERS: SynonymPrompt[][] = [
-  // Tier 1 — concrete, common
-  [
-    { word: 'happy', partOfSpeech: 'adjective', meaningNote: 'Feeling good or pleased',
-      acceptedSynonyms: ['glad', 'joyful', 'cheerful', 'pleased', 'delighted', 'content', 'merry', 'thrilled', 'excited', 'elated', 'joyous', 'blissful', 'satisfied', 'upbeat', 'overjoyed'] },
-    { word: 'big', partOfSpeech: 'adjective', meaningNote: 'Large in size',
-      acceptedSynonyms: ['large', 'huge', 'enormous', 'giant', 'massive', 'great', 'vast', 'immense', 'tall', 'grand', 'broad', 'wide', 'sizable', 'hefty', 'bulky'] },
-    { word: 'fast', partOfSpeech: 'adjective', meaningNote: 'Moving quickly',
-      acceptedSynonyms: ['quick', 'rapid', 'speedy', 'swift', 'hasty', 'brisk', 'fleet', 'zippy', 'snappy', 'hurried', 'prompt', 'express', 'nimble'] },
-    { word: 'cold', partOfSpeech: 'adjective', meaningNote: 'Low temperature',
-      acceptedSynonyms: ['cool', 'chilly', 'freezing', 'icy', 'frigid', 'frosty', 'frozen', 'bitter', 'nippy', 'wintry', 'brisk', 'crisp'] },
-    { word: 'small', partOfSpeech: 'adjective', meaningNote: 'Little in size',
-      acceptedSynonyms: ['little', 'tiny', 'mini', 'petite', 'minute', 'miniature', 'compact', 'slim', 'slight', 'wee', 'short', 'modest'] },
-    { word: 'nice', partOfSpeech: 'adjective', meaningNote: 'Pleasant or kind',
-      acceptedSynonyms: ['kind', 'pleasant', 'friendly', 'lovely', 'good', 'agreeable', 'warm', 'sweet', 'caring', 'gentle', 'polite', 'decent', 'gracious'] },
-  ],
-  // Tier 2 — common but more abstract
-  [
-    { word: 'smart', partOfSpeech: 'adjective', meaningNote: 'Having intelligence',
-      acceptedSynonyms: ['clever', 'intelligent', 'bright', 'sharp', 'wise', 'brilliant', 'brainy', 'gifted', 'knowledgeable', 'astute', 'savvy', 'quick-witted'] },
-    { word: 'angry', partOfSpeech: 'adjective', meaningNote: 'Feeling upset or mad',
-      acceptedSynonyms: ['mad', 'furious', 'upset', 'irate', 'cross', 'annoyed', 'enraged', 'irritated', 'livid', 'outraged', 'frustrated', 'heated', 'hostile'] },
-    { word: 'scared', partOfSpeech: 'adjective', meaningNote: 'Feeling fear',
-      acceptedSynonyms: ['afraid', 'frightened', 'terrified', 'fearful', 'startled', 'nervous', 'alarmed', 'anxious', 'panicked', 'worried', 'uneasy', 'spooked'] },
-    { word: 'beautiful', partOfSpeech: 'adjective', meaningNote: 'Very pleasing to look at',
-      acceptedSynonyms: ['pretty', 'lovely', 'gorgeous', 'stunning', 'attractive', 'elegant', 'handsome', 'striking', 'charming', 'radiant', 'graceful', 'fine'] },
-    { word: 'strong', partOfSpeech: 'adjective', meaningNote: 'Having power or strength',
-      acceptedSynonyms: ['powerful', 'mighty', 'tough', 'sturdy', 'firm', 'solid', 'robust', 'muscular', 'hardy', 'forceful', 'durable', 'rugged'] },
-    { word: 'quiet', partOfSpeech: 'adjective', meaningNote: 'Making little or no noise',
-      acceptedSynonyms: ['silent', 'still', 'hushed', 'calm', 'peaceful', 'soft', 'muted', 'gentle', 'tranquil', 'noiseless', 'subdued', 'serene'] },
-  ],
-  // Tier 3 — abstract, nuanced
-  [
-    { word: 'important', partOfSpeech: 'adjective', meaningNote: 'Having great value or significance',
-      acceptedSynonyms: ['significant', 'crucial', 'vital', 'essential', 'critical', 'key', 'major', 'meaningful', 'valuable', 'serious', 'notable', 'central'] },
-    { word: 'difficult', partOfSpeech: 'adjective', meaningNote: 'Hard to do or understand',
-      acceptedSynonyms: ['hard', 'tough', 'challenging', 'demanding', 'complex', 'tricky', 'arduous', 'complicated', 'strenuous', 'grueling', 'taxing', 'rough'] },
-    { word: 'strange', partOfSpeech: 'adjective', meaningNote: 'Unusual or unexpected',
-      acceptedSynonyms: ['weird', 'odd', 'unusual', 'peculiar', 'bizarre', 'curious', 'uncommon', 'rare', 'mysterious', 'abnormal', 'quirky', 'funny', 'different'] },
-    { word: 'generous', partOfSpeech: 'adjective', meaningNote: 'Willing to give or share',
-      acceptedSynonyms: ['kind', 'giving', 'charitable', 'selfless', 'liberal', 'benevolent', 'unselfish', 'big-hearted', 'magnanimous', 'bountiful', 'gracious', 'open-handed'] },
-    { word: 'cautious', partOfSpeech: 'adjective', meaningNote: 'Being careful to avoid risk',
-      acceptedSynonyms: ['careful', 'wary', 'guarded', 'prudent', 'watchful', 'alert', 'mindful', 'attentive', 'hesitant', 'vigilant', 'safe', 'deliberate'] },
-    { word: 'create', partOfSpeech: 'verb', meaningNote: 'To bring something into existence',
-      acceptedSynonyms: ['make', 'build', 'design', 'produce', 'construct', 'develop', 'form', 'invent', 'craft', 'generate', 'compose', 'establish'] },
-  ],
-];
+import {
+  pickSynonymPrompt,
+  mapEngineLevelToSynonymTier,
+  type SynonymPrompt,
+} from '@/data/synonymBank';
 
 function getTimerForDifficulty(difficulty: number): number {
   if (difficulty <= 1) return 45;
@@ -92,11 +40,8 @@ function getTimerForDifficulty(difficulty: number): number {
 }
 
 function pickPrompt(difficulty: number, usedWords: Set<string>): SynonymPrompt {
-  const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), SYNONYM_TIERS.length - 1);
-  const tier = SYNONYM_TIERS[Math.max(0, tierIndex)];
-  const available = tier.filter(p => !usedWords.has(p.word));
-  const pool = available.length > 0 ? available : tier;
-  return pool[Math.floor(Math.random() * pool.length)];
+  // Strict engine→tier mapping (no cumulative blending, no ±1 banding)
+  return pickSynonymPrompt({ difficulty, usedWords });
 }
 
 function levenshtein(a: string, b: string): number {

@@ -17,6 +17,7 @@ import { getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { getTrialsForLevel as getPhraseTrials, mapEngineLevelToPhraseTier } from '@/data/phraseBank';
 import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
 import { selectNextPrompt, createEmptySessionHistory } from '@/lib/adaptivePromptSelector';
+import { getSynonymTrials, mapEngineLevelToSynonymTier, SYNONYM_PROMPTS } from '@/data/synonymBank';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
@@ -288,5 +289,78 @@ describe('Content distinctness — ThoughtContinuation', () => {
     const next = poolAtLevel(5, 4);
     expect(next.filter(p => playedIds.has(p.id)).length).toBe(0);
     expect(next.every(p => p.difficultyTier === 3)).toBe(true);
+  });
+});
+
+describe('Content distinctness — SynonymGenerator', () => {
+  // Engine 1..10 → 3 tiers (1-3→T1, 4-7→T2, 8-10→T3).
+  // Probe at engine L1, L5, L10 to prove tier isolation.
+  // Imported at top of file from '@/data/synonymBank'
+
+  it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
+    const tiers = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToSynonymTier);
+    // eslint-disable-next-line no-console
+    console.log(`  SynonymGenerator engine→tier: ${tiers.join(' ')}`);
+    for (let i = 1; i < tiers.length; i++) {
+      expect(tiers[i]).toBeGreaterThanOrEqual(tiers[i - 1]);
+    }
+    expect(tiers[0]).toBe(1);
+    expect(tiers[9]).toBe(3);
+  });
+
+  it('engine L1 pool is exclusively tier 1', () => {
+    const pool = getSynonymTrials({ difficulty: 1, count: 20 });
+    expect(pool.every((p: any) => p.difficulty === 1)).toBe(true);
+  });
+
+  it('engine L5 pool is exclusively tier 2', () => {
+    const pool = getSynonymTrials({ difficulty: 5, count: 20 });
+    expect(pool.every((p: any) => p.difficulty === 2)).toBe(true);
+  });
+
+  it('engine L10 pool is exclusively tier 3 — NO leakage from concrete adjectives', () => {
+    const pool = getSynonymTrials({ difficulty: 10, count: 20 });
+    expect(pool.every((p: any) => p.difficulty === 3)).toBe(true);
+  });
+
+  it('L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    const A = new Set(getSynonymTrials({ difficulty: 1, count: 20 }).map((p: any) => p.id));
+    const B = new Set(getSynonymTrials({ difficulty: 5, count: 20 }).map((p: any) => p.id));
+    const C = new Set(getSynonymTrials({ difficulty: 10, count: 20 }).map((p: any) => p.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has ≥12 unique prompts', () => {
+    const sizes = {
+      T1: SYNONYM_PROMPTS.filter((p: any) => p.difficulty === 1).length,
+      T2: SYNONYM_PROMPTS.filter((p: any) => p.difficulty === 2).length,
+      T3: SYNONYM_PROMPTS.filter((p: any) => p.difficulty === 3).length,
+    };
+    // eslint-disable-next-line no-console
+    console.log(`  SynonymGenerator tier sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(12);
+    expect(sizes.T2).toBeGreaterThanOrEqual(12);
+    expect(sizes.T3).toBeGreaterThanOrEqual(12);
+  });
+
+  it('mid-session re-pool from L1 to L9 returns 100% new tier-3 prompts', () => {
+    const played = getSynonymTrials({ difficulty: 1, count: 12 });
+    const playedIds = new Set(played.map((p: any) => p.id));
+    const next = getSynonymTrials({ difficulty: 9, count: 12 });
+    expect(next.filter((p: any) => playedIds.has(p.id)).length).toBe(0);
+    expect(next.every((p: any) => p.difficulty === 3)).toBe(true);
+  });
+
+  it('perceptual curve: T3 has more multi-POS / abstract targets than T1', () => {
+    const t1Verbs = SYNONYM_PROMPTS.filter((p: any) => p.difficulty === 1 && p.partOfSpeech !== 'adjective').length;
+    const t3Verbs = SYNONYM_PROMPTS.filter((p: any) => p.difficulty === 3 && p.partOfSpeech !== 'adjective').length;
+    // eslint-disable-next-line no-console
+    console.log(`  Non-adjective targets: T1=${t1Verbs} T3=${t3Verbs}`);
+    expect(t3Verbs).toBeGreaterThan(t1Verbs);
   });
 });
