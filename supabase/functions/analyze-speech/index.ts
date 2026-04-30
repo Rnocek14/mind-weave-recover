@@ -106,12 +106,26 @@ serve(async (req) => {
     
     // Calculate acoustic metrics
     const acousticMetrics = calculateAcousticMetrics(whisperData);
+    const confidence = calculateOverallConfidence(whisperData);
+
+    // Speech Validity Gate (Phase 1) — classify before scoring
+    const recordingDurationMs = Math.round((whisperData.duration ?? 0) * 1000);
+    const validity = classifyUtteranceValidity({
+      transcript: whisperData.text,
+      asrConfidence: confidence,
+      recordingDurationMs,
+      acousticMetrics: {
+        speechToPauseRatio: acousticMetrics.speechToPauseRatio,
+        speechRateWpm: acousticMetrics.speechRateWpm,
+      },
+    });
 
     return new Response(
       JSON.stringify({
         transcript: whisperData.text,
-        confidence: calculateOverallConfidence(whisperData),
+        confidence,
         acousticMetrics,
+        validity,
         rawWhisperData: whisperData,
       }),
       {
