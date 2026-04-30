@@ -1,105 +1,166 @@
 
-## Goal
+# Clinical Trial Readiness Layer
 
-Make the clinician experience match how clinicians actually think (Triage → Review → Decide), and stop leaking dev/admin surface area into the product feel.
+Goal: turn the app from "good clinical product" into "Mercy feasibility-pilot candidate." No new therapy features. This is the governance + safety + auditability layer that gets us through an IRB and into a hospital partner.
 
-Two changes, both surgical, no clinical engine touched.
-
----
-
-## Part 1 — Clinician Patient Hub: 5 inner tabs → 3 jobs
-
-### Current (Patient Hub "Clinical Detail" drawer)
-
-```text
-Sessions | Review | Speech | Patient | Intel
-```
-
-Five tabs = analysis-organized, not job-organized.
-
-### New structure (jobs-to-be-done)
-
-```text
-Overview  |  Review  |  Plan
-```
-
-| Tab | Clinician's Job | What lives here (consolidated from existing components) |
-|---|---|---|
-| **Overview** | "Should I worry? What's the picture?" | `SessionsTab` (recent session timeline + accuracy trend) + `IntelligenceTab` summary cards (learning rates, cohort comparison, predictions). Intel becomes a section inside Overview, not a separate tab. |
-| **Review** | "What actually happened? What does it sound like?" | `SessionReviewTab` (summary strip, voice clips, error breakdown, cue response) + `SpeechProfileTab` (pronunciation patterns, struggling phonemes, fade trajectory). Same mental task: listen to the patient, look at errors. |
-| **Plan** | "What do I do next?" | `PatientInfoTab` (profile, goals, deficits) + clinical notes + functional check-ins + recovery alerts to acknowledge. The "decision" surface. |
-
-The 5 Glance Cards above the drawer stay exactly as they are — they already serve the triage job at the top of the page. Sticky documentation bar (Copy Note / EHR / Print) stays.
-
-### Files touched
-
-- `src/pages/PatientHub.tsx` — replace the 5-tab `TabsList` with 3 tabs; render existing tab components inside sections of the new tabs (no component rewrites). Update `defaultValue` and `activeTab` mapping (e.g. when `ProfileCompletenessBanner` calls `setActiveTab("patient")`, route it to the new "plan" tab id).
-
-No new components. No data hooks rewritten. Existing tab components (`SessionsTab`, `IntelligenceTab`, `SessionReviewTab`, `SpeechProfileTab`, `PatientInfoTab`) are composed into the 3 new tabs as stacked sections with light section headers.
-
-### Memory updates
-
-- Update `mem://architecture/unified-patient-hub` from "4-tab clinician architecture" to "3-tab jobs-based architecture (Overview / Review / Plan)".
-- Add a new memory `mem://design/clinician-jobs-based-tabs` describing the rule: never reorganize clinician tabs by data-source again; always by clinician job.
+This plan is intentionally scoped to a **feasibility pilot** (5–15 patients, 4–8 weeks). Not an RCT. Not a 510(k) submission.
 
 ---
 
-## Part 2 — Hide dev/admin routes behind a single gated shell
+## What we're building (8 components)
 
-### The problem
+### 1. Trial enrollment + eligibility gating
 
-These routes currently sit at the top level alongside product routes, and `/admin/cohort-research` is even linked from the Patient Hub header:
+A new onboarding branch for trial participants. Gated by a screening form against documented inclusion/exclusion criteria.
 
-```text
-/admin, /admin/pipeline, /admin/analytics, /admin/research-export,
-/admin/outcomes-validation, /admin/engine-simulation, /admin/alerts,
-/admin/overrides, /admin/adaptations, /admin/success-band,
-/admin/voice-analytics, /admin/cohort-research, /admin/shadow-analytics,
-/analytics/cluster, /clinician/telemetry,
-/dev/adaptation-sim, /dev/session-replay, /dev/signal-harness,
-/smart-coach-lab
-```
+Inclusion (defaults — clinician-editable per study):
+- Adult (≥18)
+- Confirmed aphasia diagnosis
+- ≥1 month post-stroke
+- Sufficient hearing/vision to use the app
+- Caregiver or clinician available
+- English fluent pre-stroke
 
-Even though most are gated by `AdminProtectedRoute`, they pollute the navigation surface and the product's mental model.
+Exclusion (defaults):
+- Severe global aphasia (no functional comprehension)
+- Active uncontrolled medical/psychiatric condition
+- Concurrent enrollment in another aphasia trial
+- Cognitive impairment preventing consent
 
-### Fix
+If a screened patient fails any criterion, they cannot be enrolled in the trial — but can still use the app in non-trial mode.
 
-1. **Single index page** at `/admin` becomes the only admin entry point — a categorized hub:
-   - **Clinical Ops** — Cohort Research, Alerts Rollup, Override Audit, Outcomes Validation
-   - **Engine & QA** — Engine Simulation, Adaptation Stream, Success Band, Shadow Analytics, Adaptation Sim, Session Replay, Signal Harness
-   - **Voice & Analytics** — Voice Analytics, Parser Analytics, Cluster Analytics, Smart Coach Lab
-   - **Data** — Research Export, Pipeline, Telemetry
+### 2. Consent + data-use flow
 
-2. **Routes stay where they are** (no broken bookmarks) but every admin/dev route gets wrapped in `AdminProtectedRoute` (a few currently aren't — `/admin/cohort-research`, `/admin/pipeline`, `/dev/*`, `/smart-coach-lab`). This closes the leak in one pass.
+A standalone consent module captured as a signed record:
+- Plain-language summary (8th-grade reading level)
+- Audio narration (uses the new natural TTS mode)
+- Capacity assessment checkbox by clinician
+- Caregiver co-sign field for surrogate consent
+- E-signature (typed full name + timestamp + IP)
+- Versioned consent document — every change creates a new version, requires re-consent
 
-3. **Remove the inline "Cohort" button** from `PatientHub.tsx` header. Clinicians who need cohort go through `/admin`. (Or keep it but only render it when `useUserPermissions().isAdmin` is true — preferred, since power-users do use it daily.)
+Consent record is immutable once signed.
 
-4. **No URL changes** — preserves any existing links/bookmarks.
+### 3. Trial-mode lock ("frozen build")
 
-### Files touched
+A study creates an `engine_version_pin` — every patient enrolled in that study runs on a specific code path, scorer config, lesson generator version, and adaptation policy. Even when we ship new code, enrolled patients keep the pinned behavior until the study ends.
 
-- `src/pages/Admin.tsx` — redesign as a categorized launcher page (cards grouped by section, links to each subroute).
-- `src/App.tsx` — wrap currently-unwrapped admin/dev routes in `AdminProtectedRoute`. No path changes.
-- `src/pages/PatientHub.tsx` — gate the "Cohort" header button on admin role (or remove it).
+Implementation: a `trial_runtime_config` table; runtime reads from it instead of `profiles.runtime_config` for trial patients. No more "engine drift mid-study."
+
+### 4. Adverse event (AE) + safety reporting
+
+A structured AE pathway accessible from:
+- Patient session end (caregiver prompt: "Anything we should know?")
+- Clinician hub (always-visible "Report event" button)
+- Automatic triggers (3+ session abandons, accuracy drop >30%, frustration signal, prolonged silence pattern)
+
+AE record captures: type, severity (mild/moderate/severe/SAE), narrative, related session(s), reporter, timestamp. Severe/SAE events trigger an alert to the study clinician within the app (no email yet — out of scope for v1).
+
+### 5. Baseline + weekly outcome assessments
+
+A new assessments module that prompts:
+- **Baseline** (at enrollment): clinician enters WAB-R AQ, CADL-2 score, ASHA-FACS rating, caregiver burden (Zarit short form). Optional: QAB. We don't compute these — we capture the values.
+- **Weekly**: 5 functional check-in items (already exist) + caregiver-rated communication confidence (1-7 scale) + "any change since last week" free text.
+- **Exit** (study end): repeat baseline measures.
+
+This is the bridge between in-app metrics and the gold-standard instruments reviewers ask about.
+
+### 6. Clinician trial-review dashboard
+
+A new top-level clinician tab visible only when a study is active: **Trial**.
+
+Three jobs (matches existing 3-tab ceiling pattern):
+- **Roster**: enrolled patients, status, days remaining, missed sessions, open AEs
+- **Safety**: all AEs across the cohort, unresolved first
+- **Compliance**: weekly assessments due/completed, consent versions, dose adherence
+
+### 7. Exportable weekly clinical report
+
+One-click PDF + CSV export per patient:
+- Demographics (de-identified by default; toggle for clinician copy)
+- Sessions completed, total minutes, dose adherence
+- Accuracy trends per exercise type
+- Cue-fade trajectory
+- Open + resolved AEs
+- Weekly assessment scores
+- Clinician notes timeline
+- Engine version pin + consent version
+
+Goes to `/mnt/documents/` for clinician download. Not emailed (PHI).
+
+### 8. PHI / BAA / audit hardening
+
+Code + config changes (the legal BAA itself is out of scope — that's a Lovable/Supabase contract):
+- Audio bucket access logged to a new `phi_access_log` table on every signed-URL request
+- Append-only constraint on `adaptation_events`, `clinician_overrides`, `adverse_events`, `consent_records` (revoke UPDATE/DELETE for non-service roles)
+- A `de_identified_export` view that strips name, email, exact stroke date (replaced with month bucket), exact birth date (age band only)
+- Document our PHI inventory in `docs/PHI_INVENTORY.md`
 
 ---
 
-## Out of scope (explicitly)
+## Phasing (recommended order)
 
-- No changes to Patient/Caregiver navigation — patient side is the right floor (per the design read).
-- No clinical engine, scorer, adaptation, or speech changes.
-- No new tabs, no 6th glance card, no marketing/landing changes.
-- No "signature wow moment" yet — deferred per your choice.
-- No URL renames or redirects beyond what already exists.
+We don't ship this in one push. Two sub-releases:
 
-## Risk
+**Phase A — "We can enroll" (1 week)**
+1. Trial-mode lock (#3) — must come first or everything else is unstable mid-study
+2. Eligibility gating (#1)
+3. Consent flow (#2)
+4. Trial-review dashboard skeleton (#6) — Roster only
 
-Very low. This is a UI restructuring + a security tightening (wrapping unprotected admin routes). Existing tab components are reused as-is. If anything breaks, it'd be the deep-link `setActiveTab("patient")` from `ProfileCompletenessBanner`, which the plan explicitly remaps.
+**Phase B — "We can monitor + report" (1 week)**
+5. AE reporting (#4)
+6. Baseline + weekly assessments (#5)
+7. Trial dashboard Safety + Compliance tabs (#6)
+8. Weekly report export (#7)
+9. PHI audit hardening (#8)
 
-## Definition of done
+Each phase is independently shippable. Phase A alone is enough to start a paper-only enrollment conversation with Mercy. Phase B is needed before any patient actually uses the app.
 
-- Patient Hub drawer shows exactly 3 tabs: Overview, Review, Plan.
-- All existing data still reachable, just regrouped.
-- `/admin` is a clean categorized hub; every admin/dev route is gated.
-- No admin/dev links visible to non-admin clinicians anywhere in the product UI.
-- Memory updated to reflect 3-tab jobs-based model.
+---
+
+## What this plan deliberately does NOT do
+
+- No email/SMS notifications to clinicians (out of scope for pilot)
+- No FDA / 510(k) work
+- No multi-site study coordination
+- No new therapy features or scorer changes
+- No automated outcome computation (we capture clinician-entered scores)
+- No engine refactor — trial-mode is a thin wrapper over current runtime
+
+---
+
+## Technical details
+
+(For implementation reference — skip if non-technical.)
+
+**New tables**
+- `studies` — id, name, status (draft/active/closed), inclusion_criteria (jsonb), exclusion_criteria (jsonb), engine_version_pin (text), pi_clinician_id, started_at, ended_at
+- `study_enrollments` — study_id, user_id, status (screening/consented/active/withdrawn/completed), enrolled_at, withdrawn_at, withdrawal_reason
+- `eligibility_screenings` — enrollment_id, criterion_key, met (bool), notes, screened_by, screened_at
+- `consent_records` — enrollment_id, consent_version, signed_name, signed_at, ip_hash, capacity_confirmed_by, surrogate_signed_name, document_text_snapshot
+- `consent_documents` — version, body_md, audio_url, effective_from
+- `trial_runtime_config` — study_id, runtime_config (jsonb snapshot at study start), scorer_version, engine_version
+- `adverse_events` — enrollment_id, event_type, severity, narrative, session_id, reported_by, reported_at, resolved_at, resolution_notes
+- `outcome_assessments` — enrollment_id, assessment_type (baseline/weekly/exit), instrument (wab_r/cadl_2/facs/zarit/custom), score_jsonb, administered_by, administered_at
+- `phi_access_log` — user_id (subject), accessor_id, resource_type, resource_id, action, accessed_at
+
+**Append-only enforcement**
+RLS policies + revoke UPDATE/DELETE from `authenticated`. Service role retains full access for audit-corrected entries that must be logged separately.
+
+**Engine pin mechanism**
+`useTrialEngineConfig()` hook resolves runtime via `study_enrollments → trial_runtime_config` first, falls back to `profiles.runtime_config`. Single switchpoint in `runCoachTurn.ts` and `drillSelector.ts`.
+
+**Consent re-trigger**
+On app load, compare patient's last `consent_records.consent_version` to current `consent_documents` active version. If newer version exists, route to re-consent before allowing trial activity.
+
+**Files touched (estimate)**
+- ~8 new migrations
+- ~12 new components (trial pages, consent flow, AE form, assessment forms, report export)
+- ~4 modified files (App.tsx routes, ClinicianProtectedRoute, runtime resolution, types)
+
+---
+
+## Decision needed before I start
+
+Approve Phase A scope as listed, or trim it. After Phase A ships and you've shown it to Mercy, we decide Phase B based on their feedback.
