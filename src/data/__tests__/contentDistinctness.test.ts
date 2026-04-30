@@ -90,21 +90,22 @@ describe('Content distinctness — DescribeGuess', () => {
     expect(small.every(t => t.difficulty === 1)).toBe(true);
   });
 
-  it('engine L5 (count=8) is exclusively tier 2', () => {
+  it('engine L5 (count=8) has zero tier-1 leak — pads upward to tier 3 when tier 2 pool is short', () => {
+    // Tier 2 has only ~6 valid trials after photo validation; count=8 forces
+    // padding. Policy: pad with HARDER neighbor first, never easier. So an
+    // L5 request never serves tier-1 trials.
     const small = getDescribeGuessTrials({ difficulty: 5, count: 8 });
-    expect(small.every(t => t.difficulty === 2)).toBe(true);
+    expect(small.every(t => t.difficulty !== 1)).toBe(true);
+    expect(small.some(t => t.difficulty === 2)).toBe(true);
   });
 
-  it('engine L10 (count=8) contains tier-3 trials and ZERO tier-1 leak — band fallback to tier 2 allowed when tier-3 pool is short', () => {
-    // Tier 3 pool is small after photo validation (~4 valid). The selector
-    // pads from the nearest neighbor (tier 2), never tier 1. This is the
-    // honest "best we can do" until L4–L10 content is generated.
+  it('engine L10 (count=8) contains tier-3 trials and ZERO tier-1 leak', () => {
     const small = getDescribeGuessTrials({ difficulty: 10, count: 8 });
     expect(small.some(t => t.difficulty === 3)).toBe(true);
     expect(small.every(t => t.difficulty !== 1)).toBe(true);
   });
 
-  it('engine L1 vs L5 pools are disjoint (tier 1 vs tier 2)', () => {
+  it('engine L1 vs L5 pools are disjoint (no easy↔medium overlap)', () => {
     const A = new Set(getDescribeGuessTrials({ difficulty: 1, count: 8 }).map(t => t.id));
     const B = new Set(getDescribeGuessTrials({ difficulty: 5, count: 8 }).map(t => t.id));
     expect(jaccard(A, B)).toBe(0);
