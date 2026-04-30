@@ -23,6 +23,7 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
