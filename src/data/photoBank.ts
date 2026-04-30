@@ -4194,9 +4194,108 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 3,
     minLevel: 3,
     maxLevel: 7,
+  // ─── MinimalPairs T1 unlocking — Phase 2 (Apr 2026) ────────────────
+  // Added to bring the warm-up (T1) playable pool to ≥15 items.
+  // Selected for: high frequency, early AoA, monosyllabic, unambiguous picture.
+  {
+    id: 'tie_mp_t1_1',
+    imageUrl: tieImg,
+    target: 'tie',
+    semanticFoils: ['scarf', 'belt', 'collar'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 1900, imageability: 6, concreteness: 6, age_of_acquisition: 4,
+      syllable_count: 1, phoneme_count: 2, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/t/',
+      semantic_category: 'clothing', typicality_rating: 2, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'sun_mp_t1_2',
+    imageUrl: sunImg,
+    target: 'sun',
+    semanticFoils: ['moon', 'star', 'cloud'],
+    category: 'nature',
+    features: {
+      frequency_rank: 600, imageability: 7, concreteness: 7, age_of_acquisition: 2,
+      syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/s/',
+      semantic_category: 'celestial', typicality_rating: 1, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'bun_mp_t1_3',
+    imageUrl: bunImg,
+    target: 'bun',
+    semanticFoils: ['roll', 'bread', 'bagel'],
+    category: 'food',
+    features: {
+      frequency_rank: 4200, imageability: 6, concreteness: 7, age_of_acquisition: 4,
+      syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/b/',
+      semantic_category: 'food', typicality_rating: 2, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'bee_mp_t1_4',
+    imageUrl: beeImg,
+    target: 'bee',
+    semanticFoils: ['fly', 'wasp', 'ant'],
+    category: 'animals',
+    features: {
+      frequency_rank: 2200, imageability: 7, concreteness: 7, age_of_acquisition: 3,
+      syllable_count: 1, phoneme_count: 2, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/b/',
+      semantic_category: 'insect', typicality_rating: 1, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'dish_mp_t1_5',
+    imageUrl: dishImg,
+    target: 'dish',
+    semanticFoils: ['plate', 'bowl', 'cup'],
+    category: 'household',
+    features: {
+      frequency_rank: 1700, imageability: 7, concreteness: 7, age_of_acquisition: 3,
+      syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/d/',
+      semantic_category: 'tableware', typicality_rating: 2, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'sock_mp_t1_6',
+    imageUrl: sockImg,
+    target: 'sock',
+    semanticFoils: ['shoe', 'boot', 'glove'],
+    category: 'clothing',
+    features: {
+      frequency_rank: 2900, imageability: 7, concreteness: 7, age_of_acquisition: 3,
+      syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/s/',
+      semantic_category: 'clothing', typicality_rating: 1, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
+  },
+  {
+    id: 'lock_mp_t1_7',
+    imageUrl: lockImg,
+    target: 'lock',
+    semanticFoils: ['key', 'door', 'chain'],
+    category: 'household',
+    features: {
+      frequency_rank: 2400, imageability: 7, concreteness: 7, age_of_acquisition: 4,
+      syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
+      neighborhood_density: 'dense', first_phoneme: '/l/',
+      semantic_category: 'hardware', typicality_rating: 2, part_of_speech: 'noun',
+    },
+    computed_difficulty: 1, minLevel: 1, maxLevel: 4,
   },
 ];
-/**
  * Calculate difficulty score (1-5) from linguistic features
  * Based on research: frequency, imageability, AoA, length, typicality
  */
