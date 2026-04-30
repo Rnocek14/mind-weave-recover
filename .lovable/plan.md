@@ -1,103 +1,105 @@
+
 ## Goal
 
-Add a **Session Review** experience inside Clinical Detail that gives SLPs the recording-level evidence they actually use clinically — without cluttering the top Glance cards.
+Make the clinician experience match how clinicians actually think (Triage → Review → Decide), and stop leaking dev/admin surface area into the product feel.
 
-## My analysis of your spec
+Two changes, both surgical, no clinical engine touched.
 
-Your 5 sections are exactly right. After auditing the codebase + clinical literature (WAB, Boston Naming Test scoring, PACE therapy), I'd add 3 things and flag 2 limits:
+---
 
-**Strong additions worth including:**
+## Part 1 — Clinician Patient Hub: 5 inner tabs → 3 jobs
 
-1. **Cue-fade trajectory across sessions** — not just "X correct after phonemic cue this session," but "phonemic-cue dependency dropped from 60% → 35% over 4 weeks." This is the single most-cited evidence of true recovery vs. compensation. We already log `cue_type_given` + `cue_was_effective`, so it's free.
-2. **Latency / response time per error type** — slow-but-correct vs. fast-and-wrong have totally different clinical meanings. SLPs use this to distinguish word-finding deficit from semantic loss. We already capture `reaction_time_ms`.
-3. **Self-correction tracking** — patient said "duh… dog!" — clinically huge (intact monitoring) and we already classify `self_corrected`.
-
-**Two honest limits to flag in the UI rather than fake:**
-
-- **Phoneme-level errors** (final /t/, /r/-/l/ confusion): we have `phonological_similarity` (Levenshtein) and Azure pronunciation scores when present, but no true phoneme-substitution log. We can derive *approximate* sound-pattern hints by diffing transcript vs. target on the consonant level — useful as a hypothesis, not a diagnosis. Label it "Sound patterns to investigate" not "Phoneme errors."
-- **Perseveration** requires looking across trials within a session (same wrong answer reused). Doable — we have ordered trials — but should be derived, not assumed in the schema.
-
-## What I'll build
-
-A new **`SessionReviewTab`** added as a 5th tab inside the existing Clinical Detail drawer (next to Sessions / Speech / Patient / Intel). Selecting a session opens a focused review panel with 5 stacked sections. Mobile-first, single column, evidence-first.
+### Current (Patient Hub "Clinical Detail" drawer)
 
 ```text
-Clinical Detail (drawer)
-└── Tabs: Sessions | Review | Speech | Patient | Intel
-                    ▲ NEW
-    └── Session picker (last 10 sessions, dated)
-        └── 1. Session Summary strip
-            2. Voice Evidence (4 clips)
-            3. Error Pattern Breakdown
-            4. Sounds to Watch (derived, hedged)
-            5. Cue Response + cross-session fade chart
-            6. Clinician Notes (existing component, embedded)
+Sessions | Review | Speech | Patient | Intel
 ```
 
-## Section-by-section build
+Five tabs = analysis-organized, not job-organized.
 
-### 1. Session Summary strip
-One row, six chips: date · duration · games played · accuracy · highest level reached · cue dependency %. Pulls from `sessions` + `useSessionDetail` (already exists).
+### New structure (jobs-to-be-done)
 
-### 2. Voice Evidence — 4 curated clips
-Reuses the same audio playback + signing pattern as `useSessionDetail.playAudio`. Quality filter (≥400ms, non-empty transcript) already established in caregiver `ListenCard`.
+```text
+Overview  |  Review  |  Plan
+```
 
-- **Best response** — highest score, fastest RT, no cue
-- **Representative error** — most-frequent error type this session
-- **Hardest successful** — highest difficulty level where they got it right (with or without cue)
-- **Most recent attempt** — last trial chronologically
+| Tab | Clinician's Job | What lives here (consolidated from existing components) |
+|---|---|---|
+| **Overview** | "Should I worry? What's the picture?" | `SessionsTab` (recent session timeline + accuracy trend) + `IntelligenceTab` summary cards (learning rates, cohort comparison, predictions). Intel becomes a section inside Overview, not a separate tab. |
+| **Review** | "What actually happened? What does it sound like?" | `SessionReviewTab` (summary strip, voice clips, error breakdown, cue response) + `SpeechProfileTab` (pronunciation patterns, struggling phonemes, fade trajectory). Same mental task: listen to the patient, look at errors. |
+| **Plan** | "What do I do next?" | `PatientInfoTab` (profile, goals, deficits) + clinical notes + functional check-ins + recovery alerts to acknowledge. The "decision" surface. |
 
-Each clip card shows: ▶ play · target word · transcript · error type chip · cue chip · RT.
+The 5 Glance Cards above the drawer stay exactly as they are — they already serve the triage job at the top of the page. Sticky documentation bar (Copy Note / EHR / Print) stays.
 
-### 3. Error Pattern Breakdown
-Horizontal bar chart, counts + %, derived from `error_type` column on `exercise_events` / `utterance_analyses`:
-- phonemic paraphasia · semantic paraphasia · circumlocution · self-corrected · no response · neologism · perseveration (derived: same wrong answer ≥2 trials) · agrammatic (derived from word count + target type for sentence tasks)
+### Files touched
 
-Click any bar → filters the trial list below to just those trials with their audio.
+- `src/pages/PatientHub.tsx` — replace the 5-tab `TabsList` with 3 tabs; render existing tab components inside sections of the new tabs (no component rewrites). Update `defaultValue` and `activeTab` mapping (e.g. when `ProfileCompletenessBanner` calls `setActiveTab("patient")`, route it to the new "plan" tab id).
 
-### 4. Sounds to Watch (hedged)
-Computed client-side from incorrect trials only. For each (target, transcript) pair we diff the consonant skeleton and surface the top 3 recurring patterns, e.g. "Final /t/ dropped 4× · /r/ → /w/ 3× · /s/-blend reduced 2×". Header reads **"Patterns to investigate (auto-detected — confirm clinically)"** so SLPs know it's a hypothesis. If we have <5 incorrect trials with audio, hide the section instead of showing noise.
+No new components. No data hooks rewritten. Existing tab components (`SessionsTab`, `IntelligenceTab`, `SessionReviewTab`, `SpeechProfileTab`, `PatientInfoTab`) are composed into the 3 new tabs as stacked sections with light section headers.
 
-### 5. Cue Response + Fade Trajectory
-Two parts:
-- **This session**: stacked bar — correct without cue / correct after semantic / correct after phonemic / correct after repetition / still incorrect. Pulls `cue_type_given` + `cue_was_effective`.
-- **Across last 8 sessions**: small line chart of "% trials needing any cue." This is the recovery signal SLPs care most about — cue dependency dropping = real generalization.
+### Memory updates
 
-### 6. Clinician Notes
-Embed existing per-session note input from `clinician_session_notes` table (already has RLS for assigned clinicians). Shows prior notes for this session, allows new note. No new table.
+- Update `mem://architecture/unified-patient-hub` from "4-tab clinician architecture" to "3-tab jobs-based architecture (Overview / Review / Plan)".
+- Add a new memory `mem://design/clinician-jobs-based-tabs` describing the rule: never reorganize clinician tabs by data-source again; always by clinician job.
 
-## Files
+---
 
-**New:**
-- `src/components/patient-hub/SessionReviewTab.tsx` — the tab container + session picker
-- `src/components/patient-hub/review/SessionSummaryStrip.tsx`
-- `src/components/patient-hub/review/VoiceEvidenceGrid.tsx` — 4 clip cards + audio
-- `src/components/patient-hub/review/ErrorPatternBreakdown.tsx` — bar chart + filter
-- `src/components/patient-hub/review/SoundsToWatch.tsx` — consonant-diff heuristic
-- `src/components/patient-hub/review/CueResponsePanel.tsx` — this-session + fade chart
-- `src/components/patient-hub/review/SessionNotesPanel.tsx` — wraps `clinician_session_notes`
-- `src/lib/clinical/derivePerseveration.ts` — pure helper, scans trial sequence
-- `src/lib/clinical/deriveSoundPatterns.ts` — pure helper, consonant-level diff
+## Part 2 — Hide dev/admin routes behind a single gated shell
 
-**Edited:**
-- `src/pages/PatientHub.tsx` — add 5th tab `<TabsTrigger value="review">Review</TabsTrigger>` and `<TabsContent>`. Grid changes from `grid-cols-4` → `grid-cols-5`.
+### The problem
 
-**Reused (no edits):** `useSessionDetail`, `useSessionSummary`, `useClinicalNotes`, `AccuracySparkline`, audio storage signing.
+These routes currently sit at the top level alongside product routes, and `/admin/cohort-research` is even linked from the Patient Hub header:
 
-## Constraints I'll respect
+```text
+/admin, /admin/pipeline, /admin/analytics, /admin/research-export,
+/admin/outcomes-validation, /admin/engine-simulation, /admin/alerts,
+/admin/overrides, /admin/adaptations, /admin/success-band,
+/admin/voice-analytics, /admin/cohort-research, /admin/shadow-analytics,
+/analytics/cluster, /clinician/telemetry,
+/dev/adaptation-sim, /dev/session-replay, /dev/signal-harness,
+/smart-coach-lab
+```
 
-- No new tables, no migrations — every signal already exists in `exercise_events` / `utterance_analyses` / `clinician_session_notes`.
-- No changes to top Glance cards.
-- Sounds-to-Watch is clearly labeled as auto-derived hypothesis, hidden when data is too thin.
-- Mobile-first single column; clip cards stack on narrow viewports.
-- Performance: only fetch trials for the *selected* session (lazy), not all sessions.
+Even though most are gated by `AdminProtectedRoute`, they pollute the navigation surface and the product's mental model.
 
-## What I'm explicitly NOT adding
+### Fix
 
-- True phoneme-level ASR alignment (would need server-side Montreal Forced Aligner or equivalent — out of scope, and would mislead if half-built).
-- New tabs or sections in the top Glance row.
-- Cross-patient comparisons (lives in cohort analytics, separate page).
+1. **Single index page** at `/admin` becomes the only admin entry point — a categorized hub:
+   - **Clinical Ops** — Cohort Research, Alerts Rollup, Override Audit, Outcomes Validation
+   - **Engine & QA** — Engine Simulation, Adaptation Stream, Success Band, Shadow Analytics, Adaptation Sim, Session Replay, Signal Harness
+   - **Voice & Analytics** — Voice Analytics, Parser Analytics, Cluster Analytics, Smart Coach Lab
+   - **Data** — Research Export, Pipeline, Telemetry
 
-## Open question for you
+2. **Routes stay where they are** (no broken bookmarks) but every admin/dev route gets wrapped in `AdminProtectedRoute` (a few currently aren't — `/admin/cohort-research`, `/admin/pipeline`, `/dev/*`, `/smart-coach-lab`). This closes the leak in one pass.
 
-For **Voice Evidence**, I picked Best / Representative Error / Hardest Successful / Most Recent. You also mentioned "before/after comparison" and "repeated target attempts over time." Those are powerful but cross-session — they'd live better as a **second view inside Voice Evidence**: a toggle "This session / Same target across time" that, when a target word is selected, pulls every attempt of that word from the last N sessions. Want me to include that toggle in v1, or ship the 4-clip view first and add it next?
+3. **Remove the inline "Cohort" button** from `PatientHub.tsx` header. Clinicians who need cohort go through `/admin`. (Or keep it but only render it when `useUserPermissions().isAdmin` is true — preferred, since power-users do use it daily.)
+
+4. **No URL changes** — preserves any existing links/bookmarks.
+
+### Files touched
+
+- `src/pages/Admin.tsx` — redesign as a categorized launcher page (cards grouped by section, links to each subroute).
+- `src/App.tsx` — wrap currently-unwrapped admin/dev routes in `AdminProtectedRoute`. No path changes.
+- `src/pages/PatientHub.tsx` — gate the "Cohort" header button on admin role (or remove it).
+
+---
+
+## Out of scope (explicitly)
+
+- No changes to Patient/Caregiver navigation — patient side is the right floor (per the design read).
+- No clinical engine, scorer, adaptation, or speech changes.
+- No new tabs, no 6th glance card, no marketing/landing changes.
+- No "signature wow moment" yet — deferred per your choice.
+- No URL renames or redirects beyond what already exists.
+
+## Risk
+
+Very low. This is a UI restructuring + a security tightening (wrapping unprotected admin routes). Existing tab components are reused as-is. If anything breaks, it'd be the deep-link `setActiveTab("patient")` from `ProfileCompletenessBanner`, which the plan explicitly remaps.
+
+## Definition of done
+
+- Patient Hub drawer shows exactly 3 tabs: Overview, Review, Plan.
+- All existing data still reachable, just regrouped.
+- `/admin` is a clean categorized hub; every admin/dev route is gated.
+- No admin/dev links visible to non-admin clinicians anywhere in the product UI.
+- Memory updated to reflect 3-tab jobs-based model.

@@ -29,6 +29,7 @@ import {
   ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText, Users, ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useProfile } from "@/hooks/useProfile";
 import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useWeeklySessionTimeline } from "@/hooks/useWeeklySessionTimeline";
@@ -58,11 +59,13 @@ type WindowSize = 7 | 14 | 30;
 export default function PatientHub() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin } = useUserPermissions(user?.id);
   const { activeProfile } = useProfile();
   const profileId = activeProfile?.id;
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
-  const [activeTab, setActiveTab] = useState("sessions");
+  // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
+  const [activeTab, setActiveTab] = useState("overview");
   const [streak, setStreak] = useState(0);
 
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
@@ -170,14 +173,16 @@ export default function PatientHub() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline" size="sm"
-            className="gap-1.5 h-8 text-xs"
-            onClick={() => navigate("/admin/cohort-research")}
-          >
-            <Users className="w-3.5 h-3.5" />
-            Cohort
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={() => navigate("/admin/cohort-research")}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Cohort
+            </Button>
+          )}
           <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
             <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
@@ -193,7 +198,7 @@ export default function PatientHub() {
 
       <ProfileCompletenessBanner
         profile={activeProfile}
-        onEditProfile={() => setActiveTab("patient")}
+        onEditProfile={() => setActiveTab("plan")}
       />
 
       {/* === The five Glance Cards === */}
@@ -234,28 +239,53 @@ export default function PatientHub() {
         <CollapsibleContent className="pt-2">
           <Card className="p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full grid grid-cols-5">
-                <TabsTrigger value="sessions">Sessions</TabsTrigger>
-                <TabsTrigger value="review">Review</TabsTrigger>
-                <TabsTrigger value="speech">Speech</TabsTrigger>
-                <TabsTrigger value="patient">Patient</TabsTrigger>
-                <TabsTrigger value="intelligence">Intel</TabsTrigger>
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="overview" title="Should I worry? What's the picture?">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="review" title="What happened? What does it sound like?">
+                  Review
+                </TabsTrigger>
+                <TabsTrigger value="plan" title="What do I do next?">
+                  Plan
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="sessions">
-                <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+              {/* Overview — Triage. Sessions trend + Intelligence summary. */}
+              <TabsContent value="overview" className="space-y-6 pt-4">
+                <section>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Sessions
+                  </h3>
+                  <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+                </section>
+                <section className="border-t border-border pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Intelligence
+                  </h3>
+                  <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                </section>
               </TabsContent>
-              <TabsContent value="review">
-                <SessionReviewTab profileId={profileId} />
+
+              {/* Review — Listen + look at errors. */}
+              <TabsContent value="review" className="space-y-6 pt-4">
+                <section>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Session Review
+                  </h3>
+                  <SessionReviewTab profileId={profileId} />
+                </section>
+                <section className="border-t border-border pt-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Speech Profile
+                  </h3>
+                  <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                </section>
               </TabsContent>
-              <TabsContent value="speech">
-                <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
-              </TabsContent>
-              <TabsContent value="patient">
+
+              {/* Plan — Decide what's next. Profile, goals, deficits, notes. */}
+              <TabsContent value="plan" className="pt-4">
                 <PatientInfoTab userId={user?.id || ""} profileId={profileId} timeline={timeline} />
-              </TabsContent>
-              <TabsContent value="intelligence">
-                <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
               </TabsContent>
             </Tabs>
           </Card>

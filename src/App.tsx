@@ -150,11 +150,11 @@ const App = () => (
                   <Route path="/exercise/voice-practice" element={<VoicePractice />} />
                   <Route path="/lesson" element={<Lesson />} />
 
-                  {/* Dev-only validation harness */}
-                  <Route path="/dev/adaptation-sim" element={<AdaptationSimDev />} />
-                  <Route path="/dev/session-replay" element={<SessionReplayDev />} />
-                  <Route path="/dev/session-replay/:sessionId" element={<SessionReplayDev />} />
-                  <Route path="/dev/signal-harness" element={<AdaptationSignalHarness />} />
+                  {/* Dev-only validation harness — admin-gated */}
+                  <Route path="/dev/adaptation-sim" element={<AdminProtectedRoute><AdaptationSimDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/session-replay" element={<AdminProtectedRoute><SessionReplayDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/session-replay/:sessionId" element={<AdminProtectedRoute><SessionReplayDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/signal-harness" element={<AdminProtectedRoute><AdaptationSignalHarness /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
@@ -179,7 +179,7 @@ const App = () => (
                   
                   {/* Admin routes - with header */}
                   <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
-                  <Route path="/admin/pipeline" element={<AppLayout><AdminPipeline /></AppLayout>} />
+                  <Route path="/admin/pipeline" element={<AppLayout><AdminProtectedRoute><AdminPipeline /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/analytics" element={<AppLayout><AdminProtectedRoute><ParserAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/research-export" element={<AppLayout><AdminProtectedRoute><ResearchExport /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/analytics/cluster" element={<AppLayout><AdminProtectedRoute><ClusterAnalytics /></AdminProtectedRoute></AppLayout>} />
@@ -190,12 +190,12 @@ const App = () => (
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
-                  <Route path="/admin/cohort-research" element={<AppLayout><CohortResearchAnalytics /></AppLayout>} />
+                  <Route path="/admin/cohort-research" element={<AppLayout><AdminProtectedRoute><CohortResearchAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/shadow-analytics" element={<AppLayout><AdminProtectedRoute><ShadowAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/progress" element={<Progress />} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
                   <Route path="/recovery-score" element={<AppLayout><RecoveryScoreDetail /></AppLayout>} />
-                  <Route path="/smart-coach-lab" element={<SmartCoachLab />} />
+                  <Route path="/smart-coach-lab" element={<AdminProtectedRoute><SmartCoachLab /></AdminProtectedRoute>} />
                   <Route path="/smart-coach" element={<Navigate to="/today" replace />} />
                   
                   {/* Redirect old routes to canonical routes */}
