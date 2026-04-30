@@ -4194,6 +4194,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     computed_difficulty: 3,
     minLevel: 3,
     maxLevel: 7,
+  },
   // ─── MinimalPairs T1 unlocking — Phase 2 (Apr 2026) ────────────────
   // Added to bring the warm-up (T1) playable pool to ≥15 items.
   // Selected for: high frequency, early AoA, monosyllabic, unambiguous picture.
