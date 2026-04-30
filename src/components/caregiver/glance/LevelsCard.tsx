@@ -85,8 +85,7 @@ export function LevelsCard({ userId }: LevelsCardProps) {
           slug,
           level: v.latest?.difficulty ?? 1,
           trials: v.trials,
-          direction:
-            v.lastDir === "up" ? "up" : v.lastDir === "down" ? "down" : ("flat" as const),
+          direction: (v.lastDir === "up" ? "up" : v.lastDir === "down" ? "down" : "flat") as LevelRow["direction"],
         }))
         .sort((a, b) => b.trials - a.trials)
         .slice(0, 4);
