@@ -25,6 +25,8 @@ import { ErrorPatternBreakdown, categoryOfTrial } from "./review/ErrorPatternBre
 import { SoundsToWatch } from "./review/SoundsToWatch";
 import { CueResponsePanel } from "./review/CueResponsePanel";
 import { SessionNotesPanel } from "./review/SessionNotesPanel";
+import { AcrossTimeView } from "./review/AcrossTimeView";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Volume2, VolumeX } from "lucide-react";
 
 interface SessionReviewTabProps {
@@ -192,9 +194,23 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
           {/* 2. Voice Evidence */}
           <Section
             title="Voice evidence"
-            description="Four curated clips drawn from this session's recordings."
+            description="Curated clips from this session, or hear the same target across time."
           >
-            <VoiceEvidenceGrid trials={trials} />
+            <Tabs defaultValue="session" className="w-full">
+              <TabsList className="h-9">
+                <TabsTrigger value="session" className="text-xs">This session</TabsTrigger>
+                <TabsTrigger value="across" className="text-xs">Across time</TabsTrigger>
+              </TabsList>
+              <TabsContent value="session" className="mt-3">
+                <VoiceEvidenceGrid trials={trials} />
+              </TabsContent>
+              <TabsContent value="across" className="mt-3">
+                <AcrossTimeView
+                  currentSessionTrials={trials}
+                  profileId={profileId}
+                />
+              </TabsContent>
+            </Tabs>
           </Section>
 
           {/* 3. Error patterns */}
