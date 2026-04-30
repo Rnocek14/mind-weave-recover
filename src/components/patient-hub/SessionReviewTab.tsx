@@ -219,6 +219,7 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
             accuracyPct={metrics.accuracyPct}
             highestLevel={metrics.highestLevel}
             cueDependencyPct={metrics.cueDependencyPct}
+            validityBuckets={metrics.validityBuckets}
           />
 
           {/* 2. Voice Evidence */}
@@ -231,8 +232,12 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
                 <TabsTrigger value="session" className="text-xs">This session</TabsTrigger>
                 <TabsTrigger value="across" className="text-xs">Across time</TabsTrigger>
               </TabsList>
-              <TabsContent value="session" className="mt-3">
+              <TabsContent value="session" className="mt-3 space-y-3">
                 <VoiceEvidenceGrid trials={trials} />
+                <ExcludedClipsAudit
+                  trials={trials}
+                  onOverridden={() => selectedId && fetchTrials(selectedId)}
+                />
               </TabsContent>
               <TabsContent value="across" className="mt-3">
                 <AcrossTimeView
