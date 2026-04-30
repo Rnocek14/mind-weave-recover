@@ -3494,6 +3494,28 @@ export type Database = {
       }
     }
     Functions: {
+      advance_enrollment_after_consent: {
+        Args: { _enrollment_id: string }
+        Returns: {
+          completed_at: string | null
+          created_at: string
+          enrolled_at: string | null
+          enrolled_by: string | null
+          id: string
+          profile_id: string
+          status: string
+          study_id: string
+          user_id: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_enrollments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_view_cluster_analytics: { Args: never; Returns: boolean }
       claim_speech_analysis_jobs: {
         Args: { p_batch_size?: number; p_worker_id: string }
@@ -3813,6 +3835,28 @@ export type Database = {
       upsert_worker_heartbeat: {
         Args: { p_meta?: Json; p_status?: string; p_worker_id: string }
         Returns: undefined
+      }
+      withdraw_enrollment: {
+        Args: { _enrollment_id: string; _reason: string }
+        Returns: {
+          completed_at: string | null
+          created_at: string
+          enrolled_at: string | null
+          enrolled_by: string | null
+          id: string
+          profile_id: string
+          status: string
+          study_id: string
+          user_id: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "study_enrollments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
