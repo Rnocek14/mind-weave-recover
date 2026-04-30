@@ -937,40 +937,66 @@ export const PHRASE_BANK: PhraseTrial[] = [
   },
 ];
 
-// Get phrases for a specific difficulty level
+/**
+ * Map an engine difficulty (1..10) to the PhrasePractice content tier (1..5).
+ *
+ * The phrase bank is organized in 5 motor-/length-graded tiers. The engine emits
+ * 1..10, so we collapse pairs of engine levels onto each tier. This is the SAME
+ * contract used by FixSentence/DescribeGuess: callers pass an engine level, the
+ * selector centralizes the tier mapping. NEVER use a ±1 cumulative band — that
+ * causes silent tier blending and breaks perceptual progression.
+ */
+export function mapEngineLevelToPhraseTier(engineLevel: number): 1 | 2 | 3 | 4 | 5 {
+  if (!Number.isFinite(engineLevel)) return 1;
+  const lvl = Math.max(1, Math.min(10, Math.round(engineLevel)));
+  if (lvl <= 2) return 1;       // engine 1-2  → tier 1 (warm-up: 1-3 word automatic phrases)
+  if (lvl <= 4) return 2;       // engine 3-4  → tier 2 (short functional phrases)
+  if (lvl <= 6) return 3;       // engine 5-6  → tier 3 (4-word commands/questions)
+  if (lvl <= 8) return 4;       // engine 7-8  → tier 4 (5-7 word complex phrases)
+  return 5;                     // engine 9-10 → tier 5 (multi-clause, expressive)
+}
+
+// Get phrases for a specific TIER (1..5). Pure helper for tests/dev tools.
 export function getPhrasesForLevel(level: number, count: number = 10): PhraseTrial[] {
-  const levelPhrases = PHRASE_BANK.filter(p => p.difficulty === level);
-  
-  // Shuffle and return requested count
+  const tier = Math.max(1, Math.min(5, Math.round(level)));
+  const levelPhrases = PHRASE_BANK.filter(p => p.difficulty === tier);
   const shuffled = [...levelPhrases].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-// Get mixed phrases across difficulty range
-export function getTrialsForLevel(difficultyLevel: number, totalTrials: number): PhraseTrial[] {
-  const requestedTrials = Math.max(0, totalTrials);
-  if (requestedTrials === 0 || PHRASE_BANK.length === 0) return [];
+/**
+ * Selector used by PhrasePracticeGame.
+ *
+ * Accepts an ENGINE level (1..10) and returns trials drawn EXCLUSIVELY from the
+ * mapped tier. No cumulative ±1 band, no tier blending. If the tier pool is
+ * smaller than the requested count we cycle within the tier (never fall back
+ * to other tiers) so perceptual difficulty is preserved.
+ */
+export function getTrialsForLevel(engineLevel: number, totalTrials: number): PhraseTrial[] {
+  const requested = Math.max(0, totalTrials);
+  if (requested === 0 || PHRASE_BANK.length === 0) return [];
 
-  // Phrase bank currently supports levels 1-5 only.
-  const safeDifficulty = Math.max(1, Math.min(5, difficultyLevel));
+  const tier = mapEngineLevelToPhraseTier(engineLevel);
+  const pool = PHRASE_BANK.filter(p => p.difficulty === tier);
 
-  // For level N, include phrases from level N-1, N, and N+1 (if they exist)
-  const minDiff = Math.max(1, safeDifficulty - 1);
-  const maxDiff = Math.min(5, safeDifficulty + 1);
+  // Defensive: if a tier is empty (shouldn't happen — guarded by tests),
+  // fall back to the nearest populated tier rather than the whole bank.
+  let sourcePool = pool;
+  if (sourcePool.length === 0) {
+    for (let delta = 1; delta <= 4 && sourcePool.length === 0; delta++) {
+      sourcePool = PHRASE_BANK.filter(
+        p => p.difficulty === tier - delta || p.difficulty === tier + delta,
+      );
+    }
+    if (sourcePool.length === 0) sourcePool = PHRASE_BANK;
+  }
 
-  const availablePhrases = PHRASE_BANK.filter(
-    p => p.difficulty >= minDiff && p.difficulty <= maxDiff
-  );
-
-  const sourcePool = availablePhrases.length > 0 ? availablePhrases : PHRASE_BANK;
   const selected: PhraseTrial[] = [];
-
-  while (selected.length < requestedTrials) {
+  while (selected.length < requested) {
     const shuffled = [...sourcePool].sort(() => Math.random() - 0.5);
     selected.push(...shuffled);
   }
-
-  return selected.slice(0, requestedTrials);
+  return selected.slice(0, requested);
 }
 
 // Generate semantic alternatives (no multiple choice for phrases, but useful for partial credit)
