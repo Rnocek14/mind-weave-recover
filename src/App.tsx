@@ -190,7 +190,7 @@ const App = () => (
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
-                  <Route path="/admin/cohort-research" element={<AppLayout><CohortResearchAnalytics /></AppLayout>} />
+                  <Route path="/admin/cohort-research" element={<AppLayout><AdminProtectedRoute><CohortResearchAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/shadow-analytics" element={<AppLayout><AdminProtectedRoute><ShadowAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/progress" element={<Progress />} />
                   <Route path="/recovery-progress" element={<AppLayout><RecoveryProgress /></AppLayout>} />
