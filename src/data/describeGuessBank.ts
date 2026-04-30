@@ -526,13 +526,27 @@ const PHOTO_ID_REMAP: Record<string, string> = {
  * remapped) photoBankId resolves to an entry in PHOTO_BANK. This is the
  * single guard that prevents the blank-card regression in Describe & Guess.
  */
+/**
+ * Map an engine difficulty (1..10) to the DescribeGuess content tier (1..3).
+ * Until L4-L10 content lands, the bank only has 3 tiers; this collapse is
+ * explicit and centralized so callers can pass either a tier or an engine level.
+ */
+function toDescribeGuessTier(d: number): 1 | 2 | 3 {
+  if (!Number.isFinite(d)) return 2;
+  if (d <= 3) return 1;
+  if (d <= 7) return 2;
+  return 3;
+}
+
 export function getDescribeGuessTrials(options?: {
+  /** Tier 1..3 OR engine level 1..10. Both accepted; engine levels collapse to a tier. */
   difficulty?: number;
   count?: number;
 }): DescribeGuessTrial[] {
   const validPhotoIds = new Set(PHOTO_BANK.map(p => p.id));
 
-  let trials = DESCRIBE_GUESS_BANK
+  // Normalize photo IDs and drop trials whose photo is missing.
+  const all = DESCRIBE_GUESS_BANK
     .map(t => {
       const remapped = PHOTO_ID_REMAP[t.photoBankId] ?? t.photoBankId;
       return remapped === t.photoBankId ? t : { ...t, photoBankId: remapped };
@@ -545,13 +559,37 @@ export function getDescribeGuessTrials(options?: {
       return false;
     });
 
-  if (options?.difficulty) {
-    trials = trials.filter(t => t.difficulty <= options.difficulty!);
+  // ── BAND-ISOLATED selection (no more cumulative `<=` filter) ──
+  // Pick the exact target tier. If the pool is too small for the requested
+  // count, pad from the nearest neighbor tier(s), nearest first. Never the
+  // full bank — that's what made L4 and L7 look identical.
+  let pool: DescribeGuessTrial[];
+  if (options?.difficulty != null) {
+    const targetTier = toDescribeGuessTier(options.difficulty);
+    const exact = all.filter(t => t.difficulty === targetTier);
+    const requested = options.count ?? exact.length;
+
+    if (exact.length >= requested) {
+      pool = exact;
+    } else {
+      const neighbors: number[] =
+        targetTier === 1 ? [2, 3] :
+        targetTier === 3 ? [2, 1] :
+        [1, 3];
+      const padded = [...exact];
+      for (const n of neighbors) {
+        if (padded.length >= requested) break;
+        padded.push(...all.filter(t => t.difficulty === n));
+      }
+      pool = padded;
+    }
+  } else {
+    pool = all;
   }
 
   // Deduplicate by target word (safety net)
   const seen = new Set<string>();
-  trials = trials.filter(t => {
+  let trials = pool.filter(t => {
     const key = t.target.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
