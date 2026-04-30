@@ -25,6 +25,10 @@ export interface TrialData {
   created_at: string | null;
   taskParameters?: any;
   outputs?: any;
+  // Speech Validity Gate (Phase 1)
+  validity_label?: string | null;
+  validity_reason?: string | null;
+  counts_toward_score?: boolean | null;
 }
 
 export function useSessionDetail() {
