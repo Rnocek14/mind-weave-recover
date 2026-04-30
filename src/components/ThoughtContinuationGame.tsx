@@ -222,7 +222,7 @@ export function ThoughtContinuationGame({
     setCurrentPrompt(selection.prompt);
     setUsedPromptIds(prev => [...prev, selection.prompt.id]);
     setPromptCount(prev => prev + 1);
-  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision]);
+  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
 
   // ---------------------------------------------------------------------------
   // Initialize first prompt
