@@ -625,3 +625,97 @@ describe('Content distinctness — DetectiveMind', () => {
     expect(types(3).every(t => t !== 'literal')).toBe(true);
   });
 });
+
+// ───────────────────────── MinimalPairs (Phase 1.5) ─────────────────────────
+import {
+  MINIMAL_PAIRS,
+  mapEngineLevelToMinimalPairsTier,
+  getMinimalPairTrials,
+  getMinimalPairTrialsForLevel,
+} from '@/data/minimalPairsBank';
+
+describe('Content distinctness — MinimalPairs', () => {
+  it('engine→tier mapping is monotonic and covers all 3 tiers', () => {
+    const map = [1,2,3,4,5,6,7,8,9,10].map(mapEngineLevelToMinimalPairsTier);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs engine→tier: ${map.join(' ')}`);
+    expect(map[0]).toBe(1);
+    expect(map[4]).toBe(2);
+    expect(map[9]).toBe(3);
+    for (let i = 1; i < map.length; i++) expect(map[i]).toBeGreaterThanOrEqual(map[i-1]);
+  });
+
+  it('engine L1 returns ONLY tier-1 pairs (strict isolation, no ±1 leakage)', () => {
+    const trials = getMinimalPairTrialsForLevel(1, 50);
+    expect(trials.length).toBeGreaterThan(0);
+    expect(trials.every(t => t.pair.difficulty === 1)).toBe(true);
+  });
+
+  it('engine L5 returns ONLY tier-2 pairs', () => {
+    const trials = getMinimalPairTrialsForLevel(5, 50);
+    expect(trials.length).toBeGreaterThan(0);
+    expect(trials.every(t => t.pair.difficulty === 2)).toBe(true);
+  });
+
+  it('engine L10 returns ONLY tier-3 pairs', () => {
+    const trials = getMinimalPairTrialsForLevel(10, 50);
+    expect(trials.length).toBeGreaterThan(0);
+    expect(trials.every(t => t.pair.difficulty === 3)).toBe(true);
+  });
+
+  it('L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
+    // Use unique pair IDs to avoid duplicate-fill artifacts
+    const A = new Set(getMinimalPairTrialsForLevel(1, 50).map(t => t.pair.id));
+    const B = new Set(getMinimalPairTrialsForLevel(5, 50).map(t => t.pair.id));
+    const C = new Set(getMinimalPairTrialsForLevel(10, 50).map(t => t.pair.id));
+    const ab = jaccard(A, B), ac = jaccard(A, C), bc = jaccard(B, C);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs unique-pair pool sizes L1=${A.size} L5=${B.size} L10=${C.size}`);
+    // eslint-disable-next-line no-console
+    console.log(`  Jaccard L1↔L5=${ab.toFixed(2)} L1↔L10=${ac.toFixed(2)} L5↔L10=${bc.toFixed(2)}`);
+    expect(ab).toBe(0);
+    expect(ac).toBe(0);
+    expect(bc).toBe(0);
+  });
+
+  it('every tier has photo-backed pairs (≥4)', () => {
+    const all = getMinimalPairTrials();
+    const sizes = { T1: 0, T2: 0, T3: 0 } as Record<string, number>;
+    for (const t of all) sizes[`T${t.pair.difficulty}`]++;
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs photo-backed pool sizes: ${JSON.stringify(sizes)}`);
+    expect(sizes.T1).toBeGreaterThanOrEqual(4);
+    expect(sizes.T2).toBeGreaterThanOrEqual(4);
+    expect(sizes.T3).toBeGreaterThanOrEqual(4);
+  });
+
+  it('perceptual curve: T1 pairs use maximally contrastive features; T3 uses similar features', () => {
+    // T1 should be dominated by stop_fricative, place, manner contrasts (acoustically far apart)
+    // T3 should be dominated by liquid, final_voicing, th_contrast (acoustically close)
+    const FAR_CATS = new Set(['stop_fricative', 'stop_approximant', 'y_sound', 'place']);
+    const NEAR_CATS = new Set(['liquid', 'final_voicing', 'th_contrast', 'fricative_stop']);
+    const t1 = MINIMAL_PAIRS.filter(p => p.difficulty === 1);
+    const t3 = MINIMAL_PAIRS.filter(p => p.difficulty === 3);
+    const t1FarShare = t1.filter(p => FAR_CATS.has(p.category)).length / Math.max(1, t1.length);
+    const t3NearShare = t3.filter(p => NEAR_CATS.has(p.category)).length / Math.max(1, t3.length);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs T1 'acoustically-far' share: ${(t1FarShare*100).toFixed(0)}%`);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs T3 'acoustically-near' share: ${(t3NearShare*100).toFixed(0)}%`);
+    expect(t1FarShare).toBeGreaterThan(0.4);
+    expect(t3NearShare).toBeGreaterThan(0.4);
+  });
+
+  it('perceptual preview: sample contrast at each tier', () => {
+    const sample = (t: number) =>
+      MINIMAL_PAIRS.filter(p => p.difficulty === t).slice(0, 4).map(p => `${p.word1}/${p.word2} (${p.category})`);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs preview L1:  ${JSON.stringify(sample(1))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs preview L5:  ${JSON.stringify(sample(2))}`);
+    // eslint-disable-next-line no-console
+    console.log(`  MinimalPairs preview L10: ${JSON.stringify(sample(3))}`);
+    expect(sample(1).length).toBeGreaterThan(0);
+    expect(sample(3).length).toBeGreaterThan(0);
+  });
+});
