@@ -5,6 +5,8 @@ import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
+import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
+import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -47,6 +49,11 @@ export interface TrialData {
   timeToSuccessAfterCueMs?: number | null;
   // Structured outputs for CSE consumption (explanation + depth)
   trialOutputs?: Record<string, any>;
+  // Speech Validity Gate result — Phase 1 observation. When present and
+  // the label is non-`valid_attempt`, the row is still inserted but flagged
+  // in task_parameters.speech_validity + engagement_flags so analytics can
+  // exclude it from accuracy/adaptation aggregates.
+  validity?: ValidityResult | null;
 }
 
 /**
