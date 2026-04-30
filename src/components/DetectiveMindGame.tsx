@@ -280,12 +280,16 @@ export function DetectiveMindGame({
   return (
     <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
       {/* Header bar */}
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-sm gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           {RANK_ICONS[rank]}
           <span className="font-medium">{rank}</span>
+          <span className="text-xs text-muted-foreground">· Rank</span>
         </div>
-        <div className="text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+        </div>
+        <div className="text-muted-foreground text-xs sm:text-sm">
           Case {currentIndex + 1} of {totalCases}
         </div>
         <div className="flex items-center gap-1">
