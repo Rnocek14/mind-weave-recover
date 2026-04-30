@@ -125,6 +125,37 @@ import pigeonImg from '@/assets/photos/pigeon.jpg';
 import monkeyImg from '@/assets/photos/monkey.jpg';
 import garageImg from '@/assets/photos/garage.jpg';
 import birthdayImg from '@/assets/photos/birthday.jpg';
+// ─── T3 (Stretch tier) — Boston Naming Test class items ───────────────
+import harmonicaImg from '@/assets/photos/harmonica.jpg';
+import pretzelImg from '@/assets/photos/pretzel.jpg';
+import wreathImg from '@/assets/photos/wreath.jpg';
+import asparagusImg from '@/assets/photos/asparagus.jpg';
+import accordionImg from '@/assets/photos/accordion.jpg';
+import stethoscopeImg from '@/assets/photos/stethoscope.jpg';
+import thimbleImg from '@/assets/photos/thimble.jpg';
+import anvilImg from '@/assets/photos/anvil.jpg';
+import hammockImg from '@/assets/photos/hammock.jpg';
+import microscopeImg from '@/assets/photos/microscope.jpg';
+import pyramidImg from '@/assets/photos/pyramid.jpg';
+import telescopeImg from '@/assets/photos/telescope.jpg';
+import parachuteImg from '@/assets/photos/parachute.jpg';
+import octopusImg from '@/assets/photos/octopus.jpg';
+import pineappleImg from '@/assets/photos/pineapple.jpg';
+import helicopterImg from '@/assets/photos/helicopter.jpg';
+import kangarooImg from '@/assets/photos/kangaroo.jpg';
+import alligatorImg from '@/assets/photos/alligator.jpg';
+import dinosaurImg from '@/assets/photos/dinosaur.jpg';
+import elephantImg from '@/assets/photos/elephant.jpg';
+import butterflyImg from '@/assets/photos/butterfly.jpg';
+import umbrellaImg from '@/assets/photos/umbrella.jpg';
+import envelopeImg from '@/assets/photos/envelope.jpg';
+import calendarImg from '@/assets/photos/calendar.jpg';
+import fireplaceImg from '@/assets/photos/fireplace.jpg';
+import peacockImg from '@/assets/photos/peacock.jpg';
+import acornImg from '@/assets/photos/acorn.jpg';
+import iglooImg from '@/assets/photos/igloo.jpg';
+import broccoliImg from '@/assets/photos/broccoli.jpg';
+import xylophoneImg from '@/assets/photos/xylophone.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
 
 export interface LinguisticFeatures {
