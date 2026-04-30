@@ -225,8 +225,8 @@ export function ClinicianListenCard({ userId }: Props) {
         </div>
       ) : (
         <div className="divide-y divide-border">
-          <ClipRow clip={clips.best} label="Best attempt" tone="good" />
-          <ClipRow clip={clips.struggle} label="Representative struggle" tone="struggle" />
+          <ClipRow clip={clips.best} label="Best performance" tone="good" />
+          <ClipRow clip={clips.struggle} label="Representative error" tone="struggle" />
         </div>
       )}
     </Card>
