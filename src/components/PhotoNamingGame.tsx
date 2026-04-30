@@ -6,6 +6,7 @@ import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { TrialTimer } from '@/components/TrialTimer';
@@ -340,6 +341,7 @@ export const PhotoNamingGame = ({
     stepDown,
     reset: resetAdaptation,
     controller: adaptiveController,
+    levelDescriptor,
   } = useInGameAdaptation({
     autoLog: false, // we forward via onTrialLogged below
 
@@ -2231,9 +2233,12 @@ export const PhotoNamingGame = ({
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
       {/* Progress bar - compact on mobile */}
       <div className="space-y-1">
-        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground">
+        <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{state.trialNumber}/{state.totalTrials}</span>
-          <span>Score: {state.score}</span>
+          <div className="flex items-center gap-2">
+            <LevelBadge descriptor={levelDescriptor} compact />
+            <span>Score: {state.score}</span>
+          </div>
         </div>
         <Progress 
           value={(state.trialNumber / state.totalTrials) * 100} 

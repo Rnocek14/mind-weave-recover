@@ -24,6 +24,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
@@ -268,6 +269,7 @@ export function MinimalPairsGame({
           {trialIndex + 1} / {state.totalTrials}
         </span>
         <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Check className="w-3 h-3" /> {correctCount}

@@ -23,6 +23,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
@@ -111,6 +112,7 @@ export function FixSentenceGame({
   const {
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
+    levelDescriptor,
   } = useInGameAdaptation({
     exerciseSlug: 'fix_sentence',
     sessionId: sessionId || null,
@@ -611,6 +613,7 @@ export function FixSentenceGame({
         <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
           <div className="flex items-center gap-2">
+            <LevelBadge descriptor={levelDescriptor} compact />
             <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
             <span>{game.correctCount} correct</span>
           </div>
