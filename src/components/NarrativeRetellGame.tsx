@@ -886,9 +886,9 @@ export function NarrativeRetellGame({
       )}
 
       {/* ─── Scored phase: structured feedback ─── */}
-      {phase === 'scored' && lastResult && (
-        <div className="space-y-3">
-          <Card className={cn("border-2",
+      {phase === 'scored' && lastResult && (() => {
+        const ScoredCard = (
+          <Card className={cn("border-2 w-full",
             lastResult.eventCoverage >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.eventCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
@@ -904,7 +904,6 @@ export function NarrativeRetellGame({
                 </span>
                </div>
 
-              {/* Maya reflection */}
               <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 space-y-1">
                 <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
                 <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
@@ -913,7 +912,6 @@ export function NarrativeRetellGame({
                 <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
               )}
 
-              {/* Story structure breakdown */}
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Story structure:</p>
                 <div className="grid grid-cols-3 gap-2">
@@ -935,7 +933,6 @@ export function NarrativeRetellGame({
                 </div>
               </div>
 
-              {/* What you included */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground">What you included:</p>
                 {lastResult.allKeyEvents.map((event, i) => {
@@ -954,7 +951,6 @@ export function NarrativeRetellGame({
                 })}
               </div>
 
-              {/* Next step hint */}
               <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
                 <p className="text-xs font-medium text-primary mb-0.5">💡 Next step</p>
                 <p className="text-sm text-foreground">{lastResult.nextStepHint}</p>
@@ -968,12 +964,45 @@ export function NarrativeRetellGame({
               )}
             </CardContent>
           </Card>
+        );
 
-          <Button onClick={handleContinue} className="w-full" size="lg">
-            {currentIndex + 1 < totalStories ? 'Next Story' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      )}
+        // Pause auto-advance while user is replaying / typing
+        const paused = isTTSSpeaking || vg.isSpeaking;
+
+        return (
+          <div className="space-y-3">
+            {paused ? (
+              <>
+                {ScoredCard}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="lg" onClick={stopTTS}>
+                    Stop reading
+                  </Button>
+                  <Button onClick={handleContinue} size="lg">
+                    {currentIndex + 1 < totalStories ? 'Next Story' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <RoundDoneAutoAdvance
+                onAdvance={handleContinue}
+                buttonLabel={currentIndex + 1 < totalStories ? 'Next Story' : 'Finish'}
+                delayMs={10000}
+              >
+                {ScoredCard}
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleListenToStory}
+                >
+                  🔊 Read story again
+                </Button>
+              </RoundDoneAutoAdvance>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
