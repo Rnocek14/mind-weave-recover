@@ -106,12 +106,26 @@ serve(async (req) => {
     
     // Calculate acoustic metrics
     const acousticMetrics = calculateAcousticMetrics(whisperData);
+    const confidence = calculateOverallConfidence(whisperData);
+
+    // Speech Validity Gate (Phase 1) — classify before scoring
+    const recordingDurationMs = Math.round((whisperData.duration ?? 0) * 1000);
+    const validity = classifyUtteranceValidity({
+      transcript: whisperData.text,
+      asrConfidence: confidence,
+      recordingDurationMs,
+      acousticMetrics: {
+        speechToPauseRatio: acousticMetrics.speechToPauseRatio,
+        speechRateWpm: acousticMetrics.speechRateWpm,
+      },
+    });
 
     return new Response(
       JSON.stringify({
         transcript: whisperData.text,
-        confidence: calculateOverallConfidence(whisperData),
+        confidence,
         acousticMetrics,
+        validity,
         rawWhisperData: whisperData,
       }),
       {
@@ -190,5 +204,111 @@ function calculateAcousticMetrics(whisperData: any): any {
     totalPauseDurationSec: Math.round(totalPauseDuration * 10) / 10,
     speechToPauseRatio: Math.round(speechToPauseRatio * 100) / 100,
     segmentCount: segments.length,
+  };
+}
+
+// ===== Speech Validity Gate (Phase 1) =====
+// Mirrors src/lib/clinical/classifyUtteranceValidity.ts
+// Edge functions cannot import from src/, so logic is duplicated here.
+// Keep both files in sync.
+
+const FILLER_TOKEN = /^(um+|uh+|hmm+|mm+|er+|ah+|eh+|oh+)$/i;
+const MIN_VALID_DURATION_MS = 400;
+const LOW_CONFIDENCE_THRESHOLD = 0.4;
+const NOISE_SPEECH_RATIO = 0.2;
+
+function isFillerOnly(transcript: string): boolean {
+  const tokens = transcript
+    .toLowerCase()
+    .replace(/[.,!?;:"]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => FILLER_TOKEN.test(t));
+}
+
+function classifyUtteranceValidity(input: {
+  transcript?: string | null;
+  asrConfidence?: number | null;
+  recordingDurationMs?: number | null;
+  acousticMetrics?: { speechToPauseRatio?: number | null; speechRateWpm?: number | null } | null;
+}) {
+  const transcriptRaw = (input.transcript ?? '').trim();
+  const durationMs = Math.max(0, Math.round(input.recordingDurationMs ?? 0));
+  const asrConfidence =
+    typeof input.asrConfidence === 'number' && Number.isFinite(input.asrConfidence)
+      ? input.asrConfidence
+      : null;
+  const speechToPauseRatio =
+    typeof input.acousticMetrics?.speechToPauseRatio === 'number'
+      ? input.acousticMetrics.speechToPauseRatio
+      : null;
+
+  const signals = {
+    durationMs,
+    trimmedTranscriptLength: transcriptRaw.length,
+    asrConfidence,
+    speechToPauseRatio,
+    matchedFiller: false as boolean,
+  };
+
+  if (durationMs < MIN_VALID_DURATION_MS || transcriptRaw.length === 0) {
+    if (
+      durationMs >= MIN_VALID_DURATION_MS &&
+      transcriptRaw.length === 0 &&
+      speechToPauseRatio !== null &&
+      speechToPauseRatio < NOISE_SPEECH_RATIO
+    ) {
+      return {
+        validity: 'background_noise',
+        reason: 'No transcribed speech; audio appears to be background noise.',
+        confidence: 0.7,
+        countsTowardScore: false,
+        signals,
+      };
+    }
+    return {
+      validity: 'no_response',
+      reason:
+        durationMs < MIN_VALID_DURATION_MS
+          ? `Recording too short (${durationMs}ms < ${MIN_VALID_DURATION_MS}ms).`
+          : 'Empty transcript — no speech detected.',
+      confidence: 0.9,
+      countsTowardScore: false,
+      signals,
+    };
+  }
+
+  if (isFillerOnly(transcriptRaw)) {
+    signals.matchedFiller = true;
+    return {
+      validity: 'filler_only',
+      reason: 'Transcript contains only filler sounds (um/uh/hmm). Not a language attempt.',
+      confidence: 0.85,
+      countsTowardScore: false,
+      signals,
+    };
+  }
+
+  if (
+    asrConfidence !== null &&
+    asrConfidence < LOW_CONFIDENCE_THRESHOLD &&
+    transcriptRaw.length < 3
+  ) {
+    return {
+      validity: 'low_confidence',
+      reason: `ASR confidence ${asrConfidence.toFixed(2)} below ${LOW_CONFIDENCE_THRESHOLD} on a very short transcript. Flagged for clinician review.`,
+      confidence: 0.6,
+      countsTowardScore: false,
+      signals,
+    };
+  }
+
+  return {
+    validity: 'valid_attempt',
+    reason: 'Patient produced a scorable speech attempt.',
+    confidence: 0.9,
+    countsTowardScore: true,
+    signals,
   };
 }

@@ -25,6 +25,10 @@ export interface TrialData {
   created_at: string | null;
   taskParameters?: any;
   outputs?: any;
+  // Speech Validity Gate (Phase 1)
+  validity_label?: string | null;
+  validity_reason?: string | null;
+  counts_toward_score?: boolean | null;
 }
 
 export function useSessionDetail() {
@@ -40,7 +44,7 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -54,7 +58,7 @@ export function useSessionDetail() {
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
-            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at"
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score"
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
@@ -81,6 +85,9 @@ export function useSessionDetail() {
           created_at: ev.created_at,
           taskParameters: ev.task_parameters,
           outputs: ev.outputs,
+          validity_label: (ev as any).validity_label ?? null,
+          validity_reason: (ev as any).validity_reason ?? null,
+          counts_toward_score: (ev as any).counts_toward_score ?? null,
         }));
         setTrials(mapped);
       }

@@ -40,6 +40,15 @@ export interface TrialLogInput {
     trialsAtLevel: number;
     level: number;
   } | null;
+  /**
+   * Speech Validity Gate (Phase 1).
+   * If present and not 'valid_attempt', the trial is dropped from
+   * adaptation logs and only an audit anomaly is recorded.
+   */
+  validity?: {
+    label: string;
+    reason?: string;
+  } | null;
 }
 
 interface Options {
@@ -149,6 +158,23 @@ export function useAdaptationTrialLogger(opts: Options) {
           trialIndex: input.trialIndex,
         });
       }
+      return;
+    }
+
+    // Speech Validity Gate — invalid attempts must NOT feed adaptation.
+    // Record an audit-only anomaly so clinicians can see what was filtered.
+    if (input.validity && input.validity.label !== 'valid_attempt') {
+      anomalyBuf.current.push({
+        user_id: opts.userId,
+        session_id: opts.sessionId ?? null,
+        exercise_slug: canonicalSlug,
+        trial_index: input.trialIndex,
+        anomaly_type: `validity_filtered:${input.validity.label}`,
+        severity: 'info',
+        detail: input.validity.reason ?? `Trial filtered by validity gate (${input.validity.label}).`,
+        evidence: { validity: input.validity.label },
+      });
+      if (anomalyBuf.current.length >= MAX_BUFFER) void flush();
       return;
     }
 

@@ -2,7 +2,7 @@
  * Session Summary Strip — six chips of session-level facts.
  * Compact, mobile-first; wraps on narrow viewports.
  */
-import { Calendar, Clock, Gamepad2, Target, TrendingUp, Lightbulb } from "lucide-react";
+import { Calendar, Clock, Gamepad2, Target, TrendingUp, Lightbulb, ShieldCheck } from "lucide-react";
 
 interface SessionSummaryStripProps {
   startedAt: string;
@@ -11,6 +11,13 @@ interface SessionSummaryStripProps {
   accuracyPct: number;
   highestLevel: number | null;
   cueDependencyPct: number; // 0–100
+  validityBuckets?: {
+    valid: number;
+    filler: number;
+    silence: number;
+    noise: number;
+    flagged: number;
+  } | null;
 }
 
 function fmtDate(iso: string) {
@@ -56,19 +63,35 @@ export function SessionSummaryStrip({
   accuracyPct,
   highestLevel,
   cueDependencyPct,
+  validityBuckets,
 }: SessionSummaryStripProps) {
+  const hasFiltered =
+    !!validityBuckets &&
+    (validityBuckets.filler + validityBuckets.silence + validityBuckets.noise + validityBuckets.flagged) > 0;
   return (
-    <div className="flex flex-wrap gap-2">
-      <Chip icon={Calendar} label="Date" value={fmtDate(startedAt)} />
-      <Chip icon={Clock} label="Duration" value={fmtDuration(durationSec)} />
-      <Chip icon={Gamepad2} label="Games" value={String(gamesPlayed)} />
-      <Chip icon={Target} label="Accuracy" value={`${accuracyPct}%`} />
-      <Chip
-        icon={TrendingUp}
-        label="Highest level"
-        value={highestLevel != null ? `L${highestLevel}` : "—"}
-      />
-      <Chip icon={Lightbulb} label="Cue dependency" value={`${cueDependencyPct}%`} />
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Chip icon={Calendar} label="Date" value={fmtDate(startedAt)} />
+        <Chip icon={Clock} label="Duration" value={fmtDuration(durationSec)} />
+        <Chip icon={Gamepad2} label="Games" value={String(gamesPlayed)} />
+        <Chip icon={Target} label="Accuracy" value={`${accuracyPct}%`} />
+        <Chip
+          icon={TrendingUp}
+          label="Highest level"
+          value={highestLevel != null ? `L${highestLevel}` : "—"}
+        />
+        <Chip icon={Lightbulb} label="Cue dependency" value={`${cueDependencyPct}%`} />
+      </div>
+      {hasFiltered && validityBuckets && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Scored: {validityBuckets.valid}</span>
+          {validityBuckets.filler > 0 && <span>· Filler: {validityBuckets.filler}</span>}
+          {validityBuckets.silence > 0 && <span>· Silent: {validityBuckets.silence}</span>}
+          {validityBuckets.noise > 0 && <span>· Noise: {validityBuckets.noise}</span>}
+          {validityBuckets.flagged > 0 && <span>· Flagged: {validityBuckets.flagged}</span>}
+        </div>
+      )}
     </div>
   );
 }
