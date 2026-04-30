@@ -424,8 +424,12 @@ export function MultiStepPlanningGame({
       )}
 
       {phase === 'scored' && lastResult && (
-        <div className="space-y-3">
-          <Card className={cn("border-2",
+        <RoundDoneAutoAdvance
+          onAdvance={() => nextItem()}
+          buttonLabel={currentIndex + 1 < totalItems ? 'Next Goal' : 'Finish'}
+          delayMs={3000}
+        >
+          <Card className={cn("border-2 w-full",
             lastResult.goalCoverage >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.goalCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
@@ -451,10 +455,7 @@ export function MultiStepPlanningGame({
               )}
             </CardContent>
           </Card>
-          <Button onClick={() => nextItem()} className="w-full" size="lg">
-            {currentIndex + 1 < totalItems ? 'Next Goal' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+        </RoundDoneAutoAdvance>
       )}
     </div>
   );
