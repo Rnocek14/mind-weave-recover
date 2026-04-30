@@ -207,11 +207,18 @@ function buildConstraints(
 
 function filterByConstraints(
   prompts: ThoughtPrompt[],
-  constraints: SelectionConstraints
+  constraints: SelectionConstraints,
+  /**
+   * When true, the engine has already band-isolated the candidate pool to a
+   * specific tier. We must NOT additionally apply the stuck-type
+   * `maxDifficultyTier` filter — doing so could empty the pool and silently
+   * trigger fallback to other tiers.
+   */
+  ignoreDifficulty: boolean = false,
 ): ThoughtPrompt[] {
   return prompts.filter(prompt => {
-    // Check difficulty
-    if (prompt.difficultyTier > constraints.maxDifficultyTier) {
+    // Check difficulty (skip when the engine tier is already enforced)
+    if (!ignoreDifficulty && prompt.difficultyTier > constraints.maxDifficultyTier) {
       return false;
     }
 
