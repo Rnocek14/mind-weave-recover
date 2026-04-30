@@ -439,6 +439,63 @@ describe('Content distinctness — PhotoNaming', () => {
     console.log(`  PhotoNaming mean frequency_rank: T1=${m1.toFixed(0)} T3=${m3.toFixed(0)} (lower=more common)`);
     expect(m3).toBeGreaterThan(m1);
   });
+
+  it('post-T3-expansion content depth: T2≥30 and T3≥25 unique targets', () => {
+    const sizes = { T1: 0, T2: 0, T3: 0 } as Record<string, number>;
+    for (const t of PHOTO_BANK) sizes[`T${computePhotoTier(t)}`]++;
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming depth check: T1=${sizes.T1} T2=${sizes.T2} T3=${sizes.T3}`);
+    expect(sizes.T2).toBeGreaterThanOrEqual(30);
+    expect(sizes.T3).toBeGreaterThanOrEqual(25);
+  });
+
+  it('T3 hard-signal integrity: every T3 item satisfies the tightened classifier', () => {
+    // After the tier-function fix, T3 must be earned via real linguistic difficulty,
+    // NOT a single loose freq>=3000 threshold. This guards against re-pollution.
+    const t3 = PHOTO_BANK.filter(t => computePhotoTier(t) === 3);
+    const isHard = (t: typeof t3[number]) => {
+      const f = t.features;
+      const hardSignals =
+        Number(f.frequency_rank >= 8000) +
+        Number(f.syllable_count >= 3) +
+        Number(f.age_of_acquisition >= 7) +
+        Number((f.phonological_complexity ?? 0) >= 3) +
+        Number((f.typicality_rating ?? 0) >= 5);
+      const extreme =
+        f.frequency_rank >= 15000 || f.age_of_acquisition >= 9 || f.syllable_count >= 4;
+      return hardSignals >= 2 || extreme;
+    };
+    const violators = t3.filter(t => !isHard(t)).map(t => t.target);
+    if (violators.length) {
+      // eslint-disable-next-line no-console
+      console.log(`  T3 integrity violators: ${JSON.stringify(violators)}`);
+    }
+    expect(violators).toEqual([]);
+  });
+
+  it('mid-session re-pool from L1 to L9 returns 100% new tier-3 trials', () => {
+    // Simulates engine UP-escalating after a warm-up: the next pool MUST contain
+    // zero previously-played items AND must be cleanly tier-3.
+    const played = getPhotoTrials(1, 5);
+    const playedTargets = new Set(played.map(t => t.target));
+    const next = getPhotoTrials(9, 5);
+    const overlap = next.filter(t => playedTargets.has(t.target)).length;
+    // eslint-disable-next-line no-console
+    console.log(`  PhotoNaming re-pool L1→L9 overlap=${overlap}/${next.length}`);
+    expect(overlap).toBe(0);
+    expect(next.every(t => computePhotoTier(t) === 3)).toBe(true);
+  });
+
+  it('mid-session re-pool from L10 to L1 returns 100% tier-1 trials (regression path)', () => {
+    // Objective regression: when the engine steps DOWN, the pool must collapse
+    // back to tier-1 with zero high-difficulty leakage.
+    const played = getPhotoTrials(10, 5);
+    const playedTargets = new Set(played.map(t => t.target));
+    const next = getPhotoTrials(1, 5);
+    const overlap = next.filter(t => playedTargets.has(t.target)).length;
+    expect(overlap).toBe(0);
+    expect(next.every(t => computePhotoTier(t) === 1)).toBe(true);
+  });
 });
 
 // ───────────────────────── MultiStepPlanning (Phase 1.5) ─────────────────────────
