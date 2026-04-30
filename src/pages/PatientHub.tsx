@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import {
   ArrowLeft, Stethoscope, ClipboardList, Copy, Printer, FileText, Users, ChevronDown,
+  Activity, Headphones, Target, Brain, BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
