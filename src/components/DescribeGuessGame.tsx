@@ -125,6 +125,7 @@ export function DescribeGuessGame({
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
+  const { awaitMicSafe } = useVoiceState();
   const { analyzePronunciation } = usePronunciationAnalysis();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'describe-guess' });
   const vg = useVoiceGuidance('describe-guess');
