@@ -456,6 +456,7 @@ export function ThoughtContinuationGame({
     if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
     hasCommittedRef.current = true;
     setShowDoneButton(false);
+    const answerText = transcript.trim();
 
     // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
     // Reject prompt-repeats, instruction echoes, fillers, and parroting of
@@ -463,13 +464,13 @@ export function ThoughtContinuationGame({
     // Without this the game "accepts everything" and feeds garbage into the
     // adaptation engine.
     const gate = gateResponse({
-      transcript,
+      transcript: answerText,
       promptText: currentPrompt.promptText,
       expectedMode: 'description',
       // The user describing/finishing a thought IS the legitimate answer —
       // there's no fixed target word, so no expectedAnswers bypass.
     });
-    broadcastGateDecision('thought_continuation', gate, transcript);
+    broadcastGateDecision('thought_continuation', gate, answerText);
 
     if (!gate.ok) {
       console.log('[ThoughtContinuation] gate REJECT', {
@@ -479,9 +480,7 @@ export function ThoughtContinuationGame({
       });
       // Soft-reject: clear committed flag, surface a brief coaching nudge,
       // re-arm the mic for another attempt. Do NOT advance the prompt.
-      hasCommittedRef.current = false;
-      lastTranscriptValueRef.current = '';
-      setTranscript('');
+      clearAnswerState();
       if (gate.coachingText) {
         setFeedbackMessage(gate.coachingText);
         setTimeout(() => setFeedbackMessage(null), 4000);
@@ -526,12 +525,12 @@ export function ThoughtContinuationGame({
     // TIER A METRICS - Locally measurable, no alignment required
     // =========================================================================
     
-    const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
+    const validation = validateSpokenResponse({ transcript: answerText, expectedMode: 'description' });
     trackValidation('thought_continuation', validation);
-    logValidationDetail('thought_continuation', transcript, validation);
-    const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+    logValidationDetail('thought_continuation', answerText, validation);
+    const wordCount = answerText ? answerText.split(/\s+/).length : 0;
     const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
-    const completionResult = detectUtteranceComplete(transcript, null);
+    const completionResult = detectUtteranceComplete(answerText, null);
     const latencyToFirstWordMs = latencyToFirstWordRef.current || 
       (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
     
@@ -609,7 +608,7 @@ export function ThoughtContinuationGame({
     // =========================================================================
     
     await logFinalAnalysis({
-      transcript,
+      transcript: answerText,
       transcriptSource: 'browser',
       evaluationModel: 'flow',
       isCorrect: null, // Flow games don't have correctness
@@ -671,7 +670,7 @@ export function ThoughtContinuationGame({
       {
         exerciseSlug: 'thought_continuation',
         promptText: currentPrompt.promptText,
-        transcript,
+        transcript: answerText,
         wordCount,
         latencyToFirstWordMs: latencyToFirstWordMs ?? null,
         durationMs: speechDuration,
