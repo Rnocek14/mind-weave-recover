@@ -68,5 +68,6 @@ export function PatientTabBar() {
         ))}
       </div>
     </div>
+    </>
   );
 }
