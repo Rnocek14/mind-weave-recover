@@ -707,11 +707,42 @@ export const PhotoNamingGame = ({
       console.log('🎤 processStableTranscript blocked - game not ready');
       return;
     }
-    
-    console.log('✅ Transcript stable, scoring:', transcript);
-    
+
+    // ─── MANDATORY PRE-SCORING GATE ────────────────────────────────────────
+    // Rejects echoes of Maya's instructions ("say what you see"), prompt
+    // repeats, fillers, and short mimics BEFORE we try to match a choice.
+    // This is what fixes "PhotoNaming hears instructions".
+    const gate = gateResponse({
+      transcript,
+      promptText: 'Name what you see in the photo',
+      expectedMode: 'naming',
+      // Feed the visible choice labels so parroting a chip is caught as echo.
+      extraSpokenContext: (state.choices ?? []).map((c: any) => typeof c === 'string' ? c : c?.label ?? c?.text ?? ''),
+    });
+    broadcastGateDecision('photo_naming', gate, transcript);
+
+    if (!gate.ok) {
+      console.log('[PhotoNaming] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      // Soft-reject: clear, coach, keep mic open for another attempt.
+      pendingTranscriptRef.current = null;
+      setLastHeardText(null);
+      setUtteranceState('idle');
+      if (gate.coachingText) {
+        setRetryPrompt(gate.coachingText);
+        setTimeout(() => setRetryPrompt(null), 4000);
+      }
+      needsVoiceRestartRef.current = true;
+      return;
+    }
+
+    console.log('✅ Transcript stable + gated, scoring:', transcript);
+
     const matchedChoice = findMatchingChoice(transcript);
-    
+
     if (matchedChoice) {
       console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
@@ -719,34 +750,25 @@ export const PhotoNamingGame = ({
       handleAnswerSelect(matchedChoice);
     } else {
       console.log('❌ No match for stable transcript:', transcript);
-      
-      // Quality heuristic: is this a real attempt or just noise?
-      const isRealAttempt = isTranscriptScoreable(transcript);
-      
-      if (isRealAttempt) {
-        // Real attempt that didn't match - show gentle retry
-        setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
-        setUtteranceState('idle');
-        
-        // Throttle retry toasts to prevent spam
-        const now = Date.now();
-        if (now - lastRetryToastTimeRef.current > RETRY_TOAST_THROTTLE_MS) {
-          lastRetryToastTimeRef.current = now;
-          toast({
-            title: "Keep going!",
-            description: `I heard "${transcript}". Try saying one of the words shown.`,
-            duration: 2500,
-          });
-        }
-      } else {
-        // Low quality - just update "heard" text silently, don't toast
-        setLastHeardText(transcript);
-        setUtteranceState('listening');
+
+      // Real attempt that passed the gate but didn't match a choice — gentle retry
+      setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
+      setUtteranceState('idle');
+
+      // Throttle retry toasts to prevent spam
+      const now = Date.now();
+      if (now - lastRetryToastTimeRef.current > RETRY_TOAST_THROTTLE_MS) {
+        lastRetryToastTimeRef.current = now;
+        toast({
+          title: "Keep going!",
+          description: `I heard "${transcript}". Try saying one of the words shown.`,
+          duration: 2500,
+        });
       }
-      
+
       needsVoiceRestartRef.current = true;
     }
-  }, [state.choices, state.currentTrial, toast, isTranscriptScoreable]);
+  }, [state.choices, state.currentTrial, toast]);
   
   // Handle speech recognition results - DEBOUNCED SCORING
   const handleSpeechResult = useCallback((transcript: string) => {
