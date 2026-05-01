@@ -192,6 +192,7 @@ export function ThoughtContinuationGame({
     isListening,
     transcript: liveTranscript,
     fullTranscript,
+    resetTranscript: resetSpeechTranscript,
     startListening,
     stopListening,
     isSupported,
@@ -310,6 +311,16 @@ export function ThoughtContinuationGame({
       }
     }
   }, [fullTranscript, liveTranscript, phase]);
+
+  const clearAnswerState = useCallback(() => {
+    setTranscript('');
+    setShowDoneButton(false);
+    lastTranscriptValueRef.current = '';
+    hasCommittedRef.current = false;
+    resetSpeechTranscript();
+    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
+  }, [resetSpeechTranscript]);
 
   // ---------------------------------------------------------------------------
   // Auto-advance after speech (2s silence after last word) + button reveal
