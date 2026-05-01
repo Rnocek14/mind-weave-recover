@@ -439,7 +439,50 @@ export function ThoughtContinuationGame({
   
   const processUtterance = useCallback(async () => {
     if (!currentPrompt) return;
-    
+
+    // Cancel any pending auto-advance / button-reveal timers — we're committing now.
+    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
+    hasCommittedRef.current = true;
+    setShowDoneButton(false);
+
+    // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
+    // Reject prompt-repeats, instruction echoes, fillers, and parroting of
+    // Maya's most recent speech BEFORE we count it as a valid response.
+    // Without this the game "accepts everything" and feeds garbage into the
+    // adaptation engine.
+    const gate = gateResponse({
+      transcript,
+      promptText: currentPrompt.promptText,
+      expectedMode: 'description',
+      // The user describing/finishing a thought IS the legitimate answer —
+      // there's no fixed target word, so no expectedAnswers bypass.
+    });
+    broadcastGateDecision('thought_continuation', gate, transcript);
+
+    if (!gate.ok) {
+      console.log('[ThoughtContinuation] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      // Soft-reject: clear committed flag, surface a brief coaching nudge,
+      // re-arm the mic for another attempt. Do NOT advance the prompt.
+      hasCommittedRef.current = false;
+      lastTranscriptValueRef.current = '';
+      setTranscript('');
+      if (gate.coachingText) {
+        setFeedbackMessage(gate.coachingText);
+        setTimeout(() => setFeedbackMessage(null), 4000);
+      }
+      // Re-open mic for retry
+      (async () => {
+        await awaitMicSafe(5000);
+        startListening();
+      })();
+      return;
+    }
+
     setPhase('processing');
     stopListening();
     
