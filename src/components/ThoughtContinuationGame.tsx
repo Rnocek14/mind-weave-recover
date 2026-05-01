@@ -29,6 +29,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { voiceController } from '@/lib/voiceController';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
@@ -621,13 +622,20 @@ export function ThoughtContinuationGame({
   
   const moveToNextPrompt = useCallback(() => {
     resetAttempt();
-    
+
+    // CRITICAL: kill any in-flight TTS (old example carryover) and clear the
+    // EchoFilter spoken-history so a previous prompt can't be matched as the
+    // user "echoing" the new one.
+    stopTTS();
+    vg.interrupt?.();
+    voiceController.clearSpokenHistory();
+
     if (promptCount >= PROMPTS_PER_SESSION) {
       // Session complete
       const avgMomentum = sessionResults.length > 0
         ? sessionResults.reduce((sum, r) => sum + r.momentumScore, 0) / sessionResults.length
         : 0;
-      
+
       onComplete?.({
         totalPrompts: promptCount,
         promptsSpoken: sessionResults.filter(r => r.momentumScore > 0).length,
@@ -636,18 +644,21 @@ export function ThoughtContinuationGame({
       });
       return;
     }
-    
-    // Clear current prompt, trigger selection of next
+
+    // Per-trial state reset — every field that could leak across prompts.
     setPhase('idle');
     setTranscript('');
     setFeedbackMessage(null);
     setNarrowingLevel(0);
     setLastStuckType(null);
     setCurrentPrompt(null);
-    
+    speechStartTimeRef.current = null;
+    latencyToFirstWordRef.current = null;
+    narrowingTriggerRef.current = null;
+
     // Select next prompt (will be triggered by useEffect)
     selectAndSetNextPrompt();
-  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt]);
+  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg]);
 
   const handleSkipPrompt = useCallback(async () => {
     // Stop mic + recording to prevent leaks
