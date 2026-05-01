@@ -1422,16 +1422,18 @@ export const PhotoNamingGame = ({
   // 2. Game completion - no logging needed for unfinished trials on game end
   // The unmount was seeing stale isFinalized state from the closure.
   
-  // Phase 1 Fix: Restart voice after no-match toast
+  // Phase 1 Fix: Restart voice after no-match / gate-rejected attempt
   useEffect(() => {
     if (needsVoiceRestartRef.current && useVoice && !showFeedback && !timedOut && !selectedAnswer && !isListening) {
-      console.log('🎤 Restarting voice after no-match');
+      console.log('🎤 Restarting voice after no-match (Sync-Wait)');
       needsVoiceRestartRef.current = false;
-      setTimeout(() => {
+      void (async () => {
+        await awaitMicSafe(5000);
+        if (showFeedbackRef.current || timedOutRef.current || selectedAnswerRef.current) return;
         startListening();
-      }, 500);
+      })();
     }
-  }, [useVoice, showFeedback, timedOut, selectedAnswer, isListening, startListening]);
+  }, [useVoice, showFeedback, timedOut, selectedAnswer, isListening, startListening, awaitMicSafe]);
 
   const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
