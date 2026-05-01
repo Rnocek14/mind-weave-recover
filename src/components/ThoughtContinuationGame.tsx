@@ -460,6 +460,7 @@ export function ThoughtContinuationGame({
       });
       // Soft-reject: clear committed flag, surface a brief coaching nudge,
       // re-arm the mic for another attempt. Do NOT advance the prompt.
+      stopListening();
       clearAnswerState();
       if (gate.coachingText) {
         setFeedbackMessage(gate.coachingText);
@@ -468,6 +469,7 @@ export function ThoughtContinuationGame({
       // Re-open mic for retry
       (async () => {
         await awaitMicSafe(5000);
+        await new Promise((resolve) => setTimeout(resolve, 450));
         startListening();
       })();
       return;
