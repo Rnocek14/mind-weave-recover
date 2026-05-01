@@ -508,6 +508,38 @@ export function DescribeGuessGame({
       return;
     }
 
+    // ─── MANDATORY PRE-SCORING GATE ───────────────────────────────
+    // Rejects echoes of Maya's instructions, fillers, prompt repeats, etc.
+    // Nothing reaches game.evaluateGuess until this passes.
+    const gate = gateResponse({
+      transcript: currentTranscript,
+      promptText: 'Describe what you see without saying the word',
+      expectedMode: 'description',
+      // Feed the visible chip prompts so "what do you use it for?" parroting
+      // is caught even though it was a button label, not a Maya utterance.
+      extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
+    });
+
+    if (!gate.ok) {
+      // Soft-reject: clear the bad transcript, show coaching, keep mic open.
+      console.log('[DescribeGuess] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      evaluatedRef.current = false;
+      processingRef.current = false;
+      rawTranscriptRef.current = '';
+      setDisplayTranscript('');
+      setValidationHint(gate.coachingText);
+      // Auto-clear the hint after 4s so it doesn't linger
+      setTimeout(() => setValidationHint(null), 4000);
+      // Keep listening — the patient will try again. Reset the listen-start
+      // clock so the min-duration gate isn't unfairly short on retry.
+      listeningStartRef.current = Date.now();
+      return;
+    }
+
     processingRef.current = true;
     evaluatedRef.current = true;
     setIsEvaluating(true);
