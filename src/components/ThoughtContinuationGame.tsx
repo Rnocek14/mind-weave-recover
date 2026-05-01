@@ -149,6 +149,7 @@ export function ThoughtContinuationGame({
   const vg = useVoiceGuidance('thought-continuation');
   const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
+  const promptStartSequenceRef = useRef(0);
   const { 
     startAttempt, 
     logFinalAnalysis, 
@@ -245,33 +246,6 @@ export function ThoughtContinuationGame({
     setUsedPromptIds(prev => [...prev, selection.prompt.id]);
     setPromptCount(prev => prev + 1);
   }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
-
-  // ---------------------------------------------------------------------------
-  // Initialize first prompt
-  // ---------------------------------------------------------------------------
-  
-  // Voice guidance: speak intro on first prompt
-  useEffect(() => {
-    if (!currentPrompt || promptCount !== 1) return;
-    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
-      hasSpokenIntroRef.current = true;
-      vg.speakIntro().then(() => {
-        // After intro, read the first prompt aloud
-        if (currentPrompt) {
-          vg.speakIfVoiceLed(currentPrompt.promptText);
-        }
-      });
-    }
-  }, [currentPrompt, promptCount, vg]);
-
-  // Voice guidance: read prompt text aloud on subsequent prompts
-  useEffect(() => {
-    if (!currentPrompt || promptCount <= 1) return;
-    if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(currentPrompt.promptText);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPrompt?.id, promptCount]);
 
   useEffect(() => {
     if (!currentPrompt && promptCount === 0) {
