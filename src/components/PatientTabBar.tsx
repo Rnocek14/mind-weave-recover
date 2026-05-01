@@ -4,7 +4,8 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Gamepad2, BarChart3 } from 'lucide-react';
+import { Home, Gamepad2, BarChart3, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -16,13 +17,27 @@ const TABS = [
 export function PatientTabBar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
 
   const currentTab = location.pathname === '/practice' ? 'practice'
     : location.pathname === '/progress' ? 'progress'
     : 'home';
 
+  const isDark = theme === 'dark';
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-40">
+    <>
+      {/* Floating theme toggle — sits above the tab bar */}
+      <button
+        type="button"
+        onClick={() => setTheme(isDark ? 'light' : 'dark')}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        className="fixed bottom-20 right-4 z-50 h-11 w-11 rounded-full bg-card border border-border shadow-card flex items-center justify-center text-foreground hover:bg-accent/30 active:scale-95 transition-all"
+      >
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-40">
       <div className="flex justify-around max-w-lg mx-auto">
         {TABS.map(({ id, icon: Icon, label, path }) => (
           <button
@@ -53,5 +68,6 @@ export function PatientTabBar() {
         ))}
       </div>
     </div>
+    </>
   );
 }
