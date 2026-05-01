@@ -349,15 +349,20 @@ export function ThoughtContinuationGame({
   
   useEffect(() => {
     if (currentPrompt && phase === 'idle' && promptCount > 0) {
-      // Reset state for new prompt
+      // Reset state for new prompt (incl. auto-advance UX)
       setTranscript('');
       setNarrowingLevel(0);
       setFeedbackMessage(null);
+      setShowDoneButton(false);
+      hasCommittedRef.current = false;
+      lastTranscriptValueRef.current = '';
+      if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+      if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
       speechStartTimeRef.current = null;
       latencyToFirstWordRef.current = null;
       latencyStartRef.current = Date.now();
       narrowingTriggerRef.current = null;
-      
+
       // Start a new attempt
       startAttempt({
         sessionId: sessionId || 'standalone',
@@ -368,17 +373,22 @@ export function ThoughtContinuationGame({
         targetWord: currentPrompt.promptText.slice(0, 50),
         category: currentPrompt.theme,
       });
-      
+
       // Start audio recording for clinical persistence
       startRecording();
-      
-      // Start listening
-      startListening();
-      
-      // Start silence timer
+
+      // Sync-Wait: don't open mic while Maya's prompt audio is still bleeding
+      // out of the speakers. Falls through after timeout if VC is wedged.
+      (async () => {
+        await awaitMicSafe(8000);
+        startListening();
+      })();
+
+      // Start silence timer (this is the long "no-speech-at-all" nudge timer,
+      // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
