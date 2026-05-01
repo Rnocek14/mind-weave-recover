@@ -127,13 +127,22 @@ export function ThoughtContinuationGame({
   const [usedPromptIds, setUsedPromptIds] = useState<string[]>([]);
   const [lastStuckType, setLastStuckType] = useState<StuckType | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  
+
+  // Auto-advance UX state
+  const [showDoneButton, setShowDoneButton] = useState(false);
+
   // Refs
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechStartTimeRef = useRef<number | null>(null);
   const latencyStartRef = useRef<number | null>(null);
   const latencyToFirstWordRef = useRef<number | null>(null);
   const narrowingTriggerRef = useRef<'auto_silence' | 'user_request' | null>(null);
+
+  // Auto-advance refs (cleared per trial)
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTranscriptValueRef = useRef<string>('');
+  const hasCommittedRef = useRef<boolean>(false);
   
   // Hooks
   const { speak, stop: stopTTS } = useTextToSpeech();
