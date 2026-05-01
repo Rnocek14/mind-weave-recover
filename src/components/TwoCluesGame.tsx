@@ -1324,6 +1324,14 @@ export function TwoCluesGame({
           </div>
         )}
 
+        {/* Skip reveal — shows the correct word for ~2.5s before advancing */}
+        {skipReveal && (
+          <div className="p-5 rounded-xl text-center space-y-2 border-2 border-muted bg-muted/30 animate-in fade-in duration-200">
+            <p className="text-sm text-muted-foreground">Skipped — the word was</p>
+            <p className="text-2xl font-bold text-foreground">"{skipReveal}"</p>
+          </div>
+        )}
+
         {/* Feedback */}
         {showFeedback && lastResult && (
           <div className={cn(
