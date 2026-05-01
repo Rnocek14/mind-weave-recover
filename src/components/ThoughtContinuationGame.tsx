@@ -125,7 +125,7 @@ export function ThoughtContinuationGame({
   const narrowingTriggerRef = useRef<'auto_silence' | 'user_request' | null>(null);
   
   // Hooks
-  const { speak } = useTextToSpeech();
+  const { speak, stop: stopTTS } = useTextToSpeech();
   const vg = useVoiceGuidance('thought-continuation');
   const hasSpokenIntroRef = useRef(false);
   const { 
