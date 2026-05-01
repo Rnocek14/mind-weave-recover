@@ -270,6 +270,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = '';
     hasAutoReadRef.current = false;
     setStoryReadComplete(false);
+    autoStartedForIndexRef.current = null;
   }, [currentIndex]);
 
   const completedRef = useRef(false);
