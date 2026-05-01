@@ -52,6 +52,17 @@ export interface GateResult {
 export interface GateOptions extends ValidateOptions {
   /** Lines beyond Maya's recent speech to also check echo against (e.g., current prompt). */
   extraSpokenContext?: string[];
+  /**
+   * Legitimate expected answers for this trial (e.g. naming target + visible choices).
+   * If the transcript normalizes to one of these, the echo filter is bypassed —
+   * even if Maya recently spoke that same word during feedback or replay.
+   * Critical for naming tasks where the target word is short and gets played as audio.
+   */
+  expectedAnswers?: string[];
+}
+
+function normalizeForCompare(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 const ECHO_REJECTION_COACHING: Record<NonNullable<ReturnType<typeof checkEcho>['reason']>, string> = {
@@ -62,26 +73,41 @@ const ECHO_REJECTION_COACHING: Record<NonNullable<ReturnType<typeof checkEcho>['
 };
 
 export function gateResponse(opts: GateOptions): GateResult {
-  const { transcript, extraSpokenContext = [], ...validateOpts } = opts;
+  const { transcript, extraSpokenContext = [], expectedAnswers = [], ...validateOpts } = opts;
 
   // ─── 1. Echo of Maya (dynamic — checks last 5 lines actually spoken) ───
   const echo = checkEcho(transcript, extraSpokenContext);
   if (echo.isEcho) {
-    console.log('[gateResponse] REJECT echo_of_maya', {
-      transcript,
-      matched: echo.matched,
-      score: echo.score.toFixed(2),
-      reason: echo.reason,
+    // Bypass: if the transcript IS one of the trial's legitimate answers,
+    // it's not an echo — it's the right word that Maya happened to also say
+    // (e.g. PhotoNaming target word played as audio, then user names it).
+    const userNorm = normalizeForCompare(transcript);
+    const isLegitAnswer = expectedAnswers.some((ans) => {
+      const ansNorm = normalizeForCompare(ans);
+      return ansNorm.length > 0 && (ansNorm === userNorm || userNorm.includes(ansNorm));
     });
-    return {
-      ok: false,
-      classification: echo.reason === 'short_mimic' ? 'echo_short_mimic' : 'echo_of_maya',
-      validation: null,
-      coachingText: ECHO_REJECTION_COACHING[echo.reason!],
-      rejectionReason: 'echo_of_maya',
-      echoScore: echo.score,
-      echoMatched: echo.matched,
-    };
+    if (isLegitAnswer) {
+      console.log('[gateResponse] echo bypass — transcript matches expected answer', {
+        transcript,
+        echoMatched: echo.matched,
+      });
+    } else {
+      console.log('[gateResponse] REJECT echo_of_maya', {
+        transcript,
+        matched: echo.matched,
+        score: echo.score.toFixed(2),
+        reason: echo.reason,
+      });
+      return {
+        ok: false,
+        classification: echo.reason === 'short_mimic' ? 'echo_short_mimic' : 'echo_of_maya',
+        validation: null,
+        coachingText: ECHO_REJECTION_COACHING[echo.reason!],
+        rejectionReason: 'echo_of_maya',
+        echoScore: echo.score,
+        echoMatched: echo.matched,
+      };
+    }
   }
 
   // ─── 2. Static validation pipeline ───
