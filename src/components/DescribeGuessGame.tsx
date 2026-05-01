@@ -431,19 +431,19 @@ export function DescribeGuessGame({
       const redirectMsg = `That's the word! Now try describing "${trial.target}" without saying it — what does it look like, what is it used for?`;
       setGuessMessage(redirectMsg);
 
-      speak(redirectMsg).then(() => {
+      speak(redirectMsg).then(async () => {
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
         setWordSaidRedirect(false);
         setGuessMessage(null);
 
-        // Resume listening for their description
-        setTimeout(() => {
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
-        }, 300);
+        // Resume listening — Sync-Wait via VoiceController
+        await awaitMicSafe(5000);
+        if (!currentTrialRef.current || showFeedback) return;
+        startListening();
+        setIsListening(true);
+        listeningStartRef.current = Date.now();
       });
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
