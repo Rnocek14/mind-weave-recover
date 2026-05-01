@@ -118,6 +118,7 @@ const App = () => (
                 <Sonner />
                 <MayaSessionOverlay />
                 <SessionPauseControl />
+                <VoiceGateHud />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
