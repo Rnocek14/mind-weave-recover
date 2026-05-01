@@ -717,7 +717,11 @@ export const PhotoNamingGame = ({
       promptText: 'Name what you see in the photo',
       expectedMode: 'naming',
       // Feed the visible choice labels so parroting a chip is caught as echo.
-      extraSpokenContext: (state.choices ?? []).map((c: any) => typeof c === 'string' ? c : c?.label ?? c?.text ?? ''),
+      // Only feed MULTI-WORD chip labels — single-word choices (e.g. "banana")
+      // would false-trigger echoFilter's exact-match rule on a correct answer.
+      extraSpokenContext: (state.choices ?? [])
+        .map((c: any) => (typeof c === 'string' ? c : c?.label ?? c?.text ?? ''))
+        .filter((label: string) => label.trim().split(/\s+/).length >= 2),
     });
     broadcastGateDecision('photo_naming', gate, transcript);
 
