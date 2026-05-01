@@ -23,6 +23,9 @@ import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } fro
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
