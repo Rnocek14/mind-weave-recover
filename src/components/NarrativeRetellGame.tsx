@@ -792,17 +792,11 @@ export function NarrativeRetellGame({
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
-            {/* Compact story strip — keeps story visible to reduce working-memory load */}
-            <div className="rounded-lg bg-muted/40 border border-border/50 p-2 space-y-1">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-1">
-                The story
-              </p>
-              {currentStory.scenes.map((scene, i) => (
-                <div key={i} className="flex items-start gap-2 px-1">
-                  <span className="text-base leading-snug">{scene.emoji}</span>
-                  <p className="text-xs leading-snug text-foreground/80">{scene.text}</p>
-                </div>
-              ))}
+            {/* Story text intentionally hidden during retell — retelling
+                from memory is the clinical target. (Replay audio if needed
+                via the "Listen again" path in the reading phase.) */}
+            <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground text-center">
+              Tell the story back in your own words.
             </div>
 
             {/* Mic failure recovery — persistent, not toast */}
