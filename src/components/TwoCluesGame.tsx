@@ -750,14 +750,35 @@ export function TwoCluesGame({
       return;
     }
 
-    // GUARD: Universal validation pipeline
-    const validation = validateSpokenResponse({ transcript: latestWithoutClues, expectedMode: 'naming' });
-    trackValidation('two_clues', validation);
-    logValidationDetail('two_clues', latestWithoutClues, validation);
-    if (!validation.valid || candidate.length < 2) {
-      console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
+    // GUARD: Mandatory pre-scoring gate (echo + validation).
+    // Catches: parroting Maya/clues, instruction echoes, prompt repeats, fillers,
+    // empties, too-short utterances. This is what stops "repeating the clue" being
+    // accepted as the answer.
+    const expectedAnswers = [
+      ...(currentPuzzle.anchors ?? []),
+      ...(currentPuzzle.cluster ?? []),
+      ...Object.values(currentPuzzle.anchorAliases ?? {}).flat(),
+    ].filter(Boolean) as string[];
+    const gate = gateResponse({
+      transcript: latestWithoutClues,
+      promptText: `What word connects these clues: ${currentPuzzle.clues.join(', ')}?`,
+      expectedMode: 'naming',
+      // The clue chips themselves shouldn't count as answers — they're echo bait.
+      extraSpokenContext: currentPuzzle.clues,
+      expectedAnswers,
+    });
+    broadcastGateDecision('two_clues', gate, latestWithoutClues);
+    trackValidation('two_clues', gate.validation ?? { valid: gate.ok, rejectionReason: gate.rejectionReason as any });
+    logValidationDetail('two_clues', latestWithoutClues, gate.validation ?? { valid: gate.ok, rejectionReason: gate.rejectionReason as any });
+
+    if (!gate.ok || candidate.length < 2) {
+      console.log('[TwoClues] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        candidate,
+      });
+      if (gate.coachingText) {
+        speakMayaCoaching(gate.coachingText, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
       }
       return;
     }
