@@ -127,6 +127,39 @@ export function DetectiveMindGame({
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('detective-mind');
 
+  // ---------------------------------------------------------------------------
+  // Shuffle answer options per case so the correct answer isn't always "B".
+  // The case bank is heavily B-biased (17/19 cases) — without shuffling, users
+  // pattern-match on position instead of comprehension.
+  //
+  // We compute a stable display order keyed on the case id so the same case
+  // shuffles the same way within a single render lifecycle, and produce a map
+  // from displayed index → original (data-model) index.
+  // ---------------------------------------------------------------------------
+  const { displayedOptions, displayedCorrectIndex, displayToOriginal } = useMemo(() => {
+    if (!currentCase) {
+      return {
+        displayedOptions: [] as string[],
+        displayedCorrectIndex: 0,
+        displayToOriginal: [] as number[],
+      };
+    }
+    // Deterministic shuffle from the case id so re-renders are stable.
+    const order = currentCase.options.map((_, i) => i);
+    let seed = 0;
+    for (const ch of currentCase.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    for (let i = order.length - 1; i > 0; i--) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const j = seed % (i + 1);
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return {
+      displayedOptions: order.map((origIdx) => currentCase.options[origIdx]),
+      displayedCorrectIndex: order.indexOf(currentCase.correctIndex),
+      displayToOriginal: order,
+    };
+  }, [currentCase]);
+
   // Reset state when case changes
   useEffect(() => {
     // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
