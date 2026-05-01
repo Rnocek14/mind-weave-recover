@@ -34,6 +34,9 @@ import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { classifyStuckType, getStuckTypeLabel, type StuckType, type TierAMetrics } from '@/lib/stuckTypeClassifier';
@@ -63,6 +66,13 @@ const PROMPTS_PER_SESSION = 8;
 const SILENCE_NUDGE_DELAY_MS = 20000;   // 20 seconds before first gentle nudge
 const SILENCE_NARROW_DELAY_MS = 45000;  // 45 seconds before narrowing hint
 const MIN_SPEECH_FOR_COMPLETE_MS = 500; // Reduced - any speech counts
+
+// === Auto-advance after speech (consistent with PhotoNaming / D&G rhythm) ===
+// 2.0s of silence after the user's last detected word commits the answer.
+const AUTO_ADVANCE_AFTER_LAST_WORD_MS = 2000;
+// 1.0s of silence after speech reveals the optional manual "Done" override.
+const BUTTON_REVEAL_AFTER_SILENCE_MS = 1000;
+
 const DEV_MODE = import.meta.env.DEV;   // Show debug overlay in dev
 
 // =============================================================================
@@ -117,17 +127,27 @@ export function ThoughtContinuationGame({
   const [usedPromptIds, setUsedPromptIds] = useState<string[]>([]);
   const [lastStuckType, setLastStuckType] = useState<StuckType | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  
+
+  // Auto-advance UX state
+  const [showDoneButton, setShowDoneButton] = useState(false);
+
   // Refs
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechStartTimeRef = useRef<number | null>(null);
   const latencyStartRef = useRef<number | null>(null);
   const latencyToFirstWordRef = useRef<number | null>(null);
   const narrowingTriggerRef = useRef<'auto_silence' | 'user_request' | null>(null);
+
+  // Auto-advance refs (cleared per trial)
+  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTranscriptValueRef = useRef<string>('');
+  const hasCommittedRef = useRef<boolean>(false);
   
   // Hooks
   const { speak, stop: stopTTS } = useTextToSpeech();
   const vg = useVoiceGuidance('thought-continuation');
+  const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
   const { 
     startAttempt, 
@@ -292,6 +312,49 @@ export function ThoughtContinuationGame({
   }, [fullTranscript, liveTranscript, phase]);
 
   // ---------------------------------------------------------------------------
+  // Auto-advance after speech (2s silence after last word) + button reveal
+  // (1s silence after speech). Mirrors PhotoNaming/D&G rhythm so the system
+  // feels consistent across games.
+  // ---------------------------------------------------------------------------
+  const processUtteranceRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    // Only arm the auto-advance loop while we're actively listening for an answer.
+    if (phase !== 'idle' && phase !== 'listening') return;
+    if (hasCommittedRef.current) return;
+
+    const trimmed = transcript.trim();
+    if (!trimmed) return;
+
+    // Restart timers ONLY when transcript actually changed (new word(s) heard).
+    if (trimmed === lastTranscriptValueRef.current) return;
+    lastTranscriptValueRef.current = trimmed;
+
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
+
+    setShowDoneButton(false);
+
+    buttonRevealTimerRef.current = setTimeout(() => {
+      if (!hasCommittedRef.current) setShowDoneButton(true);
+    }, BUTTON_REVEAL_AFTER_SILENCE_MS);
+
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      if (hasCommittedRef.current) return;
+      hasCommittedRef.current = true;
+      processUtteranceRef.current?.();
+    }, AUTO_ADVANCE_AFTER_LAST_WORD_MS);
+  }, [transcript, phase]);
+
+  // Clean up auto-advance timers on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+      if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Silence detection for auto-nudges
   // ---------------------------------------------------------------------------
   
@@ -329,15 +392,20 @@ export function ThoughtContinuationGame({
   
   useEffect(() => {
     if (currentPrompt && phase === 'idle' && promptCount > 0) {
-      // Reset state for new prompt
+      // Reset state for new prompt (incl. auto-advance UX)
       setTranscript('');
       setNarrowingLevel(0);
       setFeedbackMessage(null);
+      setShowDoneButton(false);
+      hasCommittedRef.current = false;
+      lastTranscriptValueRef.current = '';
+      if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+      if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
       speechStartTimeRef.current = null;
       latencyToFirstWordRef.current = null;
       latencyStartRef.current = Date.now();
       narrowingTriggerRef.current = null;
-      
+
       // Start a new attempt
       startAttempt({
         sessionId: sessionId || 'standalone',
@@ -348,17 +416,22 @@ export function ThoughtContinuationGame({
         targetWord: currentPrompt.promptText.slice(0, 50),
         category: currentPrompt.theme,
       });
-      
+
       // Start audio recording for clinical persistence
       startRecording();
-      
-      // Start listening
-      startListening();
-      
-      // Start silence timer
+
+      // Sync-Wait: don't open mic while Maya's prompt audio is still bleeding
+      // out of the speakers. Falls through after timeout if VC is wedged.
+      (async () => {
+        await awaitMicSafe(8000);
+        startListening();
+      })();
+
+      // Start silence timer (this is the long "no-speech-at-all" nudge timer,
+      // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
@@ -366,7 +439,50 @@ export function ThoughtContinuationGame({
   
   const processUtterance = useCallback(async () => {
     if (!currentPrompt) return;
-    
+
+    // Cancel any pending auto-advance / button-reveal timers — we're committing now.
+    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
+    hasCommittedRef.current = true;
+    setShowDoneButton(false);
+
+    // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
+    // Reject prompt-repeats, instruction echoes, fillers, and parroting of
+    // Maya's most recent speech BEFORE we count it as a valid response.
+    // Without this the game "accepts everything" and feeds garbage into the
+    // adaptation engine.
+    const gate = gateResponse({
+      transcript,
+      promptText: currentPrompt.promptText,
+      expectedMode: 'description',
+      // The user describing/finishing a thought IS the legitimate answer —
+      // there's no fixed target word, so no expectedAnswers bypass.
+    });
+    broadcastGateDecision('thought_continuation', gate, transcript);
+
+    if (!gate.ok) {
+      console.log('[ThoughtContinuation] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      // Soft-reject: clear committed flag, surface a brief coaching nudge,
+      // re-arm the mic for another attempt. Do NOT advance the prompt.
+      hasCommittedRef.current = false;
+      lastTranscriptValueRef.current = '';
+      setTranscript('');
+      if (gate.coachingText) {
+        setFeedbackMessage(gate.coachingText);
+        setTimeout(() => setFeedbackMessage(null), 4000);
+      }
+      // Re-open mic for retry
+      (async () => {
+        await awaitMicSafe(5000);
+        startListening();
+      })();
+      return;
+    }
+
     setPhase('processing');
     stopListening();
     
@@ -609,11 +725,18 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening]);
+
+  // Keep the ref pointing at the latest processUtterance for the auto-advance
+  // effect (which is declared above this callback to avoid hoisting issues).
+  useEffect(() => {
+    processUtteranceRef.current = processUtterance;
+  }, [processUtterance]);
 
   // ---------------------------------------------------------------------------
-  // Handle speech end detection - REMOVED for patient mode
-  // User must click "Done Speaking" to end - no automatic cutoff
+  // Auto-cutoff is now handled by the 2s post-last-word silence timer above.
+  // The "Done Speaking" button below is an OPTIONAL manual override that only
+  // appears after 1s of post-speech silence.
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
@@ -858,17 +981,21 @@ export function ThoughtContinuationGame({
         </CardContent>
       </Card>
 
-      {/* Primary action: Done Speaking button */}
-      {phase !== 'processing' && phase !== 'celebrated' && (
-        <div className="flex justify-center">
-          <Button 
-            size="lg"
+      {/* Optional manual override — hidden until 1s of post-speech silence,
+          and primary auto-advance kicks in at 2s. Tap commits immediately. */}
+      {phase !== 'processing' && phase !== 'celebrated' && showDoneButton && transcript.trim() && (
+        <div
+          className="flex justify-center animate-in fade-in duration-300"
+          aria-live="polite"
+        >
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={processUtterance}
-            disabled={!transcript.trim()}
-            className="gap-2 px-8"
+            className="gap-2"
           >
-            <Check className="w-5 h-5" />
-            Done Speaking
+            <Check className="w-4 h-4" />
+            Done
           </Button>
         </div>
       )}
