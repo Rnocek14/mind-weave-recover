@@ -361,21 +361,18 @@ export function DescribeGuessGame({
 
     // Start listening — but skip when the user is using the typing fallback,
     // otherwise the mic would activate every trial and overwrite typed input.
-    // Sync-Wait: poll until TTS is done speaking before opening the mic so the
-    // intro/instruction audio never overlaps with active recognition.
+    // Sync-Wait: VoiceController-driven gate guarantees Maya isn't speaking
+    // (and we're past the 400ms tail-lock) before the mic opens.
     if (!useTyping) {
-      const tryOpenMic = (attempt = 0) => {
-        if (vg.isSpeaking && attempt < 30) {
-          setTimeout(() => tryOpenMic(attempt + 1), 200);
-          return;
-        }
+      void (async () => {
+        await awaitMicSafe(8000);
+        // Bail out if the trial advanced or feedback opened during the wait
+        if (!currentTrialRef.current || showFeedback) return;
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
-      };
-      // Initial 300ms gives the trial UI time to settle before we even check
-      setTimeout(() => tryOpenMic(0), 300);
+      })();
     } else {
       setTypedAnswer('');
     }
