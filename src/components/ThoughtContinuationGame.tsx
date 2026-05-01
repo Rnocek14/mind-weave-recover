@@ -147,6 +147,7 @@ export function ThoughtContinuationGame({
   // Hooks
   const { speak, stop: stopTTS } = useTextToSpeech();
   const vg = useVoiceGuidance('thought-continuation');
+  const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
   const { 
     startAttempt, 
