@@ -32,6 +32,8 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
@@ -123,6 +125,7 @@ export function DescribeGuessGame({
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
 
   const { speak } = useTextToSpeech();
+  const { awaitMicSafe } = useVoiceState();
   const { analyzePronunciation } = usePronunciationAnalysis();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'describe-guess' });
   const vg = useVoiceGuidance('describe-guess');
@@ -358,21 +361,18 @@ export function DescribeGuessGame({
 
     // Start listening — but skip when the user is using the typing fallback,
     // otherwise the mic would activate every trial and overwrite typed input.
-    // Sync-Wait: poll until TTS is done speaking before opening the mic so the
-    // intro/instruction audio never overlaps with active recognition.
+    // Sync-Wait: VoiceController-driven gate guarantees Maya isn't speaking
+    // (and we're past the 400ms tail-lock) before the mic opens.
     if (!useTyping) {
-      const tryOpenMic = (attempt = 0) => {
-        if (vg.isSpeaking && attempt < 30) {
-          setTimeout(() => tryOpenMic(attempt + 1), 200);
-          return;
-        }
+      void (async () => {
+        await awaitMicSafe(8000);
+        // Bail out if the trial advanced or feedback opened during the wait
+        if (!currentTrialRef.current || showFeedback) return;
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
-      };
-      // Initial 300ms gives the trial UI time to settle before we even check
-      setTimeout(() => tryOpenMic(0), 300);
+      })();
     } else {
       setTypedAnswer('');
     }
@@ -431,19 +431,19 @@ export function DescribeGuessGame({
       const redirectMsg = `That's the word! Now try describing "${trial.target}" without saying it — what does it look like, what is it used for?`;
       setGuessMessage(redirectMsg);
 
-      speak(redirectMsg).then(() => {
+      speak(redirectMsg).then(async () => {
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
         setWordSaidRedirect(false);
         setGuessMessage(null);
 
-        // Resume listening for their description
-        setTimeout(() => {
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
-        }, 300);
+        // Resume listening — Sync-Wait via VoiceController
+        await awaitMicSafe(5000);
+        if (!currentTrialRef.current || showFeedback) return;
+        startListening();
+        setIsListening(true);
+        listeningStartRef.current = Date.now();
       });
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
@@ -508,6 +508,38 @@ export function DescribeGuessGame({
       return;
     }
 
+    // ─── MANDATORY PRE-SCORING GATE ───────────────────────────────
+    // Rejects echoes of Maya's instructions, fillers, prompt repeats, etc.
+    // Nothing reaches game.evaluateGuess until this passes.
+    const gate = gateResponse({
+      transcript: currentTranscript,
+      promptText: 'Describe what you see without saying the word',
+      expectedMode: 'description',
+      // Feed the visible chip prompts so "what do you use it for?" parroting
+      // is caught even though it was a button label, not a Maya utterance.
+      extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
+    });
+
+    if (!gate.ok) {
+      // Soft-reject: clear the bad transcript, show coaching, keep mic open.
+      console.log('[DescribeGuess] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      evaluatedRef.current = false;
+      processingRef.current = false;
+      rawTranscriptRef.current = '';
+      setDisplayTranscript('');
+      setValidationHint(gate.coachingText);
+      // Auto-clear the hint after 4s so it doesn't linger
+      setTimeout(() => setValidationHint(null), 4000);
+      // Keep listening — the patient will try again. Reset the listen-start
+      // clock so the min-duration gate isn't unfairly short on retry.
+      listeningStartRef.current = Date.now();
+      return;
+    }
+
     processingRef.current = true;
     evaluatedRef.current = true;
     setIsEvaluating(true);
@@ -562,25 +594,17 @@ export function DescribeGuessGame({
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
 
-        // Speak with mic off, then re-enable mic after TTS finishes
-        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(() => {
+        // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
+        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(async () => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
-          // Retry startListening with small delay — use ref to check actual state
-          const tryStart = (retries = 3) => {
-            startListening();
-            setIsListening(true);
-            listeningStartRef.current = Date.now();
-            // Check via setTimeout so the state machine has time to transition
-            if (retries > 0) {
-              setTimeout(() => {
-                // Re-check if actually listening by seeing if startListening needs retry
-                if (!isListeningRef.current) tryStart(retries - 1);
-              }, 400);
-            }
-          };
-          setTimeout(() => tryStart(), 300);
+          // Sync-Wait: VoiceController guarantees Maya is fully done.
+          await awaitMicSafe(5000);
+          if (!awaitingWordAttempt && !wordAttemptContextRef.current) return;
+          startListening();
+          setIsListening(true);
+          listeningStartRef.current = Date.now();
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
