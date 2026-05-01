@@ -186,6 +186,7 @@ export function NarrativeRetellGame({
   const voiceSequenceRef = useRef(0);
   const transcriptPrefixRef = useRef('');
   const handleDoneRetellingRef = useRef<() => void>(() => {});
+  const autoStartedForIndexRef = useRef<number | null>(null);
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -270,6 +271,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = '';
     hasAutoReadRef.current = false;
     setStoryReadComplete(false);
+    autoStartedForIndexRef.current = null;
   }, [currentIndex]);
 
   const completedRef = useRef(false);
@@ -480,6 +482,22 @@ export function NarrativeRetellGame({
       void openMic();
     }
   }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, isTTSSpeaking, isListening, phase]);
+
+  // Auto-advance into retell phase as soon as the story finishes reading.
+  // Removes the manual "Start retelling" gate — the user just hears the story
+  // and starts talking. (autoStartedForIndexRef is declared higher up alongside
+  // the other per-story refs.)
+  useEffect(() => {
+    if (phase !== 'reading') return;
+    if (!storyReadComplete) return;
+    if (autoStartedForIndexRef.current === currentIndex) return;
+    autoStartedForIndexRef.current = currentIndex;
+    // Small breath after audio so the tail-lock can settle.
+    const t = setTimeout(() => {
+      handleStartRetelling();
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
 
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -734,18 +752,29 @@ export function NarrativeRetellGame({
             </div>
           )}
 
-          {/* Action buttons */}
+          {/* Action area — story auto-advances into retell when audio ends.
+              No manual "Start" gate. We still expose Listen-again and a
+              fallback "Start now" link in case audio fails. */}
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Button onClick={handleStartRetelling} className="flex-1" size="lg" disabled={isTTSSpeaking}>
-                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-                Start retelling
-              </Button>
-              <Button variant="outline" size="lg" onClick={isTTSSpeaking ? stopTTS : handleListenToStory}>
+              <Button
+                variant="outline"
+                size="lg"
+                className="flex-1"
+                onClick={isTTSSpeaking ? stopTTS : handleListenToStory}
+              >
                 <Volume2 className="h-4 w-4 mr-1" />
-                {isTTSSpeaking ? 'Stop' : 'Listen'}
+                {isTTSSpeaking ? 'Stop' : 'Listen again'}
               </Button>
             </div>
+            {!isTTSSpeaking && !storyReadComplete && (
+              <button
+                onClick={handleStartRetelling}
+                className="text-xs text-muted-foreground hover:text-foreground mx-auto block"
+              >
+                Skip ahead and start retelling →
+              </button>
+            )}
             {isSupported && (
               <button
                 onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
@@ -763,17 +792,11 @@ export function NarrativeRetellGame({
       {phase === 'retelling' && (
         <Card className="border-2 border-primary/50">
           <CardContent className="pt-4 space-y-3">
-            {/* Compact story strip — keeps story visible to reduce working-memory load */}
-            <div className="rounded-lg bg-muted/40 border border-border/50 p-2 space-y-1">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-1">
-                The story
-              </p>
-              {currentStory.scenes.map((scene, i) => (
-                <div key={i} className="flex items-start gap-2 px-1">
-                  <span className="text-base leading-snug">{scene.emoji}</span>
-                  <p className="text-xs leading-snug text-foreground/80">{scene.text}</p>
-                </div>
-              ))}
+            {/* Story text intentionally hidden during retell — retelling
+                from memory is the clinical target. (Replay audio if needed
+                via the "Listen again" path in the reading phase.) */}
+            <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground text-center">
+              Tell the story back in your own words.
             </div>
 
             {/* Mic failure recovery — persistent, not toast */}

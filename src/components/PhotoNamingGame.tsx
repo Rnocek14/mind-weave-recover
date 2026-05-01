@@ -2240,7 +2240,9 @@ export const PhotoNamingGame = ({
           <span>{state.trialNumber}/{state.totalTrials}</span>
           <div className="flex items-center gap-2">
             <LevelBadge descriptor={levelDescriptor} compact />
-            <span>Score: {state.score}</span>
+            {/* Score intentionally hidden from the patient view — it created
+                pressure and a "test" feel. Score still flows to the clinician
+                summary via onGameComplete / state.score. */}
           </div>
         </div>
         <Progress 
