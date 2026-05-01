@@ -587,7 +587,7 @@ export function FixSentenceGame({
       : accuracy >= 0.4
       ? 'Session complete'
       : 'Good effort — keep practicing';
-    const emoji = accuracy >= 0.7 ? '🎉' : accuracy >= 0.4 ? '✅' : '💪';
+    const emoji = accuracy >= 0.7 ? '🎉' : '';
     return (
       <div className="max-w-md mx-auto text-center space-y-6 py-8">
         <div className="text-6xl">{emoji}</div>
