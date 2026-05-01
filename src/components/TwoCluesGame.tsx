@@ -1335,6 +1335,14 @@ export function TwoCluesGame({
               </p>
             )}
 
+            {/* Reveal correct answer on wrong/creative */}
+            {(lastResult.tier === 'uncertain' || lastResult.tier === 'creative') && currentPuzzle.anchors[0] && (
+              <p className="text-base">
+                <span className="text-muted-foreground">The word was </span>
+                <span className="font-bold text-foreground">"{currentPuzzle.anchors[0]}"</span>
+              </p>
+            )}
+
             {/* Show hint for wrong answers */}
             {lastResult.tier === 'uncertain' && (
               <p className="text-sm text-muted-foreground">
@@ -1349,19 +1357,12 @@ export function TwoCluesGame({
 
             <p className="text-sm text-muted-foreground">{feedbackMessage}</p>
 
+            {/* Manual override — auto-next runs in ~3s, but user can advance now */}
             <div className="flex justify-center gap-2 pt-2">
               {(lastResult.tier === 'creative' || lastResult.tier === 'uncertain') && (
-                <>
-                  <Button size="sm" variant="outline" onClick={handleTryAgain} className="gap-1">
-                    <Mic className="h-4 w-4" /> Try Again
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleContinue}>
-                    Skip →
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={handleTryAgain} className="text-muted-foreground">
-                    ✕ Dismiss
-                  </Button>
-                </>
+                <Button size="sm" variant="outline" onClick={handleContinue}>
+                  Continue →
+                </Button>
               )}
             </div>
           </div>
