@@ -228,21 +228,25 @@ export function DetectiveMindGame({
     }
   }, [isComplete, results, onGameComplete]);
 
-  const handleSelectOption = useCallback((index: number) => {
+  const handleSelectOption = useCallback((displayedIndex: number) => {
     if (phase !== 'answering' || selectedOption !== null) return;
-    
+
     // Interrupt Maya if she's still speaking
     vg.interrupt();
-    
+
     // Track first interaction time if not set
     if (!firstInteractionRef.current) {
       firstInteractionRef.current = Date.now();
     }
-    
-    setSelectedOption(index);
+
+    // Translate the position the user tapped (display order) into the
+    // original index the data model expects.
+    const originalIndex = displayToOriginal[displayedIndex] ?? displayedIndex;
+
+    setSelectedOption(displayedIndex);
     const reactionTimeMs = Date.now() - caseLoadTimeRef.current;
-    const result = submitAnswer(index, reactionTimeMs, usedHint);
-    
+    const result = submitAnswer(originalIndex, reactionTimeMs, usedHint);
+
     if (result) {
       setLastResult(result);
       setPhase('feedback');
@@ -260,7 +264,7 @@ export function DetectiveMindGame({
         timestamp: Date.now(),
       });
     }
-  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation, engagement]);
+  }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation, engagement, displayToOriginal]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -400,9 +404,9 @@ export function DetectiveMindGame({
           <h3 className="text-base font-semibold">{currentCase.question}</h3>
           
           <div className="space-y-2">
-            {currentCase.options.map((option, i) => (
+            {displayedOptions.map((option, i) => (
               <Button
-                key={i}
+                key={`${currentCase.id}-${i}`}
                 variant="outline"
                 className="w-full text-left justify-start h-auto py-3 px-4 whitespace-normal"
                 onClick={() => handleSelectOption(i)}
