@@ -481,6 +481,22 @@ export function NarrativeRetellGame({
     }
   }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, isTTSSpeaking, isListening, phase]);
 
+  // Auto-advance into retell phase as soon as the story finishes reading.
+  // Removes the manual "Start retelling" gate — the user just hears the story
+  // and starts talking.
+  const autoStartedForIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (phase !== 'reading') return;
+    if (!storyReadComplete) return;
+    if (autoStartedForIndexRef.current === currentIndex) return;
+    autoStartedForIndexRef.current = currentIndex;
+    // Small breath after audio so the tail-lock can settle.
+    const t = setTimeout(() => {
+      handleStartRetelling();
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
+
   const handleDoneRetelling = useCallback(async () => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
