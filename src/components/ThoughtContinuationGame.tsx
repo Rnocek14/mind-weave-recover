@@ -404,14 +404,9 @@ export function ThoughtContinuationGame({
   useEffect(() => {
     if (currentPrompt && phase === 'idle' && promptCount > 0) {
       // Reset state for new prompt (incl. auto-advance UX)
-      setTranscript('');
+      clearAnswerState();
       setNarrowingLevel(0);
       setFeedbackMessage(null);
-      setShowDoneButton(false);
-      hasCommittedRef.current = false;
-      lastTranscriptValueRef.current = '';
-      if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
-      if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
       speechStartTimeRef.current = null;
       latencyToFirstWordRef.current = null;
       latencyStartRef.current = Date.now();
@@ -442,7 +437,7 @@ export function ThoughtContinuationGame({
       // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
@@ -735,7 +730,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
   // effect (which is declared above this callback to avoid hoisting issues).
@@ -780,7 +775,7 @@ export function ThoughtContinuationGame({
 
     // Per-trial state reset — every field that could leak across prompts.
     setPhase('idle');
-    setTranscript('');
+    clearAnswerState();
     setFeedbackMessage(null);
     setNarrowingLevel(0);
     setLastStuckType(null);
@@ -791,7 +786,7 @@ export function ThoughtContinuationGame({
 
     // Select next prompt (will be triggered by useEffect)
     selectAndSetNextPrompt();
-  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg]);
+  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg, clearAnswerState]);
 
   const handleSkipPrompt = useCallback(async () => {
     // Stop mic + recording to prevent leaks
