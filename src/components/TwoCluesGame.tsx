@@ -1048,13 +1048,12 @@ export function TwoCluesGame({
     // Reveal the correct answer briefly before advancing.
     const answer = currentPuzzleRef.current?.anchors[0];
     if (answer) {
-      setFeedbackMessage(`The word was "${answer}"`);
-      setShowFeedback(true);
+      setSkipReveal(answer);
       autoRetryTimerRef.current = setTimeout(() => {
         autoRetryTimerRef.current = null;
-        setShowFeedback(false);
+        setSkipReveal(null);
         game.skipRound();
-      }, REVEAL_HOLD_MS + 1000); // ~2.5s reveal then advance
+      }, 2500);
     } else {
       game.skipRound();
     }
