@@ -52,6 +52,17 @@ export interface GateResult {
 export interface GateOptions extends ValidateOptions {
   /** Lines beyond Maya's recent speech to also check echo against (e.g., current prompt). */
   extraSpokenContext?: string[];
+  /**
+   * Legitimate expected answers for this trial (e.g. naming target + visible choices).
+   * If the transcript normalizes to one of these, the echo filter is bypassed —
+   * even if Maya recently spoke that same word during feedback or replay.
+   * Critical for naming tasks where the target word is short and gets played as audio.
+   */
+  expectedAnswers?: string[];
+}
+
+function normalizeForCompare(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 const ECHO_REJECTION_COACHING: Record<NonNullable<ReturnType<typeof checkEcho>['reason']>, string> = {
