@@ -64,11 +64,11 @@ const CANNED_TESTS: CannedTest[] = [
   },
   {
     id: 'wrong_answer',
-    label: '4. Wrong but valid answer',
-    transcript: 'banana',
+    label: '4. Wrong description (2+ words)',
+    transcript: 'yellow fruit',
     expected: 'pass',
     expectedClassification: 'valid_to_score',
-    notes: 'Single substantive word — gate must let it through. Scorer decides correctness.',
+    notes: 'D&G is a circumlocution exercise — single-word answers are blocked by design. A 2+ word wrong description must reach the scorer so it can be classified as wrong.',
   },
   {
     id: 'real_description',
