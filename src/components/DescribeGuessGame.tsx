@@ -562,25 +562,17 @@ export function DescribeGuessGame({
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
 
-        // Speak with mic off, then re-enable mic after TTS finishes
-        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(() => {
+        // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
+        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(async () => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
 
-          // Retry startListening with small delay — use ref to check actual state
-          const tryStart = (retries = 3) => {
-            startListening();
-            setIsListening(true);
-            listeningStartRef.current = Date.now();
-            // Check via setTimeout so the state machine has time to transition
-            if (retries > 0) {
-              setTimeout(() => {
-                // Re-check if actually listening by seeing if startListening needs retry
-                if (!isListeningRef.current) tryStart(retries - 1);
-              }, 400);
-            }
-          };
-          setTimeout(() => tryStart(), 300);
+          // Sync-Wait: VoiceController guarantees Maya is fully done.
+          await awaitMicSafe(5000);
+          if (!awaitingWordAttempt && !wordAttemptContextRef.current) return;
+          startListening();
+          setIsListening(true);
+          listeningStartRef.current = Date.now();
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
