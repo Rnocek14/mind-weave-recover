@@ -48,7 +48,6 @@ const SCORING_DEBOUNCE_MS = 1500;
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 3000;
-const REVEAL_HOLD_MS = 1500; // hold reveal of correct word before advancing
 const STALL_TIMER_DELAY_MS = 7000; // 7s before auto-cue (matches Photo Naming)
 const CONSECUTIVE_ERROR_THRESHOLD = 3; // Errors before auto-cue
 
