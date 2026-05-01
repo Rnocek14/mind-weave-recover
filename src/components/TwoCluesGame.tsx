@@ -129,6 +129,7 @@ export function TwoCluesGame({
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [skipReveal, setSkipReveal] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [filteredDisplay, setFilteredDisplay] = useState('');
