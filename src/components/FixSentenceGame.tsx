@@ -322,17 +322,21 @@ export function FixSentenceGame({
           setIsListening(true);
           if (isRecordingSupported) startRecording();
         }
+
+        // Start the stall reminder ONLY after the sentence has actually been
+        // spoken. Previously this was set unconditionally at trial-mount, so
+        // on the first trial it fired during the intro — before the sentence
+        // ever played — producing the "Listen to the sentence again" prompt
+        // BEFORE the sentence itself.
+        if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
+        stallTimerFixRef.current = setTimeout(() => {
+          if (!showFeedback && !isProcessing && !ttsAbortRef.current) {
+            vg.speakReminder();
+          }
+        }, 12000);
       };
 
       game.startRound();
-
-      // Stall timer
-      if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
-      stallTimerFixRef.current = setTimeout(() => {
-        if (!showFeedback && !isProcessing) {
-          vg.speakReminder();
-        }
-      }, 10000);
 
       // Begin attempt tracking
       if (sessionId && userId) {
@@ -583,10 +587,10 @@ export function FixSentenceGame({
       : accuracy >= 0.4
       ? 'Session complete'
       : 'Good effort — keep practicing';
-    const emoji = accuracy >= 0.7 ? '🎉' : accuracy >= 0.4 ? '✅' : '💪';
+    const emoji = accuracy >= 0.7 ? '🎉' : '';
     return (
       <div className="max-w-md mx-auto text-center space-y-6 py-8">
-        <div className="text-6xl">{emoji}</div>
+        {emoji && <div className="text-6xl">{emoji}</div>}
         <h2 className="text-2xl font-bold">{headline}</h2>
         <div className="flex justify-center gap-6 text-lg">
           <div className="text-center">
