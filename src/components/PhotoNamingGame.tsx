@@ -722,6 +722,15 @@ export const PhotoNamingGame = ({
       extraSpokenContext: (state.choices ?? [])
         .map((c: any) => (typeof c === 'string' ? c : c?.label ?? c?.text ?? ''))
         .filter((label: string) => label.trim().split(/\s+/).length >= 2),
+      // Bypass echo filter when the user says a legitimate answer for THIS trial,
+      // even if Maya recently spoke that word (e.g. target audio replay,
+      // back-to-back trials with same target like dog→dog).
+      expectedAnswers: [
+        state.currentTrial?.target ?? '',
+        ...(state.choices ?? []).map((c: any) =>
+          typeof c === 'string' ? c : c?.label ?? c?.text ?? ''
+        ),
+      ].filter(Boolean),
     });
     broadcastGateDecision('photo_naming', gate, transcript);
 
