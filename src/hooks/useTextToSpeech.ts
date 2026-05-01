@@ -381,6 +381,8 @@ export const useTextToSpeech = () => {
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
+    // Record what Maya is about to say so EchoFilter can detect parroting.
+    voiceController.recordSpoken(text);
     return speakStream(text, options);
   }, [speakStream]);
 
