@@ -590,7 +590,7 @@ export function FixSentenceGame({
     const emoji = accuracy >= 0.7 ? '🎉' : '';
     return (
       <div className="max-w-md mx-auto text-center space-y-6 py-8">
-        <div className="text-6xl">{emoji}</div>
+        {emoji && <div className="text-6xl">{emoji}</div>}
         <h2 className="text-2xl font-bold">{headline}</h2>
         <div className="flex justify-center gap-6 text-lg">
           <div className="text-center">
