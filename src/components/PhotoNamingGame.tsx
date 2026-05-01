@@ -1345,14 +1345,18 @@ export const PhotoNamingGame = ({
     let retryCount = 0;
     const maxRetries = 5;
 
-    const tryStart = () => {
+    const tryStart = async () => {
       retryCount++;
       console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
 
-      // Sync-Wait: never open mic while Maya/TTS is still speaking — prevents audio overlap
-      if (isMayaSpeaking) {
-        console.log('🎤 Deferring auto-listen: TTS still speaking');
-      } else if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+      // Sync-Wait: VoiceController gate guarantees Maya isn't speaking
+      // and we're past the 400ms tail-lock before opening the mic.
+      const ready = await awaitMicSafe(8000);
+      if (!ready) {
+        console.warn('🎤 awaitMicSafe timed out — opening mic anyway');
+      }
+
+      if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
         try {
           startListening();
         } catch (err) {
@@ -1364,7 +1368,7 @@ export const PhotoNamingGame = ({
         const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
         listeningTimeoutRef.current = setTimeout(() => {
           if (!isListeningRef.current && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
-            tryStart();
+            void tryStart();
           } else {
             setMicAutoStartPending(false);
           }
@@ -1374,7 +1378,7 @@ export const PhotoNamingGame = ({
       }
     };
 
-    const timeoutId = setTimeout(tryStart, 250);
+    const timeoutId = setTimeout(() => { void tryStart(); }, 250);
 
     return () => {
       clearTimeout(timeoutId);
