@@ -56,7 +56,15 @@ function shuffleArray<T>(arr: T[]): T[] {
 function partitionIntoLanes(trials: MixedTrial[]): ContentLanes {
   const lanes: ContentLanes = { easy: [], mid: [], hard: [] };
   
+  // Dedupe by target word — multiple variants (e.g. dog_1, dog_2) of the
+  // same target must never co-exist in a session pool, otherwise the user
+  // gets the same word twice in a row and the echo filter / scoring breaks.
+  const seenTargets = new Set<string>();
   for (const trial of trials) {
+    const key = (trial.target ?? '').trim().toLowerCase();
+    if (!key || seenTargets.has(key)) continue;
+    seenTargets.add(key);
+    
     // Fallback to mid (3) if computed_difficulty is missing
     const diff = trial.computed_difficulty ?? 3;
     if (diff <= 2) {
