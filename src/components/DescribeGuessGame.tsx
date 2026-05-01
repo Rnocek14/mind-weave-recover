@@ -33,6 +33,7 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
 import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
@@ -519,6 +520,8 @@ export function DescribeGuessGame({
       // is caught even though it was a button label, not a Maya utterance.
       extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
     });
+
+    broadcastGateDecision('describe_guess', gate, currentTranscript);
 
     if (!gate.ok) {
       // Soft-reject: clear the bad transcript, show coaching, keep mic open.
