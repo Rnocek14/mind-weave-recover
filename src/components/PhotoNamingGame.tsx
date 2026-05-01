@@ -26,6 +26,9 @@ import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
@@ -234,6 +237,7 @@ export const PhotoNamingGame = ({
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   const { speak: speakMaya, isSpeaking: isMayaSpeaking } = useTextToSpeech();
+  const { awaitMicSafe } = useVoiceState();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
@@ -703,11 +707,42 @@ export const PhotoNamingGame = ({
       console.log('🎤 processStableTranscript blocked - game not ready');
       return;
     }
-    
-    console.log('✅ Transcript stable, scoring:', transcript);
-    
+
+    // ─── MANDATORY PRE-SCORING GATE ────────────────────────────────────────
+    // Rejects echoes of Maya's instructions ("say what you see"), prompt
+    // repeats, fillers, and short mimics BEFORE we try to match a choice.
+    // This is what fixes "PhotoNaming hears instructions".
+    const gate = gateResponse({
+      transcript,
+      promptText: 'Name what you see in the photo',
+      expectedMode: 'naming',
+      // Feed the visible choice labels so parroting a chip is caught as echo.
+      extraSpokenContext: (state.choices ?? []).map((c: any) => typeof c === 'string' ? c : c?.label ?? c?.text ?? ''),
+    });
+    broadcastGateDecision('photo_naming', gate, transcript);
+
+    if (!gate.ok) {
+      console.log('[PhotoNaming] gate REJECT', {
+        classification: gate.classification,
+        reason: gate.rejectionReason,
+        echoMatched: gate.echoMatched,
+      });
+      // Soft-reject: clear, coach, keep mic open for another attempt.
+      pendingTranscriptRef.current = null;
+      setLastHeardText(null);
+      setUtteranceState('idle');
+      if (gate.coachingText) {
+        setRetryPrompt(gate.coachingText);
+        setTimeout(() => setRetryPrompt(null), 4000);
+      }
+      needsVoiceRestartRef.current = true;
+      return;
+    }
+
+    console.log('✅ Transcript stable + gated, scoring:', transcript);
+
     const matchedChoice = findMatchingChoice(transcript);
-    
+
     if (matchedChoice) {
       console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
@@ -715,34 +750,25 @@ export const PhotoNamingGame = ({
       handleAnswerSelect(matchedChoice);
     } else {
       console.log('❌ No match for stable transcript:', transcript);
-      
-      // Quality heuristic: is this a real attempt or just noise?
-      const isRealAttempt = isTranscriptScoreable(transcript);
-      
-      if (isRealAttempt) {
-        // Real attempt that didn't match - show gentle retry
-        setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
-        setUtteranceState('idle');
-        
-        // Throttle retry toasts to prevent spam
-        const now = Date.now();
-        if (now - lastRetryToastTimeRef.current > RETRY_TOAST_THROTTLE_MS) {
-          lastRetryToastTimeRef.current = now;
-          toast({
-            title: "Keep going!",
-            description: `I heard "${transcript}". Try saying one of the words shown.`,
-            duration: 2500,
-          });
-        }
-      } else {
-        // Low quality - just update "heard" text silently, don't toast
-        setLastHeardText(transcript);
-        setUtteranceState('listening');
+
+      // Real attempt that passed the gate but didn't match a choice — gentle retry
+      setRetryPrompt(`Heard: "${transcript}" - try again or tap a word`);
+      setUtteranceState('idle');
+
+      // Throttle retry toasts to prevent spam
+      const now = Date.now();
+      if (now - lastRetryToastTimeRef.current > RETRY_TOAST_THROTTLE_MS) {
+        lastRetryToastTimeRef.current = now;
+        toast({
+          title: "Keep going!",
+          description: `I heard "${transcript}". Try saying one of the words shown.`,
+          duration: 2500,
+        });
       }
-      
+
       needsVoiceRestartRef.current = true;
     }
-  }, [state.choices, state.currentTrial, toast, isTranscriptScoreable]);
+  }, [state.choices, state.currentTrial, toast]);
   
   // Handle speech recognition results - DEBOUNCED SCORING
   const handleSpeechResult = useCallback((transcript: string) => {
@@ -1319,14 +1345,18 @@ export const PhotoNamingGame = ({
     let retryCount = 0;
     const maxRetries = 5;
 
-    const tryStart = () => {
+    const tryStart = async () => {
       retryCount++;
       console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
 
-      // Sync-Wait: never open mic while Maya/TTS is still speaking — prevents audio overlap
-      if (isMayaSpeaking) {
-        console.log('🎤 Deferring auto-listen: TTS still speaking');
-      } else if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+      // Sync-Wait: VoiceController gate guarantees Maya isn't speaking
+      // and we're past the 400ms tail-lock before opening the mic.
+      const ready = await awaitMicSafe(8000);
+      if (!ready) {
+        console.warn('🎤 awaitMicSafe timed out — opening mic anyway');
+      }
+
+      if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
         try {
           startListening();
         } catch (err) {
@@ -1338,7 +1368,7 @@ export const PhotoNamingGame = ({
         const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
         listeningTimeoutRef.current = setTimeout(() => {
           if (!isListeningRef.current && !isPlayingChoicesRef.current && !showFeedbackRef.current) {
-            tryStart();
+            void tryStart();
           } else {
             setMicAutoStartPending(false);
           }
@@ -1348,7 +1378,7 @@ export const PhotoNamingGame = ({
       }
     };
 
-    const timeoutId = setTimeout(tryStart, 250);
+    const timeoutId = setTimeout(() => { void tryStart(); }, 250);
 
     return () => {
       clearTimeout(timeoutId);
@@ -1392,16 +1422,18 @@ export const PhotoNamingGame = ({
   // 2. Game completion - no logging needed for unfinished trials on game end
   // The unmount was seeing stale isFinalized state from the closure.
   
-  // Phase 1 Fix: Restart voice after no-match toast
+  // Phase 1 Fix: Restart voice after no-match / gate-rejected attempt
   useEffect(() => {
     if (needsVoiceRestartRef.current && useVoice && !showFeedback && !timedOut && !selectedAnswer && !isListening) {
-      console.log('🎤 Restarting voice after no-match');
+      console.log('🎤 Restarting voice after no-match (Sync-Wait)');
       needsVoiceRestartRef.current = false;
-      setTimeout(() => {
+      void (async () => {
+        await awaitMicSafe(5000);
+        if (showFeedbackRef.current || timedOutRef.current || selectedAnswerRef.current) return;
         startListening();
-      }, 500);
+      })();
     }
-  }, [useVoice, showFeedback, timedOut, selectedAnswer, isListening, startListening]);
+  }, [useVoice, showFeedback, timedOut, selectedAnswer, isListening, startListening, awaitMicSafe]);
 
   const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
