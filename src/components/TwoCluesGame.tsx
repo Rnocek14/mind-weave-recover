@@ -20,12 +20,9 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
 import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
-
+import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
-import { gateResponse } from '@/lib/evaluation/gateResponse';
-import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
-import { useVoiceState } from '@/hooks/useVoiceState';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -47,7 +44,7 @@ import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 const SCORING_DEBOUNCE_MS = 1500;
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
-const AUTO_ADVANCE_DELAY_MS = 3000;
+const AUTO_ADVANCE_DELAY_MS = 2000;
 const STALL_TIMER_DELAY_MS = 7000; // 7s before auto-cue (matches Photo Naming)
 const CONSECUTIVE_ERROR_THRESHOLD = 3; // Errors before auto-cue
 
@@ -128,7 +125,6 @@ export function TwoCluesGame({
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [skipReveal, setSkipReveal] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [filteredDisplay, setFilteredDisplay] = useState('');
@@ -173,7 +169,6 @@ export function TwoCluesGame({
   const { speak } = useTextToSpeech();
   const { playHint } = useGameSounds();
   const vg = useVoiceGuidance('two-clues');
-  const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
   const stallTimerVgRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -513,23 +508,18 @@ export function TwoCluesGame({
       return () => { cancelled = true; };
     }
 
-    const tryStart = async () => {
+    const tryStart = () => {
       if (cancelled) return;
-      // Wait for the global VoiceController gate (Maya not speaking + tail-lock done).
-      // This is what stops Two Clues from hearing its own clue audio.
-      const ready = await awaitMicSafe(8000);
-      if (cancelled) return;
-      if (!ready) {
-        console.warn('[TwoClues] awaitMicSafe timed out — opening mic anyway');
-      }
-      // Belt-and-braces: also confirm the local intro promise resolved.
       if (!introTtsCompleteRef.current || vg.isSpeaking) {
-        setTimeout(() => { void tryStart(); }, 200);
+        setTimeout(tryStart, 200);
         return;
       }
-      if (!cancelled) beginAttemptRef.current(1);
+      // Small grace pad so the audio tail doesn't bleed into the recogniser.
+      setTimeout(() => {
+        if (!cancelled) beginAttemptRef.current(1);
+      }, 250);
     };
-    void tryStart();
+    tryStart();
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -654,16 +644,6 @@ export function TwoCluesGame({
     setFilteredDisplay('');
     rawTranscriptRef.current = '';
     lastScoredCandidateRef.current = '';
-    lastScoredAtRef.current = 0;
-    finalizingRef.current = false;
-    setValidationHint(null);
-    setFeedbackMessage('');
-    setSkipReveal(null);
-    setIsProcessing(false);
-    setScoringPhase('idle');
-    processingRef.current = false;
-    processingSetAtRef.current = 0;
-    attemptStartTimeRef.current = Date.now();
   }, [game.currentIndex]);
 
   // ==========================================================================
@@ -765,37 +745,14 @@ export function TwoCluesGame({
       return;
     }
 
-    // GUARD: Mandatory pre-scoring gate (echo + validation).
-    // Catches: parroting Maya/clues, instruction echoes, prompt repeats, fillers,
-    // empties, too-short utterances. This is what stops "repeating the clue" being
-    // accepted as the answer.
-    const expectedAnswers = [
-      ...(currentPuzzle.anchors ?? []),
-      ...(currentPuzzle.cluster ?? []),
-      ...Object.values(currentPuzzle.anchorAliases ?? {}).flat(),
-    ].filter(Boolean) as string[];
-    const gate = gateResponse({
-      transcript: latestWithoutClues,
-      promptText: `What word connects these clues: ${currentPuzzle.clues.join(', ')}?`,
-      expectedMode: 'naming',
-      // The clue chips themselves shouldn't count as answers — they're echo bait.
-      extraSpokenContext: currentPuzzle.clues,
-      expectedAnswers,
-    });
-    broadcastGateDecision('two_clues', gate, latestWithoutClues);
-    if (gate.validation) {
-      trackValidation('two_clues', gate.validation);
-      logValidationDetail('two_clues', latestWithoutClues, gate.validation);
-    }
-
-    if (!gate.ok || candidate.length < 2) {
-      console.log('[TwoClues] gate REJECT', {
-        classification: gate.classification,
-        reason: gate.rejectionReason,
-        candidate,
-      });
-      if (gate.coachingText) {
-        speakMayaCoaching(gate.coachingText as any, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
+    // GUARD: Universal validation pipeline
+    const validation = validateSpokenResponse({ transcript: latestWithoutClues, expectedMode: 'naming' });
+    trackValidation('two_clues', validation);
+    logValidationDetail('two_clues', latestWithoutClues, validation);
+    if (!validation.valid || candidate.length < 2) {
+      console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
+      if (validation.rejectionReason) {
+        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
       }
       return;
     }
@@ -979,24 +936,34 @@ export function TwoCluesGame({
       setShowFeedback(true);
       clearTranscriptState();
 
-      shouldHoldProcessing = true;
-      // Stop the mic immediately so a late onResult event from the
-      // previous attempt cannot repopulate the transcript on the next puzzle.
-      try { stopListeningRef.current?.(); } catch {}
-      setIsListening(false);
-
-      // Unified auto-next: ~3s after feedback for BOTH right and wrong.
-      // No silent retry loop — the wrong-answer reveal (handled by the feedback
-      // UI showing currentPuzzle.anchors[0]) is enough scaffolding.
-      autoRetryTimerRef.current = setTimeout(() => {
-        autoRetryTimerRef.current = null;
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        setShowFeedback(false);
-        resetAttempt();
-        setProcessingGuard(false);
-        clearTranscriptState();
-        game.nextRound();
-      }, AUTO_ADVANCE_DELAY_MS);
+      if (result.tier === 'strong' || result.tier === 'related') {
+        shouldHoldProcessing = true;
+        // Stop the mic immediately so a late onResult event from the
+        // previous attempt cannot repopulate the transcript on the next puzzle
+        // (Bug fix: "answer stays in from first answer").
+        try { stopListeningRef.current?.(); } catch {}
+        setIsListening(false);
+        setTimeout(() => {
+          if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+          setShowFeedback(false);
+          resetAttempt();
+          setProcessingGuard(false);
+          clearTranscriptState();
+          game.nextRound();
+        }, AUTO_ADVANCE_DELAY_MS);
+      } else {
+        // Wrong answer: auto-retry after brief feedback (3.5s — gives time to
+        // read the cue without making frustration worse).
+        shouldHoldProcessing = true;
+        const currentAttemptNum = currentAttemptNumRef.current || 1;
+        autoRetryTimerRef.current = setTimeout(() => {
+          autoRetryTimerRef.current = null;
+          setShowFeedback(false);
+          resetAttempt();
+          setProcessingGuard(false);
+          beginAttempt(currentAttemptNum + 1);
+        }, 3500);
+      }
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
       shouldHoldProcessing = false;
@@ -1051,21 +1018,10 @@ export function TwoCluesGame({
     stopListening();
     setIsListening(false);
     clearTranscriptState();
+    setShowFeedback(false);
     setProcessingGuard(false);
     await finalizeAttempt('skipped');
-
-    // Reveal the correct answer briefly before advancing.
-    const answer = currentPuzzleRef.current?.anchors[0];
-    if (answer) {
-      setSkipReveal(answer);
-      autoRetryTimerRef.current = setTimeout(() => {
-        autoRetryTimerRef.current = null;
-        setSkipReveal(null);
-        game.skipRound();
-      }, 2500);
-    } else {
-      game.skipRound();
-    }
+    game.skipRound();
   }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
 
   const handleContinue = useCallback(() => {
@@ -1323,14 +1279,6 @@ export function TwoCluesGame({
           </div>
         )}
 
-        {/* Skip reveal — shows the correct word for ~2.5s before advancing */}
-        {skipReveal && (
-          <div className="p-5 rounded-xl text-center space-y-2 border-2 border-muted bg-muted/30 animate-in fade-in duration-200">
-            <p className="text-sm text-muted-foreground">Skipped — the word was</p>
-            <p className="text-2xl font-bold text-foreground">"{skipReveal}"</p>
-          </div>
-        )}
-
         {/* Feedback */}
         {showFeedback && lastResult && (
           <div className={cn(
@@ -1364,14 +1312,6 @@ export function TwoCluesGame({
               </p>
             )}
 
-            {/* Reveal correct answer on wrong/creative */}
-            {(lastResult.tier === 'uncertain' || lastResult.tier === 'creative') && currentPuzzle.anchors[0] && (
-              <p className="text-base">
-                <span className="text-muted-foreground">The word was </span>
-                <span className="font-bold text-foreground">"{currentPuzzle.anchors[0]}"</span>
-              </p>
-            )}
-
             {/* Show hint for wrong answers */}
             {lastResult.tier === 'uncertain' && (
               <p className="text-sm text-muted-foreground">
@@ -1386,12 +1326,19 @@ export function TwoCluesGame({
 
             <p className="text-sm text-muted-foreground">{feedbackMessage}</p>
 
-            {/* Manual override — auto-next runs in ~3s, but user can advance now */}
             <div className="flex justify-center gap-2 pt-2">
               {(lastResult.tier === 'creative' || lastResult.tier === 'uncertain') && (
-                <Button size="sm" variant="outline" onClick={handleContinue}>
-                  Continue →
-                </Button>
+                <>
+                  <Button size="sm" variant="outline" onClick={handleTryAgain} className="gap-1">
+                    <Mic className="h-4 w-4" /> Try Again
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleContinue}>
+                    Skip →
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleTryAgain} className="text-muted-foreground">
+                    ✕ Dismiss
+                  </Button>
+                </>
               )}
             </div>
           </div>
