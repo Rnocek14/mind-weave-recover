@@ -981,17 +981,21 @@ export function ThoughtContinuationGame({
         </CardContent>
       </Card>
 
-      {/* Primary action: Done Speaking button */}
-      {phase !== 'processing' && phase !== 'celebrated' && (
-        <div className="flex justify-center">
-          <Button 
-            size="lg"
+      {/* Optional manual override — hidden until 1s of post-speech silence,
+          and primary auto-advance kicks in at 2s. Tap commits immediately. */}
+      {phase !== 'processing' && phase !== 'celebrated' && showDoneButton && transcript.trim() && (
+        <div
+          className="flex justify-center animate-in fade-in duration-300"
+          aria-live="polite"
+        >
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={processUtterance}
-            disabled={!transcript.trim()}
-            className="gap-2 px-8"
+            className="gap-2"
           >
-            <Check className="w-5 h-5" />
-            Done Speaking
+            <Check className="w-4 h-4" />
+            Done
           </Button>
         </div>
       )}
