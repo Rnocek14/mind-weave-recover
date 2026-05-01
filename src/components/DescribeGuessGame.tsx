@@ -521,6 +521,8 @@ export function DescribeGuessGame({
       extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
     });
 
+    broadcastGateDecision('describe_guess', gate, currentTranscript);
+
     if (!gate.ok) {
       // Soft-reject: clear the bad transcript, show coaching, keep mic open.
       console.log('[DescribeGuess] gate REJECT', {
