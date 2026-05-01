@@ -312,6 +312,49 @@ export function ThoughtContinuationGame({
   }, [fullTranscript, liveTranscript, phase]);
 
   // ---------------------------------------------------------------------------
+  // Auto-advance after speech (2s silence after last word) + button reveal
+  // (1s silence after speech). Mirrors PhotoNaming/D&G rhythm so the system
+  // feels consistent across games.
+  // ---------------------------------------------------------------------------
+  const processUtteranceRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    // Only arm the auto-advance loop while we're actively listening for an answer.
+    if (phase !== 'idle' && phase !== 'listening') return;
+    if (hasCommittedRef.current) return;
+
+    const trimmed = transcript.trim();
+    if (!trimmed) return;
+
+    // Restart timers ONLY when transcript actually changed (new word(s) heard).
+    if (trimmed === lastTranscriptValueRef.current) return;
+    lastTranscriptValueRef.current = trimmed;
+
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
+
+    setShowDoneButton(false);
+
+    buttonRevealTimerRef.current = setTimeout(() => {
+      if (!hasCommittedRef.current) setShowDoneButton(true);
+    }, BUTTON_REVEAL_AFTER_SILENCE_MS);
+
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      if (hasCommittedRef.current) return;
+      hasCommittedRef.current = true;
+      processUtteranceRef.current?.();
+    }, AUTO_ADVANCE_AFTER_LAST_WORD_MS);
+  }, [transcript, phase]);
+
+  // Clean up auto-advance timers on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+      if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Silence detection for auto-nudges
   // ---------------------------------------------------------------------------
   
