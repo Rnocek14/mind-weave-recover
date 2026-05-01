@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { MAYA_VOICE_ID } from '@/lib/constants/voice';
+import { voiceController } from '@/lib/voiceController';
 
 interface AudioPlaybackOptions {
   voice?: string;
@@ -9,9 +11,15 @@ interface AudioPlaybackOptions {
 }
 
 /**
- * Bulletproof audio playback hook with fallback chain
- * Phase 1: OpenAI TTS → Browser TTS → Text display
- * Never crashes the UI, always degrades gracefully
+ * Phrase audio playback hook.
+ *
+ * As of the TTS-consolidation pass, ALL audio here goes through the same
+ * ElevenLabs Maya voice the rest of the app uses, AND notifies the global
+ * voiceController so the mic gate / Sync-Wait protocol stays correct.
+ *
+ * The previous browser-TTS fallback used a random OS voice and never
+ * notified voiceController — that was the source of the "Maya's voice
+ * suddenly switches and reads the last example" bug across exercises.
  */
 export function usePhraseAudio() {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,18 +28,26 @@ export function usePhraseAudio() {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const setPlaying = (playing: boolean) => {
+    setIsPlaying(playing);
+    voiceController.notifySpeakingChanged(playing);
+  };
+
   const playPhrase = useCallback(async (
     text: string,
     options: AudioPlaybackOptions = {}
   ) => {
     // Prevent double-play
     if (isPlaying || isLoading) {
-      console.log('Audio already playing or loading, ignoring request');
+      console.log('[usePhraseAudio] already playing or loading, ignoring request');
       return;
     }
 
     setLastError(null);
     setIsLoading(true);
+
+    // Record what's about to be spoken so EchoFilter can detect parroting.
+    voiceController.recordSpoken(text);
 
     try {
       // Stop any existing audio
@@ -40,48 +56,33 @@ export function usePhraseAudio() {
         audioRef.current = null;
       }
 
-      // Try OpenAI TTS first
-      const audioUrl = await generateOpenAIAudio(text, options.voice);
-      
+      const audioUrl = await generateMayaAudio(text);
+
       if (audioUrl) {
         await playAudioUrl(audioUrl, options.playbackSpeed || 1.0);
         return;
       }
 
-      // Fallback to browser TTS
-      throw new Error('OpenAI TTS failed, trying browser fallback');
-
-    } catch (primaryError) {
-      console.warn('Primary audio failed:', primaryError);
-      
-      // Try browser TTS fallback
-      try {
-        await speakWithBrowserTTS(text, options.playbackSpeed || 1.0);
-      } catch (fallbackError) {
-        console.error('All audio methods failed:', fallbackError);
-        setLastError('audio-unavailable');
-        
-        // Show gentle error message
-        toast({
-          title: "Audio unavailable",
-          description: "You can still read and practice the phrase.",
-          variant: "default",
-        });
-      }
+      throw new Error('Maya TTS returned no audio');
+    } catch (err) {
+      console.warn('[usePhraseAudio] playback failed:', err);
+      setLastError('audio-unavailable');
+      toast({
+        title: 'Audio unavailable',
+        description: 'You can still read and practice the phrase.',
+        variant: 'default',
+      });
     } finally {
       setIsLoading(false);
     }
   }, [isPlaying, isLoading, toast]);
 
-  const generateOpenAIAudio = async (
-    text: string,
-    _voice: string = 'alloy'
-  ): Promise<string | null> => {
+  const generateMayaAudio = async (text: string): Promise<string | null> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
+
       const response = await fetch(
         `${SUPABASE_URL}/functions/v1/text-to-speech-stream`,
         {
@@ -91,7 +92,8 @@ export function usePhraseAudio() {
             'Authorization': `Bearer ${session?.access_token}`,
             'apikey': ANON_KEY,
           },
-          body: JSON.stringify({ text, voiceId: 'XrExE9yKIg1WjnnlVkGX' }),
+          // Always Maya — never a different voice id from this hook.
+          body: JSON.stringify({ text, voiceId: MAYA_VOICE_ID, mode: 'natural' }),
         }
       );
 
@@ -100,7 +102,7 @@ export function usePhraseAudio() {
       const audioBlob = await response.blob();
       return URL.createObjectURL(audioBlob);
     } catch (error) {
-      console.error('ElevenLabs TTS failed:', error);
+      console.error('[usePhraseAudio] ElevenLabs TTS failed:', error);
       return null;
     }
   };
@@ -109,61 +111,34 @@ export function usePhraseAudio() {
     return new Promise((resolve, reject) => {
       const audio = new Audio(url);
       audioRef.current = audio;
-      
-      // Set playback speed for accessibility
       audio.playbackRate = speed;
 
       audio.onerror = () => {
         setLastError('audio-load-error');
-        setIsPlaying(false);
+        setPlaying(false);
+        URL.revokeObjectURL(url);
         reject(new Error('Audio failed to load'));
       };
 
       audio.onended = () => {
-        setIsPlaying(false);
+        setPlaying(false);
         URL.revokeObjectURL(url);
         audioRef.current = null;
         resolve();
       };
 
       audio.onpause = () => {
-        setIsPlaying(false);
+        setPlaying(false);
       };
 
-      setIsPlaying(true);
+      setPlaying(true);
       audio.play().catch((err) => {
-        console.error('Audio play failed:', err);
+        console.error('[usePhraseAudio] play failed:', err);
         setLastError('audio-play-error');
-        setIsPlaying(false);
+        setPlaying(false);
+        URL.revokeObjectURL(url);
         reject(err);
       });
-    });
-  };
-
-  const speakWithBrowserTTS = async (text: string, speed: number = 1.0): Promise<void> => {
-    if (!('speechSynthesis' in window)) {
-      throw new Error('Browser TTS not supported');
-    }
-
-    return new Promise((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = speed; // Set playback speed
-      
-      utterance.onstart = () => {
-        setIsPlaying(true);
-      };
-
-      utterance.onend = () => {
-        setIsPlaying(false);
-        resolve();
-      };
-
-      utterance.onerror = (error) => {
-        setIsPlaying(false);
-        reject(error);
-      };
-
-      window.speechSynthesis.speak(utterance);
     });
   };
 
@@ -172,12 +147,7 @@ export function usePhraseAudio() {
       audioRef.current.pause();
       audioRef.current = null;
     }
-    
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    
-    setIsPlaying(false);
+    setPlaying(false);
     setIsLoading(false);
   }, []);
 
