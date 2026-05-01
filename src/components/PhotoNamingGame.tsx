@@ -237,6 +237,7 @@ export const PhotoNamingGame = ({
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
   const { speak: speakMaya, isSpeaking: isMayaSpeaking } = useTextToSpeech();
+  const { awaitMicSafe } = useVoiceState();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
