@@ -129,6 +129,11 @@ export function DetectiveMindGame({
 
   // Reset state when case changes
   useEffect(() => {
+    // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
+    // the auto-read effect spins up the new one. Without this the user hears
+    // the old story while the screen shows the new one.
+    vg.interrupt?.();
+
     setPhase('answering');
     setSelectedOption(null);
     setLastResult(null);
@@ -139,7 +144,7 @@ export function DetectiveMindGame({
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentIndex]);
+  }, [currentIndex, vg]);
 
   // Full Coaching: auto-read story then question on case load
   useEffect(() => {
