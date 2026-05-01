@@ -513,18 +513,23 @@ export function TwoCluesGame({
       return () => { cancelled = true; };
     }
 
-    const tryStart = () => {
+    const tryStart = async () => {
       if (cancelled) return;
+      // Wait for the global VoiceController gate (Maya not speaking + tail-lock done).
+      // This is what stops Two Clues from hearing its own clue audio.
+      const ready = await awaitMicSafe(8000);
+      if (cancelled) return;
+      if (!ready) {
+        console.warn('[TwoClues] awaitMicSafe timed out — opening mic anyway');
+      }
+      // Belt-and-braces: also confirm the local intro promise resolved.
       if (!introTtsCompleteRef.current || vg.isSpeaking) {
-        setTimeout(tryStart, 200);
+        setTimeout(() => { void tryStart(); }, 200);
         return;
       }
-      // Small grace pad so the audio tail doesn't bleed into the recogniser.
-      setTimeout(() => {
-        if (!cancelled) beginAttemptRef.current(1);
-      }, 250);
+      if (!cancelled) beginAttemptRef.current(1);
     };
-    tryStart();
+    void tryStart();
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
