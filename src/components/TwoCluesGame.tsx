@@ -655,6 +655,16 @@ export function TwoCluesGame({
     setFilteredDisplay('');
     rawTranscriptRef.current = '';
     lastScoredCandidateRef.current = '';
+    lastScoredAtRef.current = 0;
+    finalizingRef.current = false;
+    setValidationHint(null);
+    setFeedbackMessage('');
+    setSkipReveal(null);
+    setIsProcessing(false);
+    setScoringPhase('idle');
+    processingRef.current = false;
+    processingSetAtRef.current = 0;
+    attemptStartTimeRef.current = Date.now();
   }, [game.currentIndex]);
 
   // ==========================================================================
