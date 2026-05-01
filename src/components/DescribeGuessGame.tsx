@@ -32,6 +32,8 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
