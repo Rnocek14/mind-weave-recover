@@ -74,7 +74,7 @@ export const useTextToSpeech = () => {
       const safeResolve = () => {
         if (!hasResolved) {
           hasResolved = true;
-          setIsSpeaking(false);
+          setIsSpeaking(false); notifyVC(false);
           resolve();
         }
       };
@@ -146,7 +146,7 @@ export const useTextToSpeech = () => {
           console.log('[TTS] Using voice:', selectedVoice.name);
         }
         
-        setIsSpeaking(true);
+        setIsSpeaking(true); notifyVC(true);
         
         // Chrome workaround - keep speech synthesis active
         let keepAlive: ReturnType<typeof setInterval> | null = null;
@@ -233,7 +233,7 @@ export const useTextToSpeech = () => {
     } = options;
 
     setIsLoading(true);
-    setIsSpeaking(false);
+    setIsSpeaking(false); notifyVC(false);
     setError(null);
 
       // Cancel any previous request/audio across all exercise instances
@@ -293,7 +293,7 @@ export const useTextToSpeech = () => {
         globalAudioUrl = audioUrl;
         
         setIsLoading(false);
-        setIsSpeaking(true);
+        setIsSpeaking(true); notifyVC(true);
 
         return new Promise((resolve, reject) => {
           // Safety timeout — resolve quickly so session never stalls
@@ -304,7 +304,7 @@ export const useTextToSpeech = () => {
             : 5000; // If duration unknown, 5s fallback
           const safetyTimeout = setTimeout(() => {
             console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -317,7 +317,7 @@ export const useTextToSpeech = () => {
               clearTimeout(safetyTimeout);
               const accurateTimeout = setTimeout(() => {
                 console.warn('[TTS] Duration-based timeout — resolving');
-                setIsSpeaking(false);
+                setIsSpeaking(false); notifyVC(false);
                 if (globalAudio === audio) globalAudio = null;
                 if (globalAudioUrl === audioUrl) globalAudioUrl = null;
                 URL.revokeObjectURL(audioUrl);
@@ -331,7 +331,7 @@ export const useTextToSpeech = () => {
           audio.onended = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -341,7 +341,7 @@ export const useTextToSpeech = () => {
           audio.onerror = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -352,7 +352,7 @@ export const useTextToSpeech = () => {
 
           audio.play().catch((playError) => {
             clearTimeout(safetyTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -391,7 +391,7 @@ export const useTextToSpeech = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    setIsSpeaking(false);
+    setIsSpeaking(false); notifyVC(false);
     setIsLoading(false);
   }, []);
 
