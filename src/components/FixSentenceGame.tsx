@@ -322,17 +322,21 @@ export function FixSentenceGame({
           setIsListening(true);
           if (isRecordingSupported) startRecording();
         }
+
+        // Start the stall reminder ONLY after the sentence has actually been
+        // spoken. Previously this was set unconditionally at trial-mount, so
+        // on the first trial it fired during the intro — before the sentence
+        // ever played — producing the "Listen to the sentence again" prompt
+        // BEFORE the sentence itself.
+        if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
+        stallTimerFixRef.current = setTimeout(() => {
+          if (!showFeedback && !isProcessing && !ttsAbortRef.current) {
+            vg.speakReminder();
+          }
+        }, 12000);
       };
 
       game.startRound();
-
-      // Stall timer
-      if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
-      stallTimerFixRef.current = setTimeout(() => {
-        if (!showFeedback && !isProcessing) {
-          vg.speakReminder();
-        }
-      }, 10000);
 
       // Begin attempt tracking
       if (sessionId && userId) {
