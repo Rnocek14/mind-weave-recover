@@ -233,7 +233,7 @@ export const PhotoNamingGame = ({
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
-  const { speak: speakMaya } = useTextToSpeech();
+  const { speak: speakMaya, isSpeaking: isMayaSpeaking } = useTextToSpeech();
   const { profile: speechProfile, loading: profileLoading } = useUserSpeechProfile(user?.id, { profileId: activeProfile?.id });
   
   // Shadow Mode: log events for future co-pilot/research (gated by feature flag)
@@ -1323,7 +1323,10 @@ export const PhotoNamingGame = ({
       retryCount++;
       console.log(`🎤 Auto-listen attempt ${retryCount}/${maxRetries} for trial ${state.trialNumber}`);
 
-      if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
+      // Sync-Wait: never open mic while Maya/TTS is still speaking — prevents audio overlap
+      if (isMayaSpeaking) {
+        console.log('🎤 Deferring auto-listen: TTS still speaking');
+      } else if (!isPlayingChoicesRef.current && !showFeedbackRef.current) {
         try {
           startListening();
         } catch (err) {

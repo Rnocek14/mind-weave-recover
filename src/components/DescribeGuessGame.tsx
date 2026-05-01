@@ -358,13 +358,21 @@ export function DescribeGuessGame({
 
     // Start listening — but skip when the user is using the typing fallback,
     // otherwise the mic would activate every trial and overwrite typed input.
+    // Sync-Wait: poll until TTS is done speaking before opening the mic so the
+    // intro/instruction audio never overlaps with active recognition.
     if (!useTyping) {
-      setTimeout(() => {
+      const tryOpenMic = (attempt = 0) => {
+        if (vg.isSpeaking && attempt < 30) {
+          setTimeout(() => tryOpenMic(attempt + 1), 200);
+          return;
+        }
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
-      }, 300);
+      };
+      // Initial 300ms gives the trial UI time to settle before we even check
+      setTimeout(() => tryOpenMic(0), 300);
     } else {
       setTypedAnswer('');
     }
