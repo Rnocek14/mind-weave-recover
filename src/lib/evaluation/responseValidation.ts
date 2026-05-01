@@ -213,7 +213,33 @@ function isPromptRepeat(normalizedText: string, promptText?: string): boolean {
   const overlapCount = inputTokens.filter(t => promptSet.has(t)).length;
   const overlapRatio = inputTokens.length > 0 ? overlapCount / inputTokens.length : 0;
 
-  return overlapRatio >= 0.95 && Math.abs(inputTokens.length - promptTokens.length) <= 1;
+  // ASR often mutates a repeated prompt by one letter ("talk" → "talkl").
+  // Treat near-token repeats as prompt repeats so self-captured TTS cannot pass.
+  const editDistanceOne = (a: string, b: string) => {
+    if (Math.abs(a.length - b.length) > 1) return false;
+    if (a === b) return true;
+    let i = 0, j = 0, edits = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      edits++;
+      if (edits > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else { i++; j++; }
+    }
+    return edits + (a.length - i) + (b.length - j) <= 1;
+  };
+
+  const promptTokensUnused = [...promptTokens];
+  const fuzzyOverlapCount = inputTokens.filter((token) => {
+    const matchIndex = promptTokensUnused.findIndex((promptToken) => editDistanceOne(token, promptToken));
+    if (matchIndex === -1) return false;
+    promptTokensUnused.splice(matchIndex, 1);
+    return true;
+  }).length;
+  const fuzzyOverlapRatio = inputTokens.length > 0 ? fuzzyOverlapCount / inputTokens.length : 0;
+
+  return (overlapRatio >= 0.95 || fuzzyOverlapRatio >= 0.9) && Math.abs(inputTokens.length - promptTokens.length) <= 1;
 }
 
 // ═══════════════════════════════════════════════════════════════

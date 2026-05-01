@@ -145,10 +145,12 @@ export function ThoughtContinuationGame({
   const hasCommittedRef = useRef<boolean>(false);
   
   // Hooks
-  const { speak, stop: stopTTS } = useTextToSpeech();
+  const { stop: stopTTS } = useTextToSpeech();
   const vg = useVoiceGuidance('thought-continuation');
+  const { shouldAutoSpeak, speakIntro, speakIfVoiceLed } = vg;
   const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
+  const promptStartSequenceRef = useRef(0);
   const { 
     startAttempt, 
     logFinalAnalysis, 
@@ -192,6 +194,7 @@ export function ThoughtContinuationGame({
     isListening,
     transcript: liveTranscript,
     fullTranscript,
+    resetTranscript: resetSpeechTranscript,
     startListening,
     stopListening,
     isSupported,
@@ -245,33 +248,6 @@ export function ThoughtContinuationGame({
     setPromptCount(prev => prev + 1);
   }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
 
-  // ---------------------------------------------------------------------------
-  // Initialize first prompt
-  // ---------------------------------------------------------------------------
-  
-  // Voice guidance: speak intro on first prompt
-  useEffect(() => {
-    if (!currentPrompt || promptCount !== 1) return;
-    if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
-      hasSpokenIntroRef.current = true;
-      vg.speakIntro().then(() => {
-        // After intro, read the first prompt aloud
-        if (currentPrompt) {
-          vg.speakIfVoiceLed(currentPrompt.promptText);
-        }
-      });
-    }
-  }, [currentPrompt, promptCount, vg]);
-
-  // Voice guidance: read prompt text aloud on subsequent prompts
-  useEffect(() => {
-    if (!currentPrompt || promptCount <= 1) return;
-    if (vg.shouldAutoSpeak) {
-      vg.speakIfVoiceLed(currentPrompt.promptText);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPrompt?.id, promptCount]);
-
   useEffect(() => {
     if (!currentPrompt && promptCount === 0) {
       selectAndSetNextPrompt();
@@ -310,6 +286,16 @@ export function ThoughtContinuationGame({
       }
     }
   }, [fullTranscript, liveTranscript, phase]);
+
+  const clearAnswerState = useCallback(() => {
+    setTranscript('');
+    setShowDoneButton(false);
+    lastTranscriptValueRef.current = '';
+    hasCommittedRef.current = false;
+    resetSpeechTranscript();
+    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
+    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
+  }, [resetSpeechTranscript]);
 
   // ---------------------------------------------------------------------------
   // Auto-advance after speech (2s silence after last word) + button reveal
@@ -393,14 +379,9 @@ export function ThoughtContinuationGame({
   useEffect(() => {
     if (currentPrompt && phase === 'idle' && promptCount > 0) {
       // Reset state for new prompt (incl. auto-advance UX)
-      setTranscript('');
+      clearAnswerState();
       setNarrowingLevel(0);
       setFeedbackMessage(null);
-      setShowDoneButton(false);
-      hasCommittedRef.current = false;
-      lastTranscriptValueRef.current = '';
-      if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
-      if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
       speechStartTimeRef.current = null;
       latencyToFirstWordRef.current = null;
       latencyStartRef.current = Date.now();
@@ -417,13 +398,23 @@ export function ThoughtContinuationGame({
         category: currentPrompt.theme,
       });
 
-      // Start audio recording for clinical persistence
-      startRecording();
-
-      // Sync-Wait: don't open mic while Maya's prompt audio is still bleeding
-      // out of the speakers. Falls through after timeout if VC is wedged.
+      // Sync-Wait: speak the prompt first, then open recording/mic only after
+      // Maya is fully done. This prevents the game from hearing its own prompt.
       (async () => {
+        const sequenceId = ++promptStartSequenceRef.current;
+        if (shouldAutoSpeak) {
+          if (promptCount === 1 && !hasSpokenIntroRef.current) {
+            hasSpokenIntroRef.current = true;
+            await speakIntro();
+          }
+          if (promptStartSequenceRef.current !== sequenceId) return;
+          await speakIfVoiceLed(currentPrompt.promptText);
+        }
+        if (promptStartSequenceRef.current !== sequenceId) return;
         await awaitMicSafe(8000);
+        if (promptStartSequenceRef.current !== sequenceId) return;
+        clearAnswerState();
+        startRecording();
         startListening();
       })();
 
@@ -431,7 +422,7 @@ export function ThoughtContinuationGame({
       // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState, shouldAutoSpeak, speakIntro, speakIfVoiceLed]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
@@ -445,6 +436,7 @@ export function ThoughtContinuationGame({
     if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
     hasCommittedRef.current = true;
     setShowDoneButton(false);
+    const answerText = transcript.trim();
 
     // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
     // Reject prompt-repeats, instruction echoes, fillers, and parroting of
@@ -452,13 +444,13 @@ export function ThoughtContinuationGame({
     // Without this the game "accepts everything" and feeds garbage into the
     // adaptation engine.
     const gate = gateResponse({
-      transcript,
+      transcript: answerText,
       promptText: currentPrompt.promptText,
       expectedMode: 'description',
       // The user describing/finishing a thought IS the legitimate answer —
       // there's no fixed target word, so no expectedAnswers bypass.
     });
-    broadcastGateDecision('thought_continuation', gate, transcript);
+    broadcastGateDecision('thought_continuation', gate, answerText);
 
     if (!gate.ok) {
       console.log('[ThoughtContinuation] gate REJECT', {
@@ -468,9 +460,8 @@ export function ThoughtContinuationGame({
       });
       // Soft-reject: clear committed flag, surface a brief coaching nudge,
       // re-arm the mic for another attempt. Do NOT advance the prompt.
-      hasCommittedRef.current = false;
-      lastTranscriptValueRef.current = '';
-      setTranscript('');
+      stopListening();
+      clearAnswerState();
       if (gate.coachingText) {
         setFeedbackMessage(gate.coachingText);
         setTimeout(() => setFeedbackMessage(null), 4000);
@@ -478,6 +469,7 @@ export function ThoughtContinuationGame({
       // Re-open mic for retry
       (async () => {
         await awaitMicSafe(5000);
+        await new Promise((resolve) => setTimeout(resolve, 450));
         startListening();
       })();
       return;
@@ -515,12 +507,12 @@ export function ThoughtContinuationGame({
     // TIER A METRICS - Locally measurable, no alignment required
     // =========================================================================
     
-    const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
+    const validation = validateSpokenResponse({ transcript: answerText, expectedMode: 'description' });
     trackValidation('thought_continuation', validation);
-    logValidationDetail('thought_continuation', transcript, validation);
-    const wordCount = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+    logValidationDetail('thought_continuation', answerText, validation);
+    const wordCount = answerText ? answerText.split(/\s+/).length : 0;
     const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
-    const completionResult = detectUtteranceComplete(transcript, null);
+    const completionResult = detectUtteranceComplete(answerText, null);
     const latencyToFirstWordMs = latencyToFirstWordRef.current || 
       (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
     
@@ -598,7 +590,7 @@ export function ThoughtContinuationGame({
     // =========================================================================
     
     await logFinalAnalysis({
-      transcript,
+      transcript: answerText,
       transcriptSource: 'browser',
       evaluationModel: 'flow',
       isCorrect: null, // Flow games don't have correctness
@@ -660,7 +652,7 @@ export function ThoughtContinuationGame({
       {
         exerciseSlug: 'thought_continuation',
         promptText: currentPrompt.promptText,
-        transcript,
+        transcript: answerText,
         wordCount,
         latencyToFirstWordMs: latencyToFirstWordMs ?? null,
         durationMs: speechDuration,
@@ -725,7 +717,7 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
   // effect (which is declared above this callback to avoid hoisting issues).
@@ -770,7 +762,7 @@ export function ThoughtContinuationGame({
 
     // Per-trial state reset — every field that could leak across prompts.
     setPhase('idle');
-    setTranscript('');
+    clearAnswerState();
     setFeedbackMessage(null);
     setNarrowingLevel(0);
     setLastStuckType(null);
@@ -781,7 +773,7 @@ export function ThoughtContinuationGame({
 
     // Select next prompt (will be triggered by useEffect)
     selectAndSetNextPrompt();
-  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg]);
+  }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg, clearAnswerState]);
 
   const handleSkipPrompt = useCallback(async () => {
     // Stop mic + recording to prevent leaks

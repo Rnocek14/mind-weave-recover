@@ -7,6 +7,8 @@ interface SpeechRecognitionHook {
   transcript: string;
   /** Full accumulated transcript across all recognition restarts (discourse mode) */
   fullTranscript: string;
+  /** Clear all visible and accumulated transcript state without changing mic state */
+  resetTranscript: () => void;
   startListening: () => void;
   stopListening: () => void;
   isSupported: boolean;
@@ -356,6 +358,14 @@ export const useSpeechRecognition = (
     }
   }, [discourseMode]);
 
+  const resetTranscript = useCallback(() => {
+    pendingTranscriptRef.current = '';
+    lastProcessedTranscriptRef.current = '';
+    accumulatedTranscriptRef.current = [];
+    setTranscript('');
+    setFullTranscript('');
+  }, []);
+
   const stopListening = useCallback(() => {
     // Only stop if recognition is active or auto-restarting
     if (
@@ -404,6 +414,7 @@ export const useSpeechRecognition = (
     isListening,
     transcript,
     fullTranscript,
+    resetTranscript,
     startListening,
     stopListening,
     isSupported,
