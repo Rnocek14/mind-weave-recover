@@ -725,11 +725,18 @@ export function ThoughtContinuationGame({
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening]);
+
+  // Keep the ref pointing at the latest processUtterance for the auto-advance
+  // effect (which is declared above this callback to avoid hoisting issues).
+  useEffect(() => {
+    processUtteranceRef.current = processUtterance;
+  }, [processUtterance]);
 
   // ---------------------------------------------------------------------------
-  // Handle speech end detection - REMOVED for patient mode
-  // User must click "Done Speaking" to end - no automatic cutoff
+  // Auto-cutoff is now handled by the 2s post-last-word silence timer above.
+  // The "Done Speaking" button below is an OPTIONAL manual override that only
+  // appears after 1s of post-speech silence.
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
