@@ -752,18 +752,29 @@ export function NarrativeRetellGame({
             </div>
           )}
 
-          {/* Action buttons */}
+          {/* Action area — story auto-advances into retell when audio ends.
+              No manual "Start" gate. We still expose Listen-again and a
+              fallback "Start now" link in case audio fails. */}
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Button onClick={handleStartRetelling} className="flex-1" size="lg" disabled={isTTSSpeaking}>
-                {useTyping ? <Keyboard className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-                Start retelling
-              </Button>
-              <Button variant="outline" size="lg" onClick={isTTSSpeaking ? stopTTS : handleListenToStory}>
+              <Button
+                variant="outline"
+                size="lg"
+                className="flex-1"
+                onClick={isTTSSpeaking ? stopTTS : handleListenToStory}
+              >
                 <Volume2 className="h-4 w-4 mr-1" />
-                {isTTSSpeaking ? 'Stop' : 'Listen'}
+                {isTTSSpeaking ? 'Stop' : 'Listen again'}
               </Button>
             </div>
+            {!isTTSSpeaking && !storyReadComplete && (
+              <button
+                onClick={handleStartRetelling}
+                className="text-xs text-muted-foreground hover:text-foreground mx-auto block"
+              >
+                Skip ahead and start retelling →
+              </button>
+            )}
             {isSupported && (
               <button
                 onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
