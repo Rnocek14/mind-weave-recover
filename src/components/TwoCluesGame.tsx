@@ -768,8 +768,10 @@ export function TwoCluesGame({
       expectedAnswers,
     });
     broadcastGateDecision('two_clues', gate, latestWithoutClues);
-    trackValidation('two_clues', gate.validation ?? { valid: gate.ok, rejectionReason: gate.rejectionReason as any });
-    logValidationDetail('two_clues', latestWithoutClues, gate.validation ?? { valid: gate.ok, rejectionReason: gate.rejectionReason as any });
+    if (gate.validation) {
+      trackValidation('two_clues', gate.validation);
+      logValidationDetail('two_clues', latestWithoutClues, gate.validation);
+    }
 
     if (!gate.ok || candidate.length < 2) {
       console.log('[TwoClues] gate REJECT', {
@@ -778,7 +780,7 @@ export function TwoCluesGame({
         candidate,
       });
       if (gate.coachingText) {
-        speakMayaCoaching(gate.coachingText, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
+        speakMayaCoaching(gate.coachingText as any, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
       }
       return;
     }
