@@ -22,7 +22,9 @@ const TESTS = [
   { id: '1. instruction echo (short mimic)', transcript: 'say what you see', expectReject: true },
   { id: '2. prompt repeat',                 transcript: 'describe what you see without saying the word', expectReject: true },
   { id: '3. chip echo',                     transcript: 'what do you use it for', expectReject: true },
-  { id: '4. wrong answer (banana)',         transcript: 'banana', expectReject: false },
+  // D&G is a circumlocution exercise — single-word answers are blocked by design.
+  // A wrong DESCRIPTION (≥2 content words) is what should reach the scorer.
+  { id: '4. wrong description (2+ words)',  transcript: 'yellow fruit', expectReject: false },
   { id: '5. real description',              transcript: 'it is a striped orange animal that lives in the jungle and is very large', expectReject: false },
 ];
 
