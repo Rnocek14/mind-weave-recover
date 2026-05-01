@@ -186,6 +186,7 @@ export function NarrativeRetellGame({
   const voiceSequenceRef = useRef(0);
   const transcriptPrefixRef = useRef('');
   const handleDoneRetellingRef = useRef<() => void>(() => {});
+  const autoStartedForIndexRef = useRef<number | null>(null);
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -484,8 +485,8 @@ export function NarrativeRetellGame({
 
   // Auto-advance into retell phase as soon as the story finishes reading.
   // Removes the manual "Start retelling" gate — the user just hears the story
-  // and starts talking.
-  const autoStartedForIndexRef = useRef<number | null>(null);
+  // and starts talking. (autoStartedForIndexRef is declared higher up alongside
+  // the other per-story refs.)
   useEffect(() => {
     if (phase !== 'reading') return;
     if (!storyReadComplete) return;
