@@ -969,34 +969,24 @@ export function TwoCluesGame({
       setShowFeedback(true);
       clearTranscriptState();
 
-      if (result.tier === 'strong' || result.tier === 'related') {
-        shouldHoldProcessing = true;
-        // Stop the mic immediately so a late onResult event from the
-        // previous attempt cannot repopulate the transcript on the next puzzle
-        // (Bug fix: "answer stays in from first answer").
-        try { stopListeningRef.current?.(); } catch {}
-        setIsListening(false);
-        setTimeout(() => {
-          if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-          setShowFeedback(false);
-          resetAttempt();
-          setProcessingGuard(false);
-          clearTranscriptState();
-          game.nextRound();
-        }, AUTO_ADVANCE_DELAY_MS);
-      } else {
-        // Wrong answer: auto-retry after brief feedback (3.5s — gives time to
-        // read the cue without making frustration worse).
-        shouldHoldProcessing = true;
-        const currentAttemptNum = currentAttemptNumRef.current || 1;
-        autoRetryTimerRef.current = setTimeout(() => {
-          autoRetryTimerRef.current = null;
-          setShowFeedback(false);
-          resetAttempt();
-          setProcessingGuard(false);
-          beginAttempt(currentAttemptNum + 1);
-        }, 3500);
-      }
+      shouldHoldProcessing = true;
+      // Stop the mic immediately so a late onResult event from the
+      // previous attempt cannot repopulate the transcript on the next puzzle.
+      try { stopListeningRef.current?.(); } catch {}
+      setIsListening(false);
+
+      // Unified auto-next: ~3s after feedback for BOTH right and wrong.
+      // No silent retry loop — the wrong-answer reveal (handled by the feedback
+      // UI showing currentPuzzle.anchors[0]) is enough scaffolding.
+      autoRetryTimerRef.current = setTimeout(() => {
+        autoRetryTimerRef.current = null;
+        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+        setShowFeedback(false);
+        resetAttempt();
+        setProcessingGuard(false);
+        clearTranscriptState();
+        game.nextRound();
+      }, AUTO_ADVANCE_DELAY_MS);
     } catch (error) {
       console.error('[TwoClues] Scoring error:', error);
       shouldHoldProcessing = false;
