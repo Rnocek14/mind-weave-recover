@@ -1,6 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID, type MayaTtsMode } from '@/lib/constants/voice';
+import { voiceController } from '@/lib/voiceController';
+
+// Wrap setIsSpeaking-style updates so the global VoiceController stays in
+// sync with whichever component instance is currently driving TTS. Every game
+// that needs Sync-Wait reads from the controller, not from its local state.
+const notifyVC = (speaking: boolean) => voiceController.notifySpeakingChanged(speaking);
 
 // Use environment variables for Supabase config
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -68,7 +74,7 @@ export const useTextToSpeech = () => {
       const safeResolve = () => {
         if (!hasResolved) {
           hasResolved = true;
-          setIsSpeaking(false);
+          setIsSpeaking(false); notifyVC(false);
           resolve();
         }
       };
@@ -140,7 +146,7 @@ export const useTextToSpeech = () => {
           console.log('[TTS] Using voice:', selectedVoice.name);
         }
         
-        setIsSpeaking(true);
+        setIsSpeaking(true); notifyVC(true);
         
         // Chrome workaround - keep speech synthesis active
         let keepAlive: ReturnType<typeof setInterval> | null = null;
@@ -227,7 +233,7 @@ export const useTextToSpeech = () => {
     } = options;
 
     setIsLoading(true);
-    setIsSpeaking(false);
+    setIsSpeaking(false); notifyVC(false);
     setError(null);
 
       // Cancel any previous request/audio across all exercise instances
@@ -287,7 +293,7 @@ export const useTextToSpeech = () => {
         globalAudioUrl = audioUrl;
         
         setIsLoading(false);
-        setIsSpeaking(true);
+        setIsSpeaking(true); notifyVC(true);
 
         return new Promise((resolve, reject) => {
           // Safety timeout — resolve quickly so session never stalls
@@ -298,7 +304,7 @@ export const useTextToSpeech = () => {
             : 5000; // If duration unknown, 5s fallback
           const safetyTimeout = setTimeout(() => {
             console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -311,7 +317,7 @@ export const useTextToSpeech = () => {
               clearTimeout(safetyTimeout);
               const accurateTimeout = setTimeout(() => {
                 console.warn('[TTS] Duration-based timeout — resolving');
-                setIsSpeaking(false);
+                setIsSpeaking(false); notifyVC(false);
                 if (globalAudio === audio) globalAudio = null;
                 if (globalAudioUrl === audioUrl) globalAudioUrl = null;
                 URL.revokeObjectURL(audioUrl);
@@ -325,7 +331,7 @@ export const useTextToSpeech = () => {
           audio.onended = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -335,7 +341,7 @@ export const useTextToSpeech = () => {
           audio.onerror = () => {
             clearTimeout(safetyTimeout);
             if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -346,7 +352,7 @@ export const useTextToSpeech = () => {
 
           audio.play().catch((playError) => {
             clearTimeout(safetyTimeout);
-            setIsSpeaking(false);
+            setIsSpeaking(false); notifyVC(false);
             if (globalAudio === audio) globalAudio = null;
             if (globalAudioUrl === audioUrl) globalAudioUrl = null;
             URL.revokeObjectURL(audioUrl);
@@ -375,6 +381,8 @@ export const useTextToSpeech = () => {
     text: string, 
     options: TTSOptions = {}
   ): Promise<void> => {
+    // Record what Maya is about to say so EchoFilter can detect parroting.
+    voiceController.recordSpoken(text);
     return speakStream(text, options);
   }, [speakStream]);
 
@@ -385,7 +393,7 @@ export const useTextToSpeech = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    setIsSpeaking(false);
+    setIsSpeaking(false); notifyVC(false);
     setIsLoading(false);
   }, []);
 
