@@ -66,6 +66,13 @@ const PROMPTS_PER_SESSION = 8;
 const SILENCE_NUDGE_DELAY_MS = 20000;   // 20 seconds before first gentle nudge
 const SILENCE_NARROW_DELAY_MS = 45000;  // 45 seconds before narrowing hint
 const MIN_SPEECH_FOR_COMPLETE_MS = 500; // Reduced - any speech counts
+
+// === Auto-advance after speech (consistent with PhotoNaming / D&G rhythm) ===
+// 2.0s of silence after the user's last detected word commits the answer.
+const AUTO_ADVANCE_AFTER_LAST_WORD_MS = 2000;
+// 1.0s of silence after speech reveals the optional manual "Done" override.
+const BUTTON_REVEAL_AFTER_SILENCE_MS = 1000;
+
 const DEV_MODE = import.meta.env.DEV;   // Show debug overlay in dev
 
 // =============================================================================
