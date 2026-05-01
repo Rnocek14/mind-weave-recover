@@ -1,6 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID, type MayaTtsMode } from '@/lib/constants/voice';
+import { voiceController } from '@/lib/voiceController';
+
+// Wrap setIsSpeaking-style updates so the global VoiceController stays in
+// sync with whichever component instance is currently driving TTS. Every game
+// that needs Sync-Wait reads from the controller, not from its local state.
+const notifyVC = (speaking: boolean) => voiceController.notifySpeakingChanged(speaking);
 
 // Use environment variables for Supabase config
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
