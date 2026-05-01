@@ -147,6 +147,7 @@ export function ThoughtContinuationGame({
   // Hooks
   const { speak, stop: stopTTS } = useTextToSpeech();
   const vg = useVoiceGuidance('thought-continuation');
+  const { shouldAutoSpeak, speakIntro, speakIfVoiceLed } = vg;
   const { awaitMicSafe } = useVoiceState();
   const hasSpokenIntroRef = useRef(false);
   const promptStartSequenceRef = useRef(0);
@@ -401,13 +402,13 @@ export function ThoughtContinuationGame({
       // Maya is fully done. This prevents the game from hearing its own prompt.
       (async () => {
         const sequenceId = ++promptStartSequenceRef.current;
-        if (vg.shouldAutoSpeak) {
+        if (shouldAutoSpeak) {
           if (promptCount === 1 && !hasSpokenIntroRef.current) {
             hasSpokenIntroRef.current = true;
-            await vg.speakIntro();
+            await speakIntro();
           }
           if (promptStartSequenceRef.current !== sequenceId) return;
-          await vg.speakIfVoiceLed(currentPrompt.promptText);
+          await speakIfVoiceLed(currentPrompt.promptText);
         }
         if (promptStartSequenceRef.current !== sequenceId) return;
         await awaitMicSafe(8000);
@@ -421,7 +422,7 @@ export function ThoughtContinuationGame({
       // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState, vg]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState, shouldAutoSpeak, speakIntro, speakIfVoiceLed]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
