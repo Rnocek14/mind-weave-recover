@@ -397,13 +397,23 @@ export function ThoughtContinuationGame({
         category: currentPrompt.theme,
       });
 
-      // Start audio recording for clinical persistence
-      startRecording();
-
-      // Sync-Wait: don't open mic while Maya's prompt audio is still bleeding
-      // out of the speakers. Falls through after timeout if VC is wedged.
+      // Sync-Wait: speak the prompt first, then open recording/mic only after
+      // Maya is fully done. This prevents the game from hearing its own prompt.
       (async () => {
+        const sequenceId = ++promptStartSequenceRef.current;
+        if (vg.shouldAutoSpeak) {
+          if (promptCount === 1 && !hasSpokenIntroRef.current) {
+            hasSpokenIntroRef.current = true;
+            await vg.speakIntro();
+          }
+          if (promptStartSequenceRef.current !== sequenceId) return;
+          await vg.speakIfVoiceLed(currentPrompt.promptText);
+        }
+        if (promptStartSequenceRef.current !== sequenceId) return;
         await awaitMicSafe(8000);
+        if (promptStartSequenceRef.current !== sequenceId) return;
+        clearAnswerState();
+        startRecording();
         startListening();
       })();
 
@@ -411,7 +421,7 @@ export function ThoughtContinuationGame({
       // separate from the 2s auto-advance after speech)
       startSilenceTimer();
     }
-  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState]);
+  }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState, vg]);
 
   // ---------------------------------------------------------------------------
   // Process completed speech - Core intelligence loop
