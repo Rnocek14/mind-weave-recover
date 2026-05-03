@@ -192,6 +192,7 @@ export function NarrativeRetellGame({
   const transcriptPrefixRef = useRef('');
   const handleDoneRetellingRef = useRef<() => void>(() => {});
   const autoStartedForIndexRef = useRef<number | null>(null);
+  const lastSpokenStallRef = useRef(-1);
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
