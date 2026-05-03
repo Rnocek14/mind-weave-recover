@@ -289,6 +289,71 @@ export function DetectiveMindGame({
     }
   }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation, engagement, displayToOriginal]);
 
+  // ─── Voice answer support ────────────────────────────────────────────────
+  // Listen after Maya finishes reading; map spoken letter / ordinal /
+  // option keyword to the displayed option index.
+  const selectFromTranscript = useCallback((raw: string): number | null => {
+    const t = raw.toLowerCase().trim();
+    if (!t) return null;
+    // Letter match: "a", "b.", "letter c", "answer d"
+    const letterMatch = t.match(/\b(?:answer\s+|letter\s+|option\s+)?([a-d])\b/);
+    if (letterMatch) {
+      const idx = letterMatch[1].charCodeAt(0) - 'a'.charCodeAt(0);
+      if (idx >= 0 && idx < displayedOptions.length) return idx;
+    }
+    // Ordinal
+    const ords: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3, one: 0, two: 1, three: 2, four: 3 };
+    for (const [k, v] of Object.entries(ords)) {
+      if (new RegExp(`\\b${k}\\b`).test(t) && v < displayedOptions.length) return v;
+    }
+    // Substring match against option text (longest unique wins)
+    let best = -1; let bestLen = 0;
+    displayedOptions.forEach((opt, i) => {
+      const lower = opt.toLowerCase();
+      // require at least 3 char overlap of significant word
+      const words = lower.split(/\W+/).filter(w => w.length >= 4);
+      for (const w of words) {
+        if (t.includes(w) && w.length > bestLen) { best = i; bestLen = w.length; }
+      }
+    });
+    return best >= 0 ? best : null;
+  }, [displayedOptions]);
+
+  const handleSpeechAnswer = useCallback((text: string) => {
+    if (phase !== 'answering' || selectedOption !== null) return;
+    const idx = selectFromTranscript(text);
+    if (idx != null) handleSelectOption(idx);
+  }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
+
+  const {
+    isListening: voiceListening,
+    startListening: startVoice,
+    stopListening: stopVoice,
+    isSupported: voiceSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechAnswer,
+    patientMode: true,
+    continuousListening: true,
+  });
+
+  // Auto-start mic after Maya finishes reading the question/options.
+  useEffect(() => {
+    if (!autoReadDone || phase !== 'answering' || selectedOption !== null) return;
+    if (!voiceSupported) return;
+    if (isDirectSpeaking) return;
+    const t = setTimeout(() => {
+      try { startVoice(); } catch {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [autoReadDone, phase, selectedOption, voiceSupported, isDirectSpeaking, startVoice]);
+
+  // Stop listening once selection committed or case changes.
+  useEffect(() => {
+    if (selectedOption !== null || phase !== 'answering') {
+      try { stopVoice(); } catch {}
+    }
+  }, [selectedOption, phase, stopVoice]);
+
   const handleHint = useCallback(() => {
     // Track first interaction
     if (!firstInteractionRef.current) {
