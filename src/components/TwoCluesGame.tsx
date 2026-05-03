@@ -741,7 +741,13 @@ export function TwoCluesGame({
 
     // Re-extract from the latest raw transcript
     const latestRaw = rawTranscriptRef.current;
-    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues);
+    const preserveAnswerTokens = [
+      ...currentPuzzle.anchors,
+      ...Object.values(currentPuzzle.anchorAliases ?? {}).flat(),
+      ...currentPuzzle.cluster,
+      ...Object.values(currentPuzzle.clusterAliases ?? {}).flat(),
+    ];
+    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues, preserveAnswerTokens);
     const candidate = extractAnswerFromTranscript(latestWithoutClues);
 
     // GUARD: Already processing or showing feedback
