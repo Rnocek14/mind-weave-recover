@@ -71,7 +71,7 @@ interface NarrativeRetellGameProps {
 type Phase = 'reading' | 'retelling' | 'scored';
 
 const STALL_PROMPTS = [
-  "Take your time. Start with what happened first.",
+  "Start with what happened first.",
   "Who was in the story?",
   "What happened next?",
   "How did the story end?",
