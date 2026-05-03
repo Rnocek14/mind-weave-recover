@@ -519,17 +519,39 @@ export function NarrativeRetellGame({
 
     setTimeout(async () => {
       const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
-      const validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      const durationMs = Date.now() - startTimeRef.current;
+
+      // Canonical pre-scoring gate: rejects echo-of-Maya (story narration / stall
+      // prompts) and validation failures (filler/empty/instruction echo) BEFORE
+      // the retell is graded. Typed input bypasses the echo check by skipping the gate.
+      let gatedTranscript = transcript;
+      let validation;
+      if (useTyping) {
+        validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      } else {
+        const gate = gateResponse({
+          transcript,
+          expectedMode: 'retell',
+          extraSpokenContext: voiceController.getRecentSpoken(),
+        });
+        broadcastGateDecision('narrative_retell', gate, transcript);
+        validation = gate.validation ?? validateSpokenResponse({ transcript, expectedMode: 'retell' });
+        if (!gate.ok) {
+          // Soft-reject: zero out transcript so submitRetell scores as no-retell
+          // and Maya speaks the gate's coaching line.
+          gatedTranscript = '';
+        }
+      }
+
       trackValidation('narrative_retell', validation);
       logValidationDetail('narrative_retell', transcript, validation);
-      const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
         speakMayaCoaching(validation.rejectionReason, speakTTS, { exerciseKey: 'narrative_retell' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
         resetCoachingState('narrative_retell', speakTTS);
       }
-      const result = submitRetell(validation.valid ? transcript : '', durationMs);
+      const result = submitRetell(validation.valid ? gatedTranscript : '', durationMs);
 
       let audioStoragePath: string | null = null;
       if (recordingResult?.audioBlob && userId && sessionId) {
