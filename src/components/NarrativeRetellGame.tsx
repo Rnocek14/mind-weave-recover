@@ -410,7 +410,7 @@ export function NarrativeRetellGame({
   // Auto-submit after a longer pause so users have enough retell time
   // Stall support: show progressive prompts if user hasn't spoken much
   // In Full Coaching mode, speak the prompts aloud
-  const lastSpokenStallRef = useRef(-1);
+  // lastSpokenStallRef declared earlier alongside other per-story refs.
   useEffect(() => {
     if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
