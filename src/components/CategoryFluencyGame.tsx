@@ -27,6 +27,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
@@ -849,6 +850,7 @@ export function CategoryFluencyGame({
           <span className="text-xs text-muted-foreground ml-2">
             Round {currentRound + 1}/{roundCount}
           </span>
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact className="ml-1" />
         </div>
         <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
         {/* Coaching hint — visible early or when stuck */}
