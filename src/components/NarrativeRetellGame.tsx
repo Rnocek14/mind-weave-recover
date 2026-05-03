@@ -226,15 +226,20 @@ export function NarrativeRetellGame({
 
   // Auto-read story when entering reading phase — only in Full Coaching mode
   // Guided/Games Only: user reads silently and can tap "Listen" manually
-  const hasAutoReadRef = useRef(false);
+  const autoReadForIndexRef = useRef<number | null>(null);
   useEffect(() => {
-    if (phase !== 'reading' || !currentStory || hasAutoReadRef.current) return;
+    if (phase !== 'reading' || !currentStory) return;
     if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
-    hasAutoReadRef.current = true;
+    // Guard by index — survives unrelated re-renders (vg identity changes)
+    // and is naturally invalidated when the story changes.
+    if (autoReadForIndexRef.current === currentIndex) return;
+    autoReadForIndexRef.current = currentIndex;
 
+    let cancelled = false;
     const doAutoRead = async () => {
       await new Promise(r => setTimeout(r, 600));
-      
+      if (cancelled) return;
+
       // Speak context-aware intro first
       if (vg.shouldAutoSpeak && currentIndex === 0) {
         try {
@@ -243,14 +248,17 @@ export function NarrativeRetellGame({
         } catch (e) {
           console.warn('[NarrativeRetell] Intro TTS failed:', e);
         }
+        if (cancelled) return;
         await new Promise(r => setTimeout(r, 600));
+        if (cancelled) return;
       }
-      
+
       // Read the full story aloud
       const fullText = currentStory.scenes.map(s => s.text).join(' ');
       console.log('[NarrativeRetell] Auto-reading story:', currentStory.title);
       try {
         await speakTTS(fullText);
+        if (cancelled) return;
         voiceController.recordSpoken(fullText);
         console.log('[NarrativeRetell] Auto-read complete');
         setStoryReadComplete(true);
@@ -259,7 +267,9 @@ export function NarrativeRetellGame({
       }
     };
     doAutoRead();
-  }, [phase, currentStory, currentIndex, vg, speakTTS]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentStory, currentIndex]);
 
   const handleListenToStory = useCallback(async () => {
     if (!currentStory) return;
@@ -279,7 +289,7 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
-    hasAutoReadRef.current = false;
+    // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
     voiceController.clearSpokenHistory();
