@@ -997,12 +997,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
             <MessageSquare className="w-4 h-4 mr-2" />
             Phrase {currentTrialIndex + 1} / {trials.length}
           </Badge>
-          <Badge 
-            variant={currentDifficulty <= 2 ? "secondary" : currentDifficulty <= 4 ? "default" : "destructive"}
-            className="text-lg px-4 py-2"
-          >
-            Level {currentDifficulty}
-          </Badge>
+          <LevelBadge descriptor={ppLevelDescriptor} />
         </div>
         <div className="text-2xl font-bold text-primary">
           {score} pts
