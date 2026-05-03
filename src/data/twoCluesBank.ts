@@ -424,10 +424,12 @@ const homePuzzles: TwoCluesPuzzle[] = [
     difficulty: 1,
     anchors: ['window'],
     anchorAliases: { 'window': ['windows'] },
-    cluster: ['pane', 'view', 'curtain', 'sill', 'blinds', 'see-through'],
-    nearMisses: ['lamp', 'mirror', 'door'],
+    // "lightbulb"/"bulb"/"lamp" all genuinely satisfy BOTH "light" and "glass"
+    // — they belong in cluster (75pts), not nearMisses.
+    cluster: ['pane', 'view', 'curtain', 'sill', 'blinds', 'see-through', 'lightbulb', 'bulb', 'lamp'],
+    clusterAliases: { 'lightbulb': ['light bulb', 'bulbs'], 'lamp': ['lamps'] },
+    nearMisses: ['mirror', 'door'],
     coachHints: {
-      'lamp': "Lamps give light! What's made of glass?",
       'mirror': "Mirrors are glass! What lets light in?",
       'door': "Doors have glass sometimes! What's for looking out?"
     }
