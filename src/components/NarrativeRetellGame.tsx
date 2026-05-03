@@ -264,10 +264,12 @@ export function NarrativeRetellGame({
     if (!currentStory) return;
     const fullText = currentStory.scenes.map(s => s.text).join(' ');
     await speakTTS(fullText);
+    voiceController.recordSpoken(fullText);
     setStoryReadComplete(true);
   }, [currentStory, speakTTS]);
 
-  // Reset on story change
+  // Reset on story change — also clear voiceController spoken history
+  // so previous story's narration can't echo into the new trial's gate.
   useEffect(() => {
     setPhase('reading');
     setLastResult(null);
@@ -279,6 +281,7 @@ export function NarrativeRetellGame({
     hasAutoReadRef.current = false;
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
+    voiceController.clearSpokenHistory();
   }, [currentIndex]);
 
   const completedRef = useRef(false);
