@@ -693,9 +693,12 @@ const foodPuzzles: TwoCluesPuzzle[] = [
     difficulty: 1,
     anchors: ['apple', 'tomato'],
     anchorAliases: { 'apple': ['apples'], 'tomato': ['tomatoes'] },
-    cluster: ['cherry', 'berry', 'fruit', 'pie', 'sauce', 'ketchup'],
-    nearMisses: ['ball', 'balloon', 'strawberry'],
-    coachHints: { 'ball': "Balls are round! What red food?", 'strawberry': "Strawberries are red! What's also round?" }
+    // "ball", "balloon", "cherry", "strawberry" are all genuinely red AND round.
+    // They satisfy both clues → cluster (75pts), not nearMisses.
+    cluster: ['cherry', 'berry', 'fruit', 'pie', 'sauce', 'ketchup', 'ball', 'balloon', 'strawberry', 'cranberry', 'pomegranate'],
+    clusterAliases: { 'ball': ['balls'], 'balloon': ['balloons'], 'strawberry': ['strawberries'] },
+    nearMisses: ['watermelon', 'beet'],
+    coachHints: { 'watermelon': "Watermelons can be round! What red food is small and round?" }
   },
   {
     id: 'tc-food-3',
