@@ -27,6 +27,10 @@ import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } f
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
+import { voiceController } from '@/lib/voiceController';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
