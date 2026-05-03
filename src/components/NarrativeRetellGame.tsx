@@ -27,6 +27,10 @@ import { Mic, MicOff, BookOpen, ChevronRight, SkipForward, Keyboard, Volume2 } f
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { gateResponse } from '@/lib/evaluation/gateResponse';
+import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
+import { voiceController } from '@/lib/voiceController';
+import { useVoiceState } from '@/hooks/useVoiceState';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -197,6 +201,7 @@ export function NarrativeRetellGame({
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('narrative-retell');
   const { interrupt: interruptVoiceGuidance } = vg;
+  const { awaitMicSafe } = useVoiceState();
 
   const clearRetellTimers = useCallback(() => {
     if (stallTimerRef.current) {
@@ -233,6 +238,7 @@ export function NarrativeRetellGame({
       if (vg.shouldAutoSpeak && currentIndex === 0) {
         try {
           await vg.speakIntro({ storyTitle: currentStory.title });
+          voiceController.recordSpoken(`Listen to ${currentStory.title}`);
         } catch (e) {
           console.warn('[NarrativeRetell] Intro TTS failed:', e);
         }
@@ -244,6 +250,7 @@ export function NarrativeRetellGame({
       console.log('[NarrativeRetell] Auto-reading story:', currentStory.title);
       try {
         await speakTTS(fullText);
+        voiceController.recordSpoken(fullText);
         console.log('[NarrativeRetell] Auto-read complete');
         setStoryReadComplete(true);
       } catch (e) {
@@ -257,10 +264,12 @@ export function NarrativeRetellGame({
     if (!currentStory) return;
     const fullText = currentStory.scenes.map(s => s.text).join(' ');
     await speakTTS(fullText);
+    voiceController.recordSpoken(fullText);
     setStoryReadComplete(true);
   }, [currentStory, speakTTS]);
 
-  // Reset on story change
+  // Reset on story change — also clear voiceController spoken history
+  // so previous story's narration can't echo into the new trial's gate.
   useEffect(() => {
     setPhase('reading');
     setLastResult(null);
@@ -272,6 +281,7 @@ export function NarrativeRetellGame({
     hasAutoReadRef.current = false;
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
+    voiceController.clearSpokenHistory();
   }, [currentIndex]);
 
   const completedRef = useRef(false);
@@ -403,6 +413,7 @@ export function NarrativeRetellGame({
           if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
             lastSpokenStallRef.current = newIndex;
             vg.speakIfVoiceLed(STALL_PROMPTS[newIndex]);
+            voiceController.recordSpoken(STALL_PROMPTS[newIndex]);
           }
         }
       }
@@ -445,14 +456,8 @@ export function NarrativeRetellGame({
     // because Web Speech API silently no-ops when called too soon after TTS.
     const openMic = async () => {
       if (useTyping) return;
-      // Belt-and-braces: wait until any residual TTS is fully stopped.
-      let waited = 0;
-      while ((isTTSSpeaking || vg.isSpeaking) && waited < 3000) {
-        await new Promise(r => setTimeout(r, 150));
-        waited += 150;
-      }
-      // Tiny pad so the audio tail doesn't bleed into the recogniser.
-      await new Promise(r => setTimeout(r, 200));
+      // Canonical Sync-Wait: voiceController owns the speaking flag + 400ms tail-lock.
+      await awaitMicSafe(8000);
       try { startRecording(); } catch (e) { console.warn('[NarrativeRetell] startRecording failed', e); }
       try { startListening(); } catch (e) { console.warn('[NarrativeRetell] startListening failed', e); }
       // Verify mic actually opened; if not, surface the failure UI so the
@@ -474,14 +479,17 @@ export function NarrativeRetellGame({
     if (vg.isVoiceLed && !useTyping) {
       (async () => {
         await new Promise(r => setTimeout(r, 300));
-        try { await vg.speakTask(); } catch {}
+        try {
+          await vg.speakTask();
+          voiceController.recordSpoken(retellPromptText);
+        } catch {}
         await openMic();
       })();
     } else if (!useTyping) {
       // Non voice-led: still wait for any auto-read tail before opening mic.
       void openMic();
     }
-  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, isTTSSpeaking, isListening, phase]);
+  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, awaitMicSafe, isListening, phase, retellPromptText]);
 
   // Auto-advance into retell phase as soon as the story finishes reading.
   // Removes the manual "Start retelling" gate — the user just hears the story
@@ -511,17 +519,39 @@ export function NarrativeRetellGame({
 
     setTimeout(async () => {
       const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
-      const validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      const durationMs = Date.now() - startTimeRef.current;
+
+      // Canonical pre-scoring gate: rejects echo-of-Maya (story narration / stall
+      // prompts) and validation failures (filler/empty/instruction echo) BEFORE
+      // the retell is graded. Typed input bypasses the echo check by skipping the gate.
+      let gatedTranscript = transcript;
+      let validation;
+      if (useTyping) {
+        validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+      } else {
+        const gate = gateResponse({
+          transcript,
+          expectedMode: 'retell',
+          extraSpokenContext: voiceController.getRecentSpoken(),
+        });
+        broadcastGateDecision('narrative_retell', gate, transcript);
+        validation = gate.validation ?? validateSpokenResponse({ transcript, expectedMode: 'retell' });
+        if (!gate.ok) {
+          // Soft-reject: zero out transcript so submitRetell scores as no-retell
+          // and Maya speaks the gate's coaching line.
+          gatedTranscript = '';
+        }
+      }
+
       trackValidation('narrative_retell', validation);
       logValidationDetail('narrative_retell', transcript, validation);
-      const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
         speakMayaCoaching(validation.rejectionReason, speakTTS, { exerciseKey: 'narrative_retell' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
         resetCoachingState('narrative_retell', speakTTS);
       }
-      const result = submitRetell(validation.valid ? transcript : '', durationMs);
+      const result = submitRetell(validation.valid ? gatedTranscript : '', durationMs);
 
       let audioStoragePath: string | null = null;
       if (recordingResult?.audioBlob && userId && sessionId) {
