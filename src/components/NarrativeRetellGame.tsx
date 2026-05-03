@@ -518,10 +518,10 @@ export function NarrativeRetellGame({
     if (!storyReadComplete) return;
     if (autoStartedForIndexRef.current === currentIndex) return;
     autoStartedForIndexRef.current = currentIndex;
-    // Small breath after audio so the tail-lock can settle.
+    // Give the user a beat to absorb the story before flipping to retell.
     const t = setTimeout(() => {
       handleStartRetelling();
-    }, 600);
+    }, 2500);
     return () => clearTimeout(t);
   }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
 
