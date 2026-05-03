@@ -238,6 +238,7 @@ export function NarrativeRetellGame({
       if (vg.shouldAutoSpeak && currentIndex === 0) {
         try {
           await vg.speakIntro({ storyTitle: currentStory.title });
+          voiceController.recordSpoken(`Listen to ${currentStory.title}`);
         } catch (e) {
           console.warn('[NarrativeRetell] Intro TTS failed:', e);
         }
@@ -249,6 +250,7 @@ export function NarrativeRetellGame({
       console.log('[NarrativeRetell] Auto-reading story:', currentStory.title);
       try {
         await speakTTS(fullText);
+        voiceController.recordSpoken(fullText);
         console.log('[NarrativeRetell] Auto-read complete');
         setStoryReadComplete(true);
       } catch (e) {
