@@ -115,6 +115,7 @@ const App = () => (
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
+                <VoiceBleedGuard />
                 <Toaster />
                 <Sonner />
                 <MayaSessionOverlay />
