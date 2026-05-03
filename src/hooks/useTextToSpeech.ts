@@ -31,7 +31,17 @@ let globalAudio: HTMLAudioElement | null = null;
 let globalAudioUrl: string | null = null;
 let globalAbortController: AbortController | null = null;
 
-const stopGlobalTTS = () => {
+/**
+ * Browser TTS fallback (window.speechSynthesis) is the source of the "rogue
+ * second voice" users hear bleeding between exercises. We keep the code path
+ * intact but gate it behind an env flag so production stays Maya-only.
+ *
+ * Set VITE_ALLOW_BROWSER_TTS_FALLBACK=true to re-enable for debugging.
+ */
+const ALLOW_BROWSER_TTS_FALLBACK =
+  import.meta.env.VITE_ALLOW_BROWSER_TTS_FALLBACK === 'true';
+
+export const stopGlobalTTS = () => {
   globalAbortController?.abort();
   globalAbortController = null;
 
@@ -46,7 +56,11 @@ const stopGlobalTTS = () => {
     globalAudioUrl = null;
   }
 
-  window.speechSynthesis?.cancel();
+  // Always cancel any pending browser-synth utterances, even when the
+  // fallback is disabled — older audio may still be queued from earlier sessions.
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch {}
+  }
 };
 
 export const useTextToSpeech = () => {
@@ -56,9 +70,21 @@ export const useTextToSpeech = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Browser TTS - reliable fallback that always works
+  // Browser TTS - reliable fallback that always works.
+  // Disabled by default so we never play OS voices (Samantha/Karen) over Maya.
+  // Resolves immediately as a no-op when the fallback is off.
   const speakBrowser = useCallback((text: string): Promise<void> => {
     return new Promise<void>((resolve) => {
+      if (!ALLOW_BROWSER_TTS_FALLBACK) {
+        console.warn('[TTS] Browser fallback disabled — skipping utterance:', text.slice(0, 60));
+        // Make sure no stale browser audio is still queued from a prior session.
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          try { window.speechSynthesis.cancel(); } catch {}
+        }
+        setIsSpeaking(false); notifyVC(false);
+        resolve();
+        return;
+      }
       if (!('speechSynthesis' in window)) {
         console.warn('[TTS] Browser speech synthesis not supported');
         resolve();

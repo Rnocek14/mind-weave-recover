@@ -99,7 +99,31 @@ class VoiceControllerImpl {
 
 export const voiceController = new VoiceControllerImpl();
 
+/**
+ * Hard-stop ALL voice activity:
+ *   - aborts any in-flight ElevenLabs fetch + cancels HTML5 audio playback
+ *   - cancels any queued browser-synth utterances (defence-in-depth even though
+ *     the browser fallback is disabled by default)
+ *   - clears Maya's spoken history so EchoFilter starts fresh
+ *   - flips voiceController.isSpeaking → false immediately
+ *
+ * Call this whenever the user transitions between exercises so leftover audio
+ * from the previous game can never bleed into the next one.
+ */
+export const flushVoiceSessionQueue = (reason = 'unknown') => {
+  console.log('[voice] flushVoiceSessionQueue:', reason);
+  // Lazy import to avoid a circular dependency between voiceController and
+  // useTextToSpeech (which imports voiceController at module load).
+  import('./voiceControllerStop')
+    .then((m) => m.stopAllVoice())
+    .catch((e) => console.warn('[voice] flush failed', e));
+  voiceController.notifySpeakingChanged(false);
+  voiceController.clearSpokenHistory();
+};
+
 // Expose for debugging
 if (typeof window !== 'undefined') {
   (window as unknown as { __voiceController?: unknown }).__voiceController = voiceController;
+  (window as unknown as { __flushVoiceSessionQueue?: unknown }).__flushVoiceSessionQueue =
+    flushVoiceSessionQueue;
 }
