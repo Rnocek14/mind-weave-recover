@@ -11,12 +11,23 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { NARRATIVE_STORIES, NarrativeStory } from '@/data/narrativeRetellStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 
-/** Build a queue of stories at a given tier, avoiding ones already seen. */
+/** Build a queue of stories at a given tier, avoiding ones already seen.
+ *  Uses a sliding ±1 window so the pool actually scales with tier:
+ *    tier 1 → tier 1 (fallback 2)
+ *    tier 2 → tier 1–3
+ *    tier 3 → tier 2–3 (fallback 3 only)
+ *  Previously used `tier <= tier+1` which leaked easy stories into hard sessions. */
 function buildStories(tier: number, count: number, excludeIds: Set<string>): NarrativeStory[] {
-  const pool = NARRATIVE_STORIES.filter(
-    (s) => s.tier <= Math.min(tier + 1, 3) && !excludeIds.has(s.id),
+  const t = Math.max(1, Math.min(3, tier));
+  const lo = Math.max(1, t - 1);
+  const hi = Math.min(3, t + 1);
+  // Prefer exact-tier matches; fill with adjacent tier(s) if the pool is short.
+  const exact = NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
+  const adjacent = NARRATIVE_STORIES.filter(
+    (s) => s.tier !== t && s.tier >= lo && s.tier <= hi && !excludeIds.has(s.id),
   );
-  return shuffleArray(pool).slice(0, count);
+  const pool = [...shuffleArray(exact), ...shuffleArray(adjacent)];
+  return pool.slice(0, count);
 }
 import { scoreExplanation } from '@/lib/explanationScorer';
 
