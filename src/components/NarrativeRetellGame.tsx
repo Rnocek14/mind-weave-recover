@@ -456,14 +456,8 @@ export function NarrativeRetellGame({
     // because Web Speech API silently no-ops when called too soon after TTS.
     const openMic = async () => {
       if (useTyping) return;
-      // Belt-and-braces: wait until any residual TTS is fully stopped.
-      let waited = 0;
-      while ((isTTSSpeaking || vg.isSpeaking) && waited < 3000) {
-        await new Promise(r => setTimeout(r, 150));
-        waited += 150;
-      }
-      // Tiny pad so the audio tail doesn't bleed into the recogniser.
-      await new Promise(r => setTimeout(r, 200));
+      // Canonical Sync-Wait: voiceController owns the speaking flag + 400ms tail-lock.
+      await awaitMicSafe(8000);
       try { startRecording(); } catch (e) { console.warn('[NarrativeRetell] startRecording failed', e); }
       try { startListening(); } catch (e) { console.warn('[NarrativeRetell] startListening failed', e); }
       // Verify mic actually opened; if not, surface the failure UI so the
@@ -485,14 +479,17 @@ export function NarrativeRetellGame({
     if (vg.isVoiceLed && !useTyping) {
       (async () => {
         await new Promise(r => setTimeout(r, 300));
-        try { await vg.speakTask(); } catch {}
+        try {
+          await vg.speakTask();
+          voiceController.recordSpoken(retellPromptText);
+        } catch {}
         await openMic();
       })();
     } else if (!useTyping) {
       // Non voice-led: still wait for any auto-read tail before opening mic.
       void openMic();
     }
-  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, isTTSSpeaking, isListening, phase]);
+  }, [handleStopSpeech, startListening, startRecording, startAttempt, currentStory, currentIndex, userId, sessionId, useTyping, vg, awaitMicSafe, isListening, phase, retellPromptText]);
 
   // Auto-advance into retell phase as soon as the story finishes reading.
   // Removes the manual "Start retelling" gate — the user just hears the story
