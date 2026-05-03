@@ -295,7 +295,7 @@ export function NarrativeRetellGame({
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
-    lastSpokenStallRef.current = -1;
+    // lastSpokenStallRef reset handled inline below where it's declared
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
