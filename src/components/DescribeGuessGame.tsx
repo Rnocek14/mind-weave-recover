@@ -48,6 +48,7 @@ import { MicFailureRecovery } from '@/components/MicFailureRecovery';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
@@ -147,6 +148,7 @@ export function DescribeGuessGame({
 
   const {
     currentDifficulty,
+    levelDescriptor: dgLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
   } = useInGameAdaptation({
     exerciseSlug: 'describe_guess',
@@ -812,6 +814,7 @@ export function DescribeGuessGame({
         <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
           <div className="flex items-center gap-2">
+            <LevelBadge descriptor={dgLevelDescriptor} compact />
             <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
             <span>🎯{game.meaningWins}</span>
             <span>💬{game.wordWins}</span>
