@@ -129,6 +129,18 @@ export function DetectiveMindGame({
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('detective-mind');
 
+  // Direct TTS so Detective Mind reads story+question in EVERY coaching mode
+  // (the previous vg-only path required Full Coaching, which is why users
+  // reported the case being silent in Guided mode).
+  const { speak: speakDirect, stop: stopDirect, isSpeaking: isDirectSpeaking } = useTextToSpeech();
+  const ttsSeqRef = useRef(0);
+
+  const speakBlocking = useCallback(async (text: string) => {
+    const seq = ++ttsSeqRef.current;
+    try { await speakDirect(text); } catch {}
+    return seq === ttsSeqRef.current;
+  }, [speakDirect]);
+
   // ---------------------------------------------------------------------------
   // Shuffle answer options per case so the correct answer isn't always "B".
   // The case bank is heavily B-biased (17/19 cases) — without shuffling, users
