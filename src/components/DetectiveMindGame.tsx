@@ -12,12 +12,14 @@ import { useDetectiveMindGame, DetectiveTrialResult, DetectiveRank } from '@/hoo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType, mapEngineLevelToDetectiveTier } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
