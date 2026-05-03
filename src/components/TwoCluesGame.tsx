@@ -38,6 +38,7 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -193,6 +194,7 @@ export function TwoCluesGame({
   // Layer 2: In-Game Adaptation
   const {
     currentDifficulty,
+    levelDescriptor: tcLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
     frustrationLevel,
     consecutiveErrors: adaptiveConsecutiveErrors,
@@ -1163,7 +1165,10 @@ export function TwoCluesGame({
           <Badge variant="outline" className="text-xs">
             {currentIndex + 1}/{totalRounds}
           </Badge>
-          <AdaptationBadge direction={difficultyChanged} reason={adaptationNarration} />
+          <div className="flex items-center gap-2">
+            <LevelBadge descriptor={tcLevelDescriptor} compact />
+            <AdaptationBadge direction={difficultyChanged} reason={adaptationNarration} />
+          </div>
           <Badge variant="secondary" className="text-xs">
             {game.totalScore} pts
           </Badge>

@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { supabase } from '@/integrations/supabase/client';
@@ -201,6 +202,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
   const {
     currentDifficulty,
+    levelDescriptor: ppLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
     getCueLevel: getAdaptiveCueLevel,
     frustrationLevel,
