@@ -15,6 +15,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 const SYNONYM_MAP: Record<string, string[]> = {
+  dish: ['plate', 'platter', 'saucer'],
+  plate: ['dish', 'platter', 'saucer'],
   dog: ['puppy', 'doggy', 'doggie', 'pup', 'hound', 'pooch'],
   cat: ['kitty', 'kitten', 'kitty cat'],
   cup: ['mug', 'glass', 'drinking cup'],

@@ -192,6 +192,7 @@ export function NarrativeRetellGame({
   const transcriptPrefixRef = useRef('');
   const handleDoneRetellingRef = useRef<() => void>(() => {});
   const autoStartedForIndexRef = useRef<number | null>(null);
+  const lastSpokenStallRef = useRef(-1);
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -281,7 +282,12 @@ export function NarrativeRetellGame({
 
   // Reset on story change — also clear voiceController spoken history
   // so previous story's narration can't echo into the new trial's gate.
+  // CRITICAL: stop any in-flight TTS from the previous story so the user
+  // doesn't hear "Pizza Night" narration while looking at "First Snow".
   useEffect(() => {
+    try { stopTTS(); } catch {}
+    try { interruptVoiceGuidance(); } catch {}
+    invalidateVoiceSequence();
     setPhase('reading');
     setLastResult(null);
     setCollectedTranscript('');
@@ -289,10 +295,13 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    transcriptPrefixRef.current = '';
+    lastSpokenStallRef.current = -1;
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
     voiceController.clearSpokenHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
   const completedRef = useRef(false);
@@ -401,7 +410,7 @@ export function NarrativeRetellGame({
   // Auto-submit after a longer pause so users have enough retell time
   // Stall support: show progressive prompts if user hasn't spoken much
   // In Full Coaching mode, speak the prompts aloud
-  const lastSpokenStallRef = useRef(-1);
+  // lastSpokenStallRef declared earlier alongside other per-story refs.
   useEffect(() => {
     if (phase !== 'retelling' || isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking) return;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
@@ -449,8 +458,6 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     transcriptPrefixRef.current = '';
     latestTranscriptRef.current = '';
-    lastSpokenStallRef.current = -1;
-
     if (currentStory && userId) {
       startAttempt({
         sessionId: sessionId || 'standalone',
@@ -511,10 +518,10 @@ export function NarrativeRetellGame({
     if (!storyReadComplete) return;
     if (autoStartedForIndexRef.current === currentIndex) return;
     autoStartedForIndexRef.current = currentIndex;
-    // Small breath after audio so the tail-lock can settle.
+    // Give the user a beat to absorb the story before flipping to retell.
     const t = setTimeout(() => {
       handleStartRetelling();
-    }, 600);
+    }, 2500);
     return () => clearTimeout(t);
   }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
 
@@ -917,11 +924,24 @@ export function NarrativeRetellGame({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={() => {
+                onClick={async () => {
                   if (!currentStory) return;
                   vg.interrupt();
+                  stopTTS();
+                  // Reset stall progression so Maya doesn't immediately ask
+                  // "how did the story end" after a re-read.
+                  setStallPromptIndex(-1);
+                  lastSpokenStallRef.current = -1;
+                  retellStartRef.current = Date.now();
                   const fullText = currentStory.scenes.map(s => s.text).join(' ');
-                  vg.isVoiceLed ? vg.autoReadText(fullText) : speakTTS(fullText);
+                  try {
+                    if (vg.isVoiceLed) await vg.autoReadText(fullText);
+                    else await speakTTS(fullText);
+                    voiceController.recordSpoken(fullText);
+                  } catch {}
+                  // Reset retell timing baseline AGAIN after audio so the
+                  // silence/stall timers count from when the user can speak.
+                  retellStartRef.current = Date.now();
                 }}
               >
                 <Volume2 className="h-4 w-4 mr-1" />

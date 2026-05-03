@@ -12,12 +12,14 @@ import { useDetectiveMindGame, DetectiveTrialResult, DetectiveRank } from '@/hoo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Lightbulb, Star, Shield, MessageCircle, Volume2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExplainWhyPrompt, ExplainWhyResult } from '@/components/ExplainWhyPrompt';
 import { deriveKeyConcepts } from '@/lib/explanationScorer';
 import { QuestionType, mapEngineLevelToDetectiveTier } from '@/data/detectiveMindCases';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
@@ -127,6 +129,18 @@ export function DetectiveMindGame({
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('detective-mind');
 
+  // Direct TTS so Detective Mind reads story+question in EVERY coaching mode
+  // (the previous vg-only path required Full Coaching, which is why users
+  // reported the case being silent in Guided mode).
+  const { speak: speakDirect, stop: stopDirect, isSpeaking: isDirectSpeaking } = useTextToSpeech();
+  const ttsSeqRef = useRef(0);
+
+  const speakBlocking = useCallback(async (text: string) => {
+    const seq = ++ttsSeqRef.current;
+    try { await speakDirect(text); } catch {}
+    return seq === ttsSeqRef.current;
+  }, [speakDirect]);
+
   // ---------------------------------------------------------------------------
   // Shuffle answer options per case so the correct answer isn't always "B".
   // The case bank is heavily B-biased (17/19 cases) — without shuffling, users
@@ -163,9 +177,10 @@ export function DetectiveMindGame({
   // Reset state when case changes
   useEffect(() => {
     // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
-    // the auto-read effect spins up the new one. Without this the user hears
-    // the old story while the screen shows the new one.
+    // the auto-read effect spins up the new one.
     vg.interrupt?.();
+    try { stopDirect(); } catch {}
+    ttsSeqRef.current++; // invalidate any pending speakBlocking awaits
 
     setPhase('answering');
     setSelectedOption(null);
@@ -177,33 +192,41 @@ export function DetectiveMindGame({
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentIndex, vg]);
+  }, [currentIndex, vg, stopDirect]);
 
-  // Full Coaching: auto-read story then question on case load
+  // Auto-read story then question on case load — runs in EVERY mode.
+  // (Previously gated to Full Coaching only, which is why Detective Mind
+  // appeared "silent" for most users.)
   useEffect(() => {
-    if (!currentCase || hasAutoRead || !vg.shouldAutoReadContent) return;
+    if (!currentCase || hasAutoRead) return;
     setHasAutoRead(true);
+    const localSeq = ++ttsSeqRef.current;
 
     const doAutoRead = async () => {
-      // First case gets the exercise intro
+      // Brief intro on first case
       if (currentIndex === 0) {
-        await vg.speakIntro();
-        // Brief pause after intro
-        await new Promise(r => setTimeout(r, 800));
+        await speakDirect("Read the story, then pick the best answer.");
+        if (localSeq !== ttsSeqRef.current) return;
+        await new Promise(r => setTimeout(r, 500));
+        if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
-      await vg.autoReadText(storyText);
-      // Pause between story and question (~1s)
-      await new Promise(r => setTimeout(r, 1000));
-      // Read question
-      await vg.autoReadText(currentCase.question);
-      // Signal that auto-read is done so stall timer can start
+      try { await speakDirect(storyText); } catch {}
+      if (localSeq !== ttsSeqRef.current) return;
+      await new Promise(r => setTimeout(r, 800));
+      if (localSeq !== ttsSeqRef.current) return;
+      // Read question + each option so users can answer by voice
+      const optionsSpoken = currentCase.options
+        .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+        .join('. ');
+      try { await speakDirect(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
+      if (localSeq !== ttsSeqRef.current) return;
       setAutoReadDone(true);
     };
 
     doAutoRead();
-  }, [currentCase, currentIndex, hasAutoRead, vg]);
+  }, [currentCase, currentIndex, hasAutoRead, speakDirect]);
 
   // Full Coaching: spoken stall cue after ~8s of no interaction
   // Only starts AFTER auto-read finishes to avoid interrupting story reading
@@ -265,6 +288,71 @@ export function DetectiveMindGame({
       });
     }
   }, [phase, selectedOption, usedHint, submitAnswer, vg, adaptation, engagement, displayToOriginal]);
+
+  // ─── Voice answer support ────────────────────────────────────────────────
+  // Listen after Maya finishes reading; map spoken letter / ordinal /
+  // option keyword to the displayed option index.
+  const selectFromTranscript = useCallback((raw: string): number | null => {
+    const t = raw.toLowerCase().trim();
+    if (!t) return null;
+    // Letter match: "a", "b.", "letter c", "answer d"
+    const letterMatch = t.match(/\b(?:answer\s+|letter\s+|option\s+)?([a-d])\b/);
+    if (letterMatch) {
+      const idx = letterMatch[1].charCodeAt(0) - 'a'.charCodeAt(0);
+      if (idx >= 0 && idx < displayedOptions.length) return idx;
+    }
+    // Ordinal
+    const ords: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3, one: 0, two: 1, three: 2, four: 3 };
+    for (const [k, v] of Object.entries(ords)) {
+      if (new RegExp(`\\b${k}\\b`).test(t) && v < displayedOptions.length) return v;
+    }
+    // Substring match against option text (longest unique wins)
+    let best = -1; let bestLen = 0;
+    displayedOptions.forEach((opt, i) => {
+      const lower = opt.toLowerCase();
+      // require at least 3 char overlap of significant word
+      const words = lower.split(/\W+/).filter(w => w.length >= 4);
+      for (const w of words) {
+        if (t.includes(w) && w.length > bestLen) { best = i; bestLen = w.length; }
+      }
+    });
+    return best >= 0 ? best : null;
+  }, [displayedOptions]);
+
+  const handleSpeechAnswer = useCallback((text: string) => {
+    if (phase !== 'answering' || selectedOption !== null) return;
+    const idx = selectFromTranscript(text);
+    if (idx != null) handleSelectOption(idx);
+  }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
+
+  const {
+    isListening: voiceListening,
+    startListening: startVoice,
+    stopListening: stopVoice,
+    isSupported: voiceSupported,
+  } = useSpeechRecognition({
+    onResult: handleSpeechAnswer,
+    patientMode: true,
+    continuousListening: true,
+  });
+
+  // Auto-start mic after Maya finishes reading the question/options.
+  useEffect(() => {
+    if (!autoReadDone || phase !== 'answering' || selectedOption !== null) return;
+    if (!voiceSupported) return;
+    if (isDirectSpeaking) return;
+    const t = setTimeout(() => {
+      try { startVoice(); } catch {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [autoReadDone, phase, selectedOption, voiceSupported, isDirectSpeaking, startVoice]);
+
+  // Stop listening once selection committed or case changes.
+  useEffect(() => {
+    if (selectedOption !== null || phase !== 'answering') {
+      try { stopVoice(); } catch {}
+    }
+  }, [selectedOption, phase, stopVoice]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -431,16 +519,18 @@ export function DetectiveMindGame({
             </p>
           )}
 
-          {/* Replay buttons — always visible, especially important in Full Coaching */}
-          <div className="flex gap-2">
+          {/* Replay buttons — always visible, work in every coaching mode */}
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
-                vg.autoReadText(currentCase.story.join(' '));
+                stopDirect();
+                ttsSeqRef.current++;
+                speakDirect(currentCase.story.join(' '));
               }}
             >
               <Volume2 className="h-4 w-4 mr-1" />
@@ -449,16 +539,35 @@ export function DetectiveMindGame({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
-                vg.autoReadText(currentCase.question);
+                stopDirect();
+                ttsSeqRef.current++;
+                const optionsSpoken = currentCase.options
+                  .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+                  .join('. ');
+                speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
               }}
             >
               <Volume2 className="h-4 w-4 mr-1" />
               Repeat question
             </Button>
+            {voiceSupported && (
+              <Button
+                variant={voiceListening ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 min-w-[120px]"
+                onClick={() => {
+                  if (voiceListening) { stopVoice(); }
+                  else { stopDirect(); ttsSeqRef.current++; startVoice(); }
+                }}
+              >
+                {voiceListening ? <MicOff className="h-4 w-4 mr-1" /> : <Mic className="h-4 w-4 mr-1" />}
+                {voiceListening ? 'Listening… say A, B, C, or D' : 'Answer by voice'}
+              </Button>
+            )}
           </div>
         </div>
       )}
