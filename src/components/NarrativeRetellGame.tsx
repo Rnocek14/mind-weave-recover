@@ -924,11 +924,24 @@ export function NarrativeRetellGame({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={() => {
+                onClick={async () => {
                   if (!currentStory) return;
                   vg.interrupt();
+                  stopTTS();
+                  // Reset stall progression so Maya doesn't immediately ask
+                  // "how did the story end" after a re-read.
+                  setStallPromptIndex(-1);
+                  lastSpokenStallRef.current = -1;
+                  retellStartRef.current = Date.now();
                   const fullText = currentStory.scenes.map(s => s.text).join(' ');
-                  vg.isVoiceLed ? vg.autoReadText(fullText) : speakTTS(fullText);
+                  try {
+                    if (vg.isVoiceLed) await vg.autoReadText(fullText);
+                    else await speakTTS(fullText);
+                    voiceController.recordSpoken(fullText);
+                  } catch {}
+                  // Reset retell timing baseline AGAIN after audio so the
+                  // silence/stall timers count from when the user can speak.
+                  retellStartRef.current = Date.now();
                 }}
               >
                 <Volume2 className="h-4 w-4 mr-1" />
