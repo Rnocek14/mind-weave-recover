@@ -402,10 +402,10 @@ export function NarrativeRetellGame({
 
       if (wordCount < 2) {
         let newIndex = stallPromptIndex;
-        if (elapsed > 20000 && stallPromptIndex < 3) newIndex = 3;
-        else if (elapsed > 15000 && stallPromptIndex < 2) newIndex = 2;
-        else if (elapsed > 10000 && stallPromptIndex < 1) newIndex = 1;
-        else if (elapsed > 6000 && stallPromptIndex < 0) newIndex = 0;
+        if (elapsed > 32000 && stallPromptIndex < 3) newIndex = 3;
+        else if (elapsed > 24000 && stallPromptIndex < 2) newIndex = 2;
+        else if (elapsed > 18000 && stallPromptIndex < 1) newIndex = 1;
+        else if (elapsed > 12000 && stallPromptIndex < 0) newIndex = 0;
         
         if (newIndex > stallPromptIndex) {
           setStallPromptIndex(newIndex);
