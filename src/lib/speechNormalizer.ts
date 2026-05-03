@@ -161,25 +161,46 @@ export const isMostlyFiller = (raw: string): boolean => {
  * Handles multi-word clues by splitting into individual tokens.
  * Only adds safe morphological variants (plural -s/-es, reverse -ies→-y).
  * Does NOT strip -ing (would mangle "ring" → "r").
+ *
+ * `preserveTokens` (optional): tokens that must NEVER be stripped even if a
+ * morphological reverse-strip would otherwise mark them as a clue echo.
+ * E.g. clue "teaches" reverse-strips to "teach" — but "teach" is the answer
+ * alias for "teacher" so we MUST keep it. Pass anchor + alias words here.
  */
-export const removeClueWords = (transcript: string, clueWords: string[]): string => {
+export const removeClueWords = (
+  transcript: string,
+  clueWords: string[],
+  preserveTokens: string[] = []
+): string => {
   if (!transcript || clueWords.length === 0) return transcript;
+
+  const preserveSet = new Set<string>(
+    preserveTokens
+      .flatMap(p => p.toLowerCase().trim().split(/\s+/))
+      .map(p => p.replace(/[^a-z']/g, ''))
+      .filter(p => p.length > 0)
+  );
 
   // Build a set of clue token variants (lowercase, English-only)
   const clueSet = new Set<string>();
+  const addVariant = (v: string) => {
+    if (!v || v.length < 2) return;
+    if (preserveSet.has(v)) return; // never strip an answer token
+    clueSet.add(v);
+  };
+
   for (const clue of clueWords) {
     // Split multi-word clues ("ice cream" → ["ice", "cream"])
     const clueTokens = clue.toLowerCase().trim().split(/\s+/);
     for (const token of clueTokens) {
       const clean = token.replace(/[^a-z']/g, '');
       if (!clean || clean.length < 2) continue;
-      clueSet.add(clean);
+      addVariant(clean);
       // Safe plural variants only
-      // Add -s plural only when base plausibly takes it
-      clueSet.add(clean + 's');
+      addVariant(clean + 's');
       // Add -es only for words ending in s/x/z/ch/sh
       if (/(?:s|x|z|ch|sh)$/.test(clean)) {
-        clueSet.add(clean + 'es');
+        addVariant(clean + 'es');
       }
       // Reverse: strip -s to get singular, but only for safe cases
       const canStripS =
@@ -189,13 +210,14 @@ export const removeClueWords = (transcript: string, clueWords: string[]): string
         !clean.endsWith('us') &&
         !clean.endsWith('is') &&
         !clean.endsWith('as');
-      if (canStripS) clueSet.add(clean.slice(0, -1));
-      // Reverse -es: "boxes" → "box"
-      if (clean.endsWith('es') && clean.length > 3 && !clean.endsWith('ses')) {
-        clueSet.add(clean.slice(0, -2));
+      if (canStripS) addVariant(clean.slice(0, -1));
+      // Reverse -es: "boxes" → "box". Tightened: only when residue is ≥ 4 chars
+      // so "teaches" (7) → "teach" (5) is allowed but never strips a 3-char root.
+      if (clean.endsWith('es') && clean.length > 5 && !clean.endsWith('ses')) {
+        addVariant(clean.slice(0, -2));
       }
       // Reverse -ies: "flies" → "fly"
-      if (clean.endsWith('ies') && clean.length > 4) clueSet.add(clean.slice(0, -3) + 'y');
+      if (clean.endsWith('ies') && clean.length > 4) addVariant(clean.slice(0, -3) + 'y');
     }
   }
 
