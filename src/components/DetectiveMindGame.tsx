@@ -177,9 +177,10 @@ export function DetectiveMindGame({
   // Reset state when case changes
   useEffect(() => {
     // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
-    // the auto-read effect spins up the new one. Without this the user hears
-    // the old story while the screen shows the new one.
+    // the auto-read effect spins up the new one.
     vg.interrupt?.();
+    try { stopDirect(); } catch {}
+    ttsSeqRef.current++; // invalidate any pending speakBlocking awaits
 
     setPhase('answering');
     setSelectedOption(null);
@@ -191,33 +192,41 @@ export function DetectiveMindGame({
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentIndex, vg]);
+  }, [currentIndex, vg, stopDirect]);
 
-  // Full Coaching: auto-read story then question on case load
+  // Auto-read story then question on case load — runs in EVERY mode.
+  // (Previously gated to Full Coaching only, which is why Detective Mind
+  // appeared "silent" for most users.)
   useEffect(() => {
-    if (!currentCase || hasAutoRead || !vg.shouldAutoReadContent) return;
+    if (!currentCase || hasAutoRead) return;
     setHasAutoRead(true);
+    const localSeq = ++ttsSeqRef.current;
 
     const doAutoRead = async () => {
-      // First case gets the exercise intro
+      // Brief intro on first case
       if (currentIndex === 0) {
-        await vg.speakIntro();
-        // Brief pause after intro
-        await new Promise(r => setTimeout(r, 800));
+        await speakDirect("Read the story, then pick the best answer.");
+        if (localSeq !== ttsSeqRef.current) return;
+        await new Promise(r => setTimeout(r, 500));
+        if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
-      await vg.autoReadText(storyText);
-      // Pause between story and question (~1s)
-      await new Promise(r => setTimeout(r, 1000));
-      // Read question
-      await vg.autoReadText(currentCase.question);
-      // Signal that auto-read is done so stall timer can start
+      try { await speakDirect(storyText); } catch {}
+      if (localSeq !== ttsSeqRef.current) return;
+      await new Promise(r => setTimeout(r, 800));
+      if (localSeq !== ttsSeqRef.current) return;
+      // Read question + each option so users can answer by voice
+      const optionsSpoken = currentCase.options
+        .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+        .join('. ');
+      try { await speakDirect(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
+      if (localSeq !== ttsSeqRef.current) return;
       setAutoReadDone(true);
     };
 
     doAutoRead();
-  }, [currentCase, currentIndex, hasAutoRead, vg]);
+  }, [currentCase, currentIndex, hasAutoRead, speakDirect]);
 
   // Full Coaching: spoken stall cue after ~8s of no interaction
   // Only starts AFTER auto-read finishes to avoid interrupting story reading
