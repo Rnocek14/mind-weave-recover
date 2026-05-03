@@ -83,6 +83,7 @@ import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
+import { VoiceBleedGuard } from "@/components/VoiceBleedGuard";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
