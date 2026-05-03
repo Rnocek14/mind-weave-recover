@@ -16,6 +16,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
@@ -451,7 +452,7 @@ export const SemanticFeatureGame = ({
       <div className="flex justify-between items-center text-xs">
         <span className="text-muted-foreground">{game.currentTrial + 1} of {totalTrials}</span>
         <div className="flex gap-2 items-center">
-          <Badge variant="outline" className="text-xs">Lv {currentDifficulty}</Badge>
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
           <span className="font-medium text-foreground/80">{game.score} correct</span>
         </div>
       </div>

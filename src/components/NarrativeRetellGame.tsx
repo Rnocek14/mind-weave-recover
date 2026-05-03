@@ -37,6 +37,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -71,7 +72,7 @@ interface NarrativeRetellGameProps {
 type Phase = 'reading' | 'retelling' | 'scored';
 
 const STALL_PROMPTS = [
-  "Take your time. Start with what happened first.",
+  "Start with what happened first.",
   "Who was in the story?",
   "What happened next?",
   "How did the story end?",
@@ -402,10 +403,10 @@ export function NarrativeRetellGame({
 
       if (wordCount < 2) {
         let newIndex = stallPromptIndex;
-        if (elapsed > 20000 && stallPromptIndex < 3) newIndex = 3;
-        else if (elapsed > 15000 && stallPromptIndex < 2) newIndex = 2;
-        else if (elapsed > 10000 && stallPromptIndex < 1) newIndex = 1;
-        else if (elapsed > 6000 && stallPromptIndex < 0) newIndex = 0;
+        if (elapsed > 32000 && stallPromptIndex < 3) newIndex = 3;
+        else if (elapsed > 24000 && stallPromptIndex < 2) newIndex = 2;
+        else if (elapsed > 18000 && stallPromptIndex < 1) newIndex = 1;
+        else if (elapsed > 12000 && stallPromptIndex < 0) newIndex = 0;
         
         if (newIndex > stallPromptIndex) {
           setStallPromptIndex(newIndex);
@@ -725,8 +726,11 @@ export function NarrativeRetellGame({
           <span className="font-medium">Narrative Retell</span>
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
-        <div className="text-muted-foreground">
-          Story {currentIndex + 1} of {totalStories}
+        <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          <span className="text-muted-foreground">
+            Story {currentIndex + 1} of {totalStories}
+          </span>
         </div>
       </div>
 

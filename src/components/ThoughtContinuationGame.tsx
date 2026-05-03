@@ -22,6 +22,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Mic, MicOff, Lightbulb, ArrowRight, ChevronRight, Bug, Check } from 'lucide-react';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { describeLevel, tierToLevel } from '@/lib/gameLevels';
 import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
@@ -868,21 +870,27 @@ export function ThoughtContinuationGame({
       {/* Progress indicator */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{promptCount} of {PROMPTS_PER_SESSION}</span>
-        {streak > 0 && (
-          <span className="text-primary font-medium">
-            🔥 {streak} in a row
-          </span>
-        )}
-        {DEV_MODE && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowDebug(!showDebug)}
-            className="h-6 w-6 p-0"
-          >
-            <Bug className="w-4 h-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <LevelBadge
+            descriptor={describeLevel(tierToLevel(adaptation.level, { min: 1, max: 5 }))}
+            compact
+          />
+          {streak > 0 && (
+            <span className="text-primary font-medium">
+              🔥 {streak} in a row
+            </span>
+          )}
+          {DEV_MODE && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDebug(!showDebug)}
+              className="h-6 w-6 p-0"
+            >
+              <Bug className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Visible adaptation cue — shown when difficulty actually shifts */}

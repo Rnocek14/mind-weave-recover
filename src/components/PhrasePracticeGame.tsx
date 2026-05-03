@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { supabase } from '@/integrations/supabase/client';
@@ -201,6 +202,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Layer 2: In-Game Adaptation (replaces basic useAdaptiveDifficulty)
   const {
     currentDifficulty,
+    levelDescriptor: ppLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
     getCueLevel: getAdaptiveCueLevel,
     frustrationLevel,
@@ -995,12 +997,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
             <MessageSquare className="w-4 h-4 mr-2" />
             Phrase {currentTrialIndex + 1} / {trials.length}
           </Badge>
-          <Badge 
-            variant={currentDifficulty <= 2 ? "secondary" : currentDifficulty <= 4 ? "default" : "destructive"}
-            className="text-lg px-4 py-2"
-          >
-            Level {currentDifficulty}
-          </Badge>
+          <LevelBadge descriptor={ppLevelDescriptor} />
         </div>
         <div className="text-2xl font-bold text-primary">
           {score} pts

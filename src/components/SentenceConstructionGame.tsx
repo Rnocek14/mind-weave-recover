@@ -34,6 +34,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useMayaExerciseFrame } from "@/hooks/useMayaExerciseFrame";
 import { useVoiceGuidance } from "@/hooks/useVoiceGuidance";
 import { useInGameAdaptation } from "@/hooks/useInGameAdaptation";
+import { LevelBadge } from "@/components/exercise/LevelBadge";
 import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
 import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
@@ -143,6 +144,7 @@ export const SentenceConstructionGame = ({
 
   const {
     currentDifficulty,
+    levelDescriptor: scLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
   } = useInGameAdaptation({
     exerciseSlug: 'sentence_construction',
@@ -471,11 +473,14 @@ export const SentenceConstructionGame = ({
 
       {/* Compact progress */}
       <div className="space-y-1">
-        <div className="flex justify-between text-xs sm:text-sm">
+        <div className="flex justify-between items-center text-xs sm:text-sm">
           <span className="text-muted-foreground">
             {currentTrial + 1} of {trials.length}
           </span>
-          <span className="font-medium">{score} correct</span>
+          <div className="flex items-center gap-2">
+            <LevelBadge descriptor={scLevelDescriptor} compact />
+            <span className="font-medium">{score} correct</span>
+          </div>
         </div>
         <Progress value={progress} className="h-1.5" />
       </div>
