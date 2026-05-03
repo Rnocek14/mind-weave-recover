@@ -363,6 +363,7 @@ export function MeaningMatchGame({
           {currentIndex + 1} of {totalItems}
         </span>
         <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
           <span className="text-sm text-muted-foreground">{totalPoints} pts</span>
         </div>
