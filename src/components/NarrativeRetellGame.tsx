@@ -201,6 +201,7 @@ export function NarrativeRetellGame({
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('narrative-retell');
   const { interrupt: interruptVoiceGuidance } = vg;
+  const { awaitMicSafe } = useVoiceState();
 
   const clearRetellTimers = useCallback(() => {
     if (stallTimerRef.current) {
