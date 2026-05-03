@@ -24,6 +24,7 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { levelToTier } from '@/data/meaningMatchItems';
 
 interface MeaningMatchGameProps {
