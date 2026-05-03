@@ -281,7 +281,12 @@ export function NarrativeRetellGame({
 
   // Reset on story change — also clear voiceController spoken history
   // so previous story's narration can't echo into the new trial's gate.
+  // CRITICAL: stop any in-flight TTS from the previous story so the user
+  // doesn't hear "Pizza Night" narration while looking at "First Snow".
   useEffect(() => {
+    try { stopTTS(); } catch {}
+    try { interruptVoiceGuidance(); } catch {}
+    invalidateVoiceSequence();
     setPhase('reading');
     setLastResult(null);
     setCollectedTranscript('');
@@ -289,10 +294,13 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    transcriptPrefixRef.current = '';
+    lastSpokenStallRef.current = -1;
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
     voiceController.clearSpokenHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
   const completedRef = useRef(false);
