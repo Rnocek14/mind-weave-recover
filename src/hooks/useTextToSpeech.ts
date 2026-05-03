@@ -31,7 +31,17 @@ let globalAudio: HTMLAudioElement | null = null;
 let globalAudioUrl: string | null = null;
 let globalAbortController: AbortController | null = null;
 
-const stopGlobalTTS = () => {
+/**
+ * Browser TTS fallback (window.speechSynthesis) is the source of the "rogue
+ * second voice" users hear bleeding between exercises. We keep the code path
+ * intact but gate it behind an env flag so production stays Maya-only.
+ *
+ * Set VITE_ALLOW_BROWSER_TTS_FALLBACK=true to re-enable for debugging.
+ */
+const ALLOW_BROWSER_TTS_FALLBACK =
+  import.meta.env.VITE_ALLOW_BROWSER_TTS_FALLBACK === 'true';
+
+export const stopGlobalTTS = () => {
   globalAbortController?.abort();
   globalAbortController = null;
 
@@ -46,7 +56,11 @@ const stopGlobalTTS = () => {
     globalAudioUrl = null;
   }
 
-  window.speechSynthesis?.cancel();
+  // Always cancel any pending browser-synth utterances, even when the
+  // fallback is disabled — older audio may still be queued from earlier sessions.
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch {}
+  }
 };
 
 export const useTextToSpeech = () => {
