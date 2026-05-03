@@ -37,6 +37,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -725,8 +726,11 @@ export function NarrativeRetellGame({
           <span className="font-medium">Narrative Retell</span>
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
         </div>
-        <div className="text-muted-foreground">
-          Story {currentIndex + 1} of {totalStories}
+        <div className="flex items-center gap-2">
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          <span className="text-muted-foreground">
+            Story {currentIndex + 1} of {totalStories}
+          </span>
         </div>
       </div>
 
