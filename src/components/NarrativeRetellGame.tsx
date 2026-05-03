@@ -413,6 +413,7 @@ export function NarrativeRetellGame({
           if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
             lastSpokenStallRef.current = newIndex;
             vg.speakIfVoiceLed(STALL_PROMPTS[newIndex]);
+            voiceController.recordSpoken(STALL_PROMPTS[newIndex]);
           }
         }
       }
