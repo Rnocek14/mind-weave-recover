@@ -302,7 +302,16 @@ export function TwoCluesGame({
 
     // Update filtered display
     if (currentPuzzleRef.current) {
-      const withoutClues = removeClueWords(result, currentPuzzleRef.current.clues);
+      const p = currentPuzzleRef.current;
+      // Preserve anchors + every alias so morphological strips
+      // (e.g. "teaches" → "teach") never delete the answer itself.
+      const preserve = [
+        ...p.anchors,
+        ...Object.values(p.anchorAliases ?? {}).flat(),
+        ...p.cluster,
+        ...Object.values(p.clusterAliases ?? {}).flat(),
+      ];
+      const withoutClues = removeClueWords(result, p.clues, preserve);
       const answer = extractAnswerFromTranscript(withoutClues);
       setFilteredDisplay(answer);
     }
