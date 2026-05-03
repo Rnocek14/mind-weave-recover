@@ -519,16 +519,18 @@ export function DetectiveMindGame({
             </p>
           )}
 
-          {/* Replay buttons — always visible, especially important in Full Coaching */}
-          <div className="flex gap-2">
+          {/* Replay buttons — always visible, work in every coaching mode */}
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
-                vg.autoReadText(currentCase.story.join(' '));
+                stopDirect();
+                ttsSeqRef.current++;
+                speakDirect(currentCase.story.join(' '));
               }}
             >
               <Volume2 className="h-4 w-4 mr-1" />
@@ -537,16 +539,35 @@ export function DetectiveMindGame({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[120px]"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
-                vg.autoReadText(currentCase.question);
+                stopDirect();
+                ttsSeqRef.current++;
+                const optionsSpoken = currentCase.options
+                  .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+                  .join('. ');
+                speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
               }}
             >
               <Volume2 className="h-4 w-4 mr-1" />
               Repeat question
             </Button>
+            {voiceSupported && (
+              <Button
+                variant={voiceListening ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1 min-w-[120px]"
+                onClick={() => {
+                  if (voiceListening) { stopVoice(); }
+                  else { stopDirect(); ttsSeqRef.current++; startVoice(); }
+                }}
+              >
+                {voiceListening ? <MicOff className="h-4 w-4 mr-1" /> : <Mic className="h-4 w-4 mr-1" />}
+                {voiceListening ? 'Listening… say A, B, C, or D' : 'Answer by voice'}
+              </Button>
+            )}
           </div>
         </div>
       )}
