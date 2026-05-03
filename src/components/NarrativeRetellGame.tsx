@@ -457,8 +457,6 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     transcriptPrefixRef.current = '';
     latestTranscriptRef.current = '';
-    lastSpokenStallRef.current = -1;
-
     if (currentStory && userId) {
       startAttempt({
         sessionId: sessionId || 'standalone',
