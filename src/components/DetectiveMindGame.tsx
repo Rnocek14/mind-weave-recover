@@ -691,8 +691,8 @@ export function DetectiveMindGame({
                     stopDirect();
                     ttsSeqRef.current++;
                     void (async () => {
-                      try { await awaitMicSafeRef.current(5000); } catch {}
-                      try { startVoiceRef.current(); } catch {}
+                      try { await awaitMicSafeRef.current(5000); } catch { void 0; }
+                      try { startVoiceRef.current(); } catch { void 0; }
                     })();
                   }
                 }}
