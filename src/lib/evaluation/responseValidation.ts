@@ -23,7 +23,8 @@ export type ResponseMode =
   | 'sentence_fix'
   | 'retell'
   | 'phrase_repeat'
-  | 'comprehension_choice';
+  | 'comprehension_choice'
+  | 'thought_continuation';
 
 export type RejectionReason =
   | 'empty'
