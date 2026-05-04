@@ -400,7 +400,7 @@ export function DetectiveMindGame({
     isDirectSpeakingRef.current = isDirectSpeaking;
   }, [isDirectSpeaking]);
 
-  const handleSpeechAnswer = useCallback((text: string) => {
+  const processStableSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     // Guard: ignore anything captured while Maya is still speaking, or
     // within 800ms of her finishing — that's TTS bleed, not the user.
@@ -416,6 +416,26 @@ export function DetectiveMindGame({
       setVoiceMissMsg("I didn't catch a choice. Try saying A, B, C, or D.");
     }
   }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
+
+  const handleSpeechAnswer = useCallback((text: string) => {
+    if (phase !== 'answering' || selectedOption !== null) return;
+    if (!text.trim()) return;
+
+    setLastHeardText(text);
+    setVoiceMissMsg(null);
+    pendingTranscriptRef.current = text;
+
+    if (transcriptDebounceRef.current) {
+      clearTimeout(transcriptDebounceRef.current);
+    }
+
+    transcriptDebounceRef.current = setTimeout(() => {
+      const stableTranscript = pendingTranscriptRef.current;
+      transcriptDebounceRef.current = null;
+      pendingTranscriptRef.current = null;
+      if (stableTranscript) processStableSpeechAnswer(stableTranscript);
+    }, TRANSCRIPT_STABLE_DELAY_MS);
+  }, [phase, selectedOption, processStableSpeechAnswer]);
 
   const {
     isListening: voiceListening,
