@@ -439,8 +439,23 @@ export function ThoughtContinuationGame({
       await awaitMicSafe(8000);
       if (promptStartSequenceRef.current !== sequenceId) return;
       clearAnswerState();
-      startRecording();
-      startListening();
+      void startRecording();
+
+      let retryCount = 0;
+      const tryStartListening = () => {
+        retryCount += 1;
+        startListening();
+        if (retryCount >= 5) return;
+
+        const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
+        setTimeout(() => {
+          if (!isListeningRef.current && !hasCommittedRef.current) {
+            tryStartListening();
+          }
+        }, delay);
+      };
+
+      setTimeout(tryStartListening, 250);
     })();
 
     // Start silence timer (this is the long "no-speech-at-all" nudge timer,
