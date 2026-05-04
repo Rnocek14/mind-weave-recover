@@ -463,13 +463,19 @@ export function TwoCluesGame({
   // (Bug fix: previously on puzzle 0 we only spoke the example "animal/barks/dog"
   // from the intro, which didn't match the on-screen clues.)
   const introTtsCompleteRef = useRef(false);
+  const [introTtsComplete, setIntroTtsComplete] = useState(false);
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete || showFeedback) return;
-    if (!vg.shouldAutoSpeak) return;
+    if (!vg.shouldAutoSpeak) {
+      introTtsCompleteRef.current = true;
+      setIntroTtsComplete(true);
+      return;
+    }
 
     const puzzle = game.currentPuzzle;
     const clueText = puzzle.clues.join(', and ');
     introTtsCompleteRef.current = false;
+    setIntroTtsComplete(false);
 
     const speakPuzzleClues = () => vg.speakIfVoiceLed(clueText);
 
@@ -485,6 +491,7 @@ export function TwoCluesGame({
 
     Promise.resolve(p).finally(() => {
       introTtsCompleteRef.current = true;
+      setIntroTtsComplete(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback]);
