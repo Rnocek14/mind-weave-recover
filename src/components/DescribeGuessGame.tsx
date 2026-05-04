@@ -495,6 +495,7 @@ export function DescribeGuessGame({
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
       if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
+      if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
