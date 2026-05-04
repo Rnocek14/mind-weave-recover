@@ -58,6 +58,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 };
 
 type Phase = 'answering' | 'feedback' | 'explaining';
+const TRANSCRIPT_STABLE_DELAY_MS = 750;
 
 export function DetectiveMindGame({ 
   onTrialComplete, 
@@ -127,9 +128,13 @@ export function DetectiveMindGame({
   const [hasAutoRead, setHasAutoRead] = useState(false);
   const [autoReadDone, setAutoReadDone] = useState(false);
   const [voiceMissMsg, setVoiceMissMsg] = useState<string | null>(null);
+  const [lastHeardText, setLastHeardText] = useState<string | null>(null);
+  const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTranscriptRef = useRef<string | null>(null);
 
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('detective-mind');
@@ -197,6 +202,10 @@ export function DetectiveMindGame({
     setHasAutoRead(false);
     setAutoReadDone(false);
     setVoiceMissMsg(null);
+    setLastHeardText(null);
+    setMicAutoStartPending(false);
+    pendingTranscriptRef.current = null;
+    if (transcriptDebounceRef.current) clearTimeout(transcriptDebounceRef.current);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
@@ -319,6 +328,24 @@ export function DetectiveMindGame({
     const t = raw.toLowerCase().trim().replace(/[.,!?]/g, '');
     if (!t) return null;
 
+    const tokens = t.split(/\s+/).filter(Boolean);
+    const compact = t.replace(/\s+/g, '');
+
+    // SpeechRecognition often hears bare letters as common words.
+    const spokenLetterAliases: Record<string, number> = {
+      a: 0, ay: 0, hey: 0, eh: 0, 'lettera': 0, 'optiona': 0,
+      b: 1, bee: 1, be: 1, 'letterb': 1, 'optionb': 1,
+      c: 2, see: 2, sea: 2, 'letterc': 2, 'optionc': 2,
+      d: 3, dee: 3, 'letterd': 3, 'optiond': 3,
+    };
+
+    for (const token of tokens) {
+      const aliasIdx = spokenLetterAliases[token];
+      if (aliasIdx !== undefined && aliasIdx < displayedOptions.length) return aliasIdx;
+    }
+    const compactAliasIdx = spokenLetterAliases[compact];
+    if (compactAliasIdx !== undefined && compactAliasIdx < displayedOptions.length) return compactAliasIdx;
+
     // "number one/two/three/four" → 0..3 (check BEFORE letter regex so "b" in
     // "number" doesn't false-trigger).
     const numberWords: Record<string, number> = {
@@ -373,7 +400,7 @@ export function DetectiveMindGame({
     isDirectSpeakingRef.current = isDirectSpeaking;
   }, [isDirectSpeaking]);
 
-  const handleSpeechAnswer = useCallback((text: string) => {
+  const processStableSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     // Guard: ignore anything captured while Maya is still speaking, or
     // within 800ms of her finishing — that's TTS bleed, not the user.
@@ -390,16 +417,46 @@ export function DetectiveMindGame({
     }
   }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
 
+  const handleSpeechAnswer = useCallback((text: string) => {
+    if (phase !== 'answering' || selectedOption !== null) return;
+    if (!text.trim()) return;
+
+    setLastHeardText(text);
+    setVoiceMissMsg(null);
+    pendingTranscriptRef.current = text;
+
+    if (transcriptDebounceRef.current) {
+      clearTimeout(transcriptDebounceRef.current);
+    }
+
+    transcriptDebounceRef.current = setTimeout(() => {
+      const stableTranscript = pendingTranscriptRef.current;
+      transcriptDebounceRef.current = null;
+      pendingTranscriptRef.current = null;
+      if (stableTranscript) processStableSpeechAnswer(stableTranscript);
+    }, TRANSCRIPT_STABLE_DELAY_MS);
+  }, [phase, selectedOption, processStableSpeechAnswer]);
+
   const {
     isListening: voiceListening,
     startListening: startVoice,
     stopListening: stopVoice,
     isSupported: voiceSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechAnswer,
     patientMode: true,
     continuousListening: true,
   });
+
+  const micErrorMessage =
+    speechError && !speechError.toLowerCase().includes('no speech detected')
+      ? speechError.includes('Microphone access denied')
+        ? 'Microphone access is blocked. Please allow microphone access, then tap Answer by voice.'
+        : speechError.includes('Failed to start speech recognition')
+          ? 'Microphone could not start. Tap Answer by voice again.'
+          : speechError
+      : null;
 
   // Mic safety helper (matches PhotoNaming pattern). Waits until system audio
   // has fully drained before allowing the mic to open, so Maya's own voice
@@ -411,6 +468,7 @@ export function DetectiveMindGame({
   useEffect(() => { awaitMicSafeRef.current = awaitMicSafe; }, [awaitMicSafe]);
   useEffect(() => { startVoiceRef.current = startVoice; }, [startVoice]);
   useEffect(() => { voiceListeningRef.current = voiceListening; }, [voiceListening]);
+  useEffect(() => { if (voiceListening) setMicAutoStartPending(false); }, [voiceListening]);
 
   // Auto-start mic after Maya finishes reading the question/options.
   // Uses awaitMicSafe + a retry ladder so the mic actually arms even when
@@ -422,6 +480,7 @@ export function DetectiveMindGame({
     if (!currentCase) return;
     if (micArmedForCaseRef.current === currentCase.id) return;
     micArmedForCaseRef.current = currentCase.id;
+    setMicAutoStartPending(true);
 
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -436,11 +495,15 @@ export function DetectiveMindGame({
         if (voiceListeningRef.current) return;
         attempts += 1;
         try { startVoiceRef.current(); } catch { void 0; }
-        if (attempts >= 5) return;
+        if (attempts >= 5) {
+          setMicAutoStartPending(false);
+          return;
+        }
         const delay = attempts === 1 ? 400 : attempts === 2 ? 700 : attempts === 3 ? 1000 : 1400;
         retryTimer = setTimeout(() => {
           // re-check; if we're still not listening, retry
           if (!voiceListeningRef.current) tryStart();
+          else setMicAutoStartPending(false);
         }, delay);
       };
       tryStart();
@@ -450,6 +513,7 @@ export function DetectiveMindGame({
 
     return () => {
       cancelled = true;
+      setMicAutoStartPending(false);
       if (retryTimer) clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -473,14 +537,16 @@ export function DetectiveMindGame({
     if (!voiceMissMsg) return;
     if (phase !== 'answering' || selectedOption !== null) return;
     if (!voiceSupported || voiceListening || isDirectSpeaking) return;
+    setMicAutoStartPending(true);
     const t = setTimeout(() => {
       void (async () => {
         try { await awaitMicSafeRef.current(5000); } catch { void 0; }
         if (phase !== 'answering' || selectedOption !== null || voiceListeningRef.current) return;
         try { startVoiceRef.current(); } catch { void 0; }
+        setMicAutoStartPending(false);
       })();
     }, 400);
-    return () => clearTimeout(t);
+    return () => { setMicAutoStartPending(false); clearTimeout(t); };
   }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking]);
 
   const handleHint = useCallback(() => {
@@ -706,6 +772,20 @@ export function DetectiveMindGame({
             )}
           </div>
 
+          {(voiceListening || micAutoStartPending || lastHeardText) && (
+            <p className="text-xs text-center text-muted-foreground">
+              {voiceListening
+                ? lastHeardText
+                  ? `Heard: “${lastHeardText}”`
+                  : 'Listening now. Say A, B, C, or D.'
+                : micAutoStartPending
+                  ? 'Getting the microphone ready…'
+                  : lastHeardText
+                    ? `Heard: “${lastHeardText}”`
+                    : null}
+            </p>
+          )}
+
           {voiceMissMsg && (
             <p
               role="status"
@@ -713,6 +793,16 @@ export function DetectiveMindGame({
               className="text-sm text-center text-muted-foreground bg-muted/50 border border-border rounded-md py-2 px-3"
             >
               {voiceMissMsg}
+            </p>
+          )}
+
+          {micErrorMessage && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-center text-muted-foreground bg-muted/50 border border-border rounded-md py-2 px-3"
+            >
+              {micErrorMessage}
             </p>
           )}
         </div>
