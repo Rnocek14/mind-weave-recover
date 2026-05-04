@@ -734,12 +734,10 @@ export function DetectiveMindGame({
             </p>
           )}
 
-          {/* Replay buttons — always visible, work in every coaching mode */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 min-w-[120px]"
+          {/* Replay & voice controls — pill row */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
@@ -747,14 +745,13 @@ export function DetectiveMindGame({
                 ttsSeqRef.current++;
                 speakDirect(currentCase.story.join(' '));
               }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 hover:text-foreground"
             >
-              <Volume2 className="h-4 w-4 mr-1" />
+              <Volume2 className="h-3.5 w-3.5" />
               Repeat story
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 min-w-[120px]"
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 if (!currentCase) return;
                 vg.interrupt();
@@ -765,15 +762,14 @@ export function DetectiveMindGame({
                   .join('. ');
                 speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
               }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 hover:text-foreground"
             >
-              <Volume2 className="h-4 w-4 mr-1" />
+              <Volume2 className="h-3.5 w-3.5" />
               Repeat question
-            </Button>
+            </button>
             {voiceSupported && (
-              <Button
-                variant={voiceListening ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1 min-w-[120px]"
+              <button
+                type="button"
                 onClick={() => {
                   if (voiceListening) { stopVoice(); }
                   else {
@@ -785,10 +781,16 @@ export function DetectiveMindGame({
                     })();
                   }
                 }}
+                className={[
+                  "ml-auto inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+                  voiceListening
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "border border-border bg-card text-foreground hover:border-primary/50 hover:bg-accent/40",
+                ].join(' ')}
               >
-                {voiceListening ? <MicOff className="h-4 w-4 mr-1" /> : <Mic className="h-4 w-4 mr-1" />}
-                {voiceListening ? 'Listening… say A, B, C, or D' : 'Answer by voice'}
-              </Button>
+                {voiceListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                {voiceListening ? 'Listening…' : 'Answer by voice'}
+              </button>
             )}
           </div>
 
