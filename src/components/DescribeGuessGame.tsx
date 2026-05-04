@@ -716,9 +716,9 @@ export function DescribeGuessGame({
           setMicOpening(true);
           setMicRecoveryReady(false);
 
-          // Keep this handoff tight: if voice state lingers, open anyway after
-          // a short safety wait so the patient is not left staring at Mic off.
-          await awaitMicSafe(1200);
+          // Tight handoff — the prompt is only 2 words, so open the mic
+          // almost immediately. Don't wait on voice-state arbitration here.
+          await awaitMicSafe(250);
           if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
             setMicOpening(false);
             return;
