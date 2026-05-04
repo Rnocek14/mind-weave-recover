@@ -141,12 +141,38 @@ export function DescribeGuessGame({
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
     micAutoRetryTimerRef.current = setTimeout(() => {
-      if (!isListeningRef.current) startListeningRef.current();
+      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) startListeningRef.current();
     }, 650);
     micRecoveryTimerRef.current = setTimeout(() => {
-      if (!isListeningRef.current) setMicRecoveryReady(true);
+      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) setMicRecoveryReady(true);
     }, 2500);
   }, []);
+
+  const startMicWithRetries = useCallback((cycle: number, attempts = 5) => {
+    if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
+
+    const tryStart = (attempt: number) => {
+      if (cycle !== micStartCycleRef.current || showFeedbackRef.current || useTypingRef.current) {
+        setMicOpening(false);
+        return;
+      }
+
+      startListeningRef.current();
+      setIsListening(true);
+      listeningStartRef.current = Date.now();
+      setMicOpening(false);
+
+      if (isListeningRef.current || attempt >= attempts) {
+        scheduleMicRecoveryCheck();
+        return;
+      }
+
+      const delay = attempt === 1 ? 400 : attempt === 2 ? 700 : attempt === 3 ? 1000 : 1400;
+      micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
+    };
+
+    tryStart(1);
+  }, [scheduleMicRecoveryCheck]);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
