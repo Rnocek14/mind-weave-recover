@@ -230,6 +230,7 @@ export function DescribeGuessGame({
     isListening: speechIsListening,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
     error: speechError,
   } = useSpeechRecognition({
