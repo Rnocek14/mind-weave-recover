@@ -863,6 +863,8 @@ export function DescribeGuessGame({
     promptTimersRef.current.forEach(t => clearTimeout(t));
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
+    if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
+    micStartCycleRef.current += 1;
     setMicRecoveryReady(false);
     setMicOpening(false);
     stopListening();
