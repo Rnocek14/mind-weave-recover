@@ -32,6 +32,7 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
+import { pickExamples, pickIdeasForNextTime } from '@/data/categoryExamplePools';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
