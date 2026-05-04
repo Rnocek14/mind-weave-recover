@@ -530,6 +530,9 @@ export function CategoryFluencyGame({
     // Speech already finished before countdown — no need to interrupt
     setWords([]);
     setCurrentInput('');
+    setExampleChips(pickExamples(cat.category, 3));
+    setExampleSwapCount(0);
+    exampleSwapCountRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
