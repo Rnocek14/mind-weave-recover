@@ -521,7 +521,7 @@ export function NarrativeRetellGame({
     // Give the user a beat to absorb the story before flipping to retell.
     const t = setTimeout(() => {
       handleStartRetelling();
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(t);
   }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
 
