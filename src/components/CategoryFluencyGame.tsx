@@ -457,6 +457,9 @@ export function CategoryFluencyGame({
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
+    setExampleChips(pickExamples(cat.category, 3));
+    setExampleSwapCount(0);
+    exampleSwapCountRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
