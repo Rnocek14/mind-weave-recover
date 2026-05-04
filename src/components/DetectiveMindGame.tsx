@@ -677,7 +677,7 @@ export function DetectiveMindGame({
                 vg.interrupt();
                 stopDirect();
                 ttsSeqRef.current++;
-                const optionsSpoken = currentCase.options
+                const optionsSpoken = displayedOptions
                   .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
                   .join('. ');
                 speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
@@ -693,7 +693,14 @@ export function DetectiveMindGame({
                 className="flex-1 min-w-[120px]"
                 onClick={() => {
                   if (voiceListening) { stopVoice(); }
-                  else { stopDirect(); ttsSeqRef.current++; startVoice(); }
+                  else {
+                    stopDirect();
+                    ttsSeqRef.current++;
+                    void (async () => {
+                      try { await awaitMicSafeRef.current(5000); } catch {}
+                      try { startVoiceRef.current(); } catch {}
+                    })();
+                  }
                 }}
               >
                 {voiceListening ? <MicOff className="h-4 w-4 mr-1" /> : <Mic className="h-4 w-4 mr-1" />}
