@@ -442,11 +442,21 @@ export function DetectiveMindGame({
     startListening: startVoice,
     stopListening: stopVoice,
     isSupported: voiceSupported,
+    error: speechError,
   } = useSpeechRecognition({
     onResult: handleSpeechAnswer,
     patientMode: true,
     continuousListening: true,
   });
+
+  const micErrorMessage =
+    speechError && !speechError.toLowerCase().includes('no speech detected')
+      ? speechError.includes('Microphone access denied')
+        ? 'Microphone access is blocked. Please allow microphone access, then tap Answer by voice.'
+        : speechError.includes('Failed to start speech recognition')
+          ? 'Microphone could not start. Tap Answer by voice again.'
+          : speechError
+      : null;
 
   // Mic safety helper (matches PhotoNaming pattern). Waits until system audio
   // has fully drained before allowing the mic to open, so Maya's own voice
@@ -458,6 +468,7 @@ export function DetectiveMindGame({
   useEffect(() => { awaitMicSafeRef.current = awaitMicSafe; }, [awaitMicSafe]);
   useEffect(() => { startVoiceRef.current = startVoice; }, [startVoice]);
   useEffect(() => { voiceListeningRef.current = voiceListening; }, [voiceListening]);
+  useEffect(() => { if (voiceListening) setMicAutoStartPending(false); }, [voiceListening]);
 
   // Auto-start mic after Maya finishes reading the question/options.
   // Uses awaitMicSafe + a retry ladder so the mic actually arms even when
@@ -484,7 +495,10 @@ export function DetectiveMindGame({
         if (voiceListeningRef.current) return;
         attempts += 1;
         try { startVoiceRef.current(); } catch { void 0; }
-        if (attempts >= 5) return;
+        if (attempts >= 5) {
+          setMicAutoStartPending(false);
+          return;
+        }
         const delay = attempts === 1 ? 400 : attempts === 2 ? 700 : attempts === 3 ? 1000 : 1400;
         retryTimer = setTimeout(() => {
           // re-check; if we're still not listening, retry
