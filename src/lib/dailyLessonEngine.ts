@@ -606,11 +606,19 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
 export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: string[]): DailyLesson | null {
   const presetDef = PRESET_LESSONS[preset];
   if (!presetDef) return null;
-  
+
+  // Polished allowlist: presets must NOT force-include unpolished games into daily flow.
+  const unpolished = presetDef.blocks.filter(b => !isPolishedExercise(b.exerciseId));
+  if (unpolished.length > 0) {
+    console.warn('[DailyLessonEngine] Rejecting preset — contains unpolished exercises:', preset, unpolished.map(b => b.exerciseId));
+    return null;
+  }
+
   // If accessibility list provided, verify all exercises are accessible
   if (accessibleExercises && !presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId))) {
     return null;
   }
+
   
   const defaultAdaptations: ExerciseBlock['adaptations'] = {
     startDifficulty: 1,
