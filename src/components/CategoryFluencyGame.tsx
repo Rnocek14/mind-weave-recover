@@ -726,6 +726,11 @@ export function CategoryFluencyGame({
     const lastResult = results[results.length - 1];
     const roundAnalysis = lastResult.analysis;
     const isEmptyRound = lastResult.uniqueWordCount === 0;
+    const ideasForNextTime = pickIdeasForNextTime(
+      lastResult.category,
+      lastResult.words,
+      6,
+    );
     return (
       <RoundDoneAutoAdvance
         onAdvance={nextRound}
