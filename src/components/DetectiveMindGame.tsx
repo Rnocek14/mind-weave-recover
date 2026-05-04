@@ -425,7 +425,7 @@ export function DetectiveMindGame({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const arm = async () => {
-      try { await awaitMicSafeRef.current(8000); } catch {}
+      try { await awaitMicSafeRef.current(8000); } catch { void 0; }
       if (cancelled) return;
 
       let attempts = 0;
@@ -433,7 +433,7 @@ export function DetectiveMindGame({
         if (cancelled) return;
         if (voiceListeningRef.current) return;
         attempts += 1;
-        try { startVoiceRef.current(); } catch {}
+        try { startVoiceRef.current(); } catch { void 0; }
         if (attempts >= 5) return;
         const delay = attempts === 1 ? 400 : attempts === 2 ? 700 : attempts === 3 ? 1000 : 1400;
         retryTimer = setTimeout(() => {
@@ -460,7 +460,7 @@ export function DetectiveMindGame({
   // Stop listening once selection committed or case changes.
   useEffect(() => {
     if (selectedOption !== null || phase !== 'answering') {
-      try { stopVoice(); } catch {}
+      try { stopVoice(); } catch { void 0; }
     }
   }, [selectedOption, phase, stopVoice]);
 
@@ -472,9 +472,9 @@ export function DetectiveMindGame({
     if (!voiceSupported || voiceListening || isDirectSpeaking) return;
     const t = setTimeout(() => {
       void (async () => {
-        try { await awaitMicSafeRef.current(5000); } catch {}
+        try { await awaitMicSafeRef.current(5000); } catch { void 0; }
         if (phase !== 'answering' || selectedOption !== null || voiceListeningRef.current) return;
-        try { startVoiceRef.current(); } catch {}
+        try { startVoiceRef.current(); } catch { void 0; }
       })();
     }, 400);
     return () => clearTimeout(t);
