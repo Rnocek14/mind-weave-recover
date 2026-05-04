@@ -39,25 +39,25 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { pickEncouragement } from '@/lib/feedbackPolicy';
 
 // Categories ordered by difficulty
-const CATEGORY_TIERS = [
+const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
   // Tier 1 (Easy) — concrete, high-frequency
   [
-    { category: 'animals', label: 'Animals', examples: 'dog, cat, horse…' },
-    { category: 'foods', label: 'Foods', examples: 'bread, apple, rice…' },
-    { category: 'colors', label: 'Colors', examples: 'red, blue, green…' },
+    { category: 'animals', label: 'Animals' },
+    { category: 'foods', label: 'Foods' },
+    { category: 'colors', label: 'Colors' },
   ],
   // Tier 2 (Medium) — concrete but narrower
   [
-    { category: 'clothes', label: 'Clothing', examples: 'shirt, hat, shoes…' },
-    { category: 'kitchen', label: 'Kitchen Items', examples: 'cup, fork, pan…' },
-    { category: 'tools', label: 'Tools', examples: 'hammer, saw, drill…' },
-    { category: 'vehicles', label: 'Vehicles', examples: 'car, bus, bike…' },
+    { category: 'clothes', label: 'Clothing' },
+    { category: 'kitchen', label: 'Kitchen Items' },
+    { category: 'tools', label: 'Tools' },
+    { category: 'vehicles', label: 'Vehicles' },
   ],
   // Tier 3 (Hard) — abstract or narrow
   [
-    { category: 'professions', label: 'Jobs', examples: 'doctor, teacher, driver…' },
-    { category: 'emotions', label: 'Emotions', examples: 'happy, sad, angry…' },
-    { category: 'sports', label: 'Sports', examples: 'soccer, tennis, swimming…' },
+    { category: 'professions', label: 'Jobs' },
+    { category: 'emotions', label: 'Emotions' },
+    { category: 'sports', label: 'Sports' },
   ],
 ];
 
