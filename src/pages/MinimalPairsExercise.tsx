@@ -115,6 +115,8 @@ export default function MinimalPairsExercise() {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    echoAttempted?: boolean;
+    echoTranscript?: string;
   }) => {
     startTrial();
 
@@ -126,6 +128,8 @@ export default function MinimalPairsExercise() {
         target_word: trialData.targetWord,
         selected_word: trialData.selectedWord,
         pair: trialData.pair,
+        echo_attempted: !!trialData.echoAttempted,
+        echo_transcript: trialData.echoTranscript ?? null,
         ...adaptationTelemetry,
       },
     });
