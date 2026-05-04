@@ -452,6 +452,7 @@ export function DetectiveMindGame({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoReadDone, phase, selectedOption, voiceSupported, currentCase?.id]);
 
   // Reset the per-case arm guard when the case changes.
