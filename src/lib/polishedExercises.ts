@@ -19,6 +19,8 @@ export const POLISHED_EXERCISES = [
   'narrative-retell',
   'category-fluency',
   'thought-continuation',
+  // Step 9 — promoted (phonology coverage). Discrimination + optional 'Say it' echo.
+  'minimal-pairs',
 ] as const;
 
 export type PolishedExerciseId = typeof POLISHED_EXERCISES[number];
