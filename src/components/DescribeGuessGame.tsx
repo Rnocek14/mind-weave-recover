@@ -810,6 +810,9 @@ export function DescribeGuessGame({
     if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     promptTimersRef.current.forEach(t => clearTimeout(t));
+    if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
+    setMicRecoveryReady(false);
+    setMicOpening(false);
     stopListening();
     setIsListening(false);
     setIsEvaluating(false);
