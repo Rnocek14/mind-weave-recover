@@ -710,6 +710,7 @@ export function DescribeGuessGame({
 
         // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
         speak(`Say ${trial.target}.`).then(async () => {
+          micStartCycleRef.current += 1;
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
           setMicOpening(true);
@@ -722,11 +723,7 @@ export function DescribeGuessGame({
             setMicOpening(false);
             return;
           }
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
-          setMicOpening(false);
-          scheduleMicRecoveryCheck();
+          startMicWithRetries(micStartCycleRef.current);
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
