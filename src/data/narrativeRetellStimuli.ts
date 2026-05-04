@@ -266,7 +266,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     structureMap: DEFAULT_STRUCTURE,
   },
   // === Tier 1 expansion ===
-  { id: 'lost-cat', title: 'The Lost Cat', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 5,
+  { id: 'lost-cat', title: 'The Lost Cat', tier: 2, structureMap: DEFAULT_STRUCTURE, expectedClauses: 5,
     scenes: [
       { emoji: '🐈', text: 'A girl noticed her cat was missing from the house.' },
       { emoji: '🔦', text: 'She searched the yard with a flashlight, calling its name.' },
