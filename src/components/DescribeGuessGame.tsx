@@ -1165,14 +1165,11 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
+                  micStartCycleRef.current += 1;
                   setMicOpening(true);
                   setMicRecoveryReady(false);
                   setTimeout(() => {
-                    startListening();
-                    setIsListening(true);
-                    listeningStartRef.current = Date.now();
-                    setMicOpening(false);
-                    scheduleMicRecoveryCheck();
+                    startMicWithRetries(micStartCycleRef.current);
                   }, 350);
                 }}
                 className="h-9"
