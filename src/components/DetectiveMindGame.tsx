@@ -58,6 +58,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 };
 
 type Phase = 'answering' | 'feedback' | 'explaining';
+const TRANSCRIPT_STABLE_DELAY_MS = 750;
 
 export function DetectiveMindGame({ 
   onTrialComplete, 
@@ -127,9 +128,13 @@ export function DetectiveMindGame({
   const [hasAutoRead, setHasAutoRead] = useState(false);
   const [autoReadDone, setAutoReadDone] = useState(false);
   const [voiceMissMsg, setVoiceMissMsg] = useState<string | null>(null);
+  const [lastHeardText, setLastHeardText] = useState<string | null>(null);
+  const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTranscriptRef = useRef<string | null>(null);
 
   // Voice guidance for Full Coaching mode
   const vg = useVoiceGuidance('detective-mind');
@@ -197,6 +202,10 @@ export function DetectiveMindGame({
     setHasAutoRead(false);
     setAutoReadDone(false);
     setVoiceMissMsg(null);
+    setLastHeardText(null);
+    setMicAutoStartPending(false);
+    pendingTranscriptRef.current = null;
+    if (transcriptDebounceRef.current) clearTimeout(transcriptDebounceRef.current);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
