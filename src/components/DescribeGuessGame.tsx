@@ -123,12 +123,20 @@ export function DescribeGuessGame({
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isListeningRef = useRef(false);
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
   // True from trial-start until the mic actually opens. Suppresses the
   // "Microphone unavailable" recovery banner during the legitimate wait
   // window while Maya is still speaking the intro/clue.
   const [micOpening, setMicOpening] = useState(false);
+  const [micRecoveryReady, setMicRecoveryReady] = useState(false);
+  const scheduleMicRecoveryCheck = useCallback(() => {
+    if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
+    micRecoveryTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current) setMicRecoveryReady(true);
+    }, 2500);
+  }, []);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
@@ -247,7 +255,18 @@ export function DescribeGuessGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
+  useEffect(() => {
+    setIsListening(speechIsListening);
+    isListeningRef.current = speechIsListening;
+    if (speechIsListening) {
+      setMicOpening(false);
+      setMicRecoveryReady(false);
+      if (micRecoveryTimerRef.current) {
+        clearTimeout(micRecoveryTimerRef.current);
+        micRecoveryTimerRef.current = null;
+      }
+    }
+  }, [speechIsListening]);
 
   // Auto-flip to typing when mic permission is denied or after 2 speech errors.
   // Mirrors the safety pattern in CategoryFluencyGame so a stroke patient is
@@ -347,6 +366,11 @@ export function DescribeGuessGame({
     setDisplayTranscript('');
     rawTranscriptRef.current = '';
     processingRef.current = false;
+    setMicRecoveryReady(false);
+    if (micRecoveryTimerRef.current) {
+      clearTimeout(micRecoveryTimerRef.current);
+      micRecoveryTimerRef.current = null;
+    }
     setIsEvaluating(false);
     // Clear the speech hook's accumulated transcript so leftover text from
     // the previous trial (or text captured while Maya was still speaking the
@@ -401,6 +425,7 @@ export function DescribeGuessGame({
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
         setMicOpening(false);
+        scheduleMicRecoveryCheck();
       })();
     } else {
       setTypedAnswer('');
@@ -416,6 +441,7 @@ export function DescribeGuessGame({
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+      if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
@@ -466,16 +492,23 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
         setWordSaidRedirect(false);
         setGuessMessage(null);
+        setMicOpening(true);
+        setMicRecoveryReady(false);
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedback) return;
+        if (!currentTrialRef.current || showFeedback) {
+          setMicOpening(false);
+          return;
+        }
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
+        setMicOpening(false);
+        scheduleMicRecoveryCheck();
       });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak, scheduleMicRecoveryCheck]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
@@ -629,13 +662,20 @@ export function DescribeGuessGame({
         speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(async () => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
+          setMicOpening(true);
+          setMicRecoveryReady(false);
 
           // Sync-Wait: VoiceController guarantees Maya is fully done.
           await awaitMicSafe(5000);
-          if (!awaitingWordAttempt && !wordAttemptContextRef.current) return;
+          if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
+            setMicOpening(false);
+            return;
+          }
           startListening();
           setIsListening(true);
           listeningStartRef.current = Date.now();
+          setMicOpening(false);
+          scheduleMicRecoveryCheck();
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
@@ -773,6 +813,9 @@ export function DescribeGuessGame({
     if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     promptTimersRef.current.forEach(t => clearTimeout(t));
+    if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
+    setMicRecoveryReady(false);
+    setMicOpening(false);
     stopListening();
     setIsListening(false);
     setIsEvaluating(false);
@@ -995,13 +1038,20 @@ export function DescribeGuessGame({
           !speechIsListening &&
           !vg.isSpeaking &&
           !micOpening &&
+          micRecoveryReady &&
           isSupported
         }
         onRetry={() => {
+          setMicOpening(true);
+          setMicRecoveryReady(false);
           resetTranscript();
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
+          setTimeout(() => {
+            startListening();
+            setIsListening(true);
+            listeningStartRef.current = Date.now();
+            setMicOpening(false);
+            scheduleMicRecoveryCheck();
+          }, 350);
         }}
         compact
       />
@@ -1067,7 +1117,15 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
-                  setTimeout(() => { startListening(); setIsListening(true); }, 200);
+                  setMicOpening(true);
+                  setMicRecoveryReady(false);
+                  setTimeout(() => {
+                    startListening();
+                    setIsListening(true);
+                    listeningStartRef.current = Date.now();
+                    setMicOpening(false);
+                    scheduleMicRecoveryCheck();
+                  }, 350);
                 }}
                 className="h-9"
               >
