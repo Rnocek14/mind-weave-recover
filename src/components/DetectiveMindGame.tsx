@@ -758,6 +758,20 @@ export function DetectiveMindGame({
             )}
           </div>
 
+          {(voiceListening || micAutoStartPending || lastHeardText) && (
+            <p className="text-xs text-center text-muted-foreground">
+              {voiceListening
+                ? lastHeardText
+                  ? `Heard: “${lastHeardText}”`
+                  : 'Listening now. Say A, B, C, or D.'
+                : micAutoStartPending
+                  ? 'Getting the microphone ready…'
+                  : lastHeardText
+                    ? `Heard: “${lastHeardText}”`
+                    : null}
+            </p>
+          )}
+
           {voiceMissMsg && (
             <p
               role="status"
