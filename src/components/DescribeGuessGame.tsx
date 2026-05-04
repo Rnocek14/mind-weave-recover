@@ -344,6 +344,10 @@ export function DescribeGuessGame({
     rawTranscriptRef.current = '';
     processingRef.current = false;
     setIsEvaluating(false);
+    // Clear the speech hook's accumulated transcript so leftover text from
+    // the previous trial (or text captured while Maya was still speaking the
+    // intro) cannot show up as "Heard: <instruction>" on the new trial.
+    resetTranscript();
 
     // Clear any pending feedback timer from previous trial
     if (feedbackTimerRef.current) {
@@ -372,6 +376,9 @@ export function DescribeGuessGame({
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
         if (!currentTrialRef.current || showFeedback) return;
+        // Final clear right before opening the mic — guarantees the first
+        // visible "Heard:" text is the patient's actual answer.
+        resetTranscript();
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
