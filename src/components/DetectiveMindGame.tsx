@@ -26,6 +26,7 @@ import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { isAudioUnlocked } from '@/lib/audioUnlock';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -122,6 +123,7 @@ export function DetectiveMindGame({
   const [explainSkipCount, setExplainSkipCount] = useState(0);
   const [hasAutoRead, setHasAutoRead] = useState(false);
   const [autoReadDone, setAutoReadDone] = useState(false);
+  const [voiceMissMsg, setVoiceMissMsg] = useState<string | null>(null);
   const caseLoadTimeRef = useRef(Date.now());
   const firstInteractionRef = useRef<number | null>(null);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,13 +176,16 @@ export function DetectiveMindGame({
     };
   }, [currentCase]);
 
-  // Reset state when case changes
+  // Reset state when case changes — keyed on case.id (not just index) so
+  // re-shuffles or hot-swaps still trigger a clean reset.
   useEffect(() => {
+    if (!currentCase) return;
     // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
-    // the auto-read effect spins up the new one.
+    // the auto-read effect spins up the new one. Bumping ttsSeqRef invalidates
+    // any pending awaits so stale story audio cannot land on the new case.
     vg.interrupt?.();
     try { stopDirect(); } catch {}
-    ttsSeqRef.current++; // invalidate any pending speakBlocking awaits
+    ttsSeqRef.current++;
 
     setPhase('answering');
     setSelectedOption(null);
@@ -189,32 +194,41 @@ export function DetectiveMindGame({
     setShowHint(false);
     setHasAutoRead(false);
     setAutoReadDone(false);
+    setVoiceMissMsg(null);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentIndex, vg, stopDirect]);
+  }, [currentCase?.id, vg, stopDirect]);
 
-  // Auto-read story then question on case load — runs in EVERY mode.
-  // (Previously gated to Full Coaching only, which is why Detective Mind
-  // appeared "silent" for most users.)
+  // Auto-read instructions (first case) → story → question + options on case
+  // load — runs in EVERY mode. Keyed on case.id so re-shuffles also re-read.
   useEffect(() => {
     if (!currentCase || hasAutoRead) return;
     setHasAutoRead(true);
     const localSeq = ++ttsSeqRef.current;
 
     const doAutoRead = async () => {
-      // Brief intro on first case
+      // If audio context isn't unlocked yet (no prior gesture this session),
+      // poll briefly so the very first read isn't silently dropped.
+      if (!isAudioUnlocked()) {
+        for (let i = 0; i < 20 && !isAudioUnlocked(); i++) {
+          await new Promise(r => setTimeout(r, 150));
+          if (localSeq !== ttsSeqRef.current) return;
+        }
+      }
+
+      // Instructions on first case
       if (currentIndex === 0) {
-        await speakDirect("Read the story, then pick the best answer.");
+        await speakDirect("Read the story, then say or tap A, B, C, or D for the best answer.");
         if (localSeq !== ttsSeqRef.current) return;
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 400));
         if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
       try { await speakDirect(storyText); } catch {}
       if (localSeq !== ttsSeqRef.current) return;
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 600));
       if (localSeq !== ttsSeqRef.current) return;
       // Read question + each option so users can answer by voice
       const optionsSpoken = currentCase.options
@@ -293,24 +307,43 @@ export function DetectiveMindGame({
   // Listen after Maya finishes reading; map spoken letter / ordinal /
   // option keyword to the displayed option index.
   const selectFromTranscript = useCallback((raw: string): number | null => {
-    const t = raw.toLowerCase().trim();
+    const t = raw.toLowerCase().trim().replace(/[.,!?]/g, '');
     if (!t) return null;
-    // Letter match: "a", "b.", "letter c", "answer d"
+
+    // "number one/two/three/four" → 0..3 (check BEFORE letter regex so "b" in
+    // "number" doesn't false-trigger).
+    const numberWords: Record<string, number> = {
+      one: 0, two: 1, three: 2, four: 3,
+      '1': 0, '2': 1, '3': 2, '4': 3,
+    };
+    const numMatch = t.match(/\bnumber\s+(one|two|three|four|[1-4])\b/);
+    if (numMatch && numberWords[numMatch[1]] < displayedOptions.length) {
+      return numberWords[numMatch[1]];
+    }
+    // Standalone "1/2/3/4"
+    const digitMatch = t.match(/\b([1-4])\b/);
+    if (digitMatch) {
+      const v = numberWords[digitMatch[1]];
+      if (v < displayedOptions.length) return v;
+    }
+    // Letter match: "a", "b", "letter c", "answer d", "option a"
     const letterMatch = t.match(/\b(?:answer\s+|letter\s+|option\s+)?([a-d])\b/);
     if (letterMatch) {
       const idx = letterMatch[1].charCodeAt(0) - 'a'.charCodeAt(0);
       if (idx >= 0 && idx < displayedOptions.length) return idx;
     }
-    // Ordinal
-    const ords: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3, one: 0, two: 1, three: 2, four: 3 };
+    // Ordinals: first/second/third/fourth and one/two/three/four
+    const ords: Record<string, number> = {
+      first: 0, second: 1, third: 2, fourth: 3,
+      one: 0, two: 1, three: 2, four: 3,
+    };
     for (const [k, v] of Object.entries(ords)) {
       if (new RegExp(`\\b${k}\\b`).test(t) && v < displayedOptions.length) return v;
     }
-    // Substring match against option text (longest unique wins)
+    // Substring match against option text (longest unique wins, ≥4 chars)
     let best = -1; let bestLen = 0;
     displayedOptions.forEach((opt, i) => {
       const lower = opt.toLowerCase();
-      // require at least 3 char overlap of significant word
       const words = lower.split(/\W+/).filter(w => w.length >= 4);
       for (const w of words) {
         if (t.includes(w) && w.length > bestLen) { best = i; bestLen = w.length; }
@@ -322,7 +355,13 @@ export function DetectiveMindGame({
   const handleSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     const idx = selectFromTranscript(text);
-    if (idx != null) handleSelectOption(idx);
+    if (idx != null) {
+      setVoiceMissMsg(null);
+      handleSelectOption(idx);
+    } else if (text.trim()) {
+      // Don't say "keep going" — show inline guidance instead and re-arm mic.
+      setVoiceMissMsg("I didn't catch a choice. Try saying A, B, C, or D.");
+    }
   }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
 
   const {
@@ -353,6 +392,18 @@ export function DetectiveMindGame({
       try { stopVoice(); } catch {}
     }
   }, [selectedOption, phase, stopVoice]);
+
+  // After a soft voice miss, re-arm the mic so the user can try again
+  // without tapping anything.
+  useEffect(() => {
+    if (!voiceMissMsg) return;
+    if (phase !== 'answering' || selectedOption !== null) return;
+    if (!voiceSupported || voiceListening || isDirectSpeaking) return;
+    const t = setTimeout(() => {
+      try { startVoice(); } catch {}
+    }, 400);
+    return () => clearTimeout(t);
+  }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking, startVoice]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
@@ -569,6 +620,16 @@ export function DetectiveMindGame({
               </Button>
             )}
           </div>
+
+          {voiceMissMsg && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-center text-muted-foreground bg-muted/50 border border-border rounded-md py-2 px-3"
+            >
+              {voiceMissMsg}
+            </p>
+          )}
         </div>
       )}
 
