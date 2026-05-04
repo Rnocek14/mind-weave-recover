@@ -263,6 +263,8 @@ export function DescribeGuessGame({
     discourseMode: true, // CRITICAL: Accumulate across recognition restarts
   });
 
+  useEffect(() => { showFeedbackRef.current = showFeedback; }, [showFeedback]);
+  useEffect(() => { useTypingRef.current = useTyping; }, [useTyping]);
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
