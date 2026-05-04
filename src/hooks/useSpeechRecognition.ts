@@ -385,6 +385,11 @@ export const useSpeechRecognition = (
   }, []);
 
   const stopListening = useCallback(() => {
+    if (queuedStartTimeoutRef.current) {
+      clearTimeout(queuedStartTimeoutRef.current);
+      queuedStartTimeoutRef.current = null;
+    }
+
     // Only stop if recognition is active or auto-restarting
     if (
       stateRef.current !== 'LISTENING' &&
