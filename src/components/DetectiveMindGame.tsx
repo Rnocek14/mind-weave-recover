@@ -328,6 +328,24 @@ export function DetectiveMindGame({
     const t = raw.toLowerCase().trim().replace(/[.,!?]/g, '');
     if (!t) return null;
 
+    const tokens = t.split(/\s+/).filter(Boolean);
+    const compact = t.replace(/\s+/g, '');
+
+    // SpeechRecognition often hears bare letters as common words.
+    const spokenLetterAliases: Record<string, number> = {
+      a: 0, ay: 0, hey: 0, eh: 0, 'lettera': 0, 'optiona': 0,
+      b: 1, bee: 1, be: 1, 'letterb': 1, 'optionb': 1,
+      c: 2, see: 2, sea: 2, 'letterc': 2, 'optionc': 2,
+      d: 3, dee: 3, 'letterd': 3, 'optiond': 3,
+    };
+
+    for (const token of tokens) {
+      const aliasIdx = spokenLetterAliases[token];
+      if (aliasIdx !== undefined && aliasIdx < displayedOptions.length) return aliasIdx;
+    }
+    const compactAliasIdx = spokenLetterAliases[compact];
+    if (compactAliasIdx !== undefined && compactAliasIdx < displayedOptions.length) return compactAliasIdx;
+
     // "number one/two/three/four" → 0..3 (check BEFORE letter regex so "b" in
     // "number" doesn't false-trigger).
     const numberWords: Record<string, number> = {
