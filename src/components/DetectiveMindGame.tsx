@@ -469,6 +469,7 @@ export function DetectiveMindGame({
     if (!currentCase) return;
     if (micArmedForCaseRef.current === currentCase.id) return;
     micArmedForCaseRef.current = currentCase.id;
+    setMicAutoStartPending(true);
 
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -488,6 +489,7 @@ export function DetectiveMindGame({
         retryTimer = setTimeout(() => {
           // re-check; if we're still not listening, retry
           if (!voiceListeningRef.current) tryStart();
+          else setMicAutoStartPending(false);
         }, delay);
       };
       tryStart();
@@ -497,6 +499,7 @@ export function DetectiveMindGame({
 
     return () => {
       cancelled = true;
+      setMicAutoStartPending(false);
       if (retryTimer) clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -520,14 +523,16 @@ export function DetectiveMindGame({
     if (!voiceMissMsg) return;
     if (phase !== 'answering' || selectedOption !== null) return;
     if (!voiceSupported || voiceListening || isDirectSpeaking) return;
+    setMicAutoStartPending(true);
     const t = setTimeout(() => {
       void (async () => {
         try { await awaitMicSafeRef.current(5000); } catch { void 0; }
         if (phase !== 'answering' || selectedOption !== null || voiceListeningRef.current) return;
         try { startVoiceRef.current(); } catch { void 0; }
+        setMicAutoStartPending(false);
       })();
     }, 400);
-    return () => clearTimeout(t);
+    return () => { setMicAutoStartPending(false); clearTimeout(t); };
   }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking]);
 
   const handleHint = useCallback(() => {
