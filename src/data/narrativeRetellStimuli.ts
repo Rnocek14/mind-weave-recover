@@ -313,9 +313,9 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
   },
   { id: 'first-snow', title: 'The First Snow', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '🌨️', text: 'The kids woke up to see snow covering everything outside.' },
-      { emoji: '🧤', text: 'They put on coats, gloves, and warm hats.' },
-      { emoji: '⛄', text: 'They built a snowman with stones for eyes and a carrot nose.' },
+      { emoji: '🌨️', text: 'The kids woke up to see fresh snow outside.' },
+      { emoji: '🧤', text: 'They put on coats, gloves, and hats.' },
+      { emoji: '⛄', text: 'They built a snowman with a carrot nose.' },
       { emoji: '☕', text: 'They came inside for hot cocoa.' },
     ],
     keyEvents: ['woke to snow', 'put on warm clothes', 'built snowman', 'hot cocoa inside'],
