@@ -199,27 +199,35 @@ export function DetectiveMindGame({
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
   }, [currentCase?.id, vg, stopDirect]);
 
-  // Auto-read story then question on case load — runs in EVERY mode.
-  // (Previously gated to Full Coaching only, which is why Detective Mind
-  // appeared "silent" for most users.)
+  // Auto-read instructions (first case) → story → question + options on case
+  // load — runs in EVERY mode. Keyed on case.id so re-shuffles also re-read.
   useEffect(() => {
     if (!currentCase || hasAutoRead) return;
     setHasAutoRead(true);
     const localSeq = ++ttsSeqRef.current;
 
     const doAutoRead = async () => {
-      // Brief intro on first case
+      // If audio context isn't unlocked yet (no prior gesture this session),
+      // poll briefly so the very first read isn't silently dropped.
+      if (!isAudioUnlocked()) {
+        for (let i = 0; i < 20 && !isAudioUnlocked(); i++) {
+          await new Promise(r => setTimeout(r, 150));
+          if (localSeq !== ttsSeqRef.current) return;
+        }
+      }
+
+      // Instructions on first case
       if (currentIndex === 0) {
-        await speakDirect("Read the story, then pick the best answer.");
+        await speakDirect("Read the story, then say or tap A, B, C, or D for the best answer.");
         if (localSeq !== ttsSeqRef.current) return;
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 400));
         if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
       try { await speakDirect(storyText); } catch {}
       if (localSeq !== ttsSeqRef.current) return;
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 600));
       if (localSeq !== ttsSeqRef.current) return;
       // Read question + each option so users can answer by voice
       const optionsSpoken = currentCase.options
