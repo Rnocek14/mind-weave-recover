@@ -459,6 +459,41 @@ export function MinimalPairsGame({
         })}
       </div>
       
+      {/* Optional 'Say it' echo — exposure only, never penalized */}
+      {showFeedback && state.isCorrect && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm">
+              {echoStatus === 'idle' && <>Now say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
+              {echoStatus === 'listening' && <>Listening… say <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
+              {echoStatus === 'heard' && (
+                <>Nice — that sounded close.{echoTranscript ? <span className="text-muted-foreground"> ({echoTranscript})</span> : null}</>
+              )}
+              {echoStatus === 'skipped' && <span className="text-muted-foreground">No problem — moving on.</span>}
+            </p>
+            <div className="flex items-center gap-1 shrink-0">
+              {echoStatus === 'listening' ? (
+                <Button onClick={handleEchoSaidIt} size="sm" variant="secondary" className="gap-1">
+                  <Mic className="w-3.5 h-3.5" /> I said it
+                </Button>
+              ) : echoStatus === 'idle' ? (
+                <Button onClick={startEcho} size="sm" variant="secondary" className="gap-1" disabled={!speech.isSupported}>
+                  <Mic className="w-3.5 h-3.5" /> Say it
+                </Button>
+              ) : null}
+              {(echoStatus === 'idle' || echoStatus === 'listening') && (
+                <Button onClick={handleEchoSkip} variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+                  Skip <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+          {!speech.isSupported && echoStatus === 'idle' && (
+            <p className="text-xs text-muted-foreground mt-1">Mic not available — tap Skip to continue.</p>
+          )}
+        </div>
+      )}
+
       {/* Contrast info + Next — compact. Auto-advances; tap Next to skip ahead. */}
       {showFeedback && (
         <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
