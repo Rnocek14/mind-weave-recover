@@ -1116,7 +1116,17 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
-                  setTimeout(() => { startListening(); setIsListening(true); }, 200);
+                  setMicOpening(true);
+                  setMicRecoveryReady(false);
+                  setTimeout(() => {
+                    startListening();
+                    setIsListening(true);
+                    listeningStartRef.current = Date.now();
+                    setMicOpening(false);
+                    micRecoveryTimerRef.current = setTimeout(() => {
+                      if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
+                    }, 2500);
+                  }, 350);
                 }}
                 className="h-9"
               >
