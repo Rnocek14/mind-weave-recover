@@ -448,9 +448,10 @@ export function ThoughtContinuationGame({
     const gate = gateResponse({
       transcript: answerText,
       promptText: currentPrompt.promptText,
-      expectedMode: 'description',
-      // The user describing/finishing a thought IS the legitimate answer —
-      // there's no fixed target word, so no expectedAnswers bypass.
+      // Finish-the-thought accepts ANY real content word as a valid completion.
+      // Use the dedicated mode so the gate doesn't reject 1–2 word answers
+      // (e.g. "milk", "to school") as too_short.
+      expectedMode: 'thought_continuation',
     });
     broadcastGateDecision('thought_continuation', gate, answerText);
 
