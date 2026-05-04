@@ -1050,9 +1050,7 @@ export function DescribeGuessGame({
             setIsListening(true);
             listeningStartRef.current = Date.now();
             setMicOpening(false);
-            micRecoveryTimerRef.current = setTimeout(() => {
-              if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
-            }, 2500);
+            scheduleMicRecoveryCheck();
           }, 350);
         }}
         compact
