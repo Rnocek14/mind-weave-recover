@@ -131,6 +131,12 @@ export function DescribeGuessGame({
   // window while Maya is still speaking the intro/clue.
   const [micOpening, setMicOpening] = useState(false);
   const [micRecoveryReady, setMicRecoveryReady] = useState(false);
+  const scheduleMicRecoveryCheck = useCallback(() => {
+    if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
+    micRecoveryTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current) setMicRecoveryReady(true);
+    }, 2500);
+  }, []);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
