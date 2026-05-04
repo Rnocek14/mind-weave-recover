@@ -1032,13 +1032,22 @@ export function DescribeGuessGame({
           !speechIsListening &&
           !vg.isSpeaking &&
           !micOpening &&
+          micRecoveryReady &&
           isSupported
         }
         onRetry={() => {
+          setMicOpening(true);
+          setMicRecoveryReady(false);
           resetTranscript();
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
+          setTimeout(() => {
+            startListening();
+            setIsListening(true);
+            listeningStartRef.current = Date.now();
+            setMicOpening(false);
+            micRecoveryTimerRef.current = setTimeout(() => {
+              if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
+            }, 2500);
+          }, 350);
         }}
         compact
       />
