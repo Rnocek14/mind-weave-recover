@@ -667,11 +667,21 @@ export function generateDailyLesson(
   struggleBoosts?: Map<string, number> | null,
   struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
 ): DailyLesson {
+  // Polished allowlist gate: daily auto-selection only chooses from QA'd games.
+  // Unpolished games remain available via manual picker / dev routes.
+  const polishedAccessible = filterToPolished(accessibleExercises);
+  if (polishedAccessible.length < accessibleExercises.length) {
+    console.log('[DailyLessonEngine] Polished allowlist filtered candidates:',
+      `${accessibleExercises.length} accessible → ${polishedAccessible.length} polished`,
+      'allowlist:', POLISHED_EXERCISES);
+  }
+
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
     const presetDef = PRESET_LESSONS[preset];
+    const allPolished = presetDef.blocks.every(b => isPolishedExercise(b.exerciseId));
     const allAccessible = presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId));
-    if (allAccessible) {
+    if (allPolished && allAccessible) {
       const defaultAdaptations: ExerciseBlock['adaptations'] = {
         startDifficulty: todayFocusAdaptations?.startDifficulty ?? 1,
         cueLevel: 1,
