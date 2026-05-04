@@ -158,9 +158,6 @@ export function DescribeGuessGame({
       }
 
       startListeningRef.current();
-      setIsListening(true);
-      listeningStartRef.current = Date.now();
-      setMicOpening(false);
 
       if (isListeningRef.current || attempt >= attempts) {
         scheduleMicRecoveryCheck();
@@ -171,6 +168,7 @@ export function DescribeGuessGame({
       micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
     };
 
+    setMicOpening(true);
     tryStart(1);
   }, [scheduleMicRecoveryCheck]);
 
