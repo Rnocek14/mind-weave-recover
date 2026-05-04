@@ -62,6 +62,7 @@ export const useSpeechRecognition = (
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
   const cooldownTimeoutRef = useRef<any>(null);
+  const queuedStartTimeoutRef = useRef<any>(null);
   const noSpeechCountRef = useRef(0);
   const manuallyStoppedRef = useRef(false);
   const pendingTranscriptRef = useRef<string>('');
@@ -108,6 +109,10 @@ export const useSpeechRecognition = (
       if (cooldownTimeoutRef.current) {
         clearTimeout(cooldownTimeoutRef.current);
         cooldownTimeoutRef.current = null;
+      }
+      if (queuedStartTimeoutRef.current) {
+        clearTimeout(queuedStartTimeoutRef.current);
+        queuedStartTimeoutRef.current = null;
       }
     };
 
