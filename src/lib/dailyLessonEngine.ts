@@ -13,6 +13,7 @@ import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
 import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
+import { isPolishedExercise, filterToPolished, POLISHED_EXERCISES } from './polishedExercises';
 
 /** Speech profile signals used for exercise SELECTION scoring (not in-game adaptation) */
 export interface SpeechProfileSelectionSignals {
@@ -605,11 +606,19 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
 export function buildPresetLesson(preset: LessonPreset, accessibleExercises?: string[]): DailyLesson | null {
   const presetDef = PRESET_LESSONS[preset];
   if (!presetDef) return null;
-  
+
+  // Polished allowlist: presets must NOT force-include unpolished games into daily flow.
+  const unpolished = presetDef.blocks.filter(b => !isPolishedExercise(b.exerciseId));
+  if (unpolished.length > 0) {
+    console.warn('[DailyLessonEngine] Rejecting preset — contains unpolished exercises:', preset, unpolished.map(b => b.exerciseId));
+    return null;
+  }
+
   // If accessibility list provided, verify all exercises are accessible
   if (accessibleExercises && !presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId))) {
     return null;
   }
+
   
   const defaultAdaptations: ExerciseBlock['adaptations'] = {
     startDifficulty: 1,
@@ -658,11 +667,21 @@ export function generateDailyLesson(
   struggleBoosts?: Map<string, number> | null,
   struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
 ): DailyLesson {
+  // Polished allowlist gate: daily auto-selection only chooses from QA'd games.
+  // Unpolished games remain available via manual picker / dev routes.
+  const polishedAccessible = filterToPolished(accessibleExercises);
+  if (polishedAccessible.length < accessibleExercises.length) {
+    console.log('[DailyLessonEngine] Polished allowlist filtered candidates:',
+      `${accessibleExercises.length} accessible → ${polishedAccessible.length} polished`,
+      'allowlist:', POLISHED_EXERCISES);
+  }
+
   // If a preset is requested and all its exercises are accessible, return it directly
   if (preset && PRESET_LESSONS[preset]) {
     const presetDef = PRESET_LESSONS[preset];
+    const allPolished = presetDef.blocks.every(b => isPolishedExercise(b.exerciseId));
     const allAccessible = presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId));
-    if (allAccessible) {
+    if (allPolished && allAccessible) {
       const defaultAdaptations: ExerciseBlock['adaptations'] = {
         startDifficulty: todayFocusAdaptations?.startDifficulty ?? 1,
         cueLevel: 1,
@@ -760,7 +779,7 @@ export function generateDailyLesson(
     primaryDomainBoost: number; speechProfileBoost: number; finalScore: number; reason: string;
   }> = [];
 
-  const scoredExercises = accessibleExercises
+  const scoredExercises = polishedAccessible
     .map(id => {
       const meta = exerciseMetadata[id];
       if (!meta) return null;
