@@ -360,6 +360,11 @@ export function DescribeGuessGame({
     setDisplayTranscript('');
     rawTranscriptRef.current = '';
     processingRef.current = false;
+    setMicRecoveryReady(false);
+    if (micRecoveryTimerRef.current) {
+      clearTimeout(micRecoveryTimerRef.current);
+      micRecoveryTimerRef.current = null;
+    }
     setIsEvaluating(false);
     // Clear the speech hook's accumulated transcript so leftover text from
     // the previous trial (or text captured while Maya was still speaking the
@@ -414,6 +419,9 @@ export function DescribeGuessGame({
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
         setMicOpening(false);
+        micRecoveryTimerRef.current = setTimeout(() => {
+          if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
+        }, 2500);
       })();
     } else {
       setTypedAnswer('');
@@ -429,6 +437,7 @@ export function DescribeGuessGame({
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+      if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
