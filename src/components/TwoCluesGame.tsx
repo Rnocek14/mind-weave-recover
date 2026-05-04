@@ -1363,7 +1363,8 @@ export function TwoCluesGame({
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Controls */}
         {!showFeedback && (
