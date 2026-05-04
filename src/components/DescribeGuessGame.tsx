@@ -164,7 +164,7 @@ export function DescribeGuessGame({
         return;
       }
 
-      const delay = attempt === 1 ? 400 : attempt === 2 ? 700 : attempt === 3 ? 1000 : 1400;
+      const delay = attempt === 1 ? 150 : attempt === 2 ? 400 : attempt === 3 ? 800 : 1200;
       micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
     };
 
