@@ -225,14 +225,14 @@ export function DetectiveMindGame({
 
       // Instructions on first case
       if (currentIndex === 0) {
-        try { await speak("Read the story, then say or tap A, B, C, or D for the best answer."); } catch {}
+        try { await speak("Read the story, then say or tap A, B, C, or D for the best answer."); } catch { void 0; }
         if (localSeq !== ttsSeqRef.current) return;
         await new Promise(r => setTimeout(r, 400));
         if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
-      try { await speak(storyText); } catch {}
+      try { await speak(storyText); } catch { void 0; }
       if (localSeq !== ttsSeqRef.current) return;
       await new Promise(r => setTimeout(r, 600));
       if (localSeq !== ttsSeqRef.current) return;
@@ -240,7 +240,7 @@ export function DetectiveMindGame({
       const optionsSpoken = displayedOptions
         .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
         .join('. ');
-      try { await speak(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
+      try { await speak(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch { void 0; }
       if (localSeq !== ttsSeqRef.current) return;
       setAutoReadDone(true);
     };
