@@ -32,31 +32,32 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
+import { pickExamples, pickIdeasForNextTime } from '@/data/categoryExamplePools';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { pickEncouragement } from '@/lib/feedbackPolicy';
 
 // Categories ordered by difficulty
-const CATEGORY_TIERS = [
+const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
   // Tier 1 (Easy) — concrete, high-frequency
   [
-    { category: 'animals', label: 'Animals', examples: 'dog, cat, horse…' },
-    { category: 'foods', label: 'Foods', examples: 'bread, apple, rice…' },
-    { category: 'colors', label: 'Colors', examples: 'red, blue, green…' },
+    { category: 'animals', label: 'Animals' },
+    { category: 'foods', label: 'Foods' },
+    { category: 'colors', label: 'Colors' },
   ],
   // Tier 2 (Medium) — concrete but narrower
   [
-    { category: 'clothes', label: 'Clothing', examples: 'shirt, hat, shoes…' },
-    { category: 'kitchen', label: 'Kitchen Items', examples: 'cup, fork, pan…' },
-    { category: 'tools', label: 'Tools', examples: 'hammer, saw, drill…' },
-    { category: 'vehicles', label: 'Vehicles', examples: 'car, bus, bike…' },
+    { category: 'clothes', label: 'Clothing' },
+    { category: 'kitchen', label: 'Kitchen Items' },
+    { category: 'tools', label: 'Tools' },
+    { category: 'vehicles', label: 'Vehicles' },
   ],
   // Tier 3 (Hard) — abstract or narrow
   [
-    { category: 'professions', label: 'Jobs', examples: 'doctor, teacher, driver…' },
-    { category: 'emotions', label: 'Emotions', examples: 'happy, sad, angry…' },
-    { category: 'sports', label: 'Sports', examples: 'soccer, tennis, swimming…' },
+    { category: 'professions', label: 'Jobs' },
+    { category: 'emotions', label: 'Emotions' },
+    { category: 'sports', label: 'Sports' },
   ],
 ];
 
@@ -220,6 +221,17 @@ export function CategoryFluencyGame({
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
+  // Rotating example chips for the current round (3 at a time, drawn from
+  // a 12–15 word pool; localStorage avoids repeats across sessions).
+  const [exampleChips, setExampleChips] = useState<string[]>(() =>
+    pickExamples(config.category, 3),
+  );
+  // Number of times the user requested fresh examples this round (counted
+  // as a cue / support).
+  const [exampleSwapCount, setExampleSwapCount] = useState(0);
+  const exampleSwapCountRef = useRef(0);
+  useEffect(() => { exampleSwapCountRef.current = exampleSwapCount; }, [exampleSwapCount]);
+
   const [totalTime, setTotalTime] = useState(() => getTimerForDifficulty(currentDifficulty));
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
@@ -369,9 +381,10 @@ export function CategoryFluencyGame({
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
 
-    // Cue level for fluency: 0 if independent, 1 if examples were visible during round.
-    // Examples banner is always shown in this exercise → treat as cueLevel: 1.
-    const fluencyCueLevel = 1;
+    // Cue level for fluency: examples chip strip is always shown (cueLevel: 1).
+    // Each "Show different examples" swap is treated as additional support,
+    // capped at cueLevel 3.
+    const fluencyCueLevel = Math.min(3, 1 + exampleSwapCountRef.current);
 
     // Feed adaptive engine
     const prevDiff = currentDifficulty;
@@ -445,6 +458,9 @@ export function CategoryFluencyGame({
     setConfig(cat);
     setWords([]);
     setCurrentInput('');
+    setExampleChips(pickExamples(cat.category, 3));
+    setExampleSwapCount(0);
+    exampleSwapCountRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
@@ -511,10 +527,13 @@ export function CategoryFluencyGame({
   useEffect(() => { beginCountdownRef.current = beginCountdown; }, [beginCountdown]);
 
   /** Start round with an already-picked config (used after countdown) */
-  const startRoundWithConfig = useCallback((cat: { category: string; label: string; examples: string }) => {
+  const startRoundWithConfig = useCallback((cat: { category: string; label: string }) => {
     // Speech already finished before countdown — no need to interrupt
     setWords([]);
     setCurrentInput('');
+    setExampleChips(pickExamples(cat.category, 3));
+    setExampleSwapCount(0);
+    exampleSwapCountRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
@@ -672,7 +691,7 @@ export function CategoryFluencyGame({
             Name as many <strong>{config.label.toLowerCase()}</strong> as you can
           </p>
           <p className="text-sm text-muted-foreground">
-            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {config.examples}
+            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {exampleChips.join(', ')}…
           </p>
         </div>
         {currentRound > 0 && (
@@ -707,6 +726,11 @@ export function CategoryFluencyGame({
     const lastResult = results[results.length - 1];
     const roundAnalysis = lastResult.analysis;
     const isEmptyRound = lastResult.uniqueWordCount === 0;
+    const ideasForNextTime = pickIdeasForNextTime(
+      lastResult.category,
+      lastResult.words,
+      6,
+    );
     return (
       <RoundDoneAutoAdvance
         onAdvance={nextRound}
@@ -729,6 +753,28 @@ export function CategoryFluencyGame({
               ))}
             </div>
           </>
+        )}
+
+        {/* Ideas for next time — surfaces 5–8 unsaid pool words so the user
+            takes new vocabulary into the next round. NOT framed as a score
+            penalty; this is a learning loop, not "things you missed". */}
+        {!isEmptyRound && ideasForNextTime.length > 0 && (
+          <div className="w-full max-w-xs space-y-1.5 pt-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              💡 Ideas for next time
+            </p>
+            <div className="flex flex-wrap gap-1 justify-center">
+              {ideasForNextTime.map((w) => (
+                <Badge
+                  key={w}
+                  variant="outline"
+                  className="text-xs font-normal capitalize border-dashed text-muted-foreground"
+                >
+                  {w}
+                </Badge>
+              ))}
+            </div>
+          </div>
         )}
         {roundAnalysis && roundAnalysis.clusterCount > 0 && (
           <p className="text-sm text-muted-foreground">
@@ -900,6 +946,38 @@ export function CategoryFluencyGame({
           )}
         />
       </div>
+
+      {/* Rotating example chips — 3 at a time, drawn from a 12–15 word pool.
+          The user can request a fresh draw via "Show different examples";
+          that swap is counted as a cue. Examples are intentionally small
+          and unobtrusive so retrieval still comes from the user. */}
+      {exampleChips.length > 0 && (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-wrap gap-1.5 justify-center items-center">
+            <span className="text-xs text-muted-foreground mr-1">e.g.</span>
+            {exampleChips.map((ex) => (
+              <Badge
+                key={ex}
+                variant="secondary"
+                className="text-xs font-normal capitalize bg-muted/60 text-muted-foreground"
+              >
+                {ex}
+              </Badge>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setExampleChips(pickExamples(config.category, 3, exampleChips));
+              setExampleSwapCount((n) => n + 1);
+              exampleSwapCountRef.current += 1;
+            }}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            Show different examples
+          </button>
+        </div>
+      )}
 
       {/* Mic status + live transcript */}
       {speechSupported && !showTextInput && (
