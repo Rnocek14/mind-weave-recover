@@ -258,6 +258,10 @@ export const useSpeechRecognition = (
 
     recognition.onend = () => {
       console.log('🎤 Speech recognition ended, state was:', stateRef.current);
+      if (forceStopTimeoutRef.current) {
+        clearTimeout(forceStopTimeoutRef.current);
+        forceStopTimeoutRef.current = null;
+      }
       const restartingAfterSilence = stateRef.current === 'RESTARTING';
       const shouldHoldListeningUi = restartingAfterSilence || (patientMode && !manuallyStoppedRef.current);
       const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING' || restartingAfterSilence;
@@ -408,6 +412,15 @@ export const useSpeechRecognition = (
     console.log('🎤 Manually stopping listening...');
     stateRef.current = 'STOPPING';
     manuallyStoppedRef.current = true;
+    if (forceStopTimeoutRef.current) clearTimeout(forceStopTimeoutRef.current);
+    forceStopTimeoutRef.current = setTimeout(() => {
+      if (stateRef.current !== 'STOPPING') return;
+      console.warn('🎤 stopListening watchdog reset stuck STOPPING state');
+      stateRef.current = 'IDLE';
+      setIsListening(false);
+      lastStopTimeRef.current = Date.now();
+      forceStopTimeoutRef.current = null;
+    }, 900);
     
     // Clear any pending restart
     if (restartTimeoutRef.current) {
