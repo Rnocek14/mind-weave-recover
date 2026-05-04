@@ -117,6 +117,8 @@ export function DetectiveMindGame({
 
   const [phase, setPhase] = useState<Phase>('answering');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const selectedOptionRef = useRef<number | null>(null);
+  useEffect(() => { selectedOptionRef.current = selectedOption; }, [selectedOption]);
   const [lastResult, setLastResult] = useState<DetectiveTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -256,8 +258,8 @@ export function DetectiveMindGame({
     // If voice-led and auto-read hasn't finished yet, don't start stall timer
     if (vg.shouldAutoReadContent && !autoReadDone) return;
     stallTimerRef.current = setTimeout(() => {
-      if (selectedOption === null && !firstInteractionRef.current) {
-        vg.speakReminder();
+      if (selectedOptionRef.current === null && !firstInteractionRef.current) {
+        vgRef.current.speakReminder();
       }
     }, 8000);
     return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
