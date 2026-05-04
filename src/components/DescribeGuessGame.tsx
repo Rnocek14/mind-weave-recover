@@ -964,10 +964,22 @@ export function DescribeGuessGame({
         <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
       )}
 
-      {/* Mic failure recovery — persistent */}
+      {/* Mic failure recovery — shows on explicit error OR when the mic
+          silently failed to start (no error fired but not listening either).
+          Hidden during typing mode, evaluation, feedback, and Maya's TTS. */}
       <MicFailureRecovery
-        visible={!!speechError && !isListening && !showFeedback && !isEvaluating}
+        visible={
+          !showFeedback &&
+          !isEvaluating &&
+          !useTyping &&
+          !awaitingWordAttempt &&
+          !isListening &&
+          !speechIsListening &&
+          !vg.isSpeaking &&
+          isSupported
+        }
         onRetry={() => {
+          resetTranscript();
           startListening();
           setIsListening(true);
           listeningStartRef.current = Date.now();
