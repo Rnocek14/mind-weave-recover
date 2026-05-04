@@ -113,6 +113,71 @@ export function MinimalPairsGame({
 
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
 
+  // ============ Optional 'Say it' echo phase ============
+  // Exposure, NOT evaluation. Never marks user wrong, never blocks progression.
+  type EchoStatus = 'idle' | 'listening' | 'heard' | 'skipped';
+  const [echoStatus, setEchoStatus] = useState<EchoStatus>('idle');
+  const [echoTranscript, setEchoTranscript] = useState('');
+  const echoActiveRef = useRef(false);
+  const echoTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const speech = useSpeechRecognition({
+    onResult: (t) => {
+      if (!echoActiveRef.current) return;
+      setEchoTranscript(t);
+      setEchoStatus('heard');
+    },
+    continuousListening: false,
+    enabled: true,
+  });
+
+  const stopEcho = useCallback(() => {
+    echoActiveRef.current = false;
+    if (echoTimerRef.current) { clearTimeout(echoTimerRef.current); echoTimerRef.current = null; }
+    try { speech.stopListening(); } catch {}
+  }, [speech]);
+
+  const startEcho = useCallback(async () => {
+    if (!speech.isSupported) {
+      setEchoStatus('skipped');
+      return;
+    }
+    echoActiveRef.current = true;
+    setEchoStatus('listening');
+    setEchoTranscript('');
+    // Sync-Wait: target was just spoken in feedback effect; small gap before mic.
+    await new Promise((r) => setTimeout(r, 600));
+    if (!echoActiveRef.current) return;
+    try { speech.startListening(); } catch {}
+    // Auto-stop after 4s — exposure window, not evaluation.
+    echoTimerRef.current = setTimeout(() => {
+      if (echoActiveRef.current && echoStatus === 'listening') {
+        stopEcho();
+        setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
+      }
+    }, 4000);
+  }, [speech, stopEcho, echoStatus]);
+
+  const handleEchoSaidIt = useCallback(() => {
+    stopEcho();
+    setEchoStatus('heard');
+  }, [stopEcho]);
+
+  const handleEchoSkip = useCallback(() => {
+    stopEcho();
+    setEchoStatus('skipped');
+  }, [stopEcho]);
+
+  // Reset echo on each new trial
+  useEffect(() => {
+    stopEcho();
+    setEchoStatus('idle');
+    setEchoTranscript('');
+  }, [trialIndex, stopEcho]);
+
+  useEffect(() => () => stopEcho(), [stopEcho]);
+
+
   // Track trial completions for adaptation
   const trialStartRef = useRef(Date.now());
   useEffect(() => {
