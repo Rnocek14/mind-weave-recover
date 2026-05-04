@@ -690,7 +690,7 @@ export function CategoryFluencyGame({
             Name as many <strong>{config.label.toLowerCase()}</strong> as you can
           </p>
           <p className="text-sm text-muted-foreground">
-            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {config.examples}
+            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {exampleChips.join(', ')}…
           </p>
         </div>
         {currentRound > 0 && (
