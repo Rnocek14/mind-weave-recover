@@ -160,7 +160,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     ],
     keyEvents: ['made list', 'went to store', 'put in cart', 'paid', 'forgot milk'],
     expectedClauses: 5,
-    tier: 1,
+    tier: 2,
     structureMap: DEFAULT_STRUCTURE,
   },
   {
