@@ -322,8 +322,8 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
   },
   { id: 'haircut', title: 'A New Haircut', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '💇', text: 'Lisa decided her hair was too long and went to the salon.' },
-      { emoji: '✂️', text: 'The stylist cut her hair short and styled it.' },
+      { emoji: '💇', text: 'Lisa thought her hair was too long.' },
+      { emoji: '✂️', text: 'She went to the salon and got it cut short.' },
       { emoji: '😊', text: 'Lisa smiled at her new look in the mirror.' },
       { emoji: '🤗', text: 'Her friends complimented her later that day.' },
     ],
