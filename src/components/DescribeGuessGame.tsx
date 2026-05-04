@@ -488,13 +488,22 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
         setWordSaidRedirect(false);
         setGuessMessage(null);
+        setMicOpening(true);
+        setMicRecoveryReady(false);
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedback) return;
+        if (!currentTrialRef.current || showFeedback) {
+          setMicOpening(false);
+          return;
+        }
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
+        setMicOpening(false);
+        micRecoveryTimerRef.current = setTimeout(() => {
+          if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
+        }, 2500);
       });
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak]);
