@@ -177,7 +177,11 @@ export function ThoughtContinuationGame({
 
   // Discourse Adaptation Bridge — mirrors the trial-based games' visible
   // up/down/hold cues based on conversational signals.
-  const adaptation = useDiscourseAdaptation({ initialLevel: 2 });
+  const adaptation = useDiscourseAdaptation({
+    initialLevel: 2,
+    sessionId,
+    exerciseSlug: 'thought_continuation',
+  });
   const previousAdaptationLevelRef = useRef(adaptation.level);
 
   // Phase 4 — per-trial logging into adaptation_trial_logs for real-world
