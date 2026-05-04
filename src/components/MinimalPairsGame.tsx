@@ -43,6 +43,8 @@ interface MinimalPairsGameProps {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    echoAttempted?: boolean;
+    echoTranscript?: string;
   }) => void;
 }
 
