@@ -60,10 +60,10 @@ export const useSpeechRecognition = (
   // State machine to prevent race conditions
   const stateRef = useRef<RecognitionState>('IDLE');
   const recognitionRef = useRef<any>(null);
-  const restartTimeoutRef = useRef<any>(null);
-  const cooldownTimeoutRef = useRef<any>(null);
-  const queuedStartTimeoutRef = useRef<any>(null);
-  const forceStopTimeoutRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queuedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const forceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noSpeechCountRef = useRef(0);
   const manuallyStoppedRef = useRef(false);
   const pendingTranscriptRef = useRef<string>('');
