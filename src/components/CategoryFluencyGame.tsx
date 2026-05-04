@@ -221,6 +221,17 @@ export function CategoryFluencyGame({
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
+  // Rotating example chips for the current round (3 at a time, drawn from
+  // a 12–15 word pool; localStorage avoids repeats across sessions).
+  const [exampleChips, setExampleChips] = useState<string[]>(() =>
+    pickExamples(config.category, 3),
+  );
+  // Number of times the user requested fresh examples this round (counted
+  // as a cue / support).
+  const [exampleSwapCount, setExampleSwapCount] = useState(0);
+  const exampleSwapCountRef = useRef(0);
+  useEffect(() => { exampleSwapCountRef.current = exampleSwapCount; }, [exampleSwapCount]);
+
   const [totalTime, setTotalTime] = useState(() => getTimerForDifficulty(currentDifficulty));
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
