@@ -27,6 +27,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isAudioUnlocked } from '@/lib/audioUnlock';
+import { useVoiceState } from '@/hooks/useVoiceState';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -364,8 +365,25 @@ export function DetectiveMindGame({
     return best >= 0 ? best : null;
   }, [displayedOptions]);
 
+  // Track when TTS finished so we can ignore speech results that arrive
+  // before audio has fully drained (those are almost always Maya's own voice
+  // bleeding into the recognizer).
+  const ttsEndedAtRef = useRef<number>(0);
+  const isDirectSpeakingRef = useRef(isDirectSpeaking);
+  useEffect(() => {
+    if (isDirectSpeakingRef.current && !isDirectSpeaking) {
+      ttsEndedAtRef.current = Date.now();
+    }
+    isDirectSpeakingRef.current = isDirectSpeaking;
+  }, [isDirectSpeaking]);
+
   const handleSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
+    // Guard: ignore anything captured while Maya is still speaking, or
+    // within 800ms of her finishing — that's TTS bleed, not the user.
+    if (isDirectSpeakingRef.current) return;
+    if (Date.now() - ttsEndedAtRef.current < 800) return;
+
     const idx = selectFromTranscript(text);
     if (idx != null) {
       setVoiceMissMsg(null);
@@ -387,16 +405,56 @@ export function DetectiveMindGame({
     continuousListening: true,
   });
 
+  // Mic safety helper (matches PhotoNaming pattern). Waits until system audio
+  // has fully drained before allowing the mic to open, so Maya's own voice
+  // doesn't get transcribed as the user's answer.
+  const { awaitMicSafe } = useVoiceState();
+
   // Auto-start mic after Maya finishes reading the question/options.
+  // Uses awaitMicSafe + a retry ladder so the mic actually arms even when
+  // the speechSynthesis end event fires slightly before audio fully stops.
+  const micArmedForCaseRef = useRef<string | null>(null);
   useEffect(() => {
     if (!autoReadDone || phase !== 'answering' || selectedOption !== null) return;
     if (!voiceSupported) return;
-    if (isDirectSpeaking) return;
-    const t = setTimeout(() => {
-      try { startVoice(); } catch {}
-    }, 600);
-    return () => clearTimeout(t);
-  }, [autoReadDone, phase, selectedOption, voiceSupported, isDirectSpeaking, startVoice]);
+    if (!currentCase) return;
+    if (micArmedForCaseRef.current === currentCase.id) return;
+    micArmedForCaseRef.current = currentCase.id;
+
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const arm = async () => {
+      try { await awaitMicSafe(5000); } catch {}
+      if (cancelled) return;
+
+      let attempts = 0;
+      const tryStart = () => {
+        if (cancelled) return;
+        attempts += 1;
+        try { startVoice(); } catch {}
+        if (attempts >= 5) return;
+        const delay = attempts === 1 ? 400 : attempts === 2 ? 700 : attempts === 3 ? 1000 : 1400;
+        retryTimer = setTimeout(() => {
+          // re-check; if we're still not listening, retry
+          tryStart();
+        }, delay);
+      };
+      tryStart();
+    };
+
+    arm();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [autoReadDone, phase, selectedOption, voiceSupported, currentCase?.id, awaitMicSafe, startVoice]);
+
+  // Reset the per-case arm guard when the case changes.
+  useEffect(() => {
+    micArmedForCaseRef.current = null;
+  }, [currentCase?.id]);
 
   // Stop listening once selection committed or case changes.
   useEffect(() => {
