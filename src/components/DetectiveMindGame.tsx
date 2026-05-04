@@ -795,6 +795,16 @@ export function DetectiveMindGame({
               {voiceMissMsg}
             </p>
           )}
+
+          {micErrorMessage && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-center text-muted-foreground bg-muted/50 border border-border rounded-md py-2 px-3"
+            >
+              {micErrorMessage}
+            </p>
+          )}
         </div>
       )}
 
