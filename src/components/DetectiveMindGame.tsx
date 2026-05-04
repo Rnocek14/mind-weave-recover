@@ -477,10 +477,14 @@ export function DetectiveMindGame({
     if (phase !== 'answering' || selectedOption !== null) return;
     if (!voiceSupported || voiceListening || isDirectSpeaking) return;
     const t = setTimeout(() => {
-      try { startVoice(); } catch {}
+      void (async () => {
+        try { await awaitMicSafeRef.current(5000); } catch {}
+        if (phase !== 'answering' || selectedOption !== null || voiceListeningRef.current) return;
+        try { startVoiceRef.current(); } catch {}
+      })();
     }, 400);
     return () => clearTimeout(t);
-  }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking, startVoice]);
+  }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking]);
 
   const handleHint = useCallback(() => {
     // Track first interaction
