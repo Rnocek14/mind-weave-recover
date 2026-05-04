@@ -422,10 +422,10 @@ export function NarrativeRetellGame({
 
       if (wordCount < 2) {
         let newIndex = stallPromptIndex;
-        if (elapsed > 32000 && stallPromptIndex < 3) newIndex = 3;
-        else if (elapsed > 24000 && stallPromptIndex < 2) newIndex = 2;
-        else if (elapsed > 18000 && stallPromptIndex < 1) newIndex = 1;
-        else if (elapsed > 12000 && stallPromptIndex < 0) newIndex = 0;
+        if (elapsed > 22000 && stallPromptIndex < 3) newIndex = 3;
+        else if (elapsed > 16000 && stallPromptIndex < 2) newIndex = 2;
+        else if (elapsed > 10000 && stallPromptIndex < 1) newIndex = 1;
+        else if (elapsed > 6000 && stallPromptIndex < 0) newIndex = 0;
         
         if (newIndex > stallPromptIndex) {
           setStallPromptIndex(newIndex);
@@ -521,7 +521,7 @@ export function NarrativeRetellGame({
     // Give the user a beat to absorb the story before flipping to retell.
     const t = setTimeout(() => {
       handleStartRetelling();
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(t);
   }, [phase, storyReadComplete, currentIndex, handleStartRetelling]);
 
@@ -915,6 +915,29 @@ export function NarrativeRetellGame({
             {stallPromptIndex >= 0 && (
               <div className="bg-accent/30 border border-accent/50 rounded-lg px-3 py-2 text-sm text-foreground animate-in fade-in duration-500">
                 💬 {STALL_PROMPTS[stallPromptIndex]}
+              </div>
+            )}
+
+            {/* Tier-1 visual hint: small scene thumbnails revealed only after
+                the user clearly stalls (≥ second prompt). Helps recall without
+                turning retell into "describe the picture". */}
+            {activeTier === 1 && stallPromptIndex >= 1 && (
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-2 animate-in fade-in duration-500">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">
+                  Memory hint
+                </p>
+                <div className="flex justify-center gap-2">
+                  {currentStory.scenes.map((scene, i) => (
+                    <span
+                      key={i}
+                      className="text-2xl opacity-80"
+                      title={scene.text}
+                      aria-label={scene.text}
+                    >
+                      {scene.emoji}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
