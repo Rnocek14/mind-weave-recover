@@ -254,13 +254,36 @@ export function MinimalPairsGame({
   }, [showFeedback, currentTrial, state.selectedIndex, state.isCorrect, onTrialComplete]);
 
   // Auto-advance after selection — keeps rhythm flowing.
-  // Correct: 1.2s. Incorrect: 2.2s (extra time to read the contrast info).
+  // Correct: wait for echo phase (heard or skipped), then advance after a short beat.
+  // Incorrect: 2.2s (extra time to read the contrast info). No echo on incorrect.
   useEffect(() => {
     if (!showFeedback || isComplete) return;
-    const delay = state.isCorrect ? 1200 : 2200;
-    const t = setTimeout(() => { nextTrial(); }, delay);
+    if (state.isCorrect) {
+      // Wait for echo to resolve before advancing.
+      if (echoStatus === 'idle' || echoStatus === 'listening') return;
+      const t = setTimeout(() => { nextTrial(); }, 900);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => { nextTrial(); }, 2200);
     return () => clearTimeout(t);
-  }, [showFeedback, isComplete, state.isCorrect, nextTrial]);
+  }, [showFeedback, isComplete, state.isCorrect, echoStatus, nextTrial]);
+
+  // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
+  useEffect(() => {
+    if (!showFeedback || isComplete) return;
+    if (!state.isCorrect) return;
+    if (echoStatus !== 'idle') return;
+    // Speak target once for production model, then open mic.
+    let cancelled = false;
+    (async () => {
+      try { await speak(currentTrial!.targetWord); } catch {}
+      if (cancelled) return;
+      startEcho();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFeedback, isComplete, state.isCorrect, trialIndex]);
+
   
   if (!currentTrial && !isComplete) {
     return (
