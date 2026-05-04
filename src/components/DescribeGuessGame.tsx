@@ -656,7 +656,7 @@ export function DescribeGuessGame({
 
       if (guessResult.guessed && !wordWin) {
         // App guessed correctly — celebrate, then optionally let them try saying it
-        setGuessMessage(`I got it! It's "${trial.target}"! 🎉 Now try saying the word.`);
+        setGuessMessage(`I got it! It's "${trial.target}"! Say: ${trial.target}`);
         setAwaitingWordAttempt(true);
 
         // Store context so real-time word detection can finalize early
@@ -671,7 +671,7 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
 
         // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
-        speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(async () => {
+        speak(`Say ${trial.target}.`).then(async () => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
           setMicOpening(true);
