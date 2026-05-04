@@ -425,9 +425,7 @@ export function DescribeGuessGame({
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
         setMicOpening(false);
-        micRecoveryTimerRef.current = setTimeout(() => {
-          if (!isListeningRef.current && !useTyping) setMicRecoveryReady(true);
-        }, 2500);
+        scheduleMicRecoveryCheck();
       })();
     } else {
       setTypedAnswer('');
