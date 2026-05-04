@@ -660,13 +660,19 @@ export function DescribeGuessGame({
         speak(`I got it! It's ${trial.target}! Now try saying the word.`).then(async () => {
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
+          setMicOpening(true);
+          setMicRecoveryReady(false);
 
           // Sync-Wait: VoiceController guarantees Maya is fully done.
           await awaitMicSafe(5000);
-          if (!awaitingWordAttempt && !wordAttemptContextRef.current) return;
+          if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
+            setMicOpening(false);
+            return;
+          }
           startListening();
           setIsListening(true);
           listeningStartRef.current = Date.now();
+          setMicOpening(false);
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
