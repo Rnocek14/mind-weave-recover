@@ -393,6 +393,18 @@ export function DetectiveMindGame({
     }
   }, [selectedOption, phase, stopVoice]);
 
+  // After a soft voice miss, re-arm the mic so the user can try again
+  // without tapping anything.
+  useEffect(() => {
+    if (!voiceMissMsg) return;
+    if (phase !== 'answering' || selectedOption !== null) return;
+    if (!voiceSupported || voiceListening || isDirectSpeaking) return;
+    const t = setTimeout(() => {
+      try { startVoice(); } catch {}
+    }, 400);
+    return () => clearTimeout(t);
+  }, [voiceMissMsg, phase, selectedOption, voiceSupported, voiceListening, isDirectSpeaking, startVoice]);
+
   const handleHint = useCallback(() => {
     // Track first interaction
     if (!firstInteractionRef.current) {
