@@ -272,6 +272,10 @@ export function DescribeGuessGame({
         clearTimeout(micRecoveryTimerRef.current);
         micRecoveryTimerRef.current = null;
       }
+      if (micAutoRetryTimerRef.current) {
+        clearTimeout(micAutoRetryTimerRef.current);
+        micAutoRetryTimerRef.current = null;
+      }
     }
   }, [speechIsListening]);
 
