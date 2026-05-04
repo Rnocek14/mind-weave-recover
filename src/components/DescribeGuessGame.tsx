@@ -124,6 +124,8 @@ export function DescribeGuessGame({
   const isListeningRef = useRef(false);
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const micRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micAutoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const startListeningRef = useRef<() => void>(() => {});
   const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
   // True from trial-start until the mic actually opens. Suppresses the
@@ -133,6 +135,10 @@ export function DescribeGuessGame({
   const [micRecoveryReady, setMicRecoveryReady] = useState(false);
   const scheduleMicRecoveryCheck = useCallback(() => {
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
+    if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
+    micAutoRetryTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current) startListeningRef.current();
+    }, 650);
     micRecoveryTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current) setMicRecoveryReady(true);
     }, 2500);
@@ -254,6 +260,7 @@ export function DescribeGuessGame({
   });
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
   useEffect(() => {
     setIsListening(speechIsListening);
