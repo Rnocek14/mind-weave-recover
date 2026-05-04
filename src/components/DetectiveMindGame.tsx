@@ -175,13 +175,16 @@ export function DetectiveMindGame({
     };
   }, [currentCase]);
 
-  // Reset state when case changes
+  // Reset state when case changes — keyed on case.id (not just index) so
+  // re-shuffles or hot-swaps still trigger a clean reset.
   useEffect(() => {
+    if (!currentCase) return;
     // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
-    // the auto-read effect spins up the new one.
+    // the auto-read effect spins up the new one. Bumping ttsSeqRef invalidates
+    // any pending awaits so stale story audio cannot land on the new case.
     vg.interrupt?.();
     try { stopDirect(); } catch {}
-    ttsSeqRef.current++; // invalidate any pending speakBlocking awaits
+    ttsSeqRef.current++;
 
     setPhase('answering');
     setSelectedOption(null);
@@ -190,10 +193,11 @@ export function DetectiveMindGame({
     setShowHint(false);
     setHasAutoRead(false);
     setAutoReadDone(false);
+    setVoiceMissMsg(null);
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentIndex, vg, stopDirect]);
+  }, [currentCase?.id, vg, stopDirect]);
 
   // Auto-read story then question on case load — runs in EVERY mode.
   // (Previously gated to Full Coaching only, which is why Detective Mind
