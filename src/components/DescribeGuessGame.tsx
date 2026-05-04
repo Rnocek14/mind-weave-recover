@@ -414,9 +414,18 @@ export function DescribeGuessGame({
     rawTranscriptRef.current = '';
     processingRef.current = false;
     setMicRecoveryReady(false);
+    micStartCycleRef.current += 1;
     if (micRecoveryTimerRef.current) {
       clearTimeout(micRecoveryTimerRef.current);
       micRecoveryTimerRef.current = null;
+    }
+    if (micAutoRetryTimerRef.current) {
+      clearTimeout(micAutoRetryTimerRef.current);
+      micAutoRetryTimerRef.current = null;
+    }
+    if (micStartRetryTimerRef.current) {
+      clearTimeout(micStartRetryTimerRef.current);
+      micStartRetryTimerRef.current = null;
     }
     setIsEvaluating(false);
     // Clear the speech hook's accumulated transcript so leftover text from
@@ -458,7 +467,7 @@ export function DescribeGuessGame({
         await new Promise((r) => setTimeout(r, 50));
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
-        if (!currentTrialRef.current || showFeedback) {
+        if (!currentTrialRef.current || showFeedbackRef.current) {
           setMicOpening(false);
           return;
         }
@@ -467,12 +476,8 @@ export function DescribeGuessGame({
         resetTranscript();
         setDisplayTranscript('');
         rawTranscriptRef.current = '';
-        startListening();
-        setIsListening(true);
-        listeningStartRef.current = Date.now();
+        startMicWithRetries(micStartCycleRef.current);
         if (isRecordingSupported) startRecording();
-        setMicOpening(false);
-        scheduleMicRecoveryCheck();
       })();
     } else {
       setTypedAnswer('');
