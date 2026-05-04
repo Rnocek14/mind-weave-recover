@@ -144,7 +144,9 @@ export function ThoughtContinuationGame({
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptValueRef = useRef<string>('');
+  const latestTranscriptRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
+  const isListeningRef = useRef<boolean>(false);
   // Gate the trial-start effect so it only runs ONCE per promptCount.
   // Without this, identity changes in `startListening` / `clearAnswerState`
   // cause the effect to re-fire repeatedly while phase is still 'idle',
@@ -161,6 +163,7 @@ export function ThoughtContinuationGame({
   const promptStartSequenceRef = useRef(0);
   const { 
     startAttempt, 
+    logBrowserTranscript,
     logFinalAnalysis, 
     resetAttempt,
   } = useUtteranceLogger();
@@ -195,8 +198,10 @@ export function ThoughtContinuationGame({
   
   // Speech recognition with callback - PATIENT MODE enabled
   const handleSpeechResult = useCallback((text: string) => {
+    latestTranscriptRef.current = text;
     setTranscript(text);
-  }, []);
+    logBrowserTranscript(text);
+  }, [logBrowserTranscript]);
   
   const {
     isListening,
@@ -213,6 +218,10 @@ export function ThoughtContinuationGame({
     patientMode: true, // Keep mic on continuously - no auto-cutoff
     discourseMode: true, // Accumulate all speech segments instead of replacing
   });
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   // ---------------------------------------------------------------------------
   // Select first/next prompt using adaptive selector
@@ -270,6 +279,7 @@ export function ThoughtContinuationGame({
     // Use fullTranscript (accumulated discourse) instead of liveTranscript (last segment only)
     const currentText = fullTranscript || liveTranscript;
     if (currentText && currentText.trim().length > 0) {
+      latestTranscriptRef.current = currentText;
       setTranscript(currentText);
       
       // Record latency to first word
@@ -299,6 +309,7 @@ export function ThoughtContinuationGame({
     setTranscript('');
     setShowDoneButton(false);
     lastTranscriptValueRef.current = '';
+    latestTranscriptRef.current = '';
     hasCommittedRef.current = false;
     resetSpeechTranscript();
     if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
