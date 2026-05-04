@@ -158,9 +158,6 @@ export function DescribeGuessGame({
       }
 
       startListeningRef.current();
-      setIsListening(true);
-      listeningStartRef.current = Date.now();
-      setMicOpening(false);
 
       if (isListeningRef.current || attempt >= attempts) {
         scheduleMicRecoveryCheck();
@@ -171,6 +168,7 @@ export function DescribeGuessGame({
       micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
     };
 
+    setMicOpening(true);
     tryStart(1);
   }, [scheduleMicRecoveryCheck]);
 
@@ -300,6 +298,7 @@ export function DescribeGuessGame({
     if (speechIsListening) {
       setMicOpening(false);
       setMicRecoveryReady(false);
+      listeningStartRef.current = Date.now();
       if (micRecoveryTimerRef.current) {
         clearTimeout(micRecoveryTimerRef.current);
         micRecoveryTimerRef.current = null;
@@ -1197,10 +1196,10 @@ export function DescribeGuessGame({
             {!useTyping && (
               <div className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               )}>
-                {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-                {isListening ? 'Listening...' : 'Mic off'}
+                {isListening || micOpening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+                {isListening ? 'Listening...' : micOpening ? 'Opening mic...' : 'Mic off'}
               </div>
             )}
 
@@ -1212,10 +1211,10 @@ export function DescribeGuessGame({
           <>
             <div className={cn(
               'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
-              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
             )}>
-              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-              {isListening ? 'Say the word...' : 'Mic off'}
+              {isListening || micOpening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+              {isListening ? 'Say the word...' : micOpening ? 'Opening mic...' : 'Mic off'}
             </div>
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
               <SkipForward className="h-4 w-4 mr-1" /> Skip
@@ -1225,10 +1224,10 @@ export function DescribeGuessGame({
           <>
             <div className={cn(
               'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
-              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+              isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
             )}>
-              {isListening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
-              {isListening ? 'Say the word...' : 'Mic off'}
+              {isListening || micOpening ? <Mic className="h-4 w-4 animate-pulse" /> : <MicOff className="h-4 w-4" />}
+              {isListening ? 'Say the word...' : micOpening ? 'Opening mic...' : 'Mic off'}
             </div>
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
               <SkipForward className="h-4 w-4 mr-1" /> Skip

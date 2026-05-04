@@ -60,9 +60,10 @@ export const useSpeechRecognition = (
   // State machine to prevent race conditions
   const stateRef = useRef<RecognitionState>('IDLE');
   const recognitionRef = useRef<any>(null);
-  const restartTimeoutRef = useRef<any>(null);
-  const cooldownTimeoutRef = useRef<any>(null);
-  const queuedStartTimeoutRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queuedStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const forceStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noSpeechCountRef = useRef(0);
   const manuallyStoppedRef = useRef(false);
   const pendingTranscriptRef = useRef<string>('');
@@ -113,6 +114,10 @@ export const useSpeechRecognition = (
       if (queuedStartTimeoutRef.current) {
         clearTimeout(queuedStartTimeoutRef.current);
         queuedStartTimeoutRef.current = null;
+      }
+      if (forceStopTimeoutRef.current) {
+        clearTimeout(forceStopTimeoutRef.current);
+        forceStopTimeoutRef.current = null;
       }
     };
 
@@ -253,6 +258,10 @@ export const useSpeechRecognition = (
 
     recognition.onend = () => {
       console.log('🎤 Speech recognition ended, state was:', stateRef.current);
+      if (forceStopTimeoutRef.current) {
+        clearTimeout(forceStopTimeoutRef.current);
+        forceStopTimeoutRef.current = null;
+      }
       const restartingAfterSilence = stateRef.current === 'RESTARTING';
       const shouldHoldListeningUi = restartingAfterSilence || (patientMode && !manuallyStoppedRef.current);
       const wasListening = stateRef.current === 'LISTENING' || stateRef.current === 'STOPPING' || restartingAfterSilence;
@@ -403,6 +412,15 @@ export const useSpeechRecognition = (
     console.log('🎤 Manually stopping listening...');
     stateRef.current = 'STOPPING';
     manuallyStoppedRef.current = true;
+    if (forceStopTimeoutRef.current) clearTimeout(forceStopTimeoutRef.current);
+    forceStopTimeoutRef.current = setTimeout(() => {
+      if (stateRef.current !== 'STOPPING') return;
+      console.warn('🎤 stopListening watchdog reset stuck STOPPING state');
+      stateRef.current = 'IDLE';
+      setIsListening(false);
+      lastStopTimeRef.current = Date.now();
+      forceStopTimeoutRef.current = null;
+    }, 900);
     
     // Clear any pending restart
     if (restartTimeoutRef.current) {
