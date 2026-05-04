@@ -1093,15 +1093,12 @@ export function DescribeGuessGame({
           isSupported
         }
         onRetry={() => {
+          micStartCycleRef.current += 1;
           setMicOpening(true);
           setMicRecoveryReady(false);
           resetTranscript();
           setTimeout(() => {
-            startListening();
-            setIsListening(true);
-            listeningStartRef.current = Date.now();
-            setMicOpening(false);
-            scheduleMicRecoveryCheck();
+            startMicWithRetries(micStartCycleRef.current);
           }, 350);
         }}
         compact
