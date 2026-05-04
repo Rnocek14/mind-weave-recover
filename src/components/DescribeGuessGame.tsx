@@ -125,8 +125,12 @@ export function DescribeGuessGame({
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const micRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const micAutoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micStartRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micStartCycleRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const runEvaluationRef = useRef<() => void>(() => {});
+  const showFeedbackRef = useRef(false);
+  const useTypingRef = useRef(useTyping);
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
   // True from trial-start until the mic actually opens. Suppresses the
   // "Microphone unavailable" recovery banner during the legitimate wait
@@ -137,12 +141,38 @@ export function DescribeGuessGame({
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
     micAutoRetryTimerRef.current = setTimeout(() => {
-      if (!isListeningRef.current) startListeningRef.current();
+      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) startListeningRef.current();
     }, 650);
     micRecoveryTimerRef.current = setTimeout(() => {
-      if (!isListeningRef.current) setMicRecoveryReady(true);
+      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) setMicRecoveryReady(true);
     }, 2500);
   }, []);
+
+  const startMicWithRetries = useCallback((cycle: number, attempts = 5) => {
+    if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
+
+    const tryStart = (attempt: number) => {
+      if (cycle !== micStartCycleRef.current || showFeedbackRef.current || useTypingRef.current) {
+        setMicOpening(false);
+        return;
+      }
+
+      startListeningRef.current();
+      setIsListening(true);
+      listeningStartRef.current = Date.now();
+      setMicOpening(false);
+
+      if (isListeningRef.current || attempt >= attempts) {
+        scheduleMicRecoveryCheck();
+        return;
+      }
+
+      const delay = attempt === 1 ? 400 : attempt === 2 ? 700 : attempt === 3 ? 1000 : 1400;
+      micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
+    };
+
+    tryStart(1);
+  }, [scheduleMicRecoveryCheck]);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
@@ -259,6 +289,8 @@ export function DescribeGuessGame({
     discourseMode: true, // CRITICAL: Accumulate across recognition restarts
   });
 
+  useEffect(() => { showFeedbackRef.current = showFeedback; }, [showFeedback]);
+  useEffect(() => { useTypingRef.current = useTyping; }, [useTyping]);
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
@@ -275,6 +307,10 @@ export function DescribeGuessGame({
       if (micAutoRetryTimerRef.current) {
         clearTimeout(micAutoRetryTimerRef.current);
         micAutoRetryTimerRef.current = null;
+      }
+      if (micStartRetryTimerRef.current) {
+        clearTimeout(micStartRetryTimerRef.current);
+        micStartRetryTimerRef.current = null;
       }
     }
   }, [speechIsListening]);
@@ -378,9 +414,18 @@ export function DescribeGuessGame({
     rawTranscriptRef.current = '';
     processingRef.current = false;
     setMicRecoveryReady(false);
+    micStartCycleRef.current += 1;
     if (micRecoveryTimerRef.current) {
       clearTimeout(micRecoveryTimerRef.current);
       micRecoveryTimerRef.current = null;
+    }
+    if (micAutoRetryTimerRef.current) {
+      clearTimeout(micAutoRetryTimerRef.current);
+      micAutoRetryTimerRef.current = null;
+    }
+    if (micStartRetryTimerRef.current) {
+      clearTimeout(micStartRetryTimerRef.current);
+      micStartRetryTimerRef.current = null;
     }
     setIsEvaluating(false);
     // Clear the speech hook's accumulated transcript so leftover text from
@@ -422,7 +467,7 @@ export function DescribeGuessGame({
         await new Promise((r) => setTimeout(r, 50));
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
-        if (!currentTrialRef.current || showFeedback) {
+        if (!currentTrialRef.current || showFeedbackRef.current) {
           setMicOpening(false);
           return;
         }
@@ -431,12 +476,8 @@ export function DescribeGuessGame({
         resetTranscript();
         setDisplayTranscript('');
         rawTranscriptRef.current = '';
-        startListening();
-        setIsListening(true);
-        listeningStartRef.current = Date.now();
+        startMicWithRetries(micStartCycleRef.current);
         if (isRecordingSupported) startRecording();
-        setMicOpening(false);
-        scheduleMicRecoveryCheck();
       })();
     } else {
       setTypedAnswer('');
@@ -454,6 +495,7 @@ export function DescribeGuessGame({
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
       if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
       if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
+      if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
       promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
@@ -499,6 +541,7 @@ export function DescribeGuessGame({
       setGuessMessage(redirectMsg);
 
       speak(redirectMsg).then(async () => {
+        micStartCycleRef.current += 1;
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
@@ -509,18 +552,14 @@ export function DescribeGuessGame({
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedback) {
+        if (!currentTrialRef.current || showFeedbackRef.current) {
           setMicOpening(false);
           return;
         }
-        startListening();
-        setIsListening(true);
-        listeningStartRef.current = Date.now();
-        setMicOpening(false);
-        scheduleMicRecoveryCheck();
+        startMicWithRetries(micStartCycleRef.current);
       });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak, scheduleMicRecoveryCheck]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, speak, startMicWithRetries]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
@@ -672,6 +711,7 @@ export function DescribeGuessGame({
 
         // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
         speak(`Say ${trial.target}.`).then(async () => {
+          micStartCycleRef.current += 1;
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
           setMicOpening(true);
@@ -684,11 +724,7 @@ export function DescribeGuessGame({
             setMicOpening(false);
             return;
           }
-          startListening();
-          setIsListening(true);
-          listeningStartRef.current = Date.now();
-          setMicOpening(false);
-          scheduleMicRecoveryCheck();
+          startMicWithRetries(micStartCycleRef.current);
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
@@ -828,6 +864,8 @@ export function DescribeGuessGame({
     promptTimersRef.current.forEach(t => clearTimeout(t));
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
+    if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
+    micStartCycleRef.current += 1;
     setMicRecoveryReady(false);
     setMicOpening(false);
     stopListening();
@@ -1056,15 +1094,12 @@ export function DescribeGuessGame({
           isSupported
         }
         onRetry={() => {
+          micStartCycleRef.current += 1;
           setMicOpening(true);
           setMicRecoveryReady(false);
           resetTranscript();
           setTimeout(() => {
-            startListening();
-            setIsListening(true);
-            listeningStartRef.current = Date.now();
-            setMicOpening(false);
-            scheduleMicRecoveryCheck();
+            startMicWithRetries(micStartCycleRef.current);
           }, 350);
         }}
         compact
@@ -1131,14 +1166,11 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
+                  micStartCycleRef.current += 1;
                   setMicOpening(true);
                   setMicRecoveryReady(false);
                   setTimeout(() => {
-                    startListening();
-                    setIsListening(true);
-                    listeningStartRef.current = Date.now();
-                    setMicOpening(false);
-                    scheduleMicRecoveryCheck();
+                    startMicWithRetries(micStartCycleRef.current);
                   }, 350);
                 }}
                 className="h-9"
