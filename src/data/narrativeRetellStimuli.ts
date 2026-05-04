@@ -31,7 +31,8 @@ export interface NarrativeStory {
 const DEFAULT_STRUCTURE = { beginning: [0], middle: [1, 2], end: [3] };
 
 export const NARRATIVE_STORIES: NarrativeStory[] = [
-  // Tier 1 — Simple, concrete, short sequences
+  // Tier 1 — Simple, concrete, short sequences.
+  // Spec: ≤35 words across 4 short scenes, one sentence per scene.
   {
     id: 'morning-coffee',
     title: 'Morning Coffee',
@@ -50,12 +51,12 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     id: 'lost-keys',
     title: 'The Lost Keys',
     scenes: [
-      { emoji: '🔑', text: 'Tom was leaving for work but couldn\'t find his keys.' },
-      { emoji: '🔍', text: 'He looked everywhere — under cushions, in his coat.' },
-      { emoji: '🐕', text: 'His dog was sitting on the mat, wagging its tail.' },
-      { emoji: '😂', text: 'The keys were under the dog the whole time.' },
+      { emoji: '🔑', text: 'Tom couldn\'t find his keys before work.' },
+      { emoji: '🔍', text: 'He looked under cushions and in his coat.' },
+      { emoji: '🐕', text: 'His dog sat on the mat, wagging its tail.' },
+      { emoji: '😂', text: 'The keys were under the dog.' },
     ],
-    keyEvents: ['couldn\'t find keys', 'looked everywhere', 'dog sitting on mat', 'keys under dog'],
+    keyEvents: ['couldn\'t find keys', 'looked everywhere', 'dog on mat', 'keys under dog'],
     expectedClauses: 4,
     tier: 1,
     structureMap: DEFAULT_STRUCTURE,
@@ -64,10 +65,10 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     id: 'rainy-picnic',
     title: 'The Rainy Picnic',
     scenes: [
-      { emoji: '🧺', text: 'The family packed a big basket for a picnic in the park.' },
-      { emoji: '🌧️', text: 'When they arrived, it started to rain heavily.' },
+      { emoji: '🧺', text: 'The family packed a basket for a picnic.' },
+      { emoji: '🌧️', text: 'When they arrived, it started raining hard.' },
       { emoji: '🏠', text: 'They ran back to the car and drove home.' },
-      { emoji: '🎉', text: 'They had the picnic on the living room floor instead.' },
+      { emoji: '🎉', text: 'They had the picnic on the living room floor.' },
     ],
     keyEvents: ['packed picnic', 'started raining', 'ran to car', 'picnic inside'],
     expectedClauses: 4,
@@ -159,7 +160,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     ],
     keyEvents: ['made list', 'went to store', 'put in cart', 'paid', 'forgot milk'],
     expectedClauses: 5,
-    tier: 1,
+    tier: 2,
     structureMap: DEFAULT_STRUCTURE,
   },
   {
@@ -265,7 +266,7 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     structureMap: DEFAULT_STRUCTURE,
   },
   // === Tier 1 expansion ===
-  { id: 'lost-cat', title: 'The Lost Cat', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 5,
+  { id: 'lost-cat', title: 'The Lost Cat', tier: 2, structureMap: DEFAULT_STRUCTURE, expectedClauses: 5,
     scenes: [
       { emoji: '🐈', text: 'A girl noticed her cat was missing from the house.' },
       { emoji: '🔦', text: 'She searched the yard with a flashlight, calling its name.' },
@@ -276,19 +277,19 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
   },
   { id: 'school-bus', title: 'Missing the School Bus', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '⏰', text: 'A boy slept through his alarm one morning.' },
-      { emoji: '🏃', text: 'He ran outside but the school bus was already pulling away.' },
-      { emoji: '🚗', text: 'His mom had to drive him to school instead.' },
-      { emoji: '😅', text: 'He promised to set two alarms next time.' },
+      { emoji: '⏰', text: 'A boy slept through his alarm.' },
+      { emoji: '🏃', text: 'He ran outside but the bus was leaving.' },
+      { emoji: '🚗', text: 'His mom drove him to school.' },
+      { emoji: '😅', text: 'He set two alarms for next time.' },
     ],
     keyEvents: ['slept through alarm', 'missed bus', 'mom drove him', 'promised two alarms'],
   },
   { id: 'broken-glass', title: 'The Broken Glass', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '🥛', text: 'Anna was carrying a glass of juice to the table.' },
-      { emoji: '💥', text: 'She tripped on a toy and the glass shattered.' },
-      { emoji: '🧹', text: 'She carefully swept up the pieces with a broom.' },
-      { emoji: '😊', text: 'Her dad helped her get a new glass and they cleaned together.' },
+      { emoji: '🥛', text: 'Anna was carrying a glass of juice.' },
+      { emoji: '💥', text: 'She tripped on a toy and the glass broke.' },
+      { emoji: '🧹', text: 'She swept up the pieces with a broom.' },
+      { emoji: '😊', text: 'Her dad helped her pour a new glass.' },
     ],
     keyEvents: ['carrying juice', 'tripped and broke glass', 'swept it up', 'dad helped'],
   },
@@ -312,17 +313,17 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
   },
   { id: 'first-snow', title: 'The First Snow', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '🌨️', text: 'The kids woke up to see snow covering everything outside.' },
-      { emoji: '🧤', text: 'They put on coats, gloves, and warm hats.' },
-      { emoji: '⛄', text: 'They built a snowman with stones for eyes and a carrot nose.' },
+      { emoji: '🌨️', text: 'The kids woke up to see fresh snow outside.' },
+      { emoji: '🧤', text: 'They put on coats, gloves, and hats.' },
+      { emoji: '⛄', text: 'They built a snowman with a carrot nose.' },
       { emoji: '☕', text: 'They came inside for hot cocoa.' },
     ],
     keyEvents: ['woke to snow', 'put on warm clothes', 'built snowman', 'hot cocoa inside'],
   },
   { id: 'haircut', title: 'A New Haircut', tier: 1, structureMap: DEFAULT_STRUCTURE, expectedClauses: 4,
     scenes: [
-      { emoji: '💇', text: 'Lisa decided her hair was too long and went to the salon.' },
-      { emoji: '✂️', text: 'The stylist cut her hair short and styled it.' },
+      { emoji: '💇', text: 'Lisa thought her hair was too long.' },
+      { emoji: '✂️', text: 'She went to the salon and got it cut short.' },
       { emoji: '😊', text: 'Lisa smiled at her new look in the mirror.' },
       { emoji: '🤗', text: 'Her friends complimented her later that day.' },
     ],
