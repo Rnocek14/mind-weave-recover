@@ -62,6 +62,7 @@ export const useSpeechRecognition = (
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
   const cooldownTimeoutRef = useRef<any>(null);
+  const queuedStartTimeoutRef = useRef<any>(null);
   const noSpeechCountRef = useRef(0);
   const manuallyStoppedRef = useRef(false);
   const pendingTranscriptRef = useRef<string>('');
@@ -108,6 +109,10 @@ export const useSpeechRecognition = (
       if (cooldownTimeoutRef.current) {
         clearTimeout(cooldownTimeoutRef.current);
         cooldownTimeoutRef.current = null;
+      }
+      if (queuedStartTimeoutRef.current) {
+        clearTimeout(queuedStartTimeoutRef.current);
+        queuedStartTimeoutRef.current = null;
       }
     };
 
@@ -306,6 +311,15 @@ export const useSpeechRecognition = (
 
 
   const startListening = useCallback(() => {
+    const queueStart = (delayMs: number, reason: string) => {
+      if (queuedStartTimeoutRef.current) clearTimeout(queuedStartTimeoutRef.current);
+      console.log(`🎤 startListening queued - ${reason}`);
+      queuedStartTimeoutRef.current = setTimeout(() => {
+        queuedStartTimeoutRef.current = null;
+        startListening();
+      }, delayMs);
+    };
+
     // Gate on enabled prop - if disabled, don't try to start
     if (!enabledRef.current) {
       console.log('🎤 startListening blocked - recognition disabled (permission not granted)');
@@ -320,14 +334,18 @@ export const useSpeechRecognition = (
     
     // State machine guard: only start from IDLE
     if (stateRef.current !== 'IDLE') {
-      console.log('🎤 startListening blocked - state is:', stateRef.current);
+      if (stateRef.current === 'STOPPING' || stateRef.current === 'STARTING' || stateRef.current === 'RESTARTING') {
+        queueStart(COOLDOWN_MS + 150, `state is ${stateRef.current}`);
+      } else {
+        console.log('🎤 startListening blocked - state is:', stateRef.current);
+      }
       return;
     }
     
     // Cooldown guard: prevent rapid start after stop
     const timeSinceStop = Date.now() - lastStopTimeRef.current;
     if (timeSinceStop < COOLDOWN_MS) {
-      console.log('🎤 startListening blocked - in cooldown period');
+      queueStart(COOLDOWN_MS - timeSinceStop + 50, 'in cooldown period');
       return;
     }
     
@@ -367,6 +385,11 @@ export const useSpeechRecognition = (
   }, []);
 
   const stopListening = useCallback(() => {
+    if (queuedStartTimeoutRef.current) {
+      clearTimeout(queuedStartTimeoutRef.current);
+      queuedStartTimeoutRef.current = null;
+    }
+
     // Only stop if recognition is active or auto-restarting
     if (
       stateRef.current !== 'LISTENING' &&
