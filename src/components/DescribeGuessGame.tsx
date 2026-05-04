@@ -675,6 +675,7 @@ export function DescribeGuessGame({
           setIsListening(true);
           listeningStartRef.current = Date.now();
           setMicOpening(false);
+          scheduleMicRecoveryCheck();
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
