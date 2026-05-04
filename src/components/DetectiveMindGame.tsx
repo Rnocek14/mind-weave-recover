@@ -26,6 +26,7 @@ import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { isAudioUnlocked } from '@/lib/audioUnlock';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
