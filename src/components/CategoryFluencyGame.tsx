@@ -754,6 +754,28 @@ export function CategoryFluencyGame({
             </div>
           </>
         )}
+
+        {/* Ideas for next time — surfaces 5–8 unsaid pool words so the user
+            takes new vocabulary into the next round. NOT framed as a score
+            penalty; this is a learning loop, not "things you missed". */}
+        {!isEmptyRound && ideasForNextTime.length > 0 && (
+          <div className="w-full max-w-xs space-y-1.5 pt-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              💡 Ideas for next time
+            </p>
+            <div className="flex flex-wrap gap-1 justify-center">
+              {ideasForNextTime.map((w) => (
+                <Badge
+                  key={w}
+                  variant="outline"
+                  className="text-xs font-normal capitalize border-dashed text-muted-foreground"
+                >
+                  {w}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
         {roundAnalysis && roundAnalysis.clusterCount > 0 && (
           <p className="text-sm text-muted-foreground">
             {roundAnalysis.clusterCount} group{roundAnalysis.clusterCount > 1 ? 's' : ''} found
