@@ -677,8 +677,9 @@ export function DescribeGuessGame({
           setMicOpening(true);
           setMicRecoveryReady(false);
 
-          // Sync-Wait: VoiceController guarantees Maya is fully done.
-          await awaitMicSafe(5000);
+          // Keep this handoff tight: if voice state lingers, open anyway after
+          // a short safety wait so the patient is not left staring at Mic off.
+          await awaitMicSafe(1200);
           if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
             setMicOpening(false);
             return;
