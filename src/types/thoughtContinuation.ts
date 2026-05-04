@@ -142,7 +142,7 @@ export const FEEDBACK_MESSAGES: Record<FeedbackType, string[]> = {
   kept_going: [
     "Nice, you kept it moving.",
     "That works.",
-    "Good, keep going.",
+    "Good answer.",
   ],
   clear_finish: [
     "You finished that thought.",

@@ -144,7 +144,9 @@ export function ThoughtContinuationGame({
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptValueRef = useRef<string>('');
+  const latestTranscriptRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
+  const isListeningRef = useRef<boolean>(false);
   // Gate the trial-start effect so it only runs ONCE per promptCount.
   // Without this, identity changes in `startListening` / `clearAnswerState`
   // cause the effect to re-fire repeatedly while phase is still 'idle',
@@ -161,6 +163,7 @@ export function ThoughtContinuationGame({
   const promptStartSequenceRef = useRef(0);
   const { 
     startAttempt, 
+    logBrowserTranscript,
     logFinalAnalysis, 
     resetAttempt,
   } = useUtteranceLogger();
@@ -195,8 +198,10 @@ export function ThoughtContinuationGame({
   
   // Speech recognition with callback - PATIENT MODE enabled
   const handleSpeechResult = useCallback((text: string) => {
+    latestTranscriptRef.current = text;
     setTranscript(text);
-  }, []);
+    logBrowserTranscript(text);
+  }, [logBrowserTranscript]);
   
   const {
     isListening,
@@ -213,6 +218,10 @@ export function ThoughtContinuationGame({
     patientMode: true, // Keep mic on continuously - no auto-cutoff
     discourseMode: true, // Accumulate all speech segments instead of replacing
   });
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   // ---------------------------------------------------------------------------
   // Select first/next prompt using adaptive selector
@@ -270,6 +279,7 @@ export function ThoughtContinuationGame({
     // Use fullTranscript (accumulated discourse) instead of liveTranscript (last segment only)
     const currentText = fullTranscript || liveTranscript;
     if (currentText && currentText.trim().length > 0) {
+      latestTranscriptRef.current = currentText;
       setTranscript(currentText);
       
       // Record latency to first word
@@ -299,6 +309,7 @@ export function ThoughtContinuationGame({
     setTranscript('');
     setShowDoneButton(false);
     lastTranscriptValueRef.current = '';
+    latestTranscriptRef.current = '';
     hasCommittedRef.current = false;
     resetSpeechTranscript();
     if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
@@ -428,8 +439,23 @@ export function ThoughtContinuationGame({
       await awaitMicSafe(8000);
       if (promptStartSequenceRef.current !== sequenceId) return;
       clearAnswerState();
-      startRecording();
-      startListening();
+      void startRecording();
+
+      let retryCount = 0;
+      const tryStartListening = () => {
+        retryCount += 1;
+        startListening();
+        if (retryCount >= 5) return;
+
+        const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
+        setTimeout(() => {
+          if (!isListeningRef.current && !hasCommittedRef.current) {
+            tryStartListening();
+          }
+        }, delay);
+      };
+
+      setTimeout(tryStartListening, 250);
     })();
 
     // Start silence timer (this is the long "no-speech-at-all" nudge timer,
@@ -449,7 +475,7 @@ export function ThoughtContinuationGame({
     if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
     hasCommittedRef.current = true;
     setShowDoneButton(false);
-    const answerText = transcript.trim();
+    const answerText = (latestTranscriptRef.current || transcript).trim();
 
     // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
     // Reject prompt-repeats, instruction echoes, fillers, and parroting of
@@ -476,6 +502,7 @@ export function ThoughtContinuationGame({
       // re-arm the mic for another attempt. Do NOT advance the prompt.
       stopListening();
       clearAnswerState();
+      setPhase('idle');
       if (gate.coachingText) {
         setFeedbackMessage(gate.coachingText);
         setTimeout(() => setFeedbackMessage(null), 4000);
@@ -483,7 +510,6 @@ export function ThoughtContinuationGame({
       // Re-open mic for retry
       (async () => {
         await awaitMicSafe(5000);
-        await new Promise((resolve) => setTimeout(resolve, 450));
         startListening();
       })();
       return;
@@ -521,11 +547,15 @@ export function ThoughtContinuationGame({
     // TIER A METRICS - Locally measurable, no alignment required
     // =========================================================================
     
-    const validation = validateSpokenResponse({ transcript: answerText, expectedMode: 'description' });
+    const validation = validateSpokenResponse({
+      transcript: answerText,
+      promptText: currentPrompt.promptText,
+      expectedMode: 'thought_continuation',
+    });
     trackValidation('thought_continuation', validation);
     logValidationDetail('thought_continuation', answerText, validation);
     const wordCount = answerText ? answerText.split(/\s+/).length : 0;
-    const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
+    const didSpeak = wordCount > 0 && validation.valid;
     const completionResult = detectUtteranceComplete(answerText, null);
     const latencyToFirstWordMs = latencyToFirstWordRef.current || 
       (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
