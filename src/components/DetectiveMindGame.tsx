@@ -307,24 +307,43 @@ export function DetectiveMindGame({
   // Listen after Maya finishes reading; map spoken letter / ordinal /
   // option keyword to the displayed option index.
   const selectFromTranscript = useCallback((raw: string): number | null => {
-    const t = raw.toLowerCase().trim();
+    const t = raw.toLowerCase().trim().replace(/[.,!?]/g, '');
     if (!t) return null;
-    // Letter match: "a", "b.", "letter c", "answer d"
+
+    // "number one/two/three/four" → 0..3 (check BEFORE letter regex so "b" in
+    // "number" doesn't false-trigger).
+    const numberWords: Record<string, number> = {
+      one: 0, two: 1, three: 2, four: 3,
+      '1': 0, '2': 1, '3': 2, '4': 3,
+    };
+    const numMatch = t.match(/\bnumber\s+(one|two|three|four|[1-4])\b/);
+    if (numMatch && numberWords[numMatch[1]] < displayedOptions.length) {
+      return numberWords[numMatch[1]];
+    }
+    // Standalone "1/2/3/4"
+    const digitMatch = t.match(/\b([1-4])\b/);
+    if (digitMatch) {
+      const v = numberWords[digitMatch[1]];
+      if (v < displayedOptions.length) return v;
+    }
+    // Letter match: "a", "b", "letter c", "answer d", "option a"
     const letterMatch = t.match(/\b(?:answer\s+|letter\s+|option\s+)?([a-d])\b/);
     if (letterMatch) {
       const idx = letterMatch[1].charCodeAt(0) - 'a'.charCodeAt(0);
       if (idx >= 0 && idx < displayedOptions.length) return idx;
     }
-    // Ordinal
-    const ords: Record<string, number> = { first: 0, second: 1, third: 2, fourth: 3, one: 0, two: 1, three: 2, four: 3 };
+    // Ordinals: first/second/third/fourth and one/two/three/four
+    const ords: Record<string, number> = {
+      first: 0, second: 1, third: 2, fourth: 3,
+      one: 0, two: 1, three: 2, four: 3,
+    };
     for (const [k, v] of Object.entries(ords)) {
       if (new RegExp(`\\b${k}\\b`).test(t) && v < displayedOptions.length) return v;
     }
-    // Substring match against option text (longest unique wins)
+    // Substring match against option text (longest unique wins, ≥4 chars)
     let best = -1; let bestLen = 0;
     displayedOptions.forEach((opt, i) => {
       const lower = opt.toLowerCase();
-      // require at least 3 char overlap of significant word
       const words = lower.split(/\W+/).filter(w => w.length >= 4);
       for (const w of words) {
         if (t.includes(w) && w.length > bestLen) { best = i; bestLen = w.length; }
@@ -336,7 +355,13 @@ export function DetectiveMindGame({
   const handleSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     const idx = selectFromTranscript(text);
-    if (idx != null) handleSelectOption(idx);
+    if (idx != null) {
+      setVoiceMissMsg(null);
+      handleSelectOption(idx);
+    } else if (text.trim()) {
+      // Don't say "keep going" — show inline guidance instead and re-arm mic.
+      setVoiceMissMsg("I didn't catch a choice. Try saying A, B, C, or D.");
+    }
   }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
 
   const {
