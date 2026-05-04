@@ -302,7 +302,16 @@ export function TwoCluesGame({
 
     // Update filtered display
     if (currentPuzzleRef.current) {
-      const withoutClues = removeClueWords(result, currentPuzzleRef.current.clues);
+      const p = currentPuzzleRef.current;
+      // Preserve anchors + every alias so morphological strips
+      // (e.g. "teaches" → "teach") never delete the answer itself.
+      const preserve = [
+        ...p.anchors,
+        ...Object.values(p.anchorAliases ?? {}).flat(),
+        ...p.cluster,
+        ...Object.values(p.clusterAliases ?? {}).flat(),
+      ];
+      const withoutClues = removeClueWords(result, p.clues, preserve);
       const answer = extractAnswerFromTranscript(withoutClues);
       setFilteredDisplay(answer);
     }
@@ -732,7 +741,13 @@ export function TwoCluesGame({
 
     // Re-extract from the latest raw transcript
     const latestRaw = rawTranscriptRef.current;
-    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues);
+    const preserveAnswerTokens = [
+      ...currentPuzzle.anchors,
+      ...Object.values(currentPuzzle.anchorAliases ?? {}).flat(),
+      ...currentPuzzle.cluster,
+      ...Object.values(currentPuzzle.clusterAliases ?? {}).flat(),
+    ];
+    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues, preserveAnswerTokens);
     const candidate = extractAnswerFromTranscript(latestWithoutClues);
 
     // GUARD: Already processing or showing feedback
@@ -1285,54 +1300,55 @@ export function TwoCluesGame({
         )}
 
         {/* Feedback */}
-        {showFeedback && lastResult && (
+        {showFeedback && lastResult && (() => {
+          // Treat 'creative' as a SUCCESS state. The scorer reaches this tier
+          // when the user named something that genuinely satisfies both clues
+          // even if it isn't the canonical anchor (e.g. "ball" for red+round,
+          // "lightbulb" for light+glass). Showing ❌/"Close, but not quite"
+          // for these is a trust-breaking false rejection.
+          const isSuccess =
+            lastResult.tier === 'strong' ||
+            lastResult.tier === 'related' ||
+            lastResult.tier === 'creative';
+          return (
           <div className={cn(
             "p-5 rounded-xl text-center space-y-3 border-2",
-            (lastResult.tier === 'strong' || lastResult.tier === 'related') && 'border-green-500 bg-green-50 dark:bg-green-950/30',
-            lastResult.tier === 'creative' && 'border-amber-500 bg-amber-50 dark:bg-amber-950/30',
+            isSuccess && 'border-green-500 bg-green-50 dark:bg-green-950/30',
             lastResult.tier === 'uncertain' && 'border-destructive bg-destructive/10',
           )}>
             {/* Big clear icon */}
-            <div className="text-5xl">
-              {(lastResult.tier === 'strong' || lastResult.tier === 'related') ? '✅' :
-               lastResult.tier === 'creative' ? '🤔' : '❌'}
-            </div>
-            
+            <div className="text-5xl">{isSuccess ? '✅' : '❌'}</div>
+
             {/* Clear verdict */}
             <p className={cn(
               "text-xl font-bold",
-              (lastResult.tier === 'strong' || lastResult.tier === 'related') && 'text-green-700 dark:text-green-400',
-              lastResult.tier === 'creative' && 'text-amber-700 dark:text-amber-400',
+              isSuccess && 'text-green-700 dark:text-green-400',
               lastResult.tier === 'uncertain' && 'text-destructive',
             )}>
-              {lastResult.tier === 'strong' ? 'Correct!' : 
+              {lastResult.tier === 'strong' ? 'Correct!' :
                lastResult.tier === 'related' ? 'Correct — great word!' :
-               lastResult.tier === 'creative' ? 'Close, but not quite' : 'Not quite right'}
+               lastResult.tier === 'creative' ? 'Creative answer — that fits too!' :
+               'Not quite right'}
             </p>
 
             {/* Show matched word for correct answers */}
-            {(lastResult.tier === 'strong' || lastResult.tier === 'related') && lastResult.matchedWord && (
+            {isSuccess && lastResult.matchedWord && (
               <p className="text-base text-green-600 dark:text-green-300">
                 "<span className="font-semibold">{lastResult.matchedWord}</span>" connects the clues!
               </p>
             )}
 
-            {/* Show hint for wrong answers */}
+            {/* Show hint for wrong answers only */}
             {lastResult.tier === 'uncertain' && (
               <p className="text-sm text-muted-foreground">
                 Think about what word connects all the clues together.
-              </p>
-            )}
-            {lastResult.tier === 'creative' && (
-              <p className="text-sm text-muted-foreground">
-                Interesting connection! Try to find the main word that fits both clues.
               </p>
             )}
 
             <p className="text-sm text-muted-foreground">{feedbackMessage}</p>
 
             <div className="flex justify-center gap-2 pt-2">
-              {(lastResult.tier === 'creative' || lastResult.tier === 'uncertain') && (
+              {lastResult.tier === 'uncertain' && (
                 <>
                   <Button size="sm" variant="outline" onClick={handleTryAgain} className="gap-1">
                     <Mic className="h-4 w-4" /> Try Again
@@ -1347,7 +1363,8 @@ export function TwoCluesGame({
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Controls */}
         {!showFeedback && (

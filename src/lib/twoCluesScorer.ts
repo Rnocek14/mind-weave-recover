@@ -29,23 +29,41 @@ function normalizeWord(word: string): string {
 }
 
 /**
- * Check if a word matches a target using fuzzy matching
- * Handles plurals, common ASR errors, etc.
+ * Check if a word matches a target using fuzzy matching.
+ * Handles plurals, common ASR errors, and compound words.
+ *
+ * Compound matching: "sailboat" should match anchor "boat", "lightbulb"
+ * should match anchor/cluster "bulb", "snowman" should match "snow".
+ * To avoid false positives we require:
+ *   - The shorter side is ≥ 4 chars
+ *   - The shorter side appears at a word boundary inside the longer side
+ *     (i.e. it is a prefix or a suffix of the compound, not embedded mid-word).
+ *     "boat" inside "sailboat" → suffix → match.
+ *     "boat" inside "boating" → prefix → match.
+ *     "boat" inside "aboatx"  → embedded → reject.
  */
 function fuzzyMatch(spoken: string, target: string): boolean {
   const s = normalizeWord(spoken);
   const t = normalizeWord(target);
-  
+
   // Exact match
   if (s === t) return true;
-  
+
   // Plural handling (basic)
   if (s === t + 's' || s + 's' === t) return true;
   if (s === t + 'es' || s + 'es' === t) return true;
-  
+
   // Common suffix variations
   if (s.replace(/ing$/, '') === t || t.replace(/ing$/, '') === s) return true;
-  
+
+  // Compound-word matching (boundary-aware)
+  const [shorter, longer] = s.length <= t.length ? [s, t] : [t, s];
+  if (shorter.length >= 4 && longer.length > shorter.length) {
+    if (longer.startsWith(shorter) || longer.endsWith(shorter)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
