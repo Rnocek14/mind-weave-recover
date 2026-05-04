@@ -123,12 +123,14 @@ export function DescribeGuessGame({
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isListeningRef = useRef(false);
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
   // True from trial-start until the mic actually opens. Suppresses the
   // "Microphone unavailable" recovery banner during the legitimate wait
   // window while Maya is still speaking the intro/clue.
   const [micOpening, setMicOpening] = useState(false);
+  const [micRecoveryReady, setMicRecoveryReady] = useState(false);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
@@ -247,7 +249,18 @@ export function DescribeGuessGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { setIsListening(speechIsListening); isListeningRef.current = speechIsListening; }, [speechIsListening]);
+  useEffect(() => {
+    setIsListening(speechIsListening);
+    isListeningRef.current = speechIsListening;
+    if (speechIsListening) {
+      setMicOpening(false);
+      setMicRecoveryReady(false);
+      if (micRecoveryTimerRef.current) {
+        clearTimeout(micRecoveryTimerRef.current);
+        micRecoveryTimerRef.current = null;
+      }
+    }
+  }, [speechIsListening]);
 
   // Auto-flip to typing when mic permission is denied or after 2 speech errors.
   // Mirrors the safety pattern in CategoryFluencyGame so a stroke patient is
