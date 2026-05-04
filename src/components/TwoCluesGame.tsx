@@ -463,13 +463,19 @@ export function TwoCluesGame({
   // (Bug fix: previously on puzzle 0 we only spoke the example "animal/barks/dog"
   // from the intro, which didn't match the on-screen clues.)
   const introTtsCompleteRef = useRef(false);
+  const [introTtsComplete, setIntroTtsComplete] = useState(false);
   useEffect(() => {
     if (!game.currentPuzzle || game.isComplete || showFeedback) return;
-    if (!vg.shouldAutoSpeak) return;
+    if (!vg.shouldAutoSpeak) {
+      introTtsCompleteRef.current = true;
+      setIntroTtsComplete(true);
+      return;
+    }
 
     const puzzle = game.currentPuzzle;
     const clueText = puzzle.clues.join(', and ');
     introTtsCompleteRef.current = false;
+    setIntroTtsComplete(false);
 
     const speakPuzzleClues = () => vg.speakIfVoiceLed(clueText);
 
@@ -485,6 +491,7 @@ export function TwoCluesGame({
 
     Promise.resolve(p).finally(() => {
       introTtsCompleteRef.current = true;
+      setIntroTtsComplete(true);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentPuzzle?.id, game.isComplete, showFeedback]);
@@ -1028,7 +1035,7 @@ export function TwoCluesGame({
     }, 100);
   }, [resetAttempt, beginAttempt, setProcessingGuard]);
 
-  const handleSkip = useCallback(async () => {
+  const handleSkip = useCallback(() => {
     if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     cancelRecording();
@@ -1037,7 +1044,8 @@ export function TwoCluesGame({
     clearTranscriptState();
     setShowFeedback(false);
     setProcessingGuard(false);
-    await finalizeAttempt('skipped');
+    // Fire-and-forget so a stuck pronunciation request can never block the skip.
+    void finalizeAttempt('skipped').catch(() => {});
     game.skipRound();
   }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
 
@@ -1409,7 +1417,7 @@ export function TwoCluesGame({
         )}
 
         {/* Mic recovery button - prominent when mic dies */}
-        {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && (
+        {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && !vg.isSpeaking && introTtsComplete && (
           <div className="text-center p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">
               Microphone stopped — tap to continue
