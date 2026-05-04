@@ -31,7 +31,8 @@ export interface NarrativeStory {
 const DEFAULT_STRUCTURE = { beginning: [0], middle: [1, 2], end: [3] };
 
 export const NARRATIVE_STORIES: NarrativeStory[] = [
-  // Tier 1 — Simple, concrete, short sequences
+  // Tier 1 — Simple, concrete, short sequences.
+  // Spec: ≤35 words across 4 short scenes, one sentence per scene.
   {
     id: 'morning-coffee',
     title: 'Morning Coffee',
@@ -50,12 +51,12 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     id: 'lost-keys',
     title: 'The Lost Keys',
     scenes: [
-      { emoji: '🔑', text: 'Tom was leaving for work but couldn\'t find his keys.' },
-      { emoji: '🔍', text: 'He looked everywhere — under cushions, in his coat.' },
-      { emoji: '🐕', text: 'His dog was sitting on the mat, wagging its tail.' },
-      { emoji: '😂', text: 'The keys were under the dog the whole time.' },
+      { emoji: '🔑', text: 'Tom couldn\'t find his keys before work.' },
+      { emoji: '🔍', text: 'He looked under cushions and in his coat.' },
+      { emoji: '🐕', text: 'His dog sat on the mat, wagging its tail.' },
+      { emoji: '😂', text: 'The keys were under the dog.' },
     ],
-    keyEvents: ['couldn\'t find keys', 'looked everywhere', 'dog sitting on mat', 'keys under dog'],
+    keyEvents: ['couldn\'t find keys', 'looked everywhere', 'dog on mat', 'keys under dog'],
     expectedClauses: 4,
     tier: 1,
     structureMap: DEFAULT_STRUCTURE,
@@ -64,10 +65,10 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     id: 'rainy-picnic',
     title: 'The Rainy Picnic',
     scenes: [
-      { emoji: '🧺', text: 'The family packed a big basket for a picnic in the park.' },
-      { emoji: '🌧️', text: 'When they arrived, it started to rain heavily.' },
+      { emoji: '🧺', text: 'The family packed a basket for a picnic.' },
+      { emoji: '🌧️', text: 'When they arrived, it started raining hard.' },
       { emoji: '🏠', text: 'They ran back to the car and drove home.' },
-      { emoji: '🎉', text: 'They had the picnic on the living room floor instead.' },
+      { emoji: '🎉', text: 'They had the picnic on the living room floor.' },
     ],
     keyEvents: ['packed picnic', 'started raining', 'ran to car', 'picnic inside'],
     expectedClauses: 4,
