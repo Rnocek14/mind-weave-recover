@@ -322,11 +322,12 @@ export const useTextToSpeech = () => {
         setIsSpeaking(true); notifyVC(true);
 
         return new Promise((resolve, reject) => {
-          // Safety timeout — resolve quickly so session never stalls
-          // 5s is enough for any reasonable audio; if onended doesn't fire, move on
+          // Safety timeout — resolve quickly so session never stalls.
+          // Keep the fallback buffer tight; VoiceController already adds a
+          // post-speech tail lock, and long buffers leave the mic off.
           const audioDuration = audio.duration;
           const timeoutMs = (!isNaN(audioDuration) && audioDuration > 0) 
-            ? Math.min((audioDuration + 2) * 1000, 60000)  // audio duration + 2s buffer
+            ? Math.min((audioDuration + 0.4) * 1000, 60000)
             : 5000; // If duration unknown, 5s fallback
           const safetyTimeout = setTimeout(() => {
             console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
@@ -348,7 +349,7 @@ export const useTextToSpeech = () => {
                 if (globalAudioUrl === audioUrl) globalAudioUrl = null;
                 URL.revokeObjectURL(audioUrl);
                 resolve();
-              }, (audio.duration + 2) * 1000);
+              }, (audio.duration + 0.4) * 1000);
               // Store for cleanup
               (audio as any)._accurateTimeout = accurateTimeout;
             }
