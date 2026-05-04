@@ -919,6 +919,38 @@ export function CategoryFluencyGame({
         />
       </div>
 
+      {/* Rotating example chips — 3 at a time, drawn from a 12–15 word pool.
+          The user can request a fresh draw via "Show different examples";
+          that swap is counted as a cue. Examples are intentionally small
+          and unobtrusive so retrieval still comes from the user. */}
+      {exampleChips.length > 0 && (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-wrap gap-1.5 justify-center items-center">
+            <span className="text-xs text-muted-foreground mr-1">e.g.</span>
+            {exampleChips.map((ex) => (
+              <Badge
+                key={ex}
+                variant="secondary"
+                className="text-xs font-normal capitalize bg-muted/60 text-muted-foreground"
+              >
+                {ex}
+              </Badge>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setExampleChips(pickExamples(config.category, 3, exampleChips));
+              setExampleSwapCount((n) => n + 1);
+              exampleSwapCountRef.current += 1;
+            }}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            Show different examples
+          </button>
+        </div>
+      )}
+
       {/* Mic status + live transcript */}
       {speechSupported && !showTextInput && (
         <div className="flex flex-col items-center gap-3 py-4">
