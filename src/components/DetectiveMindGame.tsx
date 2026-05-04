@@ -138,12 +138,6 @@ export function DetectiveMindGame({
   const { speak: speakDirect, stop: stopDirect, isSpeaking: isDirectSpeaking } = useTextToSpeech();
   const ttsSeqRef = useRef(0);
 
-  const speakBlocking = useCallback(async (text: string) => {
-    const seq = ++ttsSeqRef.current;
-    try { await speakDirect(text); } catch {}
-    return seq === ttsSeqRef.current;
-  }, [speakDirect]);
-
   // ---------------------------------------------------------------------------
   // Shuffle answer options per case so the correct answer isn't always "B".
   // The case bank is heavily B-biased (17/19 cases) — without shuffling, users
@@ -190,7 +184,7 @@ export function DetectiveMindGame({
   useEffect(() => {
     if (!currentCase) return;
     vgRef.current?.interrupt?.();
-    try { stopDirectRef.current?.(); } catch {}
+    try { stopDirectRef.current?.(); } catch { void 0; }
     ttsSeqRef.current++;
 
     setPhase('answering');
