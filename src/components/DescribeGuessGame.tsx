@@ -298,6 +298,7 @@ export function DescribeGuessGame({
     if (speechIsListening) {
       setMicOpening(false);
       setMicRecoveryReady(false);
+      listeningStartRef.current = Date.now();
       if (micRecoveryTimerRef.current) {
         clearTimeout(micRecoveryTimerRef.current);
         micRecoveryTimerRef.current = null;
@@ -1195,10 +1196,10 @@ export function DescribeGuessGame({
             {!useTyping && (
               <div className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
+                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               )}>
-                {isListening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-                {isListening ? 'Listening...' : 'Mic off'}
+                {isListening || micOpening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
+                {isListening ? 'Listening...' : micOpening ? 'Opening mic...' : 'Mic off'}
               </div>
             )}
 
