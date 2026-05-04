@@ -994,6 +994,7 @@ export function DescribeGuessGame({
           !isListening &&
           !speechIsListening &&
           !vg.isSpeaking &&
+          !micOpening &&
           isSupported
         }
         onRetry={() => {
