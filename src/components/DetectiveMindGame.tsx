@@ -686,18 +686,38 @@ export function DetectiveMindGame({
         <div className="space-y-3">
           <h3 className="text-base font-semibold">{currentCase.question}</h3>
           
-          <div className="space-y-2">
-            {displayedOptions.map((option, i) => (
-              <Button
-                key={`${currentCase.id}-${i}`}
-                variant="outline"
-                className="w-full text-left justify-start h-auto py-3 px-4 whitespace-normal"
-                onClick={() => handleSelectOption(i)}
-              >
-                <span className="mr-3 font-bold text-muted-foreground">{String.fromCharCode(65 + i)}.</span>
-                {option}
-              </Button>
-            ))}
+          <div className="grid gap-2.5">
+            {displayedOptions.map((option, i) => {
+              const isSelected = selectedOption === i;
+              return (
+                <button
+                  key={`${currentCase.id}-${i}`}
+                  type="button"
+                  onClick={() => handleSelectOption(i)}
+                  disabled={selectedOption !== null}
+                  className={[
+                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "disabled:opacity-60 disabled:cursor-not-allowed",
+                    isSelected
+                      ? "border-primary bg-primary/10 shadow-sm"
+                      : "border-border bg-card hover:border-primary/60 hover:bg-accent/40 active:scale-[0.99]",
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition-colors",
+                      isSelected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary",
+                    ].join(' ')}
+                  >
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  <span className="flex-1 text-sm leading-relaxed text-foreground">{option}</span>
+                </button>
+              );
+            })}
           </div>
 
           {!usedHint && (
