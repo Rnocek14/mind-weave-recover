@@ -240,20 +240,27 @@ export function MinimalPairsGame({
     }
   }, [isComplete, onComplete, score, correctCount, incorrectCount, state.totalTrials]);
   
-  // Report trial data
+  // Report trial data — fire once per trial. For incorrect, immediate; for
+  // correct, wait until echo resolves so we can include echoAttempted as a cue signal.
+  const trialReportedRef = useRef<number>(-1);
   useEffect(() => {
-    if (showFeedback && currentTrial && onTrialComplete) {
-      const selectedWord = state.selectedIndex === 0 
-        ? currentTrial.pair.word1 
-        : currentTrial.pair.word2;
-      onTrialComplete({
-        targetWord: currentTrial.targetWord,
-        selectedWord,
-        isCorrect: state.isCorrect ?? false,
-        pair: { word1: currentTrial.pair.word1, word2: currentTrial.pair.word2 },
-      });
-    }
-  }, [showFeedback, currentTrial, state.selectedIndex, state.isCorrect, onTrialComplete]);
+    if (!showFeedback || !currentTrial || !onTrialComplete) return;
+    if (trialReportedRef.current === trialIndex) return;
+    const correct = state.isCorrect === true;
+    if (correct && echoStatus !== 'heard' && echoStatus !== 'skipped') return;
+    trialReportedRef.current = trialIndex;
+    const selectedWord = state.selectedIndex === 0
+      ? currentTrial.pair.word1
+      : currentTrial.pair.word2;
+    onTrialComplete({
+      targetWord: currentTrial.targetWord,
+      selectedWord,
+      isCorrect: state.isCorrect ?? false,
+      pair: { word1: currentTrial.pair.word1, word2: currentTrial.pair.word2 },
+      echoAttempted: echoStatus === 'heard',
+      echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
+    });
+  }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
 
   // Auto-advance after selection — keeps rhythm flowing.
   // Correct: wait for echo phase (heard or skipped), then advance after a short beat.
