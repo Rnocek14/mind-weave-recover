@@ -5,7 +5,7 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy } from 'lucide-react';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy, Mic, MicOff } from 'lucide-react';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
