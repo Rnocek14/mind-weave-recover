@@ -176,15 +176,20 @@ export function DetectiveMindGame({
     };
   }, [currentCase]);
 
-  // Reset state when case changes — keyed on case.id (not just index) so
-  // re-shuffles or hot-swaps still trigger a clean reset.
+  // Reset state when case CHANGES — keyed on case.id only.
+  // We deliberately exclude `vg` and `stopDirect` from deps because their
+  // identities change on every render, which would re-fire this effect and
+  // bump ttsSeqRef mid-auto-read (killing the audio + leaving the mic dark).
+  // Use refs so we always reach the latest fns without re-subscribing.
+  const vgRef = useRef(vg);
+  const stopDirectRef = useRef(stopDirect);
+  useEffect(() => { vgRef.current = vg; }, [vg]);
+  useEffect(() => { stopDirectRef.current = stopDirect; }, [stopDirect]);
+
   useEffect(() => {
     if (!currentCase) return;
-    // CRITICAL: kill any in-flight Maya speech from the PREVIOUS case before
-    // the auto-read effect spins up the new one. Bumping ttsSeqRef invalidates
-    // any pending awaits so stale story audio cannot land on the new case.
-    vg.interrupt?.();
-    try { stopDirect(); } catch {}
+    vgRef.current?.interrupt?.();
+    try { stopDirectRef.current?.(); } catch {}
     ttsSeqRef.current++;
 
     setPhase('answering');
@@ -198,7 +203,8 @@ export function DetectiveMindGame({
     caseLoadTimeRef.current = Date.now();
     firstInteractionRef.current = null;
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-  }, [currentCase?.id, vg, stopDirect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCase?.id]);
 
   // Auto-read instructions (first case) → story → question + options on case
   // load — runs in EVERY mode. Keyed on case.id so re-shuffles also re-read.
