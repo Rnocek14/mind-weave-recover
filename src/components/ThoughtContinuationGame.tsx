@@ -145,6 +145,12 @@ export function ThoughtContinuationGame({
   const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptValueRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
+  // Gate the trial-start effect so it only runs ONCE per promptCount.
+  // Without this, identity changes in `startListening` / `clearAnswerState`
+  // cause the effect to re-fire repeatedly while phase is still 'idle',
+  // tearing down and restarting the mic so voice is never captured.
+  // Mirrors PhotoNamingGame's `attemptStartedTrialRef` guard.
+  const attemptStartedForPromptRef = useRef<number>(-1);
   
   // Hooks
   const { stop: stopTTS } = useTextToSpeech();
