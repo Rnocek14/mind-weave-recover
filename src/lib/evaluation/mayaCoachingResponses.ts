@@ -88,12 +88,11 @@ const CONTEXTUAL_LINES: Partial<Record<ExerciseKey, Partial<Record<RejectionReas
     ],
   },
   thought_continuation: {
-    too_short: [
-      "Keep going — finish the thought.",
-      "What comes next in your mind?",
-    ],
+    // No too_short coaching — finish-the-thought accepts any real content
+    // word, so a too_short rejection should never reach this map. Suppress
+    // "Keep going" entirely after the user has spoken.
     filler: [
-      "That's a start — try completing the idea.",
+      "I didn't catch an answer — try again when you're ready.",
     ],
   },
 };

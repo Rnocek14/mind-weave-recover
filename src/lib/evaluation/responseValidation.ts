@@ -23,7 +23,8 @@ export type ResponseMode =
   | 'sentence_fix'
   | 'retell'
   | 'phrase_repeat'
-  | 'comprehension_choice';
+  | 'comprehension_choice'
+  | 'thought_continuation';
 
 export type RejectionReason =
   | 'empty'
@@ -123,6 +124,9 @@ const MODE_CONFIGS: Record<ResponseMode, ModeConfig> = {
   retell:               { minContentWords: 3, allowSingleWord: false },
   phrase_repeat:        { minContentWords: 1, allowSingleWord: true },
   comprehension_choice: { minContentWords: 1, allowSingleWord: true },
+  // Finish-the-thought: ANY real content word is a legitimate completion
+  // (e.g. "milk", "to school"). Never reject these as too_short.
+  thought_continuation: { minContentWords: 1, allowSingleWord: true },
 };
 
 // ═══════════════════════════════════════════════════════════════
