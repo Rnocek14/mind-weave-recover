@@ -381,9 +381,10 @@ export function CategoryFluencyGame({
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
 
-    // Cue level for fluency: 0 if independent, 1 if examples were visible during round.
-    // Examples banner is always shown in this exercise → treat as cueLevel: 1.
-    const fluencyCueLevel = 1;
+    // Cue level for fluency: examples chip strip is always shown (cueLevel: 1).
+    // Each "Show different examples" swap is treated as additional support,
+    // capped at cueLevel 3.
+    const fluencyCueLevel = Math.min(3, 1 + exampleSwapCountRef.current);
 
     // Feed adaptive engine
     const prevDiff = currentDifficulty;
