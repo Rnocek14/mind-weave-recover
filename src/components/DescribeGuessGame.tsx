@@ -230,6 +230,7 @@ export function DescribeGuessGame({
     isListening: speechIsListening,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
     error: speechError,
   } = useSpeechRecognition({
@@ -343,6 +344,10 @@ export function DescribeGuessGame({
     rawTranscriptRef.current = '';
     processingRef.current = false;
     setIsEvaluating(false);
+    // Clear the speech hook's accumulated transcript so leftover text from
+    // the previous trial (or text captured while Maya was still speaking the
+    // intro) cannot show up as "Heard: <instruction>" on the new trial.
+    resetTranscript();
 
     // Clear any pending feedback timer from previous trial
     if (feedbackTimerRef.current) {
@@ -371,6 +376,9 @@ export function DescribeGuessGame({
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
         if (!currentTrialRef.current || showFeedback) return;
+        // Final clear right before opening the mic — guarantees the first
+        // visible "Heard:" text is the patient's actual answer.
+        resetTranscript();
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
@@ -956,10 +964,22 @@ export function DescribeGuessGame({
         <SpeechNudge nudgeHint={nudgeHint} isSpeaking={!!(displayTranscript)} className="px-4" />
       )}
 
-      {/* Mic failure recovery — persistent */}
+      {/* Mic failure recovery — shows on explicit error OR when the mic
+          silently failed to start (no error fired but not listening either).
+          Hidden during typing mode, evaluation, feedback, and Maya's TTS. */}
       <MicFailureRecovery
-        visible={!!speechError && !isListening && !showFeedback && !isEvaluating}
+        visible={
+          !showFeedback &&
+          !isEvaluating &&
+          !useTyping &&
+          !awaitingWordAttempt &&
+          !isListening &&
+          !speechIsListening &&
+          !vg.isSpeaking &&
+          isSupported
+        }
         onRetry={() => {
+          resetTranscript();
           startListening();
           setIsListening(true);
           listeningStartRef.current = Date.now();
