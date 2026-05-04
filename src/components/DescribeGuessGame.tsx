@@ -125,6 +125,10 @@ export function DescribeGuessGame({
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
+  // True from trial-start until the mic actually opens. Suppresses the
+  // "Microphone unavailable" recovery banner during the legitimate wait
+  // window while Maya is still speaking the intro/clue.
+  const [micOpening, setMicOpening] = useState(false);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
@@ -372,17 +376,31 @@ export function DescribeGuessGame({
     // Sync-Wait: VoiceController-driven gate guarantees Maya isn't speaking
     // (and we're past the 400ms tail-lock) before the mic opens.
     if (!useTyping) {
+      // Hard-stop any in-flight recognition from the previous trial so it
+      // can't keep appending Maya's next instruction into fullTranscript.
+      try { stopListening(); } catch { /* noop */ }
+      setIsListening(false);
+      setMicOpening(true);
       void (async () => {
+        // Tiny yield so the intro-TTS effect has a chance to flip
+        // voiceController.isSpeaking=true before we poll it.
+        await new Promise((r) => setTimeout(r, 50));
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
-        if (!currentTrialRef.current || showFeedback) return;
+        if (!currentTrialRef.current || showFeedback) {
+          setMicOpening(false);
+          return;
+        }
         // Final clear right before opening the mic — guarantees the first
         // visible "Heard:" text is the patient's actual answer.
         resetTranscript();
+        setDisplayTranscript('');
+        rawTranscriptRef.current = '';
         startListening();
         setIsListening(true);
         listeningStartRef.current = Date.now();
         if (isRecordingSupported) startRecording();
+        setMicOpening(false);
       })();
     } else {
       setTypedAnswer('');
@@ -976,6 +994,7 @@ export function DescribeGuessGame({
           !isListening &&
           !speechIsListening &&
           !vg.isSpeaking &&
+          !micOpening &&
           isSupported
         }
         onRetry={() => {
