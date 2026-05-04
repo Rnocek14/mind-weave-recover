@@ -145,6 +145,12 @@ export function ThoughtContinuationGame({
   const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptValueRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
+  // Gate the trial-start effect so it only runs ONCE per promptCount.
+  // Without this, identity changes in `startListening` / `clearAnswerState`
+  // cause the effect to re-fire repeatedly while phase is still 'idle',
+  // tearing down and restarting the mic so voice is never captured.
+  // Mirrors PhotoNamingGame's `attemptStartedTrialRef` guard.
+  const attemptStartedForPromptRef = useRef<number>(-1);
   
   // Hooks
   const { stop: stopTTS } = useTextToSpeech();
@@ -379,51 +385,56 @@ export function ThoughtContinuationGame({
   // ---------------------------------------------------------------------------
   
   useEffect(() => {
-    if (currentPrompt && phase === 'idle' && promptCount > 0) {
-      // Reset state for new prompt (incl. auto-advance UX)
-      clearAnswerState();
-      setNarrowingLevel(0);
-      setFeedbackMessage(null);
-      speechStartTimeRef.current = null;
-      latencyToFirstWordRef.current = null;
-      latencyStartRef.current = Date.now();
-      narrowingTriggerRef.current = null;
+    if (!currentPrompt || phase !== 'idle' || promptCount <= 0) return;
+    // Only initialize each prompt once. Without this guard, callback identity
+    // changes (startListening / clearAnswerState) cause the effect to re-fire
+    // repeatedly and reset the mic, so voice is never captured.
+    if (attemptStartedForPromptRef.current === promptCount) return;
+    attemptStartedForPromptRef.current = promptCount;
 
-      // Start a new attempt
-      startAttempt({
-        sessionId: sessionId || 'standalone',
-        userId,
-        exerciseSlug: 'thought_continuation',
-        trialIndex: promptCount - 1,
-        attemptNumber: 1,
-        targetWord: currentPrompt.promptText.slice(0, 50),
-        category: currentPrompt.theme,
-      });
+    // Reset state for new prompt (incl. auto-advance UX)
+    clearAnswerState();
+    setNarrowingLevel(0);
+    setFeedbackMessage(null);
+    speechStartTimeRef.current = null;
+    latencyToFirstWordRef.current = null;
+    latencyStartRef.current = Date.now();
+    narrowingTriggerRef.current = null;
 
-      // Sync-Wait: speak the prompt first, then open recording/mic only after
-      // Maya is fully done. This prevents the game from hearing its own prompt.
-      (async () => {
-        const sequenceId = ++promptStartSequenceRef.current;
-        if (shouldAutoSpeak) {
-          if (promptCount === 1 && !hasSpokenIntroRef.current) {
-            hasSpokenIntroRef.current = true;
-            await speakIntro();
-          }
-          if (promptStartSequenceRef.current !== sequenceId) return;
-          await speakIfVoiceLed(currentPrompt.promptText);
+    // Start a new attempt
+    startAttempt({
+      sessionId: sessionId || 'standalone',
+      userId,
+      exerciseSlug: 'thought_continuation',
+      trialIndex: promptCount - 1,
+      attemptNumber: 1,
+      targetWord: currentPrompt.promptText.slice(0, 50),
+      category: currentPrompt.theme,
+    });
+
+    // Sync-Wait: speak the prompt first, then open recording/mic only after
+    // Maya is fully done. This prevents the game from hearing its own prompt.
+    (async () => {
+      const sequenceId = ++promptStartSequenceRef.current;
+      if (shouldAutoSpeak) {
+        if (promptCount === 1 && !hasSpokenIntroRef.current) {
+          hasSpokenIntroRef.current = true;
+          await speakIntro();
         }
         if (promptStartSequenceRef.current !== sequenceId) return;
-        await awaitMicSafe(8000);
-        if (promptStartSequenceRef.current !== sequenceId) return;
-        clearAnswerState();
-        startRecording();
-        startListening();
-      })();
+        await speakIfVoiceLed(currentPrompt.promptText);
+      }
+      if (promptStartSequenceRef.current !== sequenceId) return;
+      await awaitMicSafe(8000);
+      if (promptStartSequenceRef.current !== sequenceId) return;
+      clearAnswerState();
+      startRecording();
+      startListening();
+    })();
 
-      // Start silence timer (this is the long "no-speech-at-all" nudge timer,
-      // separate from the 2s auto-advance after speech)
-      startSilenceTimer();
-    }
+    // Start silence timer (this is the long "no-speech-at-all" nudge timer,
+    // separate from the 2s auto-advance after speech)
+    startSilenceTimer();
   }, [currentPrompt, phase, promptCount, sessionId, userId, startAttempt, startListening, startSilenceTimer, startRecording, awaitMicSafe, clearAnswerState, shouldAutoSpeak, speakIntro, speakIfVoiceLed]);
 
   // ---------------------------------------------------------------------------
