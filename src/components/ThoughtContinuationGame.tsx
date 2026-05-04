@@ -447,7 +447,7 @@ export function ThoughtContinuationGame({
         startListening();
         if (retryCount >= 5) return;
 
-        const delay = retryCount === 1 ? 400 : retryCount === 2 ? 700 : retryCount === 3 ? 1000 : 1400;
+        const delay = retryCount === 1 ? 300 : retryCount === 2 ? 600 : retryCount === 3 ? 1000 : 1400;
         setTimeout(() => {
           if (!isListeningRef.current && !hasCommittedRef.current) {
             tryStartListening();
@@ -455,7 +455,10 @@ export function ThoughtContinuationGame({
         }, delay);
       };
 
-      setTimeout(tryStartListening, 250);
+      // Fire immediately after TTS + mic-safe gate (was 250ms delay).
+      // Matches Mic Auto-start standard (0.5–1.0s after Maya completes prompt;
+      // awaitMicSafe already enforces the audio settle window).
+      tryStartListening();
     })();
 
     // Start silence timer (this is the long "no-speech-at-all" nudge timer,
