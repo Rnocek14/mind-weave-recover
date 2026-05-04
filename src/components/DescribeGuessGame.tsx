@@ -125,6 +125,10 @@ export function DescribeGuessGame({
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const runEvaluationRef = useRef<() => void>(() => {});
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
+  // True from trial-start until the mic actually opens. Suppresses the
+  // "Microphone unavailable" recovery banner during the legitimate wait
+  // window while Maya is still speaking the intro/clue.
+  const [micOpening, setMicOpening] = useState(false);
 
   const { speak } = useTextToSpeech();
   const { awaitMicSafe } = useVoiceState();
