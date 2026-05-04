@@ -207,11 +207,16 @@ export function DetectiveMindGame({
   }, [currentCase?.id]);
 
   // Auto-read instructions (first case) → story → question + options on case
-  // load — runs in EVERY mode. Keyed on case.id so re-shuffles also re-read.
+  // load — runs in EVERY mode. Keyed on case.id only; speakDirect read via
+  // ref so identity changes don't re-fire this effect mid-read.
+  const speakDirectRef = useRef(speakDirect);
+  useEffect(() => { speakDirectRef.current = speakDirect; }, [speakDirect]);
+
   useEffect(() => {
     if (!currentCase || hasAutoRead) return;
     setHasAutoRead(true);
     const localSeq = ++ttsSeqRef.current;
+    const speak = (txt: string) => speakDirectRef.current(txt);
 
     const doAutoRead = async () => {
       // If audio context isn't unlocked yet (no prior gesture this session),
@@ -225,14 +230,14 @@ export function DetectiveMindGame({
 
       // Instructions on first case
       if (currentIndex === 0) {
-        await speakDirect("Read the story, then say or tap A, B, C, or D for the best answer.");
+        try { await speak("Read the story, then say or tap A, B, C, or D for the best answer."); } catch {}
         if (localSeq !== ttsSeqRef.current) return;
         await new Promise(r => setTimeout(r, 400));
         if (localSeq !== ttsSeqRef.current) return;
       }
       // Read story
       const storyText = currentCase.story.join(' ');
-      try { await speakDirect(storyText); } catch {}
+      try { await speak(storyText); } catch {}
       if (localSeq !== ttsSeqRef.current) return;
       await new Promise(r => setTimeout(r, 600));
       if (localSeq !== ttsSeqRef.current) return;
@@ -240,13 +245,14 @@ export function DetectiveMindGame({
       const optionsSpoken = currentCase.options
         .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
         .join('. ');
-      try { await speakDirect(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
+      try { await speak(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
       if (localSeq !== ttsSeqRef.current) return;
       setAutoReadDone(true);
     };
 
     doAutoRead();
-  }, [currentCase, currentIndex, hasAutoRead, speakDirect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCase?.id, hasAutoRead]);
 
   // Full Coaching: spoken stall cue after ~8s of no interaction
   // Only starts AFTER auto-read finishes to avoid interrupting story reading
