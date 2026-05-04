@@ -365,8 +365,25 @@ export function DetectiveMindGame({
     return best >= 0 ? best : null;
   }, [displayedOptions]);
 
+  // Track when TTS finished so we can ignore speech results that arrive
+  // before audio has fully drained (those are almost always Maya's own voice
+  // bleeding into the recognizer).
+  const ttsEndedAtRef = useRef<number>(0);
+  const isDirectSpeakingRef = useRef(isDirectSpeaking);
+  useEffect(() => {
+    if (isDirectSpeakingRef.current && !isDirectSpeaking) {
+      ttsEndedAtRef.current = Date.now();
+    }
+    isDirectSpeakingRef.current = isDirectSpeaking;
+  }, [isDirectSpeaking]);
+
   const handleSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
+    // Guard: ignore anything captured while Maya is still speaking, or
+    // within 800ms of her finishing — that's TTS bleed, not the user.
+    if (isDirectSpeakingRef.current) return;
+    if (Date.now() - ttsEndedAtRef.current < 800) return;
+
     const idx = selectFromTranscript(text);
     if (idx != null) {
       setVoiceMissMsg(null);
