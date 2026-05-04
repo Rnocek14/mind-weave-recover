@@ -1417,7 +1417,7 @@ export function TwoCluesGame({
         )}
 
         {/* Mic recovery button - prominent when mic dies */}
-        {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && !vg.isSpeaking && (
+        {!isListening && !isProcessing && !showFeedback && !speechIsListening && isSupported && !vg.isSpeaking && introTtsComplete && (
           <div className="text-center p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
             <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">
               Microphone stopped — tap to continue
