@@ -475,7 +475,7 @@ export function ThoughtContinuationGame({
     if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
     hasCommittedRef.current = true;
     setShowDoneButton(false);
-    const answerText = transcript.trim();
+    const answerText = (latestTranscriptRef.current || transcript).trim();
 
     // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
     // Reject prompt-repeats, instruction echoes, fillers, and parroting of
@@ -502,6 +502,7 @@ export function ThoughtContinuationGame({
       // re-arm the mic for another attempt. Do NOT advance the prompt.
       stopListening();
       clearAnswerState();
+      setPhase('idle');
       if (gate.coachingText) {
         setFeedbackMessage(gate.coachingText);
         setTimeout(() => setFeedbackMessage(null), 4000);
@@ -509,7 +510,6 @@ export function ThoughtContinuationGame({
       // Re-open mic for retry
       (async () => {
         await awaitMicSafe(5000);
-        await new Promise((resolve) => setTimeout(resolve, 450));
         startListening();
       })();
       return;
@@ -547,11 +547,15 @@ export function ThoughtContinuationGame({
     // TIER A METRICS - Locally measurable, no alignment required
     // =========================================================================
     
-    const validation = validateSpokenResponse({ transcript: answerText, expectedMode: 'description' });
+    const validation = validateSpokenResponse({
+      transcript: answerText,
+      promptText: currentPrompt.promptText,
+      expectedMode: 'thought_continuation',
+    });
     trackValidation('thought_continuation', validation);
     logValidationDetail('thought_continuation', answerText, validation);
     const wordCount = answerText ? answerText.split(/\s+/).length : 0;
-    const didSpeak = wordCount > 0 && speechDuration > MIN_SPEECH_FOR_COMPLETE_MS && validation.valid;
+    const didSpeak = wordCount > 0 && validation.valid;
     const completionResult = detectUtteranceComplete(answerText, null);
     const latencyToFirstWordMs = latencyToFirstWordRef.current || 
       (didSpeak ? 0 : Date.now() - (latencyStartRef.current || Date.now()));
