@@ -242,8 +242,8 @@ export function DetectiveMindGame({
       if (localSeq !== ttsSeqRef.current) return;
       await new Promise(r => setTimeout(r, 600));
       if (localSeq !== ttsSeqRef.current) return;
-      // Read question + each option so users can answer by voice
-      const optionsSpoken = currentCase.options
+      // Read question + each option in the SAME shuffled order shown on screen.
+      const optionsSpoken = displayedOptions
         .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
         .join('. ');
       try { await speak(`${currentCase.question}. Your options are: ${optionsSpoken}.`); } catch {}
@@ -409,6 +409,12 @@ export function DetectiveMindGame({
   // has fully drained before allowing the mic to open, so Maya's own voice
   // doesn't get transcribed as the user's answer.
   const { awaitMicSafe } = useVoiceState();
+  const awaitMicSafeRef = useRef(awaitMicSafe);
+  const startVoiceRef = useRef(startVoice);
+  const voiceListeningRef = useRef(voiceListening);
+  useEffect(() => { awaitMicSafeRef.current = awaitMicSafe; }, [awaitMicSafe]);
+  useEffect(() => { startVoiceRef.current = startVoice; }, [startVoice]);
+  useEffect(() => { voiceListeningRef.current = voiceListening; }, [voiceListening]);
 
   // Auto-start mic after Maya finishes reading the question/options.
   // Uses awaitMicSafe + a retry ladder so the mic actually arms even when
@@ -425,19 +431,20 @@ export function DetectiveMindGame({
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const arm = async () => {
-      try { await awaitMicSafe(5000); } catch {}
+      try { await awaitMicSafeRef.current(8000); } catch {}
       if (cancelled) return;
 
       let attempts = 0;
       const tryStart = () => {
         if (cancelled) return;
+        if (voiceListeningRef.current) return;
         attempts += 1;
-        try { startVoice(); } catch {}
+        try { startVoiceRef.current(); } catch {}
         if (attempts >= 5) return;
         const delay = attempts === 1 ? 400 : attempts === 2 ? 700 : attempts === 3 ? 1000 : 1400;
         retryTimer = setTimeout(() => {
           // re-check; if we're still not listening, retry
-          tryStart();
+          if (!voiceListeningRef.current) tryStart();
         }, delay);
       };
       tryStart();
@@ -449,7 +456,7 @@ export function DetectiveMindGame({
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [autoReadDone, phase, selectedOption, voiceSupported, currentCase?.id, awaitMicSafe, startVoice]);
+  }, [autoReadDone, phase, selectedOption, voiceSupported, currentCase?.id]);
 
   // Reset the per-case arm guard when the case changes.
   useEffect(() => {
