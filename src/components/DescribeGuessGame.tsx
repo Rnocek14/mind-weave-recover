@@ -540,6 +540,7 @@ export function DescribeGuessGame({
       setGuessMessage(redirectMsg);
 
       speak(redirectMsg).then(async () => {
+        micStartCycleRef.current += 1;
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
@@ -550,18 +551,14 @@ export function DescribeGuessGame({
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedback) {
+        if (!currentTrialRef.current || showFeedbackRef.current) {
           setMicOpening(false);
           return;
         }
-        startListening();
-        setIsListening(true);
-        listeningStartRef.current = Date.now();
-        setMicOpening(false);
-        scheduleMicRecoveryCheck();
+        startMicWithRetries(micStartCycleRef.current);
       });
     }
-  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, startListening, speak, scheduleMicRecoveryCheck]);
+  }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, speak, startMicWithRetries]);
 
   // Real-time word detection during "say the word" phase — finalize early
   useEffect(() => {
