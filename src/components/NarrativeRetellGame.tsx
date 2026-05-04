@@ -918,6 +918,29 @@ export function NarrativeRetellGame({
               </div>
             )}
 
+            {/* Tier-1 visual hint: small scene thumbnails revealed only after
+                the user clearly stalls (≥ second prompt). Helps recall without
+                turning retell into "describe the picture". */}
+            {activeTier === 1 && stallPromptIndex >= 1 && (
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-2 animate-in fade-in duration-500">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">
+                  Memory hint
+                </p>
+                <div className="flex justify-center gap-2">
+                  {currentStory.scenes.map((scene, i) => (
+                    <span
+                      key={i}
+                      className="text-2xl opacity-80"
+                      title={scene.text}
+                      aria-label={scene.text}
+                    >
+                      {scene.emoji}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Replay buttons */}
             <div className="flex gap-2">
               <Button
