@@ -779,7 +779,7 @@ export function generateDailyLesson(
     primaryDomainBoost: number; speechProfileBoost: number; finalScore: number; reason: string;
   }> = [];
 
-  const scoredExercises = accessibleExercises
+  const scoredExercises = polishedAccessible
     .map(id => {
       const meta = exerciseMetadata[id];
       if (!meta) return null;
