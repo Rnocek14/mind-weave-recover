@@ -125,8 +125,12 @@ export function DescribeGuessGame({
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const micRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const micAutoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micStartRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const micStartCycleRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const runEvaluationRef = useRef<() => void>(() => {});
+  const showFeedbackRef = useRef(false);
+  const useTypingRef = useRef(useTyping);
   const [nudgeHint, setNudgeHint] = useState<string | null>(null);
   // True from trial-start until the mic actually opens. Suppresses the
   // "Microphone unavailable" recovery banner during the legitimate wait
