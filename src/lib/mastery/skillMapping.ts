@@ -61,6 +61,11 @@ function classifyNamingByFrequency(inputs?: Record<string, any> | null): SkillSl
 export function mapTrialToSkills({ exerciseSlug, inputs }: MapInput): SkillSlug[] {
   const slug = (exerciseSlug || '').toLowerCase();
 
+  // Hard quarantine — open-ended / soft-scored exercises must never feed
+  // mastery aggregation, even if they accidentally land in
+  // adaptation_trial_logs through a future refactor.
+  if (isExcludedFromMastery(slug)) return [];
+
   switch (slug) {
     case 'photo-naming':
     case 'two-clues':
@@ -85,9 +90,10 @@ export function mapTrialToSkills({ exerciseSlug, inputs }: MapInput): SkillSlug[
     case 'thought-continuation':
       return ['comprehension.sentence'];
 
+    // Structured retell only. `conversation-coach` and `conversation-partner`
+    // are quarantined above (see MASTERY_EXCLUDED_EXERCISES) — open-ended
+    // discourse without an objective target or stable cue scale.
     case 'narrative-retell':
-    case 'conversation-coach':
-    case 'conversation-partner':
       return ['discourse.narrative'];
 
     case 'category-fluency':
