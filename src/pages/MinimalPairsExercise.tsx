@@ -118,11 +118,10 @@ export default function MinimalPairsExercise() {
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    // Increment trial counter for telemetry round numbering. The runaway-loop
-    // root cause was an unstable callback identity in the parent + a weak
-    // guard in the child effect — both fixed. startTrial here remains the
-    // single counter increment per completed trial.
-    startTrial();
+    // NOTE: startTrial() removed — trial start should fire when a new trial
+    // appears, not when one completes. Calling it here was double-counting
+    // and contributed to a runaway logging loop combined with the unstable
+    // callback identity (now fixed via useCallback).
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
