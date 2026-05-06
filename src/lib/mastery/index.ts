@@ -1,4 +1,4 @@
-export { mapTrialToSkills } from './skillMapping';
+export { mapTrialToSkills, isExcludedFromMastery } from './skillMapping';
 export type { SkillSlug } from './skillMapping';
 export { computeMastery, suggestLevelChange } from './computeMastery';
 export type { MasteryRow, MasteryTrial } from './computeMastery';
