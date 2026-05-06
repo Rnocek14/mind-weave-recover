@@ -75,6 +75,7 @@ import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
 import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
+import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
 import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import { VoiceGateHud } from "./components/dev/VoiceGateHud";
 import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
