@@ -121,7 +121,7 @@ export function computeMastery(
     confidence !== 'low' &&
     velocity != null &&
     Math.abs(velocity) < 0.05 &&
-    (prev?.plateau_flag ?? false || trialsRecent >= 12);
+    ((prev?.plateau_flag ?? false) || trialsRecent >= 12);
 
   // Fatigue-adjusted score
   const fatigueRatings = recent.map(t => t.fatigue_rating).filter((x): x is number => x != null);
