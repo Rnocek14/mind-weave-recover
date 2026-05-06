@@ -206,6 +206,13 @@ export interface PhotoTrial {
   id: string;
   imageUrl: string;
   target: string; // Correct answer
+  /**
+   * Other words that are clinically valid names for THIS image
+   * (e.g. "plate" for a dish photo, "eyeball" for an eye photo).
+   * Saying any alias scores as correct for `target`, even if the alias
+   * also appears as a foil chip on screen.
+   */
+  acceptedAliases?: string[];
   semanticFoils: string[]; // Related distractors
   phonologicalFoils?: string[]; // Sound-similar distractors (for hard mode)
   category: string;
@@ -496,6 +503,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     id: 'eye_3',
     imageUrl: eyeImg,
     target: 'eye',
+    acceptedAliases: ['eyeball'],
     semanticFoils: ['nose', 'face', 'brow', 'lid'],
     phonologicalFoils: ['aye', 'rye', 'pie'],
     category: 'body',
@@ -4258,6 +4266,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     id: 'dish_mp_t1_5',
     imageUrl: dishImg,
     target: 'dish',
+    acceptedAliases: ['plate'],
     semanticFoils: ['plate', 'bowl', 'cup'],
     category: 'household',
     features: {
