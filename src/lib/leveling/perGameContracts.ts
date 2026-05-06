@@ -123,6 +123,7 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     contentReadiness: 'shadow_only',
     wiringRisk: 'low',
     notes: 'Playable photo-backed pool tops out at ~17 per tier. Fine for shadow telemetry; expand before live wiring.',
+  },
   phonological_awareness: {
     slug: 'phonological_awareness',
     internalScale: { min: 1, max: 5 },
