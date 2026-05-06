@@ -503,6 +503,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     id: 'eye_3',
     imageUrl: eyeImg,
     target: 'eye',
+    acceptedAliases: ['eyeball'],
     semanticFoils: ['nose', 'face', 'brow', 'lid'],
     phonologicalFoils: ['aye', 'rye', 'pie'],
     category: 'body',
