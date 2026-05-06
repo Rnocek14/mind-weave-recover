@@ -248,4 +248,4 @@ export function getPerGameContract(slug: string): PerGameLevelingContract | null
   return PER_GAME_CONTRACTS[slug] ?? null;
 }
 
-export const PER_GAME_CONTRACTS_VERSION = '0.1.0-spec';
+export const PER_GAME_CONTRACTS_VERSION = '0.2.0-spec';
