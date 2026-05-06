@@ -247,6 +247,10 @@ export const useSessionLifecycle = ({
           if (userRef.current && profileRef.current) {
             triggerPostSessionProfileRefresh(userRef.current, profileRef.current, sid)
               .catch(err => console.warn('[SessionLifecycle] Profile refresh failed:', err));
+
+            // Shadow-mode mastery layer recompute (fire-and-forget; never blocks)
+            flushMasteryShadow({ sessionId: sid, userId: userRef.current, profileId: profileRef.current })
+              .catch(err => console.warn('[SessionLifecycle] Mastery flush failed:', err));
           }
           
           onSessionEnded?.(reason);
