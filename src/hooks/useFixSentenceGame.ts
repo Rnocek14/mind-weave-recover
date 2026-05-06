@@ -93,6 +93,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         difficulty: newLevel,
         count: upcomingNeeded * 3,
         focusPhonemes,
+        recentIds: recency.getRecent(newLevel),
       }).filter(t => !prev.slice(0, currentIndex + 1).some(p => p.id === t.id))
         .slice(0, upcomingNeeded);
       if (fresh.length === 0) return prev;
