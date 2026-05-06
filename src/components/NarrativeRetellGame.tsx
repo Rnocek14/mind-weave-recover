@@ -946,7 +946,7 @@ export function NarrativeRetellGame({
               }
 
               const { level, baseline, stallReveal } = resolveVisualSupport({
-                adaptiveLevel: adaptation.difficulty,
+                adaptiveLevel: adaptation.currentDifficulty,
                 stallPromptIndex,
               });
               if (level === 0) return null;
