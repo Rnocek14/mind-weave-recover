@@ -206,6 +206,13 @@ export interface PhotoTrial {
   id: string;
   imageUrl: string;
   target: string; // Correct answer
+  /**
+   * Other words that are clinically valid names for THIS image
+   * (e.g. "plate" for a dish photo, "eyeball" for an eye photo).
+   * Saying any alias scores as correct for `target`, even if the alias
+   * also appears as a foil chip on screen.
+   */
+  acceptedAliases?: string[];
   semanticFoils: string[]; // Related distractors
   phonologicalFoils?: string[]; // Sound-similar distractors (for hard mode)
   category: string;
