@@ -960,6 +960,13 @@ export function NarrativeRetellGame({
                 adaptiveLevel: adaptation.currentDifficulty,
                 stallPromptIndex,
               });
+              // Idempotent telemetry update (refs only — no re-render)
+              const t = supportTelemetryRef.current;
+              t.flagEnabled = true;
+              t.adaptiveLevel = adaptation.currentDifficulty;
+              t.baseline = baseline;
+              if (stallReveal > t.maxStallReveal) t.maxStallReveal = stallReveal;
+              if (level > t.maxResolved) t.maxResolved = level;
               if (level === 0) return null;
 
               const isRescue = stallReveal > baseline;
