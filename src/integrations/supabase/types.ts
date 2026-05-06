@@ -2276,6 +2276,45 @@ export type Database = {
           },
         ]
       }
+      recovery_trajectory: {
+        Row: {
+          breakthrough_domains: string[]
+          computed_at: string
+          domain_scores: Json
+          id: string
+          model_version: string
+          overall_mastery: number | null
+          plateau_domains: string[]
+          profile_id: string
+          user_id: string
+          velocity_30d: number | null
+        }
+        Insert: {
+          breakthrough_domains?: string[]
+          computed_at?: string
+          domain_scores?: Json
+          id?: string
+          model_version?: string
+          overall_mastery?: number | null
+          plateau_domains?: string[]
+          profile_id: string
+          user_id: string
+          velocity_30d?: number | null
+        }
+        Update: {
+          breakthrough_domains?: string[]
+          computed_at?: string
+          domain_scores?: Json
+          id?: string
+          model_version?: string
+          overall_mastery?: number | null
+          plateau_domains?: string[]
+          profile_id?: string
+          user_id?: string
+          velocity_30d?: number | null
+        }
+        Relationships: []
+      }
       retention_snapshots: {
         Row: {
           best_cue_level: number | null
@@ -2495,6 +2534,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skill_mastery_history: {
+        Row: {
+          confidence: string
+          created_at: string
+          cue_independence: number | null
+          fatigue_adjusted_score: number | null
+          id: string
+          mastery_score: number
+          model_version: string
+          plateau_flag: boolean
+          profile_id: string
+          skill_slug: string
+          trials_in_week: number
+          user_id: string
+          velocity_per_week: number | null
+          week_start: string
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          cue_independence?: number | null
+          fatigue_adjusted_score?: number | null
+          id?: string
+          mastery_score: number
+          model_version?: string
+          plateau_flag?: boolean
+          profile_id: string
+          skill_slug: string
+          trials_in_week?: number
+          user_id: string
+          velocity_per_week?: number | null
+          week_start: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          cue_independence?: number | null
+          fatigue_adjusted_score?: number | null
+          id?: string
+          mastery_score?: number
+          model_version?: string
+          plateau_flag?: boolean
+          profile_id?: string
+          skill_slug?: string
+          trials_in_week?: number
+          user_id?: string
+          velocity_per_week?: number | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_mastery_history_skill_slug_fkey"
+            columns: ["skill_slug"]
+            isOneToOne: false
+            referencedRelation: "skill_nodes"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      skill_nodes: {
+        Row: {
+          created_at: string
+          description: string | null
+          difficulty_band: number
+          domain: string
+          exercise_slugs: string[]
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          difficulty_band?: number
+          domain: string
+          exercise_slugs?: string[]
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          difficulty_band?: number
+          domain?: string
+          exercise_slugs?: string[]
+          slug?: string
+        }
+        Relationships: []
       }
       speech_profile_snapshots: {
         Row: {
@@ -2956,6 +3081,77 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_skill_mastery: {
+        Row: {
+          accuracy_recent: number | null
+          confidence: string
+          created_at: string
+          cue_independence: number | null
+          fatigue_adjusted_score: number | null
+          id: string
+          last_practiced_at: string | null
+          mastery_score: number
+          model_version: string
+          plateau_flag: boolean
+          profile_id: string
+          skill_slug: string
+          support_dependency_trend: string | null
+          trials_recent: number
+          trials_total: number
+          updated_at: string
+          user_id: string
+          velocity_per_week: number | null
+        }
+        Insert: {
+          accuracy_recent?: number | null
+          confidence?: string
+          created_at?: string
+          cue_independence?: number | null
+          fatigue_adjusted_score?: number | null
+          id?: string
+          last_practiced_at?: string | null
+          mastery_score?: number
+          model_version?: string
+          plateau_flag?: boolean
+          profile_id: string
+          skill_slug: string
+          support_dependency_trend?: string | null
+          trials_recent?: number
+          trials_total?: number
+          updated_at?: string
+          user_id: string
+          velocity_per_week?: number | null
+        }
+        Update: {
+          accuracy_recent?: number | null
+          confidence?: string
+          created_at?: string
+          cue_independence?: number | null
+          fatigue_adjusted_score?: number | null
+          id?: string
+          last_practiced_at?: string | null
+          mastery_score?: number
+          model_version?: string
+          plateau_flag?: boolean
+          profile_id?: string
+          skill_slug?: string
+          support_dependency_trend?: string | null
+          trials_recent?: number
+          trials_total?: number
+          updated_at?: string
+          user_id?: string
+          velocity_per_week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_skill_mastery_skill_slug_fkey"
+            columns: ["skill_slug"]
+            isOneToOne: false
+            referencedRelation: "skill_nodes"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       user_speech_profiles: {
         Row: {

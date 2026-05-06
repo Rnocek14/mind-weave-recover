@@ -74,6 +74,7 @@ import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
 import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
+import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
 import { VoiceGateHud } from "./components/dev/VoiceGateHud";
 import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
 import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
@@ -163,6 +164,7 @@ const App = () => (
                   <Route path="/dev/session-replay/:sessionId" element={<AdminProtectedRoute><SessionReplayDev /></AdminProtectedRoute>} />
                   <Route path="/dev/signal-harness" element={<AdminProtectedRoute><AdaptationSignalHarness /></AdminProtectedRoute>} />
                   <Route path="/dev/gate-harness" element={<AdminProtectedRoute><GateHarness /></AdminProtectedRoute>} />
+                  <Route path="/dev/mastery-shadow" element={<AdminProtectedRoute><MasteryShadowDev /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
