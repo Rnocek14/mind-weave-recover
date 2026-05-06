@@ -419,6 +419,8 @@ export function getFixSentenceTrials(options?: {
   difficulty?: number;
   count?: number;
   focusPhonemes?: string[];
+  /** IDs recently shown — selector will prefer fresh items, falling back to LRU. */
+  recentIds?: string[];
 }): FixSentenceTrial[] {
   // ── BAND-ISOLATED selection (no more cumulative `<=` filter) ──
   // Pick the exact target tier. If the resulting pool is too small for the
@@ -474,9 +476,26 @@ export function getFixSentenceTrials(options?: {
     }
   }
 
+  // Recency exclusion (soft): prefer items not in recentIds. If everything
+  // is recent, fall back to least-recently-used order so we never starve.
+  if (options?.recentIds && options.recentIds.length > 0) {
+    const recentSet = new Set(options.recentIds);
+    const fresh = trials.filter(t => !recentSet.has(t.id));
+    const recent = trials.filter(t => recentSet.has(t.id));
+    // Order recent fallbacks by oldest-first using their position in recentIds.
+    const ageIndex = new Map(options.recentIds.map((id, i) => [id, i]));
+    recent.sort((a, b) => (ageIndex.get(a.id) ?? 0) - (ageIndex.get(b.id) ?? 0));
+    trials = [...fresh, ...recent];
+    if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[recency:fix_sentence] fresh=%d recent=%d total=%d', fresh.length, recent.length, trials.length);
+    }
+  }
+
   if (options?.count) {
     trials = trials.slice(0, options.count);
   }
 
   return trials;
 }
+
