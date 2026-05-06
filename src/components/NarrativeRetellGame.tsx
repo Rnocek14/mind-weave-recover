@@ -38,6 +38,8 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { isFeatureEnabled } from '@/lib/featureFlags';
+import { resolveVisualSupport } from '@/lib/narrative/visualSupport';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -918,28 +920,83 @@ export function NarrativeRetellGame({
               </div>
             )}
 
-            {/* Tier-1 visual hint: small scene thumbnails revealed only after
-                the user clearly stalls (≥ second prompt). Helps recall without
-                turning retell into "describe the picture". */}
-            {activeTier === 1 && stallPromptIndex >= 1 && (
-              <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-2 animate-in fade-in duration-500">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">
-                  Memory hint
-                </p>
-                <div className="flex justify-center gap-2">
+            {/* Adaptive Visual Support — narrative_visual_fading_v1
+                When flag is OFF, fall back to the original tier-1 emoji hint
+                shown only after the second stall prompt. */}
+            {(() => {
+              const flagOn = isFeatureEnabled('narrative_visual_fading_v1', false);
+              if (!flagOn) {
+                if (activeTier === 1 && stallPromptIndex >= 1) {
+                  return (
+                    <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-2 animate-in fade-in duration-500">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">
+                        Memory hint
+                      </p>
+                      <div className="flex justify-center gap-2">
+                        {currentStory.scenes.map((scene, i) => (
+                          <span key={i} className="text-2xl opacity-80" title={scene.text} aria-label={scene.text}>
+                            {scene.emoji}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              }
+
+              const { level, baseline, stallReveal } = resolveVisualSupport({
+                adaptiveLevel: adaptation.currentDifficulty,
+                stallPromptIndex,
+              });
+              if (level === 0) return null;
+
+              const isRescue = stallReveal > baseline;
+              const label = isRescue ? 'Memory hint' : 'Story map';
+
+              // Level 1 — sequence dots only
+              if (level === 1) {
+                return (
+                  <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-2 animate-in fade-in duration-500">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">{label}</p>
+                    <div className="flex justify-center gap-2" aria-label={`${currentStory.scenes.length} scenes in this story`}>
+                      {currentStory.scenes.map((_, i) => (
+                        <span key={i} className="h-2 w-2 rounded-full bg-muted-foreground/50" />
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Level 2 — emoji strip (no text)
+              if (level === 2) {
+                return (
+                  <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 p-2 animate-in fade-in duration-500">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center mb-1">{label}</p>
+                    <div className="flex justify-center gap-3">
+                      {currentStory.scenes.map((scene, i) => (
+                        <span key={i} className="text-2xl opacity-90" title={scene.text} aria-label={scene.text}>
+                          {scene.emoji}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Level 3 — full scene cards (strong scaffold / rescue)
+              return (
+                <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2 space-y-1.5 animate-in fade-in duration-500">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground text-center">{label}</p>
                   {currentStory.scenes.map((scene, i) => (
-                    <span
-                      key={i}
-                      className="text-2xl opacity-80"
-                      title={scene.text}
-                      aria-label={scene.text}
-                    >
-                      {scene.emoji}
-                    </span>
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <span className="text-xl">{scene.emoji}</span>
+                      <span className="leading-snug">{scene.text}</span>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Replay buttons */}
             <div className="flex gap-2">
