@@ -145,6 +145,7 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     progressWeights: DEFAULT_WEIGHTS,
     contentReadiness: 'needs_bank_expansion',
     wiringRisk: 'medium',
+    notes: 'Internal scale caps at 3 — L7+ requires more feature-rich items.',
   },
   synonym_generator: {
     slug: 'synonym_generator',
