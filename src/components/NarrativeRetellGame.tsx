@@ -441,6 +441,7 @@ export function NarrativeRetellGame({
         
         if (newIndex > stallPromptIndex) {
           setStallPromptIndex(newIndex);
+          supportTelemetryRef.current.stallCount += (newIndex - stallPromptIndex);
           // Speak the stall prompt in Full Coaching mode
           if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
             lastSpokenStallRef.current = newIndex;
