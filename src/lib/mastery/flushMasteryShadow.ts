@@ -43,7 +43,7 @@ export async function flushMasteryShadow(args: {
     const sinceIso = new Date(Date.now() - 14 * 86400_000).toISOString();
     const { data: recentLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select('exercise_slug, correct, cue_level, created_at, session_id')
+      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty')
       .eq('user_id', userId)
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
@@ -51,7 +51,10 @@ export async function flushMasteryShadow(args: {
 
     const bySkill: Record<string, MasteryTrial[]> = {};
     for (const log of recentLogs ?? []) {
-      const skills = mapTrialToSkills({ exerciseSlug: log.exercise_slug, inputs: null });
+      const skills = mapTrialToSkills({
+        exerciseSlug: log.exercise_slug,
+        inputs: { difficulty: log.difficulty ?? null },
+      });
       const trial: MasteryTrial = {
         is_correct: !!log.correct,
         cue_level: log.cue_level ?? 0,
