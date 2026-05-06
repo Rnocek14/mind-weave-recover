@@ -17,7 +17,10 @@ const VOICING_PAIRS = ['p/b', 'b/p', 't/d', 'd/t', 'k/g', 'g/k', 'f/v', 'v/f', '
 const PLACE_PAIRS = ['p/t', 't/p', 'b/d', 'd/b', 'k/t', 't/k', 'f/s', 's/f'];
 
 function classifyMinimalPair(inputs?: Record<string, any> | null): SkillSlug {
-  const id = String(inputs?.pairId ?? inputs?.pair_id ?? inputs?.contrast ?? '').toLowerCase();
+  const id = String(
+    inputs?.pairId ?? inputs?.pair_id ?? inputs?.contrast ?? inputs?.target_phrase ?? '',
+  ).toLowerCase();
+  if (!id) return 'phonology.unspecified';
   if (VOICING_PAIRS.some(p => id.includes(p))) return 'phonology.voicing';
   if (PLACE_PAIRS.some(p => id.includes(p))) return 'phonology.place';
   return 'phonology.manner';
@@ -25,7 +28,10 @@ function classifyMinimalPair(inputs?: Record<string, any> | null): SkillSlug {
 
 function classifyNamingByFrequency(inputs?: Record<string, any> | null): SkillSlug {
   // Prefer explicit difficulty signal if present, else default to high-frequency.
-  const tier = Number(inputs?.difficulty ?? inputs?.difficulty_level ?? 1);
+  const raw = inputs?.difficulty ?? inputs?.difficulty_level;
+  if (raw == null) return 'naming.unspecified';
+  const tier = Number(raw);
+  if (!Number.isFinite(tier)) return 'naming.unspecified';
   if (tier >= 3) return 'naming.low-frequency';
   return 'naming.high-frequency';
 }

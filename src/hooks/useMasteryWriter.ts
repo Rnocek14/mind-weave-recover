@@ -42,7 +42,7 @@ export function useMasteryWriter() {
       // 1. Pull this session's trials to discover affected skills + targets.
       const { data: sessionLogs, error: logsErr } = await supabase
         .from('adaptation_trial_logs')
-        .select('exercise_slug, correct, cue_level, created_at, id')
+        .select('exercise_slug, correct, cue_level, created_at, id, difficulty')
         .eq('session_id', sessionId);
 
       if (logsErr) {
@@ -51,11 +51,12 @@ export function useMasteryWriter() {
       }
       if (!sessionLogs || sessionLogs.length === 0) return;
 
-      // We don't have stimulus inputs in adaptation_trial_logs; use a default
-      // mapping by exerciseSlug only. Skill mapping fns gracefully default.
       const affectedSkills = new Set<string>();
       for (const log of sessionLogs) {
-        for (const s of mapTrialToSkills({ exerciseSlug: log.exercise_slug, inputs: null })) {
+        for (const s of mapTrialToSkills({
+          exerciseSlug: log.exercise_slug,
+          inputs: { difficulty: log.difficulty ?? null },
+        })) {
           affectedSkills.add(s);
         }
       }
@@ -70,7 +71,7 @@ export function useMasteryWriter() {
 
       const { data: recentLogs, error: recErr } = await supabase
         .from('adaptation_trial_logs')
-        .select('exercise_slug, correct, cue_level, created_at, session_id')
+        .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty')
         .eq('user_id', userId)
         .in('exercise_slug', exerciseSlugs as string[])
         .gte('created_at', sinceIso)
@@ -84,7 +85,10 @@ export function useMasteryWriter() {
       // 3. Group by skill.
       const bySkill: Record<string, MasteryTrial[]> = {};
       for (const log of recentLogs ?? []) {
-        const skills = mapTrialToSkills({ exerciseSlug: log.exercise_slug, inputs: null });
+        const skills = mapTrialToSkills({
+          exerciseSlug: log.exercise_slug,
+          inputs: { difficulty: log.difficulty ?? null },
+        });
         const trial: MasteryTrial = {
           is_correct: !!log.correct,
           cue_level: log.cue_level ?? 0,
