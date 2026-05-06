@@ -308,6 +308,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
     lastSpokenStallRef.current = -1;
+    supportTelemetryRef.current = { flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 };
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
