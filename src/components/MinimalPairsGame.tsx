@@ -242,13 +242,19 @@ export function MinimalPairsGame({
   
   // Report trial data — fire once per trial. For incorrect, immediate; for
   // correct, wait until echo resolves so we can include echoAttempted as a cue signal.
-  const trialReportedRef = useRef<number>(-1);
+  // Guard: keyed on `${trialIndex}-${pair.id}` so a stuck `showFeedback=true`
+  // state cannot re-fire the logger even if the parent passes a new
+  // onTrialComplete identity. Also requires selectedIndex !== null so we
+  // never log a trial the user hasn't actually answered.
+  const trialReportedRef = useRef<string>('');
   useEffect(() => {
     if (!showFeedback || !currentTrial || !onTrialComplete) return;
-    if (trialReportedRef.current === trialIndex) return;
+    if (state.selectedIndex === null) return;
+    const reportKey = `${trialIndex}-${currentTrial.pair.id}`;
+    if (trialReportedRef.current === reportKey) return;
     const correct = state.isCorrect === true;
     if (correct && echoStatus !== 'heard' && echoStatus !== 'skipped') return;
-    trialReportedRef.current = trialIndex;
+    trialReportedRef.current = reportKey;
     const selectedWord = state.selectedIndex === 0
       ? currentTrial.pair.word1
       : currentTrial.pair.word2;
