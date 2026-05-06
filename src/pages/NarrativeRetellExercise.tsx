@@ -126,6 +126,15 @@ export default function NarrativeRetellExercise() {
         skipped: result.skipped,
         trial_limit: trialLimit,
         ...adaptationTelemetry,
+        ...(result.visualSupport ? {
+          visual_support_flag: result.visualSupport.flagEnabled,
+          visual_support_adaptive_level: result.visualSupport.adaptiveLevel,
+          visual_support_baseline: result.visualSupport.baselineSupport,
+          visual_support_max_stall_reveal: result.visualSupport.maxStallReveal,
+          visual_support_max_resolved: result.visualSupport.maxResolvedSupport,
+          visual_support_stall_count: result.visualSupport.stallCount,
+          visual_support_rescue_triggered: result.visualSupport.rescueTriggered,
+        } : {}),
       },
       trialOutputs: {
         explanation: {
