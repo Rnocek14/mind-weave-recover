@@ -30,7 +30,7 @@ export async function flushMasteryShadow(args: {
   try {
     const { data: sessionLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select('exercise_slug, correct, cue_level, created_at, session_id')
+      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty')
       .eq('session_id', sessionId);
 
     if (!sessionLogs || sessionLogs.length === 0) return;
