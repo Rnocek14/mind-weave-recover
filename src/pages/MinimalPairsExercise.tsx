@@ -135,7 +135,7 @@ export default function MinimalPairsExercise() {
         ...adaptationTelemetry,
       },
     });
-  }, [startTrial, logTrial, adaptationTelemetry]);
+  }, [logTrial, adaptationTelemetry]);
   
   if (!isStarted) {
     return (
