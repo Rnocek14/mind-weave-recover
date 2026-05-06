@@ -236,6 +236,16 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    * Advance to next trial
    */
   const nextTrial = useCallback(() => {
+    // Mark the just-completed trial as used (per its own tier) BEFORE advancing.
+    const completed = trials[currentIndex];
+    if (completed) {
+      recency.markUsed(completed.id, completed.difficulty);
+      if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('[recency:fix_sentence] markUsed id=%s tier=%d recent=%d',
+          completed.id, completed.difficulty, recency.getRecent(completed.difficulty).length);
+      }
+    }
     const nextIdx = currentIndex + 1;
     if (nextIdx >= trials.length) {
       setIsComplete(true);
@@ -246,7 +256,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     setLastResult(null);
     setCurrentAttempt(1);
     roundStartTimeRef.current = Date.now();
-  }, [currentIndex, trials.length, results, onGameComplete]);
+  }, [currentIndex, trials, results, onGameComplete, recency]);
 
   /**
    * Start round timer
