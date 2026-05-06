@@ -195,6 +195,15 @@ export function NarrativeRetellGame({
   const handleDoneRetellingRef = useRef<() => void>(() => {});
   const autoStartedForIndexRef = useRef<number | null>(null);
   const lastSpokenStallRef = useRef(-1);
+  // Visual support telemetry refs (narrative_visual_fading_v1)
+  const supportTelemetryRef = useRef<{
+    flagEnabled: boolean;
+    adaptiveLevel: number;
+    baseline: number;
+    maxStallReveal: number;
+    maxResolved: number;
+    stallCount: number;
+  }>({ flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 });
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
@@ -299,6 +308,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
     lastSpokenStallRef.current = -1;
+    supportTelemetryRef.current = { flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 };
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
     autoStartedForIndexRef.current = null;
@@ -431,6 +441,7 @@ export function NarrativeRetellGame({
         
         if (newIndex > stallPromptIndex) {
           setStallPromptIndex(newIndex);
+          supportTelemetryRef.current.stallCount += (newIndex - stallPromptIndex);
           // Speak the stall prompt in Full Coaching mode
           if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
             lastSpokenStallRef.current = newIndex;
@@ -597,6 +608,16 @@ export function NarrativeRetellGame({
       }
 
       if (result) {
+        const t = supportTelemetryRef.current;
+        result.visualSupport = {
+          flagEnabled: t.flagEnabled,
+          adaptiveLevel: t.adaptiveLevel || adaptation.currentDifficulty,
+          baselineSupport: t.baseline,
+          maxStallReveal: t.maxStallReveal,
+          maxResolvedSupport: t.maxResolved,
+          stallCount: t.stallCount,
+          rescueTriggered: t.maxStallReveal > t.baseline,
+        };
         setLastResult(result);
         setPhase('scored');
         // Feed adaptation engine: 60% event coverage = strong retell, drives tier shifts
@@ -663,6 +684,16 @@ export function NarrativeRetellGame({
     }
 
     if (result) {
+      const t = supportTelemetryRef.current;
+      result.visualSupport = {
+        flagEnabled: t.flagEnabled,
+        adaptiveLevel: t.adaptiveLevel || adaptation.currentDifficulty,
+        baselineSupport: t.baseline,
+        maxStallReveal: t.maxStallReveal,
+        maxResolvedSupport: t.maxResolved,
+        stallCount: t.stallCount,
+        rescueTriggered: t.maxStallReveal > t.baseline,
+      };
       setLastResult(result);
       setPhase('scored');
       // Skipped retell = unsuccessful trial; engine should ease the next story.
@@ -949,6 +980,13 @@ export function NarrativeRetellGame({
                 adaptiveLevel: adaptation.currentDifficulty,
                 stallPromptIndex,
               });
+              // Idempotent telemetry update (refs only — no re-render)
+              const t = supportTelemetryRef.current;
+              t.flagEnabled = true;
+              t.adaptiveLevel = adaptation.currentDifficulty;
+              t.baseline = baseline;
+              if (stallReveal > t.maxStallReveal) t.maxStallReveal = stallReveal;
+              if (level > t.maxResolved) t.maxResolved = level;
               if (level === 0) return null;
 
               const isRescue = stallReveal > baseline;

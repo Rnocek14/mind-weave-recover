@@ -75,6 +75,21 @@ export interface NarrativeTrialResult {
     ciuRate: number | null;
     meanUtteranceLength: number;
   };
+  /** Visual scaffold telemetry (narrative_visual_fading_v1).
+   *  Populated by the component; absent when the flag is OFF. */
+  visualSupport?: {
+    flagEnabled: boolean;
+    adaptiveLevel: number;
+    baselineSupport: number;
+    /** Highest stall-driven reveal level reached during retell (0-3) */
+    maxStallReveal: number;
+    /** Highest resolved support level shown during retell (0-3) */
+    maxResolvedSupport: number;
+    /** Number of stall prompts surfaced this trial */
+    stallCount: number;
+    /** True if stall reveal pushed support above baseline */
+    rescueTriggered: boolean;
+  };
 }
 
 /** Map key events to narrative sections based on which scene they most relate to */
