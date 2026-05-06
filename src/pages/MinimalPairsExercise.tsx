@@ -57,7 +57,7 @@ export default function MinimalPairsExercise() {
   // Get stats about available pairs
   const stats = getMinimalPairStats();
   
-  const { startTrial, logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
+  const { logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
   
   // Initialize session
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function MinimalPairsExercise() {
     }
   }, [fromLesson, navigate]);
   
-  const handleTrialComplete = (trialData: {
+  const handleTrialComplete = useCallback((trialData: {
     targetWord: string;
     selectedWord: string;
     isCorrect: boolean;
@@ -118,8 +118,10 @@ export default function MinimalPairsExercise() {
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    startTrial();
-
+    // NOTE: startTrial() removed — trial start should fire when a new trial
+    // appears, not when one completes. Calling it here was double-counting
+    // and contributed to a runaway logging loop combined with the unstable
+    // callback identity (now fixed via useCallback).
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -133,7 +135,7 @@ export default function MinimalPairsExercise() {
         ...adaptationTelemetry,
       },
     });
-  };
+  }, [logTrial, adaptationTelemetry]);
   
   if (!isStarted) {
     return (
