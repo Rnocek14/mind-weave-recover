@@ -800,6 +800,40 @@ function toDescribeGuessTier(d: number): 1 | 2 | 3 {
   return 3;
 }
 
+// Cross-session recency: deprioritize trials shown in the last N sessions so
+// the same item doesn't surface back-to-back. Stored in localStorage.
+const RECENCY_KEY = 'describeGuess_recentTrialIds_v1';
+const RECENCY_WINDOW = 24;
+
+function loadRecentIds(): string[] {
+  try {
+    if (typeof window === 'undefined') return [];
+    const raw = window.localStorage.getItem(RECENCY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentIds(ids: string[]) {
+  try {
+    if (typeof window === 'undefined') return;
+    const trimmed = ids.slice(-RECENCY_WINDOW);
+    window.localStorage.setItem(RECENCY_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Mark trial IDs as recently shown — call after picking a session's trials. */
+export function markDescribeGuessTrialsShown(ids: string[]) {
+  if (!ids || ids.length === 0) return;
+  const current = loadRecentIds();
+  saveRecentIds([...current, ...ids]);
+}
+
 export function getDescribeGuessTrials(options?: {
   /** Tier 1..3 OR engine level 1..10. Both accepted; engine levels collapse to a tier. */
   difficulty?: number;
@@ -807,7 +841,6 @@ export function getDescribeGuessTrials(options?: {
 }): DescribeGuessTrial[] {
   const validPhotoIds = new Set(PHOTO_BANK.map(p => p.id));
 
-  // Normalize photo IDs and drop trials whose photo is missing.
   const all = DESCRIBE_GUESS_BANK
     .map(t => {
       const remapped = PHOTO_ID_REMAP[t.photoBankId] ?? t.photoBankId;
@@ -821,10 +854,6 @@ export function getDescribeGuessTrials(options?: {
       return false;
     });
 
-  // ── BAND-ISOLATED selection (no more cumulative `<=` filter) ──
-  // Pick the exact target tier. If the pool is too small for the requested
-  // count, pad from the nearest neighbor tier(s), nearest first. Never the
-  // full bank — that's what made L4 and L7 look identical.
   let pool: DescribeGuessTrial[];
   if (options?.difficulty != null) {
     const targetTier = toDescribeGuessTier(options.difficulty);
@@ -834,15 +863,10 @@ export function getDescribeGuessTrials(options?: {
     if (exact.length >= requested) {
       pool = exact;
     } else {
-      // Padding policy: prefer the HARDER neighbor first.
-      // Rationale — when an adaptive engine asks for tier N and the bank
-      // can't fill the request, contaminating with easier content silently
-      // drops the perceived difficulty (the exact bug we just fixed).
-      // Padding upward preserves the challenge direction.
       const neighbors: number[] =
-        targetTier === 1 ? [2, 3] :          // tier 1 has nowhere to go but up
-        targetTier === 3 ? [2, 1] :          // tier 3 falls to 2 first, then 1
-        [3, 1];                              // tier 2: prefer tier 3 over tier 1
+        targetTier === 1 ? [2, 3] :
+        targetTier === 3 ? [2, 1] :
+        [3, 1];
       const padded = [...exact];
       for (const n of neighbors) {
         if (padded.length >= requested) break;
@@ -863,16 +887,31 @@ export function getDescribeGuessTrials(options?: {
     return true;
   });
 
-  // Shuffle
-  for (let i = trials.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [trials[i], trials[j]] = [trials[j], trials[i]];
-  }
+  // Cross-session recency split: fresh trials first, recent trials last.
+  const recentSet = new Set(loadRecentIds());
+  const fresh = trials.filter(t => !recentSet.has(t.id));
+  const recent = trials.filter(t => recentSet.has(t.id));
+
+  const shuffle = <T,>(arr: T[]) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+  shuffle(fresh);
+  shuffle(recent);
+
+  trials = [...fresh, ...recent];
 
   if (options?.count) {
     trials = trials.slice(0, options.count);
   }
 
+  // Remember what we just dispensed so the NEXT call prefers different items.
+  markDescribeGuessTrialsShown(trials.map(t => t.id));
+
   return trials;
 }
+
 
