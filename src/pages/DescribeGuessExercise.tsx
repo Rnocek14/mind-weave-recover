@@ -19,6 +19,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
