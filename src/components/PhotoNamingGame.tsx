@@ -723,6 +723,30 @@ export const PhotoNamingGame = ({
       return;
     }
 
+    // ─── HOMOPHONE / ALIAS SHORT-CIRCUIT ──────────────────────────────────
+    // The validation gate rejects single-letter utterances like "I" as filler,
+    // which blocks legitimate homophone answers (e.g. "I" for an "eye" trial)
+    // and accepted-alias answers (e.g. "plate" for a dish trial). If the raw
+    // transcript IS a target/alias/homophone of the target, score immediately.
+    const rawLower = transcript.trim().toLowerCase().replace(/[^a-z']/g, '');
+    const targetWord = (state.currentTrial.target ?? '').toLowerCase();
+    const aliasList = (state.currentTrial.acceptedAliases ?? []).map((a) => a.toLowerCase());
+    if (
+      rawLower &&
+      targetWord &&
+      (rawLower === targetWord ||
+        aliasList.includes(rawLower) ||
+        areHomophones(targetWord, rawLower) ||
+        aliasList.some((a) => areHomophones(a, rawLower)))
+    ) {
+      console.log('✅ Short-circuit alias/homophone match — bypassing gate:', rawLower, '→', targetWord);
+      const targetChoice = state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
+      setUtteranceState('processing');
+      setProcessingAnswer(true);
+      handleAnswerSelect(targetChoice);
+      return;
+    }
+
     // ─── MANDATORY PRE-SCORING GATE ────────────────────────────────────────
     // Rejects echoes of Maya's instructions ("say what you see"), prompt
     // repeats, fillers, and short mimics BEFORE we try to match a choice.
