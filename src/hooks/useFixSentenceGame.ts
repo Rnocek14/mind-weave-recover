@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 
 export interface FixSentenceTrialResult {
   trialId: string;
@@ -48,10 +49,27 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const roundStartTimeRef = useRef<number>(Date.now());
   const pendingTrialRef = useRef<FixSentenceTrialResult | null>(null);
 
+  // Recency exclusion (per-tier LRU, localStorage-backed). Read recent IDs
+  // for the current tier and pass them to the bank selector. Marking happens
+  // when a trial advances (see nextTrial).
+  const recency = useRecencyExclusion<FixSentenceTrial>('fix_sentence', [], {
+    lookback: 20,
+    tierAware: true,
+    getTier: (t) => t.difficulty,
+    getId: (t) => t.id,
+  });
+  const tierForRecency = (typeof difficulty === 'number' ? difficulty : 2);
+  const initialRecentIds = useMemo(
+    () => recency.getRecent(tierForRecency),
+    // Capture once per mount; we want a stable initial selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // difficulty changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes }),
+    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes, recentIds: initialRecentIds }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trialCount, focusPhonemes.join(',')]
   );
@@ -75,6 +93,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         difficulty: newLevel,
         count: upcomingNeeded * 3,
         focusPhonemes,
+        recentIds: recency.getRecent(newLevel),
       }).filter(t => !prev.slice(0, currentIndex + 1).some(p => p.id === t.id))
         .slice(0, upcomingNeeded);
       if (fresh.length === 0) return prev;
@@ -217,6 +236,16 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    * Advance to next trial
    */
   const nextTrial = useCallback(() => {
+    // Mark the just-completed trial as used (per its own tier) BEFORE advancing.
+    const completed = trials[currentIndex];
+    if (completed) {
+      recency.markUsed(completed.id, completed.difficulty);
+      if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+        // eslint-disable-next-line no-console
+        console.debug('[recency:fix_sentence] markUsed id=%s tier=%d recent=%d',
+          completed.id, completed.difficulty, recency.getRecent(completed.difficulty).length);
+      }
+    }
     const nextIdx = currentIndex + 1;
     if (nextIdx >= trials.length) {
       setIsComplete(true);
@@ -227,7 +256,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     setLastResult(null);
     setCurrentAttempt(1);
     roundStartTimeRef.current = Date.now();
-  }, [currentIndex, trials.length, results, onGameComplete]);
+  }, [currentIndex, trials, results, onGameComplete, recency]);
 
   /**
    * Start round timer
