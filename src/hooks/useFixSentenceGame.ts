@@ -49,10 +49,27 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const roundStartTimeRef = useRef<number>(Date.now());
   const pendingTrialRef = useRef<FixSentenceTrialResult | null>(null);
 
+  // Recency exclusion (per-tier LRU, localStorage-backed). Read recent IDs
+  // for the current tier and pass them to the bank selector. Marking happens
+  // when a trial advances (see nextTrial).
+  const recency = useRecencyExclusion<FixSentenceTrial>('fix_sentence', [], {
+    lookback: 20,
+    tierAware: true,
+    getTier: (t) => t.difficulty,
+    getId: (t) => t.id,
+  });
+  const tierForRecency = (typeof difficulty === 'number' ? difficulty : 2);
+  const initialRecentIds = useMemo(
+    () => recency.getRecent(tierForRecency),
+    // Capture once per mount; we want a stable initial selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // difficulty changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes }),
+    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes, recentIds: initialRecentIds }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trialCount, focusPhonemes.join(',')]
   );
