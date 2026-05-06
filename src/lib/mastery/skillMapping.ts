@@ -13,6 +13,28 @@ interface MapInput {
   inputs?: Record<string, any> | null;
 }
 
+/**
+ * Exercises explicitly QUARANTINED from the mastery shadow layer.
+ *
+ * These produce open-ended / soft-scored evidence (LLM-graded discourse, no
+ * stable cue scale, no objective target). Letting them feed `naming.*` or
+ * `discourse.*` skill nodes would silently inflate mastery and contaminate
+ * the longitudinal recovery model.
+ *
+ * They remain valuable as functional/conversational practice and continue to
+ * write to `exercise_events` for clinician review — they just must not flow
+ * into mastery aggregation. Revisit only after a real cue scale and
+ * objective scoring contract exist for the exercise.
+ */
+const MASTERY_EXCLUDED_EXERCISES = new Set<string>([
+  'conversation-partner',
+  'conversation-coach',
+]);
+
+export function isExcludedFromMastery(exerciseSlug: string): boolean {
+  return MASTERY_EXCLUDED_EXERCISES.has((exerciseSlug || '').toLowerCase());
+}
+
 const VOICING_PAIRS = ['p/b', 'b/p', 't/d', 'd/t', 'k/g', 'g/k', 'f/v', 'v/f', 's/z', 'z/s'];
 const PLACE_PAIRS = ['p/t', 't/p', 'b/d', 'd/b', 'k/t', 't/k', 'f/s', 's/f'];
 
