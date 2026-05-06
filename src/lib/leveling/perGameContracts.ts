@@ -123,8 +123,8 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     contentReadiness: 'ready',
     wiringRisk: 'low',
   },
-  phonological: {
-    slug: 'phonological',
+  phonological_awareness: {
+    slug: 'phonological_awareness',
     internalScale: { min: 1, max: 5 },
     difficultyDrivers: ['cluster complexity', 'syllable count', 'phoneme position'],
     supportDrivers: ['model production', 'slow rate', 'written cue'],
@@ -135,8 +135,8 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     wiringRisk: 'medium',
     notes: 'Pronunciation scoring noise — review before wiring.',
   },
-  semantic_feature: {
-    slug: 'semantic_feature',
+  semantic_features: {
+    slug: 'semantic_features',
     internalScale: { min: 1, max: 3 },
     difficultyDrivers: ['features required', 'target abstractness', 'fewer feature prompts'],
     supportDrivers: ['feature category prompts', 'partial credit'],
@@ -192,8 +192,8 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     wiringRisk: 'medium',
     notes: 'Discourse signal scorer dependency — review before wiring.',
   },
-  multi_step_plan: {
-    slug: 'multi_step_plan',
+  multi_step_planning: {
+    slug: 'multi_step_planning',
     internalScale: { min: 1, max: 5 },
     difficultyDrivers: ['step count', 'order ambiguity', 'scenario novelty'],
     supportDrivers: ['show first step', 'phase grouping'],
