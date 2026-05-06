@@ -4266,6 +4266,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     id: 'dish_mp_t1_5',
     imageUrl: dishImg,
     target: 'dish',
+    acceptedAliases: ['plate'],
     semanticFoils: ['plate', 'bowl', 'cup'],
     category: 'household',
     features: {
