@@ -118,9 +118,11 @@ export default function MinimalPairsExercise() {
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    // NOTE: startTrial() is fired on trial appearance (see handleTrialStart),
-    // not here — calling it on completion was double-counting and contributed
-    // to a runaway logging loop.
+    // Increment trial counter for telemetry round numbering. The runaway-loop
+    // root cause was an unstable callback identity in the parent + a weak
+    // guard in the child effect — both fixed. startTrial here remains the
+    // single counter increment per completed trial.
+    startTrial();
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -134,11 +136,7 @@ export default function MinimalPairsExercise() {
         ...adaptationTelemetry,
       },
     });
-  }, [logTrial, adaptationTelemetry]);
-
-  const handleTrialStart = useCallback(() => {
-    startTrial();
-  }, [startTrial]);
+  }, [startTrial, logTrial, adaptationTelemetry]);
   
   if (!isStarted) {
     return (
