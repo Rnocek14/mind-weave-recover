@@ -1,166 +1,91 @@
+## Per-Game Leveling Contract — Specification Phase
 
-# Clinical Trial Readiness Layer
+This plan creates a **single design document** (`src/docs/PER_GAME_LEVELING_CONTRACT.md`) plus a **typed but unused** TypeScript registry (`src/lib/leveling/perGameContracts.ts`) that captures, for every game, what Level 1–10 means.
 
-Goal: turn the app from "good clinical product" into "Mercy feasibility-pilot candidate." No new therapy features. This is the governance + safety + auditability layer that gets us through an IRB and into a hospital partner.
-
-This plan is intentionally scoped to a **feasibility pilot** (5–15 patients, 4–8 weeks). Not an RCT. Not a 510(k) submission.
-
----
-
-## What we're building (8 components)
-
-### 1. Trial enrollment + eligibility gating
-
-A new onboarding branch for trial participants. Gated by a screening form against documented inclusion/exclusion criteria.
-
-Inclusion (defaults — clinician-editable per study):
-- Adult (≥18)
-- Confirmed aphasia diagnosis
-- ≥1 month post-stroke
-- Sufficient hearing/vision to use the app
-- Caregiver or clinician available
-- English fluent pre-stroke
-
-Exclusion (defaults):
-- Severe global aphasia (no functional comprehension)
-- Active uncontrolled medical/psychiatric condition
-- Concurrent enrollment in another aphasia trial
-- Cognitive impairment preventing consent
-
-If a screened patient fails any criterion, they cannot be enrolled in the trial — but can still use the app in non-trial mode.
-
-### 2. Consent + data-use flow
-
-A standalone consent module captured as a signed record:
-- Plain-language summary (8th-grade reading level)
-- Audio narration (uses the new natural TTS mode)
-- Capacity assessment checkbox by clinician
-- Caregiver co-sign field for surrogate consent
-- E-signature (typed full name + timestamp + IP)
-- Versioned consent document — every change creates a new version, requires re-consent
-
-Consent record is immutable once signed.
-
-### 3. Trial-mode lock ("frozen build")
-
-A study creates an `engine_version_pin` — every patient enrolled in that study runs on a specific code path, scorer config, lesson generator version, and adaptation policy. Even when we ship new code, enrolled patients keep the pinned behavior until the study ends.
-
-Implementation: a `trial_runtime_config` table; runtime reads from it instead of `profiles.runtime_config` for trial patients. No more "engine drift mid-study."
-
-### 4. Adverse event (AE) + safety reporting
-
-A structured AE pathway accessible from:
-- Patient session end (caregiver prompt: "Anything we should know?")
-- Clinician hub (always-visible "Report event" button)
-- Automatic triggers (3+ session abandons, accuracy drop >30%, frustration signal, prolonged silence pattern)
-
-AE record captures: type, severity (mild/moderate/severe/SAE), narrative, related session(s), reporter, timestamp. Severe/SAE events trigger an alert to the study clinician within the app (no email yet — out of scope for v1).
-
-### 5. Baseline + weekly outcome assessments
-
-A new assessments module that prompts:
-- **Baseline** (at enrollment): clinician enters WAB-R AQ, CADL-2 score, ASHA-FACS rating, caregiver burden (Zarit short form). Optional: QAB. We don't compute these — we capture the values.
-- **Weekly**: 5 functional check-in items (already exist) + caregiver-rated communication confidence (1-7 scale) + "any change since last week" free text.
-- **Exit** (study end): repeat baseline measures.
-
-This is the bridge between in-app metrics and the gold-standard instruments reviewers ask about.
-
-### 6. Clinician trial-review dashboard
-
-A new top-level clinician tab visible only when a study is active: **Trial**.
-
-Three jobs (matches existing 3-tab ceiling pattern):
-- **Roster**: enrolled patients, status, days remaining, missed sessions, open AEs
-- **Safety**: all AEs across the cohort, unresolved first
-- **Compliance**: weekly assessments due/completed, consent versions, dose adherence
-
-### 7. Exportable weekly clinical report
-
-One-click PDF + CSV export per patient:
-- Demographics (de-identified by default; toggle for clinician copy)
-- Sessions completed, total minutes, dose adherence
-- Accuracy trends per exercise type
-- Cue-fade trajectory
-- Open + resolved AEs
-- Weekly assessment scores
-- Clinician notes timeline
-- Engine version pin + consent version
-
-Goes to `/mnt/documents/` for clinician download. Not emailed (PHI).
-
-### 8. PHI / BAA / audit hardening
-
-Code + config changes (the legal BAA itself is out of scope — that's a Lovable/Supabase contract):
-- Audio bucket access logged to a new `phi_access_log` table on every signed-URL request
-- Append-only constraint on `adaptation_events`, `clinician_overrides`, `adverse_events`, `consent_records` (revoke UPDATE/DELETE for non-service roles)
-- A `de_identified_export` view that strips name, email, exact stroke date (replaced with month bucket), exact birth date (age band only)
-- Document our PHI inventory in `docs/PHI_INVENTORY.md`
+Nothing wires into live gameplay. `useInGameAdaptation`, `AdaptiveDifficultyController`, the mastery shadow layer, and all game hooks remain untouched. The registry is exported but not imported by any runtime path — it exists so future PRs can opt games in one at a time behind a flag.
 
 ---
 
-## Phasing (recommended order)
+### Why this step
 
-We don't ship this in one push. Two sub-releases:
+The mastery shadow layer is logging skill-domain progress, but each game still defines "harder" differently (tier 1–3, level 1–5, internal flags). Before any visible level/progress UI ships, we need a written contract per game answering:
 
-**Phase A — "We can enroll" (1 week)**
-1. Trial-mode lock (#3) — must come first or everything else is unstable mid-study
-2. Eligibility gating (#1)
-3. Consent flow (#2)
-4. Trial-review dashboard skeleton (#6) — Roster only
-
-**Phase B — "We can monitor + report" (1 week)**
-5. AE reporting (#4)
-6. Baseline + weekly assessments (#5)
-7. Trial dashboard Safety + Compliance tabs (#6)
-8. Weekly report export (#7)
-9. PHI audit hardening (#8)
-
-Each phase is independently shippable. Phase A alone is enough to start a paper-only enrollment conversation with Mercy. Phase B is needed before any patient actually uses the app.
+- What gets harder from L1 → L10?
+- What softens (support inflation) when the user struggles, *without* dropping the visible level?
+- How fast can a fresh user climb early levels while clearly succeeding?
+- When does the system actually drop a level (hard regression) vs. just add cues (soft regression)?
+- Does the current content bank actually *have* L1–L10 material, or only L1–L3?
+- What's the wiring risk per game?
 
 ---
 
-## What this plan deliberately does NOT do
+### Deliverables
 
-- No email/SMS notifications to clinicians (out of scope for pilot)
-- No FDA / 510(k) work
-- No multi-site study coordination
-- No new therapy features or scorer changes
-- No automated outcome computation (we capture clinician-entered scores)
-- No engine refactor — trial-mode is a thin wrapper over current runtime
+**1. `src/docs/PER_GAME_LEVELING_CONTRACT.md`**
+
+Structure:
+- Global model (universal rules: start at L1, fast climb while on a roll, soft-before-hard regression, never punish one bad trial, fatigue ≠ decline).
+- Universal level bands (reuses existing `LEVEL_LABELS`/`LEVEL_LEVERS` from `src/lib/gameLevels.ts`).
+- Per-game section for each of the 15 games in `src/hooks/use*Game.ts`:
+  - Photo Naming, Two Clues, Describe & Guess, Meaning Match, Minimal Pairs, Phonological, Semantic Feature, Synonym Generator, Fix Sentence, Sentence Construction, Narrative Retell, Multi-Step Plan, Abstract Compare, Dual-Load Naming, Detective Mind.
+- Master table at the end (Game | L1–10 difficulty drivers | Support/ease drivers | Fast level-up rule | Level-down rule | Content ready? | Wiring risk | Recommendation).
+
+For each game I'll fill the table from what's already in the codebase: existing tier tags in the data banks, current `useInGameAdaptation` config, content counts per tier (e.g. Two Clues has tier 1/2/3 tagged; Meaning Match has tier-tagged items; Abstract Compare has only ~83 lines so likely L1–L3 only). Games where content is thin will be flagged "needs bank expansion — shadow only."
+
+**2. `src/lib/leveling/perGameContracts.ts`**
+
+A typed, exported, **unused** registry:
+
+```ts
+export interface PerGameLevelingContract {
+  slug: string;
+  internalScale: { min: number; max: number };
+  difficultyDrivers: string[];     // what increases L1 → L10
+  supportDrivers: string[];        // what softens (cues/time/choices)
+  fastClimb: { upToLevel: number; consecutiveStrongTrials: number };
+  hardRegression: { minPoorSessions: number; cueIndependenceFloor: number };
+  progressWeights: {
+    correctNoCue: number;
+    correctLightCue: number;
+    correctHeavyCue: number;
+    incorrect: number;
+    skip: number;
+  };
+  contentReadiness: 'ready' | 'needs_bank_expansion' | 'needs_tier_tagging' | 'shadow_only';
+  wiringRisk: 'low' | 'medium' | 'high';
+}
+
+export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = { ... };
+```
+
+No game imports it. No hook reads it. It's purely a machine-readable mirror of the doc so the next phase can wire it behind a flag with type safety.
+
+**3. Optional: a single dev-only audit page** `src/pages/dev/LevelingContractDev.tsx` (admin-gated, reuses the pattern from `MasteryShadowDev.tsx`) that renders the registry as a sortable table. Skip if you'd rather keep this PR doc-only — say the word.
 
 ---
 
-## Technical details
+### Universal model captured in the doc
 
-(For implementation reference — skip if non-technical.)
-
-**New tables**
-- `studies` — id, name, status (draft/active/closed), inclusion_criteria (jsonb), exclusion_criteria (jsonb), engine_version_pin (text), pi_clinician_id, started_at, ended_at
-- `study_enrollments` — study_id, user_id, status (screening/consented/active/withdrawn/completed), enrolled_at, withdrawn_at, withdrawal_reason
-- `eligibility_screenings` — enrollment_id, criterion_key, met (bool), notes, screened_by, screened_at
-- `consent_records` — enrollment_id, consent_version, signed_name, signed_at, ip_hash, capacity_confirmed_by, surrogate_signed_name, document_text_snapshot
-- `consent_documents` — version, body_md, audio_url, effective_from
-- `trial_runtime_config` — study_id, runtime_config (jsonb snapshot at study start), scorer_version, engine_version
-- `adverse_events` — enrollment_id, event_type, severity, narrative, session_id, reported_by, reported_at, resolved_at, resolution_notes
-- `outcome_assessments` — enrollment_id, assessment_type (baseline/weekly/exit), instrument (wab_r/cadl_2/facs/zarit/custom), score_jsonb, administered_by, administered_at
-- `phi_access_log` — user_id (subject), accessor_id, resource_type, resource_id, action, accessed_at
-
-**Append-only enforcement**
-RLS policies + revoke UPDATE/DELETE from `authenticated`. Service role retains full access for audit-corrected entries that must be logged separately.
-
-**Engine pin mechanism**
-`useTrialEngineConfig()` hook resolves runtime via `study_enrollments → trial_runtime_config` first, falls back to `profiles.runtime_config`. Single switchpoint in `runCoachTurn.ts` and `drillSelector.ts`.
-
-**Consent re-trigger**
-On app load, compare patient's last `consent_records.consent_version` to current `consent_documents` active version. If newer version exists, route to re-consent before allowing trial activity.
-
-**Files touched (estimate)**
-- ~8 new migrations
-- ~12 new components (trial pages, consent flow, AE form, assessment forms, report export)
-- ~4 modified files (App.tsx routes, ClinicianProtectedRoute, runtime resolution, types)
+- Everyone starts L1 on every game.
+- **Fast climb:** L1 → L3 can move after 2–3 strong unaided trials (success + no cue + reasonable RT). L4+ requires sustained cue-independence.
+- **Soft regression first:** struggle adds cues / time / fewer distractors at the *same visible level*. Only after N poor sessions with low cue-independence does the visible level drop by 1.
+- **Never punish a single trial or single session.** Bad days inflate support; they don't drop level.
+- **Cue-dependency gate** (already exists in `useInGameAdaptation`) remains the guard against premature up-level.
+- **Mastery shadow layer stays observational.** This contract describes the *intended* connection point but does not make it.
 
 ---
 
-## Decision needed before I start
+### What this plan does NOT do
 
-Approve Phase A scope as listed, or trim it. After Phase A ships and you've shown it to Mercy, we decide Phase B based on their feedback.
+- Does not modify any game hook.
+- Does not modify `useInGameAdaptation`, `AdaptiveDifficultyController`, `gameLevels.ts`, or the mastery layer.
+- Does not change any UI patient-facing or clinician-facing.
+- Does not add a DB migration.
+- Does not introduce a feature flag (no behavior to flag yet).
+
+### Acceptance
+
+- The doc covers all 15 games with the 8-column table filled.
+- The TS registry compiles and matches the doc.
+- Build is green; no game's runtime behavior changes.
+- We then have a concrete artifact to review together before deciding which game to wire first (likely Photo Naming or Two Clues — both have the deepest tagged content).
