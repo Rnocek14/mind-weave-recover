@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localYYYYMMDD } from '@/lib/localDate';
 import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
+import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
