@@ -560,49 +560,99 @@ export function DescribeGuessGame({
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, speak, startMicWithRetries]);
 
-  // Real-time word detection during "say the word" phase — finalize early
+  // Real-time word detection during "say the word" phase.
+  // Ticket B fix: do NOT finalize the instant we hear the word — that cuts the
+  // user off mid-utterance ("plate… plate, you know, the dinner plate"). Mark
+  // the attempt as successful, then wait for ~1.2s of post-match silence (or
+  // a 2s safety cap) before finalizing. This lets the user keep speaking.
+  const wordMatchPendingRef = useRef<NodeJS.Timeout | null>(null);
+  const wordMatchedAtRef = useRef<number>(0);
+  const lastWordMatchTranscriptLenRef = useRef<number>(0);
+
   useEffect(() => {
-    if (!awaitingWordAttempt) return;
+    if (!awaitingWordAttempt) {
+      if (wordMatchPendingRef.current) {
+        clearTimeout(wordMatchPendingRef.current);
+        wordMatchPendingRef.current = null;
+      }
+      wordMatchedAtRef.current = 0;
+      lastWordMatchTranscriptLenRef.current = 0;
+      return;
+    }
     const trial = currentTrialRef.current;
     const textToCheck = fullTranscript || transcript;
     if (!textToCheck || !trial) return;
 
-    if (game.checkWordMatch(textToCheck, trial)) {
-      game.recordWordRetrieval();
-      // Early finalize — cancel the 6s timer
+    const finalize = () => {
+      const ctx = wordAttemptContextRef.current;
+      if (!ctx) return;
       if (feedbackTimerRef.current) {
         clearTimeout(feedbackTimerRef.current);
         feedbackTimerRef.current = null;
       }
       stopListening();
       setIsListening(false);
-      
-      const ctx = wordAttemptContextRef.current;
-      if (ctx) {
-        const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
-        if (finalResult) {
-          logFinalAnalysis({
-            transcript: ctx.originalTranscript,
-            transcriptSource: 'browser',
-            isCorrect: true,
-            errorType: 'word_retrieved',
-            semanticSimilarity: ctx.guessResult.confidence,
-          });
-          recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
-          engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
-        }
-        wordAttemptContextRef.current = null;
-        setShowFeedback(true);
-        setAwaitingWordAttempt(false);
 
-        // Success — short feedback, advance quickly
-        feedbackTimerRef.current = setTimeout(() => {
-          resetAttempt();
-          game.nextTrial();
-        }, 2000);
+      const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
+      if (finalResult) {
+        logFinalAnalysis({
+          transcript: ctx.originalTranscript,
+          transcriptSource: 'browser',
+          isCorrect: true,
+          errorType: 'word_retrieved',
+          semanticSimilarity: ctx.guessResult.confidence,
+        });
+        recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
+        engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
+      }
+      wordAttemptContextRef.current = null;
+      setShowFeedback(true);
+      setAwaitingWordAttempt(false);
+
+      feedbackTimerRef.current = setTimeout(() => {
+        resetAttempt();
+        game.nextTrial();
+      }, 2000);
+    };
+
+    if (game.checkWordMatch(textToCheck, trial)) {
+      // First time we detected the match — record it & start the silence timer.
+      if (wordMatchedAtRef.current === 0) {
+        game.recordWordRetrieval();
+        wordMatchedAtRef.current = Date.now();
+        lastWordMatchTranscriptLenRef.current = textToCheck.length;
+      }
+
+      // If transcript has grown since last tick, the user is still speaking —
+      // reset the silence timer so we don't cut them off.
+      if (textToCheck.length !== lastWordMatchTranscriptLenRef.current) {
+        lastWordMatchTranscriptLenRef.current = textToCheck.length;
+        if (wordMatchPendingRef.current) {
+          clearTimeout(wordMatchPendingRef.current);
+          wordMatchPendingRef.current = null;
+        }
+      }
+
+      // Safety cap: never wait more than 2.5s after the first match.
+      const elapsedSinceMatch = Date.now() - wordMatchedAtRef.current;
+      const remainingCap = Math.max(0, 2500 - elapsedSinceMatch);
+
+      if (!wordMatchPendingRef.current) {
+        // Wait 1.2s of "no transcript growth" silence, capped by remainingCap.
+        const wait = Math.min(1200, remainingCap);
+        wordMatchPendingRef.current = setTimeout(() => {
+          wordMatchPendingRef.current = null;
+          finalize();
+        }, wait);
       }
     }
   }, [fullTranscript, transcript, awaitingWordAttempt, game, stopListening, logFinalAnalysis, recordAdaptiveTrial, resetAttempt]);
+
+  useEffect(() => {
+    return () => {
+      if (wordMatchPendingRef.current) clearTimeout(wordMatchPendingRef.current);
+    };
+  }, []);
 
   /**
    * Core evaluation function — extracted so it can be awaited properly.
