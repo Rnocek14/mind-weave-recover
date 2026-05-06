@@ -72,9 +72,9 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     fastClimb: { upToLevel: 4, consecutiveStrongTrials: 3 },
     hardRegression: { minPoorSessions: 2, cueIndependenceFloor: 0.4 },
     progressWeights: DEFAULT_WEIGHTS,
-    contentReadiness: 'ready',
-    wiringRisk: 'low',
-    notes: 'First candidate for live wiring. L8–L10 needs more low-frequency photos.',
+    contentReadiness: 'needs_bank_expansion',
+    wiringRisk: 'medium',
+    notes: 'T1 (high-frequency, easiest) only 17 photos — below TARGET=20. T3 (low-frequency, L7–L10) only 33 photos for 4 visible levels. Re-graded from "ready": honest progression to L10 needs ~20 more T1 and ~30 more T3 photos. Adopt recency exclusion before live wiring.',
   },
   two_clues: {
     slug: 'two_clues',
@@ -202,8 +202,9 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     fastClimb: { upToLevel: 4, consecutiveStrongTrials: 2 },
     hardRegression: { minPoorSessions: 2, cueIndependenceFloor: 0.4 },
     progressWeights: DEFAULT_WEIGHTS,
-    contentReadiness: 'ready',
-    wiringRisk: 'low',
+    contentReadiness: 'needs_bank_expansion',
+    wiringRisk: 'medium',
+    notes: 'All tiers sit at exactly FLOOR=15 with zero headroom for variation. Re-graded from "ready" — honest L1–L5 progression needs ≥20/tier and recency exclusion to avoid same-scenario repeats.',
   },
   abstract_compare: {
     slug: 'abstract_compare',
@@ -237,9 +238,9 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     fastClimb: { upToLevel: 4, consecutiveStrongTrials: 2 },
     hardRegression: { minPoorSessions: 2, cueIndependenceFloor: 0.4 },
     progressWeights: DEFAULT_WEIGHTS,
-    contentReadiness: 'ready',
+    contentReadiness: 'needs_bank_expansion',
     wiringRisk: 'medium',
-    notes: 'Long trials → low data density per session.',
+    notes: 'All tiers at exactly FLOOR=15 with no headroom; long trial duration also yields low data density per session. Re-graded from "ready" — needs ≥20/tier and recency exclusion before live wiring.',
   },
 };
 
@@ -247,4 +248,4 @@ export function getPerGameContract(slug: string): PerGameLevelingContract | null
   return PER_GAME_CONTRACTS[slug] ?? null;
 }
 
-export const PER_GAME_CONTRACTS_VERSION = '0.1.0-spec';
+export const PER_GAME_CONTRACTS_VERSION = '0.2.0-spec';
