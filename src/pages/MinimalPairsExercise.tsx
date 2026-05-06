@@ -57,7 +57,7 @@ export default function MinimalPairsExercise() {
   // Get stats about available pairs
   const stats = getMinimalPairStats();
   
-  const { startTrial, logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
+  const { logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
   
   // Initialize session
   useEffect(() => {
