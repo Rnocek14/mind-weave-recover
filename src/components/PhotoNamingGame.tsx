@@ -594,7 +594,22 @@ export const PhotoNamingGame = ({
     console.log('🔍 Normalized spoken word:', normalized);
     
     if (!normalized) return null;
-    
+
+    const targetWord = (state.currentTrial?.target ?? '').toLowerCase();
+    const aliases = (state.currentTrial?.acceptedAliases ?? []).map((a) => a.toLowerCase());
+
+    // ALIAS-FIRST MATCH: if the user said the target OR a clinically-accepted
+    // alias for this image (e.g. "plate" for a dish photo, "eyeball" for eye),
+    // score as the TARGET — even if that alias also appears as a foil chip.
+    // This must run BEFORE the generic choice match so foil text doesn't win.
+    if (targetWord && (normalized === targetWord || aliases.includes(normalized))) {
+      console.log('✅ Alias/target match:', normalized, '→', targetWord);
+      // Return the choice spelled exactly as it appears in state.choices,
+      // falling back to the canonical target if not in choices.
+      const targetChoice = state.choices.find((c) => c.toLowerCase() === targetWord);
+      return targetChoice ?? targetWord;
+    }
+
     // Direct match
     const directMatch = state.choices.find(choice => 
       choice.toLowerCase() === normalized
