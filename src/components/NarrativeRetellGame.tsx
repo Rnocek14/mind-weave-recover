@@ -38,6 +38,8 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { isFeatureEnabled } from '@/lib/featureFlags';
+import { resolveVisualSupport } from '@/lib/narrative/visualSupport';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
