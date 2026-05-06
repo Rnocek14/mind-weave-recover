@@ -202,8 +202,9 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     fastClimb: { upToLevel: 4, consecutiveStrongTrials: 2 },
     hardRegression: { minPoorSessions: 2, cueIndependenceFloor: 0.4 },
     progressWeights: DEFAULT_WEIGHTS,
-    contentReadiness: 'ready',
-    wiringRisk: 'low',
+    contentReadiness: 'needs_bank_expansion',
+    wiringRisk: 'medium',
+    notes: 'All tiers sit at exactly FLOOR=15 with zero headroom for variation. Re-graded from "ready" — honest L1–L5 progression needs ≥20/tier and recency exclusion to avoid same-scenario repeats.',
   },
   abstract_compare: {
     slug: 'abstract_compare',
