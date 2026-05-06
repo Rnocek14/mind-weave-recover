@@ -148,16 +148,30 @@ export default function DescribeGuessExercise() {
     trialsRef.current += 1;
     const isCorrect = result.meaningWin || result.wordWin;
     pivot.recordTrialResult({ wasCorrect: isCorrect, reactionTimeMs: result.reactionTimeMs });
+
+    // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
+    // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
+    // shadow, and cue-independence analytics see real support usage instead
+    // of "always unaided".
+    const promptCount = result.promptsShown?.length ?? 0;
+    const cueLevel = promptCount === 0 ? 0 : promptCount === 1 ? 1 : promptCount === 2 ? 2 : 3;
+    const cueTypeGiven = cueLevel === 0 ? 'none' : 'semantic';
+
     logTrial({
       correct: isCorrect,
       reactionTimeMs: result.reactionTimeMs,
       errorType: isCorrect ? undefined : 'no_guess',
+      cueLevel,
+      cueTypeGiven,
+      cueWasEffective: cueLevel > 0 ? isCorrect : null,
       taskParameters: {
         trial_id: result.trialId, target: result.target,
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
-        prompts_shown: result.promptsShown, time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
+        prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
+        cue_level: cueLevel, cue_type_given: cueTypeGiven,
+        time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
         pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
