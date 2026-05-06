@@ -195,6 +195,15 @@ export function NarrativeRetellGame({
   const handleDoneRetellingRef = useRef<() => void>(() => {});
   const autoStartedForIndexRef = useRef<number | null>(null);
   const lastSpokenStallRef = useRef(-1);
+  // Visual support telemetry refs (narrative_visual_fading_v1)
+  const supportTelemetryRef = useRef<{
+    flagEnabled: boolean;
+    adaptiveLevel: number;
+    baseline: number;
+    maxStallReveal: number;
+    maxResolved: number;
+    stallCount: number;
+  }>({ flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 });
   const [isRetellPlaybackActive, setIsRetellPlaybackActive] = useState(false);
 
   // Clinical pipeline hooks
