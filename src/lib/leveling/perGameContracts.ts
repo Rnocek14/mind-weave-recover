@@ -238,9 +238,9 @@ export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = {
     fastClimb: { upToLevel: 4, consecutiveStrongTrials: 2 },
     hardRegression: { minPoorSessions: 2, cueIndependenceFloor: 0.4 },
     progressWeights: DEFAULT_WEIGHTS,
-    contentReadiness: 'ready',
+    contentReadiness: 'needs_bank_expansion',
     wiringRisk: 'medium',
-    notes: 'Long trials → low data density per session.',
+    notes: 'All tiers at exactly FLOOR=15 with no headroom; long trial duration also yields low data density per session. Re-graded from "ready" — needs ≥20/tier and recency exclusion before live wiring.',
   },
 };
 
