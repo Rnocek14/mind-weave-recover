@@ -684,6 +684,16 @@ export function NarrativeRetellGame({
     }
 
     if (result) {
+      const t = supportTelemetryRef.current;
+      result.visualSupport = {
+        flagEnabled: t.flagEnabled,
+        adaptiveLevel: t.adaptiveLevel || adaptation.currentDifficulty,
+        baselineSupport: t.baseline,
+        maxStallReveal: t.maxStallReveal,
+        maxResolvedSupport: t.maxResolved,
+        stallCount: t.stallCount,
+        rescueTriggered: t.maxStallReveal > t.baseline,
+      };
       setLastResult(result);
       setPhase('scored');
       // Skipped retell = unsuccessful trial; engine should ease the next story.
