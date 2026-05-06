@@ -19,6 +19,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -152,10 +153,9 @@ export default function DescribeGuessExercise() {
     // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
     // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
     // shadow, and cue-independence analytics see real support usage instead
-    // of "always unaided".
+    // of "always unaided". Mapping rule lives in deriveCueTelemetry().
     const promptCount = result.promptsShown?.length ?? 0;
-    const cueLevel = promptCount === 0 ? 0 : promptCount === 1 ? 1 : promptCount === 2 ? 2 : 3;
-    const cueTypeGiven = cueLevel === 0 ? 'none' : 'semantic';
+    const { cueLevel, cueTypeGiven, cueWasEffective } = deriveCueTelemetry(promptCount, isCorrect);
 
     logTrial({
       correct: isCorrect,
