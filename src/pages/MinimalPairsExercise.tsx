@@ -110,7 +110,7 @@ export default function MinimalPairsExercise() {
     }
   }, [fromLesson, navigate]);
   
-  const handleTrialComplete = (trialData: {
+  const handleTrialComplete = useCallback((trialData: {
     targetWord: string;
     selectedWord: string;
     isCorrect: boolean;
@@ -118,8 +118,9 @@ export default function MinimalPairsExercise() {
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    startTrial();
-
+    // NOTE: startTrial() is fired on trial appearance (see handleTrialStart),
+    // not here — calling it on completion was double-counting and contributed
+    // to a runaway logging loop.
     logTrial({
       correct: trialData.isCorrect,
       reactionTimeMs: 0,
@@ -133,7 +134,11 @@ export default function MinimalPairsExercise() {
         ...adaptationTelemetry,
       },
     });
-  };
+  }, [logTrial, adaptationTelemetry]);
+
+  const handleTrialStart = useCallback(() => {
+    startTrial();
+  }, [startTrial]);
   
   if (!isStarted) {
     return (
