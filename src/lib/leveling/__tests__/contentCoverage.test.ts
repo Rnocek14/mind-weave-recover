@@ -76,7 +76,7 @@ function countByScale<T>(items: T[], get: (x: T) => number, max: number): TierCo
 
 const COVERAGE: Record<string, () => TierCounts> = {
   photo_naming: countPhotoNaming,
-  two_clues: () => countByTier(TWO_CLUES_PUZZLES),
+  two_clues: () => countByDifficulty(TWO_CLUES_PUZZLES),
   describe_guess: () => countByDifficulty(DESCRIBE_GUESS_BANK),
   meaning_match: () => countByTier(MEANING_MATCH_ITEMS),
   minimal_pairs: () => {
@@ -92,11 +92,11 @@ const COVERAGE: Record<string, () => TierCounts> = {
     void MINIMAL_PAIRS;
     return c;
   },
-  phonological_awareness: () => countByScale(PHONOLOGICAL_TRIALS, (t) => t.difficulty, 5),
+  phonological_awareness: () => countByScale(PHONO_TRIALS, (t) => t.difficulty, 5),
   semantic_features: () => countByScale(SEMANTIC_TRIALS, (t) => t.difficulty, 5),
   synonym_generator: () => countByDifficulty(SYNONYM_PROMPTS),
   fix_sentence: () => countByDifficulty(FIX_SENTENCE_BANK),
-  sentence_construction: () => countByScale(SENTENCE_BANK, (t) => t.difficulty, 10),
+  sentence_construction: () => countByScale<SentenceTrial>(SENTENCE_TRIALS, (t) => t.difficulty, 10),
   narrative_retell: () => countByTier(NARRATIVE_STORIES),
   multi_step_planning: () => countByTier(PLANNING_ITEMS),
   abstract_compare: () => countByTier(ABSTRACT_COMPARE_ITEMS),
