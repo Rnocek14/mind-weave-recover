@@ -6,10 +6,11 @@
  * and multi-accept scoring with self-correction bonus.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 
 export interface FixSentenceTrialResult {
   trialId: string;
