@@ -97,9 +97,9 @@ Verdicts:
 | C6 | warn | annotate | Archetype/axis mismatch — route to mastery using declared axis only. |
 | C7 | warn | annotate | Same as C6 for performance-pressure. |
 | C8 | warn | annotate | Open-ended with boolean granularity — usable but signal is weak; mastery delta clamped to ≤0.5×. |
-| D1 | warn | block UP escalation for session | Production share too low — session not representative enough to escalate. |
-| D2 | warn | block UP escalation + block scaffold withdrawal for session | Recognition inflation directly threatens both. |
-| D3 | warn | block scaffold withdrawal for session | Scaffold inflation specifically corrupts the withdrawal signal. |
+| D1 | warn | block UP escalation **next session** | Production share too low — session not representative enough to escalate. Detected post-session, so it cannot retroactively block the just-completed session; instead it suppresses next-session UP eligibility / lowers the next session's starting level. See §4a. |
+| D2 | warn | block UP escalation + block scaffold withdrawal **next session** | Recognition inflation directly threatens both. Same post-session timing as D1. See §4a. |
+| D3 | warn | block scaffold withdrawal **next session** | Scaffold inflation specifically corrupts the withdrawal signal. Same post-session timing. See §4a. |
 | D4 | error | drop session from mastery | Logger gap — entire session is interpretively suspect for the affected slug. |
 | D5 | info | annotate | Reversed recognition vs production — surface to clinician later, no automatic action. |
 | D6 | info | annotate | Reversed scaffold vs production — same as D5. |
