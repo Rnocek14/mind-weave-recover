@@ -87,5 +87,5 @@ export function fingerprint(input: string): string {
  *   3. Update docs/shadow-gate-replay-spec.md §3 if the change affects
  *      replay semantics (it almost always does).
  */
-export const PINNED_POLICY_FINGERPRINT = '95c4ae62' as const;
-export const PINNED_ADOPTED_SLUGS_FINGERPRINT = '50c947b1' as const;
+export const PINNED_POLICY_FINGERPRINT = 'db4b41d6' as const;
+export const PINNED_ADOPTED_SLUGS_FINGERPRINT = '71ee589a' as const;
