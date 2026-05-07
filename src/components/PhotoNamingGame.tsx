@@ -2256,6 +2256,8 @@ export const PhotoNamingGame = ({
       playError();
     }
 
+    // Caregiver-rated attempt = scaffolded production (proxy reporter).
+    currentTrialModeRef.current = 'scaffolded';
     // Update via in-game adaptation hook (handles difficulty adjustment)
     const adaptationResult = recordTrial({ 
       correct,
