@@ -1318,6 +1318,7 @@ export const PhotoNamingGame = ({
     autoCueShownThisTrialRef.current = false;
     cueVisibleRef.current = false;
     setStallDetected(false);
+    productionAttemptedRef.current = false;
   }, [state.trialNumber]); // ONLY trialNumber - no other dependencies
 
   // Start timing the new trial and reset visible state without coupling it to mic state
