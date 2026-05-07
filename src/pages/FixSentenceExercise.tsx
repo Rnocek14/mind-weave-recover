@@ -25,6 +25,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useFixSentenceProgression } from '@/hooks/useFixSentenceProgression';
+import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/fixSentenceDifficultyBridge';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
@@ -41,6 +43,10 @@ export default function FixSentenceExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+  /** Set by FixSentenceGame on mount; lets the page await the auto-wired
+   * adaptation_trial_logs flush before navigation. Mirrors the
+   * `flushAdaptationLogs` discipline in PhotoNamingGame. */
+  const flushAdaptationLogsRef = useRef<null | (() => Promise<void>)>(null);
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
@@ -64,6 +70,18 @@ export default function FixSentenceExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  // Clinical Progression v1 — Fix Sentence persistence + bridge.
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // In-session adaptation can still escalate above this floor.
+  const progression = useFixSentenceProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveFixSentenceInitialDifficulty({
+    sessionAdaptationDifficulty: 1,
+    clinicalLevel: progression.startingLevel,
+  });
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -124,9 +142,36 @@ export default function FixSentenceExercise() {
       },
       validity,
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
-  const handleGameComplete = useCallback((results: FixSentenceTrialResult[]) => {
+    // Clinical Progression v1: buffer this trial for end-of-session flush.
+    // Speech / typed entries are both `open_response` (no choice scaffolding
+    // is offered today). Partial credit does NOT count as correct.
+    progression.recordTrialOutcome({
+      correct: result.isCorrect,
+      support: 'open_response',
+    });
+  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes, progression]);
+
+  const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
+    // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
+    // auto-wired adaptation_trial_logs buffer BEFORE persisting progression
+    // and navigating, so the last trial isn't lost when the component unmounts.
+    try { await flushAdaptationLogsRef.current?.(); } catch (err) {
+      console.warn('[FixSentenceExercise] adaptation flush error', err);
+    }
+
+    if (import.meta.env.DEV) {
+      const buffered = (progression as any)?.__bufferedTrialCount?.();
+      console.groupCollapsed('[FixSentence][AccountingDiagnostic]');
+      console.log('expectedTrialCount:', validationTrialCount);
+      console.log('completedTrialResults:', results.length);
+      console.log('progressionBufferedTrials:', buffered ?? '(unavailable)');
+      console.log('clinicalFloor:', bridge.clinicalFloor, 'raised:', bridge.raised);
+      console.groupEnd();
+    }
+
+    await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
+
     setCompleted(true);
     completeSession();
 
@@ -138,7 +183,7 @@ export default function FixSentenceExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, progression, activeSessionId, validationTrialCount, bridge, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -196,6 +241,8 @@ export default function FixSentenceExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            initialDifficultyFloor={bridge.clinicalFloor}
+            registerFlush={(fn) => { flushAdaptationLogsRef.current = fn; }}
           />
         )}
       </main>

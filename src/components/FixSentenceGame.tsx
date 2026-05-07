@@ -46,6 +46,12 @@ interface FixSentenceGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  /** Clinical-progression engine floor (1–10). Raises the initial difficulty
+   *  but does NOT cap session adaptation (engine can still escalate above). */
+  initialDifficultyFloor?: number;
+  /** Page-level callback to register a force-flush for adaptation_trial_logs.
+   *  The page awaits this on completion to avoid the final-trial flush race. */
+  registerFlush?: (fn: () => Promise<void>) => void;
 }
 
 export function FixSentenceGame({
@@ -56,6 +62,8 @@ export function FixSentenceGame({
   sessionId,
   userId,
   profileId,
+  initialDifficultyFloor,
+  registerFlush,
 }: FixSentenceGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -98,7 +106,17 @@ export function FixSentenceGame({
     }
   }, [vg.shouldAutoSpeak]);
 
-  const bounds = getCapabilityDifficultyBounds('fix_sentence', null);
+  const baseBounds = getCapabilityDifficultyBounds('fix_sentence', null);
+  // Clinical Progression v1: raise the suggested start (and floor) to honor
+  // the patient's persistent Clinical Level. Adaptive engine can still
+  // escalate above this floor in-session.
+  const bounds = initialDifficultyFloor && initialDifficultyFloor > baseBounds.suggestedStart
+    ? {
+        ...baseBounds,
+        floor: Math.max(baseBounds.floor, initialDifficultyFloor),
+        suggestedStart: Math.min(baseBounds.ceiling, initialDifficultyFloor),
+      }
+    : baseBounds;
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
   // Phase 2: engagement monitor for cue dependency / fatigue signals.
@@ -113,6 +131,7 @@ export function FixSentenceGame({
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
     levelDescriptor,
+    flushAutoLog,
   } = useInGameAdaptation({
     exerciseSlug: 'fix_sentence',
     sessionId: sessionId || null,
@@ -171,6 +190,14 @@ export function FixSentenceGame({
   useEffect(() => {
     setActiveDifficultyRef.current = game.setActiveDifficulty;
   }, [game.setActiveDifficulty]);
+
+  // Expose the auto-wired adaptation_trial_logs flush to the page so it can
+  // await the final-trial flush before navigating (mirrors PhotoNamingGame).
+  useEffect(() => {
+    if (registerFlush && flushAutoLog) {
+      registerFlush(async () => { await flushAutoLog(); });
+    }
+  }, [registerFlush, flushAutoLog]);
 
   const currentTrialRef = useRef(game.currentTrial);
   const currentIndexRef = useRef(game.currentIndex);
