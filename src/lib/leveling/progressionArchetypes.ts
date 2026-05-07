@@ -375,11 +375,18 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
     blockers: ['each game currently hard-codes choice count'],
   },
   {
-    id: 'echo_vs_production_typing',
+    id: 'per_trial_mode_tag',
     description:
-      'Trial type tag distinguishing exposure (echo, repeat) from scored ' +
-      'production. Mastery writer must ignore exposure trials.',
-    blockers: ['mastery writer currently treats all trials uniformly'],
+      'Replaces the obsolete echoIsProduction binary. Per-trial TrialMode ' +
+      '(production / recognition / exposure / scaffolded). Mastery writer ' +
+      'routes per mode: production (and discounted scaffolded) feed ' +
+      'expressive mastery; recognition feeds receptive mastery; exposure ' +
+      'feeds neither. Mixed-mode games (photo_naming) MUST emit it.',
+    blockers: [
+      'mastery writer currently treats all trials uniformly',
+      'trial logger lacks a trial_mode column',
+      'photo_naming generateChoices does not tag recognition vs production',
+    ],
   },
   {
     id: 'visible_level_projector',
@@ -395,11 +402,12 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
 // ---------------------------------------------------------------------------
 
 export const ARCHITECTURE_DECISIONS = {
-  taxonomy: 'four-archetypes',                // I / II / III / IV
+  taxonomy: 'four-archetypes-with-modifiers',  // I / II / III / IV + secondaryModifiers
   displayContract: 'universal-1-to-10-facade', // never expose tier × dial
   internalContract: 'archetype-specific',
-  firstLiveRollout: 'sentence_construction',  // cleanest Archetype I ladder
+  trialModeContract: 'per-trial-TrialMode-required-for-mixed-mode-games',
+  firstLiveRollout: 'sentence_construction',   // cleanest Archetype I ladder
   rolloutGate: 'shadow-only-until-archetype-infra-and-bank-floors-met',
 } as const;
 
-export const PROGRESSION_ARCHETYPES_VERSION = '0.1.0-spec';
+export const PROGRESSION_ARCHETYPES_VERSION = '0.2.0-spec';
