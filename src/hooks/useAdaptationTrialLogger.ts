@@ -49,6 +49,27 @@ export interface TrialLogInput {
     label: string;
     reason?: string;
   } | null;
+  /**
+   * Granular mastery telemetry (frozen progression theory v0.3.0-spec).
+   * All fields are optional — writers adopt them per game as the
+   * archetype rollout progresses. Validated by a soft DB trigger.
+   */
+  trialMode?: 'production' | 'recognition' | 'exposure' | 'scaffolded' | 'mixed' | null;
+  /** Continuous [0..1] evidence; do NOT threshold upstream. */
+  gradedScore?: number | null;
+  /** Multi-dimensional named scores (e.g. {coverage, coherence}). */
+  scoreVector?: Record<string, number> | null;
+  signalGranularity?: 'boolean' | 'graded' | 'multi-dimensional' | null;
+  /** Open-ended scaffold rung (0 = full support, higher = less). */
+  scaffoldLevel?: number | null;
+  dominantAxis?:
+    | 'content-complexity'
+    | 'pressure-retention'
+    | 'scaffold-independence'
+    | 'recognition-to-production'
+    | 'mixed'
+    | null;
+  archetype?: 'content-expanding' | 'performance-pressure' | 'hybrid' | 'open-ended' | null;
 }
 
 interface Options {
@@ -86,6 +107,13 @@ interface PendingRow {
   narration: string | null;
   escalation_blocked: boolean;
   escalation_block_reason: string | null;
+  trial_mode: string | null;
+  graded_score: number | null;
+  score_vector: Record<string, number> | null;
+  signal_granularity: string | null;
+  scaffold_level: number | null;
+  dominant_axis: string | null;
+  archetype: string | null;
 }
 
 interface AnomalyRow {
@@ -214,6 +242,13 @@ export function useAdaptationTrialLogger(opts: Options) {
       narration: narration ?? null,
       escalation_blocked: !!input.escalationBlocked,
       escalation_block_reason: input.escalationBlocked?.reason ?? null,
+      trial_mode: input.trialMode ?? null,
+      graded_score: input.gradedScore ?? null,
+      score_vector: input.scoreVector ?? null,
+      signal_granularity: input.signalGranularity ?? null,
+      scaffold_level: input.scaffoldLevel ?? null,
+      dominant_axis: input.dominantAxis ?? null,
+      archetype: input.archetype ?? null,
     };
 
     trialBuf.current.push(row);

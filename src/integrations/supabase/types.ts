@@ -162,6 +162,7 @@ export type Database = {
       }
       adaptation_trial_logs: {
         Row: {
+          archetype: string | null
           correct: boolean | null
           created_at: string
           cue_dependency: number | null
@@ -171,22 +172,29 @@ export type Database = {
           difficulty_change_from: number | null
           difficulty_change_reason: string | null
           difficulty_change_to: number | null
+          dominant_axis: string | null
           escalation_block_reason: string | null
           escalation_blocked: boolean
           exercise_slug: string
           fatigue: string | null
           frustration: string | null
+          graded_score: number | null
           id: string
           narration: string | null
           reaction_time_ms: number | null
           recommended_action: string | null
+          scaffold_level: number | null
+          score_vector: Json | null
           session_id: string | null
+          signal_granularity: string | null
           success_rate: number | null
           trial_index: number
+          trial_mode: string | null
           trials_at_level: number | null
           user_id: string
         }
         Insert: {
+          archetype?: string | null
           correct?: boolean | null
           created_at?: string
           cue_dependency?: number | null
@@ -196,22 +204,29 @@ export type Database = {
           difficulty_change_from?: number | null
           difficulty_change_reason?: string | null
           difficulty_change_to?: number | null
+          dominant_axis?: string | null
           escalation_block_reason?: string | null
           escalation_blocked?: boolean
           exercise_slug: string
           fatigue?: string | null
           frustration?: string | null
+          graded_score?: number | null
           id?: string
           narration?: string | null
           reaction_time_ms?: number | null
           recommended_action?: string | null
+          scaffold_level?: number | null
+          score_vector?: Json | null
           session_id?: string | null
+          signal_granularity?: string | null
           success_rate?: number | null
           trial_index: number
+          trial_mode?: string | null
           trials_at_level?: number | null
           user_id: string
         }
         Update: {
+          archetype?: string | null
           correct?: boolean | null
           created_at?: string
           cue_dependency?: number | null
@@ -221,18 +236,24 @@ export type Database = {
           difficulty_change_from?: number | null
           difficulty_change_reason?: string | null
           difficulty_change_to?: number | null
+          dominant_axis?: string | null
           escalation_block_reason?: string | null
           escalation_blocked?: boolean
           exercise_slug?: string
           fatigue?: string | null
           frustration?: string | null
+          graded_score?: number | null
           id?: string
           narration?: string | null
           reaction_time_ms?: number | null
           recommended_action?: string | null
+          scaffold_level?: number | null
+          score_vector?: Json | null
           session_id?: string | null
+          signal_granularity?: string | null
           success_rate?: number | null
           trial_index?: number
+          trial_mode?: string | null
           trials_at_level?: number | null
           user_id?: string
         }
