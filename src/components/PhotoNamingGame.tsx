@@ -1488,11 +1488,13 @@ export const PhotoNamingGame = ({
         score: state.score,
         gameType: 'PhotoNaming'
       });
+      // Clinical Progression v1: persist updated level/progress for this profile.
+      void progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
       // End session with proper reason tracking
       completeSession();
       onGameComplete(state.score);
     }
-  }, [state.isComplete, state.score, onGameComplete, completeSession]);
+  }, [state.isComplete, state.score, onGameComplete, completeSession, progression, activeSessionId]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
