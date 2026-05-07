@@ -31,10 +31,7 @@ export async function flushMasteryShadow(args: {
   try {
     const { data: sessionLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select(
-        'exercise_slug, correct, cue_level, created_at, session_id, difficulty, ' +
-          'trial_mode, graded_score, score_vector, signal_granularity',
-      )
+      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty, trial_mode, graded_score, score_vector, signal_granularity')
       .eq('session_id', sessionId);
 
     if (!sessionLogs || sessionLogs.length === 0) return;
@@ -47,10 +44,7 @@ export async function flushMasteryShadow(args: {
     const sinceIso = new Date(Date.now() - 14 * 86400_000).toISOString();
     const { data: recentLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select(
-        'exercise_slug, correct, cue_level, created_at, session_id, difficulty, ' +
-          'trial_mode, graded_score, score_vector, signal_granularity',
-      )
+      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty, trial_mode, graded_score, score_vector, signal_granularity')
       .eq('user_id', userId)
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
