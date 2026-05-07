@@ -47,6 +47,7 @@ import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
 import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
 import AdminTelemetryAnomalies from "./pages/AdminTelemetryAnomalies";
+import AdminTelemetryAnomalySession from "./pages/AdminTelemetryAnomalySession";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
 import CohortResearchAnalytics from "./pages/CohortResearchAnalytics";
@@ -208,6 +209,7 @@ const App = () => (
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/voice-analytics" element={<AppLayout><AdminProtectedRoute><AdminVoiceAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/telemetry-anomalies" element={<AppLayout><AdminProtectedRoute><AdminTelemetryAnomalies /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/telemetry-anomalies/session/:sessionId" element={<AppLayout><AdminProtectedRoute><AdminTelemetryAnomalySession /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/cohort-research" element={<AppLayout><AdminProtectedRoute><CohortResearchAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/shadow-analytics" element={<AppLayout><AdminProtectedRoute><ShadowAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/progress" element={<Progress />} />
