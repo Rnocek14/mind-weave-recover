@@ -57,7 +57,7 @@ The gate is NOT:
 | Surface | What the gate decides | Default behavior today |
 |---|---|---|
 | **Mastery shadow writes** (`flushMasteryShadow`) | whether a trial contributes to skill mastery deltas | always writes |
-| **Level progression** (`drillTriggerEvaluator` UP path) | whether an UP escalation is allowed | already gated by cue-dependency safety gate; new rules layer on top |
+| **Level progression** (in-game UP path: `useInGameAdaptation.recordTrial`) | whether an UP escalation is allowed | already gated by cue-dependency safety gate; new rules layer on top |
 | **Visible progress UI** (Glance Cards: Progress, Levels) | whether displayed progress reflects this session | always reflects |
 | **Scaffold withdrawal** (per-slug scaffold_level decreases) | whether withdrawal is permitted | always permitted |
 | **Live progression rollout** (future) | whether longitudinal mastery becomes user-visible | not rolled out |
@@ -97,9 +97,9 @@ Verdicts:
 | C6 | warn | annotate | Archetype/axis mismatch — route to mastery using declared axis only. |
 | C7 | warn | annotate | Same as C6 for performance-pressure. |
 | C8 | warn | annotate | Open-ended with boolean granularity — usable but signal is weak; mastery delta clamped to ≤0.5×. |
-| D1 | warn | block UP escalation for session | Production share too low — session not representative enough to escalate. |
-| D2 | warn | block UP escalation + block scaffold withdrawal for session | Recognition inflation directly threatens both. |
-| D3 | warn | block scaffold withdrawal for session | Scaffold inflation specifically corrupts the withdrawal signal. |
+| D1 | warn | block UP escalation **next session** | Production share too low — session not representative enough to escalate. Detected post-session, so it cannot retroactively block the just-completed session; instead it suppresses next-session UP eligibility / lowers the next session's starting level. See §4a. |
+| D2 | warn | block UP escalation + block scaffold withdrawal **next session** | Recognition inflation directly threatens both. Same post-session timing as D1. See §4a. |
+| D3 | warn | block scaffold withdrawal **next session** | Scaffold inflation specifically corrupts the withdrawal signal. Same post-session timing. See §4a. |
 | D4 | error | drop session from mastery | Logger gap — entire session is interpretively suspect for the affected slug. |
 | D5 | info | annotate | Reversed recognition vs production — surface to clinician later, no automatic action. |
 | D6 | info | annotate | Reversed scaffold vs production — same as D5. |
@@ -110,6 +110,51 @@ Verdicts:
 **Severity is informational; verdict is normative.** Two rules at the
 same severity can carry different verdicts because they affect different
 surfaces.
+
+---
+
+## 4a. Timing semantics for session-scope rules (D1, D2, D3)
+
+D1, D2, and D3 are **session-scope** anomalies. Their inputs
+(production share, recognition share, scaffold share, mode mix) are only
+known once the session has ended and `detect-telemetry-anomalies` has
+run over the session's full trial set.
+
+This has a hard consequence for v1:
+
+- **They cannot retroactively block UP escalations or scaffold
+  withdrawals that already happened in the just-completed session.**
+  By the time the verdict exists, `useInGameAdaptation.recordTrial` has
+  already fired its in-session decisions and the session is closed.
+
+**v1 contract:**
+
+- D1 / D2 / D3 verdicts attach to the **next session** for the same
+  user × slug. Concretely they:
+  1. Suppress next-session UP eligibility on the affected slug
+     (D1, D2), and/or
+  2. Suppress next-session scaffold withdrawal eligibility on the
+     affected slug (D2, D3), and/or
+  3. Optionally lower the next session's starting level by one tier
+     for the affected slug (D2 only, when recognition share is
+     extreme — exact threshold deferred to the implementation PR).
+- The just-completed session's mastery writes are still gated by the
+  per-trial verdicts (drop / annotate / delay) — those operate at
+  trial scope and are unaffected by this clarification.
+
+**Out of scope for v1 (explicitly deferred):**
+
+- Real-time, in-session synthetic mode-share tracking (e.g. a
+  rolling-window estimator that fires a D1/D2-equivalent block mid-session).
+  This would require a separate in-session aggregator, a real-time
+  rule engine on the client, and new client-side state. Worth designing
+  later as "synthetic in-session gating", but it is **not** part of the
+  v1 gate. v1 deliberately accepts one session of latency in exchange
+  for keeping the rule engine purely server-side and post-hoc.
+
+D4–D9 are unaffected by this clarification: D4 already operates at
+session scope (drop session from mastery, naturally post-hoc), and
+D7–D9 are explicitly cross-session by construction.
 
 ---
 
@@ -177,9 +222,13 @@ writes start respecting `drop` and `annotate` verdicts. Level UP /
 scaffold withdrawal still pass-through. This is the smallest blast
 radius — mastery is already shadow-only and not user-visible.
 
-Phase 4 — **Enforcement on `level_up`.** Adds the cue-dependency gate's
-sibling: anomaly-derived UP blocks. UI continues to show "stretching"
-language; never "blocked".
+Phase 4 — **Enforcement on `level_up`.** Hooks the in-game UP path
+(`useInGameAdaptation.recordTrial`) — NOT `drillTriggerEvaluator`,
+which governs Smart Coach drill triggering and is a different surface.
+Adds the cue-dependency gate's sibling: anomaly-derived UP blocks.
+Trial-scope verdicts apply in-session; D1/D2/D3 verdicts apply to the
+**next** session per §4a. UI continues to show "stretching" language;
+never "blocked".
 
 Phase 5 — **Enforcement on `scaffold_withdraw`.** Highest clinical
 sensitivity; ships last and behind a feature flag for staged rollout.
