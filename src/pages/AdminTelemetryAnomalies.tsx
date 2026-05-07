@@ -180,7 +180,12 @@ export default function AdminTelemetryAnomalies() {
             <div className="text-2xl font-semibold">{counts.total}</div>
           </Card>
           {(["error", "warn", "info"] as Severity[]).map((s) => (
-            <Card key={s} className="p-4">
+            <Card
+              key={s}
+              className={`p-4 cursor-pointer hover:bg-accent/40 transition-colors ${severity === s ? "ring-2 ring-primary" : ""}`}
+              onClick={() => setSeverity(severity === s ? "all" : s)}
+              title={`Filter to ${s}`}
+            >
               <div className="text-xs text-muted-foreground capitalize">{s}</div>
               <div className="flex items-center gap-2">
                 <div className="text-2xl font-semibold">{counts.bySev[s] ?? 0}</div>
