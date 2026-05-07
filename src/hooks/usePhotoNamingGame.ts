@@ -67,21 +67,32 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 /**
- * Partition trials into difficulty lanes, shuffled for consistent selection
+ * Partition trials into difficulty lanes.
+ *
+ * Selection priority within a lane (top to bottom of pop order):
+ *   1) tier match (handled by lane assignment)
+ *   2) recency exclusion — recent IDs are pushed to the BOTTOM of the lane,
+ *      so pop() returns fresh items first; only falls back to recents if the
+ *      whole lane has been seen
+ *   3) phoneme bias — target phonemes float toward the TOP of the fresh
+ *      sub-array so they're popped sooner (only among non-recent items)
+ *   4) random shuffle within each band
  */
-function partitionIntoLanes(trials: MixedTrial[]): ContentLanes {
+function partitionIntoLanes(
+  trials: MixedTrial[],
+  recentByTier?: { 1: Set<string>; 2: Set<string>; 3: Set<string>; 4: Set<string>; 5: Set<string> },
+  phonemeBias?: PhonemeBiasProfile,
+): ContentLanes {
   const lanes: ContentLanes = { easy: [], mid: [], hard: [] };
-  
+
   // Dedupe by target word — multiple variants (e.g. dog_1, dog_2) of the
-  // same target must never co-exist in a session pool, otherwise the user
-  // gets the same word twice in a row and the echo filter / scoring breaks.
+  // same target must never co-exist in a session pool.
   const seenTargets = new Set<string>();
   for (const trial of trials) {
     const key = (trial.target ?? '').trim().toLowerCase();
     if (!key || seenTargets.has(key)) continue;
     seenTargets.add(key);
-    
-    // Fallback to mid (3) if computed_difficulty is missing
+
     const diff = trial.computed_difficulty ?? 3;
     if (diff <= 2) {
       lanes.easy.push(trial);
@@ -91,16 +102,42 @@ function partitionIntoLanes(trials: MixedTrial[]): ContentLanes {
       lanes.hard.push(trial);
     }
   }
-  
-  // Shuffle each lane once so pop() gives random-but-deterministic selection
-  lanes.easy = shuffleArray(lanes.easy);
-  lanes.mid = shuffleArray(lanes.mid);
-  lanes.hard = shuffleArray(lanes.hard);
-  
+
+  const orderLane = (lane: MixedTrial[], tierBand: 'easy' | 'mid' | 'hard'): MixedTrial[] => {
+    // 1) random shuffle baseline
+    const shuffled = shuffleArray(lane);
+
+    // 2) split into fresh vs recent using all sub-tiers covered by the band
+    const recentCheck = (t: MixedTrial): boolean => {
+      if (!recentByTier) return false;
+      const d = (t.computed_difficulty ?? 3) as 1 | 2 | 3 | 4 | 5;
+      return recentByTier[d]?.has(t.id) ?? false;
+    };
+    const fresh: MixedTrial[] = [];
+    const recent: MixedTrial[] = [];
+    for (const t of shuffled) (recentCheck(t) ? recent : fresh).push(t);
+
+    // 3) phoneme bias inside fresh sub-array (bias toward top → popped sooner)
+    if (phonemeBias && phonemeBias.targetPhonemes.length > 0) {
+      const targets = new Set(phonemeBias.targetPhonemes.map((p) => p.toLowerCase()));
+      fresh.sort((a, b) => {
+        const aHit = targets.has((a.features?.first_phoneme ?? '').toLowerCase()) ? 1 : 0;
+        const bHit = targets.has((b.features?.first_phoneme ?? '').toLowerCase()) ? 1 : 0;
+        return aHit - bHit; // hits later in array → popped first
+      });
+    }
+
+    // pop() takes the LAST element. We want fresh items popped FIRST,
+    // so fresh goes at the END, recent at the START.
+    return [...recent, ...fresh];
+  };
+
+  lanes.easy = orderLane(lanes.easy, 'easy');
+  lanes.mid = orderLane(lanes.mid, 'mid');
+  lanes.hard = orderLane(lanes.hard, 'hard');
+
   return lanes;
 }
-
-function getLaneForLevel(level: number): keyof ContentLanes {
   // Map game difficulty (1-10) to lane
   if (level <= 3) return 'easy';
   if (level <= 6) return 'mid';
