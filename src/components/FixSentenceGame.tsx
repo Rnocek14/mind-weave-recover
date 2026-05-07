@@ -191,6 +191,14 @@ export function FixSentenceGame({
     setActiveDifficultyRef.current = game.setActiveDifficulty;
   }, [game.setActiveDifficulty]);
 
+  // Expose the auto-wired adaptation_trial_logs flush to the page so it can
+  // await the final-trial flush before navigating (mirrors PhotoNamingGame).
+  useEffect(() => {
+    if (registerFlush && flushAutoLog) {
+      registerFlush(async () => { await flushAutoLog(); });
+    }
+  }, [registerFlush, flushAutoLog]);
+
   const currentTrialRef = useRef(game.currentTrial);
   const currentIndexRef = useRef(game.currentIndex);
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
