@@ -346,15 +346,18 @@ export default function AdminTelemetryAnomalies() {
                     <div><span className="text-muted-foreground">Resolved:</span> {selected.resolved_at ? new Date(selected.resolved_at).toLocaleString() : "—"}</div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <div>
-                      <div className="text-xs font-semibold mb-1">Observed</div>
-                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.observed, null, 2)}</pre>
+                      <div className="text-xs font-semibold mb-1">Observed vs Expected (diff)</div>
+                      <DiffTable observed={selected.observed} expected={selected.expected} />
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold mb-1">Expected</div>
-                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.expected, null, 2)}</pre>
-                    </div>
+                    <details className="text-[11px]">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw observed / expected JSON</summary>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                        <pre className="bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.observed, null, 2)}</pre>
+                        <pre className="bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.expected, null, 2)}</pre>
+                      </div>
+                    </details>
                   </div>
 
                   <div>
