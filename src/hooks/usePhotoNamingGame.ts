@@ -138,6 +138,7 @@ function partitionIntoLanes(
 
   return lanes;
 }
+function getLaneForLevel(level: number): keyof ContentLanes {
   // Map game difficulty (1-10) to lane
   if (level <= 3) return 'easy';
   if (level <= 6) return 'mid';
