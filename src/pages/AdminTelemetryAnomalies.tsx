@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ExternalLink, Filter } from "lucide-react";
 import { ChevronLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,14 +53,28 @@ const SEVERITY_VARIANT: Record<string, "default" | "secondary" | "destructive" |
 };
 
 export default function AdminTelemetryAnomalies() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [runs, setRuns] = useState<DetectorRun[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
-  const [severity, setSeverity] = useState<Severity | "all">("all");
-  const [rule, setRule] = useState<string>("all");
-  const [slug, setSlug] = useState<string>("all");
+  const severity = (searchParams.get("severity") as Severity | null) ?? "all";
+  const rule = searchParams.get("rule") ?? "all";
+  const slug = searchParams.get("slug") ?? "all";
+  const sessionFilter = searchParams.get("session") ?? "";
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
+
+  const updateParam = (key: string, value: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all" || value === "") next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+  const setSeverity = (v: string) => updateParam("severity", v);
+  const setRule = (v: string) => updateParam("rule", v);
+  const setSlug = (v: string) => updateParam("slug", v);
+  const setSessionFilter = (v: string) => updateParam("session", v);
+  const clearFilters = () => setSearchParams(new URLSearchParams(), { replace: true });
 
   const openDetail = async (a: Anomaly) => {
     setSelected(a);
@@ -120,8 +134,9 @@ export default function AdminTelemetryAnomalies() {
     if (severity !== "all" && a.severity !== severity) return false;
     if (rule !== "all" && a.rule_id !== rule) return false;
     if (slug !== "all" && a.exercise_slug !== slug) return false;
+    if (sessionFilter && a.session_id !== sessionFilter) return false;
     return true;
-  }), [anomalies, severity, rule, slug]);
+  }), [anomalies, severity, rule, slug, sessionFilter]);
 
   const counts = useMemo(() => {
     const bySev = { info: 0, warn: 0, error: 0 } as Record<string, number>;
@@ -165,7 +180,12 @@ export default function AdminTelemetryAnomalies() {
             <div className="text-2xl font-semibold">{counts.total}</div>
           </Card>
           {(["error", "warn", "info"] as Severity[]).map((s) => (
-            <Card key={s} className="p-4">
+            <Card
+              key={s}
+              className={`p-4 cursor-pointer hover:bg-accent/40 transition-colors ${severity === s ? "ring-2 ring-primary" : ""}`}
+              onClick={() => setSeverity(severity === s ? "all" : s)}
+              title={`Filter to ${s}`}
+            >
               <div className="text-xs text-muted-foreground capitalize">{s}</div>
               <div className="flex items-center gap-2">
                 <div className="text-2xl font-semibold">{counts.bySev[s] ?? 0}</div>
@@ -226,8 +246,13 @@ export default function AdminTelemetryAnomalies() {
                   <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground text-sm">No anomalies match filters</TableCell></TableRow>
                 )}
                 {counts.ruleRows.map((r) => (
-                  <TableRow key={r.rule_id}>
-                    <TableCell className="font-mono text-xs">{r.rule_id}</TableCell>
+                  <TableRow
+                    key={r.rule_id}
+                    className="cursor-pointer hover:bg-accent/40"
+                    onClick={() => setRule(r.rule_id)}
+                    title={`Filter to ${r.rule_id}`}
+                  >
+                    <TableCell className="font-mono text-xs text-primary">{r.rule_id}</TableCell>
                     <TableCell><Badge variant={SEVERITY_VARIANT[r.severity] ?? "secondary"} className="capitalize">{r.severity}</Badge></TableCell>
                     <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                   </TableRow>
@@ -272,8 +297,20 @@ export default function AdminTelemetryAnomalies() {
                 </SelectContent>
               </Select>
             </div>
-            {(severity !== "all" || rule !== "all" || slug !== "all") && (
-              <Button variant="ghost" size="sm" onClick={() => { setSeverity("all"); setRule("all"); setSlug("all"); }}>
+            {sessionFilter && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Session</label>
+                <div className="flex items-center gap-1 h-9 px-2 rounded border bg-muted/30">
+                  <Filter className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-mono text-xs">{sessionFilter.slice(0, 8)}…</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setSessionFilter("")}>
+                    clear
+                  </Button>
+                </div>
+              </div>
+            )}
+            {(severity !== "all" || rule !== "all" || slug !== "all" || sessionFilter) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear filters
               </Button>
             )}
@@ -302,10 +339,32 @@ export default function AdminTelemetryAnomalies() {
                 {filtered.map((a) => (
                   <TableRow key={a.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(a)}>
                     <TableCell className="text-xs whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.rule_id}</TableCell>
-                    <TableCell><Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize">{a.severity}</Badge></TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <button
+                        className="text-primary hover:underline"
+                        onClick={(e) => { e.stopPropagation(); setRule(a.rule_id); }}
+                        title={`Filter to ${a.rule_id}`}
+                      >
+                        {a.rule_id}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <button onClick={(e) => { e.stopPropagation(); setSeverity(a.severity); }} title={`Filter to ${a.severity}`}>
+                        <Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize cursor-pointer">{a.severity}</Badge>
+                      </button>
+                    </TableCell>
                     <TableCell className="text-xs">{a.scope}</TableCell>
-                    <TableCell className="text-xs">{a.exercise_slug ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {a.exercise_slug ? (
+                        <button
+                          className="text-primary hover:underline"
+                          onClick={(e) => { e.stopPropagation(); setSlug(a.exercise_slug!); }}
+                          title={`Filter to ${a.exercise_slug}`}
+                        >
+                          {a.exercise_slug}
+                        </button>
+                      ) : "—"}
+                    </TableCell>
                     <TableCell className="font-mono text-[11px] max-w-[220px] truncate" title={JSON.stringify(a.observed)}>
                       {JSON.stringify(a.observed)}
                     </TableCell>

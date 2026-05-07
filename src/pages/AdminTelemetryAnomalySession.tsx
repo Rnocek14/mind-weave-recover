@@ -187,11 +187,21 @@ export default function AdminTelemetryAnomalySession() {
               <TableBody>
                 {sessionScopeAnomalies.map((a) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-mono text-xs">{a.rule_id}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <Link
+                        to={`/admin/telemetry-anomalies?rule=${a.rule_id}`}
+                        className="text-primary hover:underline"
+                        title={`See all ${a.rule_id} anomalies`}
+                      >
+                        {a.rule_id}
+                      </Link>
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize">
-                        {a.severity}
-                      </Badge>
+                      <Link to={`/admin/telemetry-anomalies?severity=${a.severity}`}>
+                        <Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize cursor-pointer">
+                          {a.severity}
+                        </Badge>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-xs">{a.scope}</TableCell>
                     <TableCell className="font-mono text-[11px] max-w-[260px] truncate" title={JSON.stringify(a.observed)}>
@@ -300,14 +310,18 @@ export default function AdminTelemetryAnomalySession() {
                           ) : (
                             <div className="flex flex-wrap gap-1">
                               {trialAnoms.map((a) => (
-                                <Badge
+                                <Link
                                   key={a.id}
-                                  variant={SEVERITY_VARIANT[a.severity] ?? "secondary"}
-                                  className="text-[10px] font-mono"
-                                  title={`${a.rule_id}\nObserved: ${JSON.stringify(a.observed)}\nExpected: ${JSON.stringify(a.expected)}`}
+                                  to={`/admin/telemetry-anomalies?rule=${a.rule_id}`}
+                                  title={`${a.rule_id} — see all\nObserved: ${JSON.stringify(a.observed)}\nExpected: ${JSON.stringify(a.expected)}`}
                                 >
-                                  {a.rule_id}
-                                </Badge>
+                                  <Badge
+                                    variant={SEVERITY_VARIANT[a.severity] ?? "secondary"}
+                                    className="text-[10px] font-mono cursor-pointer hover:opacity-80"
+                                  >
+                                    {a.rule_id}
+                                  </Badge>
+                                </Link>
                               ))}
                             </div>
                           )}
