@@ -48,13 +48,11 @@ describe('photoNamingLevels — level-specific evidence', () => {
 
 describe('photoNamingLevels — progress delta', () => {
   it('on-target trials earn more than below-target trials', () => {
-    const onTarget = Array.from({ length: 5 }, () => trial(true, 'recognition_only'));
-    const below = Array.from({ length: 5 }, () => trial(true, 'recognition_only'));
-    const onTargetDelta = calculateLevelAwareProgressDelta(onTarget, 1);
-    // At Level 4, recognition_only is below target → reduced credit
-    const belowDelta = calculateLevelAwareProgressDelta(below, 4);
-    expect(onTargetDelta).toBeGreaterThan(belowDelta);
-    expect(belowDelta).toBe(0); // recognition_only credit is 0 anyway
+    const trials = Array.from({ length: 5 }, () => trial(true, 'semantic_cue'));
+    const onTargetDelta = calculateLevelAwareProgressDelta(trials, 2); // semantic_cue is target
+    const belowTargetDelta = calculateLevelAwareProgressDelta(trials, 4); // semantic_cue is below independent
+    expect(onTargetDelta).toBeGreaterThan(belowTargetDelta);
+    expect(belowTargetDelta).toBeGreaterThan(0);
   });
 
   it('Level 1 chip-recovery session moves the bar measurably', () => {
