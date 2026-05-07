@@ -746,6 +746,14 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     
     // Controller access for advanced use
     controller: controllerRef.current,
+
+    /**
+     * Force-flush the auto-wired adaptation_trial_logs buffer. Call this
+     * before unmounting/navigating on game completion so the final trial
+     * (and anything still in the FLUSH_INTERVAL buffer) lands in the table.
+     * No-op when autoLog is false (the parent owns its own logger).
+     */
+    flushAutoLog,
   };
 };
 
