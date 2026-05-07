@@ -13,6 +13,7 @@ import {
   type MasteryRow,
   type MasteryTrial,
 } from '@/lib/mastery';
+import { routeTrialMode } from './masterySignalRouting';
 
 function weekStart(d: Date = new Date()): string {
   const day = d.getUTCDay();
