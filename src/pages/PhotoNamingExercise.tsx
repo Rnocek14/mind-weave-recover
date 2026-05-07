@@ -188,6 +188,9 @@ function PhotoNamingExerciseInner() {
   );
   const sessionId = activeSessionId;
 
+  const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
+  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
+
   // Push initial snapshot so the panel isn't empty before first trial
   useEffect(() => {
     setLiveSnapshot({
