@@ -105,7 +105,14 @@ export interface ShadowGateDecision {
  * verified end-to-end. Expanding this set is a separate decision after S2/S3
  * dev review (see docs/shadow-gate-spec.md §9).
  */
-const ADOPTED_GATE_SLUGS = new Set<string>(['photo-naming']);
+/**
+ * Exported solely so the version-discipline test can fingerprint the set.
+ * Not for runtime mutation. Treat as frozen.
+ */
+export const __INTERNAL_ADOPTED_GATE_SLUGS: ReadonlySet<string> = new Set<string>([
+  'photo-naming',
+]);
+const ADOPTED_GATE_SLUGS = __INTERNAL_ADOPTED_GATE_SLUGS;
 
 export function isAdoptedForGate(exerciseSlug: string): boolean {
   return ADOPTED_GATE_SLUGS.has((exerciseSlug || '').toLowerCase());
