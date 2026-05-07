@@ -177,23 +177,72 @@ export interface ScaffoldLevel {
 
 export type MasterySignalKind = ArchetypeDefinition['masterySignal'];
 
+/**
+ * Trial-level cognitive mode (refines the obsolete echoIsProduction binary).
+ *
+ * The Photo Naming audit proved that "did they get it right" is not enough:
+ * the SAME game can deliver trials in fundamentally different rehabilitation
+ * states, and collapsing them inflates recovery curves.
+ *
+ *   production  — user retrieved the lexical item with no choice set;
+ *                 ASR-scored. The only mode that feeds expressive mastery.
+ *   recognition — user picked the target from N alternatives. Clinically
+ *                 distinct (anomia patients often recognise but cannot
+ *                 produce). Feeds receptive/recognition telemetry only.
+ *   exposure    — user heard / repeated / was shown the item but no
+ *                 graded retrieval was demanded. Never feeds mastery.
+ *   scaffolded  — production attempt under explicit cue/support. Counts
+ *                 toward production mastery only with a cue-discount.
+ *   mixed       — game routes per trial; per-trial mode tag is mandatory.
+ */
+export type TrialMode =
+  | 'production'
+  | 'recognition'
+  | 'exposure'
+  | 'scaffolded'
+  | 'mixed';
+
+/**
+ * Secondary modifier systems layered on top of the primary archetype.
+ * The Photo Naming audit proved archetypes are not mutually exclusive:
+ *   photo_naming = primary content-expanding + secondary recognition
+ *                  modifier (choice-count dial, phonological foil dial).
+ */
+export type ArchetypeModifier =
+  | 'pressure'      // timer / SNR / masking on top of content ladder
+  | 'recognition'   // choice-count + foil-quality dial
+  | 'dual-task'     // executive load layered on production
+  | 'scaffold-fade' // scaffold withdrawal layered on content
+  | 'noise';        // perceptual interference
+
 export interface ProgressionContract {
   slug: string;
   archetype: ProgressionArchetype;
 
+  /** Optional secondary modifier systems (Photo Naming → ['recognition']). */
+  secondaryModifiers: ArchetypeModifier[];
+
   /** Internal honest content scale (NOT what the user sees). */
   contentScale: { min: number; max: number };
 
-  /** Pressure dials (Performance-Pressure / Hybrid only; otherwise []). */
+  /** Pressure dials (Performance-Pressure / Hybrid / pressure-modified games). */
   performanceDials: PressureDial[];
 
-  /** Scaffold ladder (Open-Ended only; otherwise []). */
+  /** Scaffold ladder (Open-Ended / scaffold-modified games). */
   scaffolds: ScaffoldLevel[];
 
   /**
-   * Whether ASR / scored production is the mastery surface for this game.
-   * When false, the game is exposure-only (e.g. echo) and must not feed
-   * production-mastery telemetry.
+   * Trial-level mode this game emits. 'mixed' REQUIRES per-trial mode tags
+   * in telemetry so the mastery writer can route trials correctly.
+   *
+   * Replaces the obsolete `echoIsProduction: boolean` binary.
+   */
+  productionMode: TrialMode;
+
+  /**
+   * @deprecated Kept temporarily for migration. Derive from productionMode:
+   *   production | scaffolded → true
+   *   recognition | exposure | mixed → must be split per trial
    */
   echoIsProduction: boolean;
 
