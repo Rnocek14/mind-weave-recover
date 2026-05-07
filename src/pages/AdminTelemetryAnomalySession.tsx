@@ -310,14 +310,18 @@ export default function AdminTelemetryAnomalySession() {
                           ) : (
                             <div className="flex flex-wrap gap-1">
                               {trialAnoms.map((a) => (
-                                <Badge
+                                <Link
                                   key={a.id}
-                                  variant={SEVERITY_VARIANT[a.severity] ?? "secondary"}
-                                  className="text-[10px] font-mono"
-                                  title={`${a.rule_id}\nObserved: ${JSON.stringify(a.observed)}\nExpected: ${JSON.stringify(a.expected)}`}
+                                  to={`/admin/telemetry-anomalies?rule=${a.rule_id}`}
+                                  title={`${a.rule_id} — see all\nObserved: ${JSON.stringify(a.observed)}\nExpected: ${JSON.stringify(a.expected)}`}
                                 >
-                                  {a.rule_id}
-                                </Badge>
+                                  <Badge
+                                    variant={SEVERITY_VARIANT[a.severity] ?? "secondary"}
+                                    className="text-[10px] font-mono cursor-pointer hover:opacity-80"
+                                  >
+                                    {a.rule_id}
+                                  </Badge>
+                                </Link>
                               ))}
                             </div>
                           )}
