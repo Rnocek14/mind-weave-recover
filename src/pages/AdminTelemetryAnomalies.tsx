@@ -339,10 +339,32 @@ export default function AdminTelemetryAnomalies() {
                 {filtered.map((a) => (
                   <TableRow key={a.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(a)}>
                     <TableCell className="text-xs whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.rule_id}</TableCell>
-                    <TableCell><Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize">{a.severity}</Badge></TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <button
+                        className="text-primary hover:underline"
+                        onClick={(e) => { e.stopPropagation(); setRule(a.rule_id); }}
+                        title={`Filter to ${a.rule_id}`}
+                      >
+                        {a.rule_id}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <button onClick={(e) => { e.stopPropagation(); setSeverity(a.severity); }} title={`Filter to ${a.severity}`}>
+                        <Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize cursor-pointer">{a.severity}</Badge>
+                      </button>
+                    </TableCell>
                     <TableCell className="text-xs">{a.scope}</TableCell>
-                    <TableCell className="text-xs">{a.exercise_slug ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {a.exercise_slug ? (
+                        <button
+                          className="text-primary hover:underline"
+                          onClick={(e) => { e.stopPropagation(); setSlug(a.exercise_slug!); }}
+                          title={`Filter to ${a.exercise_slug}`}
+                        >
+                          {a.exercise_slug}
+                        </button>
+                      ) : "—"}
+                    </TableCell>
                     <TableCell className="font-mono text-[11px] max-w-[220px] truncate" title={JSON.stringify(a.observed)}>
                       {JSON.stringify(a.observed)}
                     </TableCell>
