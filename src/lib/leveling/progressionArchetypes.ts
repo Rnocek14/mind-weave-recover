@@ -178,6 +178,43 @@ export interface ScaffoldLevel {
 export type MasterySignalKind = ArchetypeDefinition['masterySignal'];
 
 /**
+ * Granularity of the per-trial mastery signal.
+ *
+ * The Narrative Retell audit proved that boolean correctness
+ * (`eventCoverage >= 0.3 ? correct : incorrect`) destroys clinically
+ * meaningful information. A 29% retell is NOT "incorrect" — it's a
+ * graded rehabilitation event. Some archetypes (IV, parts of III) MUST
+ * report continuous evidence; collapsing to boolean is a category error.
+ *
+ *   boolean        — trial is correct/incorrect (most Archetype I).
+ *   graded         — trial yields a [0..1] score (coverage, partial credit,
+ *                    pronunciation accuracy). Mastery writer must consume
+ *                    the float, not threshold it.
+ *   multi-dimensional — trial yields a vector of independent scores
+ *                    (e.g. {coverage, coherence, syntactic_complexity}).
+ *                    Each dimension feeds its own mastery axis.
+ */
+export type MasterySignalGranularity =
+  | 'boolean'
+  | 'graded'
+  | 'multi-dimensional';
+
+/**
+ * Which axis dominates progression for a given game. The audit pass
+ * proved this is NOT uniformly "content" — Archetype II games are
+ * dominated by pressure, Archetype IV by scaffold withdrawal, and mixed
+ * Archetype I games (photo_naming) split between content and recognition.
+ *
+ * Used by the future visible_level_projector to weight axes correctly.
+ */
+export type DominantProgressionAxis =
+  | 'content-complexity'
+  | 'pressure-retention'
+  | 'scaffold-independence'
+  | 'recognition-to-production'
+  | 'mixed';
+
+/**
  * Trial-level cognitive mode (refines the obsolete echoIsProduction binary).
  *
  * The Photo Naming audit proved that "did they get it right" is not enough:
