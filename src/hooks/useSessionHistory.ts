@@ -101,14 +101,10 @@ export const useSessionHistory = (userId: string | undefined) => {
       const sessionsWithDetails: SessionDetail[] = sessionsData
         .map((session) => {
           const sessionEvents = eventsData?.filter((e) => e.session_id === session.id) || [];
-          
-          // Group by exercise
           const exerciseMap: Record<string, TrialDetail[]> = {};
           sessionEvents.forEach((event) => {
             const slug = event.exercise_slug || "unknown";
-            if (!exerciseMap[slug]) {
-              exerciseMap[slug] = [];
-            }
+            if (!exerciseMap[slug]) exerciseMap[slug] = [];
             exerciseMap[slug].push({
               id: event.id,
               round: event.round,
@@ -122,7 +118,39 @@ export const useSessionHistory = (userId: string | undefined) => {
             });
           });
 
-          // Calculate exercise-level stats
+          // Fallback: synthesize trials from utterance_analyses / adaptation_trial_logs
+          // for sessions that wrote no exercise_events (Photo Naming, Fix Sentence).
+          if (sessionEvents.length === 0) {
+            const sessionUtt = (utterances || []).filter((u) => u.session_id === session.id);
+            const sessionLogs = (trialLogs || []).filter((t) => t.session_id === session.id);
+            sessionUtt.forEach((u, idx) => {
+              const slug = u.exercise_slug || "unknown";
+              if (!exerciseMap[slug]) exerciseMap[slug] = [];
+              exerciseMap[slug].push({
+                id: u.id, round: idx + 1,
+                score: u.is_correct ? 1 : 0,
+                reactionTimeMs: u.latency_ms ?? null,
+                errorType: null, cueLevel: null, taskParameters: {}, outputs: {},
+                createdAt: u.created_at || ""
+              });
+            });
+            sessionLogs.forEach((t, idx) => {
+              const slug = t.exercise_slug || "unknown";
+              if (!exerciseMap[slug]) exerciseMap[slug] = [];
+              // Only add if not already represented by an utterance row
+              if (sessionUtt.length === 0) {
+                exerciseMap[slug].push({
+                  id: t.id, round: idx + 1,
+                  score: t.correct ? 1 : 0,
+                  reactionTimeMs: t.reaction_time_ms ?? null,
+                  errorType: null, cueLevel: null,
+                  taskParameters: { difficulty: t.difficulty }, outputs: {},
+                  createdAt: t.created_at || ""
+                });
+              }
+            });
+          }
+
           const exercises = Object.entries(exerciseMap).map(([slug, trials]) => {
             const correctCount = trials.filter((t) => t.score === 1 || t.score === 100).length;
             return {
