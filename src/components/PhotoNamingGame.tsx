@@ -758,7 +758,7 @@ export const PhotoNamingGame = ({
       const targetChoice = state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(targetChoice);
+      handleAnswerSelect(targetChoice, 'production');
       return;
     }
 
@@ -814,7 +814,7 @@ export const PhotoNamingGame = ({
       console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(matchedChoice);
+      handleAnswerSelect(matchedChoice, 'production');
     } else {
       console.log('❌ No match for stable transcript:', transcript);
 
