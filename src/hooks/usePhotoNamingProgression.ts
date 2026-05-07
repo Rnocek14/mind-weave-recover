@@ -233,6 +233,9 @@ export function usePhotoNamingProgression({
     [userId, profileId, state]
   );
 
+  /** DEV-only diagnostic: number of trials currently buffered for flush. */
+  const bufferedTrialCount = useCallback(() => trialsRef.current.length, []);
+
   return {
     /** Loaded persistent state (null until first load resolves). */
     state,
@@ -242,5 +245,7 @@ export function usePhotoNamingProgression({
     startingLevel: state?.currentLevel ?? null,
     recordTrialOutcome,
     flushAtSessionEnd,
+    /** Diagnostic accessor — DO NOT use for clinical decisions. */
+    __bufferedTrialCount: bufferedTrialCount,
   };
 }
