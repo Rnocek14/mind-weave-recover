@@ -1621,6 +1621,13 @@ export const PhotoNamingGame = ({
     
     // Timeout = failed production attempt (mic was open, no/late response).
     currentTrialModeRef.current = 'production';
+    // Clinical Progression v1: buffer this trial's outcome so the final trial
+    // is never lost from the progression flush window. A timeout is a failed
+    // independent production attempt.
+    progression.recordTrialOutcome({
+      correct: false,
+      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
+    });
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ correct: false, timedOut: true });
     engagement.recordTrial({
