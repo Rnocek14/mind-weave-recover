@@ -54,6 +54,32 @@ export function mapPhotoNamingSupport(args: {
   }
 }
 
+/**
+ * Resolve the SupportLevel for a *chip tap* on a Photo Naming trial.
+ *
+ * Bug fix (post-ASR-silence recovery): when the mic was active and the
+ * patient attempted production but ASR returned silence / no_response, a
+ * subsequent correct chip tap should NOT be classified as `recognition_only`.
+ * That misclassification triggered false longitudinal struggle verdicts.
+ *
+ * Decision rule:
+ *   - productionAttempted = false  → pure recognition tap (`recognition_only`)
+ *   - productionAttempted = true   → scaffolded production. Map via the
+ *     production branch with cueLevel floored to ≥ 1 so it lands on
+ *     `semantic_cue` at minimum (chips reveal the lexical target without
+ *     phonemic information).
+ */
+export function resolvePhotoNamingChipSupport(args: {
+  productionAttempted: boolean;
+  cueLevel: number;
+}): SupportLevel {
+  if (!args.productionAttempted) return 'recognition_only';
+  return mapPhotoNamingSupport({
+    inputMode: 'production',
+    cueLevel: Math.max(1, args.cueLevel),
+  });
+}
+
 interface BufferedTrial {
   correct: boolean;
   support: SupportLevel;
