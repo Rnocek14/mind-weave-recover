@@ -52,7 +52,7 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
         const sessionIds = sessionsData.map(s => s.id);
         const [{ data: events }, { data: utterances }, { data: trialLogs }] = await Promise.all([
           supabase.from('exercise_events').select('session_id, exercise_slug, score').in('session_id', sessionIds),
-          supabase.from('utterance_analyses').select('session_id, exercise_slug, transcript_match_score').in('session_id', sessionIds),
+          supabase.from('utterance_analyses').select('session_id, exercise_slug, is_correct').in('session_id', sessionIds),
           supabase.from('adaptation_trial_logs').select('session_id, exercise_slug, correct').in('session_id', sessionIds),
         ]);
 
@@ -68,9 +68,7 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
           // Only fold in utterances/trial_logs for sessions that produced no exercise_events
           const sawEvents = (events || []).some(e => e.session_id === s.id);
           if (!sawEvents) {
-            (utterances || []).filter(u => u.session_id === s.id).forEach(u =>
-              bump(u.exercise_slug, typeof u.transcript_match_score === 'number' && u.transcript_match_score >= 0.5),
-            );
+            (utterances || []).filter(u => u.session_id === s.id).forEach(u => bump(u.exercise_slug, !!u.is_correct));
             (trialLogs || []).filter(t => t.session_id === s.id).forEach(t => bump(t.exercise_slug, !!t.correct));
           }
 
