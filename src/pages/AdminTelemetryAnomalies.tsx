@@ -134,8 +134,9 @@ export default function AdminTelemetryAnomalies() {
     if (severity !== "all" && a.severity !== severity) return false;
     if (rule !== "all" && a.rule_id !== rule) return false;
     if (slug !== "all" && a.exercise_slug !== slug) return false;
+    if (sessionFilter && a.session_id !== sessionFilter) return false;
     return true;
-  }), [anomalies, severity, rule, slug]);
+  }), [anomalies, severity, rule, slug, sessionFilter]);
 
   const counts = useMemo(() => {
     const bySev = { info: 0, warn: 0, error: 0 } as Record<string, number>;
