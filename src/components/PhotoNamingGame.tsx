@@ -47,6 +47,7 @@ import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import {
   usePhotoNamingProgression,
   mapPhotoNamingSupport,
+  resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 
 interface PhotoNamingGameProps {
