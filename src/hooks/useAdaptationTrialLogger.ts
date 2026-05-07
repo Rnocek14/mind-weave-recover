@@ -242,6 +242,13 @@ export function useAdaptationTrialLogger(opts: Options) {
       narration: narration ?? null,
       escalation_blocked: !!input.escalationBlocked,
       escalation_block_reason: input.escalationBlocked?.reason ?? null,
+      trial_mode: input.trialMode ?? null,
+      graded_score: input.gradedScore ?? null,
+      score_vector: input.scoreVector ?? null,
+      signal_granularity: input.signalGranularity ?? null,
+      scaffold_level: input.scaffoldLevel ?? null,
+      dominant_axis: input.dominantAxis ?? null,
+      archetype: input.archetype ?? null,
     };
 
     trialBuf.current.push(row);
