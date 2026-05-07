@@ -192,6 +192,10 @@ export function applySessionToState(
 
   if (wasStruggleSession) {
     nextSupport = Math.min(nextSupport + 1, 3); // soft regression bump
+  } else if (input.trials.length > 0) {
+    // Non-struggle / success session decays support baseline by 1.
+    // Clamped to [0, 3]. Scope: Step 1 hygiene — no level drop here.
+    nextSupport = Math.max(nextSupport - 1, 0);
   }
 
   return {

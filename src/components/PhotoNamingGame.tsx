@@ -358,7 +358,7 @@ export const PhotoNamingGame = ({
   const engagement = useEngagementMonitor(activeSessionId);
 
   // Phase 4 — live per-trial logging for real-world adaptive validation.
-  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+  const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs } = useAdaptationTrialLogger({
     userId: user?.id,
     sessionId: activeSessionId,
     exerciseSlug: 'photo_naming',
@@ -1493,19 +1493,44 @@ export const PhotoNamingGame = ({
   }, [isListening, speechError]);
 
   // Handle game completion - end session properly
+  const completionFiredRef = useRef(false);
   useEffect(() => {
-    if (state.isComplete) {
-      console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
-        score: state.score,
-        gameType: 'PhotoNaming'
-      });
+    if (!state.isComplete) return;
+    if (completionFiredRef.current) return;
+    completionFiredRef.current = true;
+
+    console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
+      score: state.score,
+      gameType: 'PhotoNaming'
+    });
+
+    void (async () => {
+      // Force-flush per-trial adaptation logs BEFORE unmount/navigation so the
+      // final trial (and any others still in the 2.5s interval buffer) lands
+      // in adaptation_trial_logs. Avoids the "9 of 10 trials logged" leak.
+      try { await flushAdaptationLogs(); } catch (err) {
+        console.warn('[PhotoNamingGame] adaptation flush error', err);
+      }
+
+      // DEV accounting diagnostic — surfaces drift between expected vs.
+      // recorded trial counts across the three pipelines.
+      if (import.meta.env.DEV) {
+        const progressionBuffered = (progression as any)?.__bufferedTrialCount?.();
+        console.groupCollapsed('[PhotoNaming][AccountingDiagnostic]');
+        console.log('expectedTrialCount:', state.totalTrials);
+        console.log('displayedTrialNumber:', state.trialNumber);
+        console.log('progressionBufferedTrials:', progressionBuffered ?? '(unavailable)');
+        console.log('finalScore:', state.score);
+        console.groupEnd();
+      }
+
       // Clinical Progression v1: persist updated level/progress for this profile.
-      void progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
+      await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
       // End session with proper reason tracking
       completeSession();
       onGameComplete(state.score);
-    }
-  }, [state.isComplete, state.score, onGameComplete, completeSession, progression, activeSessionId]);
+    })();
+  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
@@ -1596,6 +1621,13 @@ export const PhotoNamingGame = ({
     
     // Timeout = failed production attempt (mic was open, no/late response).
     currentTrialModeRef.current = 'production';
+    // Clinical Progression v1: buffer this trial's outcome so the final trial
+    // is never lost from the progression flush window. A timeout is a failed
+    // independent production attempt.
+    progression.recordTrialOutcome({
+      correct: false,
+      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
+    });
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ correct: false, timedOut: true });
     engagement.recordTrial({
@@ -2299,6 +2331,12 @@ export const PhotoNamingGame = ({
 
     // Caregiver-rated attempt = scaffolded production (proxy reporter).
     currentTrialModeRef.current = 'scaffolded';
+    // Clinical Progression v1: buffer this caregiver-rated trial. Treated as
+    // scaffolded production at minimum semantic_cue support.
+    progression.recordTrialOutcome({
+      correct,
+      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
+    });
     // Update via in-game adaptation hook (handles difficulty adjustment)
     const adaptationResult = recordTrial({ 
       correct,
