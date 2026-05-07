@@ -222,9 +222,13 @@ writes start respecting `drop` and `annotate` verdicts. Level UP /
 scaffold withdrawal still pass-through. This is the smallest blast
 radius — mastery is already shadow-only and not user-visible.
 
-Phase 4 — **Enforcement on `level_up`.** Adds the cue-dependency gate's
-sibling: anomaly-derived UP blocks. UI continues to show "stretching"
-language; never "blocked".
+Phase 4 — **Enforcement on `level_up`.** Hooks the in-game UP path
+(`useInGameAdaptation.recordTrial`) — NOT `drillTriggerEvaluator`,
+which governs Smart Coach drill triggering and is a different surface.
+Adds the cue-dependency gate's sibling: anomaly-derived UP blocks.
+Trial-scope verdicts apply in-session; D1/D2/D3 verdicts apply to the
+**next** session per §4a. UI continues to show "stretching" language;
+never "blocked".
 
 Phase 5 — **Enforcement on `scaffold_withdraw`.** Highest clinical
 sensitivity; ships last and behind a feature flag for staged rollout.
