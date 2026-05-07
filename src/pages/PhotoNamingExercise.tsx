@@ -907,6 +907,7 @@ function PhotoNamingExerciseInner() {
         {trials.length > 0 ? (
           <PhotoNamingGame
             key={gameKey}
+            sessionId={sessionId}
             totalTrials={trials.length}
             initialDifficulty={initialDifficulty}
             assistMode={mode === 'caregiver'}
