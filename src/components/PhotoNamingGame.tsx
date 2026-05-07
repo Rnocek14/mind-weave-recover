@@ -38,6 +38,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { ClinicalLevelBadge } from '@/components/ClinicalLevelBadge';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
@@ -2454,6 +2455,11 @@ export const PhotoNamingGame = ({
       {state.trialNumber === 1 && !showFeedback && (
         <>
           <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+          <ClinicalLevelBadge
+            level={progression.startingLevel}
+            progressPct={progression.state?.progressPct ?? null}
+            className="mx-auto max-w-md"
+          />
           <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
         </>
       )}
