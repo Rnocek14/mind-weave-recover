@@ -241,8 +241,13 @@ export default function AdminTelemetryAnomalies() {
                   <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground text-sm">No anomalies match filters</TableCell></TableRow>
                 )}
                 {counts.ruleRows.map((r) => (
-                  <TableRow key={r.rule_id}>
-                    <TableCell className="font-mono text-xs">{r.rule_id}</TableCell>
+                  <TableRow
+                    key={r.rule_id}
+                    className="cursor-pointer hover:bg-accent/40"
+                    onClick={() => setRule(r.rule_id)}
+                    title={`Filter to ${r.rule_id}`}
+                  >
+                    <TableCell className="font-mono text-xs text-primary">{r.rule_id}</TableCell>
                     <TableCell><Badge variant={SEVERITY_VARIANT[r.severity] ?? "secondary"} className="capitalize">{r.severity}</Badge></TableCell>
                     <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                   </TableRow>
