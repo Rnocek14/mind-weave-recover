@@ -47,6 +47,7 @@ import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import {
   usePhotoNamingProgression,
   mapPhotoNamingSupport,
+  resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 
 interface PhotoNamingGameProps {
@@ -236,6 +237,13 @@ export const PhotoNamingGame = ({
    * Captured per-attempt so onTrialLogged can stamp it on adaptation_trial_logs.
    */
   const currentTrialModeRef = useRef<'production' | 'recognition' | 'scaffolded'>('production');
+  /**
+   * True if the patient made (or attempted) a spoken production this trial:
+   * mic became active, ASR returned a transcript, or ASR explicitly returned
+   * silence/no_response. Used to distinguish a *recovery chip tap* (scaffolded
+   * production) from a pure recognition tap. Reset per trial.
+   */
+  const productionAttemptedRef = useRef(false);
   
   // Refs for stall timer closure safety (avoid reading stale state)
   const showFeedbackRef = useRef(showFeedback);
@@ -916,6 +924,7 @@ export const PhotoNamingGame = ({
 
   useEffect(() => {
     isListeningRef.current = isListening;
+    if (isListening) productionAttemptedRef.current = true;
   }, [isListening]);
 
   const micErrorMessage =
@@ -1310,6 +1319,7 @@ export const PhotoNamingGame = ({
     autoCueShownThisTrialRef.current = false;
     cueVisibleRef.current = false;
     setStallDetected(false);
+    productionAttemptedRef.current = false;
   }, [state.trialNumber]); // ONLY trialNumber - no other dependencies
 
   // Start timing the new trial and reset visible state without coupling it to mic state
@@ -1865,9 +1875,19 @@ export const PhotoNamingGame = ({
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
 
     // Clinical Progression v1: buffer this trial's outcome for session-end flush.
+    // Bug fix: a chip tap (inputMode='recognition') after an attempted spoken
+    // production (mic was active / ASR returned silence) is *scaffolded
+    // production*, not pure recognition. Route through resolvePhotoNamingChipSupport.
+    const supportLevel =
+      inputMode === 'recognition'
+        ? resolvePhotoNamingChipSupport({
+            productionAttempted: productionAttemptedRef.current,
+            cueLevel,
+          })
+        : mapPhotoNamingSupport({ inputMode, cueLevel });
     progression.recordTrialOutcome({
       correct: isCorrectAnswer,
-      support: mapPhotoNamingSupport({ inputMode, cueLevel }),
+      support: supportLevel,
     });
 
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
