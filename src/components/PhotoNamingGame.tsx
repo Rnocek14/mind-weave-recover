@@ -224,6 +224,14 @@ export const PhotoNamingGame = ({
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
   const cueVisibleRef = useRef(false); // Track if cue should stay visible this trial (sticky cues)
+  /**
+   * Trial-mode for the current attempt (frozen progression theory v0.3.0-spec).
+   *   'production'  — spoken/ASR retrieval (or timeout on a spoken trial)
+   *   'recognition' — user tapped a multiple-choice chip
+   *   'scaffolded'  — caregiver-assisted attempt
+   * Captured per-attempt so onTrialLogged can stamp it on adaptation_trial_logs.
+   */
+  const currentTrialModeRef = useRef<'production' | 'recognition' | 'scaffolded'>('production');
   
   // Refs for stall timer closure safety (avoid reading stale state)
   const showFeedbackRef = useRef(showFeedback);
