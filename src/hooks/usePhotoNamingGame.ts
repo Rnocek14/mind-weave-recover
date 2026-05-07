@@ -278,6 +278,25 @@ export const usePhotoNamingGame = (
   );
 
   // ==========================================================================
+  // Recency exclusion (per-difficulty LRU, persisted in localStorage)
+  // Prevents the same target appearing across consecutive sessions.
+  // ==========================================================================
+  const recency = useRecencyExclusion<MixedTrial>('photo_naming', [], {
+    lookback: 24,
+    tierAware: true,
+    getTier: (it) => (it.computed_difficulty ?? 3),
+    getId: (it) => it.id,
+  });
+
+  const buildRecentByTier = useCallback(() => ({
+    1: new Set(recency.getRecent(1)),
+    2: new Set(recency.getRecent(2)),
+    3: new Set(recency.getRecent(3)),
+    4: new Set(recency.getRecent(4)),
+    5: new Set(recency.getRecent(5)),
+  }), [recency]);
+
+  // ==========================================================================
   // Core pool builder - called from init AND reset
   // Returns ACTUAL firstLane from pop (not inferred)
   // ==========================================================================
@@ -288,32 +307,33 @@ export const usePhotoNamingGame = (
     firstLane: keyof ContentLanes | null;
   } => {
     let lanes: ContentLanes;
+    const recentByTier = buildRecentByTier();
     
     if (customTrials && customTrials.length > 0) {
-      // Custom trials: partition directly
-      lanes = partitionIntoLanes(customTrials);
+      lanes = partitionIntoLanes(customTrials, recentByTier);
     } else {
-      // Build a larger pool (5x requested count) to ensure all lanes have content
-      // This prevents lane starvation when difficulty shifts mid-session
       const poolSize = Math.min(totalTrials * 5, PHOTO_BANK.length);
-      
-      // Get broad pool with tolerance for difficulty
       const broadPool = getTrialsForLevel(level, poolSize, {
         focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
         focusWords: focusWords.length > 0 ? focusWords : undefined,
       });
-      
-      lanes = partitionIntoLanes(broadPool as MixedTrial[]);
+      lanes = partitionIntoLanes(broadPool as MixedTrial[], recentByTier);
     }
     
-    // Pop first trial using popFromLanesWithInfo to get ACTUAL lane
     const { trial: firstTrial, fromLane } = popFromLanesWithInfo(lanes, level);
     const firstChoices = firstTrial 
       ? generateChoices(firstTrial as PhotoTrial, level)
       : [];
+
+    if (firstTrial) {
+      recency.markUsed(firstTrial.id, firstTrial.computed_difficulty ?? 3);
+      if (import.meta.env.DEV) {
+        console.debug('[recency:photo_naming] markUsed id=%s tier=%s', firstTrial.id, firstTrial.computed_difficulty);
+      }
+    }
     
     return { lanes, firstTrial, firstChoices, firstLane: fromLane };
-  }, [customTrials, totalTrials, focusPhonemes, focusWords]);
+  }, [customTrials, totalTrials, focusPhonemes, focusWords, buildRecentByTier, recency]);
 
   // ==========================================================================
   // Initialize on mount - uses ACTUAL firstLane from buildSessionPool
