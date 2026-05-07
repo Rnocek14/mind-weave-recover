@@ -19,6 +19,13 @@ export interface MasteryTrial {
   created_at: string;              // ISO
   session_id?: string | null;
   fatigue_rating?: number | null;  // 1..5 if available
+
+  // P0-A — visibility + routing only. NOT consumed by the EWMA math.
+  // See lib/mastery/masterySignalRouting.ts.
+  trialMode?: 'production' | 'recognition' | 'scaffolded' | 'exposure' | 'mixed' | null;
+  signalGranularity?: 'binary' | 'graded' | 'vector' | null;
+  gradedScore?: number | null;
+  scoreVector?: Record<string, number> | null;
 }
 
 export interface MasteryRow {
