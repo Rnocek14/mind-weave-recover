@@ -89,6 +89,14 @@ export const useSessionHistory = (userId: string | undefined) => {
 
       if (eventsError) throw eventsError;
 
+      // Fallback sources so Photo Naming / Fix Sentence sessions (which write to
+      // utterance_analyses + adaptation_trial_logs, not exercise_events) still appear.
+      const sessionIds = sessionsData.map((s) => s.id);
+      const [{ data: utterances }, { data: trialLogs }] = await Promise.all([
+        supabase.from("utterance_analyses").select("session_id, exercise_slug, is_correct, latency_ms, created_at, id").in("session_id", sessionIds),
+        supabase.from("adaptation_trial_logs").select("session_id, exercise_slug, correct, reaction_time_ms, created_at, id, difficulty").in("session_id", sessionIds),
+      ]);
+
       // Group events by session and exercise
       const sessionsWithDetails: SessionDetail[] = sessionsData
         .map((session) => {
