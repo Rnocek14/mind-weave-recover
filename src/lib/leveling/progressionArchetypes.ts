@@ -177,23 +177,72 @@ export interface ScaffoldLevel {
 
 export type MasterySignalKind = ArchetypeDefinition['masterySignal'];
 
+/**
+ * Trial-level cognitive mode (refines the obsolete echoIsProduction binary).
+ *
+ * The Photo Naming audit proved that "did they get it right" is not enough:
+ * the SAME game can deliver trials in fundamentally different rehabilitation
+ * states, and collapsing them inflates recovery curves.
+ *
+ *   production  — user retrieved the lexical item with no choice set;
+ *                 ASR-scored. The only mode that feeds expressive mastery.
+ *   recognition — user picked the target from N alternatives. Clinically
+ *                 distinct (anomia patients often recognise but cannot
+ *                 produce). Feeds receptive/recognition telemetry only.
+ *   exposure    — user heard / repeated / was shown the item but no
+ *                 graded retrieval was demanded. Never feeds mastery.
+ *   scaffolded  — production attempt under explicit cue/support. Counts
+ *                 toward production mastery only with a cue-discount.
+ *   mixed       — game routes per trial; per-trial mode tag is mandatory.
+ */
+export type TrialMode =
+  | 'production'
+  | 'recognition'
+  | 'exposure'
+  | 'scaffolded'
+  | 'mixed';
+
+/**
+ * Secondary modifier systems layered on top of the primary archetype.
+ * The Photo Naming audit proved archetypes are not mutually exclusive:
+ *   photo_naming = primary content-expanding + secondary recognition
+ *                  modifier (choice-count dial, phonological foil dial).
+ */
+export type ArchetypeModifier =
+  | 'pressure'      // timer / SNR / masking on top of content ladder
+  | 'recognition'   // choice-count + foil-quality dial
+  | 'dual-task'     // executive load layered on production
+  | 'scaffold-fade' // scaffold withdrawal layered on content
+  | 'noise';        // perceptual interference
+
 export interface ProgressionContract {
   slug: string;
   archetype: ProgressionArchetype;
 
+  /** Optional secondary modifier systems (Photo Naming → ['recognition']). */
+  secondaryModifiers: ArchetypeModifier[];
+
   /** Internal honest content scale (NOT what the user sees). */
   contentScale: { min: number; max: number };
 
-  /** Pressure dials (Performance-Pressure / Hybrid only; otherwise []). */
+  /** Pressure dials (Performance-Pressure / Hybrid / pressure-modified games). */
   performanceDials: PressureDial[];
 
-  /** Scaffold ladder (Open-Ended only; otherwise []). */
+  /** Scaffold ladder (Open-Ended / scaffold-modified games). */
   scaffolds: ScaffoldLevel[];
 
   /**
-   * Whether ASR / scored production is the mastery surface for this game.
-   * When false, the game is exposure-only (e.g. echo) and must not feed
-   * production-mastery telemetry.
+   * Trial-level mode this game emits. 'mixed' REQUIRES per-trial mode tags
+   * in telemetry so the mastery writer can route trials correctly.
+   *
+   * Replaces the obsolete `echoIsProduction: boolean` binary.
+   */
+  productionMode: TrialMode;
+
+  /**
+   * @deprecated Kept temporarily for migration. Derive from productionMode:
+   *   production | scaffolded → true
+   *   recognition | exposure | mixed → must be split per trial
    */
   echoIsProduction: boolean;
 
@@ -248,6 +297,53 @@ export function getGameArchetype(slug: string): ProgressionArchetype | null {
   return GAME_ARCHETYPES[slug] ?? null;
 }
 
+/**
+ * Per-game secondary modifiers and trial mode.
+ * Source of truth for "what additional dials does this game embed on top
+ * of its primary archetype, and what cognitive mode are its trials in?".
+ *
+ * Photo Naming is the canonical mixed example: primary content-expanding
+ * + secondary recognition modifier (choice-count + phonological foils).
+ * Recognition trials must NOT feed production mastery.
+ */
+export const GAME_MODIFIERS: Record<
+  string,
+  { modifiers: ArchetypeModifier[]; productionMode: TrialMode }
+> = {
+  // Archetype I — pure content ladders
+  sentence_construction: { modifiers: [], productionMode: 'production' },
+  fix_sentence:          { modifiers: [], productionMode: 'production' },
+  two_clues:             { modifiers: [], productionMode: 'production' },
+  meaning_match:         { modifiers: ['recognition'], productionMode: 'recognition' },
+  semantic_features:     { modifiers: [], productionMode: 'production' },
+  synonym_generator:     { modifiers: [], productionMode: 'production' },
+  abstract_compare:      { modifiers: [], productionMode: 'production' },
+  describe_guess:        { modifiers: [], productionMode: 'production' },
+
+  // Archetype I + recognition modifier — canonical mixed-mode game
+  photo_naming: { modifiers: ['recognition'], productionMode: 'mixed' },
+
+  // Archetype II — pressure dials over finite content
+  minimal_pairs:          { modifiers: ['pressure'], productionMode: 'recognition' },
+  phonological_awareness: { modifiers: ['pressure'], productionMode: 'recognition' },
+
+  // Archetype III — content + dual-task
+  detective_mind:      { modifiers: ['dual-task'], productionMode: 'production' },
+  dual_load_naming:    { modifiers: ['dual-task'], productionMode: 'production' },
+  multi_step_planning: { modifiers: ['dual-task'], productionMode: 'production' },
+
+  // Archetype IV — scaffold-fade is the difficulty axis itself
+  narrative_retell: { modifiers: ['scaffold-fade'], productionMode: 'production' },
+};
+
+export function getGameModifiers(slug: string): ArchetypeModifier[] {
+  return GAME_MODIFIERS[slug]?.modifiers ?? [];
+}
+
+export function getGameTrialMode(slug: string): TrialMode | null {
+  return GAME_MODIFIERS[slug]?.productionMode ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Performance-pressure primitives roadmap (spec only)
 //
@@ -279,11 +375,18 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
     blockers: ['each game currently hard-codes choice count'],
   },
   {
-    id: 'echo_vs_production_typing',
+    id: 'per_trial_mode_tag',
     description:
-      'Trial type tag distinguishing exposure (echo, repeat) from scored ' +
-      'production. Mastery writer must ignore exposure trials.',
-    blockers: ['mastery writer currently treats all trials uniformly'],
+      'Replaces the obsolete echoIsProduction binary. Per-trial TrialMode ' +
+      '(production / recognition / exposure / scaffolded). Mastery writer ' +
+      'routes per mode: production (and discounted scaffolded) feed ' +
+      'expressive mastery; recognition feeds receptive mastery; exposure ' +
+      'feeds neither. Mixed-mode games (photo_naming) MUST emit it.',
+    blockers: [
+      'mastery writer currently treats all trials uniformly',
+      'trial logger lacks a trial_mode column',
+      'photo_naming generateChoices does not tag recognition vs production',
+    ],
   },
   {
     id: 'visible_level_projector',
@@ -299,11 +402,12 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
 // ---------------------------------------------------------------------------
 
 export const ARCHITECTURE_DECISIONS = {
-  taxonomy: 'four-archetypes',                // I / II / III / IV
+  taxonomy: 'four-archetypes-with-modifiers',  // I / II / III / IV + secondaryModifiers
   displayContract: 'universal-1-to-10-facade', // never expose tier × dial
   internalContract: 'archetype-specific',
-  firstLiveRollout: 'sentence_construction',  // cleanest Archetype I ladder
+  trialModeContract: 'per-trial-TrialMode-required-for-mixed-mode-games',
+  firstLiveRollout: 'sentence_construction',   // cleanest Archetype I ladder
   rolloutGate: 'shadow-only-until-archetype-infra-and-bank-floors-met',
 } as const;
 
-export const PROGRESSION_ARCHETYPES_VERSION = '0.1.0-spec';
+export const PROGRESSION_ARCHETYPES_VERSION = '0.2.0-spec';
