@@ -143,6 +143,12 @@ export interface SessionRollupInput {
    */
   evidenceMet: boolean;
   trialWeight?: number;
+  /**
+   * Optional caller-computed progress delta (0–100 points). When provided,
+   * overrides the generic `calculateProgressDelta`. Used by games with
+   * level-specific weighting (e.g. Photo Naming).
+   */
+  progressDelta?: number;
 }
 
 /**
