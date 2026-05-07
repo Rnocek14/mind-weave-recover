@@ -53,14 +53,28 @@ const SEVERITY_VARIANT: Record<string, "default" | "secondary" | "destructive" |
 };
 
 export default function AdminTelemetryAnomalies() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [runs, setRuns] = useState<DetectorRun[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
-  const [severity, setSeverity] = useState<Severity | "all">("all");
-  const [rule, setRule] = useState<string>("all");
-  const [slug, setSlug] = useState<string>("all");
+  const severity = (searchParams.get("severity") as Severity | null) ?? "all";
+  const rule = searchParams.get("rule") ?? "all";
+  const slug = searchParams.get("slug") ?? "all";
+  const sessionFilter = searchParams.get("session") ?? "";
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
+
+  const updateParam = (key: string, value: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all" || value === "") next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+  const setSeverity = (v: string) => updateParam("severity", v);
+  const setRule = (v: string) => updateParam("rule", v);
+  const setSlug = (v: string) => updateParam("slug", v);
+  const setSessionFilter = (v: string) => updateParam("session", v);
+  const clearFilters = () => setSearchParams(new URLSearchParams(), { replace: true });
 
   const openDetail = async (a: Anomaly) => {
     setSelected(a);
