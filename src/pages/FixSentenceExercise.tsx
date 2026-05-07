@@ -241,6 +241,8 @@ export default function FixSentenceExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            initialDifficultyFloor={bridge.clinicalFloor}
+            registerFlush={(fn) => { flushAdaptationLogsRef.current = fn; }}
           />
         )}
       </main>
