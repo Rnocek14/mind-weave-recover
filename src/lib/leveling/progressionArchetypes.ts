@@ -297,6 +297,53 @@ export function getGameArchetype(slug: string): ProgressionArchetype | null {
   return GAME_ARCHETYPES[slug] ?? null;
 }
 
+/**
+ * Per-game secondary modifiers and trial mode.
+ * Source of truth for "what additional dials does this game embed on top
+ * of its primary archetype, and what cognitive mode are its trials in?".
+ *
+ * Photo Naming is the canonical mixed example: primary content-expanding
+ * + secondary recognition modifier (choice-count + phonological foils).
+ * Recognition trials must NOT feed production mastery.
+ */
+export const GAME_MODIFIERS: Record<
+  string,
+  { modifiers: ArchetypeModifier[]; productionMode: TrialMode }
+> = {
+  // Archetype I — pure content ladders
+  sentence_construction: { modifiers: [], productionMode: 'production' },
+  fix_sentence:          { modifiers: [], productionMode: 'production' },
+  two_clues:             { modifiers: [], productionMode: 'production' },
+  meaning_match:         { modifiers: ['recognition'], productionMode: 'recognition' },
+  semantic_features:     { modifiers: [], productionMode: 'production' },
+  synonym_generator:     { modifiers: [], productionMode: 'production' },
+  abstract_compare:      { modifiers: [], productionMode: 'production' },
+  describe_guess:        { modifiers: [], productionMode: 'production' },
+
+  // Archetype I + recognition modifier — canonical mixed-mode game
+  photo_naming: { modifiers: ['recognition'], productionMode: 'mixed' },
+
+  // Archetype II — pressure dials over finite content
+  minimal_pairs:          { modifiers: ['pressure'], productionMode: 'recognition' },
+  phonological_awareness: { modifiers: ['pressure'], productionMode: 'recognition' },
+
+  // Archetype III — content + dual-task
+  detective_mind:      { modifiers: ['dual-task'], productionMode: 'production' },
+  dual_load_naming:    { modifiers: ['dual-task'], productionMode: 'production' },
+  multi_step_planning: { modifiers: ['dual-task'], productionMode: 'production' },
+
+  // Archetype IV — scaffold-fade is the difficulty axis itself
+  narrative_retell: { modifiers: ['scaffold-fade'], productionMode: 'production' },
+};
+
+export function getGameModifiers(slug: string): ArchetypeModifier[] {
+  return GAME_MODIFIERS[slug]?.modifiers ?? [];
+}
+
+export function getGameTrialMode(slug: string): TrialMode | null {
+  return GAME_MODIFIERS[slug]?.productionMode ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Performance-pressure primitives roadmap (spec only)
 //
