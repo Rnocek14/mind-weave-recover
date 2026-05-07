@@ -25,6 +25,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useFixSentenceProgression } from '@/hooks/useFixSentenceProgression';
+import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/fixSentenceDifficultyBridge';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
