@@ -46,6 +46,7 @@ import AdminOverrideAudit from "./pages/AdminOverrideAudit";
 import AdminAdaptationStream from "./pages/AdminAdaptationStream";
 import AdminSuccessBand from "./pages/AdminSuccessBand";
 import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
+import AdminTelemetryAnomalies from "./pages/AdminTelemetryAnomalies";
 import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
 import SmartCoachLab from "./pages/SmartCoachLab";
 import CohortResearchAnalytics from "./pages/CohortResearchAnalytics";
