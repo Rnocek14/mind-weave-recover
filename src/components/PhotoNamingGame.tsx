@@ -1815,9 +1815,14 @@ export const PhotoNamingGame = ({
     }
   };
 
-  const handleAnswerSelect = async (word: string) => {
+  const handleAnswerSelect = async (
+    word: string,
+    inputMode: 'production' | 'recognition' = 'recognition',
+  ) => {
     if (showFeedback || selectedAnswer || timedOut) return;
 
+    // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
+    currentTrialModeRef.current = inputMode;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
