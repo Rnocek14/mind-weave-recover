@@ -5,7 +5,7 @@
 // Run with: lovable-exec test or deno test (via supabase--test_edge_functions).
 
 import { assertEquals, assert } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { evalTrial, evalSession, type TrialRow } from './evaluator.ts';
+import { evalTrial, evalSession, evalWindow, type TrialRow, type SessionAggregate } from './evaluator.ts';
 
 const RUN_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -229,4 +229,119 @@ Deno.test('Severity propagation: detector tags rule severity from registry', () 
 Deno.test('Checklist version is stamped on every anomaly', () => {
   const a = evalTrial(trial({ trial_mode: 'production', correct: true, response_text: '' }), RUN_ID);
   for (const r of a) assertEquals(r.checklist_version, '0.1');
+});
+
+// ---------- WINDOW-SCOPE RULES (D8, D9) — adopted slugs only ----------
+
+function sessionAgg(overrides: Partial<SessionAggregate> = {}, dayOffset = 0): SessionAggregate {
+  const d = new Date('2026-04-01T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + dayOffset);
+  return {
+    session_id: `sess-${dayOffset}`,
+    started_at: d.toISOString(),
+    trials_total: 10,
+    production_count: 6,
+    recognition_count: 2,
+    scaffolded_count: 2,
+    exposure_count: 0,
+    scaffold_level_mean: 1.0,
+    production_correct: 4,
+    production_total: 6,
+    ...overrides,
+  };
+}
+
+Deno.test('evalWindow returns nothing for non-adopted slug', () => {
+  const sessions = Array.from({ length: 10 }, (_, i) => sessionAgg({}, i));
+  const a = evalWindow({ slug: 'narrative_retell', userId: 'u1', sessions }, RUN_ID);
+  assertEquals(a.length, 0);
+});
+
+Deno.test('evalWindow returns nothing under 8 sessions', () => {
+  const sessions = Array.from({ length: 7 }, (_, i) => sessionAgg({}, i));
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions }, RUN_ID);
+  assertEquals(a.length, 0);
+});
+
+Deno.test('D8 fires when scaffold_level rises >=0.5 without accuracy drop', () => {
+  const earlier = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `e${i}`, scaffold_level_mean: 0.5, production_correct: 4, production_total: 6 }, i),
+  );
+  const later = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `l${i}`, scaffold_level_mean: 1.5, production_correct: 4, production_total: 6 }, 10 + i),
+  );
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions: [...earlier, ...later] }, RUN_ID);
+  assert(a.some((r) => r.rule_id === 'D8'));
+  const d8 = a.find((r) => r.rule_id === 'D8')!;
+  assertEquals(d8.scope, 'user_slug_window');
+  assert(d8.window_label && d8.window_label.startsWith('last_'));
+});
+
+Deno.test('D8 does not fire when accuracy drops sharply', () => {
+  const earlier = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `e${i}`, scaffold_level_mean: 0.5, production_correct: 5, production_total: 6 }, i),
+  );
+  const later = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `l${i}`, scaffold_level_mean: 1.5, production_correct: 1, production_total: 6 }, 10 + i),
+  );
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions: [...earlier, ...later] }, RUN_ID);
+  assert(!a.some((r) => r.rule_id === 'D8'));
+});
+
+Deno.test('D8 does not fire when scaffold trend is flat', () => {
+  const sessions = Array.from({ length: 10 }, (_, i) =>
+    sessionAgg({ session_id: `s${i}`, scaffold_level_mean: 1.0 }, i),
+  );
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions }, RUN_ID);
+  assert(!a.some((r) => r.rule_id === 'D8'));
+});
+
+Deno.test('D9 fires when scaffolded share rises and production share falls at stable accuracy', () => {
+  // Earlier: 70% production, 10% scaffolded. Later: 40% production, 50% scaffolded. Accuracy stable ~0.67.
+  const earlier = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({
+      session_id: `e${i}`,
+      production_count: 7, scaffolded_count: 1, recognition_count: 2,
+      production_correct: 5, production_total: 7, // ~0.71
+      scaffold_level_mean: 1.0,
+    }, i),
+  );
+  const later = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({
+      session_id: `l${i}`,
+      production_count: 4, scaffolded_count: 5, recognition_count: 1,
+      production_correct: 3, production_total: 4, // 0.75 — within stable band
+      scaffold_level_mean: 1.0, // hold scaffold flat to isolate D9 from D8
+    }, 10 + i),
+  );
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions: [...earlier, ...later] }, RUN_ID);
+  assert(a.some((r) => r.rule_id === 'D9'));
+});
+
+Deno.test('D9 does not fire when accuracy moves outside stable band', () => {
+  const earlier = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `e${i}`, production_count: 7, scaffolded_count: 1, recognition_count: 2,
+      production_correct: 6, production_total: 7 }, i),
+  );
+  const later = Array.from({ length: 4 }, (_, i) =>
+    sessionAgg({ session_id: `l${i}`, production_count: 4, scaffolded_count: 5, recognition_count: 1,
+      production_correct: 1, production_total: 4 }, 10 + i),
+  );
+  const a = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions: [...earlier, ...later] }, RUN_ID);
+  assert(!a.some((r) => r.rule_id === 'D9'));
+});
+
+Deno.test('Window anomaly idempotency: scope_ref_hash stable across runs for same window size', () => {
+  const sessions = Array.from({ length: 8 }, (_, i) =>
+    sessionAgg({
+      session_id: `s${i}`,
+      scaffold_level_mean: i < 4 ? 0.5 : 1.5,
+      production_correct: 4, production_total: 6,
+    }, i),
+  );
+  const a1 = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions }, RUN_ID);
+  const a2 = evalWindow({ slug: 'photo_naming', userId: 'u1', sessions }, 'different-run-id');
+  const h1 = a1.find((r) => r.rule_id === 'D8')?.scope_ref_hash;
+  const h2 = a2.find((r) => r.rule_id === 'D8')?.scope_ref_hash;
+  assertEquals(h1, h2);
 });

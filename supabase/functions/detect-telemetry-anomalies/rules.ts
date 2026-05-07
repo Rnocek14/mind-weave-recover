@@ -35,6 +35,10 @@ export const RULES: Record<string, AnomalyRule> = {
   D3: { id: 'D3', severity: 'warn', scope: 'session', description: 'photo_naming scaffolded share > 40% (scaffold inflation)' },
   D4: { id: 'D4', severity: 'error', scope: 'session', description: 'untyped trial_mode in adopted slug (logger gap)' },
   D7: { id: 'D7', severity: 'warn', scope: 'session', description: 'production accuracy = 100% over >=10 trials (suspect mislabeling)' },
+
+  // Cross-session trajectory (D8–D9) — user_slug_window scope
+  D8: { id: 'D8', severity: 'warn', scope: 'user_slug_window', description: 'scaffold_level trending up across >=8 recent sessions without accuracy drop (scaffold creep)' },
+  D9: { id: 'D9', severity: 'warn', scope: 'user_slug_window', description: 'scaffolded share rising and production share falling at stable accuracy across >=8 recent sessions (withdrawal regression)' },
 };
 
 export const ADOPTED_SLUGS = new Set<string>(['photo_naming']);
