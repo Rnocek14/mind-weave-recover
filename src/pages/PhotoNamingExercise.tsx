@@ -10,6 +10,12 @@ import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
+import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import {
+  resolveEffectiveInitialDifficulty,
+  clinicalLevelToEngineFloor,
+} from '@/lib/progression/photoNamingDifficultyBridge';
+import { mapEngineLevelToPhotoTier, generateChoices, computePhotoTier } from '@/data/photoBank';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
