@@ -430,12 +430,18 @@ export const usePhotoNamingGame = (
     setTrialNumber(nextNum);
     setCurrentTrial(nextTrialData);
     setChoices(generateChoices(nextTrialData as PhotoTrial, currentLevel));
+
+    // Mark this target as recently used (per-tier LRU, persists across sessions).
+    recency.markUsed(nextTrialData.id, nextTrialData.computed_difficulty ?? 3);
+    if (import.meta.env.DEV) {
+      console.debug('[recency:photo_naming] markUsed id=%s tier=%s', nextTrialData.id, nextTrialData.computed_difficulty);
+    }
     
     // Check if this was the last trial (show trial 10, then complete)
     if (nextNum >= totalTrials) {
       setIsComplete(true);
     }
-  }, [totalTrials]);
+  }, [totalTrials, recency]);
 
   // ==========================================================================
   // Reset - rebuilds pool directly (no dependency on useEffect)
