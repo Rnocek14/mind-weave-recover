@@ -105,7 +105,14 @@ export interface ShadowGateDecision {
  * verified end-to-end. Expanding this set is a separate decision after S2/S3
  * dev review (see docs/shadow-gate-spec.md §9).
  */
-const ADOPTED_GATE_SLUGS = new Set<string>(['photo-naming']);
+/**
+ * Exported solely so the version-discipline test can fingerprint the set.
+ * Not for runtime mutation. Treat as frozen.
+ */
+export const __INTERNAL_ADOPTED_GATE_SLUGS: ReadonlySet<string> = new Set<string>([
+  'photo-naming',
+]);
+const ADOPTED_GATE_SLUGS = __INTERNAL_ADOPTED_GATE_SLUGS;
 
 export function isAdoptedForGate(exerciseSlug: string): boolean {
   return ADOPTED_GATE_SLUGS.has((exerciseSlug || '').toLowerCase());
@@ -131,7 +138,7 @@ type PerSurfacePolicy = Partial<
  * Rules absent from this table entirely contribute `pass` everywhere
  * (so unknown future rules cannot silently start gating).
  */
-const POLICY: Record<string, PerSurfacePolicy> = {
+export const __INTERNAL_POLICY: Record<string, PerSurfacePolicy> = {
   // Schema invariants — corrupt trials cannot be trusted for any purpose.
   S1: { mastery_write: { decision: 'drop', reason: 'schema_invariant' } },
   S2: { mastery_write: { decision: 'drop', reason: 'schema_invariant' } },
@@ -302,7 +309,7 @@ function applyPolicyForRule(
   ruleId: string,
   surface: GateSurface,
 ): RuleHit | null {
-  const policy = POLICY[ruleId];
+  const policy = __INTERNAL_POLICY[ruleId];
   if (!policy) return null;
   const entry = policy[surface];
   if (!entry) return null;
