@@ -169,9 +169,10 @@ export function applySessionToState(
   const wasStruggleSession =
     input.trials.length > 0 && struggleCount / input.trials.length >= 0.5;
 
-  const delta = calculateProgressDelta(input.trials, {
-    trialWeight: input.trialWeight,
-  });
+  const delta =
+    typeof input.progressDelta === 'number'
+      ? input.progressDelta
+      : calculateProgressDelta(input.trials, { trialWeight: input.trialWeight });
 
   let nextProgress = clampProgress(prev.progressPct + delta);
   let nextLevel = clampLevel(prev.currentLevel);
