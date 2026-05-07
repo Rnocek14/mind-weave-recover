@@ -285,6 +285,12 @@ export interface ProgressionContract {
 
   masterySignal: MasterySignalKind;
 
+  /** Per-trial signal granularity. Archetype IV MUST be 'graded' or higher. */
+  masterySignalGranularity: MasterySignalGranularity;
+
+  /** Which axis dominates progression for this game. */
+  dominantAxis: DominantProgressionAxis;
+
   /**
    * Projection rule from internal state → visible 1–10.
    * Declared as a plain string here; the next phase will replace this
