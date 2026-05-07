@@ -69,6 +69,26 @@ export default function AdminTelemetryAnomalies() {
   const { severity, rule, slug, session: sessionFilter } = filters;
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const shareUrl = useMemo(() => {
+    const qs = searchParams.toString();
+    const path = "/admin/telemetry-anomalies";
+    if (typeof window === "undefined") return path + (qs ? `?${qs}` : "");
+    return `${window.location.origin}${path}${qs ? `?${qs}` : ""}`;
+  }, [searchParams]);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast({ title: "Link copied", description: "Anomaly view URL copied to clipboard." });
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast({ title: "Copy failed", description: shareUrl, variant: "destructive" });
+    }
+  };
 
   const updateParam = (key: keyof AnomalyFilterShape, value: string | null) => {
     setSearchParams(nextAnomalyFilterParams(searchParams, key, value), { replace: true });
