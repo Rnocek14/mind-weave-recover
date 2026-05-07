@@ -224,6 +224,14 @@ export const PhotoNamingGame = ({
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
   const cueVisibleRef = useRef(false); // Track if cue should stay visible this trial (sticky cues)
+  /**
+   * Trial-mode for the current attempt (frozen progression theory v0.3.0-spec).
+   *   'production'  — spoken/ASR retrieval (or timeout on a spoken trial)
+   *   'recognition' — user tapped a multiple-choice chip
+   *   'scaffolded'  — caregiver-assisted attempt
+   * Captured per-attempt so onTrialLogged can stamp it on adaptation_trial_logs.
+   */
+  const currentTrialModeRef = useRef<'production' | 'recognition' | 'scaffolded'>('production');
   
   // Refs for stall timer closure safety (avoid reading stale state)
   const showFeedbackRef = useRef(showFeedback);
@@ -411,6 +419,13 @@ export const PhotoNamingGame = ({
         trialsAtLevel: snap.trialsAtLevel,
         difficultyChange: snap.difficultyChange,
         escalationBlocked: snap.escalationBlocked,
+        // ── Granular mastery telemetry (frozen progression theory v0.3.0-spec) ──
+        // PhotoNaming is the canonical mixed-mode game: production via ASR vs
+        // recognition via choice-pick must NEVER feed expressive mastery as one signal.
+        trialMode: currentTrialModeRef.current,
+        archetype: 'content-expanding',
+        dominantAxis: 'recognition-to-production',
+        signalGranularity: 'boolean',
       });
     },
   });
@@ -743,7 +758,7 @@ export const PhotoNamingGame = ({
       const targetChoice = state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(targetChoice);
+      handleAnswerSelect(targetChoice, 'production');
       return;
     }
 
@@ -799,7 +814,7 @@ export const PhotoNamingGame = ({
       console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(matchedChoice);
+      handleAnswerSelect(matchedChoice, 'production');
     } else {
       console.log('❌ No match for stable transcript:', transcript);
 
@@ -1554,6 +1569,8 @@ export const PhotoNamingGame = ({
     playTimeout();
     
     
+    // Timeout = failed production attempt (mic was open, no/late response).
+    currentTrialModeRef.current = 'production';
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ correct: false, timedOut: true });
     engagement.recordTrial({
@@ -1800,9 +1817,14 @@ export const PhotoNamingGame = ({
     }
   };
 
-  const handleAnswerSelect = async (word: string) => {
+  const handleAnswerSelect = async (
+    word: string,
+    inputMode: 'production' | 'recognition' = 'recognition',
+  ) => {
     if (showFeedback || selectedAnswer || timedOut) return;
 
+    // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
+    currentTrialModeRef.current = inputMode;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
@@ -2234,6 +2256,8 @@ export const PhotoNamingGame = ({
       playError();
     }
 
+    // Caregiver-rated attempt = scaffolded production (proxy reporter).
+    currentTrialModeRef.current = 'scaffolded';
     // Update via in-game adaptation hook (handles difficulty adjustment)
     const adaptationResult = recordTrial({ 
       correct,
