@@ -64,18 +64,13 @@ export default function AdminTelemetryAnomalies() {
   const [runs, setRuns] = useState<DetectorRun[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
-  const severity = (searchParams.get("severity") as Severity | null) ?? "all";
-  const rule = searchParams.get("rule") ?? "all";
-  const slug = searchParams.get("slug") ?? "all";
-  const sessionFilter = searchParams.get("session") ?? "";
+  const filters = readAnomalyFiltersFromParams(searchParams);
+  const { severity, rule, slug, session: sessionFilter } = filters;
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
 
-  const updateParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(searchParams);
-    if (!value || value === "all" || value === "") next.delete(key);
-    else next.set(key, value);
-    setSearchParams(next, { replace: true });
+  const updateParam = (key: keyof AnomalyFilterShape, value: string | null) => {
+    setSearchParams(nextAnomalyFilterParams(searchParams, key, value), { replace: true });
   };
   const setSeverity = (v: string) => updateParam("severity", v);
   const setRule = (v: string) => updateParam("rule", v);
