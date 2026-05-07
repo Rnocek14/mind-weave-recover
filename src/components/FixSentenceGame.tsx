@@ -46,6 +46,12 @@ interface FixSentenceGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  /** Clinical-progression engine floor (1–10). Raises the initial difficulty
+   *  but does NOT cap session adaptation (engine can still escalate above). */
+  initialDifficultyFloor?: number;
+  /** Page-level callback to register a force-flush for adaptation_trial_logs.
+   *  The page awaits this on completion to avoid the final-trial flush race. */
+  registerFlush?: (fn: () => Promise<void>) => void;
 }
 
 export function FixSentenceGame({
@@ -56,6 +62,8 @@ export function FixSentenceGame({
   sessionId,
   userId,
   profileId,
+  initialDifficultyFloor,
+  registerFlush,
 }: FixSentenceGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
