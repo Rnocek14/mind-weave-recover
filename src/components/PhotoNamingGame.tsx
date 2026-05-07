@@ -38,6 +38,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
+import { ClinicalLevelBadge } from '@/components/ClinicalLevelBadge';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
