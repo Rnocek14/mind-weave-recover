@@ -174,36 +174,19 @@ function PhotoNamingExerciseInner() {
   const [trials, setTrials] = useState<MixedTrial[]>([]);
   const [gameKey, setGameKey] = useState(0);
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [caregiverNotes, setCaregiverNotes] = useState('');
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
   const sessionStartRef = useRef(Date.now());
 
-  const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
-  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
-
-  // Initialize session when component mounts
-  useEffect(() => {
-    const initSession = async () => {
-      if (!user?.id) return;
-      
-      // If coming from lesson, use the passed sessionId
-      if (fromLesson && lessonSessionId) {
-        setSessionId(lessonSessionId);
-      } else {
-        // Create new session
-        const session = await startSession(user.id, {
-          blocks: [{ exercise: 'photo_naming', duration: 10 }]
-        });
-        
-        if (session) {
-          setSessionId(session.id);
-        }
-      }
-    };
-    
-    initSession();
-  }, [user?.id, fromLesson, lessonSessionId]);
+  // Single owner of session creation: useStandaloneSession (mutex-protected,
+  // StrictMode-safe, remount-safe). When fromLesson, lessonSessionId is forwarded
+  // and standalone hook short-circuits via its `providedSessionId` branch.
+  const { activeSessionId } = useStandaloneSession(
+    user?.id,
+    fromLesson ? lessonSessionId ?? null : null,
+    CANONICAL_SLUGS.PHOTO_NAMING,
+  );
+  const sessionId = activeSessionId;
 
   // Push initial snapshot so the panel isn't empty before first trial
   useEffect(() => {
