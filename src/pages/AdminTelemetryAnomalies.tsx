@@ -346,15 +346,18 @@ export default function AdminTelemetryAnomalies() {
                     <div><span className="text-muted-foreground">Resolved:</span> {selected.resolved_at ? new Date(selected.resolved_at).toLocaleString() : "—"}</div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <div>
-                      <div className="text-xs font-semibold mb-1">Observed</div>
-                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.observed, null, 2)}</pre>
+                      <div className="text-xs font-semibold mb-1">Observed vs Expected (diff)</div>
+                      <DiffTable observed={selected.observed} expected={selected.expected} />
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold mb-1">Expected</div>
-                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.expected, null, 2)}</pre>
-                    </div>
+                    <details className="text-[11px]">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw observed / expected JSON</summary>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                        <pre className="bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.observed, null, 2)}</pre>
+                        <pre className="bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.expected, null, 2)}</pre>
+                      </div>
+                    </details>
                   </div>
 
                   <div>
@@ -403,6 +406,57 @@ export default function AdminTelemetryAnomalies() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
+  );
+}
+
+function fmtVal(v: unknown): string {
+  if (v === null) return "null";
+  if (v === undefined) return "—";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+function DiffTable({ observed, expected }: { observed: unknown; expected: unknown }) {
+  const obs = (observed && typeof observed === "object" && !Array.isArray(observed)) ? observed as Record<string, unknown> : { value: observed };
+  const exp = (expected && typeof expected === "object" && !Array.isArray(expected)) ? expected as Record<string, unknown> : { value: expected };
+  const keys = Array.from(new Set([...Object.keys(obs), ...Object.keys(exp)]));
+  if (keys.length === 0) {
+    return <div className="text-xs text-muted-foreground">No fields to compare.</div>;
+  }
+  return (
+    <div className="border rounded overflow-hidden">
+      <table className="w-full text-[11px]">
+        <thead className="bg-muted/40">
+          <tr>
+            <th className="text-left px-2 py-1 font-medium">Field</th>
+            <th className="text-left px-2 py-1 font-medium">Observed</th>
+            <th className="text-left px-2 py-1 font-medium">Expected</th>
+          </tr>
+        </thead>
+        <tbody>
+          {keys.map((k) => {
+            const o = obs[k];
+            const e = exp[k];
+            const oStr = fmtVal(o);
+            const eStr = fmtVal(e);
+            const inObs = k in obs;
+            const inExp = k in exp;
+            const mismatch = !inObs || !inExp || oStr !== eStr;
+            return (
+              <tr key={k} className={mismatch ? "bg-destructive/5" : ""}>
+                <td className="px-2 py-1 font-mono align-top">{k}</td>
+                <td className={`px-2 py-1 font-mono align-top ${mismatch && inObs ? "text-destructive" : ""}`}>
+                  {inObs ? oStr : <span className="text-muted-foreground italic">missing</span>}
+                </td>
+                <td className={`px-2 py-1 font-mono align-top ${mismatch && inExp ? "text-foreground" : ""}`}>
+                  {inExp ? eStr : <span className="text-muted-foreground italic">—</span>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
