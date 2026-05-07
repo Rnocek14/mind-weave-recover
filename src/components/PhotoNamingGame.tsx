@@ -237,6 +237,13 @@ export const PhotoNamingGame = ({
    * Captured per-attempt so onTrialLogged can stamp it on adaptation_trial_logs.
    */
   const currentTrialModeRef = useRef<'production' | 'recognition' | 'scaffolded'>('production');
+  /**
+   * True if the patient made (or attempted) a spoken production this trial:
+   * mic became active, ASR returned a transcript, or ASR explicitly returned
+   * silence/no_response. Used to distinguish a *recovery chip tap* (scaffolded
+   * production) from a pure recognition tap. Reset per trial.
+   */
+  const productionAttemptedRef = useRef(false);
   
   // Refs for stall timer closure safety (avoid reading stale state)
   const showFeedbackRef = useRef(showFeedback);
