@@ -60,12 +60,13 @@ export const useSessionHistory = (userId: string | undefined) => {
     setError(null);
 
     try {
-      // Fetch all sessions
+      // Fetch all sessions (excluding superseded duplicates + ghost sweeps)
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("sessions")
         .select("*")
         .eq("user_id", userId)
         .not("ended_at", "is", null)
+        .not("ended_reason", "in", "(superseded,timeout_sweep,stale_auto_closed)")
         .order("ended_at", { ascending: false });
 
       if (sessionsError) throw sessionsError;
@@ -88,18 +89,22 @@ export const useSessionHistory = (userId: string | undefined) => {
 
       if (eventsError) throw eventsError;
 
+      // Fallback sources so Photo Naming / Fix Sentence sessions (which write to
+      // utterance_analyses + adaptation_trial_logs, not exercise_events) still appear.
+      const sessionIds = sessionsData.map((s) => s.id);
+      const [{ data: utterances }, { data: trialLogs }] = await Promise.all([
+        supabase.from("utterance_analyses").select("session_id, exercise_slug, is_correct, latency_ms, created_at, id").in("session_id", sessionIds),
+        supabase.from("adaptation_trial_logs").select("session_id, exercise_slug, correct, reaction_time_ms, created_at, id, difficulty").in("session_id", sessionIds),
+      ]);
+
       // Group events by session and exercise
       const sessionsWithDetails: SessionDetail[] = sessionsData
         .map((session) => {
           const sessionEvents = eventsData?.filter((e) => e.session_id === session.id) || [];
-          
-          // Group by exercise
           const exerciseMap: Record<string, TrialDetail[]> = {};
           sessionEvents.forEach((event) => {
             const slug = event.exercise_slug || "unknown";
-            if (!exerciseMap[slug]) {
-              exerciseMap[slug] = [];
-            }
+            if (!exerciseMap[slug]) exerciseMap[slug] = [];
             exerciseMap[slug].push({
               id: event.id,
               round: event.round,
@@ -113,7 +118,39 @@ export const useSessionHistory = (userId: string | undefined) => {
             });
           });
 
-          // Calculate exercise-level stats
+          // Fallback: synthesize trials from utterance_analyses / adaptation_trial_logs
+          // for sessions that wrote no exercise_events (Photo Naming, Fix Sentence).
+          if (sessionEvents.length === 0) {
+            const sessionUtt = (utterances || []).filter((u) => u.session_id === session.id);
+            const sessionLogs = (trialLogs || []).filter((t) => t.session_id === session.id);
+            sessionUtt.forEach((u, idx) => {
+              const slug = u.exercise_slug || "unknown";
+              if (!exerciseMap[slug]) exerciseMap[slug] = [];
+              exerciseMap[slug].push({
+                id: u.id, round: idx + 1,
+                score: u.is_correct ? 1 : 0,
+                reactionTimeMs: u.latency_ms ?? null,
+                errorType: null, cueLevel: null, taskParameters: {}, outputs: {},
+                createdAt: u.created_at || ""
+              });
+            });
+            sessionLogs.forEach((t, idx) => {
+              const slug = t.exercise_slug || "unknown";
+              if (!exerciseMap[slug]) exerciseMap[slug] = [];
+              // Only add if not already represented by an utterance row
+              if (sessionUtt.length === 0) {
+                exerciseMap[slug].push({
+                  id: t.id, round: idx + 1,
+                  score: t.correct ? 1 : 0,
+                  reactionTimeMs: t.reaction_time_ms ?? null,
+                  errorType: null, cueLevel: null,
+                  taskParameters: { difficulty: t.difficulty }, outputs: {},
+                  createdAt: t.created_at || ""
+                });
+              }
+            });
+          }
+
           const exercises = Object.entries(exerciseMap).map(([slug, trials]) => {
             const correctCount = trials.filter((t) => t.score === 1 || t.score === 100).length;
             return {

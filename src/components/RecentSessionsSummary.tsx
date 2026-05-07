@@ -31,12 +31,13 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
 
     const load = async () => {
       try {
-        // Fetch last 3 completed sessions
+        // Fetch last 3 completed sessions (excluding superseded duplicates + ghost sweeps)
         const { data: sessionsData, error: sessionsError } = await supabase
           .from('sessions')
-          .select('id, started_at, ended_at, duration_sec, caregiver_notes, summary')
+          .select('id, started_at, ended_at, duration_sec, caregiver_notes, summary, ended_reason')
           .eq('profile_id', profileId)
           .not('ended_at', 'is', null)
+          .not('ended_reason', 'in', '(superseded,timeout_sweep,stale_auto_closed)')
           .order('ended_at', { ascending: false })
           .limit(3);
 
@@ -46,22 +47,30 @@ export function RecentSessionsSummary({ userId }: { userId: string }) {
           return;
         }
 
-        // Fetch exercise events for these sessions
+        // Pull from all three sources so games that write to utterance_analyses
+        // or adaptation_trial_logs (Photo Naming, Fix Sentence) are not seen as empty.
         const sessionIds = sessionsData.map(s => s.id);
-        const { data: events } = await supabase
-          .from('exercise_events')
-          .select('session_id, exercise_slug, score')
-          .in('session_id', sessionIds);
+        const [{ data: events }, { data: utterances }, { data: trialLogs }] = await Promise.all([
+          supabase.from('exercise_events').select('session_id, exercise_slug, score').in('session_id', sessionIds),
+          supabase.from('utterance_analyses').select('session_id, exercise_slug, is_correct').in('session_id', sessionIds),
+          supabase.from('adaptation_trial_logs').select('session_id, exercise_slug, correct').in('session_id', sessionIds),
+        ]);
 
         const mapped: RecentSession[] = sessionsData.map(s => {
-          const sessionEvents = (events || []).filter(e => e.session_id === s.id);
           const bySlug: Record<string, { count: number; correct: number }> = {};
-          sessionEvents.forEach(e => {
-            const slug = e.exercise_slug || 'unknown';
-            if (!bySlug[slug]) bySlug[slug] = { count: 0, correct: 0 };
-            bySlug[slug].count++;
-            if (e.score && e.score > 0) bySlug[slug].correct++;
-          });
+          const bump = (slug: string | null | undefined, isCorrect: boolean) => {
+            const key = slug || 'unknown';
+            if (!bySlug[key]) bySlug[key] = { count: 0, correct: 0 };
+            bySlug[key].count++;
+            if (isCorrect) bySlug[key].correct++;
+          };
+          (events || []).filter(e => e.session_id === s.id).forEach(e => bump(e.exercise_slug, !!(e.score && e.score > 0)));
+          // Only fold in utterances/trial_logs for sessions that produced no exercise_events
+          const sawEvents = (events || []).some(e => e.session_id === s.id);
+          if (!sawEvents) {
+            (utterances || []).filter(u => u.session_id === s.id).forEach(u => bump(u.exercise_slug, !!u.is_correct));
+            (trialLogs || []).filter(t => t.session_id === s.id).forEach(t => bump(t.exercise_slug, !!t.correct));
+          }
 
           return {
             id: s.id,
