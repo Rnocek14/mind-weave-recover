@@ -2454,6 +2454,11 @@ export const PhotoNamingGame = ({
       {state.trialNumber === 1 && !showFeedback && (
         <>
           <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+          <ClinicalLevelBadge
+            level={progression.startingLevel}
+            progressPct={progression.state?.progressPct ?? null}
+            className="mx-auto max-w-md"
+          />
           <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
         </>
       )}
