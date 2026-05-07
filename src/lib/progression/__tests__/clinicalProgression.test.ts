@@ -156,3 +156,50 @@ describe('clinicalProgression — session rollup', () => {
     expect(cuedDelta).toBeLessThan(indepDelta);
   });
 });
+
+describe('clinicalProgression — support_baseline hygiene', () => {
+  const struggleSession = () => ({
+    trials: Array.from({ length: 10 }, () => ({
+      correct: false as const,
+      support: 'independent' as const,
+    })),
+    evidenceMet: false,
+  });
+  const successSession = () => ({
+    trials: Array.from({ length: 10 }, () => ({
+      correct: true as const,
+      support: 'independent' as const,
+    })),
+    evidenceMet: false,
+  });
+
+  it('struggle bumps support_baseline up to max 3', () => {
+    let s = defaultProgressionState(ids);
+    for (let i = 0; i < 10; i++) s = applySessionToState(s, struggleSession());
+    expect(s.supportBaseline).toBe(3);
+  });
+
+  it('non-struggle session decays support_baseline by 1', () => {
+    let s = defaultProgressionState(ids);
+    s = applySessionToState(s, struggleSession());
+    s = applySessionToState(s, struggleSession());
+    expect(s.supportBaseline).toBe(2);
+    s = applySessionToState(s, successSession());
+    expect(s.supportBaseline).toBe(1);
+    s = applySessionToState(s, successSession());
+    expect(s.supportBaseline).toBe(0);
+  });
+
+  it('support_baseline never drops below 0', () => {
+    let s = defaultProgressionState(ids);
+    for (let i = 0; i < 10; i++) s = applySessionToState(s, successSession());
+    expect(s.supportBaseline).toBe(0);
+  });
+
+  it('support_baseline never exceeds 3', () => {
+    let s = defaultProgressionState(ids);
+    for (let i = 0; i < 50; i++) s = applySessionToState(s, struggleSession());
+    expect(s.supportBaseline).toBeLessThanOrEqual(3);
+    expect(s.supportBaseline).toBe(3);
+  });
+});
