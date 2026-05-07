@@ -10,6 +10,12 @@ import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
+import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import {
+  resolveEffectiveInitialDifficulty,
+  clinicalLevelToEngineFloor,
+} from '@/lib/progression/photoNamingDifficultyBridge';
+import { mapEngineLevelToPhotoTier, generateChoices, computePhotoTier } from '@/data/photoBank';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -148,7 +154,19 @@ function PhotoNamingExerciseInner() {
     : strugglingWordsFallback?.slice(0, 5) || [];
   
   // Extract adaptations for game configuration — use contract difficulty
-  const initialDifficulty = adaptation.difficultyTier;
+  // Clinical Progression v1 — Step 6 (Photo Naming bridge).
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // In-session adaptation can still escalate above this floor.
+  const progression = usePhotoNamingProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const sessionAdaptationDifficulty = adaptation.difficultyTier;
+  const bridge = resolveEffectiveInitialDifficulty({
+    sessionAdaptationDifficulty,
+    clinicalLevel: progression.startingLevel,
+  });
+  const initialDifficulty = bridge.effective;
   const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
   const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
@@ -360,9 +378,33 @@ function PhotoNamingExerciseInner() {
       });
     }
 
+    // ── DEV-only Clinical Level → Difficulty selection diagnostics ────────
+    if (import.meta.env.DEV) {
+      const tier = mapEngineLevelToPhotoTier(initialDifficulty);
+      const choiceCount = initialDifficulty <= 3 ? 3 : 4;
+      const foilType = initialDifficulty >= 8 ? 'phonological + semantic' : 'semantic';
+      const sampleTrial = selectedTrials.find((t) => !t.isAudioOnly) as PhotoTrial | undefined;
+      const sampleChoices = sampleTrial ? generateChoices(sampleTrial, initialDifficulty) : [];
+      console.groupCollapsed(
+        `[ClinicalBridge] L${progression.startingLevel ?? '?'} → engine ${initialDifficulty} (tier ${tier})`
+      );
+      console.log('clinical level (persistent):', progression.startingLevel);
+      console.log('clinical floor:', bridge.clinicalFloor);
+      console.log('session adaptation difficulty (raw):', sessionAdaptationDifficulty);
+      console.log('effective initial engine difficulty:', initialDifficulty, bridge.raised ? '(raised by clinical floor)' : '');
+      console.log('selected content tier:', tier);
+      console.log('answer choice count:', choiceCount);
+      console.log('foil type:', foilType);
+      console.log('selected targets:', selectedTrials.map((t) => t.target));
+      if (sampleTrial) {
+        console.log('sample trial:', sampleTrial.target, '→ choices:', sampleChoices, '| computed tier:', computePhotoTier(sampleTrial));
+      }
+      console.groupEnd();
+    }
+
     setTrials(selectedTrials);
     setGameKey(prev => prev + 1);
-  }, [photoSource, customPhotos, isLoading, targetedWords.join(','), lessonFocusPhonemes?.join(',')]);
+  }, [photoSource, customPhotos, isLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;
