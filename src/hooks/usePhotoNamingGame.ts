@@ -1,5 +1,21 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PhotoTrial, getTrialsForLevel, generateChoices, PHOTO_BANK } from '@/data/photoBank';
+import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
+
+/**
+ * Future hook: phoneme bias profile. When provided, items containing the
+ * user's struggling phonemes get sorted toward the END of each lane (so pop()
+ * picks them first). Recency exclusion runs BEFORE bias so we never repeat
+ * targets just to satisfy a phoneme target.
+ *
+ *   priority order: difficulty tier → recency exclusion → phoneme bias → shuffle
+ */
+export interface PhonemeBiasProfile {
+  /** Phonemes (e.g. '/k/', '/s/') the user is currently struggling with. */
+  targetPhonemes: string[];
+  /** 0..1 — how aggressively to bias toward target phonemes. Default 0.5. */
+  strength?: number;
+}
 
 // Extended trial type that supports optional imageUrl for audio-only trials
 export interface MixedTrial extends Omit<PhotoTrial, 'imageUrl'> {
