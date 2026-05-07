@@ -6,7 +6,8 @@
 // Auth: requires admin role (or service-role bearer for cron).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { RULES, CHECKLIST_VERSION, ADOPTED_SLUGS, ARCHETYPE_AXIS_ALLOWED } from './rules.ts';
+import { CHECKLIST_VERSION } from './rules.ts';
+import { evalTrial, evalSession, type TrialRow, type AnomalyInsert } from './evaluator.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
