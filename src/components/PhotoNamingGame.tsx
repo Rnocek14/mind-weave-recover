@@ -1861,7 +1861,13 @@ export const PhotoNamingGame = ({
     // INSTANT FEEDBACK: Determine correct/incorrect immediately
     // =====================================================================
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
-    
+
+    // Clinical Progression v1: buffer this trial's outcome for session-end flush.
+    progression.recordTrialOutcome({
+      correct: isCorrectAnswer,
+      support: mapPhotoNamingSupport({ inputMode, cueLevel }),
+    });
+
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
     // Previously bypassed, causing onGameComplete to always report score=0
     selectAnswer(word);
