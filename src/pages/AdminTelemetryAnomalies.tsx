@@ -179,10 +179,21 @@ export default function AdminTelemetryAnomalies() {
           <Button variant="ghost" asChild>
             <Link to="/admin"><ChevronLeft className="w-4 h-4 mr-2" />Back to Admin</Link>
           </Button>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShare}
+              title="Copy link to this filtered view"
+            >
+              {copied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
+              {copied ? "Copied" : "Share view"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div>
@@ -191,6 +202,15 @@ export default function AdminTelemetryAnomalies() {
             Read-only view of detector output. Source of truth: <code>docs/telemetry-validation-checklist.md</code>.
             No enforcement, no gating.
           </p>
+          {isAnomalyFilterActive(filters) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Shared view:</span>
+              {severity !== "all" && <Badge variant="outline" className="font-mono">severity={severity}</Badge>}
+              {rule !== "all" && <Badge variant="outline" className="font-mono">rule={rule}</Badge>}
+              {slug !== "all" && <Badge variant="outline" className="font-mono">slug={slug}</Badge>}
+              {sessionFilter && <Badge variant="outline" className="font-mono">session={sessionFilter.slice(0, 8)}…</Badge>}
+            </div>
+          )}
         </div>
 
         {/* Severity counts */}
