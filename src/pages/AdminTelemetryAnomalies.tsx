@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ExternalLink, Filter } from "lucide-react";
 import { ChevronLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
