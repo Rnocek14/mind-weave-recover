@@ -107,6 +107,13 @@ interface PendingRow {
   narration: string | null;
   escalation_blocked: boolean;
   escalation_block_reason: string | null;
+  trial_mode: string | null;
+  graded_score: number | null;
+  score_vector: Record<string, number> | null;
+  signal_granularity: string | null;
+  scaffold_level: number | null;
+  dominant_axis: string | null;
+  archetype: string | null;
 }
 
 interface AnomalyRow {
