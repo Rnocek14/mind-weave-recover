@@ -42,6 +42,13 @@ const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
         href: "/admin/success-band",
         icon: Target,
       },
+      {
+        title: "Telemetry Anomalies",
+        description: "Detector output: rules, severity, recent runs",
+        href: "/admin/telemetry-anomalies",
+        icon: AlertTriangle,
+        badge: "New",
+      },
     ],
   },
   {
