@@ -2331,6 +2331,12 @@ export const PhotoNamingGame = ({
 
     // Caregiver-rated attempt = scaffolded production (proxy reporter).
     currentTrialModeRef.current = 'scaffolded';
+    // Clinical Progression v1: buffer this caregiver-rated trial. Treated as
+    // scaffolded production at minimum semantic_cue support.
+    progression.recordTrialOutcome({
+      correct,
+      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
+    });
     // Update via in-game adaptation hook (handles difficulty adjustment)
     const adaptationResult = recordTrial({ 
       correct,
