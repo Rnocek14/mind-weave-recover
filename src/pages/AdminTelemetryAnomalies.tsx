@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ExternalLink, Filter } from "lucide-react";
+import { ExternalLink, Filter, Share2, Check } from "lucide-react";
 import { ChevronLeft, RefreshCw, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,26 @@ export default function AdminTelemetryAnomalies() {
   const { severity, rule, slug, session: sessionFilter } = filters;
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const shareUrl = useMemo(() => {
+    const qs = searchParams.toString();
+    const path = "/admin/telemetry-anomalies";
+    if (typeof window === "undefined") return path + (qs ? `?${qs}` : "");
+    return `${window.location.origin}${path}${qs ? `?${qs}` : ""}`;
+  }, [searchParams]);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast({ title: "Link copied", description: "Anomaly view URL copied to clipboard." });
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast({ title: "Copy failed", description: shareUrl, variant: "destructive" });
+    }
+  };
 
   const updateParam = (key: keyof AnomalyFilterShape, value: string | null) => {
     setSearchParams(nextAnomalyFilterParams(searchParams, key, value), { replace: true });
@@ -158,10 +179,21 @@ export default function AdminTelemetryAnomalies() {
           <Button variant="ghost" asChild>
             <Link to="/admin"><ChevronLeft className="w-4 h-4 mr-2" />Back to Admin</Link>
           </Button>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShare}
+              title="Copy link to this filtered view"
+            >
+              {copied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
+              {copied ? "Copied" : "Share view"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div>
@@ -170,6 +202,15 @@ export default function AdminTelemetryAnomalies() {
             Read-only view of detector output. Source of truth: <code>docs/telemetry-validation-checklist.md</code>.
             No enforcement, no gating.
           </p>
+          {isAnomalyFilterActive(filters) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Shared view:</span>
+              {severity !== "all" && <Badge variant="outline" className="font-mono">severity={severity}</Badge>}
+              {rule !== "all" && <Badge variant="outline" className="font-mono">rule={rule}</Badge>}
+              {slug !== "all" && <Badge variant="outline" className="font-mono">slug={slug}</Badge>}
+              {sessionFilter && <Badge variant="outline" className="font-mono">session={sessionFilter.slice(0, 8)}…</Badge>}
+            </div>
+          )}
         </div>
 
         {/* Severity counts */}
