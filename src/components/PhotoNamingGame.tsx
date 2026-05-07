@@ -44,6 +44,10 @@ import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
+import {
+  usePhotoNamingProgression,
+  mapPhotoNamingSupport,
+} from '@/hooks/usePhotoNamingProgression';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -274,6 +278,14 @@ export const PhotoNamingGame = ({
       totalTrials: state.trialNumber,
       startTime: sessionStartTime,
     }), [state.score, state.trialNumber, sessionStartTime]),
+  });
+
+  // Clinical Progression v1 — Step 2 wiring (persistence only).
+  // Reads + writes `clinical_progression_state` for (profile, photo-naming).
+  // Does NOT alter gameplay, cueing, or in-game adaptation.
+  const progression = usePhotoNamingProgression({
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
   });
 
   // Proper attempt-based utterance logging (no duplicates)
@@ -1476,11 +1488,13 @@ export const PhotoNamingGame = ({
         score: state.score,
         gameType: 'PhotoNaming'
       });
+      // Clinical Progression v1: persist updated level/progress for this profile.
+      void progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
       // End session with proper reason tracking
       completeSession();
       onGameComplete(state.score);
     }
-  }, [state.isComplete, state.score, onGameComplete, completeSession]);
+  }, [state.isComplete, state.score, onGameComplete, completeSession, progression, activeSessionId]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
@@ -1849,7 +1863,13 @@ export const PhotoNamingGame = ({
     // INSTANT FEEDBACK: Determine correct/incorrect immediately
     // =====================================================================
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
-    
+
+    // Clinical Progression v1: buffer this trial's outcome for session-end flush.
+    progression.recordTrialOutcome({
+      correct: isCorrectAnswer,
+      support: mapPhotoNamingSupport({ inputMode, cueLevel }),
+    });
+
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
     // Previously bypassed, causing onGameComplete to always report score=0
     selectAnswer(word);
