@@ -154,7 +154,19 @@ function PhotoNamingExerciseInner() {
     : strugglingWordsFallback?.slice(0, 5) || [];
   
   // Extract adaptations for game configuration — use contract difficulty
-  const initialDifficulty = adaptation.difficultyTier;
+  // Clinical Progression v1 — Step 6 (Photo Naming bridge).
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // In-session adaptation can still escalate above this floor.
+  const progression = usePhotoNamingProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const sessionAdaptationDifficulty = adaptation.difficultyTier;
+  const bridge = resolveEffectiveInitialDifficulty({
+    sessionAdaptationDifficulty,
+    clinicalLevel: progression.startingLevel,
+  });
+  const initialDifficulty = bridge.effective;
   const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
   const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
