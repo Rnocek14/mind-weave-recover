@@ -419,6 +419,13 @@ export const PhotoNamingGame = ({
         trialsAtLevel: snap.trialsAtLevel,
         difficultyChange: snap.difficultyChange,
         escalationBlocked: snap.escalationBlocked,
+        // ── Granular mastery telemetry (frozen progression theory v0.3.0-spec) ──
+        // PhotoNaming is the canonical mixed-mode game: production via ASR vs
+        // recognition via choice-pick must NEVER feed expressive mastery as one signal.
+        trialMode: currentTrialModeRef.current,
+        archetype: 'content-expanding',
+        dominantAxis: 'recognition-to-production',
+        signalGranularity: 'boolean',
       });
     },
   });
