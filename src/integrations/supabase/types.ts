@@ -88,6 +88,39 @@ export type Database = {
         }
         Relationships: []
       }
+      adaptation_anomaly_detector_runs: {
+        Row: {
+          anomalies_skipped_dup: number
+          anomalies_written: number
+          checklist_version: string
+          finished_at: string | null
+          id: string
+          notes: string | null
+          started_at: string
+          trials_scanned: number
+        }
+        Insert: {
+          anomalies_skipped_dup?: number
+          anomalies_written?: number
+          checklist_version?: string
+          finished_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          trials_scanned?: number
+        }
+        Update: {
+          anomalies_skipped_dup?: number
+          anomalies_written?: number
+          checklist_version?: string
+          finished_at?: string | null
+          id?: string
+          notes?: string | null
+          started_at?: string
+          trials_scanned?: number
+        }
+        Relationships: []
+      }
       adaptation_events: {
         Row: {
           adaptation_type: string
@@ -156,6 +189,77 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adaptation_trial_log_anomalies: {
+        Row: {
+          checklist_version: string
+          created_at: string
+          detector_run_id: string | null
+          exercise_slug: string | null
+          expected: Json
+          id: string
+          observed: Json
+          resolution_note: string | null
+          resolved_at: string | null
+          rule_id: string
+          scope: string
+          scope_ref_hash: string
+          session_id: string | null
+          severity: string
+          trial_log_id: string | null
+          updated_at: string
+          user_id: string | null
+          window_label: string | null
+        }
+        Insert: {
+          checklist_version?: string
+          created_at?: string
+          detector_run_id?: string | null
+          exercise_slug?: string | null
+          expected?: Json
+          id?: string
+          observed?: Json
+          resolution_note?: string | null
+          resolved_at?: string | null
+          rule_id: string
+          scope: string
+          scope_ref_hash: string
+          session_id?: string | null
+          severity: string
+          trial_log_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          window_label?: string | null
+        }
+        Update: {
+          checklist_version?: string
+          created_at?: string
+          detector_run_id?: string | null
+          exercise_slug?: string | null
+          expected?: Json
+          id?: string
+          observed?: Json
+          resolution_note?: string | null
+          resolved_at?: string | null
+          rule_id?: string
+          scope?: string
+          scope_ref_hash?: string
+          session_id?: string | null
+          severity?: string
+          trial_log_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+          window_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptation_trial_log_anomalies_trial_log_id_fkey"
+            columns: ["trial_log_id"]
+            isOneToOne: false
+            referencedRelation: "adaptation_trial_logs"
             referencedColumns: ["id"]
           },
         ]
