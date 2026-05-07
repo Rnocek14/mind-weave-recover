@@ -924,6 +924,7 @@ export const PhotoNamingGame = ({
 
   useEffect(() => {
     isListeningRef.current = isListening;
+    if (isListening) productionAttemptedRef.current = true;
   }, [isListening]);
 
   const micErrorMessage =
