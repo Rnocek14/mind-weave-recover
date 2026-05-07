@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ExternalLink, Filter } from "lucide-react";
+import { ExternalLink, Filter, Share2, Check } from "lucide-react";
 import { ChevronLeft, RefreshCw, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
