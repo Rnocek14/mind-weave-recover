@@ -54,12 +54,15 @@ export async function flushMasteryShadow(args: {
     const unknownByAdoptedSlug: Record<string, number> = {};
     for (const log of recentLogs ?? []) {
       const verdict = routeTrialMode(log.exercise_slug, log.trial_mode as any);
-      if (verdict === 'excluded') continue;
+      // Allowlist: ONLY 'expressive' may flow into expressive mastery.
+      // Any future verdict (receptive, assisted, exposure, etc.) is skipped
+      // by default until it has explicit handling.
       if (verdict === 'skipped_unknown') {
         unknownByAdoptedSlug[log.exercise_slug] =
           (unknownByAdoptedSlug[log.exercise_slug] ?? 0) + 1;
         continue;
       }
+      if (verdict !== 'expressive') continue;
       const skills = mapTrialToSkills({
         exerciseSlug: log.exercise_slug,
         inputs: { difficulty: log.difficulty ?? null },
