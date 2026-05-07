@@ -106,7 +106,17 @@ export function FixSentenceGame({
     }
   }, [vg.shouldAutoSpeak]);
 
-  const bounds = getCapabilityDifficultyBounds('fix_sentence', null);
+  const baseBounds = getCapabilityDifficultyBounds('fix_sentence', null);
+  // Clinical Progression v1: raise the suggested start (and floor) to honor
+  // the patient's persistent Clinical Level. Adaptive engine can still
+  // escalate above this floor in-session.
+  const bounds = initialDifficultyFloor && initialDifficultyFloor > baseBounds.suggestedStart
+    ? {
+        ...baseBounds,
+        floor: Math.max(baseBounds.floor, initialDifficultyFloor),
+        suggestedStart: Math.min(baseBounds.ceiling, initialDifficultyFloor),
+      }
+    : baseBounds;
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
 
   // Phase 2: engagement monitor for cue dependency / fatigue signals.
