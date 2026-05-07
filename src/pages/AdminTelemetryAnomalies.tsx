@@ -15,6 +15,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  readAnomalyFiltersFromParams,
+  nextAnomalyFilterParams,
+  matchesAnomalyFilter,
+  isAnomalyFilterActive,
+  type AnomalyFilterShape,
+} from "@/lib/telemetry/anomalyFilters";
 
 type Severity = "info" | "warn" | "error";
 
@@ -57,18 +64,13 @@ export default function AdminTelemetryAnomalies() {
   const [runs, setRuns] = useState<DetectorRun[]>([]);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
-  const severity = (searchParams.get("severity") as Severity | null) ?? "all";
-  const rule = searchParams.get("rule") ?? "all";
-  const slug = searchParams.get("slug") ?? "all";
-  const sessionFilter = searchParams.get("session") ?? "";
+  const filters = readAnomalyFiltersFromParams(searchParams);
+  const { severity, rule, slug, session: sessionFilter } = filters;
   const [selected, setSelected] = useState<Anomaly | null>(null);
   const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
 
-  const updateParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(searchParams);
-    if (!value || value === "all" || value === "") next.delete(key);
-    else next.set(key, value);
-    setSearchParams(next, { replace: true });
+  const updateParam = (key: keyof AnomalyFilterShape, value: string | null) => {
+    setSearchParams(nextAnomalyFilterParams(searchParams, key, value), { replace: true });
   };
   const setSeverity = (v: string) => updateParam("severity", v);
   const setRule = (v: string) => updateParam("rule", v);
@@ -130,13 +132,10 @@ export default function AdminTelemetryAnomalies() {
     [anomalies]
   );
 
-  const filtered = useMemo(() => anomalies.filter((a) => {
-    if (severity !== "all" && a.severity !== severity) return false;
-    if (rule !== "all" && a.rule_id !== rule) return false;
-    if (slug !== "all" && a.exercise_slug !== slug) return false;
-    if (sessionFilter && a.session_id !== sessionFilter) return false;
-    return true;
-  }), [anomalies, severity, rule, slug, sessionFilter]);
+  const filtered = useMemo(
+    () => anomalies.filter((a) => matchesAnomalyFilter(a, filters)),
+    [anomalies, filters],
+  );
 
   const counts = useMemo(() => {
     const bySev = { info: 0, warn: 0, error: 0 } as Record<string, number>;
@@ -309,7 +308,7 @@ export default function AdminTelemetryAnomalies() {
                 </div>
               </div>
             )}
-            {(severity !== "all" || rule !== "all" || slug !== "all" || sessionFilter) && (
+            {isAnomalyFilterActive(filters) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear filters
               </Button>
