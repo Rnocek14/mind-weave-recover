@@ -31,7 +31,10 @@ export async function flushMasteryShadow(args: {
   try {
     const { data: sessionLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty')
+      .select(
+        'exercise_slug, correct, cue_level, created_at, session_id, difficulty, ' +
+          'trial_mode, graded_score, score_vector, signal_granularity',
+      )
       .eq('session_id', sessionId);
 
     if (!sessionLogs || sessionLogs.length === 0) return;
@@ -44,14 +47,25 @@ export async function flushMasteryShadow(args: {
     const sinceIso = new Date(Date.now() - 14 * 86400_000).toISOString();
     const { data: recentLogs } = await supabase
       .from('adaptation_trial_logs')
-      .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty')
+      .select(
+        'exercise_slug, correct, cue_level, created_at, session_id, difficulty, ' +
+          'trial_mode, graded_score, score_vector, signal_granularity',
+      )
       .eq('user_id', userId)
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
       .order('created_at', { ascending: true });
 
     const bySkill: Record<string, MasteryTrial[]> = {};
+    const unknownByAdoptedSlug: Record<string, number> = {};
     for (const log of recentLogs ?? []) {
+      const verdict = routeTrialMode(log.exercise_slug, log.trial_mode as any);
+      if (verdict === 'excluded') continue;
+      if (verdict === 'skipped_unknown') {
+        unknownByAdoptedSlug[log.exercise_slug] =
+          (unknownByAdoptedSlug[log.exercise_slug] ?? 0) + 1;
+        continue;
+      }
       const skills = mapTrialToSkills({
         exerciseSlug: log.exercise_slug,
         inputs: { difficulty: log.difficulty ?? null },
@@ -61,11 +75,21 @@ export async function flushMasteryShadow(args: {
         cue_level: log.cue_level ?? 0,
         created_at: log.created_at,
         session_id: log.session_id ?? null,
+        trialMode: (log.trial_mode as any) ?? null,
+        signalGranularity: (log.signal_granularity as any) ?? null,
+        gradedScore: (log as any).graded_score ?? null,
+        scoreVector: (log as any).score_vector ?? null,
       };
       for (const s of skills) {
         if (!bySkill[s]) bySkill[s] = [];
         bySkill[s].push(trial);
       }
+    }
+    for (const [slug, n] of Object.entries(unknownByAdoptedSlug)) {
+      console.warn(
+        `[Mastery] ${n} trial(s) for adopted slug "${slug}" had null/missing ` +
+          `trial_mode and were skipped from expressive mastery.`,
+      );
     }
     const skillList = Object.keys(bySkill);
     if (skillList.length === 0) return;
