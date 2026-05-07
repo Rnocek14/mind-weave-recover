@@ -57,10 +57,10 @@ export function LevelBadge({ descriptor, className, compact = false }: LevelBadg
               pulse && 'ring-2 ring-current ring-offset-1 scale-105',
               className,
             )}
-            aria-label={`Game Level ${level} of 10, ${label}`}
+            aria-label={`Session Difficulty ${level} of 10, ${label}`}
             role="status"
           >
-            <span className="font-semibold tabular-nums">L{level}</span>
+            <span className="font-semibold tabular-nums">D{level}</span>
             <span className="opacity-70 tabular-nums">/ 10</span>
             {!compact && (
               <span className="hidden sm:inline opacity-90">· {label}</span>
@@ -68,7 +68,10 @@ export function LevelBadge({ descriptor, className, compact = false }: LevelBadg
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-          <div className="font-semibold mb-1">Game Level {level} · {label}</div>
+          <div className="font-semibold mb-1">Session Difficulty {level} · {label}</div>
+          <div className="mb-1 opacity-75">
+            Temporary in-session difficulty. Separate from your persistent Clinical Level.
+          </div>
           {levers.length > 0 ? (
             <ul className="list-disc pl-4 space-y-0.5 opacity-90">
               {levers.map((l) => (
