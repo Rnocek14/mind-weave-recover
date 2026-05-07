@@ -308,7 +308,7 @@ export default function AdminTelemetryAnomalies() {
                 </div>
               </div>
             )}
-            {(severity !== "all" || rule !== "all" || slug !== "all" || sessionFilter) && (
+            {isAnomalyFilterActive(filters) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear filters
               </Button>
