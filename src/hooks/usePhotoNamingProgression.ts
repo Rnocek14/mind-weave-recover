@@ -142,6 +142,39 @@ export function usePhotoNamingProgression({
         { trials, evidenceMet }
       );
 
+      if (import.meta.env.DEV) {
+        // Observation-only: inspect support distribution and verdict inputs
+        // before persistence. No data is stored; remove after diagnosis.
+        const supportDist: Record<string, { total: number; correct: number }> = {};
+        for (const t of trials) {
+          const bucket = supportDist[t.support] ?? { total: 0, correct: 0 };
+          bucket.total += 1;
+          if (t.correct) bucket.correct += 1;
+          supportDist[t.support] = bucket;
+        }
+        console.debug('[PhotoNamingProgression] flush diagnostic', {
+          rawTrials: trials,
+          totalTrials: trials.length,
+          supportDistribution: supportDist,
+          independentAttempts: independent.length,
+          independentCorrect,
+          independentAccuracy: Number(independentRate.toFixed(3)),
+          evidenceMet,
+          prev: {
+            level: prev.currentLevel,
+            progressPct: prev.progressPct,
+            supportBaseline: prev.supportBaseline,
+            consecutiveStruggle: prev.consecutiveStruggleSessions,
+          },
+          next: {
+            level: next.currentLevel,
+            progressPct: next.progressPct,
+            supportBaseline: next.supportBaseline,
+            consecutiveStruggle: next.consecutiveStruggleSessions,
+          },
+        });
+      }
+
       const result = await saveProgressionState(next);
       if (result.ok) {
         setState(next);
