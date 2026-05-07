@@ -43,6 +43,10 @@ export default function FixSentenceExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+  /** Set by FixSentenceGame on mount; lets the page await the auto-wired
+   * adaptation_trial_logs flush before navigation. Mirrors the
+   * `flushAdaptationLogs` discipline in PhotoNamingGame. */
+  const flushAdaptationLogsRef = useRef<null | (() => Promise<void>)>(null);
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
