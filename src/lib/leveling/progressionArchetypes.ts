@@ -388,14 +388,6 @@ export function getGameTrialMode(slug: string): TrialMode | null {
 }
 
 // ---------------------------------------------------------------------------
-// Performance-pressure primitives roadmap (spec only)
-//
-// These are the engine capabilities required before any Archetype II or III
-// game can move beyond shadow telemetry into live progression. None exist
-// yet in runtime form.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Dominant-axis declarations per game
 //
 // Recorded as a separate map (not inside GAME_MODIFIERS) so the future
