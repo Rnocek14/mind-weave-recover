@@ -36,8 +36,8 @@ import {
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
 
-/** Spec §2: Photo Naming progression evidence threshold (~70% indep accuracy). */
-const EVIDENCE_INDEPENDENT_ACCURACY_THRESHOLD = 0.7;
+/** Spec §2: legacy constant retained for reference; per-level evidence
+ * thresholds now live in `photoNamingLevels.ts`. */
 
 /** Map an in-session trial outcome to a clinical SupportLevel for Photo Naming. */
 export function mapPhotoNamingSupport(args: {
