@@ -113,6 +113,51 @@ surfaces.
 
 ---
 
+## 4a. Timing semantics for session-scope rules (D1, D2, D3)
+
+D1, D2, and D3 are **session-scope** anomalies. Their inputs
+(production share, recognition share, scaffold share, mode mix) are only
+known once the session has ended and `detect-telemetry-anomalies` has
+run over the session's full trial set.
+
+This has a hard consequence for v1:
+
+- **They cannot retroactively block UP escalations or scaffold
+  withdrawals that already happened in the just-completed session.**
+  By the time the verdict exists, `useInGameAdaptation.recordTrial` has
+  already fired its in-session decisions and the session is closed.
+
+**v1 contract:**
+
+- D1 / D2 / D3 verdicts attach to the **next session** for the same
+  user × slug. Concretely they:
+  1. Suppress next-session UP eligibility on the affected slug
+     (D1, D2), and/or
+  2. Suppress next-session scaffold withdrawal eligibility on the
+     affected slug (D2, D3), and/or
+  3. Optionally lower the next session's starting level by one tier
+     for the affected slug (D2 only, when recognition share is
+     extreme — exact threshold deferred to the implementation PR).
+- The just-completed session's mastery writes are still gated by the
+  per-trial verdicts (drop / annotate / delay) — those operate at
+  trial scope and are unaffected by this clarification.
+
+**Out of scope for v1 (explicitly deferred):**
+
+- Real-time, in-session synthetic mode-share tracking (e.g. a
+  rolling-window estimator that fires a D1/D2-equivalent block mid-session).
+  This would require a separate in-session aggregator, a real-time
+  rule engine on the client, and new client-side state. Worth designing
+  later as "synthetic in-session gating", but it is **not** part of the
+  v1 gate. v1 deliberately accepts one session of latency in exchange
+  for keeping the rule engine purely server-side and post-hoc.
+
+D4–D9 are unaffected by this clarification: D4 already operates at
+session scope (drop session from mastery, naturally post-hoc), and
+D7–D9 are explicitly cross-session by construction.
+
+---
+
 ## 5. Gate function shape (future)
 
 ```ts
