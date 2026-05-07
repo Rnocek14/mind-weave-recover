@@ -178,6 +178,43 @@ export interface ScaffoldLevel {
 export type MasterySignalKind = ArchetypeDefinition['masterySignal'];
 
 /**
+ * Granularity of the per-trial mastery signal.
+ *
+ * The Narrative Retell audit proved that boolean correctness
+ * (`eventCoverage >= 0.3 ? correct : incorrect`) destroys clinically
+ * meaningful information. A 29% retell is NOT "incorrect" — it's a
+ * graded rehabilitation event. Some archetypes (IV, parts of III) MUST
+ * report continuous evidence; collapsing to boolean is a category error.
+ *
+ *   boolean        — trial is correct/incorrect (most Archetype I).
+ *   graded         — trial yields a [0..1] score (coverage, partial credit,
+ *                    pronunciation accuracy). Mastery writer must consume
+ *                    the float, not threshold it.
+ *   multi-dimensional — trial yields a vector of independent scores
+ *                    (e.g. {coverage, coherence, syntactic_complexity}).
+ *                    Each dimension feeds its own mastery axis.
+ */
+export type MasterySignalGranularity =
+  | 'boolean'
+  | 'graded'
+  | 'multi-dimensional';
+
+/**
+ * Which axis dominates progression for a given game. The audit pass
+ * proved this is NOT uniformly "content" — Archetype II games are
+ * dominated by pressure, Archetype IV by scaffold withdrawal, and mixed
+ * Archetype I games (photo_naming) split between content and recognition.
+ *
+ * Used by the future visible_level_projector to weight axes correctly.
+ */
+export type DominantProgressionAxis =
+  | 'content-complexity'
+  | 'pressure-retention'
+  | 'scaffold-independence'
+  | 'recognition-to-production'
+  | 'mixed';
+
+/**
  * Trial-level cognitive mode (refines the obsolete echoIsProduction binary).
  *
  * The Photo Naming audit proved that "did they get it right" is not enough:
@@ -247,6 +284,12 @@ export interface ProgressionContract {
   echoIsProduction: boolean;
 
   masterySignal: MasterySignalKind;
+
+  /** Per-trial signal granularity. Archetype IV MUST be 'graded' or higher. */
+  masterySignalGranularity: MasterySignalGranularity;
+
+  /** Which axis dominates progression for this game. */
+  dominantAxis: DominantProgressionAxis;
 
   /**
    * Projection rule from internal state → visible 1–10.
@@ -345,16 +388,55 @@ export function getGameTrialMode(slug: string): TrialMode | null {
 }
 
 // ---------------------------------------------------------------------------
-// Performance-pressure primitives roadmap (spec only)
+// Dominant-axis declarations per game
 //
-// These are the engine capabilities required before any Archetype II or III
-// game can move beyond shadow telemetry into live progression. None exist
-// yet in runtime form.
+// Recorded as a separate map (not inside GAME_MODIFIERS) so the future
+// visible-level projector can be unit-tested archetype-by-archetype.
 // ---------------------------------------------------------------------------
 
-export const PRESSURE_PRIMITIVES_ROADMAP = [
+export const GAME_DOMINANT_AXIS: Record<string, DominantProgressionAxis> = {
+  // Archetype I — content is the dominant axis
+  sentence_construction: 'content-complexity',
+  fix_sentence:          'content-complexity',
+  two_clues:             'content-complexity',
+  meaning_match:         'content-complexity',
+  semantic_features:     'content-complexity',
+  synonym_generator:     'content-complexity',
+  abstract_compare:      'content-complexity',
+  describe_guess:        'content-complexity',
+
+  // Archetype I + recognition modifier
+  photo_naming: 'recognition-to-production',
+
+  // Archetype II — pressure dominates over finite content
+  minimal_pairs:          'pressure-retention',
+  phonological_awareness: 'pressure-retention',
+
+  // Archetype III — mixed weighting per game
+  detective_mind:      'mixed',
+  dual_load_naming:    'mixed',
+  multi_step_planning: 'mixed',
+
+  // Archetype IV — scaffold withdrawal IS the difficulty axis
+  narrative_retell: 'scaffold-independence',
+};
+
+// ---------------------------------------------------------------------------
+// Progression primitives roadmap (spec only)
+//
+// Renamed from PRESSURE_PRIMITIVES_ROADMAP after the four-archetype audit
+// pass: pressure is only one of several first-class progression
+// mechanisms. Scaffolding, recognition/production routing, continuous
+// mastery, and visible-level projection are equally fundamental.
+//
+// None exist yet in runtime form. Live archetype rollout is gated on
+// these primitives plus per-archetype bank floors.
+// ---------------------------------------------------------------------------
+
+export const PROGRESSION_PRIMITIVES_ROADMAP = [
   {
     id: 'response_window_timer',
+    family: 'pressure',
     description:
       'Per-trial soft timer that records RT and optionally fails the trial ' +
       'after a window. Must integrate with the existing trial logger.',
@@ -362,6 +444,7 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
   },
   {
     id: 'snr_noise_injector',
+    family: 'pressure',
     description:
       'Audio mixer that overlays calibrated noise (white / babble / ' +
       'competing-talker) at target SNR before TTS playback.',
@@ -369,6 +452,7 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
   },
   {
     id: 'dynamic_distractor_count',
+    family: 'pressure',
     description:
       'Generic AFC widget that takes a target + distractor pool and a ' +
       'count derived from the pressure dial.',
@@ -376,6 +460,7 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
   },
   {
     id: 'per_trial_mode_tag',
+    family: 'recognition-vs-production',
     description:
       'Replaces the obsolete echoIsProduction binary. Per-trial TrialMode ' +
       '(production / recognition / exposure / scaffolded). Mastery writer ' +
@@ -389,13 +474,48 @@ export const PRESSURE_PRIMITIVES_ROADMAP = [
     ],
   },
   {
+    id: 'scaffold_state_machine',
+    family: 'scaffolding',
+    description:
+      'Cross-session scaffold ladder for Archetype IV (and scaffold-faded ' +
+      'Archetype I) games. Tracks the current scaffold level per ' +
+      '(profile, skill) and withdraws support across sessions, not just ' +
+      'within a trial. Distinct from cue-level: scaffolds are content ' +
+      'support (outline, replay, propositions), not lexical hints.',
+    blockers: [
+      'no persistent scaffold-level store',
+      'narrative_retell currently re-resolves scaffold per session',
+      'no cross-session withdrawal policy defined',
+    ],
+  },
+  {
+    id: 'continuous_mastery_signal',
+    family: 'mastery-semantics',
+    description:
+      'First-class graded mastery evidence. Trial logger and mastery ' +
+      'writer must accept and persist a [0..1] score (and, for ' +
+      'multi-dimensional games, a named score vector) WITHOUT thresholding ' +
+      'to boolean upstream. The Narrative Retell coverage>=0.3 collapse ' +
+      'is the canonical anti-pattern this primitive eliminates.',
+    blockers: [
+      'mastery writer currently consumes boolean isCorrect only',
+      'exercise_events lacks a graded_score / score_vector column',
+      'no agreed schema for multi-dimensional discourse scores',
+    ],
+  },
+  {
     id: 'visible_level_projector',
+    family: 'projection',
     description:
       'Per-archetype function projecting internal state (tier, dial step, ' +
-      'scaffold level) onto the universal visible 1–10.',
+      'scaffold level, mode mix) onto the universal visible 1–10. The ' +
+      'only place the 1–10 facade is allowed to be computed.',
     blockers: ['no projection layer exists'],
   },
 ] as const;
+
+/** @deprecated Use PROGRESSION_PRIMITIVES_ROADMAP. Kept for one cleanup pass. */
+export const PRESSURE_PRIMITIVES_ROADMAP = PROGRESSION_PRIMITIVES_ROADMAP;
 
 // ---------------------------------------------------------------------------
 // Locked architectural decisions (recorded here for future PRs)
@@ -406,8 +526,19 @@ export const ARCHITECTURE_DECISIONS = {
   displayContract: 'universal-1-to-10-facade', // never expose tier × dial
   internalContract: 'archetype-specific',
   trialModeContract: 'per-trial-TrialMode-required-for-mixed-mode-games',
+  masterySignalContract: 'graded-required-for-archetype-IV-no-boolean-collapse',
+  dominantAxisContract: 'per-game-declared-not-uniformly-content',
+  scaffoldContract: 'cross-session-state-machine-not-within-trial-only',
+  primitivesScope: 'progression-primitives-not-just-pressure', // family-tagged roadmap
   firstLiveRollout: 'sentence_construction',   // cleanest Archetype I ladder
   rolloutGate: 'shadow-only-until-archetype-infra-and-bank-floors-met',
+  /**
+   * THEORY-LAYER FREEZE (post Archetype I+II+IV validation pass).
+   * Auditing temporarily paused. Spec consolidation is the active phase.
+   * No new archetype taxonomy changes without a re-audit trigger.
+   */
+  theoryLayerStatus: 'frozen-pending-implementation',
 } as const;
 
-export const PROGRESSION_ARCHETYPES_VERSION = '0.2.0-spec';
+export const PROGRESSION_ARCHETYPES_VERSION = '0.3.0-spec';
+
