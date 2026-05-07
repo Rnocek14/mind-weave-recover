@@ -1875,9 +1875,19 @@ export const PhotoNamingGame = ({
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
 
     // Clinical Progression v1: buffer this trial's outcome for session-end flush.
+    // Bug fix: a chip tap (inputMode='recognition') after an attempted spoken
+    // production (mic was active / ASR returned silence) is *scaffolded
+    // production*, not pure recognition. Route through resolvePhotoNamingChipSupport.
+    const supportLevel =
+      inputMode === 'recognition'
+        ? resolvePhotoNamingChipSupport({
+            productionAttempted: productionAttemptedRef.current,
+            cueLevel,
+          })
+        : mapPhotoNamingSupport({ inputMode, cueLevel });
     progression.recordTrialOutcome({
       correct: isCorrectAnswer,
-      support: mapPhotoNamingSupport({ inputMode, cueLevel }),
+      support: supportLevel,
     });
 
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
