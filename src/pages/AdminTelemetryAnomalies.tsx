@@ -58,6 +58,32 @@ export default function AdminTelemetryAnomalies() {
   const [severity, setSeverity] = useState<Severity | "all">("all");
   const [rule, setRule] = useState<string>("all");
   const [slug, setSlug] = useState<string>("all");
+  const [selected, setSelected] = useState<Anomaly | null>(null);
+  const [detail, setDetail] = useState<{ trial: Record<string, unknown> | null; related: Anomaly[]; loading: boolean }>({ trial: null, related: [], loading: false });
+
+  const openDetail = async (a: Anomaly) => {
+    setSelected(a);
+    setDetail({ trial: null, related: [], loading: true });
+    const [trialRes, relatedRes] = await Promise.all([
+      a.trial_log_id
+        ? supabase.from("adaptation_trial_logs").select("*").eq("id", a.trial_log_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      a.session_id
+        ? supabase
+            .from("adaptation_trial_log_anomalies")
+            .select("*")
+            .eq("session_id", a.session_id)
+            .neq("id", a.id)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] }),
+    ]);
+    setDetail({
+      trial: (trialRes.data as Record<string, unknown> | null) ?? null,
+      related: (relatedRes.data ?? []) as Anomaly[],
+      loading: false,
+    });
+  };
 
   const load = async () => {
     setLoading(true);
