@@ -143,6 +143,12 @@ export interface SessionRollupInput {
    */
   evidenceMet: boolean;
   trialWeight?: number;
+  /**
+   * Optional caller-computed progress delta (0–100 points). When provided,
+   * overrides the generic `calculateProgressDelta`. Used by games with
+   * level-specific weighting (e.g. Photo Naming).
+   */
+  progressDelta?: number;
 }
 
 /**
@@ -163,9 +169,10 @@ export function applySessionToState(
   const wasStruggleSession =
     input.trials.length > 0 && struggleCount / input.trials.length >= 0.5;
 
-  const delta = calculateProgressDelta(input.trials, {
-    trialWeight: input.trialWeight,
-  });
+  const delta =
+    typeof input.progressDelta === 'number'
+      ? input.progressDelta
+      : calculateProgressDelta(input.trials, { trialWeight: input.trialWeight });
 
   let nextProgress = clampProgress(prev.progressPct + delta);
   let nextLevel = clampLevel(prev.currentLevel);

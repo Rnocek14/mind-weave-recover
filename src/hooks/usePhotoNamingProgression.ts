@@ -28,11 +28,16 @@ import {
   type ClinicalProgressionState,
   type SupportLevel,
 } from '@/lib/progression/clinicalProgression';
+import {
+  calculateLevelAwareProgressDelta,
+  evidenceMetForLevel,
+  getPhotoNamingLevelSpec,
+} from '@/lib/progression/photoNamingLevels';
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
 
-/** Spec §2: Photo Naming progression evidence threshold (~70% indep accuracy). */
-const EVIDENCE_INDEPENDENT_ACCURACY_THRESHOLD = 0.7;
+/** Spec §2: legacy constant retained for reference; per-level evidence
+ * thresholds now live in `photoNamingLevels.ts`. */
 
 /** Map an in-session trial outcome to a clinical SupportLevel for Photo Naming. */
 export function mapPhotoNamingSupport(args: {
@@ -154,23 +159,21 @@ export function usePhotoNamingProgression({
           exerciseSlug: PHOTO_NAMING_SLUG,
         });
 
-      // Evidence: only fully independent attempts count toward the threshold.
-      const independent = trials.filter((t) => t.support === 'independent');
-      const independentCorrect = independent.filter((t) => t.correct).length;
-      const independentRate =
-        independent.length > 0 ? independentCorrect / independent.length : 0;
-      const evidenceMet =
-        independent.length >= 5 &&
-        independentRate >= EVIDENCE_INDEPENDENT_ACCURACY_THRESHOLD;
+      // Level-aware evidence + progress: each clinical level defines its own
+      // "on-target" support tier and accuracy bar. Scaffolded chip recovery
+      // graduates Level 1 (its training target) but NOT Level 4+
+      // (independent naming).
+      const level = prev.currentLevel;
+      const levelSpec = getPhotoNamingLevelSpec(level);
+      const evidenceMet = evidenceMetForLevel(trials, level);
+      const progressDelta = calculateLevelAwareProgressDelta(trials, level);
 
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        { trials, evidenceMet }
+        { trials, evidenceMet, progressDelta }
       );
 
       if (import.meta.env.DEV) {
-        // Observation-only: inspect support distribution and verdict inputs
-        // before persistence. No data is stored; remove after diagnosis.
         const supportDist: Record<string, { total: number; correct: number }> = {};
         for (const t of trials) {
           const bucket = supportDist[t.support] ?? { total: 0, correct: 0 };
@@ -182,9 +185,14 @@ export function usePhotoNamingProgression({
           rawTrials: trials,
           totalTrials: trials.length,
           supportDistribution: supportDist,
-          independentAttempts: independent.length,
-          independentCorrect,
-          independentAccuracy: Number(independentRate.toFixed(3)),
+          level,
+          levelSpec: {
+            description: levelSpec.description,
+            targetSupport: levelSpec.targetSupport,
+            minOnTargetAttempts: levelSpec.minOnTargetAttempts,
+            minOnTargetAccuracy: levelSpec.minOnTargetAccuracy,
+          },
+          progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
           prev: {
             level: prev.currentLevel,
@@ -210,7 +218,7 @@ export function usePhotoNamingProgression({
             from: { level: prev.currentLevel, pct: prev.progressPct },
             to: { level: next.currentLevel, pct: next.progressPct },
             evidenceMet,
-            independentRate,
+            progressDelta,
             trials: trials.length,
           });
         }
