@@ -142,9 +142,36 @@ export default function FixSentenceExercise() {
       },
       validity,
     });
-  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
-  const handleGameComplete = useCallback((results: FixSentenceTrialResult[]) => {
+    // Clinical Progression v1: buffer this trial for end-of-session flush.
+    // Speech / typed entries are both `open_response` (no choice scaffolding
+    // is offered today). Partial credit does NOT count as correct.
+    progression.recordTrialOutcome({
+      correct: result.isCorrect,
+      support: 'open_response',
+    });
+  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes, progression]);
+
+  const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
+    // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
+    // auto-wired adaptation_trial_logs buffer BEFORE persisting progression
+    // and navigating, so the last trial isn't lost when the component unmounts.
+    try { await flushAdaptationLogsRef.current?.(); } catch (err) {
+      console.warn('[FixSentenceExercise] adaptation flush error', err);
+    }
+
+    if (import.meta.env.DEV) {
+      const buffered = (progression as any)?.__bufferedTrialCount?.();
+      console.groupCollapsed('[FixSentence][AccountingDiagnostic]');
+      console.log('expectedTrialCount:', validationTrialCount);
+      console.log('completedTrialResults:', results.length);
+      console.log('progressionBufferedTrials:', buffered ?? '(unavailable)');
+      console.log('clinicalFloor:', bridge.clinicalFloor, 'raised:', bridge.raised);
+      console.groupEnd();
+    }
+
+    await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
+
     setCompleted(true);
     completeSession();
 
@@ -156,7 +183,7 @@ export default function FixSentenceExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, progression, activeSessionId, validationTrialCount, bridge, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
