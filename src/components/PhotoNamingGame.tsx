@@ -1569,6 +1569,8 @@ export const PhotoNamingGame = ({
     playTimeout();
     
     
+    // Timeout = failed production attempt (mic was open, no/late response).
+    currentTrialModeRef.current = 'production';
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ correct: false, timedOut: true });
     engagement.recordTrial({
