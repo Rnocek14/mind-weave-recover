@@ -57,7 +57,7 @@ The gate is NOT:
 | Surface | What the gate decides | Default behavior today |
 |---|---|---|
 | **Mastery shadow writes** (`flushMasteryShadow`) | whether a trial contributes to skill mastery deltas | always writes |
-| **Level progression** (`drillTriggerEvaluator` UP path) | whether an UP escalation is allowed | already gated by cue-dependency safety gate; new rules layer on top |
+| **Level progression** (in-game UP path: `useInGameAdaptation.recordTrial`) | whether an UP escalation is allowed | already gated by cue-dependency safety gate; new rules layer on top |
 | **Visible progress UI** (Glance Cards: Progress, Levels) | whether displayed progress reflects this session | always reflects |
 | **Scaffold withdrawal** (per-slug scaffold_level decreases) | whether withdrawal is permitted | always permitted |
 | **Live progression rollout** (future) | whether longitudinal mastery becomes user-visible | not rolled out |
