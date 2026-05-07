@@ -49,6 +49,27 @@ export interface TrialLogInput {
     label: string;
     reason?: string;
   } | null;
+  /**
+   * Granular mastery telemetry (frozen progression theory v0.3.0-spec).
+   * All fields are optional — writers adopt them per game as the
+   * archetype rollout progresses. Validated by a soft DB trigger.
+   */
+  trialMode?: 'production' | 'recognition' | 'exposure' | 'scaffolded' | 'mixed' | null;
+  /** Continuous [0..1] evidence; do NOT threshold upstream. */
+  gradedScore?: number | null;
+  /** Multi-dimensional named scores (e.g. {coverage, coherence}). */
+  scoreVector?: Record<string, number> | null;
+  signalGranularity?: 'boolean' | 'graded' | 'multi-dimensional' | null;
+  /** Open-ended scaffold rung (0 = full support, higher = less). */
+  scaffoldLevel?: number | null;
+  dominantAxis?:
+    | 'content-complexity'
+    | 'pressure-retention'
+    | 'scaffold-independence'
+    | 'recognition-to-production'
+    | 'mixed'
+    | null;
+  archetype?: 'content-expanding' | 'performance-pressure' | 'hybrid' | 'open-ended' | null;
 }
 
 interface Options {
