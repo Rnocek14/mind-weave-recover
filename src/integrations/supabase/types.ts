@@ -745,6 +745,54 @@ export type Database = {
           },
         ]
       }
+      clinical_progression_state: {
+        Row: {
+          consecutive_struggle_sessions: number
+          consecutive_success_sessions: number
+          created_at: string
+          current_level: number
+          exercise_slug: string
+          id: string
+          last_session_id: string | null
+          last_updated_at: string
+          profile_id: string
+          progress_pct: number
+          stable_level: number
+          support_baseline: number
+          user_id: string
+        }
+        Insert: {
+          consecutive_struggle_sessions?: number
+          consecutive_success_sessions?: number
+          created_at?: string
+          current_level?: number
+          exercise_slug: string
+          id?: string
+          last_session_id?: string | null
+          last_updated_at?: string
+          profile_id: string
+          progress_pct?: number
+          stable_level?: number
+          support_baseline?: number
+          user_id: string
+        }
+        Update: {
+          consecutive_struggle_sessions?: number
+          consecutive_success_sessions?: number
+          created_at?: string
+          current_level?: number
+          exercise_slug?: string
+          id?: string
+          last_session_id?: string | null
+          last_updated_at?: string
+          profile_id?: string
+          progress_pct?: number
+          stable_level?: number
+          support_baseline?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       clinician_assignments: {
         Row: {
           assigned_at: string
