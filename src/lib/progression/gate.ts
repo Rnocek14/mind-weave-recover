@@ -309,7 +309,7 @@ function applyPolicyForRule(
   ruleId: string,
   surface: GateSurface,
 ): RuleHit | null {
-  const policy = POLICY[ruleId];
+  const policy = __INTERNAL_POLICY[ruleId];
   if (!policy) return null;
   const entry = policy[surface];
   if (!entry) return null;
