@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { ChevronLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -339,7 +340,20 @@ export default function AdminTelemetryAnomalies() {
                 <div className="space-y-4 mt-2">
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div><span className="text-muted-foreground">Slug:</span> {selected.exercise_slug ?? "—"}</div>
-                    <div><span className="text-muted-foreground">Session:</span> <span className="font-mono">{selected.session_id ?? "—"}</span></div>
+                    <div>
+                      <span className="text-muted-foreground">Session:</span>{" "}
+                      {selected.session_id ? (
+                        <Link
+                          to={`/admin/telemetry-anomalies/session/${selected.session_id}`}
+                          className="font-mono text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          {selected.session_id.slice(0, 8)}…
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      ) : (
+                        <span className="font-mono">—</span>
+                      )}
+                    </div>
                     <div><span className="text-muted-foreground">User:</span> <span className="font-mono">{selected.user_id ?? "—"}</span></div>
                     <div><span className="text-muted-foreground">Trial log:</span> <span className="font-mono">{selected.trial_log_id ?? "—"}</span></div>
                     <div><span className="text-muted-foreground">Detector run:</span> <span className="font-mono">{selected.detector_run_id ?? "—"}</span></div>
