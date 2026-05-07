@@ -152,7 +152,7 @@ export function usePhotoNamingProgression({
           if (t.correct) bucket.correct += 1;
           supportDist[t.support] = bucket;
         }
-        console.debug('[PhotoNamingProgression] flush diagnostic', {
+        console.log('[PhotoNamingProgression] flush diagnostic', {
           rawTrials: trials,
           totalTrials: trials.length,
           supportDistribution: supportDist,
