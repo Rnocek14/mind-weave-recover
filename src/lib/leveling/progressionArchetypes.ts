@@ -526,8 +526,19 @@ export const ARCHITECTURE_DECISIONS = {
   displayContract: 'universal-1-to-10-facade', // never expose tier × dial
   internalContract: 'archetype-specific',
   trialModeContract: 'per-trial-TrialMode-required-for-mixed-mode-games',
+  masterySignalContract: 'graded-required-for-archetype-IV-no-boolean-collapse',
+  dominantAxisContract: 'per-game-declared-not-uniformly-content',
+  scaffoldContract: 'cross-session-state-machine-not-within-trial-only',
+  primitivesScope: 'progression-primitives-not-just-pressure', // family-tagged roadmap
   firstLiveRollout: 'sentence_construction',   // cleanest Archetype I ladder
   rolloutGate: 'shadow-only-until-archetype-infra-and-bank-floors-met',
+  /**
+   * THEORY-LAYER FREEZE (post Archetype I+II+IV validation pass).
+   * Auditing temporarily paused. Spec consolidation is the active phase.
+   * No new archetype taxonomy changes without a re-audit trigger.
+   */
+  theoryLayerStatus: 'frozen-pending-implementation',
 } as const;
 
-export const PROGRESSION_ARCHETYPES_VERSION = '0.2.0-spec';
+export const PROGRESSION_ARCHETYPES_VERSION = '0.3.0-spec';
+
