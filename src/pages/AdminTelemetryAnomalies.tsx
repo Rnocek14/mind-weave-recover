@@ -299,7 +299,7 @@ export default function AdminTelemetryAnomalies() {
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground text-sm">No anomalies</TableCell></TableRow>
                 )}
                 {filtered.map((a) => (
-                  <TableRow key={a.id}>
+                  <TableRow key={a.id} className="cursor-pointer hover:bg-accent/40" onClick={() => openDetail(a)}>
                     <TableCell className="text-xs whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</TableCell>
                     <TableCell className="font-mono text-xs">{a.rule_id}</TableCell>
                     <TableCell><Badge variant={SEVERITY_VARIANT[a.severity] ?? "secondary"} className="capitalize">{a.severity}</Badge></TableCell>
@@ -317,9 +317,91 @@ export default function AdminTelemetryAnomalies() {
             </Table>
           </div>
           <p className="text-[11px] text-muted-foreground mt-3">
-            Showing latest 500 anomalies. Filters apply client-side.
+            Showing latest 500 anomalies. Click a row for details. Filters apply client-side.
           </p>
         </Card>
+
+        <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            {selected && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <span className="font-mono">{selected.rule_id}</span>
+                    <Badge variant={SEVERITY_VARIANT[selected.severity] ?? "secondary"} className="capitalize">{selected.severity}</Badge>
+                    <span className="text-xs text-muted-foreground">{selected.scope}</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {new Date(selected.created_at).toLocaleString()} · checklist {selected.checklist_version ?? "—"}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 mt-2">
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div><span className="text-muted-foreground">Slug:</span> {selected.exercise_slug ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Session:</span> <span className="font-mono">{selected.session_id ?? "—"}</span></div>
+                    <div><span className="text-muted-foreground">User:</span> <span className="font-mono">{selected.user_id ?? "—"}</span></div>
+                    <div><span className="text-muted-foreground">Trial log:</span> <span className="font-mono">{selected.trial_log_id ?? "—"}</span></div>
+                    <div><span className="text-muted-foreground">Detector run:</span> <span className="font-mono">{selected.detector_run_id ?? "—"}</span></div>
+                    <div><span className="text-muted-foreground">Resolved:</span> {selected.resolved_at ? new Date(selected.resolved_at).toLocaleString() : "—"}</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs font-semibold mb-1">Observed</div>
+                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.observed, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold mb-1">Expected</div>
+                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto">{JSON.stringify(selected.expected, null, 2)}</pre>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold mb-1">Trial log payload</div>
+                    {detail.loading ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
+                    ) : detail.trial ? (
+                      <pre className="text-[11px] bg-muted/50 p-2 rounded overflow-x-auto max-h-64">{JSON.stringify(detail.trial, null, 2)}</pre>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No trial row (session-scope anomaly or trial deleted).</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold mb-1">Related anomalies in same session ({detail.related.length})</div>
+                    {detail.related.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">None.</div>
+                    ) : (
+                      <div className="border rounded">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">When</TableHead>
+                              <TableHead className="text-xs">Rule</TableHead>
+                              <TableHead className="text-xs">Severity</TableHead>
+                              <TableHead className="text-xs">Scope</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {detail.related.map((r) => (
+                              <TableRow key={r.id} className="cursor-pointer" onClick={() => openDetail(r)}>
+                                <TableCell className="text-[11px]">{new Date(r.created_at).toLocaleString()}</TableCell>
+                                <TableCell className="font-mono text-[11px]">{r.rule_id}</TableCell>
+                                <TableCell><Badge variant={SEVERITY_VARIANT[r.severity] ?? "secondary"} className="capitalize text-[10px]">{r.severity}</Badge></TableCell>
+                                <TableCell className="text-[11px]">{r.scope}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
