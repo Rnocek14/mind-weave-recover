@@ -60,12 +60,13 @@ export const useSessionHistory = (userId: string | undefined) => {
     setError(null);
 
     try {
-      // Fetch all sessions
+      // Fetch all sessions (excluding superseded duplicates + ghost sweeps)
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("sessions")
         .select("*")
         .eq("user_id", userId)
         .not("ended_at", "is", null)
+        .not("ended_reason", "in", "(superseded,timeout_sweep,stale_auto_closed)")
         .order("ended_at", { ascending: false });
 
       if (sessionsError) throw sessionsError;
