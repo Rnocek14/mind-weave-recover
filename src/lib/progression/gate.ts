@@ -138,7 +138,7 @@ type PerSurfacePolicy = Partial<
  * Rules absent from this table entirely contribute `pass` everywhere
  * (so unknown future rules cannot silently start gating).
  */
-const POLICY: Record<string, PerSurfacePolicy> = {
+export const __INTERNAL_POLICY: Record<string, PerSurfacePolicy> = {
   // Schema invariants — corrupt trials cannot be trusted for any purpose.
   S1: { mastery_write: { decision: 'drop', reason: 'schema_invariant' } },
   S2: { mastery_write: { decision: 'drop', reason: 'schema_invariant' } },
