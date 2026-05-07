@@ -287,8 +287,20 @@ export default function AdminTelemetryAnomalies() {
                 </SelectContent>
               </Select>
             </div>
-            {(severity !== "all" || rule !== "all" || slug !== "all") && (
-              <Button variant="ghost" size="sm" onClick={() => { setSeverity("all"); setRule("all"); setSlug("all"); }}>
+            {sessionFilter && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Session</label>
+                <div className="flex items-center gap-1 h-9 px-2 rounded border bg-muted/30">
+                  <Filter className="w-3 h-3 text-muted-foreground" />
+                  <span className="font-mono text-xs">{sessionFilter.slice(0, 8)}…</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setSessionFilter("")}>
+                    clear
+                  </Button>
+                </div>
+              </div>
+            )}
+            {(severity !== "all" || rule !== "all" || slug !== "all" || sessionFilter) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear filters
               </Button>
             )}
