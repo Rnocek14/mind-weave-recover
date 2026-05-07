@@ -280,6 +280,14 @@ export const PhotoNamingGame = ({
     }), [state.score, state.trialNumber, sessionStartTime]),
   });
 
+  // Clinical Progression v1 — Step 2 wiring (persistence only).
+  // Reads + writes `clinical_progression_state` for (profile, photo-naming).
+  // Does NOT alter gameplay, cueing, or in-game adaptation.
+  const progression = usePhotoNamingProgression({
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
+  });
+
   // Proper attempt-based utterance logging (no duplicates)
   const { 
     currentAttemptId, 
