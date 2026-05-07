@@ -5,7 +5,7 @@
 // Run with: lovable-exec test or deno test (via supabase--test_edge_functions).
 
 import { assertEquals, assert } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { evalTrial, evalSession, type TrialRow } from './evaluator.ts';
+import { evalTrial, evalSession, evalWindow, type TrialRow, type SessionAggregate } from './evaluator.ts';
 
 const RUN_ID = '00000000-0000-0000-0000-000000000001';
 
