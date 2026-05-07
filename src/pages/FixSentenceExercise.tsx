@@ -67,6 +67,18 @@ export default function FixSentenceExercise() {
     EXERCISE_SLUG
   );
 
+  // Clinical Progression v1 — Fix Sentence persistence + bridge.
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // In-session adaptation can still escalate above this floor.
+  const progression = useFixSentenceProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveFixSentenceInitialDifficulty({
+    sessionAdaptationDifficulty: 1,
+    clinicalLevel: progression.startingLevel,
+  });
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
     totalTrials: trialsRef.current,
