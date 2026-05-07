@@ -28,6 +28,11 @@ import {
   type ClinicalProgressionState,
   type SupportLevel,
 } from '@/lib/progression/clinicalProgression';
+import {
+  calculateLevelAwareProgressDelta,
+  evidenceMetForLevel,
+  getPhotoNamingLevelSpec,
+} from '@/lib/progression/photoNamingLevels';
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
 
