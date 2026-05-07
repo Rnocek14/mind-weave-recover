@@ -44,6 +44,10 @@ import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
+import {
+  usePhotoNamingProgression,
+  mapPhotoNamingSupport,
+} from '@/hooks/usePhotoNamingProgression';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
