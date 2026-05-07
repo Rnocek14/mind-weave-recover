@@ -142,3 +142,154 @@ export function evalSession(slug: string, sessionId: string, userId: string | nu
   }
   return out;
 }
+
+// ---------- Cross-session trajectory (D8, D9) ----------
+
+export interface SessionAggregate {
+  session_id: string;
+  started_at: string;            // ISO
+  trials_total: number;
+  production_count: number;
+  recognition_count: number;
+  scaffolded_count: number;
+  exposure_count: number;
+  scaffold_level_mean: number | null;     // mean across all scored trials
+  production_correct: number;             // # correct production trials
+  production_total: number;               // # production trials
+}
+
+export interface WindowEvalInput {
+  slug: string;
+  userId: string;
+  sessions: SessionAggregate[];           // chronological, oldest → newest
+}
+
+const WINDOW_MIN_SESSIONS = 8;
+const WINDOW_LABEL_PREFIX = 'last_';
+
+/**
+ * Pure cross-session evaluator. Operates on already-aggregated session
+ * summaries for one (user, slug). Caller is responsible for selecting
+ * the recent window (typically the most recent 8–12 sessions) and only
+ * calling for adopted slugs.
+ *
+ * Detection method: split the window into earlier half vs later half and
+ * compare means. This is intentionally simple — D8/D9 are observation-only
+ * for now; no gating consumes them.
+ */
+export function evalWindow(input: WindowEvalInput, runId: string): AnomalyInsert[] {
+  const out: AnomalyInsert[] = [];
+  const { slug, userId, sessions } = input;
+  if (!ADOPTED_SLUGS.has(slug)) return out;
+  if (sessions.length < WINDOW_MIN_SESSIONS) return out;
+
+  const n = sessions.length;
+  const windowLabel = `${WINDOW_LABEL_PREFIX}${n}_sessions`;
+  const half = Math.floor(n / 2);
+  const earlier = sessions.slice(0, half);
+  const later = sessions.slice(n - half); // symmetric halves; ignores middle row when n is odd
+
+  const meanScaffold = (rows: SessionAggregate[]): number | null => {
+    const vals = rows.map((r) => r.scaffold_level_mean).filter((v): v is number => v !== null);
+    if (vals.length === 0) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+
+  const meanProductionAccuracy = (rows: SessionAggregate[]): number | null => {
+    let pc = 0, pt = 0;
+    for (const r of rows) { pc += r.production_correct; pt += r.production_total; }
+    return pt > 0 ? pc / pt : null;
+  };
+
+  const meanShare = (rows: SessionAggregate[], field: 'production_count' | 'scaffolded_count'): number | null => {
+    let num = 0, denom = 0;
+    for (const r of rows) {
+      const scored = r.production_count + r.recognition_count + r.scaffolded_count; // exposure not scored
+      if (scored > 0) { num += r[field]; denom += scored; }
+    }
+    return denom > 0 ? num / denom : null;
+  };
+
+  const base = {
+    trial_log_id: null,
+    session_id: null,
+    user_id: userId,
+    exercise_slug: slug,
+    window_label: windowLabel,
+    checklist_version: CHECKLIST_VERSION,
+    detector_run_id: runId,
+  };
+  const push = (rid: 'D8' | 'D9', observed: Record<string, unknown>, expected: Record<string, unknown>) => {
+    const r = RULES[rid];
+    out.push({
+      ...base,
+      rule_id: r.id,
+      severity: r.severity,
+      scope: r.scope,
+      // Hash includes user+slug+window so the same anomaly de-dupes within a run-window.
+      scope_ref_hash: hash([r.id, userId, slug, windowLabel]),
+      observed,
+      expected,
+    });
+  };
+
+  // D8 — scaffold creep: scaffold_level mean trending up without accuracy drop.
+  const earlierScaf = meanScaffold(earlier);
+  const laterScaf = meanScaffold(later);
+  const earlierAcc = meanProductionAccuracy(earlier);
+  const laterAcc = meanProductionAccuracy(later);
+  if (earlierScaf !== null && laterScaf !== null) {
+    const scafDelta = laterScaf - earlierScaf;
+    const accDelta = (earlierAcc !== null && laterAcc !== null) ? (laterAcc - earlierAcc) : 0;
+    // "Sustained upward trend" = +0.5 scaffold level on average.
+    // "Without accuracy drop" = production accuracy did not fall by >5pp.
+    if (scafDelta >= 0.5 && accDelta >= -0.05) {
+      push('D8', {
+        scaffold_mean_earlier: earlierScaf,
+        scaffold_mean_later: laterScaf,
+        scaffold_delta: scafDelta,
+        prod_accuracy_earlier: earlierAcc,
+        prod_accuracy_later: laterAcc,
+        sessions_in_window: n,
+      }, {
+        scaffold_delta_max: 0.5,
+        require_accuracy_drop_below: -0.05,
+      });
+    }
+  }
+
+  // D9 — withdrawal regression: scaffolded share rising AND production share falling
+  // at stable production accuracy (|Δacc| ≤ 0.05).
+  const earlierProdShare = meanShare(earlier, 'production_count');
+  const laterProdShare = meanShare(later, 'production_count');
+  const earlierScafShare = meanShare(earlier, 'scaffolded_count');
+  const laterScafShare = meanShare(later, 'scaffolded_count');
+  if (
+    earlierProdShare !== null && laterProdShare !== null &&
+    earlierScafShare !== null && laterScafShare !== null
+  ) {
+    const prodShareDelta = laterProdShare - earlierProdShare;
+    const scafShareDelta = laterScafShare - earlierScafShare;
+    const accDelta = (earlierAcc !== null && laterAcc !== null) ? Math.abs(laterAcc - earlierAcc) : 0;
+    if (scafShareDelta >= 0.10 && prodShareDelta <= -0.10 && accDelta <= 0.05) {
+      push('D9', {
+        scaffolded_share_earlier: earlierScafShare,
+        scaffolded_share_later: laterScafShare,
+        scaffolded_share_delta: scafShareDelta,
+        production_share_earlier: earlierProdShare,
+        production_share_later: laterProdShare,
+        production_share_delta: prodShareDelta,
+        prod_accuracy_earlier: earlierAcc,
+        prod_accuracy_later: laterAcc,
+        prod_accuracy_abs_delta: accDelta,
+        sessions_in_window: n,
+      }, {
+        scaffolded_share_delta_min: 0.10,
+        production_share_delta_max: -0.10,
+        prod_accuracy_abs_delta_max: 0.05,
+      });
+    }
+  }
+
+  return out;
+}
