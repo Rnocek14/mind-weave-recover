@@ -128,7 +128,7 @@ function deriveCueSupportSignal(
     dimension: 'cue_dependency',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence(__KIND__, slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -154,7 +154,7 @@ function deriveTaskComplexitySignal(
     dimension: 'linguistic_complexity',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence(__KIND__, slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -179,7 +179,7 @@ function deriveSteadinessSignal(
     band,
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence(__KIND__, slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -205,7 +205,7 @@ function deriveFatigueSupportSignal(
     kind: 'fatigue_support_activated',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence(__KIND__, slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -228,7 +228,7 @@ function deriveIndependenceSignal(
     dimension: 'independence',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence(__KIND__, slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
