@@ -232,18 +232,37 @@ export default function FixSentenceExercise() {
             <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great job fixing those sentences!'}</p>
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
+        ) : !progression.loaded ? (
+          // Phase 3 load-gate: don't mount the game until persistent
+          // clinical progression resolves, otherwise the floor collapses to 1.
+          <div className="min-h-[40vh] flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading your progress...</p>
+            </div>
+          </div>
         ) : (
-          <FixSentenceGame
-            onTrialComplete={handleTrialComplete}
-            onGameComplete={handleGameComplete}
-            trialCount={validationTrialCount}
-            focusPhonemes={adaptation.focusPhonemes}
-            sessionId={activeSessionId}
-            userId={user?.id}
-            profileId={activeProfile?.id}
-            initialDifficultyFloor={bridge.clinicalFloor}
-            registerFlush={(fn) => { flushAdaptationLogsRef.current = fn; }}
-          />
+          <>
+            {import.meta.env.DEV &&
+              (() => {
+                console.log(
+                  `[Phase3 load-gate] FixSentence first paint — clinicalLevel=${progression.startingLevel} ` +
+                    `floor=${bridge.clinicalFloor} raised=${bridge.raised}`,
+                );
+                return null;
+              })()}
+            <FixSentenceGame
+              onTrialComplete={handleTrialComplete}
+              onGameComplete={handleGameComplete}
+              trialCount={validationTrialCount}
+              focusPhonemes={adaptation.focusPhonemes}
+              sessionId={activeSessionId}
+              userId={user?.id}
+              profileId={activeProfile?.id}
+              initialDifficultyFloor={bridge.clinicalFloor}
+              registerFlush={(fn) => { flushAdaptationLogsRef.current = fn; }}
+            />
+          </>
         )}
       </main>
 
