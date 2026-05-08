@@ -250,78 +250,22 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             return;
           }
           
-          // Check if this is a direct jump from SessionSidePanel
           const isDirectJump = location.state?.directJump !== undefined;
-          
-          // For direct jumps, use the saved index directly (panel already set it)
-          // For normal exercise returns, advance to next block
           const nextIndex = isDirectJump ? savedIndex : savedIndex + 1;
-          const isLast = nextIndex >= lesson.blocks.length;
-          
-          console.log('[LessonFlow] Processing resume:', { savedIndex, nextIndex, isLast, isDirectJump });
-          
-          // Restore performance signals if available
-          if (parsed.recentScores) recentScoresRef.current = parsed.recentScores;
-          if (parsed.recentRTs) recentRTRef.current = parsed.recentRTs;
-          if (parsed.recentTimeouts != null) recentTimeoutsRef.current = parsed.recentTimeouts;
-          
-          // Restore block scores if available
-          if (parsed.blockScores) blockScoresRef.current = parsed.blockScores;
-          
-          if (!isDirectJump) {
-            // Extract score from the exercise-complete event detail if available
-            const detail = (location.state as any)?.exerciseResult;
-            if (detail?.score != null) {
-              recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
-              lastExerciseScoreRef.current = detail.score;
-              blockScoresRef.current[savedIndex] = detail.score;
-            }
-            if (detail?.avgReactionTime != null) {
-              recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
-            }
-            if (detail?.timeouts != null) {
-              recentTimeoutsRef.current = detail.timeouts;
-            }
-            
-            // Track exercise completion
-            trackExerciseComplete(savedSessionId, savedIndex, lesson.blocks.length, 
-              lesson.blocks[savedIndex]?.exerciseId || 'unknown');
-          }
-          
-          setSessionId(savedSessionId);
-          setCurrentBlockIndex(nextIndex);
+          console.log('[LessonFlow] Processing resume:', {
+            savedIndex,
+            nextIndex,
+            isLast: nextIndex >= lesson.blocks.length,
+            isDirectJump,
+          });
 
-          if (isLast && !isDirectJump) {
-            trackSessionComplete(savedSessionId, lesson.blocks.length, Date.now() - sessionStartTimeRef.current);
-            setPhase('summary');
-          } else if (isDirectJump) {
-            // Direct jump: go straight to exercise phase
-            setPhase('exercise');
-          } else {
-            // Use adaptive pause logic
-            const pauseDecision = decidePause({
-              completedCount: nextIndex,
-              recentScores: recentScoresRef.current,
-              recentReactionTimes: recentRTRef.current,
-              elapsedMinutes: Math.floor((Date.now() - (parsed.sessionStartTime || Date.now())) / 60000),
-              fatigueFlag: (todayFocus?.adaptations?.sessionDurationCap != null && todayFocus.adaptations.sessionDurationCap <= 10),
-              recentTimeouts: recentTimeoutsRef.current,
-            });
-            
-            console.log('[LessonFlow] Resume adaptive pause decision:', pauseDecision);
-            setCurrentPause(pauseDecision);
-            
-              // Always show Maya transition on resume in guided/voice mode
-              if (sessionFrame && (showPurpose || isVoiceLed)) {
-                if (!sessionFrame.mayaTransitions[nextIndex]) {
-                  sessionFrame.mayaTransitions[nextIndex] = `Good work on that. Let's continue with the next exercise.`;
-                }
-                console.log('[LessonFlow] Resume: showing maya-transition for block', nextIndex);
-                setPhase('maya-transition');
-              } else {
-                setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
-              }
-          }
+          advanceAfterCompletedExercise({
+            parsed,
+            savedIndex,
+            savedSessionId,
+            isDirectJump,
+            detail: (location.state as any)?.exerciseResult,
+          });
         } catch (error) {
           console.error('[LessonFlow] Error processing resume:', error);
         }
