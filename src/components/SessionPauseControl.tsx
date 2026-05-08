@@ -17,10 +17,11 @@
  * via console for now; can be wired to analytics later.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Pause, Play, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
 export function SessionPauseControl() {
   const location = useLocation();
@@ -32,6 +33,10 @@ export function SessionPauseControl() {
   // gate on lesson resume state (which only exists mid-flow).
   const onExerciseRoute = location.pathname.startsWith('/exercise/');
   const visible = onExerciseRoute;
+  const currentSlug = useMemo(() => {
+    const m = location.pathname.match(/^\/exercise\/([^/?#]+)/);
+    return m ? m[1] : null;
+  }, [location.pathname]);
 
   // ── Pause side effects: stop mic + TTS centrally ────────────────
   const enterPause = useCallback(() => {
@@ -148,6 +153,17 @@ export function SessionPauseControl() {
             <p className="text-xs text-muted-foreground/60">
               Tip: press Esc to resume
             </p>
+
+            {currentSlug && (
+              <div className="pt-1">
+                <AboutGameLink
+                  slug={currentSlug}
+                  variant="inline"
+                  label="How this supports recovery"
+                  source="pause-overlay"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
