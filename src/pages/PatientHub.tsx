@@ -48,6 +48,7 @@ import { SpeechProfileTab } from "@/components/patient-hub/SpeechProfileTab";
 import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
 import { ProfileCompletenessBanner } from "@/components/patient-hub/ProfileCompletenessBanner";
+import { RecoveryProfileSection } from "@/components/leveling/RecoveryProfileSection";
 
 import { ClinicianStatusCard } from "@/components/patient-hub/glance/ClinicianStatusCard";
 import { ClinicianPracticeCard } from "@/components/patient-hub/glance/ClinicianPracticeCard";
@@ -320,11 +321,16 @@ export default function PatientHub() {
               </TabsContent>
 
               {/* === Plan — Decide === */}
-              <TabsContent value="plan" className="space-y-3 pt-4">
+              <TabsContent value="plan" className="space-y-5 pt-4">
                 <p className="text-xs text-muted-foreground -mt-1">
                   Profile, goals, deficits, notes — what do I do next?
                 </p>
-                <section id="plan-info" className="scroll-mt-4">
+
+                <section id="plan-recovery" className="scroll-mt-4">
+                  <RecoveryProfileSection userId={user?.id || ""} />
+                </section>
+
+                <section id="plan-info" className="scroll-mt-4 border-t border-border pt-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold text-foreground">Patient Plan</h3>
