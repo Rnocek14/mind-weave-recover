@@ -341,5 +341,6 @@ export function digestSessionRows(
     signals,
     insights,
     telemetry: snapshotSafetyTelemetry(),
+    confidenceProvenance: [...provenanceBuffer],
   };
 }
