@@ -19,6 +19,7 @@ import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/perform
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
+import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
@@ -205,6 +206,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
             {getSessionDelightLine(overallAvg)}
           </p>
         </div>
+
+        {/* Today's practice — Phase B recovery insights (renders nothing if empty) */}
+        <TodaysPracticeInsights sessionId={sessionId} />
 
         {/* Quick stats — plain language */}
         <div className="grid grid-cols-2 gap-4">
