@@ -73,6 +73,7 @@ import ShadowAnalytics from "./pages/ShadowAnalytics";
 import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
+import GameAboutPage from "./pages/GameAboutPage";
 import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
@@ -161,6 +162,9 @@ const App = () => (
                   <Route path="/exercise/synonym-generator" element={<SynonymGeneratorExercise />} />
                   <Route path="/exercise/voice-practice" element={<VoicePractice />} />
                   <Route path="/lesson" element={<Lesson />} />
+
+                  {/* "How this game supports recovery" — public, deep-linkable */}
+                  <Route path="/games/:slug/about" element={<GameAboutPage />} />
 
                   {/* Dev-only validation harness — admin-gated */}
                   <Route path="/dev/adaptation-sim" element={<AdminProtectedRoute><AdaptationSimDev /></AdminProtectedRoute>} />
