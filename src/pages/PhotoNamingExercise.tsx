@@ -713,14 +713,29 @@ function PhotoNamingExerciseInner() {
     }
   };
 
-  if (isLoading) {
+  // Phase 3 load-gate: do not render the game until persistent clinical
+  // progression has resolved. Otherwise `initialDifficulty` is captured at
+  // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
+  // running the patient an entire session below their stored level.
+  if (isLoading || !progression.loaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading photos...</p>
+          <p className="text-muted-foreground">
+            {isLoading ? 'Loading photos...' : 'Loading your progress...'}
+          </p>
         </div>
       </div>
+    );
+  }
+
+  if (import.meta.env.DEV) {
+    // Single line, fires once per render after the gate opens.
+    // Confirms the floor the game will mount with.
+    console.log(
+      `[Phase3 load-gate] PhotoNaming first paint — clinicalLevel=${progression.startingLevel} ` +
+        `floor=${bridge.clinicalFloor} effective=${initialDifficulty} raised=${bridge.raised}`,
     );
   }
 
