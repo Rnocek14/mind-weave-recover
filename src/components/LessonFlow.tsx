@@ -302,7 +302,14 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         }
       }
     }
-  }, [advanceAfterCompletedExercise, lesson.blocks.length, location.state, navigate]);
+  }, [
+    advanceAfterCompletedExercise,
+    lesson.blocks.length,
+    location.state?.directJump,
+    location.state?.exerciseResult,
+    location.state?.resuming,
+    navigate,
+  ]);
 
   // Create session when needed — with dedup guard
   useEffect(() => {
