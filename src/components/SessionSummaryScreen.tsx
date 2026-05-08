@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/performanceAwareFeedback";
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
+import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
@@ -261,11 +262,12 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
             <CollapsibleContent className="pt-3">
               <div className="border rounded-lg divide-y text-left text-sm">
                 {exerciseScores.map((es) => (
-                  <div key={es.exercise_slug} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-muted-foreground capitalize">{slugToName(es.exercise_slug)}</span>
-                    <div className="flex items-center gap-3">
+                  <div key={es.exercise_slug} className="flex items-center justify-between px-4 py-2.5 gap-3">
+                    <span className="text-muted-foreground capitalize truncate">{slugToName(es.exercise_slug)}</span>
+                    <div className="flex items-center gap-3 shrink-0">
                       <span className="text-muted-foreground">{es.trial_count} rounds</span>
                       <span className="font-semibold tabular-nums text-foreground">{es.avg_score}%</span>
+                      <AboutGameLink slug={es.exercise_slug} variant="icon" source="session-summary" />
                     </div>
                   </div>
                 ))}
