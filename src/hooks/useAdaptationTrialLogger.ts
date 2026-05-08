@@ -146,23 +146,53 @@ export function useAdaptationTrialLogger(opts: Options) {
   const lastAdaptationTrialRef = useRef<number>(-1);
   const flushTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const consecutiveFailuresRef = useRef(0);
+  const failureReportedRef = useRef(false);
+
   const flush = useCallback(async () => {
     if (trialBuf.current.length === 0 && anomalyBuf.current.length === 0) return;
     const trials = trialBuf.current.splice(0, trialBuf.current.length);
     const anomalies = anomalyBuf.current.splice(0, anomalyBuf.current.length);
+    let hadFailure = false;
     try {
       if (trials.length > 0) {
         const { error } = await supabase.from('adaptation_trial_logs' as any).insert(trials as any);
-        if (error && import.meta.env.DEV) console.warn('[adaptationLogger] trial insert failed:', error.message);
+        if (error) {
+          hadFailure = true;
+          // Phase 2: was dev-only. Promoted to error in all envs so prod
+          // failures (RLS, schema drift) are visible.
+          console.error('[adaptation_trial_logs] insert failed', { error: error.message, count: trials.length });
+        }
       }
       if (anomalies.length > 0) {
         const { error } = await supabase.from('adaptation_anomalies' as any).insert(anomalies as any);
-        if (error && import.meta.env.DEV) console.warn('[adaptationLogger] anomaly insert failed:', error.message);
+        if (error) {
+          hadFailure = true;
+          console.error('[adaptation_anomalies] insert failed', { error: error.message, count: anomalies.length });
+        }
       }
     } catch (err) {
-      if (import.meta.env.DEV) console.warn('[adaptationLogger] flush error', err);
+      hadFailure = true;
+      console.error('[adaptationLogger] flush threw', err);
     }
-  }, []);
+    if (hadFailure) {
+      consecutiveFailuresRef.current += 1;
+      // After 3 consecutive failed flushes within a session, emit one
+      // exercise_events row so prod telemetry-write failures are queryable.
+      if (consecutiveFailuresRef.current >= 3 && !failureReportedRef.current && opts.userId && opts.sessionId) {
+        failureReportedRef.current = true;
+        void supabase.from('exercise_events' as any).insert({
+          user_id: opts.userId,
+          session_id: opts.sessionId,
+          exercise_slug: canonicalSlug,
+          event_type: 'telemetry_write_failure',
+          inputs: { consecutive_failures: consecutiveFailuresRef.current },
+        } as any);
+      }
+    } else {
+      consecutiveFailuresRef.current = 0;
+    }
+  }, [opts.userId, opts.sessionId, canonicalSlug]);
 
   useEffect(() => {
     if (!enabled) return;
