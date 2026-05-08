@@ -69,9 +69,9 @@ export function useRecentExerciseLevels(userId: string | undefined, sessionLookb
 
         const { data: events, error: eErr } = await supabase
           .from('exercise_events')
-          .select('exercise_slug, score, task_parameters, inputs, started_at, session_id')
+          .select('exercise_slug, score, task_parameters, inputs, created_at, session_id')
           .in('session_id', sessionIds)
-          .order('started_at', { ascending: false });
+          .order('created_at', { ascending: false });
         if (eErr) throw eErr;
         if (!events || events.length === 0) {
           if (!cancelled) setState({ levels: [], loading: false, error: null });
@@ -83,7 +83,7 @@ export function useRecentExerciseLevels(userId: string | undefined, sessionLookb
         for (const ev of events) {
           if (!ev.exercise_slug || !ev.session_id) continue;
           const slug = ev.exercise_slug;
-          const sessionAt = sessionDateById.get(ev.session_id) ?? ev.started_at;
+          const sessionAt = sessionDateById.get(ev.session_id) ?? ev.created_at;
           if (!sessionAt) continue;
           const taskParams = (ev.task_parameters ?? {}) as { difficulty?: number };
           const inputs = (ev.inputs ?? {}) as { difficulty?: number };
