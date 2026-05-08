@@ -236,10 +236,22 @@ function deriveIndependenceSignal(
 // Top-level digest.
 // ---------------------------------------------------------------------------
 
+export interface ConfidenceProvenanceEntry {
+  kind: DigestSignal['kind'];
+  slug: string;
+  verdict: ConfidenceVerdict;
+}
+
 export interface SessionDigestResult {
   signals: DigestSignal[];
   insights: ComposedInsight[];
   telemetry: SafetyTelemetryCounters;
+  /**
+   * INTERNAL ONLY. Per-signal confidence provenance (factors + verdict).
+   * Use for debugging, clinician audit, threshold tuning, research export.
+   * NEVER render to patients/caregivers.
+   */
+  confidenceProvenance: ConfidenceProvenanceEntry[];
 }
 
 export interface DigestOptions {
@@ -270,6 +282,8 @@ export function digestSessionRows(
   options: DigestOptions = {},
 ): SessionDigestResult {
   if (options.resetTelemetry) resetSafetyTelemetry();
+  // Per-call provenance buffer reset.
+  provenanceBuffer.length = 0;
 
   const byGame = new Map<string, AdaptationTrialRow[]>();
   for (const r of rows) {
