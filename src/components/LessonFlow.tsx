@@ -302,7 +302,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         }
       }
     }
-  }, [lesson.blocks.length, location.state?.resuming]);
+  }, [advanceAfterCompletedExercise, lesson.blocks.length, location.state, navigate]);
 
   // Create session when needed — with dedup guard
   useEffect(() => {
@@ -488,30 +488,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleNextBlock = useCallback(() => {
     if (isLastBlock) {
-      const elapsedMs = Date.now() - sessionStartTimeRef.current;
-      trackSessionComplete(sessionId, runtimeBlocks.length, elapsedMs);
-
-      // Close the session row so telemetry doesn't see it as permanently open.
-      // Best-effort: any failure is logged but does not block the summary screen.
-      if (sessionId) {
-        const scores = recentScoresRef.current;
-        const avgScore = scores.length > 0
-          ? scores.reduce((a, b) => a + b, 0) / scores.length
-          : 0;
-        endSessionTracking(
-          sessionId,
-          {
-            durationSec: Math.floor(elapsedMs / 1000),
-            scores: { average: avgScore },
-            reps: runtimeBlocks.length,
-          },
-          'completed',
-        ).catch((err) => {
-          console.warn('[LessonFlow] endSession failed:', err);
-        });
-      }
-
-      setPhase("summary");
+      finishLessonSession(sessionId, runtimeBlocks.length, 'completed');
     } else {
       const nextIndex = currentBlockIndex + 1;
       
@@ -571,7 +548,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
       }
     }
-  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose, isVoiceLed, sessionFrame]);
+  }, [currentBlockIndex, isLastBlock, sessionId, runtimeBlocks, lesson.supportBlocks, todayFocus, activeSupportPivot, showPurpose, isVoiceLed, sessionFrame, finishLessonSession]);
 
   const handleTransitionContinue = useCallback(() => {
     setPhase("exercise");
@@ -579,8 +556,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const handleEndSession = useCallback(() => {
     trackSessionDropOff(sessionId, currentBlockIndex, lesson.blocks.length, 'end_button');
-    setPhase("summary");
-  }, [sessionId, currentBlockIndex, lesson.blocks.length]);
+    finishLessonSession(sessionId, lesson.blocks.length, 'manual');
+  }, [sessionId, currentBlockIndex, lesson.blocks.length, finishLessonSession]);
 
   const handleFinish = () => {
     navigate("/today");
