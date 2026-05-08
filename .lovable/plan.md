@@ -1,91 +1,148 @@
-## Per-Game Leveling Contract — Specification Phase
+# Phase B Implementation Plan — "What Changed Today" (spec-first, no code yet)
 
-This plan creates a **single design document** (`src/docs/PER_GAME_LEVELING_CONTRACT.md`) plus a **typed but unused** TypeScript registry (`src/lib/leveling/perGameContracts.ts`) that captures, for every game, what Level 1–10 means.
-
-Nothing wires into live gameplay. `useInGameAdaptation`, `AdaptiveDifficultyController`, the mastery shadow layer, and all game hooks remain untouched. The registry is exported but not imported by any runtime path — it exists so future PRs can opt games in one at a time behind a flag.
+This plan defines the **foundation layer** that must exist before any "What changed today" UI is built. The order is deliberate: rules → signal contract → confidence gate → UI. The first three are spec/scaffolding work. The UI ships only after they are stable.
 
 ---
 
-### Why this step
+## Step 1 — Codify phrase safety rules
 
-The mastery shadow layer is logging skill-domain progress, but each game still defines "harder" differently (tier 1–3, level 1–5, internal flags). Before any visible level/progress UI ships, we need a written contract per game answering:
+**Deliverable:** `src/lib/insights/insightLanguage.ts` (new) — the single authority for any patient/caregiver-facing wording in Phase B and beyond. UI components and the narrator MUST import phrases from here. Free-form strings in components are forbidden.
 
-- What gets harder from L1 → L10?
-- What softens (support inflation) when the user struggles, *without* dropping the visible level?
-- How fast can a fresh user climb early levels while clearly succeeding?
-- When does the system actually drop a level (hard regression) vs. just add cues (soft regression)?
-- Does the current content bank actually *have* L1–L10 material, or only L1–L3?
-- What's the wiring risk per game?
+**Contents:**
+
+1. **Whitelist (allowed verbs/frames).** Examples (final list locked in implementation):
+   - "held steady"
+   - "stayed consistent"
+   - "more independent today"
+   - "needed less prompting"
+   - "support stayed available"
+   - "support stepped in to keep practice productive"
+   - "pacing eased to match today's effort"
+   - "ready for a stretch next time"
+
+2. **Blacklist (banned terms — generator throws if detected).**
+   - "decreased", "declined", "dropped", "worsened", "regressed", "regression"
+   - "fell", "weaker", "failed", "struggled" (when used about the user)
+   - "difficulty decreased" / "difficulty increased" (engine internals)
+   - "cue dependency", "fatigue score", "z-score", "delta", "threshold"
+   - any number with two decimals (raw metric leak)
+   - any % when describing change ("accuracy fell 12%")
+
+3. **Mastery-first ordering rule.** A `composeInsights(signals)` function:
+   - Always emits mastery/independence wins first.
+   - Support-related framings appear only after a mastery line OR alone if no mastery line qualifies.
+   - Never emits a support line in punitive position.
+
+4. **Tone frame.** Every emitted line is post-processed to ensure it carries the protective stance: *"One hard session never costs a rung."* This is enforced as a max-length + tone-check rule, not as a literal suffix.
+
+5. **Silence is valid.** `composeInsights` may return `[]`. UI must handle empty state (render nothing or a calm "Nice work today" — TBD in UI step).
+
+**Tests required before merge:** unit tests covering blacklist enforcement, mastery-first ordering, and the empty-output path.
 
 ---
 
-### Deliverables
+## Step 2 — `sessionAdaptationDigest(sessionId)` spec
 
-**1. `src/docs/PER_GAME_LEVELING_CONTRACT.md`**
+**Deliverable:** `src/lib/insights/sessionAdaptationDigest.ts` (new). Pure reader over `adaptation_trial_logs` + `exercise_events` for a single session. Returns a **structured signal object**, never strings. The wording layer (Step 1) consumes it.
 
-Structure:
-- Global model (universal rules: start at L1, fast climb while on a roll, soft-before-hard regression, never punish one bad trial, fatigue ≠ decline).
-- Universal level bands (reuses existing `LEVEL_LABELS`/`LEVEL_LEVERS` from `src/lib/gameLevels.ts`).
-- Per-game section for each of the 15 games in `src/hooks/use*Game.ts`:
-  - Photo Naming, Two Clues, Describe & Guess, Meaning Match, Minimal Pairs, Phonological, Semantic Feature, Synonym Generator, Fix Sentence, Sentence Construction, Narrative Retell, Multi-Step Plan, Abstract Compare, Dual-Load Naming, Detective Mind.
-- Master table at the end (Game | L1–10 difficulty drivers | Support/ease drivers | Fast level-up rule | Level-down rule | Content ready? | Wiring risk | Recommendation).
+**Signal contract (initial set — closed enum, additive only):**
 
-For each game I'll fill the table from what's already in the codebase: existing tier tags in the data banks, current `useInGameAdaptation` config, content counts per tier (e.g. Two Clues has tier 1/2/3 tagged; Meaning Match has tier-tagged items; Abstract Compare has only ~83 lines so likely L1–L3 only). Games where content is thin will be flagged "needs bank expansion — shadow only."
-
-**2. `src/lib/leveling/perGameContracts.ts`**
-
-A typed, exported, **unused** registry:
-
-```ts
-export interface PerGameLevelingContract {
-  slug: string;
-  internalScale: { min: number; max: number };
-  difficultyDrivers: string[];     // what increases L1 → L10
-  supportDrivers: string[];        // what softens (cues/time/choices)
-  fastClimb: { upToLevel: number; consecutiveStrongTrials: number };
-  hardRegression: { minPoorSessions: number; cueIndependenceFloor: number };
-  progressWeights: {
-    correctNoCue: number;
-    correctLightCue: number;
-    correctHeavyCue: number;
-    incorrect: number;
-    skip: number;
-  };
-  contentReadiness: 'ready' | 'needs_bank_expansion' | 'needs_tier_tagging' | 'shadow_only';
-  wiringRisk: 'low' | 'medium' | 'high';
-}
-
-export const PER_GAME_CONTRACTS: Record<string, PerGameLevelingContract> = { ... };
+```text
+type DigestSignal =
+  | { kind: 'cue_support_changed';     direction: 'less' | 'more' | 'same'; dimension: 'cue_dependency'; trials: number; confidence: number }
+  | { kind: 'pacing_changed';          direction: 'eased' | 'tightened' | 'same'; dimension: 'processing_speed'; trials: number; confidence: number }
+  | { kind: 'distractor_load_changed'; direction: 'fewer' | 'more' | 'same'; dimension: 'distractor_load'; trials: number; confidence: number }
+  | { kind: 'task_complexity_changed'; direction: 'simpler' | 'harder' | 'same'; dimension: 'linguistic_complexity' | 'working_memory_load'; trials: number; confidence: number }
+  | { kind: 'accuracy_held_steady';    band: 'warmup' | 'core' | 'stretch' | 'consolidation'; trials: number; confidence: number }
+  | { kind: 'fatigue_support_activated'; trials: number; confidence: number }
+  | { kind: 'independence_gain';       dimension: 'independence' | 'cue_dependency'; trials: number; confidence: number };
 ```
 
-No game imports it. No hook reads it. It's purely a machine-readable mirror of the doc so the next phase can wire it behind a flag with type safety.
+**Rules:**
+- Reader is read-only — never writes, never adapts, never branches engine behavior.
+- Each signal is per-game (carries `slug`) so the UI can group or filter.
+- `confidence` is computed by Step 3's helper, not inline.
+- If a signal cannot be computed safely (too few trials, ambiguous direction), it is **omitted**, not emitted as `direction: 'same'`.
+- New signal kinds are added by appending to the union — never by overloading existing ones.
 
-**3. Optional: a single dev-only audit page** `src/pages/dev/LevelingContractDev.tsx` (admin-gated, reuses the pattern from `MasteryShadowDev.tsx`) that renders the registry as a sortable table. Skip if you'd rather keep this PR doc-only — say the word.
-
----
-
-### Universal model captured in the doc
-
-- Everyone starts L1 on every game.
-- **Fast climb:** L1 → L3 can move after 2–3 strong unaided trials (success + no cue + reasonable RT). L4+ requires sustained cue-independence.
-- **Soft regression first:** struggle adds cues / time / fewer distractors at the *same visible level*. Only after N poor sessions with low cue-independence does the visible level drop by 1.
-- **Never punish a single trial or single session.** Bad days inflate support; they don't drop level.
-- **Cue-dependency gate** (already exists in `useInGameAdaptation`) remains the guard against premature up-level.
-- **Mastery shadow layer stays observational.** This contract describes the *intended* connection point but does not make it.
+**Tests required:** fixture-based tests using synthetic `adaptation_trial_logs` rows for each signal kind, plus a "low-data session → empty digest" fixture.
 
 ---
 
-### What this plan does NOT do
+## Step 3 — Centralize the confidence threshold
 
-- Does not modify any game hook.
-- Does not modify `useInGameAdaptation`, `AdaptiveDifficultyController`, `gameLevels.ts`, or the mastery layer.
-- Does not change any UI patient-facing or clinician-facing.
-- Does not add a DB migration.
-- Does not introduce a feature flag (no behavior to flag yet).
+**Deliverable:** `src/lib/insights/insightConfidence.ts` (new). One helper, one import site for every insight type.
 
-### Acceptance
+**API (locked):**
 
-- The doc covers all 15 games with the 8-column table filled.
-- The TS registry compiles and matches the doc.
-- Build is green; no game's runtime behavior changes.
-- We then have a concrete artifact to review together before deciding which game to wire first (likely Photo Naming or Two Clues — both have the deepest tagged content).
+```text
+insightConfidence({
+  trialsAtDimension: number,
+  effectSize: number,         // normalized 0..1, signal-specific
+  consistencyAcrossTrials: number, // 0..1
+  sessionsObserved?: number,  // optional, for future longitudinal use
+}): { score: number; tier: 'high' | 'medium' | 'low' | 'insufficient' }
+```
+
+**Defaults (Phase B initial bar — intentionally strict):**
+- `insufficient` if `trialsAtDimension < 10` for that dimension within the session.
+- `low` is **not eligible** for emission in Phase B (filtered out by composer).
+- `medium` requires `consistencyAcrossTrials ≥ 0.7` AND `effectSize ≥ 0.25`.
+- `high` requires `consistencyAcrossTrials ≥ 0.85` AND `effectSize ≥ 0.4`.
+- Composer caps Phase B output at **0–2 lines per session**, prioritizing `high` over `medium`.
+
+**Why one helper:** prevents per-insight threshold drift; lets us loosen the bar in one place once weekly aggregation is wired in Phase C.
+
+**Tests required:** golden-table tests covering the four tiers and the cap behavior in the composer.
+
+---
+
+## Step 4 — Ship "What changed today" UI (only after Steps 1–3 land)
+
+**Scope (intentionally minimal):**
+- New component `src/components/insights/WhatChangedToday.tsx`.
+- Mounted on the post-session summary screen only. **Not** on Patient Hub. **Not** on per-game pages.
+- Reads `sessionAdaptationDigest(sessionId)` → composer → renders 0–2 lines.
+- Renders nothing (no card, no header) on empty output.
+- Each line is read-only text. No CTAs, no expand/collapse, no "why" deep-link in this first cut (the About pages already cover dimension explanations).
+- Carries the same protective frame copy used in `RecoveryProfileSection`.
+
+**Out of scope for this step:**
+- Longitudinal claims of any kind ("this week", "this month").
+- Weekly digest surface.
+- Caregiver/clinician variants.
+- Personalized rung-description rewriting.
+
+---
+
+## Step 5 — Weekly longitudinal digest (Phase C, deferred)
+
+Captured here so we don't lose it — **not built in this plan**.
+
+- Lives in **Patient Hub**, not post-session.
+- New reader `weeklyAdaptationDigest(userId, weekStart)` aggregates per-dimension signals across sessions.
+- Reuses Step 1 language rules and Step 3 confidence helper unchanged.
+- Loosens the trial-count bar because it has cross-session evidence.
+- Adds new signal kinds for trends only when we can compute them safely (e.g. `cue_reliance_trend`, `narrative_sequencing_stabilizing`).
+
+---
+
+## Architectural guarantees (Phase B-wide)
+
+- **Read-only.** Nothing in this plan writes to `adaptation_trial_logs`, `sessions`, mastery shadow, or any engine state.
+- **No engine coupling.** The digest reader does not import from `drillTriggerEvaluator`, `drillSelector`, `useSessionAdaptation`, or any adaptation engine module. It only reads logged rows.
+- **Spec-only dimensions.** Reuses `clinicalDimensions.ts` IDs — no new dimensions invented here.
+- **Additive signal union.** New `DigestSignal` kinds are appended, never overloaded.
+- **Single language authority.** `insightLanguage.ts` is the only place phrases live; components import, never inline.
+
+---
+
+## Suggested order of PRs
+
+1. PR-B1: `insightLanguage.ts` + tests (Step 1).
+2. PR-B2: `sessionAdaptationDigest.ts` + fixtures + tests (Step 2).
+3. PR-B3: `insightConfidence.ts` + composer integration + tests (Step 3).
+4. PR-B4: `WhatChangedToday.tsx` mounted on post-session summary (Step 4).
+5. (Phase C, separate plan) Weekly digest in Patient Hub.
+
+Each PR is independently reviewable and does not require the next to ship. PR-B1 through PR-B3 are invisible to users; PR-B4 is the first user-visible change.
