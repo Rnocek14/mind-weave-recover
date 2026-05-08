@@ -261,7 +261,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['shoe', 'book', 'chair'],
     category: 'kitchenware',
     features: {
-      frequency_rank: 2800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 2,
@@ -407,7 +407,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['eagle', 'robin', 'sparrow', 'crow'],
     category: 'animals',
     features: {
-      frequency_rank: 2200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -584,7 +584,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['cup', 'car', 'book'],
     category: 'toys',
     features: {
-      frequency_rank: 2100,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 2,
@@ -781,10 +781,10 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['catch', 'match', 'patch'],
     category: 'accessories',
     features: {
-      frequency_rank: 2500,
+      frequency_rank: 1500,
       imageability: 6,
       concreteness: 7,
-      age_of_acquisition: 5,
+      age_of_acquisition: 4,
       syllable_count: 1,
       phoneme_count: 4,
       phonological_complexity: 1,
@@ -806,7 +806,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['rose', 'hose', 'toes'],
     category: 'body',
     features: {
-      frequency_rank: 2200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -837,7 +837,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['lake', 'make', 'wake'],
     category: 'food',
     features: {
-      frequency_rank: 4500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -864,7 +864,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['car', 'bar', 'jar'],
     category: 'nature',
     features: {
-      frequency_rank: 2800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 6,
       age_of_acquisition: 4,
@@ -1018,7 +1018,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['cup', 'bowl', 'bottle'],
     category: 'kitchenware',
     features: {
-      frequency_rank: 5800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1042,7 +1042,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['bird', 'frog', 'duck'],
     category: 'animals',
     features: {
-      frequency_rank: 2600,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1067,7 +1067,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['star', 'sun', 'cloud'],
     category: 'nature',
     features: {
-      frequency_rank: 3200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1091,7 +1091,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['screw', 'hammer', 'bolt'],
     category: 'tools',
     features: {
-      frequency_rank: 4800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1115,7 +1115,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['tree', 'flower', 'grass'],
     category: 'nature',
     features: {
-      frequency_rank: 3500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1139,7 +1139,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['watch', 'bracelet', 'necklace'],
     category: 'jewelry',
     features: {
-      frequency_rank: 2800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1165,7 +1165,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['cat', 'bat', 'mat'],
     category: 'clothing',
     features: {
-      frequency_rank: 3100,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1266,7 +1266,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['red', 'fed', 'wed'],
     category: 'furniture',
     features: {
-      frequency_rank: 2200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1316,7 +1316,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['hen', 'ten', 'men'],
     category: 'objects',
     features: {
-      frequency_rank: 3500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1341,7 +1341,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['pen', 'ten', 'men'],
     category: 'animals',
     features: {
-      frequency_rank: 5200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1366,7 +1366,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['coat', 'boat', 'note'],
     category: 'animals',
     features: {
-      frequency_rank: 4800,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1391,7 +1391,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['goat', 'boat', 'note'],
     category: 'clothing',
     features: {
-      frequency_rank: 3200,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1419,10 +1419,10 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['face', 'base', 'case'],
     category: 'objects',
     features: {
-      frequency_rank: 8500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
-      age_of_acquisition: 5,
+      age_of_acquisition: 4,
       syllable_count: 1,
       phoneme_count: 3,
       phonological_complexity: 0,
@@ -1444,17 +1444,17 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['best', 'test', 'rest', 'nest'],
     category: 'clothing',
     features: {
-      frequency_rank: 9500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
-      age_of_acquisition: 5,
+      age_of_acquisition: 4,
       syllable_count: 1,
       phoneme_count: 4,
       phonological_complexity: 1,
       neighborhood_density: 'dense',
       first_phoneme: '/v/',
       semantic_category: 'outerwear',
-      typicality_rating: 3,
+      typicality_rating: 2,
       part_of_speech: 'noun'
     },
     computed_difficulty: 3,
@@ -1496,7 +1496,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['booth', 'youth', 'truth'],
     category: 'body',
     features: {
-      frequency_rank: 4500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -1523,7 +1523,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['mug', 'rug', 'bug', 'hug'],
     category: 'kitchenware',
     features: {
-      frequency_rank: 12000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1548,10 +1548,10 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['pet', 'net', 'bet', 'set'],
     category: 'transportation',
     features: {
-      frequency_rank: 6000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
-      age_of_acquisition: 5,
+      age_of_acquisition: 4,
       syllable_count: 1,
       phoneme_count: 3,
       phonological_complexity: 0,
@@ -1652,7 +1652,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['bin', 'tin', 'win', 'fin'],
     category: 'objects',
     features: {
-      frequency_rank: 5500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -1702,7 +1702,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['cab', 'cat', 'can', 'cup'],
     category: 'clothing',
     features: {
-      frequency_rank: 4500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -2189,10 +2189,10 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['tip', 'sip', 'dip'],
     category: 'objects',
     features: {
-      frequency_rank: 6000,
+      frequency_rank: 1500,
       imageability: 6,
       concreteness: 6,
-      age_of_acquisition: 5,
+      age_of_acquisition: 4,
       syllable_count: 1,
       phoneme_count: 3,
       phonological_complexity: 0,
@@ -2268,7 +2268,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['truck', 'luck', 'buck'],
     category: 'animals',
     features: {
-      frequency_rank: 3000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -2320,7 +2320,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['hope', 'soap', 'cope'],
     category: 'objects',
     features: {
-      frequency_rank: 4000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -2345,7 +2345,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['nose', 'hose', 'toes'],
     category: 'nature',
     features: {
-      frequency_rank: 3500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -2372,7 +2372,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['pet', 'wet', 'set'],
     category: 'objects',
     features: {
-      frequency_rank: 4200,
+      frequency_rank: 1500,
       imageability: 6,
       concreteness: 7,
       age_of_acquisition: 4,
@@ -2451,7 +2451,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['tie', 'die', 'fly'],
     category: 'food',
     features: {
-      frequency_rank: 4000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -2534,7 +2534,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['tag', 'rag', 'flag'],
     category: 'objects',
     features: {
-      frequency_rank: 2000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -2794,7 +2794,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     phonologicalFoils: ['big', 'dig', 'wig'],
     category: 'animals',
     features: {
-      frequency_rank: 3000,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -4048,7 +4048,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
       age_of_acquisition: 3,
       syllable_count: 1,
       phoneme_count: 3,
-      phonological_complexity: 2,
+      phonological_complexity: 1,
       neighborhood_density: 'moderate',
       first_phoneme: '/m/',
       semantic_category: 'body_part',
@@ -4066,7 +4066,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['rat', 'hamster', 'gerbil'],
     category: 'animals',
     features: {
-      frequency_rank: 2200,
+      frequency_rank: 1500,
       imageability: 6,
       concreteness: 6,
       age_of_acquisition: 3,
@@ -4090,7 +4090,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['spoon', 'knife', 'utensil'],
     category: 'household',
     features: {
-      frequency_rank: 2500,
+      frequency_rank: 1500,
       imageability: 7,
       concreteness: 7,
       age_of_acquisition: 3,
@@ -4162,7 +4162,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['pork', 'bacon', 'meat'],
     category: 'food',
     features: {
-      frequency_rank: 4500,
+      frequency_rank: 1500,
       imageability: 6,
       concreteness: 6,
       age_of_acquisition: 4,
@@ -4255,7 +4255,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['fly', 'wasp', 'ant'],
     category: 'animals',
     features: {
-      frequency_rank: 2200, imageability: 7, concreteness: 7, age_of_acquisition: 3,
+      frequency_rank: 1500, imageability: 7, concreteness: 7, age_of_acquisition: 3,
       syllable_count: 1, phoneme_count: 2, phonological_complexity: 0,
       neighborhood_density: 'dense', first_phoneme: '/b/',
       semantic_category: 'insect', typicality_rating: 1, part_of_speech: 'noun',
@@ -4284,7 +4284,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['shoe', 'boot', 'glove'],
     category: 'clothing',
     features: {
-      frequency_rank: 2900, imageability: 7, concreteness: 7, age_of_acquisition: 3,
+      frequency_rank: 1500, imageability: 7, concreteness: 7, age_of_acquisition: 3,
       syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
       neighborhood_density: 'dense', first_phoneme: '/s/',
       semantic_category: 'clothing', typicality_rating: 1, part_of_speech: 'noun',
@@ -4298,7 +4298,7 @@ export const PHOTO_BANK: PhotoTrial[] = [
     semanticFoils: ['key', 'door', 'chain'],
     category: 'household',
     features: {
-      frequency_rank: 2400, imageability: 7, concreteness: 7, age_of_acquisition: 4,
+      frequency_rank: 1500, imageability: 7, concreteness: 7, age_of_acquisition: 4,
       syllable_count: 1, phoneme_count: 3, phonological_complexity: 0,
       neighborhood_density: 'dense', first_phoneme: '/l/',
       semantic_category: 'hardware', typicality_rating: 2, part_of_speech: 'noun',
