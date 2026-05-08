@@ -1,0 +1,176 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`sessionAdaptationDigest — snapshot fixtures > fatigue session 1`] = `
+{
+  "fixture": "fatigue",
+  "insights": [
+    {
+      "category": "mastery",
+      "confidence": "high",
+      "source": "accuracy_held_steady",
+      "text": "Stretched the limit and held steady.",
+    },
+  ],
+  "signalKinds": [
+    "accuracy_held_steady:high",
+    "fatigue_support_activated:low",
+  ],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 0,
+    "insightsEmitted": 1,
+    "signalsBelowConfidenceBar": 1,
+    "signalsGenerated": 2,
+    "supportLinesSuppressed": 1,
+  },
+}
+`;
+
+exports[`sessionAdaptationDigest — snapshot fixtures > good day 1`] = `
+{
+  "fixture": "good_day",
+  "insights": [
+    {
+      "category": "mastery",
+      "confidence": "high",
+      "source": "independence_gain",
+      "text": "More independent today — needed less prompting to keep going.",
+    },
+    {
+      "category": "mastery",
+      "confidence": "high",
+      "source": "cue_support_changed",
+      "text": "Less support was needed today.",
+    },
+  ],
+  "signalKinds": [
+    "accuracy_held_steady:high",
+    "cue_support_changed:high",
+    "independence_gain:high",
+  ],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 0,
+    "insightsEmitted": 2,
+    "signalsBelowConfidenceBar": 0,
+    "signalsGenerated": 3,
+    "supportLinesSuppressed": 0,
+  },
+}
+`;
+
+exports[`sessionAdaptationDigest — snapshot fixtures > low-data session 1`] = `
+{
+  "fixture": "low_data",
+  "insights": [],
+  "signalKinds": [],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 1,
+    "insightsEmitted": 0,
+    "signalsBelowConfidenceBar": 0,
+    "signalsGenerated": 0,
+    "supportLinesSuppressed": 0,
+  },
+}
+`;
+
+exports[`sessionAdaptationDigest — snapshot fixtures > mixed session 1`] = `
+{
+  "fixture": "mixed",
+  "insights": [
+    {
+      "category": "mastery",
+      "confidence": "high",
+      "source": "independence_gain",
+      "text": "More independent today — needed less prompting to keep going.",
+    },
+    {
+      "category": "mastery",
+      "confidence": "high",
+      "source": "cue_support_changed",
+      "text": "Less support was needed today.",
+    },
+  ],
+  "signalKinds": [
+    "accuracy_held_steady:high",
+    "accuracy_held_steady:high",
+    "cue_support_changed:high",
+    "independence_gain:high",
+    "task_complexity_changed:high",
+  ],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 0,
+    "insightsEmitted": 2,
+    "signalsBelowConfidenceBar": 0,
+    "signalsGenerated": 5,
+    "supportLinesSuppressed": 0,
+  },
+}
+`;
+
+exports[`sessionAdaptationDigest — snapshot fixtures > steady session 1`] = `
+{
+  "fixture": "steady",
+  "insights": [
+    {
+      "category": "steady",
+      "confidence": "high",
+      "source": "accuracy_held_steady",
+      "text": "Core practice held steady today.",
+    },
+  ],
+  "signalKinds": [
+    "accuracy_held_steady:high",
+  ],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 0,
+    "insightsEmitted": 1,
+    "signalsBelowConfidenceBar": 0,
+    "signalsGenerated": 1,
+    "supportLinesSuppressed": 0,
+  },
+}
+`;
+
+exports[`sessionAdaptationDigest — snapshot fixtures > support-heavy session 1`] = `
+{
+  "fixture": "support_heavy",
+  "insights": [
+    {
+      "category": "steady",
+      "confidence": "high",
+      "source": "accuracy_held_steady",
+      "text": "Consolidation work stayed consistent.",
+    },
+    {
+      "category": "support",
+      "confidence": "high",
+      "source": "task_complexity_changed",
+      "text": "The task simplified to keep practice productive.",
+    },
+  ],
+  "signalKinds": [
+    "accuracy_held_steady:high",
+    "accuracy_held_steady:high",
+    "fatigue_support_activated:low",
+    "task_complexity_changed:high",
+  ],
+  "telemetry": {
+    "blacklistTriggerAttempts": 0,
+    "duplicatesSuppressed": 0,
+    "emptyOutputs": 0,
+    "insightsEmitted": 2,
+    "signalsBelowConfidenceBar": 1,
+    "signalsGenerated": 4,
+    "supportLinesSuppressed": 1,
+  },
+}
+`;
