@@ -1907,6 +1907,69 @@ export type Database = {
           },
         ]
       }
+      mastery_health_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_key: string
+          context: Json | null
+          fired_at: string
+          id: string
+          metric_key: string
+          metric_value: number | null
+          severity: string
+          threshold_value: number | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_key: string
+          context?: Json | null
+          fired_at?: string
+          id?: string
+          metric_key: string
+          metric_value?: number | null
+          severity: string
+          threshold_value?: number | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_key?: string
+          context?: Json | null
+          fired_at?: string
+          id?: string
+          metric_key?: string
+          metric_value?: number | null
+          severity?: string
+          threshold_value?: number | null
+        }
+        Relationships: []
+      }
+      mastery_health_snapshots: {
+        Row: {
+          captured_at: string
+          id: string
+          metadata: Json | null
+          metric_key: string
+          metric_value: number | null
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_key: string
+          metric_value?: number | null
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_key?: string
+          metric_value?: number | null
+        }
+        Relationships: []
+      }
       outcome_predictions: {
         Row: {
           clinical_context: Json
@@ -3860,6 +3923,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_mastery_health_24h: {
+        Row: {
+          metadata: Json | null
+          metric_key: string | null
+          metric_value: number | null
+        }
+        Relationships: []
+      }
+      v_sessions_logs_vs_mastery_24h: {
+        Row: {
+          metadata: Json | null
+          metric_key: string | null
+          metric_value: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
