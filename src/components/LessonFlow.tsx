@@ -121,6 +121,116 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   const currentBlock = runtimeBlocks[currentBlockIndex];
   const isLastBlock = currentBlockIndex === runtimeBlocks.length - 1;
+
+  const finishLessonSession = useCallback((
+    targetSessionId: string | null,
+    blockCount: number,
+    reason: 'completed' | 'manual' = 'completed',
+  ) => {
+    const elapsedMs = Date.now() - sessionStartTimeRef.current;
+
+    if (reason === 'completed') {
+      trackSessionComplete(targetSessionId, blockCount, elapsedMs);
+    }
+
+    // Close the session row so completed lesson flows do not get swept later.
+    // Best-effort: any failure is logged but never blocks the summary screen.
+    if (targetSessionId) {
+      const scores = recentScoresRef.current;
+      const avgScore = scores.length > 0
+        ? scores.reduce((a, b) => a + b, 0) / scores.length
+        : 0;
+      endSessionTracking(
+        targetSessionId,
+        {
+          durationSec: Math.max(1, Math.floor(elapsedMs / 1000)),
+          scores: { average: avgScore },
+          reps: blockCount,
+        },
+        reason,
+      ).catch((err) => {
+        console.warn('[LessonFlow] endSession failed:', err);
+      });
+    }
+
+    setPhase('summary');
+  }, []);
+
+  const advanceAfterCompletedExercise = useCallback((params: {
+    parsed: any;
+    savedIndex: number;
+    savedSessionId: string | null;
+    isDirectJump?: boolean;
+    detail?: any;
+  }) => {
+    const { parsed, savedIndex, savedSessionId, isDirectJump = false, detail } = params;
+    const nextIndex = isDirectJump ? savedIndex : savedIndex + 1;
+    const isLast = nextIndex >= lesson.blocks.length;
+
+    if (typeof parsed.sessionStartTime === 'number') {
+      sessionStartTimeRef.current = parsed.sessionStartTime;
+    }
+    if (parsed.recentScores) recentScoresRef.current = parsed.recentScores;
+    if (parsed.recentRTs) recentRTRef.current = parsed.recentRTs;
+    if (parsed.recentTimeouts != null) recentTimeoutsRef.current = parsed.recentTimeouts;
+    if (parsed.blockScores) blockScoresRef.current = parsed.blockScores;
+
+    if (!isDirectJump) {
+      if (detail?.score != null) {
+        recentScoresRef.current = [...recentScoresRef.current.slice(-4), detail.score];
+        lastExerciseScoreRef.current = detail.score;
+        blockScoresRef.current[savedIndex] = detail.score;
+      }
+      if (detail?.avgReactionTime != null) {
+        recentRTRef.current = [...recentRTRef.current.slice(-4), detail.avgReactionTime];
+      }
+      if (detail?.timeouts != null) {
+        recentTimeoutsRef.current = detail.timeouts;
+      }
+
+      trackExerciseComplete(
+        savedSessionId,
+        savedIndex,
+        lesson.blocks.length,
+        lesson.blocks[savedIndex]?.exerciseId || 'unknown',
+      );
+    }
+
+    setSessionId(savedSessionId);
+    setCurrentBlockIndex(nextIndex);
+
+    if (isLast && !isDirectJump) {
+      finishLessonSession(savedSessionId, lesson.blocks.length, 'completed');
+      return;
+    }
+
+    if (isDirectJump) {
+      setPhase('exercise');
+      return;
+    }
+
+    const pauseDecision = decidePause({
+      completedCount: nextIndex,
+      recentScores: recentScoresRef.current,
+      recentReactionTimes: recentRTRef.current,
+      elapsedMinutes: Math.floor((Date.now() - (parsed.sessionStartTime || Date.now())) / 60000),
+      fatigueFlag: (todayFocus?.adaptations?.sessionDurationCap != null && todayFocus.adaptations.sessionDurationCap <= 10),
+      recentTimeouts: recentTimeoutsRef.current,
+    });
+
+    console.log('[LessonFlow] Resume adaptive pause decision:', pauseDecision);
+    setCurrentPause(pauseDecision);
+
+    if (sessionFrame && (showPurpose || isVoiceLed)) {
+      if (!sessionFrame.mayaTransitions[nextIndex]) {
+        sessionFrame.mayaTransitions[nextIndex] = `Good work on that. Let's continue with the next exercise.`;
+      }
+      console.log('[LessonFlow] Resume: showing maya-transition for block', nextIndex);
+      setPhase('maya-transition');
+    } else {
+      setPhase(pauseDecision.type === 'micro-pause' ? 'micro-pause' : 'transition');
+    }
+  }, [finishLessonSession, isVoiceLed, lesson.blocks, sessionFrame, showPurpose, todayFocus]);
   
   // Restore state if returning from exercise — with deduplication guard
   useEffect(() => {
