@@ -18,7 +18,7 @@
  * Phase 3 ships — instead, repurpose it to assert the gate behavior.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { resolveEffectiveInitialDifficulty } from '@/lib/progression/photoNamingDifficultyBridge';
 
 // Mock the DB loader so we control when "load" resolves.
@@ -91,7 +91,7 @@ describe('Phase 3 load-race regression — Photo Naming', () => {
       });
     });
 
-    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.loaded).toBe(true);
     expect(result.current.startingLevel).toBe(4);
 
     const postLoadBridge = resolveEffectiveInitialDifficulty({
