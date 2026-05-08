@@ -13,7 +13,7 @@ import {
   type MasteryRow,
   type MasteryTrial,
 } from '@/lib/mastery';
-import { routeTrialMode } from './masterySignalRouting';
+import { routeTrialMode, isAdoptedForTrialMode } from './masterySignalRouting';
 
 function weekStart(d: Date = new Date()): string {
   const day = d.getUTCDay();
@@ -58,8 +58,14 @@ export async function flushMasteryShadow(args: {
       // Any future verdict (receptive, assisted, exposure, etc.) is skipped
       // by default until it has explicit handling.
       if (verdict === 'skipped_unknown') {
-        unknownByAdoptedSlug[log.exercise_slug] =
-          (unknownByAdoptedSlug[log.exercise_slug] ?? 0) + 1;
+        // Only count toward the warning aggregate when the slug is actually
+        // adopted for trial-mode routing. Non-adopted slugs (Two Clues,
+        // Describe Guess, etc.) legitimately produce skipped_unknown and
+        // would otherwise drown the logs and mask Phase 2 failure signals.
+        if (isAdoptedForTrialMode(log.exercise_slug)) {
+          unknownByAdoptedSlug[log.exercise_slug] =
+            (unknownByAdoptedSlug[log.exercise_slug] ?? 0) + 1;
+        }
         continue;
       }
       if (verdict !== 'expressive') continue;
