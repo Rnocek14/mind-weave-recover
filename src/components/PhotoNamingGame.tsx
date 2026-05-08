@@ -50,6 +50,7 @@ import {
   mapPhotoNamingSupport,
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
+import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -2454,6 +2455,9 @@ export const PhotoNamingGame = ({
               <span className="font-medium">Adjusting to help</span>
             </>
           )}
+          <span className="ml-auto">
+            <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-level-change" />
+          </span>
         </div>
       )}
 
