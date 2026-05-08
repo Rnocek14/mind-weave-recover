@@ -72,6 +72,16 @@ function provisionalConfidence(input: ConfidenceInputs): ConfidenceVerdict {
   });
 }
 
+/** Records provenance and returns the tier for use on a DigestSignal. */
+function recordConfidence(
+  kind: DigestSignal['kind'],
+  slug: string,
+  verdict: ConfidenceVerdict,
+): ConfidenceVerdict['tier'] {
+  provenanceBuffer.push({ kind, slug, verdict });
+  return verdict.tier;
+}
+
 // ---------------------------------------------------------------------------
 // Per-game signal derivation.
 // ---------------------------------------------------------------------------
