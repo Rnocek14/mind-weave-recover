@@ -18,10 +18,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { isExcludedFromMastery, mapTrialToSkills } from './skillMapping';
 
 // Skill nodes the legacy mapping (before quarantine) would have routed
-// conversation-partner / conversation-coach into.
+// conversation_partner / conversation_coach into.
 const LEGACY_CONTAMINATION_SLUGS = ['discourse.narrative'] as const;
 
-const QUARANTINED_SLUGS = ['conversation-partner', 'conversation-coach'] as const;
+// Canonical underscore form — matches what useAdaptationTrialLogger writes.
+const QUARANTINED_SLUGS = ['conversation_partner', 'conversation_coach'] as const;
 
 export interface ContaminationAuditReport {
   windowDays: number;
@@ -65,8 +66,8 @@ export async function runMasteryContaminationAudit(
   const wouldMapIfUnquarantined: Array<{ exerciseSlug: string; sampleSkillSlugs: string[] }> = [];
   for (const slug of QUARANTINED_SLUGS) {
     if (!isExcludedFromMastery(slug)) continue; // sanity
-    // Use narrative-retell as the closest structured analog for shape inference.
-    const sample = mapTrialToSkills({ exerciseSlug: 'narrative-retell', inputs: null });
+    // Use narrative_retell as the closest structured analog for shape inference.
+    const sample = mapTrialToSkills({ exerciseSlug: 'narrative_retell', inputs: null });
     if (sample.length > 0) {
       wouldMapIfUnquarantined.push({ exerciseSlug: slug, sampleSkillSlugs: sample });
     }
@@ -115,7 +116,7 @@ export async function runMasteryContaminationAudit(
     recommendations.push(
       `Quarantined exercises produced ${totalQuarantinedTrials} adaptation_trial_logs in the last ${windowDays} days.`,
       'mapTrialToSkills() correctly returns [] so mastery rows should NOT have been written, but verify the writer respects the quarantine.',
-      'Audit useMasteryWriter / flushMasteryShadow if any new mastery rows appeared in this window.'
+      'Audit flushMasteryShadow if any new mastery rows appeared in this window.'
     );
   }
 

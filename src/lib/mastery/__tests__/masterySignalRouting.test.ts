@@ -44,15 +44,18 @@ describe('routeTrialMode (adopted slug = photo-naming)', () => {
   });
 });
 
-describe('routeTrialMode (non-adopted/legacy slugs)', () => {
-  it('preserves legacy behavior regardless of trial_mode', () => {
-    expect(routeTrialMode('two-clues', null)).toBe('expressive');
-    expect(routeTrialMode('two-clues', 'recognition')).toBe('expressive');
-    expect(routeTrialMode('synonym-generator', undefined)).toBe('expressive');
+describe('routeTrialMode (non-adopted slugs)', () => {
+  it('non-adopted slugs are skipped regardless of trial_mode (Phase 1+4 tightening)', () => {
+    expect(routeTrialMode('two-clues', null)).toBe('skipped_unknown');
+    expect(routeTrialMode('two-clues', 'recognition')).toBe('skipped_unknown');
+    expect(routeTrialMode('synonym-generator', undefined)).toBe('skipped_unknown');
+    expect(routeTrialMode('two_clues', 'production')).toBe('skipped_unknown');
   });
-  it('isAdoptedForTrialMode reflects the adoption set', () => {
-    expect(isAdoptedForTrialMode('photo-naming')).toBe(true);
-    expect(isAdoptedForTrialMode('two-clues')).toBe(false);
+  it('isAdoptedForTrialMode reflects the adoption set (canonical underscore)', () => {
+    expect(isAdoptedForTrialMode('photo_naming')).toBe(true);
+    expect(isAdoptedForTrialMode('photo-naming')).toBe(true); // normalized
+    expect(isAdoptedForTrialMode('fix_sentence')).toBe(true);
+    expect(isAdoptedForTrialMode('two_clues')).toBe(false);
   });
 });
 
@@ -76,14 +79,14 @@ describe('filterTrialsForExpressiveMastery', () => {
     expect(kept.every(t => t.trialMode === 'production')).toBe(true);
   });
 
-  it('keeps all trials for non-adopted slugs (legacy preserved)', () => {
+  it('drops all trials for non-adopted slugs (Phase 1+4 tightening)', () => {
     const trials = [
       trial(1, true, null),
       trial(1, true, 'recognition'),
       trial(1, true, 'production'),
     ];
     const kept = filterTrialsForExpressiveMastery('two-clues', trials);
-    expect(kept).toHaveLength(3);
+    expect(kept).toHaveLength(0);
   });
 
   it('skips and warns when adopted slug has missing trial_mode', () => {
@@ -143,14 +146,14 @@ describe('integration: routing + computeMastery', () => {
     expect(r.accuracy_recent).toBe(1);
   });
 
-  it('legacy null trial_mode rows still behave as before for non-adopted slugs', () => {
+  it('non-adopted slugs no longer contaminate expressive mastery (Phase 1+4)', () => {
     const legacy = Array.from({ length: 15 }, (_, i) =>
       trial(i % 5, true, null, 0, `s${i % 4}`),
     );
     const filtered = filterTrialsForExpressiveMastery('two-clues', legacy);
-    expect(filtered).toHaveLength(15);
+    expect(filtered).toHaveLength(0);
     const r = computeMastery(filtered, null, now);
-    expect(r.trials_total).toBe(15);
-    expect(r.mastery_score).toBeGreaterThan(0);
+    expect(r.trials_total).toBe(0);
+    expect(r.mastery_score).toBe(0);
   });
 });

@@ -89,7 +89,17 @@ export async function flushMasteryShadow(args: {
       );
     }
     const skillList = Object.keys(bySkill);
-    if (skillList.length === 0) return;
+    if (skillList.length === 0) {
+      // Phase 2 visibility: surface the silent early-return so future
+      // slug/routing regressions are immediately diagnosable in prod logs.
+      console.info('[mastery] flush produced 0 skills — no rows written', {
+        sessionId,
+        sessionTrialCount: sessionLogs.length,
+        recentTrialCount: (recentLogs ?? []).length,
+        unknownByAdoptedSlug,
+      });
+      return;
+    }
 
     const { data: existing } = await supabase
       .from('user_skill_mastery')
@@ -145,7 +155,12 @@ export async function flushMasteryShadow(args: {
         { onConflict: 'profile_id,skill_slug,week_start' },
       );
     }
+    // Phase 2 visibility: success path is now logged so prod can verify
+    // the mastery pipeline is alive. Counts are small and bounded.
+    console.info('[mastery] flushed', { sessionId, skills: skillList.length });
   } catch (err) {
-    console.warn('[Mastery] flush failed (silent)', err);
+    // Phase 2: was a silent dev-only warn. Promoted to error so RLS / schema
+    // regressions are visible in production logs.
+    console.error('[mastery] flush failed', err);
   }
 }

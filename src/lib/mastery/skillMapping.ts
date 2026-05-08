@@ -4,7 +4,14 @@
  * Pure function. Returns 0..N skill slugs that a given trial contributes to.
  * Used by the Mastery Layer writer (shadow mode). Does NOT influence any
  * live gameplay or in-session adaptation.
+ *
+ * Slug contract: this module always normalizes its input via
+ * `normalizeExerciseSlug` (canonical underscore form). Callers may pass
+ * dash-form, route-form, or any alias — the switch below is keyed on the
+ * canonical underscore form returned by `CANONICAL_SLUGS`.
  */
+
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 export type SkillSlug = string;
 
@@ -21,18 +28,15 @@ interface MapInput {
  * `discourse.*` skill nodes would silently inflate mastery and contaminate
  * the longitudinal recovery model.
  *
- * They remain valuable as functional/conversational practice and continue to
- * write to `exercise_events` for clinician review — they just must not flow
- * into mastery aggregation. Revisit only after a real cue scale and
- * objective scoring contract exist for the exercise.
+ * Stored in canonical underscore form (matches what the writer persists).
  */
 const MASTERY_EXCLUDED_EXERCISES = new Set<string>([
-  'conversation-partner',
-  'conversation-coach',
+  'conversation_partner',
+  'conversation_coach',
 ]);
 
 export function isExcludedFromMastery(exerciseSlug: string): boolean {
-  return MASTERY_EXCLUDED_EXERCISES.has((exerciseSlug || '').toLowerCase());
+  return MASTERY_EXCLUDED_EXERCISES.has(normalizeExerciseSlug(exerciseSlug || ''));
 }
 
 const VOICING_PAIRS = ['p/b', 'b/p', 't/d', 'd/t', 'k/g', 'g/k', 'f/v', 'v/f', 's/z', 'z/s'];
@@ -59,7 +63,7 @@ function classifyNamingByFrequency(inputs?: Record<string, any> | null): SkillSl
 }
 
 export function mapTrialToSkills({ exerciseSlug, inputs }: MapInput): SkillSlug[] {
-  const slug = (exerciseSlug || '').toLowerCase();
+  const slug = normalizeExerciseSlug(exerciseSlug || '');
 
   // Hard quarantine — open-ended / soft-scored exercises must never feed
   // mastery aggregation, even if they accidentally land in
@@ -67,49 +71,49 @@ export function mapTrialToSkills({ exerciseSlug, inputs }: MapInput): SkillSlug[
   if (isExcludedFromMastery(slug)) return [];
 
   switch (slug) {
-    case 'photo-naming':
-    case 'two-clues':
-    case 'semantic-feature':
-    case 'dual-load-naming':
+    case 'photo_naming':
+    case 'two_clues':
+    case 'semantic_features':
+    case 'dual_load_naming':
       return [classifyNamingByFrequency(inputs)];
 
-    case 'describe-guess':
+    case 'describe_guess':
       return ['naming.verbs-actions'];
 
-    case 'meaning-match':
+    case 'meaning_match':
       return ['comprehension.single-word'];
 
-    case 'minimal-pairs':
+    case 'minimal_pairs':
       return [classifyMinimalPair(inputs), 'comprehension.single-word'];
 
-    case 'phonological':
+    case 'phonological_awareness':
       return [classifyMinimalPair(inputs)];
 
-    case 'fix-sentence':
-    case 'sentence-construction':
-    case 'thought-continuation':
+    case 'fix_sentence':
+    case 'sentence_construction':
+    case 'thought_continuation':
       return ['comprehension.sentence'];
 
-    // Structured retell only. `conversation-coach` and `conversation-partner`
+    // Structured retell only. `conversation_coach` and `conversation_partner`
     // are quarantined above (see MASTERY_EXCLUDED_EXERCISES) — open-ended
     // discourse without an objective target or stable cue scale.
-    case 'narrative-retell':
+    case 'narrative_retell':
       return ['discourse.narrative'];
 
-    case 'category-fluency':
+    case 'category_fluency':
       return ['discourse.category-fluency'];
 
-    case 'synonym-generator':
+    case 'synonym_generator':
       return ['discourse.synonyms'];
 
-    case 'multi-step-plan':
-    case 'detective-mind':
+    case 'multi_step_planning':
+    case 'detective_mind':
       return ['executive.planning'];
 
-    case 'abstract-compare':
+    case 'abstract_compare':
       return ['executive.abstract'];
 
-    case 'pattern-match':
+    case 'pattern_match':
       return ['executive.attention', 'executive.abstract'];
 
     default:
