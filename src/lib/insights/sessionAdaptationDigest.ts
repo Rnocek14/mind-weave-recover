@@ -15,10 +15,13 @@ import {
   composeInsights,
   type ComposedInsight,
   type DigestSignal,
-  type ConfidenceTier,
   assertSafePhrase,
   resolveSignalToInsight,
 } from './insightLanguage';
+import {
+  insightConfidence,
+  type ConfidenceVerdict,
+} from './insightConfidence';
 import {
   recordSafetyEvent,
   type SafetyTelemetryCounters,
@@ -48,7 +51,9 @@ export interface AdaptationTrialRow {
 }
 
 // ---------------------------------------------------------------------------
-// Provisional confidence — PR-B3 will replace this.
+// Confidence — delegates to the centralized helper (PR-B3).
+// We collect verdicts (tier + provenance) per derived signal so the digest
+// result can expose internal-only provenance for debugging / audit.
 // ---------------------------------------------------------------------------
 
 interface ConfidenceInputs {
@@ -57,11 +62,24 @@ interface ConfidenceInputs {
   consistency: number; // 0..1
 }
 
-function provisionalConfidence(input: ConfidenceInputs): ConfidenceTier {
-  if (input.trials < 10) return 'insufficient';
-  if (input.consistency >= 0.85 && input.effectSize >= 0.4) return 'high';
-  if (input.consistency >= 0.7 && input.effectSize >= 0.25) return 'medium';
-  return 'low';
+const provenanceBuffer: Array<{ kind: DigestSignal['kind']; slug: string; verdict: ConfidenceVerdict }> = [];
+
+function provisionalConfidence(input: ConfidenceInputs): ConfidenceVerdict {
+  return insightConfidence({
+    trialsAtDimension: input.trials,
+    effectSize: input.effectSize,
+    consistencyAcrossTrials: input.consistency,
+  });
+}
+
+/** Records provenance and returns the tier for use on a DigestSignal. */
+function recordConfidence(
+  kind: DigestSignal['kind'],
+  slug: string,
+  verdict: ConfidenceVerdict,
+): ConfidenceVerdict['tier'] {
+  provenanceBuffer.push({ kind, slug, verdict });
+  return verdict.tier;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +128,7 @@ function deriveCueSupportSignal(
     dimension: 'cue_dependency',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence('cue_support_changed', slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -136,7 +154,7 @@ function deriveTaskComplexitySignal(
     dimension: 'linguistic_complexity',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence('task_complexity_changed', slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -161,7 +179,7 @@ function deriveSteadinessSignal(
     band,
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence('accuracy_held_steady', slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -187,7 +205,7 @@ function deriveFatigueSupportSignal(
     kind: 'fatigue_support_activated',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence('fatigue_support_activated', slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -210,7 +228,7 @@ function deriveIndependenceSignal(
     dimension: 'independence',
     slug,
     trials: rows.length,
-    confidence: provisionalConfidence({ trials: rows.length, effectSize, consistency }),
+    confidence: recordConfidence('independence_gain', slug, provisionalConfidence({ trials: rows.length, effectSize, consistency })),
   };
 }
 
@@ -218,10 +236,22 @@ function deriveIndependenceSignal(
 // Top-level digest.
 // ---------------------------------------------------------------------------
 
+export interface ConfidenceProvenanceEntry {
+  kind: DigestSignal['kind'];
+  slug: string;
+  verdict: ConfidenceVerdict;
+}
+
 export interface SessionDigestResult {
   signals: DigestSignal[];
   insights: ComposedInsight[];
   telemetry: SafetyTelemetryCounters;
+  /**
+   * INTERNAL ONLY. Per-signal confidence provenance (factors + verdict).
+   * Use for debugging, clinician audit, threshold tuning, research export.
+   * NEVER render to patients/caregivers.
+   */
+  confidenceProvenance: ConfidenceProvenanceEntry[];
 }
 
 export interface DigestOptions {
@@ -252,6 +282,8 @@ export function digestSessionRows(
   options: DigestOptions = {},
 ): SessionDigestResult {
   if (options.resetTelemetry) resetSafetyTelemetry();
+  // Per-call provenance buffer reset.
+  provenanceBuffer.length = 0;
 
   const byGame = new Map<string, AdaptationTrialRow[]>();
   for (const r of rows) {
@@ -309,5 +341,6 @@ export function digestSessionRows(
     signals,
     insights,
     telemetry: snapshotSafetyTelemetry(),
+    confidenceProvenance: [...provenanceBuffer],
   };
 }
