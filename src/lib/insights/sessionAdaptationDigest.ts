@@ -15,10 +15,13 @@ import {
   composeInsights,
   type ComposedInsight,
   type DigestSignal,
-  type ConfidenceTier,
   assertSafePhrase,
   resolveSignalToInsight,
 } from './insightLanguage';
+import {
+  insightConfidence,
+  type ConfidenceVerdict,
+} from './insightConfidence';
 import {
   recordSafetyEvent,
   type SafetyTelemetryCounters,
@@ -48,7 +51,9 @@ export interface AdaptationTrialRow {
 }
 
 // ---------------------------------------------------------------------------
-// Provisional confidence — PR-B3 will replace this.
+// Confidence — delegates to the centralized helper (PR-B3).
+// We collect verdicts (tier + provenance) per derived signal so the digest
+// result can expose internal-only provenance for debugging / audit.
 // ---------------------------------------------------------------------------
 
 interface ConfidenceInputs {
@@ -57,11 +62,14 @@ interface ConfidenceInputs {
   consistency: number; // 0..1
 }
 
-function provisionalConfidence(input: ConfidenceInputs): ConfidenceTier {
-  if (input.trials < 10) return 'insufficient';
-  if (input.consistency >= 0.85 && input.effectSize >= 0.4) return 'high';
-  if (input.consistency >= 0.7 && input.effectSize >= 0.25) return 'medium';
-  return 'low';
+const provenanceBuffer: Array<{ kind: DigestSignal['kind']; slug: string; verdict: ConfidenceVerdict }> = [];
+
+function provisionalConfidence(input: ConfidenceInputs): ConfidenceVerdict {
+  return insightConfidence({
+    trialsAtDimension: input.trials,
+    effectSize: input.effectSize,
+    consistencyAcrossTrials: input.consistency,
+  });
 }
 
 // ---------------------------------------------------------------------------
