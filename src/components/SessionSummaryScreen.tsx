@@ -19,6 +19,7 @@ import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/perform
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
+import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
