@@ -89,7 +89,17 @@ export async function flushMasteryShadow(args: {
       );
     }
     const skillList = Object.keys(bySkill);
-    if (skillList.length === 0) return;
+    if (skillList.length === 0) {
+      // Phase 2 visibility: surface the silent early-return so future
+      // slug/routing regressions are immediately diagnosable in prod logs.
+      console.info('[mastery] flush produced 0 skills — no rows written', {
+        sessionId,
+        sessionTrialCount: sessionLogs.length,
+        recentTrialCount: (recentLogs ?? []).length,
+        unknownByAdoptedSlug,
+      });
+      return;
+    }
 
     const { data: existing } = await supabase
       .from('user_skill_mastery')
