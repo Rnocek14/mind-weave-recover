@@ -207,6 +207,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
           </p>
         </div>
 
+        {/* Today's practice — Phase B recovery insights (renders nothing if empty) */}
+        <TodaysPracticeInsights sessionId={sessionId} />
+
         {/* Quick stats — plain language */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-muted/50 rounded-xl p-4">
