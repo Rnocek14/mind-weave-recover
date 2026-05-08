@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ChevronRight, TrendingUp, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 
 interface ExerciseProgressCardProps {
   userId: string | undefined;
@@ -219,7 +220,10 @@ export const ExerciseProgressCard = memo(({
             <Icon className="w-6 h-6 text-white" aria-hidden="true" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-lg mb-1">{exerciseTitle}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-lg mb-1">{exerciseTitle}</h3>
+              <AboutGameLink slug={exerciseSlug} variant="icon" source="exercise-progress-card-empty" />
+            </div>
             <p className="text-sm text-muted-foreground mb-3">
               Targets: {targets}
             </p>
@@ -251,11 +255,14 @@ export const ExerciseProgressCard = memo(({
           <Icon className="w-6 h-6 text-white" aria-hidden="true" />
         </div>
         <div className="flex-1">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 gap-2">
             <h3 className="font-semibold text-lg">{exerciseTitle}</h3>
-            <Badge variant="outline" className="text-xs">
-              {sessionDate}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <AboutGameLink slug={exerciseSlug} variant="icon" source="exercise-progress-card" />
+              <Badge variant="outline" className="text-xs">
+                {sessionDate}
+              </Badge>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground mb-4">
             Targets: {targets}
