@@ -155,7 +155,12 @@ export async function flushMasteryShadow(args: {
         { onConflict: 'profile_id,skill_slug,week_start' },
       );
     }
+    // Phase 2 visibility: success path is now logged so prod can verify
+    // the mastery pipeline is alive. Counts are small and bounded.
+    console.info('[mastery] flushed', { sessionId, skills: skillList.length });
   } catch (err) {
-    console.warn('[Mastery] flush failed (silent)', err);
+    // Phase 2: was a silent dev-only warn. Promoted to error so RLS / schema
+    // regressions are visible in production logs.
+    console.error('[mastery] flush failed', err);
   }
 }
