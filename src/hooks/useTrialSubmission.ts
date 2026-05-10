@@ -63,7 +63,8 @@ export function useTrialSubmission(opts: Options) {
   const canonicalSlug = normalizeExerciseSlug(opts.exerciseSlug);
 
   // Layer 1 — clinical raw event (exercise_events).
-  const { logTrial: logExerciseEvent } = useExerciseTelemetry(opts.sessionId, canonicalSlug);
+  const { logTrial: logExerciseEvent, startTrial, calculateReactionTime } =
+    useExerciseTelemetry(opts.sessionId, canonicalSlug);
 
   // Layer 2 — per-trial adaptation telemetry. Disabled here when the caller
   // already auto-wires it via useInGameAdaptation (autoLog:true). To avoid
