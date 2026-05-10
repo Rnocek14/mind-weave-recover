@@ -2447,6 +2447,19 @@ export const PhotoNamingGame = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
+      {recap && (
+        <PhotoNamingProgressionRecap
+          prev={recap.prev}
+          next={recap.next}
+          leveledUp={recap.leveledUp}
+          onContinue={() => {
+            const fn = finalizeCompleteRef.current;
+            finalizeCompleteRef.current = null;
+            setRecap(null);
+            fn?.();
+          }}
+        />
+      )}
       {/* Progress bar - compact on mobile */}
       <div className="space-y-1">
         <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
