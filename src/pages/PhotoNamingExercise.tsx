@@ -495,18 +495,6 @@ function PhotoNamingExerciseInner() {
         cueWasEffective: result.cueWasEffective,
         timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
         taskParameters: {
-        errorType: result.errorType,
-        errorClassification: result.errorClassification,
-        whisperTranscript: result.whisperTranscript,
-        whisperConfidence: result.whisperConfidence,
-        acousticMetrics: result.acousticMetrics,
-        audioStoragePath: result.audioStoragePath,
-        audioMimeType: result.audioMimeType,
-        recordingDurationMs: result.recordingDurationMs,
-        cueTypeGiven: result.cueTypeGiven,
-        cueWasEffective: result.cueWasEffective,
-        timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
-        taskParameters: {
           // Condition tags for experimental analysis
           photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
           interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
@@ -518,20 +506,19 @@ function PhotoNamingExerciseInner() {
           target_word: trial.target,
           encouragement_score: result.encouragementScore,
           effortful_speech: result.effortfulSpeech,
-          
+
           // Targeted practice tracking (closed loop measurement)
           practice_source: practiceSource,     // 'error_pattern_dashboard' | null
           targeted_words: targetedWords.length > 0 ? targetedWords : null,
           is_targeted_practice: targetedWords.length > 0,
-          
+
           // Store unified analysis for future co-pilot
           utterance_analysis: result.utteranceAnalysis,
           shadow_event: result.shadowEvent,
-          
+
           // Shared adaptation contract telemetry
           ...adaptationTelemetry,
         },
-        validity,
       });
 
       // Log pivot telemetry if a pivot was recommended
