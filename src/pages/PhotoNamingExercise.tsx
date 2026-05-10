@@ -861,28 +861,23 @@ function PhotoNamingExerciseInner() {
           </Card>
         )}
 
-        {/* Optional caregiver notes — collapsed by default to reclaim vertical space */}
+        {/* Optional caregiver notes — collapsed pill, only on large screens */}
         {!fromLesson && (
-          <details className="hidden md:block group mb-3">
-            <summary className="flex items-center gap-2 cursor-pointer select-none rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 transition-colors w-fit">
-              <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+          <details className="hidden xl:block group mb-1">
+            <summary className="flex items-center gap-2 cursor-pointer select-none rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors w-fit">
+              <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
               <span className="font-medium">Add session note</span>
               {caregiverNotes.trim() && (
                 <span className="text-[10px] text-primary font-medium">· saved</span>
               )}
             </summary>
             <Card className="mt-2 p-3 bg-muted/40">
-              <div className="space-y-2">
-                <span className="text-[11px] text-muted-foreground">
-                  Quick observations about mood, energy, engagement
-                </span>
-                <Textarea
-                  placeholder="e.g., Alert and engaged today. Needed more time with family photos."
-                  value={caregiverNotes}
-                  onChange={(e) => setCaregiverNotes(e.target.value)}
-                  className="min-h-[56px] text-sm"
-                />
-              </div>
+              <Textarea
+                placeholder="e.g., Alert and engaged today."
+                value={caregiverNotes}
+                onChange={(e) => setCaregiverNotes(e.target.value)}
+                className="min-h-[56px] text-sm"
+              />
             </Card>
           </details>
         )}
