@@ -169,9 +169,17 @@ export function usePhotoNamingProgression({
       const evidenceMet = evidenceMetForLevel(trials, level);
       const progressDelta = calculateLevelAwareProgressDelta(trials, level);
 
+      // Step 2: pull longitudinal mastery confidence as the FIRST mastery
+      // enforcement layer. Undefined → backward-compatible no-op.
+      const gate = await readMasteryGate({
+        profileId,
+        exerciseSlug: PHOTO_NAMING_SLUG,
+        difficulty: prev.currentLevel,
+      });
+
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        { trials, evidenceMet, progressDelta }
+        { trials, evidenceMet, progressDelta, masteryConfidence: gate.confidence }
       );
 
       if (import.meta.env.DEV) {
