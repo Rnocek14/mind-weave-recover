@@ -165,8 +165,15 @@ function PhotoNamingExerciseInner() {
   const bridge = resolveEffectiveInitialDifficulty({
     sessionAdaptationDifficulty,
     clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
   });
   const initialDifficulty = bridge.effective;
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] PhotoNaming scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 step (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
   const timeoutMultiplier = lessonAdaptations?.timeoutMultiplier ?? 1;
   const largeTargets = lessonAdaptations?.largeTargets ?? false;
   
