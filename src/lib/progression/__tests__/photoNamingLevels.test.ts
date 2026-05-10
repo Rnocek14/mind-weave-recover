@@ -65,6 +65,22 @@ describe('photoNamingLevels — progress delta', () => {
     expect(delta).toBeGreaterThan(1);
   });
 
+  it('Level 1 graduates in 3-5 perfect 9-trial sessions (~25-30%/session)', () => {
+    const trials = Array.from({ length: 9 }, () => trial(true, 'independent'));
+    const delta = calculateLevelAwareProgressDelta(trials, 1);
+    expect(delta).toBeGreaterThan(20);
+    expect(delta).toBeLessThan(40);
+  });
+
+  it('Higher levels graduate slower than lower levels for the same trial set', () => {
+    const trials = Array.from({ length: 9 }, () => trial(true, 'independent'));
+    const l1 = calculateLevelAwareProgressDelta(trials, 1);
+    const l4 = calculateLevelAwareProgressDelta(trials, 4);
+    const l8 = calculateLevelAwareProgressDelta(trials, 8);
+    expect(l1).toBeGreaterThan(l4);
+    expect(l4).toBeGreaterThan(l8);
+  });
+
   it('all 8 level specs are defined', () => {
     for (let i = 1; i <= 8; i++) {
       const s = getPhotoNamingLevelSpec(i);
