@@ -58,20 +58,36 @@ export default function MinimalPairsExercise() {
     cueSensitive: false,
   });
 
-  const difficulty = adaptation.difficultyTier;
-  
+  // Clinical Progression v1 — Minimal Pairs Phase 1 stub.
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // Soft regression: supportBaseline >= 2 lowers floor by 1 step.
+  const progression = useMinimalPairsProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveMinimalPairsInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  const difficulty = bridge.effective;
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] MinimalPairs scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 step (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+
   // Get stats about available pairs
   const stats = getMinimalPairStats();
-  
-  // Unified trial submission. No clinical_progression_state hook for Minimal
-  // Pairs yet — passing progression: null routes through exercise_events +
-  // (future) adaptation_trial_logs only. Mastery shadow still flushes on commit.
+
+  // Unified trial submission — now wired with progression hook (Phase 1 stub).
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
     exerciseSlug: 'minimal_pairs',
-    progression: null,
+    progression,
   });
   
   // Initialize session
