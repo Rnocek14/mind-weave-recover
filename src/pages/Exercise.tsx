@@ -1020,8 +1020,8 @@ const Exercise = () => {
           )}
         </Card>
 
-        {/* Tips - hide during active play and in session mode */}
-        {!fromLesson && !isPlaying && (
+        {/* Tips - hide during active play, in session mode, and on the Ready screen to keep CTA visible */}
+        {false && !fromLesson && !isPlaying && (
           <Card className="p-6 shadow-card border-l-4 border-success">
             <h3 className="font-semibold mb-2 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
