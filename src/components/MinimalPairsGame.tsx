@@ -391,15 +391,16 @@ export function MinimalPairsGame({
       
       <Progress value={progress} className="h-1.5" />
       
-      {/* Target word + audio — compact inline */}
+      {/* Listen prompt — target word is hidden so the user must discriminate by sound */}
       <div className="flex items-center justify-center gap-3 py-2">
-        <p className="text-lg font-medium">
-          Which is: <span className="text-primary font-bold text-xl">"{currentTrial.targetWord}"</span>?
+        <p className="text-base sm:text-lg font-medium text-muted-foreground">
+          Listen, then tap the matching picture
         </p>
         <button
           onClick={() => speak(currentTrial.targetWord)}
           disabled={isSpeaking}
-          className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
+          aria-label="Replay word"
+          className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
         >
           <Volume2 className="w-5 h-5 text-primary" />
         </button>
