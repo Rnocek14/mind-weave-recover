@@ -2673,22 +2673,22 @@ export const PhotoNamingGame = ({
 
       {/* Show transcript while voice mode is active */}
       {useVoice && transcript && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && (
-        <div className="text-xs text-center px-2 py-1 bg-muted rounded">
-          Heard: "{transcript}"
+        <div className="text-xs sm:text-sm text-center px-3 py-1.5 bg-muted/60 border border-border/60 rounded-full text-muted-foreground">
+          Heard: <span className="text-foreground font-medium">"{transcript}"</span>
         </div>
       )}
-      
+
       {/* Retry prompt */}
       {retryPrompt && !showFeedback && !timedOut && (
-        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-primary/5 border border-primary/20 rounded-lg text-xs animate-fade-in">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-primary/5 border border-primary/20 rounded-full text-xs animate-fade-in">
           <Mic className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
           <span className="text-primary">{retryPrompt}</span>
         </div>
       )}
-      
+
       {/* Only show real microphone errors, not normal restart gaps */}
       {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-xs animate-fade-in">
           <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
           <span className="text-warning">{micErrorMessage}</span>
         </div>
@@ -2696,32 +2696,36 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-2 shrink-0">
-          <div className="grid grid-cols-2 gap-2.5">
+        <div className="shrink-0">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {state.choices.map((choice, idx) => (
-              <div key={idx} className="relative">
+              <div key={idx} className="relative group">
                 <Button
-                  variant={selectedAnswer === choice ? "default" : "outline"}
-                  className="w-full h-[64px] sm:h-[72px] text-lg sm:text-xl font-medium pr-11"
+                  variant={selectedAnswer === choice ? 'default' : 'outline'}
+                  className={`w-full h-[68px] sm:h-[76px] text-lg sm:text-xl font-medium pr-12 rounded-xl border-2 transition-all ${
+                    selectedAnswer === choice
+                      ? 'shadow-md'
+                      : 'hover:border-primary/50 hover:bg-accent/30'
+                  }`}
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   {choice}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
+                <button
+                  type="button"
+                  aria-label={`Hear ${choice}`}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
                   }}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
-                  <Volume2 
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
+                  <Volume2
+                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
                   />
-                </Button>
+                </button>
               </div>
             ))}
           </div>
