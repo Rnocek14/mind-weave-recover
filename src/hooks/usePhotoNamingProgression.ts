@@ -229,6 +229,11 @@ export function usePhotoNamingProgression({
             evidenceMet,
             progressDelta,
             trials: trials.length,
+            masteryGate: { confidence: gate.confidence, bySkill: gate.bySkill },
+            masteryGateBlocked:
+              evidenceMet &&
+              prev.progressPct + progressDelta >= 100 &&
+              next.currentLevel === prev.currentLevel,
           });
         }
       } else {
