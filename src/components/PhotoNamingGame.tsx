@@ -2447,7 +2447,7 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2 h-full">
       {recap && (
         <PhotoNamingProgressionRecap
           prev={recap.prev}
@@ -2461,11 +2461,11 @@ export const PhotoNamingGame = ({
           }}
         />
       )}
-      {/* Top header — trial progress + difficulty in one cohesive row */}
-      <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm">
+      {/* Top header — slim trial progress + difficulty */}
+      <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur px-3 py-1.5 shadow-sm shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
             <span className="text-sm font-semibold text-foreground tabular-nums">
               {state.trialNumber}
               <span className="text-muted-foreground font-normal"> / {state.totalTrials}</span>
@@ -2475,7 +2475,7 @@ export const PhotoNamingGame = ({
         </div>
         <Progress
           value={(state.trialNumber / state.totalTrials) * 100}
-          className="h-1 mt-2"
+          className="h-1 mt-1.5"
         />
       </div>
 
@@ -2556,13 +2556,13 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Image — grows to fill available space */}
-      <div className="relative flex-1 min-h-[120px]">
+      {/* Image — grows to fill available space, capped so answer cards stay visible */}
+      <div className="relative flex-1 min-h-[120px] flex items-center justify-center">
         {state.currentTrial.imageUrl ? (
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
+            className="max-w-full max-h-full w-auto h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
@@ -2695,21 +2695,21 @@ export const PhotoNamingGame = ({
 
       {/* Only show real microphone errors, not normal restart gaps */}
       {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-xs animate-fade-in">
-          <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <span className="text-warning">{micErrorMessage}</span>
+        <div className="mx-auto w-fit max-w-full flex items-center justify-center gap-1.5 px-3 py-1 bg-warning/10 border border-warning/30 rounded-full text-[11px] animate-fade-in shrink-0">
+          <AlertCircle className="w-3 h-3 text-warning shrink-0" />
+          <span className="text-warning truncate">{micErrorMessage}</span>
         </div>
       )}
 
       {/* Answer choices */}
       {!assistMode ? (
         <div className="shrink-0">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative group">
                 <Button
                   variant={selectedAnswer === choice ? 'default' : 'outline'}
-                  className={`w-full h-[68px] sm:h-[76px] text-lg sm:text-xl font-medium pr-12 rounded-xl border-2 transition-all ${
+                  className={`w-full h-12 sm:h-14 text-base sm:text-lg font-medium pr-11 rounded-xl border-2 transition-all ${
                     selectedAnswer === choice
                       ? 'shadow-md'
                       : 'hover:border-primary/50 hover:bg-accent/30'
@@ -2722,7 +2722,7 @@ export const PhotoNamingGame = ({
                 <button
                   type="button"
                   aria-label={`Hear ${choice}`}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
@@ -2730,7 +2730,7 @@ export const PhotoNamingGame = ({
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   <Volume2
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
+                    className={`w-3.5 h-3.5 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
                   />
                 </button>
               </div>

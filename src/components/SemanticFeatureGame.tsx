@@ -447,7 +447,7 @@ export const SemanticFeatureGame = ({
   const correctSet = new Set(trial.correctFeatures.map(f => f.text));
 
   return (
-    <div className="space-y-3 max-w-lg mx-auto">
+    <div className="space-y-3 max-w-lg mx-auto w-full my-auto">
       {/* Progress */}
       <div className="flex justify-between items-center text-xs">
         <span className="text-muted-foreground">{game.currentTrial + 1} of {totalTrials}</span>

@@ -413,7 +413,7 @@ export function AbstractCompareGame({
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
+    <div className="max-w-lg mx-auto w-full my-auto space-y-2 sm:space-y-4">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
