@@ -23,6 +23,11 @@ import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import {
+  useMinimalPairsProgression,
+  mapMinimalPairsSupport,
+} from '@/hooks/useMinimalPairsProgression';
+import { resolveEffectiveMinimalPairsInitialDifficulty } from '@/lib/progression/minimalPairsDifficultyBridge';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
