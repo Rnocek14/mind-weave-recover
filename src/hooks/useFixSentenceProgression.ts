@@ -161,6 +161,7 @@ export function useFixSentenceProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          masteryGate: { confidence: gate.confidence, bySkill: gate.bySkill },
           prev: {
             level: prev.currentLevel,
             progressPct: prev.progressPct,
