@@ -53,6 +53,12 @@ export interface MinimalPairsLevelSpec {
   minOnTargetAccuracy: number;
   /** Phase 1 readiness — drives /games/:slug/about and clinical messaging. */
   readiness: 'ready' | 'thin' | 'aspirational';
+  /**
+   * Per-level divisor for `calculateMinimalPairsProgressDelta`. Mirrors the
+   * Photo Naming + Fix Sentence calibration: early levels graduate quickly
+   * (~3 sessions); later levels demand more evidence.
+   */
+  trialWeight: number;
 }
 
 export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
@@ -63,6 +69,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
+    trialWeight: 0.4,
   },
   2: {
     level: 2,
@@ -71,6 +78,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     readiness: 'ready',
+    trialWeight: 0.55,
   },
   3: {
     level: 3,
@@ -79,6 +87,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
+    trialWeight: 0.75,
   },
   4: {
     level: 4,
@@ -87,6 +96,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
+    trialWeight: 1.0,
   },
   5: {
     level: 5,
@@ -95,6 +105,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.75,
     readiness: 'thin',
+    trialWeight: 1.25,
   },
   6: {
     level: 6,
@@ -103,6 +114,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     readiness: 'thin',
+    trialWeight: 1.7,
   },
   7: {
     level: 7,
@@ -111,6 +123,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.8,
     readiness: 'thin',
+    trialWeight: 2.0,
   },
   8: {
     level: 8,
@@ -119,6 +132,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
     readiness: 'aspirational',
+    trialWeight: 2.5,
   },
 };
 
@@ -146,17 +160,17 @@ export function evidenceMetForMinimalPairsLevel(
 }
 
 /**
- * Level-aware progress delta. Mirrors PhotoNaming weighting:
- *   - on-target correct  → base credit × 1.25 (consistency bonus)
- *   - below-target correct → base credit × 0.4 (practice credit)
- *   - incorrect → 0
+ * Level-aware progress delta. Defaults to the level-specific `trialWeight`
+ * so cadence matches PhotoNaming + FixSentence. Callers may still pass an
+ * explicit override for tests or simulation.
  */
 export function calculateMinimalPairsProgressDelta(
   trials: Array<{ correct: boolean; support: SupportLevel }>,
   level: number,
   options: { trialWeight?: number } = {},
 ): number {
-  const weight = options.trialWeight ?? 2.5;
+  const spec = getMinimalPairsLevelSpec(level);
+  const weight = options.trialWeight ?? spec.trialWeight;
   let total = 0;
   for (const t of trials) {
     const base = trialCredit(t);
