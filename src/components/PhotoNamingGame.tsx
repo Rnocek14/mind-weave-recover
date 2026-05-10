@@ -2460,32 +2460,33 @@ export const PhotoNamingGame = ({
           }}
         />
       )}
-      {/* Progress bar - compact on mobile */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
-          <span>{state.trialNumber}/{state.totalTrials}</span>
-          <div className="flex items-center gap-2">
-            <LevelBadge descriptor={levelDescriptor} compact />
-            {/* Score intentionally hidden from the patient view — it created
-                pressure and a "test" feel. Score still flows to the clinician
-                summary via onGameComplete / state.score. */}
+      {/* Top header — trial progress + difficulty in one cohesive row */}
+      <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
+            <span className="text-sm font-semibold text-foreground tabular-nums">
+              {state.trialNumber}
+              <span className="text-muted-foreground font-normal"> / {state.totalTrials}</span>
+            </span>
           </div>
+          <LevelBadge descriptor={levelDescriptor} compact />
         </div>
-        <Progress 
-          value={(state.trialNumber / state.totalTrials) * 100} 
-          className="h-1.5 sm:h-2"
+        <Progress
+          value={(state.trialNumber / state.totalTrials) * 100}
+          className="h-1 mt-2"
         />
       </div>
 
-      {/* Difficulty indicator */}
+      {/* Difficulty change banner */}
       {difficultyChanged && (
-        <div className={`flex items-center gap-2 px-2 py-1.5 sm:p-3 rounded-lg border text-xs sm:text-sm ${
-          difficultyChanged === 'up' ? 'bg-success/10 border-success' : 'bg-warning/10 border-warning'
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs sm:text-sm ${
+          difficultyChanged === 'up' ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           {difficultyChanged === 'up' ? (
             <>
               <TrendingUp className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Level up!</span>
+              <span className="font-medium">Level up</span>
             </>
           ) : (
             <>
@@ -2499,49 +2500,53 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Recording/Analyzing/Processing indicator - Enhanced */}
+      {/* Unified status chip — recording / processing / setup */}
       {(isRecording || isAnalyzing || isCreatingSession || processingAnswer) && (
-        <div className="flex items-center gap-2 text-xs sm:text-sm px-2 py-1.5 sm:p-3 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl bg-muted/60 border border-border">
           {isCreatingSession && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground">Setting up...</span>
+              <span className="text-muted-foreground">Setting up…</span>
             </>
           )}
           {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
             <>
-              <div className="w-2.5 h-2.5 bg-primary rounded-full shrink-0" />
-              <span className="text-primary font-medium">🎙️ Mic on</span>
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+              </span>
+              <span className="text-primary font-medium">Listening</span>
             </>
           )}
           {processingAnswer && !isAnalyzing && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-              <span className="text-primary font-medium">Processing...</span>
+              <span className="text-primary font-medium">Processing…</span>
               {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
           {isAnalyzing && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-              <span className="text-primary font-medium">Analyzing...</span>
+              <span className="text-primary font-medium">Analyzing…</span>
               {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
         </div>
       )}
 
-      {/* Purpose banner + entry instruction — first trial only */}
+      {/* First-trial intro — consolidated card */}
       {state.trialNumber === 1 && !showFeedback && (
-        <>
-          <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+        <div className="mx-auto w-full max-w-md space-y-2">
+          <ExercisePurposeBanner exerciseSlug="photo-naming" />
           <ClinicalLevelBadge
             level={progression.startingLevel}
             progressPct={progression.state?.progressPct ?? null}
-            className="mx-auto max-w-md"
           />
-          <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
-        </>
+          <p className="text-center text-sm font-medium text-foreground/80">
+            Say what you see
+          </p>
+        </div>
       )}
 
       {/* Image — grows to fill available space */}
