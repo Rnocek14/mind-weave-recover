@@ -253,7 +253,7 @@ export function usePhotoNamingProgression({
           result.error
         );
       }
-      return result;
+      return { ...result, snapshot };
     },
     [userId, profileId, state]
   );
