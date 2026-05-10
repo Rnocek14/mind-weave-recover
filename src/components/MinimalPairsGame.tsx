@@ -268,20 +268,15 @@ export function MinimalPairsGame({
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
 
-  // Auto-advance after selection — keeps rhythm flowing.
-  // Correct: wait for echo phase (heard or skipped), then advance after a short beat.
-  // Incorrect: 2.2s (extra time to read the contrast info). No echo on incorrect.
+  // Auto-advance after selection — always progresses regardless of echo state.
+  // Echo (mic exposure) runs in parallel but never blocks the rhythm.
+  // Correct: 1.6s (brief celebration). Incorrect: 2.4s (time to read contrast info).
   useEffect(() => {
     if (!showFeedback || isComplete) return;
-    if (state.isCorrect) {
-      // Wait for echo to resolve before advancing.
-      if (echoStatus === 'idle' || echoStatus === 'listening') return;
-      const t = setTimeout(() => { nextTrial(); }, 900);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => { nextTrial(); }, 2200);
+    const delay = state.isCorrect ? 1600 : 2400;
+    const t = setTimeout(() => { nextTrial(); }, delay);
     return () => clearTimeout(t);
-  }, [showFeedback, isComplete, state.isCorrect, echoStatus, nextTrial]);
+  }, [showFeedback, isComplete, state.isCorrect, trialIndex, nextTrial]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
   useEffect(() => {
@@ -396,15 +391,16 @@ export function MinimalPairsGame({
       
       <Progress value={progress} className="h-1.5" />
       
-      {/* Target word + audio — compact inline */}
+      {/* Listen prompt — target word is hidden so the user must discriminate by sound */}
       <div className="flex items-center justify-center gap-3 py-2">
-        <p className="text-lg font-medium">
-          Which is: <span className="text-primary font-bold text-xl">"{currentTrial.targetWord}"</span>?
+        <p className="text-base sm:text-lg font-medium text-muted-foreground">
+          Listen, then tap the matching picture
         </p>
         <button
           onClick={() => speak(currentTrial.targetWord)}
           disabled={isSpeaking}
-          className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
+          aria-label="Replay word"
+          className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
         >
           <Volume2 className="w-5 h-5 text-primary" />
         </button>
