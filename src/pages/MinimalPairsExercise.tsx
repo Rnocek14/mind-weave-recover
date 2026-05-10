@@ -28,6 +28,9 @@ import {
   mapMinimalPairsSupport,
 } from '@/hooks/useMinimalPairsProgression';
 import { resolveEffectiveMinimalPairsInitialDifficulty } from '@/lib/progression/minimalPairsDifficultyBridge';
+import { ProgressionRecap } from '@/components/ProgressionRecap';
+import { getMinimalPairsLevelSpec } from '@/lib/progression/minimalPairsLevels';
+import type { ProgressionRecapSnapshot } from '@/lib/trial/types';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
@@ -43,6 +46,8 @@ export default function MinimalPairsExercise() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   // Auto-start when launched from a lesson — no intro gate inside the flow.
   const [isStarted, setIsStarted] = useState(!!fromLesson);
+  const [recap, setRecap] = useState<ProgressionRecapSnapshot | null>(null);
+  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -129,18 +134,27 @@ export default function MinimalPairsExercise() {
   }) => {
     console.log('Minimal pairs exercise complete:', results);
 
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    // (No clinical_progression_state hook for Minimal Pairs yet.)
-    await commitSession();
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow
+    // + flushes Minimal Pairs progression (Phase 1 stub).
+    const commitResult = await commitSession();
 
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: 'minimal-pairs', results },
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+    const finalize = () => {
+      if (fromLesson && !exerciseCompleteSentRef.current) {
+        exerciseCompleteSentRef.current = true;
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: { exerciseSlug: 'minimal-pairs', results },
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    };
+
+    if (commitResult.progressionSnapshot) {
+      finalizeAfterRecapRef.current = finalize;
+      setRecap(commitResult.progressionSnapshot);
+    } else {
+      finalize();
     }
   }, [fromLesson, navigate, returnTo, commitSession]);
   
@@ -273,6 +287,23 @@ export default function MinimalPairsExercise() {
   
   return (
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
+      {recap && (
+        <ProgressionRecap
+          gameTitle="Minimal Pairs"
+          levelDescription={
+            getMinimalPairsLevelSpec(recap.leveledUp ? recap.next.level : recap.prev.level).description
+          }
+          prev={recap.prev}
+          next={recap.next}
+          leveledUp={recap.leveledUp}
+          onContinue={() => {
+            const fn = finalizeAfterRecapRef.current;
+            finalizeAfterRecapRef.current = null;
+            setRecap(null);
+            fn?.();
+          }}
+        />
+      )}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
