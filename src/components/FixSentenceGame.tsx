@@ -638,7 +638,7 @@ export function FixSentenceGame({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-2 sm:space-y-6">
+    <div className="max-w-2xl mx-auto w-full my-auto space-y-2 sm:space-y-5">
       {/* Progress */}
       <div className="space-y-1">
         <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
