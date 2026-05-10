@@ -16,6 +16,7 @@
  */
 
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
+import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
 
 /** Why this is the only canonical shape — see docs/unified-trial-contract.md §1. */
 export interface UnifiedTrialInput {
@@ -61,7 +62,7 @@ export interface UnifiedTrialInput {
   /** Anything else the per-game telemetry wants to record on exercise_events. */
   taskParameters?: Record<string, unknown>;
   /** Pre-classified speech-validity verdict (Phase 1 gate). */
-  validity?: { label: string; reason?: string } | null;
+  validity?: ValidityResult | null;
 
   // ---- pass-throughs to existing telemetry layer ----
   errorType?: string;

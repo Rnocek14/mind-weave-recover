@@ -153,7 +153,7 @@ export function useTrialSubmission(opts: Options) {
             fatigue: input.fatigueSignal ?? null,
             trialMode: input.trialMode ?? null,
             gradedScore: input.accuracyScore ?? null,
-            validity: input.validity ?? null,
+            validity: input.validity ? { label: input.validity.validity, reason: input.validity.reason } : null,
           });
         }
         // Mark routed in either path so dev console reflects reality.
