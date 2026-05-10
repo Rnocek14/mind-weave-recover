@@ -37,8 +37,9 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
-import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
-import { ClinicalLevelBadge } from '@/components/ClinicalLevelBadge';
+// ExercisePurposeBanner and ClinicalLevelBadge intentionally not imported here —
+// the first-trial intro is now a single inline strip, and longitudinal level is
+// surfaced via the post-session ProgressionRecap overlay.
 import { PhotoNamingProgressionRecap } from '@/components/PhotoNamingProgressionRecap';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
