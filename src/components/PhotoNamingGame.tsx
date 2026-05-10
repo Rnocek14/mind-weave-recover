@@ -2556,13 +2556,13 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Image — grows to fill available space */}
-      <div className="relative flex-1 min-h-[120px]">
+      {/* Image — grows to fill available space, capped so answer cards stay visible */}
+      <div className="relative flex-1 min-h-[120px] flex items-center justify-center">
         {state.currentTrial.imageUrl ? (
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
+            className="max-w-full max-h-full w-auto h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
