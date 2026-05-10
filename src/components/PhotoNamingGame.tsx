@@ -2704,12 +2704,12 @@ export const PhotoNamingGame = ({
       {/* Answer choices */}
       {!assistMode ? (
         <div className="shrink-0">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             {state.choices.map((choice, idx) => (
               <div key={idx} className="relative group">
                 <Button
                   variant={selectedAnswer === choice ? 'default' : 'outline'}
-                  className={`w-full h-[68px] sm:h-[76px] text-lg sm:text-xl font-medium pr-12 rounded-xl border-2 transition-all ${
+                  className={`w-full h-12 sm:h-14 text-base sm:text-lg font-medium pr-11 rounded-xl border-2 transition-all ${
                     selectedAnswer === choice
                       ? 'shadow-md'
                       : 'hover:border-primary/50 hover:bg-accent/30'
@@ -2722,7 +2722,7 @@ export const PhotoNamingGame = ({
                 <button
                   type="button"
                   aria-label={`Hear ${choice}`}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
@@ -2730,7 +2730,7 @@ export const PhotoNamingGame = ({
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   <Volume2
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
+                    className={`w-3.5 h-3.5 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
                   />
                 </button>
               </div>
