@@ -408,7 +408,10 @@ export function MinimalPairsGame({
           Listen, then tap the matching picture
         </p>
         <button
-          onClick={() => speak(currentTrial.targetWord)}
+          onClick={() => {
+            if (!showFeedback) audioReplayCountRef.current += 1;
+            speak(currentTrial.targetWord);
+          }}
           disabled={isSpeaking}
           aria-label="Replay word"
           className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
