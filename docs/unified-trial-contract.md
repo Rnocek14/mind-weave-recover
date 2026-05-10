@@ -86,3 +86,37 @@ Look for the `masteryGateBlocked: true` flag in Photo Naming logs.
 - No active mastery decay
 - No hard regression / demotion
 - No UI surfacing of mastery confidence
+
+---
+
+## Cross-game `cue_level` contract (LOCKED 2026-05-10)
+
+`cue_level` (0..3) is the **clinician/system-issued cue intensity** dimension —
+nothing else. It is the single signal mastery uses for cue independence:
+`cue_independence = Σ(correct × (1 − cue_level/3)) / Σ(correct)`
+(`src/lib/mastery/computeMastery.ts`). `compute-adaptation-profile` consumes
+the same field for support-intensity trend. `detect-telemetry-anomalies` does
+not read it.
+
+| value | meaning |
+|---|---|
+| 0 | independent — no cue |
+| 1 | semantic cue (category / function / first-letter) |
+| 2 | phonemic cue (initial sound, syllable count) |
+| 3 | full word / model |
+
+### Per-game emission
+
+| Game | cue_level source | Notes |
+|---|---|---|
+| **Photo Naming** | live cue ladder in `PhotoNamingGame` (`useState(0)` → `1` semantic → `2` phonemic → `3` full) | Only game emitting non-zero today. Mapped to `supportUsed` via `mapPhotoNamingSupport`. |
+| **Fix Sentence** | always `0` | No in-trial cue ladder; difficulty carries the support story. |
+| **Minimal Pairs** | always `0` | Replay scaffolding is **not** a cue — it lives entirely in `supportUsed` (`first_listen` vs `after_replay`) and `taskParameters.audio_replay_count`. Folding replays into `cue_level` would inflate "support intensity" trends and corrupt cue-independence math. |
+
+### Rule for new games
+
+If you add a game, set `cue_level: 0` unless you have a real
+clinician/system-issued cue ladder (semantic → phonemic → full). Listen-again,
+re-read, slower-pace, hint-tile-shown are **support tiers**, not cue intensity
+— route them through `supportUsed`. Locked by
+`src/lib/trial/__tests__/cueLevelContract.test.ts`.
