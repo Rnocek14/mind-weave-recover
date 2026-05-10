@@ -28,6 +28,9 @@ import {
   mapMinimalPairsSupport,
 } from '@/hooks/useMinimalPairsProgression';
 import { resolveEffectiveMinimalPairsInitialDifficulty } from '@/lib/progression/minimalPairsDifficultyBridge';
+import { ProgressionRecap } from '@/components/ProgressionRecap';
+import { getMinimalPairsLevelSpec } from '@/lib/progression/minimalPairsLevels';
+import type { ProgressionRecapSnapshot } from '@/lib/trial/types';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
