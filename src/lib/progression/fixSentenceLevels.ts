@@ -40,6 +40,14 @@ export interface FixSentenceLevelSpec {
   targetSupport: SupportLevel;
   minOnTargetAttempts: number;
   minOnTargetAccuracy: number;
+  /**
+   * Per-level divisor for `calculateFixSentenceProgressDelta`. Lower values
+   * graduate the level faster — early levels intentionally cadence quickly so
+   * patients see motion within ~3 sessions; later levels slow the climb to
+   * demand more evidence. Mirrors the per-level weighting calibration shipped
+   * for Photo Naming.
+   */
+  trialWeight: number;
 }
 
 /**
