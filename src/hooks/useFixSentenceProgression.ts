@@ -184,7 +184,14 @@ export function useFixSentenceProgression({
       } else {
         console.warn('[FixSentenceProgression] persist failed:', result.error);
       }
-      return result;
+      const snapshot = {
+        prev: { level: prev.currentLevel, progressPct: prev.progressPct },
+        next: { level: next.currentLevel, progressPct: next.progressPct },
+        leveledUp: next.currentLevel > prev.currentLevel,
+        evidenceMet,
+        progressDelta,
+      };
+      return { ...result, snapshot };
     },
     [userId, profileId, state],
   );

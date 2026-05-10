@@ -40,6 +40,14 @@ export interface FixSentenceLevelSpec {
   targetSupport: SupportLevel;
   minOnTargetAttempts: number;
   minOnTargetAccuracy: number;
+  /**
+   * Per-level divisor for `calculateFixSentenceProgressDelta`. Lower values
+   * graduate the level faster — early levels intentionally cadence quickly so
+   * patients see motion within ~3 sessions; later levels slow the climb to
+   * demand more evidence. Mirrors the per-level weighting calibration shipped
+   * for Photo Naming.
+   */
+  trialWeight: number;
 }
 
 /**
@@ -65,6 +73,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'highlight_plus_choice',
     minOnTargetAttempts: 4,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.4,
   },
   2: {
     level: 2,
@@ -72,6 +81,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'choice_based',
     minOnTargetAttempts: 4,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.55,
   },
   3: {
     level: 3,
@@ -79,6 +89,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 4,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.75,
   },
   4: {
     level: 4,
@@ -86,6 +97,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 4,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 1.0,
   },
   5: {
     level: 5,
@@ -93,6 +105,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
+    trialWeight: 1.25,
   },
   6: {
     level: 6,
@@ -100,6 +113,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.8,
+    trialWeight: 1.7,
   },
   7: {
     level: 7,
@@ -107,6 +121,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
+    trialWeight: 2.0,
   },
   8: {
     level: 8,
@@ -114,6 +129,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
     targetSupport: 'open_response',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.85,
+    trialWeight: 2.5,
   },
 };
 
@@ -145,15 +161,17 @@ export function evidenceMetForFixSentenceLevel(
  * support credit + a small consistency bonus; below-target trials count as
  * partial practice credit only and cannot graduate the level on their own.
  *
- * Default trialWeight (~2.5) gives a typical 5-trial Fix Sentence session
- * meaningful but not runaway forward motion.
+ * Defaults to the level-specific `trialWeight` so early levels graduate in
+ * ~3 sessions and later levels demand more evidence. Callers may still pass
+ * an explicit override for tests or simulation.
  */
 export function calculateFixSentenceProgressDelta(
   trials: Array<{ correct: boolean; support: SupportLevel }>,
   level: number,
   options: { trialWeight?: number } = {},
 ): number {
-  const weight = options.trialWeight ?? 2.5;
+  const spec = getFixSentenceLevelSpec(level);
+  const weight = options.trialWeight ?? spec.trialWeight;
   let total = 0;
   for (const t of trials) {
     const base = trialCredit(t);
