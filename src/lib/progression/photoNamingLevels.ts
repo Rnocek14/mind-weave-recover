@@ -87,6 +87,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'recognition_only',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.4, // ~3 perfect sessions to graduate — build momentum
   },
   2: {
     level: 2,
@@ -94,6 +95,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'semantic_cue',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.55,
   },
   3: {
     level: 3,
@@ -101,6 +103,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'phonemic_cue',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 0.75,
   },
   4: {
     level: 4,
@@ -108,6 +111,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'independent',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
+    trialWeight: 1.0,
   },
   5: {
     level: 5,
@@ -115,6 +119,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'independent',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
+    trialWeight: 1.25,
   },
   6: {
     level: 6,
@@ -122,6 +127,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'independent',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
+    trialWeight: 1.7,
   },
   7: {
     level: 7,
@@ -129,6 +135,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'independent',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
+    trialWeight: 2.0,
   },
   8: {
     level: 8,
@@ -136,6 +143,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'independent',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
+    trialWeight: 2.5,
   },
 };
 
