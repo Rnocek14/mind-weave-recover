@@ -113,7 +113,62 @@ describe('clinicalProgression — session rollup', () => {
     expect(s.progressPct).toBe(0);
   });
 
-  it('struggles increase struggle counter (no level drop in v1 step 1)', () => {
+  describe('mastery confidence gate (Step 2)', () => {
+    const fillTrials = () =>
+      Array.from({ length: 10000 }, () => ({
+        correct: true as const,
+        support: 'independent' as const,
+      }));
+
+    it('blocks level-up when mastery confidence is "low"', () => {
+      let s = defaultProgressionState(ids);
+      s = applySessionToState(s, {
+        trials: fillTrials(),
+        evidenceMet: true,
+        masteryConfidence: 'low',
+      });
+      expect(s.currentLevel).toBe(1);
+      expect(s.progressPct).toBe(MAX_PROGRESS);
+    });
+
+    it('blocks level-up when mastery confidence is "none"', () => {
+      let s = defaultProgressionState(ids);
+      s = applySessionToState(s, {
+        trials: fillTrials(),
+        evidenceMet: true,
+        masteryConfidence: 'none',
+      });
+      expect(s.currentLevel).toBe(1);
+    });
+
+    it('allows level-up when mastery confidence is "medium"', () => {
+      let s = defaultProgressionState(ids);
+      s = applySessionToState(s, {
+        trials: fillTrials(),
+        evidenceMet: true,
+        masteryConfidence: 'medium',
+      });
+      expect(s.currentLevel).toBe(2);
+    });
+
+    it('allows level-up when mastery confidence is "high"', () => {
+      let s = defaultProgressionState(ids);
+      s = applySessionToState(s, {
+        trials: fillTrials(),
+        evidenceMet: true,
+        masteryConfidence: 'high',
+      });
+      expect(s.currentLevel).toBe(2);
+    });
+
+    it('undefined confidence is backward-compatible (allows level-up)', () => {
+      let s = defaultProgressionState(ids);
+      s = applySessionToState(s, {
+        trials: fillTrials(),
+        evidenceMet: true,
+      });
+      expect(s.currentLevel).toBe(2);
+    });
     let s = defaultProgressionState(ids);
     s = { ...s, currentLevel: 4, stableLevel: 4 };
     s = applySessionToState(s, {
