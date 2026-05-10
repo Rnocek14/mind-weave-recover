@@ -25,7 +25,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
 import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { supabase } from '@/integrations/supabase/client';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
@@ -189,7 +189,16 @@ function PhotoNamingExerciseInner() {
   const sessionId = activeSessionId;
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
-  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId, 'photo_naming');
+  // Unified trial submission. progression:null because PhotoNamingGame owns
+  // its own usePhotoNamingProgression instance and buffers there — passing
+  // it again here would double-buffer trials.
+  const { startTrial, submitTrial, calculateReactionTime } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    exerciseSlug: 'photo_naming',
+    progression: null,
+  });
 
   // Push initial snapshot so the panel isn't empty before first trial
   useEffect(() => {
@@ -460,10 +469,32 @@ function PhotoNamingExerciseInner() {
         acousticMetrics: result.acousticMetrics ?? null,
         targetWord: trial.target,
       });
-      await logTrial({
-        correct: result.correct,
-        reactionTimeMs: result.reactionTimeMs,
-        cueLevel: result.cueLevel,
+      await submitTrial({
+        profileId: activeProfile?.id,
+        sessionId,
+        gameId: 'photo_naming',
+        level: typeof result.difficultyLevel === 'number' ? result.difficultyLevel : 1,
+        stimulusId: trial.id,
+        expectedResponse: trial.target,
+        userResponse: result.whisperTranscript ?? null,
+        isCorrect: result.correct,
+        cueLevel: result.cueLevel ?? 0,
+        supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
+        latencyMs: result.reactionTimeMs ?? null,
+        trialMode: 'production',
+        validity,
+        errorType: result.errorType,
+        errorClassification: result.errorClassification,
+        whisperTranscript: result.whisperTranscript,
+        whisperConfidence: result.whisperConfidence,
+        acousticMetrics: result.acousticMetrics,
+        audioStoragePath: result.audioStoragePath,
+        audioMimeType: result.audioMimeType,
+        recordingDurationMs: result.recordingDurationMs,
+        cueTypeGiven: result.cueTypeGiven,
+        cueWasEffective: result.cueWasEffective,
+        timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
+        taskParameters: {
         errorType: result.errorType,
         errorClassification: result.errorClassification,
         whisperTranscript: result.whisperTranscript,
