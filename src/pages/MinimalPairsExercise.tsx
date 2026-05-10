@@ -165,7 +165,12 @@ export default function MinimalPairsExercise() {
       expectedResponse: trialData.targetWord,
       userResponse: trialData.selectedWord,
       isCorrect: trialData.isCorrect,
-      cueLevel: trialData.audioReplayCount > 0 ? 1 : 0,
+      // cueLevel reserved for clinician-issued cues (semantic/phonemic), per
+      // PhotoNaming/FixSentence convention. Replay scaffolding is captured
+      // entirely by `supportUsed` (after_replay vs first_listen) and the
+      // `audio_replay_count` task parameter — keeps cross-game cue_level
+      // semantics consistent for mastery + anomaly consumers.
+      cueLevel: 0,
       supportUsed,
       latencyMs: 0,
       trialMode: 'recognition',
