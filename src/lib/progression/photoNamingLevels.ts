@@ -50,6 +50,19 @@ export interface PhotoNamingLevelSpec {
   minOnTargetAttempts: number;
   /** Min accuracy across those on-target attempts to meet evidence. */
   minOnTargetAccuracy: number;
+  /**
+   * Per-level progress weight (credits-per-progress-point).
+   *
+   * Lower weight = faster graduation. Easier levels graduate in a few
+   * sessions to build momentum; harder levels graduate slowly because the
+   * clinical claim is more demanding.
+   *
+   * Calibration baseline: a "perfect" session of ~9 on-target independent
+   * trials = 9 * 1.0 (base) * 1.25 (on-target bonus) = 11.25 credits.
+   * Target sessions-to-graduate at perfect cadence:
+   *   L1 ~3-4, L2 ~5, L3 ~7, L4 ~9, L5 ~11, L6 ~16, L7 ~19, L8 ~22.
+   */
+  trialWeight: number;
 }
 
 /**
