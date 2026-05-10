@@ -193,7 +193,8 @@ export function calculateLevelAwareProgressDelta(
   level: number,
   options: { trialWeight?: number } = {}
 ): number {
-  const weight = options.trialWeight ?? 2.5;
+  const spec = getPhotoNamingLevelSpec(level);
+  const weight = options.trialWeight ?? spec.trialWeight;
   let total = 0;
   for (const t of trials) {
     const base = trialCredit(t);
