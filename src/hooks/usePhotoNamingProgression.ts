@@ -33,6 +33,7 @@ import {
   evidenceMetForLevel,
   getPhotoNamingLevelSpec,
 } from '@/lib/progression/photoNamingLevels';
+import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
 
