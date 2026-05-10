@@ -18,7 +18,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -58,7 +58,16 @@ export default function MinimalPairsExercise() {
   // Get stats about available pairs
   const stats = getMinimalPairStats();
   
-  const { logTrial } = useExerciseTelemetry(sessionId, 'minimal_pairs');
+  // Unified trial submission. No clinical_progression_state hook for Minimal
+  // Pairs yet — passing progression: null routes through exercise_events +
+  // (future) adaptation_trial_logs only. Mastery shadow still flushes on commit.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    exerciseSlug: 'minimal_pairs',
+    progression: null,
+  });
   
   // Initialize session
   useEffect(() => {
@@ -119,13 +128,23 @@ export default function MinimalPairsExercise() {
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    // NOTE: startTrial() removed — trial start should fire when a new trial
-    // appears, not when one completes. Calling it here was double-counting
-    // and contributed to a runaway logging loop combined with the unstable
-    // callback identity (now fixed via useCallback).
-    logTrial({
-      correct: trialData.isCorrect,
-      reactionTimeMs: 0,
+    // Listening discrimination → 'after_replay' is the conservative default
+    // SupportLevel today (the prompt always plays before the tap). Future
+    // wiring should pass 'first_listen' vs 'after_multiple_replays' based on
+    // the replay button taps.
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId,
+      gameId: 'minimal_pairs',
+      level: difficulty ?? 1,
+      stimulusId: `${trialData.pair.word1}_${trialData.pair.word2}`,
+      expectedResponse: trialData.targetWord,
+      userResponse: trialData.selectedWord,
+      isCorrect: trialData.isCorrect,
+      cueLevel: 0,
+      supportUsed: 'first_listen',
+      latencyMs: 0,
+      trialMode: 'recognition',
       errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
       taskParameters: {
         target_word: trialData.targetWord,
@@ -136,7 +155,7 @@ export default function MinimalPairsExercise() {
         ...adaptationTelemetry,
       },
     });
-  }, [logTrial, adaptationTelemetry]);
+  }, [submitTrial, activeProfile?.id, sessionId, difficulty, adaptationTelemetry]);
   
   if (!isStarted) {
     return (
