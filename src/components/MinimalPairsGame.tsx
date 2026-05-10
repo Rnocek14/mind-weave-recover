@@ -43,6 +43,9 @@ interface MinimalPairsGameProps {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    /** Number of times the patient pressed the replay button BEFORE answering.
+     *  0 = first-listen (independent target). >=1 = scaffolded. */
+    audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => void;
