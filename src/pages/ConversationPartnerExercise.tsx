@@ -252,7 +252,7 @@ export default function ConversationPartnerExercise() {
 
   // Game screen
   return (
-    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
+    <div className="h-dvh overflow-hidden bg-background flex flex-col">
       <header className="border-b shrink-0">
         <div className="flex items-center justify-between px-4 h-14">
            <Button variant="ghost" size="sm" onClick={handleExit}>
@@ -264,7 +264,7 @@ export default function ConversationPartnerExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="flex-1 p-4 min-h-0 overflow-auto">
+      <main className="flex-1 p-4 min-h-0 overflow-hidden flex flex-col">
         <div className="max-w-md mx-auto">
           <ConversationPartnerGame
             userId={user.id}

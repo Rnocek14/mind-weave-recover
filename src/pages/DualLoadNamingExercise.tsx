@@ -151,7 +151,7 @@ export default function DualLoadNamingExercise() {
   }
 
   return (
-    <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
+    <div className="h-dvh overflow-hidden bg-background flex flex-col">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>
@@ -160,7 +160,7 @@ export default function DualLoadNamingExercise() {
         </div>
         {fromLesson && <InlineSessionProgress />}
       </header>
-      <main className={`container px-4 ${fromLesson ? 'py-2 flex-1 min-h-0 overflow-auto' : 'py-4 md:py-8'}`}>
+      <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🧠</div>
