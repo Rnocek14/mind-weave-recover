@@ -2460,32 +2460,33 @@ export const PhotoNamingGame = ({
           }}
         />
       )}
-      {/* Progress bar - compact on mobile */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
-          <span>{state.trialNumber}/{state.totalTrials}</span>
-          <div className="flex items-center gap-2">
-            <LevelBadge descriptor={levelDescriptor} compact />
-            {/* Score intentionally hidden from the patient view — it created
-                pressure and a "test" feel. Score still flows to the clinician
-                summary via onGameComplete / state.score. */}
+      {/* Top header — trial progress + difficulty in one cohesive row */}
+      <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
+            <span className="text-sm font-semibold text-foreground tabular-nums">
+              {state.trialNumber}
+              <span className="text-muted-foreground font-normal"> / {state.totalTrials}</span>
+            </span>
           </div>
+          <LevelBadge descriptor={levelDescriptor} compact />
         </div>
-        <Progress 
-          value={(state.trialNumber / state.totalTrials) * 100} 
-          className="h-1.5 sm:h-2"
+        <Progress
+          value={(state.trialNumber / state.totalTrials) * 100}
+          className="h-1 mt-2"
         />
       </div>
 
-      {/* Difficulty indicator */}
+      {/* Difficulty change banner */}
       {difficultyChanged && (
-        <div className={`flex items-center gap-2 px-2 py-1.5 sm:p-3 rounded-lg border text-xs sm:text-sm ${
-          difficultyChanged === 'up' ? 'bg-success/10 border-success' : 'bg-warning/10 border-warning'
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs sm:text-sm ${
+          difficultyChanged === 'up' ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           {difficultyChanged === 'up' ? (
             <>
               <TrendingUp className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Level up!</span>
+              <span className="font-medium">Level up</span>
             </>
           ) : (
             <>
@@ -2499,49 +2500,53 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* Recording/Analyzing/Processing indicator - Enhanced */}
+      {/* Unified status chip — recording / processing / setup */}
       {(isRecording || isAnalyzing || isCreatingSession || processingAnswer) && (
-        <div className="flex items-center gap-2 text-xs sm:text-sm px-2 py-1.5 sm:p-3 rounded-lg bg-muted/50 border border-border">
+        <div className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl bg-muted/60 border border-border">
           {isCreatingSession && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground">Setting up...</span>
+              <span className="text-muted-foreground">Setting up…</span>
             </>
           )}
           {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
             <>
-              <div className="w-2.5 h-2.5 bg-primary rounded-full shrink-0" />
-              <span className="text-primary font-medium">🎙️ Mic on</span>
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+              </span>
+              <span className="text-primary font-medium">Listening</span>
             </>
           )}
           {processingAnswer && !isAnalyzing && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-              <span className="text-primary font-medium">Processing...</span>
+              <span className="text-primary font-medium">Processing…</span>
               {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
           {isAnalyzing && (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-              <span className="text-primary font-medium">Analyzing...</span>
+              <span className="text-primary font-medium">Analyzing…</span>
               {lastHeardText && <span className="text-muted-foreground text-xs truncate">"{lastHeardText}"</span>}
             </>
           )}
         </div>
       )}
 
-      {/* Purpose banner + entry instruction — first trial only */}
+      {/* First-trial intro — consolidated card */}
       {state.trialNumber === 1 && !showFeedback && (
-        <>
-          <ExercisePurposeBanner exerciseSlug="photo-naming" className="mx-auto max-w-md" />
+        <div className="mx-auto w-full max-w-md space-y-2">
+          <ExercisePurposeBanner exerciseSlug="photo-naming" />
           <ClinicalLevelBadge
             level={progression.startingLevel}
             progressPct={progression.state?.progressPct ?? null}
-            className="mx-auto max-w-md"
           />
-          <p className="text-center text-sm font-medium text-muted-foreground">Say what you see</p>
-        </>
+          <p className="text-center text-sm font-medium text-foreground/80">
+            Say what you see
+          </p>
+        </div>
       )}
 
       {/* Image — grows to fill available space */}
@@ -2550,11 +2555,11 @@ export const PhotoNamingGame = ({
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-full object-contain rounded-lg bg-muted"
+            className="w-full h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
-          <div className="w-full h-44 sm:h-52 md:h-64 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
+          <div className="w-full h-44 sm:h-52 md:h-64 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
               <Volume2 className="w-10 h-10 text-primary" />
             </div>
@@ -2571,112 +2576,119 @@ export const PhotoNamingGame = ({
             </Button>
           </div>
         )}
-        <div className="absolute top-1 right-1">
-          <Camera className="w-5 h-5 text-muted-foreground/50" />
+        <div className="absolute top-2 right-2 rounded-full bg-background/70 backdrop-blur p-1.5 shadow-sm">
+          <Camera className="w-4 h-4 text-muted-foreground" />
         </div>
-        
+
         {/* Timer for hard mode */}
         {isHardMode && !showFeedback && (
-          <div className="absolute bottom-2 right-2">
-            <TrialTimer 
+          <div className="absolute top-2 left-2">
+            <TrialTimer
               duration={timeLimit}
               onTimeout={handleTimeout}
               isActive={!showFeedback && !timedOut}
             />
           </div>
         )}
-        {/* Controls overlay on bottom of image */}
-        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
-          <button
-            onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-              autoHintsEnabled 
-                ? 'bg-yellow-500/80 text-white' 
-                : 'bg-black/40 text-white/60 hover:bg-black/60'
-            }`}
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
 
-          <button
-            onClick={handlePlayAllChoices}
-            disabled={isPlayingChoices || showFeedback || timedOut}
-            className={`h-8 px-3 rounded-full flex items-center gap-1.5 backdrop-blur-sm text-xs font-medium transition-colors ${
-              isPlayingChoices
-                ? 'bg-primary/80 text-primary-foreground'
-                : 'bg-black/40 text-white hover:bg-black/60'
-            }`}
-          >
-            <Volume2 className="w-3.5 h-3.5" />
-            {isPlayingChoices ? 'Playing...' : 'Hear choices'}
-          </button>
-
-          <div className="relative">
-            {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
-              <div className="absolute inset-0 rounded-full bg-primary/10 ring-2 ring-primary/30 pointer-events-none" />
-            )}
+        {/* Unified bottom toolbar — single pill grouping the three controls */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-1 rounded-full bg-background/80 backdrop-blur-md border border-border/60 shadow-lg px-1 py-1">
             <button
-              type="button"
-              onPointerUp={(event) => {
-                event.preventDefault();
-                const nextUseVoice = !useVoice;
-                setUseVoice(nextUseVoice);
-                if (nextUseVoice && isSupported) {
-                  setMicAutoStartPending(true);
-                  setTimeout(() => startListening(), 500);
-                } else {
-                  setMicAutoStartPending(false);
-                  stopListening();
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                const nextUseVoice = !useVoice;
-                setUseVoice(nextUseVoice);
-                if (nextUseVoice && isSupported) {
-                  setMicAutoStartPending(true);
-                  setTimeout(() => startListening(), 500);
-                } else {
-                  setMicAutoStartPending(false);
-                  stopListening();
-                }
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-              }}
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing
-                  ? 'bg-primary text-primary-foreground ring-2 ring-primary/40'
-                  : 'bg-black/40 text-white hover:bg-black/60'
+              onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
+              aria-label="Toggle auto hints"
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                autoHintsEnabled
+                  ? 'bg-amber-400 text-amber-950 shadow-inner'
+                  : 'text-muted-foreground hover:bg-muted'
               }`}
             >
-              <div>
-                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              </div>
+              <Lightbulb className="w-4 h-4" />
             </button>
+
+            <div className="w-px h-5 bg-border/60" />
+
+            <button
+              onClick={handlePlayAllChoices}
+              disabled={isPlayingChoices || showFeedback || timedOut}
+              className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                isPlayingChoices
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              {isPlayingChoices ? 'Playing…' : 'Hear choices'}
+            </button>
+
+            <div className="w-px h-5 bg-border/60" />
+
+            <div className="relative">
+              {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
+                <div className="absolute inset-0 rounded-full bg-primary/10 ring-2 ring-primary/30 pointer-events-none animate-pulse" />
+              )}
+              <button
+                type="button"
+                onPointerUp={(event) => {
+                  event.preventDefault();
+                  const nextUseVoice = !useVoice;
+                  setUseVoice(nextUseVoice);
+                  if (nextUseVoice && isSupported) {
+                    setMicAutoStartPending(true);
+                    setTimeout(() => startListening(), 500);
+                  } else {
+                    setMicAutoStartPending(false);
+                    stopListening();
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  const nextUseVoice = !useVoice;
+                  setUseVoice(nextUseVoice);
+                  if (nextUseVoice && isSupported) {
+                    setMicAutoStartPending(true);
+                    setTimeout(() => startListening(), 500);
+                  } else {
+                    setMicAutoStartPending(false);
+                    stopListening();
+                  }
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                }}
+                aria-label={useVoice ? 'Mic on' : 'Mic off'}
+                className={`relative z-10 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Show transcript while voice mode is active */}
       {useVoice && transcript && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && (
-        <div className="text-xs text-center px-2 py-1 bg-muted rounded">
-          Heard: "{transcript}"
+        <div className="text-xs sm:text-sm text-center px-3 py-1.5 bg-muted/60 border border-border/60 rounded-full text-muted-foreground">
+          Heard: <span className="text-foreground font-medium">"{transcript}"</span>
         </div>
       )}
-      
+
       {/* Retry prompt */}
       {retryPrompt && !showFeedback && !timedOut && (
-        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-primary/5 border border-primary/20 rounded-lg text-xs animate-fade-in">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-primary/5 border border-primary/20 rounded-full text-xs animate-fade-in">
           <Mic className="w-3.5 h-3.5 text-primary animate-pulse shrink-0" />
           <span className="text-primary">{retryPrompt}</span>
         </div>
       )}
-      
+
       {/* Only show real microphone errors, not normal restart gaps */}
       {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-warning/10 border border-warning rounded-lg text-xs animate-fade-in">
+        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-xs animate-fade-in">
           <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
           <span className="text-warning">{micErrorMessage}</span>
         </div>
@@ -2684,32 +2696,36 @@ export const PhotoNamingGame = ({
 
       {/* Answer choices */}
       {!assistMode ? (
-        <div className="space-y-2 shrink-0">
-          <div className="grid grid-cols-2 gap-2.5">
+        <div className="shrink-0">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {state.choices.map((choice, idx) => (
-              <div key={idx} className="relative">
+              <div key={idx} className="relative group">
                 <Button
-                  variant={selectedAnswer === choice ? "default" : "outline"}
-                  className="w-full h-[64px] sm:h-[72px] text-lg sm:text-xl font-medium pr-11"
+                  variant={selectedAnswer === choice ? 'default' : 'outline'}
+                  className={`w-full h-[68px] sm:h-[76px] text-lg sm:text-xl font-medium pr-12 rounded-xl border-2 transition-all ${
+                    selectedAnswer === choice
+                      ? 'shadow-md'
+                      : 'hover:border-primary/50 hover:bg-accent/30'
+                  }`}
                   onClick={() => handleAnswerSelect(choice)}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
                   {choice}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
+                <button
+                  type="button"
+                  aria-label={`Hear ${choice}`}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full flex items-center justify-center bg-background/80 border border-border/60 hover:bg-muted transition-colors disabled:opacity-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     handlePlaySingleChoice(choice);
                   }}
                   disabled={showFeedback || timedOut || isPlayingChoices}
                 >
-                  <Volume2 
-                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} 
+                  <Volume2
+                    className={`w-4 h-4 ${playingChoice === choice ? 'text-primary animate-pulse' : 'text-muted-foreground'}`}
                   />
-                </Button>
+                </button>
               </div>
             ))}
           </div>
@@ -2770,27 +2786,27 @@ export const PhotoNamingGame = ({
 
       {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
-        <div className={`px-4 py-3 sm:p-6 rounded-lg text-center transition-all ${
-          feedbackData.correct 
-            ? 'bg-success/10 border border-success/20' 
-            : 'bg-accent/10 border border-accent/20'
+        <div className={`px-4 py-3 sm:px-5 sm:py-4 rounded-2xl text-center transition-all border ${
+          feedbackData.correct
+            ? 'bg-success/10 border-success/30'
+            : 'bg-accent/10 border-accent/30'
         }`}>
-          {feedbackData.correct ? (
-            <CheckCircle2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-success animate-bounce" />
-          ) : (
-            <div className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-accent flex items-center justify-center text-2xl sm:text-3xl">
-              💪
-            </div>
-          )}
-          <p className="text-sm sm:text-lg font-semibold">
-            {state.currentTrial && generateGentleFeedback(
-              feedbackData.errorType as any,
-              state.currentTrial.target,
-              selectedAnswer || undefined,
-              feedbackData.semanticSimilarity,
-              feedbackData.phonemeAccuracy
+          <div className="flex items-center justify-center gap-3">
+            {feedbackData.correct ? (
+              <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-success shrink-0" />
+            ) : (
+              <span className="text-2xl sm:text-3xl shrink-0" aria-hidden>💪</span>
             )}
-          </p>
+            <p className="text-sm sm:text-base font-medium text-foreground text-left">
+              {state.currentTrial && generateGentleFeedback(
+                feedbackData.errorType as any,
+                state.currentTrial.target,
+                selectedAnswer || undefined,
+                feedbackData.semanticSimilarity,
+                feedbackData.phonemeAccuracy
+              )}
+            </p>
+          </div>
         </div>
       )}
 
