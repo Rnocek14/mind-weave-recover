@@ -69,8 +69,8 @@ export const PatternMatchGame = ({
   const isMobile = useIsMobile();
   
   const getShapeSize = (context: 'display' | 'option'): number => {
-    if (context === 'display') return isMobile ? 36 : 50;
-    return isMobile ? 28 : 36;
+    if (context === 'display') return isMobile ? 48 : 72;
+    return isMobile ? 36 : 56;
   };
 
   const { playSuccess, playError, playLevelUp, playLevelDown } = useGameSounds();
