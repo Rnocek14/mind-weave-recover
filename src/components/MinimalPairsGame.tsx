@@ -273,6 +273,7 @@ export function MinimalPairsGame({
       selectedWord,
       isCorrect: state.isCorrect ?? false,
       pair: { word1: currentTrial.pair.word1, word2: currentTrial.pair.word2 },
+      audioReplayCount: audioReplayCountRef.current,
       echoAttempted: echoStatus === 'heard',
       echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
     });
