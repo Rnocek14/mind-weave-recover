@@ -46,3 +46,43 @@ Use these to verify all three systems updated from one call.
 2. Wire fatigue → `support_baseline` bump.
 3. Reinforcement scheduler.
 4. Build Watch & Repeat on top.
+
+---
+
+## Step 2 — Mastery confidence gate (LANDED)
+
+**File:** `src/lib/mastery/readMasteryGate.ts` + `applySessionToState` change.
+
+The level-up rule in `applySessionToState` is now:
+
+```
+canLevelUp = progressPct >= 100
+          && evidenceMet                 // accuracy + on-target support
+          && masteryConfidence in {medium, high}   // longitudinal stability
+```
+
+`masteryConfidence` is the **minimum** confidence across every skill an
+exercise trains (via `mapTrialToSkills`). If any skill row is missing — i.e.
+the user hasn't accumulated enough longitudinal data for that skill yet —
+the gate is treated as **undefined** and SKIPPED (backward-compatible). This
+prevents new users from being trapped at Level 1 before the shadow flush
+catches up.
+
+### Wired callers
+
+- `useFixSentenceProgression.flushAtSessionEnd` — reads gate before `applySessionToState`
+- `usePhotoNamingProgression.flushAtSessionEnd` — same, with `difficulty` hint so naming.high vs naming.low-frequency picks the right skill bucket
+
+### Debug
+
+Both hooks now emit `masteryGate: { confidence, bySkill }` in their flush
+diagnostic so you can see exactly which skill is holding the gate closed.
+Look for the `masteryGateBlocked: true` flag in Photo Naming logs.
+
+### NOT done in Step 2 (intentional)
+
+- No reinforcement scheduler
+- No fatigue → support baseline wiring
+- No active mastery decay
+- No hard regression / demotion
+- No UI surfacing of mastery confidence

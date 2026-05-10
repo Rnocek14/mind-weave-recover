@@ -28,6 +28,7 @@ import {
   evidenceMetForFixSentenceLevel,
   getFixSentenceLevelSpec,
 } from '@/lib/progression/fixSentenceLevels';
+import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const FIX_SENTENCE_SLUG = 'fix-sentence';
 
@@ -128,9 +129,16 @@ export function useFixSentenceProgression({
       const evidenceMet = evidenceMetForFixSentenceLevel(trials, level);
       const progressDelta = calculateFixSentenceProgressDelta(trials, level);
 
+      // Step 2: longitudinal mastery confidence gate (medium+ required to
+      // unlock level-up). Undefined → backward-compatible no-op.
+      const gate = await readMasteryGate({
+        profileId,
+        exerciseSlug: FIX_SENTENCE_SLUG,
+      });
+
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        { trials, evidenceMet, progressDelta },
+        { trials, evidenceMet, progressDelta, masteryConfidence: gate.confidence },
       );
 
       if (import.meta.env.DEV) {
@@ -153,6 +161,7 @@ export function useFixSentenceProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          masteryGate: { confidence: gate.confidence, bySkill: gate.bySkill },
           prev: {
             level: prev.currentLevel,
             progressPct: prev.progressPct,

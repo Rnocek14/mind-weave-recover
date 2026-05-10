@@ -135,6 +135,8 @@ export function calculateProgressDelta(
   return totalCredit / weight;
 }
 
+export type MasteryConfidenceLevel = 'none' | 'low' | 'medium' | 'high';
+
 export interface SessionRollupInput {
   trials: Array<{ correct: boolean; support: SupportLevel }>;
   /**
@@ -149,6 +151,25 @@ export interface SessionRollupInput {
    * level-specific weighting (e.g. Photo Naming).
    */
   progressDelta?: number;
+  /**
+   * Longitudinal mastery confidence (minimum across the skills this game
+   * trains). When provided, level-up requires confidence ≥ 'medium' in
+   * addition to accuracy/support evidence. When undefined, mastery gating
+   * is skipped (legacy callers / first-ever session before mastery rows
+   * exist). This is the FIRST enforcement layer for the mastery substrate.
+   */
+  masteryConfidence?: MasteryConfidenceLevel;
+}
+
+/**
+ * Mastery gate: medium or high confidence is required to unlock level-up.
+ * Exposed for testing + diagnostics.
+ */
+export function masteryConfidenceMeetsGate(
+  confidence: MasteryConfidenceLevel | undefined,
+): boolean {
+  if (confidence === undefined) return true; // backward-compatible no-op
+  return confidence === 'medium' || confidence === 'high';
 }
 
 /**
@@ -180,7 +201,8 @@ export function applySessionToState(
   let nextSupport = prev.supportBaseline;
 
   if (nextProgress >= MAX_PROGRESS) {
-    if (input.evidenceMet && nextLevel < MAX_LEVEL) {
+    const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
+    if (input.evidenceMet && masteryOk && nextLevel < MAX_LEVEL) {
       nextLevel = clampLevel(nextLevel + 1);
       nextProgress = MIN_PROGRESS;
       nextSupport = 0;
