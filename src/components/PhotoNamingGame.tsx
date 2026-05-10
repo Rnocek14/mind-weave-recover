@@ -2786,27 +2786,27 @@ export const PhotoNamingGame = ({
 
       {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
-        <div className={`px-4 py-3 sm:p-6 rounded-lg text-center transition-all ${
-          feedbackData.correct 
-            ? 'bg-success/10 border border-success/20' 
-            : 'bg-accent/10 border border-accent/20'
+        <div className={`px-4 py-3 sm:px-5 sm:py-4 rounded-2xl text-center transition-all border ${
+          feedbackData.correct
+            ? 'bg-success/10 border-success/30'
+            : 'bg-accent/10 border-accent/30'
         }`}>
-          {feedbackData.correct ? (
-            <CheckCircle2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-success animate-bounce" />
-          ) : (
-            <div className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 text-accent flex items-center justify-center text-2xl sm:text-3xl">
-              💪
-            </div>
-          )}
-          <p className="text-sm sm:text-lg font-semibold">
-            {state.currentTrial && generateGentleFeedback(
-              feedbackData.errorType as any,
-              state.currentTrial.target,
-              selectedAnswer || undefined,
-              feedbackData.semanticSimilarity,
-              feedbackData.phonemeAccuracy
+          <div className="flex items-center justify-center gap-3">
+            {feedbackData.correct ? (
+              <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-success shrink-0" />
+            ) : (
+              <span className="text-2xl sm:text-3xl shrink-0" aria-hidden>💪</span>
             )}
-          </p>
+            <p className="text-sm sm:text-base font-medium text-foreground text-left">
+              {state.currentTrial && generateGentleFeedback(
+                feedbackData.errorType as any,
+                state.currentTrial.target,
+                selectedAnswer || undefined,
+                feedbackData.semanticSimilarity,
+                feedbackData.phonemeAccuracy
+              )}
+            </p>
+          </div>
         </div>
       )}
 
