@@ -189,7 +189,7 @@ export default function ThoughtContinuationExercise() {
   // Game in progress
   if (gameStarted) {
     return (
-      <div className={`${fromLesson ? 'h-dvh overflow-hidden' : 'min-h-screen'} bg-background flex flex-col`}>
+      <div className="h-dvh overflow-hidden bg-background flex flex-col">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4">
           <div className="flex items-center justify-between max-w-xl mx-auto h-14">
             <Button variant="ghost" size="sm" onClick={handleExit}>
