@@ -100,15 +100,18 @@ export default function MinimalPairsExercise() {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
   
-  const handleComplete = useCallback((results: {
+  const handleComplete = useCallback(async (results: {
     score: number;
     correctCount: number;
     incorrectCount: number;
     accuracy: number;
   }) => {
     console.log('Minimal pairs exercise complete:', results);
-    
-    // Return to lesson flow
+
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    // (No clinical_progression_state hook for Minimal Pairs yet.)
+    await commitSession();
+
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -118,7 +121,7 @@ export default function MinimalPairsExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, navigate]);
+  }, [fromLesson, navigate, returnTo, commitSession]);
   
   const handleTrialComplete = useCallback((trialData: {
     targetWord: string;
