@@ -260,5 +260,5 @@ export function useTrialSubmission(opts: Options) {
     return { ok: errors.length === 0, progression: progressionSnapshot, masteryFlushed, errors };
   }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId]);
 
-  return { submitTrial, commitSession };
+  return { submitTrial, commitSession, startTrial, calculateReactionTime };
 }
