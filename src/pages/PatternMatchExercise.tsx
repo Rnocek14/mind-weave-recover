@@ -171,7 +171,7 @@ export default function PatternMatchExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="max-w-4xl mx-auto space-y-4">
+        <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-center space-y-4">
 
         {/* Capability Adaptation Banner */}
         {hasCapabilityAdaptations && (
