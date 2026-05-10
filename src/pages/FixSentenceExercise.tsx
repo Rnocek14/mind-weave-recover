@@ -13,7 +13,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -97,32 +97,47 @@ export default function FixSentenceExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Unified trial submission — fans out to exercise_events,
+  // adaptation_trial_logs (auto-wired in-game), clinical_progression_state,
+  // and user_skill_mastery on commit.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const handleTrialComplete = useCallback((result: FixSentenceTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += result.isCorrect ? 100 : (result.isPartialCredit ? 50 : 0);
     trialsRef.current += 1;
 
-    // Check if trial phonemes matched the adaptation focus
     const focusSet = new Set(adaptation.focusPhonemes);
-    const phonemeMatched = result.phonemeTargets.length > 0 && 
+    const phonemeMatched = result.phonemeTargets.length > 0 &&
       result.phonemeTargets.some(p => focusSet.has(p));
 
-    // Speech Validity Gate — transcript-only classification (no audio metadata
-    // available from FixSentence pipeline yet). Catches filler-only / empty.
     const validity = classifyUtteranceValidity({
       transcript: result.spokenWord,
       asrConfidence: null,
       recordingDurationMs: result.reactionTimeMs,
     });
 
-    logTrial({
-      correct: result.isCorrect,
-      reactionTimeMs: result.reactionTimeMs,
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.difficulty ?? 1,
+      stimulusId: result.trialId,
+      expectedResponse: result.wrongWord,
+      userResponse: result.spokenWord,
+      isCorrect: result.isCorrect,
+      accuracyScore: result.semanticSimilarity ?? null,
+      cueLevel: 0,
+      supportUsed: 'open_response',
+      latencyMs: result.reactionTimeMs ?? null,
+      trialMode: 'production',
+      validity,
       errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
       taskParameters: {
         trial_id: result.trialId,
@@ -137,20 +152,10 @@ export default function FixSentenceExercise() {
         phoneme_matched: phonemeMatched,
         phoneme_targets: result.phonemeTargets,
         close_miss: !result.isCorrect && result.isPartialCredit,
-        // Shared adaptation telemetry
         ...adaptationTelemetry,
       },
-      validity,
     });
-
-    // Clinical Progression v1: buffer this trial for end-of-session flush.
-    // Speech / typed entries are both `open_response` (no choice scaffolding
-    // is offered today). Partial credit does NOT count as correct.
-    progression.recordTrialOutcome({
-      correct: result.isCorrect,
-      support: 'open_response',
-    });
-  }, [activeSessionId, logTrial, adaptationTelemetry, adaptation.focusPhonemes, progression]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
   const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
     // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
