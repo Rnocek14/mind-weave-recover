@@ -193,57 +193,57 @@ export const PatternMatchGame = ({
   };
 
   return (
-    <div className="space-y-2 sm:space-y-4">
+    <div className="flex flex-col gap-3 sm:gap-4 my-auto w-full max-w-3xl mx-auto">
       {/* Compact header */}
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{currentTrial}/{totalTrials}</span>
-        <div className="text-right">
-          <span className="font-bold">{score}/{currentTrial}</span>
-          <span className="text-xs text-muted-foreground ml-2">Lv {currentDifficulty}</span>
+        <span className="text-muted-foreground font-medium">Trial {currentTrial}/{totalTrials}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-base">{score}/{currentTrial}</span>
+          <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">Lv {currentDifficulty}</span>
         </div>
       </div>
 
       <Progress value={(currentTrial / totalTrials) * 100} className="h-1.5" />
 
-      {/* Phase instruction — compact */}
-      <div className="text-center py-1">
+      {/* Phase instruction */}
+      <div className="text-center">
         {phase === 'showing' && (
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-primary">👀 Remember this pattern!</p>
-            <Progress value={showingProgress} className="h-1 w-24 mx-auto" />
+          <div className="space-y-2">
+            <p className="text-base sm:text-lg font-semibold text-primary">👀 Remember this pattern</p>
+            <Progress value={showingProgress} className="h-1.5 w-32 mx-auto" />
           </div>
         )}
-        {phase === 'matching' && <p className="text-sm font-medium">🎯 Find the match</p>}
+        {phase === 'matching' && <p className="text-base sm:text-lg font-semibold">🎯 Find the matching pattern</p>}
         {phase === 'feedback' && (
-          <p className={cn("text-sm font-medium", feedbackType === 'success' ? 'text-green-600' : 'text-orange-600')}>
-            {feedbackType === 'success' ? '✨ Perfect!' : '🔄 Not quite'}
+          <p className={cn("text-base sm:text-lg font-semibold", feedbackType === 'success' ? 'text-green-600' : 'text-orange-600')}>
+            {feedbackType === 'success' ? '✨ Perfect match!' : '🔄 Not quite — keep going'}
           </p>
         )}
       </div>
 
-      {/* Pattern display */}
-      <div className="bg-card border rounded-xl p-3 sm:p-4 min-h-[80px] flex items-center justify-center">
+      {/* Pattern display — generous, hero card */}
+      <div className="bg-gradient-to-br from-card to-muted/30 border-2 rounded-2xl p-6 sm:p-8 min-h-[140px] sm:min-h-[180px] flex items-center justify-center shadow-sm">
         {phase === 'showing' && (
-          <div className="flex items-center gap-2 flex-wrap justify-center animate-in fade-in zoom-in duration-300">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center animate-in fade-in zoom-in duration-300">
             {pattern.map((item, idx) => (
-              <div key={idx} className="p-1.5 bg-background rounded-lg shadow-sm">
+              <div key={idx} className="p-2.5 bg-background rounded-xl shadow-md">
                 {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
           </div>
         )}
         {phase === 'matching' && (
-          <div className="flex items-center gap-2 flex-wrap justify-center opacity-30">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center opacity-40">
             {pattern.map((_, idx) => (
-              <div key={idx} className="border-2 border-dashed border-muted-foreground/30 rounded-lg"
-                style={{ width: getShapeSize('display'), height: getShapeSize('display') }} />
+              <div key={idx} className="border-2 border-dashed border-muted-foreground/40 rounded-xl"
+                style={{ width: getShapeSize('display') + 20, height: getShapeSize('display') + 20 }} />
             ))}
           </div>
         )}
         {phase === 'feedback' && (
-          <div className="flex items-center gap-2 flex-wrap justify-center">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
             {pattern.map((item, idx) => (
-              <div key={idx} className={cn("p-1.5 rounded-lg", feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background')}>
+              <div key={idx} className={cn("p-2.5 rounded-xl shadow-md", feedbackType === 'success' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-background')}>
                 {renderShape(item, getShapeSize('display'))}
               </div>
             ))}
@@ -253,14 +253,14 @@ export const PatternMatchGame = ({
 
       {/* Options — large touch targets */}
       {phase === 'matching' && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className={cn("grid gap-3", options.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
           {options.map((option, optIdx) => (
             <button
               key={optIdx}
               onClick={() => handleSelect(optIdx)}
-              className="p-3 bg-card border-2 border-muted hover:border-primary rounded-xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[64px]"
+              className="p-4 bg-card border-2 border-muted hover:border-primary hover:shadow-md rounded-2xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[88px]"
             >
-              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 {option.map((item, itemIdx) => (
                   <div key={itemIdx}>{renderShape(item, getShapeSize('option'))}</div>
                 ))}
