@@ -35,23 +35,49 @@ const CLINICAL_TO_ENGINE_FLOOR: Record<number, number> = {
   8: 9,
 };
 
+/**
+ * Soft-regression scaffolding threshold. When `supportBaseline` reaches this
+ * value, the bridge lowers the clinical floor by one engine step so the
+ * patient starts the next session in an easier tier without a formal level
+ * demotion. Decays back to 0 on success sessions inside `applySessionToState`.
+ */
+export const FIX_SENTENCE_SOFT_REGRESSION_SCAFFOLD_THRESHOLD = 2;
+
 export function clinicalLevelToFixSentenceEngineFloor(
   level: number | null | undefined,
+  supportBaseline: number = 0,
 ): number {
   if (!level || !Number.isFinite(level)) return 1;
   const clamped = Math.max(1, Math.min(8, Math.round(level)));
-  return CLINICAL_TO_ENGINE_FLOOR[clamped] ?? 1;
+  const raw = CLINICAL_TO_ENGINE_FLOOR[clamped] ?? 1;
+  if (supportBaseline >= FIX_SENTENCE_SOFT_REGRESSION_SCAFFOLD_THRESHOLD) {
+    return Math.max(1, raw - 1);
+  }
+  return raw;
 }
 
 export function resolveEffectiveFixSentenceInitialDifficulty(args: {
   sessionAdaptationDifficulty: number;
   clinicalLevel: number | null | undefined;
-}): { effective: number; clinicalFloor: number; raised: boolean } {
-  const clinicalFloor = clinicalLevelToFixSentenceEngineFloor(args.clinicalLevel);
+  /** Optional soft-regression signal from clinical_progression_state. */
+  supportBaseline?: number;
+}): {
+  effective: number;
+  clinicalFloor: number;
+  raised: boolean;
+  softRegressionScaffold: boolean;
+} {
+  const supportBaseline = args.supportBaseline ?? 0;
+  const softRegressionScaffold =
+    supportBaseline >= FIX_SENTENCE_SOFT_REGRESSION_SCAFFOLD_THRESHOLD;
+  const clinicalFloor = clinicalLevelToFixSentenceEngineFloor(
+    args.clinicalLevel,
+    supportBaseline,
+  );
   const base = Math.max(
     1,
     Math.min(10, Math.round(args.sessionAdaptationDifficulty || 1)),
   );
   const effective = Math.max(base, clinicalFloor);
-  return { effective, clinicalFloor, raised: effective > base };
+  return { effective, clinicalFloor, raised: effective > base, softRegressionScaffold };
 }
