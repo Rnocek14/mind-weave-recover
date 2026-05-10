@@ -613,7 +613,7 @@ export function DetectiveMindGame({
   const isFirstCase = currentIndex === 0;
 
   return (
-    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
+    <div className="max-w-lg mx-auto w-full my-auto space-y-2 sm:space-y-4">
       {/* Header bar */}
       <div className="flex items-center justify-between text-sm gap-2 flex-wrap">
         <div className="flex items-center gap-2">
