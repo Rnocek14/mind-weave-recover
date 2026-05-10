@@ -25,8 +25,13 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { useFixSentenceProgression } from '@/hooks/useFixSentenceProgression';
+import {
+  getFixSentenceLevelSpec,
+} from '@/lib/progression/fixSentenceLevels';
 import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/fixSentenceDifficultyBridge';
+import type { ProgressionRecapSnapshot } from '@/lib/trial/types';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
