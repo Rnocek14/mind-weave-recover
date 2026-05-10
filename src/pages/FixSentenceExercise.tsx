@@ -25,13 +25,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
-import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { useFixSentenceProgression } from '@/hooks/useFixSentenceProgression';
-import {
-  getFixSentenceLevelSpec,
-} from '@/lib/progression/fixSentenceLevels';
 import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/fixSentenceDifficultyBridge';
-import type { ProgressionRecapSnapshot } from '@/lib/trial/types';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
@@ -41,8 +36,6 @@ export default function FixSentenceExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
-  const [recap, setRecap] = useState<ProgressionRecapSnapshot | null>(null);
-  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
   // Validation harness: ?validation=1 → 10 trials so adaptation can show both
   // UP and DOWN within one session. Production users still get 5.
   const validationTrialCount = useValidationTrialCount(5, 10);
@@ -190,29 +183,18 @@ export default function FixSentenceExercise() {
     }
 
     // Unified commit: progression flush + mastery shadow flush in one call.
-    const commitResult = await commitSession();
+    await commitSession();
 
-    const finalize = () => {
-      setCompleted(true);
-      completeSession();
-      if (fromLesson) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('exercise-complete', {
-            detail: { exerciseSlug: EXERCISE_SLUG, results },
-          }));
-          navigate(returnTo, { state: { resuming: true }, replace: true });
-        }, 400);
-      }
-    };
+    setCompleted(true);
+    completeSession();
 
-    // Show patient-facing progression recap when we have real movement data.
-    // If snapshot is missing (no buffered trials, persist failed, or already
-    // flushed), skip the overlay and finalize immediately to avoid dead state.
-    if (commitResult.progressionSnapshot) {
-      finalizeAfterRecapRef.current = finalize;
-      setRecap(commitResult.progressionSnapshot);
-    } else {
-      finalize();
+    if (fromLesson) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: EXERCISE_SLUG, results },
+        }));
+        navigate(returnTo, { state: { resuming: true }, replace: true });
+      }, 400);
     }
   }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
 
@@ -242,23 +224,6 @@ export default function FixSentenceExercise() {
 
   return (
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
-      {recap && (
-        <ProgressionRecap
-          gameTitle="Fix the Sentence"
-          levelDescription={
-            getFixSentenceLevelSpec(recap.leveledUp ? recap.next.level : recap.prev.level).description
-          }
-          prev={recap.prev}
-          next={recap.next}
-          leveledUp={recap.leveledUp}
-          onContinue={() => {
-            const fn = finalizeAfterRecapRef.current;
-            finalizeAfterRecapRef.current = null;
-            setRecap(null);
-            fn?.();
-          }}
-        />
-      )}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>

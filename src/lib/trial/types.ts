@@ -94,20 +94,9 @@ export interface UnifiedTrialSummary {
   } | null;
 }
 
-export interface ProgressionRecapSnapshot {
-  prev: { level: number; progressPct: number };
-  next: { level: number; progressPct: number };
-  leveledUp: boolean;
-  evidenceMet?: boolean;
-  progressDelta?: number;
-}
-
 export interface CommitSessionResult {
   ok: boolean;
   progression?: { level: number; progressPct: number } | null;
-  /** Patient-facing prev → next snapshot for ProgressionRecap. Null when the
-   *  game has no progression hook or the flush was skipped. */
-  progressionSnapshot?: ProgressionRecapSnapshot | null;
   masteryFlushed: boolean;
   errors: string[];
 }
