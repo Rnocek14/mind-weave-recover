@@ -28,6 +28,7 @@ import {
   evidenceMetForFixSentenceLevel,
   getFixSentenceLevelSpec,
 } from '@/lib/progression/fixSentenceLevels';
+import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const FIX_SENTENCE_SLUG = 'fix-sentence';
 
