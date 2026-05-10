@@ -169,6 +169,9 @@ describe('clinicalProgression — session rollup', () => {
       });
       expect(s.currentLevel).toBe(2);
     });
+  });
+
+  it('struggles increase struggle counter (no level drop in v1 step 1)', () => {
     let s = defaultProgressionState(ids);
     s = { ...s, currentLevel: 4, stableLevel: 4 };
     s = applySessionToState(s, {
