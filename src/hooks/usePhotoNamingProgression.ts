@@ -219,6 +219,17 @@ export function usePhotoNamingProgression({
       }
 
       const result = await saveProgressionState(next);
+      const snapshot = {
+        prev: { level: prev.currentLevel, progressPct: prev.progressPct },
+        next: { level: next.currentLevel, progressPct: next.progressPct },
+        leveledUp: next.currentLevel > prev.currentLevel,
+        evidenceMet,
+        progressDelta,
+        masteryGateBlocked:
+          evidenceMet &&
+          prev.progressPct + progressDelta >= 100 &&
+          next.currentLevel === prev.currentLevel,
+      };
       if (result.ok) {
         setState(next);
         flushedRef.current = true;
