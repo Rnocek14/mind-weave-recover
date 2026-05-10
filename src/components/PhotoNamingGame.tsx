@@ -2555,11 +2555,11 @@ export const PhotoNamingGame = ({
           <img
             src={state.currentTrial.imageUrl}
             alt="Naming task"
-            className="w-full h-full object-contain rounded-lg bg-muted"
+            className="w-full h-full object-contain rounded-2xl bg-muted shadow-sm border border-border/50"
           />
         ) : (
           // Audio-only trial - show speaker icon and play button
-          <div className="w-full h-44 sm:h-52 md:h-64 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
+          <div className="w-full h-44 sm:h-52 md:h-64 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex flex-col items-center justify-center gap-4">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center animate-pulse">
               <Volume2 className="w-10 h-10 text-primary" />
             </div>
@@ -2576,90 +2576,97 @@ export const PhotoNamingGame = ({
             </Button>
           </div>
         )}
-        <div className="absolute top-1 right-1">
-          <Camera className="w-5 h-5 text-muted-foreground/50" />
+        <div className="absolute top-2 right-2 rounded-full bg-background/70 backdrop-blur p-1.5 shadow-sm">
+          <Camera className="w-4 h-4 text-muted-foreground" />
         </div>
-        
+
         {/* Timer for hard mode */}
         {isHardMode && !showFeedback && (
-          <div className="absolute bottom-2 right-2">
-            <TrialTimer 
+          <div className="absolute top-2 left-2">
+            <TrialTimer
               duration={timeLimit}
               onTimeout={handleTimeout}
               isActive={!showFeedback && !timedOut}
             />
           </div>
         )}
-        {/* Controls overlay on bottom of image */}
-        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
-          <button
-            onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-              autoHintsEnabled 
-                ? 'bg-yellow-500/80 text-white' 
-                : 'bg-black/40 text-white/60 hover:bg-black/60'
-            }`}
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
 
-          <button
-            onClick={handlePlayAllChoices}
-            disabled={isPlayingChoices || showFeedback || timedOut}
-            className={`h-8 px-3 rounded-full flex items-center gap-1.5 backdrop-blur-sm text-xs font-medium transition-colors ${
-              isPlayingChoices
-                ? 'bg-primary/80 text-primary-foreground'
-                : 'bg-black/40 text-white hover:bg-black/60'
-            }`}
-          >
-            <Volume2 className="w-3.5 h-3.5" />
-            {isPlayingChoices ? 'Playing...' : 'Hear choices'}
-          </button>
-
-          <div className="relative">
-            {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
-              <div className="absolute inset-0 rounded-full bg-primary/10 ring-2 ring-primary/30 pointer-events-none" />
-            )}
+        {/* Unified bottom toolbar — single pill grouping the three controls */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-1 rounded-full bg-background/80 backdrop-blur-md border border-border/60 shadow-lg px-1 py-1">
             <button
-              type="button"
-              onPointerUp={(event) => {
-                event.preventDefault();
-                const nextUseVoice = !useVoice;
-                setUseVoice(nextUseVoice);
-                if (nextUseVoice && isSupported) {
-                  setMicAutoStartPending(true);
-                  setTimeout(() => startListening(), 500);
-                } else {
-                  setMicAutoStartPending(false);
-                  stopListening();
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                const nextUseVoice = !useVoice;
-                setUseVoice(nextUseVoice);
-                if (nextUseVoice && isSupported) {
-                  setMicAutoStartPending(true);
-                  setTimeout(() => startListening(), 500);
-                } else {
-                  setMicAutoStartPending(false);
-                  stopListening();
-                }
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-              }}
-              className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing
-                  ? 'bg-primary text-primary-foreground ring-2 ring-primary/40'
-                  : 'bg-black/40 text-white hover:bg-black/60'
+              onClick={() => setAutoHintsEnabled(!autoHintsEnabled)}
+              aria-label="Toggle auto hints"
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                autoHintsEnabled
+                  ? 'bg-amber-400 text-amber-950 shadow-inner'
+                  : 'text-muted-foreground hover:bg-muted'
               }`}
             >
-              <div>
-                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              </div>
+              <Lightbulb className="w-4 h-4" />
             </button>
+
+            <div className="w-px h-5 bg-border/60" />
+
+            <button
+              onClick={handlePlayAllChoices}
+              disabled={isPlayingChoices || showFeedback || timedOut}
+              className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                isPlayingChoices
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-foreground hover:bg-muted'
+              }`}
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              {isPlayingChoices ? 'Playing…' : 'Hear choices'}
+            </button>
+
+            <div className="w-px h-5 bg-border/60" />
+
+            <div className="relative">
+              {useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing && (
+                <div className="absolute inset-0 rounded-full bg-primary/10 ring-2 ring-primary/30 pointer-events-none animate-pulse" />
+              )}
+              <button
+                type="button"
+                onPointerUp={(event) => {
+                  event.preventDefault();
+                  const nextUseVoice = !useVoice;
+                  setUseVoice(nextUseVoice);
+                  if (nextUseVoice && isSupported) {
+                    setMicAutoStartPending(true);
+                    setTimeout(() => startListening(), 500);
+                  } else {
+                    setMicAutoStartPending(false);
+                    stopListening();
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  const nextUseVoice = !useVoice;
+                  setUseVoice(nextUseVoice);
+                  if (nextUseVoice && isSupported) {
+                    setMicAutoStartPending(true);
+                    setTimeout(() => startListening(), 500);
+                  } else {
+                    setMicAutoStartPending(false);
+                    stopListening();
+                  }
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                }}
+                aria-label={useVoice ? 'Mic on' : 'Mic off'}
+                className={`relative z-10 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  useVoice && isSupported && !micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoices && !processingAnswer && !isAnalyzing
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {useVoice ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
