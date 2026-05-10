@@ -23,6 +23,11 @@ import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import {
+  useMinimalPairsProgression,
+  mapMinimalPairsSupport,
+} from '@/hooks/useMinimalPairsProgression';
+import { resolveEffectiveMinimalPairsInitialDifficulty } from '@/lib/progression/minimalPairsDifficultyBridge';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
@@ -53,20 +58,36 @@ export default function MinimalPairsExercise() {
     cueSensitive: false,
   });
 
-  const difficulty = adaptation.difficultyTier;
-  
+  // Clinical Progression v1 — Minimal Pairs Phase 1 stub.
+  // Persistent Clinical Level provides a FLOOR for engine difficulty.
+  // Soft regression: supportBaseline >= 2 lowers floor by 1 step.
+  const progression = useMinimalPairsProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveMinimalPairsInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  const difficulty = bridge.effective;
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] MinimalPairs scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 step (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+
   // Get stats about available pairs
   const stats = getMinimalPairStats();
-  
-  // Unified trial submission. No clinical_progression_state hook for Minimal
-  // Pairs yet — passing progression: null routes through exercise_events +
-  // (future) adaptation_trial_logs only. Mastery shadow still flushes on commit.
+
+  // Unified trial submission — now wired with progression hook (Phase 1 stub).
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
     exerciseSlug: 'minimal_pairs',
-    progression: null,
+    progression,
   });
   
   // Initialize session
@@ -128,13 +149,13 @@ export default function MinimalPairsExercise() {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    // Listening discrimination → 'after_replay' is the conservative default
-    // SupportLevel today (the prompt always plays before the tap). Future
-    // wiring should pass 'first_listen' vs 'after_multiple_replays' based on
-    // the replay button taps.
+    const supportUsed = mapMinimalPairsSupport({
+      audioReplayCount: trialData.audioReplayCount,
+    });
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId,
@@ -144,8 +165,8 @@ export default function MinimalPairsExercise() {
       expectedResponse: trialData.targetWord,
       userResponse: trialData.selectedWord,
       isCorrect: trialData.isCorrect,
-      cueLevel: 0,
-      supportUsed: 'first_listen',
+      cueLevel: trialData.audioReplayCount > 0 ? 1 : 0,
+      supportUsed,
       latencyMs: 0,
       trialMode: 'recognition',
       errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
@@ -153,6 +174,7 @@ export default function MinimalPairsExercise() {
         target_word: trialData.targetWord,
         selected_word: trialData.selectedWord,
         pair: trialData.pair,
+        audio_replay_count: trialData.audioReplayCount,
         echo_attempted: !!trialData.echoAttempted,
         echo_transcript: trialData.echoTranscript ?? null,
         ...adaptationTelemetry,

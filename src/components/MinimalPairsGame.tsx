@@ -43,6 +43,9 @@ interface MinimalPairsGameProps {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    /** Number of times the patient pressed the replay button BEFORE answering.
+     *  0 = first-listen (independent target). >=1 = scaffolded. */
+    audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => void;
@@ -208,13 +211,20 @@ export function MinimalPairsGame({
   }, [showFeedback, state.isCorrect, trialIndex, adaptation, engagement]);
 
   
+  // Per-trial replay counter — counts ONLY user-initiated replays (button
+  // taps), excluding the auto-play that fires when a trial loads. Reset on
+  // trial change. Used to derive Minimal Pairs SupportLevel
+  // (first_listen vs after_replay).
+  const audioReplayCountRef = useRef(0);
+
   // Auto-play target word when trial changes + stall timer
   useEffect(() => {
     if (currentTrial && !showFeedback) {
+      audioReplayCountRef.current = 0;
       const timer = setTimeout(() => {
         speak(currentTrial.targetWord);
       }, 500);
-      
+
       // Start stall timer
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       stallTimerRef.current = setTimeout(() => {
@@ -222,9 +232,9 @@ export function MinimalPairsGame({
           vg.speakReminder();
         }
       }, 10000);
-      
-      return () => { 
-        clearTimeout(timer); 
+
+      return () => {
+        clearTimeout(timer);
         if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       };
     }
@@ -263,6 +273,7 @@ export function MinimalPairsGame({
       selectedWord,
       isCorrect: state.isCorrect ?? false,
       pair: { word1: currentTrial.pair.word1, word2: currentTrial.pair.word2 },
+      audioReplayCount: audioReplayCountRef.current,
       echoAttempted: echoStatus === 'heard',
       echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
     });
@@ -397,7 +408,10 @@ export function MinimalPairsGame({
           Listen, then tap the matching picture
         </p>
         <button
-          onClick={() => speak(currentTrial.targetWord)}
+          onClick={() => {
+            if (!showFeedback) audioReplayCountRef.current += 1;
+            speak(currentTrial.targetWord);
+          }}
           disabled={isSpeaking}
           aria-label="Replay word"
           className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0"
