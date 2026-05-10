@@ -37,8 +37,9 @@ import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { CueDebugOverlay } from '@/components/CueDebugOverlay';
-import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
-import { ClinicalLevelBadge } from '@/components/ClinicalLevelBadge';
+// ExercisePurposeBanner and ClinicalLevelBadge intentionally not imported here —
+// the first-trial intro is now a single inline strip, and longitudinal level is
+// surfaced via the post-session ProgressionRecap overlay.
 import { PhotoNamingProgressionRecap } from '@/components/PhotoNamingProgressionRecap';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
@@ -2535,17 +2536,23 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
-      {/* First-trial intro — consolidated card */}
+      {/* First-trial intro — single compact strip (no card stack) */}
       {state.trialNumber === 1 && !showFeedback && (
-        <div className="mx-auto w-full max-w-md space-y-2">
-          <ExercisePurposeBanner exerciseSlug="photo-naming" />
-          <ClinicalLevelBadge
-            level={progression.startingLevel}
-            progressPct={progression.state?.progressPct ?? null}
-          />
-          <p className="text-center text-sm font-medium text-foreground/80">
-            Say what you see
-          </p>
+        <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-center text-xs sm:text-sm">
+          <span className="font-medium text-foreground">Say what you see</span>
+          {progression.startingLevel != null && (
+            <>
+              <span className="text-muted-foreground/60">·</span>
+              <span className="text-muted-foreground">
+                Level {progression.startingLevel}
+                {progression.state?.progressPct != null && (
+                  <span className="tabular-nums"> ({Math.round(progression.state.progressPct)}%)</span>
+                )}
+              </span>
+            </>
+          )}
+          <span className="text-muted-foreground/60">·</span>
+          <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-intro" />
         </div>
       )}
 
