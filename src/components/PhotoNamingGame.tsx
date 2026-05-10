@@ -1496,6 +1496,13 @@ export const PhotoNamingGame = ({
 
   // Handle game completion - end session properly
   const completionFiredRef = useRef(false);
+  const [recap, setRecap] = useState<{
+    prev: { level: number; progressPct: number };
+    next: { level: number; progressPct: number };
+    leveledUp: boolean;
+  } | null>(null);
+  const finalizeCompleteRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (!state.isComplete) return;
     if (completionFiredRef.current) return;
@@ -1527,10 +1534,27 @@ export const PhotoNamingGame = ({
       }
 
       // Clinical Progression v1: persist updated level/progress for this profile.
-      await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
-      // End session with proper reason tracking
-      completeSession();
-      onGameComplete(state.score);
+      const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
+      const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
+
+      const finalize = () => {
+        completeSession();
+        onGameComplete(state.score);
+      };
+
+      // Show patient-facing progression recap when we have real movement data.
+      // If snapshot is missing (no buffered trials, persist failed, or already
+      // flushed), skip the overlay and finalize immediately to avoid dead state.
+      if (snapshot) {
+        finalizeCompleteRef.current = finalize;
+        setRecap({
+          prev: snapshot.prev,
+          next: snapshot.next,
+          leveledUp: snapshot.leveledUp,
+        });
+      } else {
+        finalize();
+      }
     })();
   }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs]);
 
