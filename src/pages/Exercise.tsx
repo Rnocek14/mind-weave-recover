@@ -810,22 +810,22 @@ const Exercise = () => {
         {/* Exercise Area - fills remaining space */}
         <Card className={`${fromLesson ? 'p-2 sm:p-4' : 'p-4 sm:p-8 md:p-12'} mb-1 shadow-card flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden`}>
           {!isPlaying ? (
-            <div className="text-center space-y-6">
-              <div className="w-32 h-32 mx-auto rounded-full bg-gradient-healing flex items-center justify-center animate-pulse-glow">
-                <Play className="w-16 h-16 text-white" />
+            <div className="text-center space-y-4 py-2">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-healing flex items-center justify-center animate-pulse-glow">
+                <Play className="w-10 h-10 text-white" />
               </div>
               <div>
-                <h3 className="text-2xl font-semibold mb-2">Ready to Begin?</h3>
-                <p className="text-muted-foreground">
-                  Take your time and do your best. You've got this!
+                <h3 className="text-xl sm:text-2xl font-semibold mb-1">Ready to Begin?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Take your time and do your best.
                 </p>
               </div>
               <Button 
                 size="lg" 
-                className="bg-gradient-healing text-lg px-12 py-6"
+                className="bg-gradient-healing text-base px-8 py-5"
                 onClick={() => startExercise()}
               >
-                <Play className="w-6 h-6 mr-2" />
+                <Play className="w-5 h-5 mr-2" />
                 Start Exercise
               </Button>
             </div>
