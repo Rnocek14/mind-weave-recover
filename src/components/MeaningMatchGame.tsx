@@ -351,7 +351,7 @@ export function MeaningMatchGame({
     explainSkipCount < 3 ? 'full' : explainSkipCount < 6 ? 'compact' : 'minimal';
 
   return (
-    <div className="max-w-lg mx-auto space-y-2 sm:space-y-4">
+    <div className="max-w-lg mx-auto w-full my-auto space-y-2 sm:space-y-4">
       {/* Purpose banner on first trial only */}
       {currentIndex === 0 && (
         <ExercisePurposeBanner exerciseSlug="meaning-match" />
