@@ -211,13 +211,20 @@ export function MinimalPairsGame({
   }, [showFeedback, state.isCorrect, trialIndex, adaptation, engagement]);
 
   
+  // Per-trial replay counter — counts ONLY user-initiated replays (button
+  // taps), excluding the auto-play that fires when a trial loads. Reset on
+  // trial change. Used to derive Minimal Pairs SupportLevel
+  // (first_listen vs after_replay).
+  const audioReplayCountRef = useRef(0);
+
   // Auto-play target word when trial changes + stall timer
   useEffect(() => {
     if (currentTrial && !showFeedback) {
+      audioReplayCountRef.current = 0;
       const timer = setTimeout(() => {
         speak(currentTrial.targetWord);
       }, 500);
-      
+
       // Start stall timer
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       stallTimerRef.current = setTimeout(() => {
@@ -225,9 +232,9 @@ export function MinimalPairsGame({
           vg.speakReminder();
         }
       }, 10000);
-      
-      return () => { 
-        clearTimeout(timer); 
+
+      return () => {
+        clearTimeout(timer);
         if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       };
     }
