@@ -2447,7 +2447,7 @@ export const PhotoNamingGame = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-3 h-full">
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2 h-full">
       {recap && (
         <PhotoNamingProgressionRecap
           prev={recap.prev}
@@ -2461,11 +2461,11 @@ export const PhotoNamingGame = ({
           }}
         />
       )}
-      {/* Top header — trial progress + difficulty in one cohesive row */}
-      <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm">
+      {/* Top header — slim trial progress + difficulty */}
+      <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur px-3 py-1.5 shadow-sm shrink-0">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trial</span>
             <span className="text-sm font-semibold text-foreground tabular-nums">
               {state.trialNumber}
               <span className="text-muted-foreground font-normal"> / {state.totalTrials}</span>
@@ -2475,7 +2475,7 @@ export const PhotoNamingGame = ({
         </div>
         <Progress
           value={(state.trialNumber / state.totalTrials) * 100}
-          className="h-1 mt-2"
+          className="h-1 mt-1.5"
         />
       </div>
 
