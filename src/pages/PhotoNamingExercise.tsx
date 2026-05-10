@@ -768,7 +768,7 @@ function PhotoNamingExerciseInner() {
     <div className={fromLesson ? "h-dvh bg-background flex flex-col overflow-hidden" : "h-dvh bg-background flex flex-col overflow-hidden"}>
       {fromLesson && <SessionSidePanel />}
       <LiveAnalysisPanel />
-      <div className="flex-1 flex flex-col min-h-0 px-2 sm:px-4 py-1 sm:py-2 max-w-4xl mx-auto w-full">
+      <div className="flex-1 flex flex-col min-h-0 px-2 sm:px-4 py-1 max-w-4xl mx-auto w-full">
         {fromLesson && <InlineSessionProgress />}
         {/* Compact header */}
         <div className="flex justify-between items-center gap-1 mb-1 sm:mb-2 shrink-0">
