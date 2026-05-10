@@ -41,6 +41,8 @@ export default function FixSentenceExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [recap, setRecap] = useState<ProgressionRecapSnapshot | null>(null);
+  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
   // Validation harness: ?validation=1 → 10 trials so adaptation can show both
   // UP and DOWN within one session. Production users still get 5.
   const validationTrialCount = useValidationTrialCount(5, 10);
