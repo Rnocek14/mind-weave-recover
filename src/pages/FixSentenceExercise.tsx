@@ -81,7 +81,14 @@ export default function FixSentenceExercise() {
   const bridge = resolveEffectiveFixSentenceInitialDifficulty({
     sessionAdaptationDifficulty: 1,
     clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
   });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] FixSentence scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 step (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor})`,
+    );
+  }
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
