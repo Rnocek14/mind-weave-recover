@@ -149,13 +149,13 @@ export default function MinimalPairsExercise() {
     selectedWord: string;
     isCorrect: boolean;
     pair: { word1: string; word2: string };
+    audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
   }) => {
-    // Listening discrimination → 'after_replay' is the conservative default
-    // SupportLevel today (the prompt always plays before the tap). Future
-    // wiring should pass 'first_listen' vs 'after_multiple_replays' based on
-    // the replay button taps.
+    const supportUsed = mapMinimalPairsSupport({
+      audioReplayCount: trialData.audioReplayCount,
+    });
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId,
@@ -165,8 +165,8 @@ export default function MinimalPairsExercise() {
       expectedResponse: trialData.targetWord,
       userResponse: trialData.selectedWord,
       isCorrect: trialData.isCorrect,
-      cueLevel: 0,
-      supportUsed: 'first_listen',
+      cueLevel: trialData.audioReplayCount > 0 ? 1 : 0,
+      supportUsed,
       latencyMs: 0,
       trialMode: 'recognition',
       errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
@@ -174,6 +174,7 @@ export default function MinimalPairsExercise() {
         target_word: trialData.targetWord,
         selected_word: trialData.selectedWord,
         pair: trialData.pair,
+        audio_replay_count: trialData.audioReplayCount,
         echo_attempted: !!trialData.echoAttempted,
         echo_transcript: trialData.echoTranscript ?? null,
         ...adaptationTelemetry,
