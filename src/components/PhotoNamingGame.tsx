@@ -2695,9 +2695,9 @@ export const PhotoNamingGame = ({
 
       {/* Only show real microphone errors, not normal restart gaps */}
       {useVoice && micErrorMessage && !showFeedback && !timedOut && !selectedAnswer && !isPlayingChoicesRef.current && (
-        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-xs animate-fade-in">
-          <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <span className="text-warning">{micErrorMessage}</span>
+        <div className="mx-auto w-fit max-w-full flex items-center justify-center gap-1.5 px-3 py-1 bg-warning/10 border border-warning/30 rounded-full text-[11px] animate-fade-in shrink-0">
+          <AlertCircle className="w-3 h-3 text-warning shrink-0" />
+          <span className="text-warning truncate">{micErrorMessage}</span>
         </div>
       )}
 
