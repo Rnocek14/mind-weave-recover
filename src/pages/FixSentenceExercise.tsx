@@ -175,7 +175,8 @@ export default function FixSentenceExercise() {
       console.groupEnd();
     }
 
-    await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
+    // Unified commit: progression flush + mastery shadow flush in one call.
+    await commitSession();
 
     setCompleted(true);
     completeSession();
@@ -188,7 +189,7 @@ export default function FixSentenceExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, progression, activeSessionId, validationTrialCount, bridge, navigate, returnTo]);
+  }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
