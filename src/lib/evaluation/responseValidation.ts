@@ -198,7 +198,7 @@ function isNonAnswer(normalizedText: string): boolean {
 // Prompt repetition detection
 // ═══════════════════════════════════════════════════════════════
 
-function isPromptRepeat(normalizedText: string, promptText?: string): boolean {
+function isPromptRepeat(normalizedText: string, promptText?: string, expectedMode?: ResponseMode): boolean {
   if (!promptText) return false;
   const cleanPrompt = promptText.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
   const cleanInput = normalizedText.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
