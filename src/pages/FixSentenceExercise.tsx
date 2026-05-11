@@ -240,6 +240,23 @@ export default function FixSentenceExercise() {
 
   return (
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
+      {recap && (
+        <ProgressionRecap
+          gameTitle="Fix the Sentence"
+          levelDescription={getFixSentenceLevelSpec(
+            recap.leveledUp ? recap.next.level : recap.prev.level,
+          ).description}
+          prev={recap.prev}
+          next={recap.next}
+          leveledUp={recap.leveledUp}
+          onContinue={() => {
+            const fn = finalizeAfterRecapRef.current;
+            finalizeAfterRecapRef.current = null;
+            setRecap(null);
+            fn?.();
+          }}
+        />
+      )}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
