@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { AlertEvidenceBlock } from "@/components/AlertEvidenceBlock";
 
 // Mock useUiMode
@@ -21,10 +21,9 @@ describe("AlertEvidenceBlock", () => {
         }}
       />
     );
-    // In clinician mode, label should say "Evidence"
     const toggle = getByText(/Evidence/);
     expect(toggle).toBeInTheDocument();
-    toggle.click();
+    fireEvent.click(toggle);
     expect(getByText("Inactive days:")).toBeInTheDocument();
     expect(getByText("6/7")).toBeInTheDocument();
   });
@@ -36,7 +35,7 @@ describe("AlertEvidenceBlock", () => {
         triggerData={{ some_key: 42, another_key: "hello" }}
       />
     );
-    getByText(/Evidence|Why/).click();
+    fireEvent.click(getByText(/Evidence|Why/));
     expect(getByText("some key:")).toBeInTheDocument();
     expect(getByText("42")).toBeInTheDocument();
   });
@@ -57,7 +56,7 @@ describe("AlertEvidenceBlock", () => {
         }}
       />
     );
-    getByText(/Evidence/).click();
+    fireEvent.click(getByText(/Evidence/));
     expect(getByText("200%")).toBeInTheDocument();
   });
 });
