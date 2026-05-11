@@ -37,7 +37,18 @@ import type {
  */
 export interface ProgressionAdapter {
   recordTrialOutcome: (t: { correct: boolean; support: SupportLevel }) => void;
-  flushAtSessionEnd: (params: { sessionId: string | null }) => Promise<{ ok: boolean; error?: string; skipped?: boolean }>;
+  flushAtSessionEnd: (params: { sessionId: string | null }) => Promise<{
+    ok: boolean;
+    error?: string;
+    skipped?: boolean;
+    snapshot?: {
+      prev: { level: number; progressPct: number };
+      next: { level: number; progressPct: number };
+      leveledUp: boolean;
+      evidenceMet?: boolean;
+      progressDelta?: number;
+    };
+  }>;
   state?: { currentLevel: number; progressPct: number; supportBaseline: number } | null;
   __bufferedTrialCount?: () => number;
 }
@@ -211,6 +222,7 @@ export function useTrialSubmission(opts: Options) {
   const commitSession = useCallback(async (): Promise<CommitSessionResult> => {
     const errors: string[] = [];
     let progressionSnapshot: { level: number; progressPct: number } | null = null;
+    let recapSnapshot: CommitSessionResult['progressionSnapshot'] = null;
     let masteryFlushed = false;
 
     try {
@@ -223,6 +235,15 @@ export function useTrialSubmission(opts: Options) {
       try {
         const r = await opts.progression.flushAtSessionEnd({ sessionId: opts.sessionId ?? null });
         if (!r.ok) errors.push(`progression flush: ${r.error ?? 'unknown'}`);
+        if (r.snapshot) {
+          recapSnapshot = {
+            prev: r.snapshot.prev,
+            next: r.snapshot.next,
+            leveledUp: r.snapshot.leveledUp,
+            evidenceMet: r.snapshot.evidenceMet,
+            progressDelta: r.snapshot.progressDelta,
+          };
+        }
         if (opts.progression.state) {
           progressionSnapshot = {
             level: opts.progression.state.currentLevel,
@@ -252,12 +273,19 @@ export function useTrialSubmission(opts: Options) {
         game: canonicalSlug,
         sessionId: opts.sessionId,
         progression: progressionSnapshot,
+        recapSnapshot,
         masteryFlushed,
         errors,
       });
     }
 
-    return { ok: errors.length === 0, progression: progressionSnapshot, masteryFlushed, errors };
+    return {
+      ok: errors.length === 0,
+      progression: progressionSnapshot,
+      progressionSnapshot: recapSnapshot,
+      masteryFlushed,
+      errors,
+    };
   }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId]);
 
   return { submitTrial, commitSession, startTrial, calculateReactionTime };
