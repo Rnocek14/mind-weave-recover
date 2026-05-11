@@ -298,7 +298,7 @@ export function validateSpokenResponse(opts: ValidateOptions): ValidationResult 
   }
 
   // 6. Prompt repetition detection
-  if (isPromptRepeat(cleanedTranscript, promptText)) {
+  if (isPromptRepeat(cleanedTranscript, promptText, expectedMode)) {
     console.log('[ResponseValidation] REJECT: prompt_repeat', { transcript, promptText });
     return { ...base, valid: false, rejectionReason: 'prompt_repeat', confidence: 0, instructionEchoScore: 0, matchedInstructionPhrases: [] };
   }
