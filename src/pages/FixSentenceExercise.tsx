@@ -27,6 +27,9 @@ import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useFixSentenceProgression } from '@/hooks/useFixSentenceProgression';
 import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/fixSentenceDifficultyBridge';
+import { ProgressionRecap } from '@/components/ProgressionRecap';
+import { getFixSentenceLevelSpec } from '@/lib/progression/fixSentenceLevels';
+import type { CommitSessionResult } from '@/lib/trial/types';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
