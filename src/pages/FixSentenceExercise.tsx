@@ -42,6 +42,8 @@ export default function FixSentenceExercise() {
   // Validation harness: ?validation=1 → 10 trials so adaptation can show both
   // UP and DOWN within one session. Production users still get 5.
   const validationTrialCount = useValidationTrialCount(5, 10);
+  const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
+  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
