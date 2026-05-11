@@ -188,18 +188,29 @@ export default function FixSentenceExercise() {
     }
 
     // Unified commit: progression flush + mastery shadow flush in one call.
-    await commitSession();
+    const commitResult = await commitSession();
 
-    setCompleted(true);
-    completeSession();
+    const finalize = () => {
+      setCompleted(true);
+      completeSession();
+      if (fromLesson) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: { exerciseSlug: EXERCISE_SLUG, results },
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    };
 
-    if (fromLesson) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: EXERCISE_SLUG, results },
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+    // Show patient-facing progression recap when we have real movement data.
+    // If snapshot is missing (no buffered trials, persist failed, or already
+    // flushed), skip the overlay and finalize immediately to avoid dead state.
+    if (commitResult.progressionSnapshot) {
+      finalizeAfterRecapRef.current = finalize;
+      setRecap(commitResult.progressionSnapshot);
+    } else {
+      finalize();
     }
   }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
 
