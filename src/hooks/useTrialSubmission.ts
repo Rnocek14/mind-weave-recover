@@ -37,7 +37,18 @@ import type {
  */
 export interface ProgressionAdapter {
   recordTrialOutcome: (t: { correct: boolean; support: SupportLevel }) => void;
-  flushAtSessionEnd: (params: { sessionId: string | null }) => Promise<{ ok: boolean; error?: string; skipped?: boolean }>;
+  flushAtSessionEnd: (params: { sessionId: string | null }) => Promise<{
+    ok: boolean;
+    error?: string;
+    skipped?: boolean;
+    snapshot?: {
+      prev: { level: number; progressPct: number };
+      next: { level: number; progressPct: number };
+      leveledUp: boolean;
+      evidenceMet?: boolean;
+      progressDelta?: number;
+    };
+  }>;
   state?: { currentLevel: number; progressPct: number; supportBaseline: number } | null;
   __bufferedTrialCount?: () => number;
 }
