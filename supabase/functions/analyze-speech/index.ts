@@ -109,8 +109,23 @@ serve(async (req) => {
           }
         );
       }
-      
-      throw new Error(`Whisper API error: ${whisperResponse.status}`);
+
+      // Whisper 400 (e.g. "Invalid file format") — don't crash the client.
+      // Return a graceful fallback so the UI can use browser speech recognition.
+      return new Response(
+        JSON.stringify({
+          transcript: '',
+          confidence: 0,
+          acousticMetrics: null,
+          fallback: true,
+          warning: 'whisper_rejected',
+          message: 'Speech analysis unavailable for this clip. Falling back to browser recognition.',
+          detail: errorText.slice(0, 300),
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const whisperData = await whisperResponse.json();
