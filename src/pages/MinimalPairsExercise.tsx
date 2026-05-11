@@ -135,17 +135,25 @@ export default function MinimalPairsExercise() {
     console.log('Minimal pairs exercise complete:', results);
 
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    // (No clinical_progression_state hook for Minimal Pairs yet.)
-    await commitSession();
+    const commitResult = await commitSession();
 
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: 'minimal-pairs', results },
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+    const finalize = () => {
+      if (fromLesson && !exerciseCompleteSentRef.current) {
+        exerciseCompleteSentRef.current = true;
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: { exerciseSlug: 'minimal-pairs', results },
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    };
+
+    if (commitResult.progressionSnapshot) {
+      finalizeAfterRecapRef.current = finalize;
+      setRecap(commitResult.progressionSnapshot);
+    } else {
+      finalize();
     }
   }, [fromLesson, navigate, returnTo, commitSession]);
   
