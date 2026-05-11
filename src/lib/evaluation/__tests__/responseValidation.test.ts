@@ -130,6 +130,22 @@ describe('responseValidation', () => {
       // "sits" differs from "sit" — not an exact repeat
       expect(r.valid).toBe(true);
     });
+
+    it('passes morphological fix: sit → sits', () => {
+      const r = validate('the dog sits', 'sentence_fix', { promptText: 'the dog sit' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('passes tense fix: run → ran', () => {
+      const r = validate('she ran home', 'sentence_fix', { promptText: 'she run home' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('still rejects verbatim sentence_fix repeat with no edit', () => {
+      const r = validate('the dog sit', 'sentence_fix', { promptText: 'the dog sit' });
+      expect(r.valid).toBe(false);
+      expect(r.rejectionReason).toBe('prompt_repeat');
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════

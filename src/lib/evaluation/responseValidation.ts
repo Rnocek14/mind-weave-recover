@@ -198,7 +198,7 @@ function isNonAnswer(normalizedText: string): boolean {
 // Prompt repetition detection
 // ═══════════════════════════════════════════════════════════════
 
-function isPromptRepeat(normalizedText: string, promptText?: string): boolean {
+function isPromptRepeat(normalizedText: string, promptText?: string, expectedMode?: ResponseMode): boolean {
   if (!promptText) return false;
   const cleanPrompt = promptText.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
   const cleanInput = normalizedText.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
@@ -242,6 +242,13 @@ function isPromptRepeat(normalizedText: string, promptText?: string): boolean {
     return true;
   }).length;
   const fuzzyOverlapRatio = inputTokens.length > 0 ? fuzzyOverlapCount / inputTokens.length : 0;
+
+  // For sentence_fix, the entire task IS to make a small morphological edit
+  // (sit → sits, run → ran). Single-char fuzzy matches must NOT count as repeats —
+  // otherwise legitimate fixes register as prompt repetition. Require strict overlap.
+  if (expectedMode === 'sentence_fix') {
+    return overlapRatio >= 0.99 && Math.abs(inputTokens.length - promptTokens.length) === 0;
+  }
 
   return (overlapRatio >= 0.95 || fuzzyOverlapRatio >= 0.9) && Math.abs(inputTokens.length - promptTokens.length) <= 1;
 }
@@ -291,7 +298,7 @@ export function validateSpokenResponse(opts: ValidateOptions): ValidationResult 
   }
 
   // 6. Prompt repetition detection
-  if (isPromptRepeat(cleanedTranscript, promptText)) {
+  if (isPromptRepeat(cleanedTranscript, promptText, expectedMode)) {
     console.log('[ResponseValidation] REJECT: prompt_repeat', { transcript, promptText });
     return { ...base, valid: false, rejectionReason: 'prompt_repeat', confidence: 0, instructionEchoScore: 0, matchedInstructionPhrases: [] };
   }
