@@ -37,6 +37,9 @@ export default tseslint.config(
       "no-var": "warn",
       "no-fallthrough": "warn",
       "no-async-promise-executor": "warn",
+      "no-constant-condition": "warn",
+      "no-constant-binary-expression": "warn",
+      "react-hooks/rules-of-hooks": "warn",
     },
   },
 );
