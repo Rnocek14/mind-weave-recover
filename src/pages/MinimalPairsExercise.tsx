@@ -46,6 +46,8 @@ export default function MinimalPairsExercise() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   // Auto-start when launched from a lesson — no intro gate inside the flow.
   const [isStarted, setIsStarted] = useState(!!fromLesson);
+  const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
+  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
