@@ -243,6 +243,13 @@ function isPromptRepeat(normalizedText: string, promptText?: string, expectedMod
   }).length;
   const fuzzyOverlapRatio = inputTokens.length > 0 ? fuzzyOverlapCount / inputTokens.length : 0;
 
+  // For sentence_fix, the entire task IS to make a small morphological edit
+  // (sit → sits, run → ran). Single-char fuzzy matches must NOT count as repeats —
+  // otherwise legitimate fixes register as prompt repetition. Require strict overlap.
+  if (expectedMode === 'sentence_fix') {
+    return overlapRatio >= 0.99 && Math.abs(inputTokens.length - promptTokens.length) === 0;
+  }
+
   return (overlapRatio >= 0.95 || fuzzyOverlapRatio >= 0.9) && Math.abs(inputTokens.length - promptTokens.length) <= 1;
 }
 
