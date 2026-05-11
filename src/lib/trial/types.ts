@@ -97,6 +97,14 @@ export interface UnifiedTrialSummary {
 export interface CommitSessionResult {
   ok: boolean;
   progression?: { level: number; progressPct: number } | null;
+  /** Patient-facing recap snapshot — present only when progression flush ran. */
+  progressionSnapshot?: {
+    prev: { level: number; progressPct: number };
+    next: { level: number; progressPct: number };
+    leveledUp: boolean;
+    evidenceMet?: boolean;
+    progressDelta?: number;
+  } | null;
   masteryFlushed: boolean;
   errors: string[];
 }
