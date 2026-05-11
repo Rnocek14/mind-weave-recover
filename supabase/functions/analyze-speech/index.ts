@@ -44,10 +44,21 @@ serve(async (req) => {
       );
     }
     
-    // Prepare form data for Whisper
+    // Prepare form data for Whisper — derive extension from mimeType so Whisper
+    // accepts the file (it validates by filename extension, not bytes).
+    const resolvedMime = (mimeType || 'audio/webm').toLowerCase();
+    const extFromMime = (() => {
+      if (resolvedMime.includes('webm')) return 'webm';
+      if (resolvedMime.includes('ogg') || resolvedMime.includes('opus')) return 'ogg';
+      if (resolvedMime.includes('wav') || resolvedMime.includes('wave') || resolvedMime.includes('x-pcm')) return 'wav';
+      if (resolvedMime.includes('mp4') || resolvedMime.includes('m4a') || resolvedMime.includes('aac')) return 'mp4';
+      if (resolvedMime.includes('mpeg') || resolvedMime.includes('mp3')) return 'mp3';
+      if (resolvedMime.includes('flac')) return 'flac';
+      return 'webm';
+    })();
     const formData = new FormData();
-    const blob = new Blob([binaryAudio], { type: mimeType || 'audio/webm' });
-    formData.append('file', blob, 'audio.webm');
+    const blob = new Blob([binaryAudio], { type: resolvedMime });
+    formData.append('file', blob, `audio.${extFromMime}`);
     formData.append('model', 'whisper-1');
     formData.append('response_format', 'verbose_json'); // Get word-level timestamps
 
@@ -98,8 +109,23 @@ serve(async (req) => {
           }
         );
       }
-      
-      throw new Error(`Whisper API error: ${whisperResponse.status}`);
+
+      // Whisper 400 (e.g. "Invalid file format") — don't crash the client.
+      // Return a graceful fallback so the UI can use browser speech recognition.
+      return new Response(
+        JSON.stringify({
+          transcript: '',
+          confidence: 0,
+          acousticMetrics: null,
+          fallback: true,
+          warning: 'whisper_rejected',
+          message: 'Speech analysis unavailable for this clip. Falling back to browser recognition.',
+          detail: errorText.slice(0, 300),
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const whisperData = await whisperResponse.json();
