@@ -11,6 +11,8 @@
  * - multiple_valid_repairs: multiple "best" answers exist
  */
 
+import { getLevelContent, resolveCohortMix, sliceCohortByIntensity } from '@/lib/intensity';
+
 export interface FixSentenceTrial {
   id: string;
   sentence: string;
@@ -414,6 +416,22 @@ function toFixSentenceTier(d: number): 1 | 2 | 3 {
   return 3;
 }
 
+/** Sentence length in words (cheap, computed on demand). */
+function sentenceWordCount(t: FixSentenceTrial): number {
+  return t.sentence.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * FixSentence intensity hardness key — sort within an errorType cohort by:
+ *   sentenceLength → wrongWordIndex
+ * Errors late in a longer sentence are harder (more working-memory load).
+ */
+function fixSentenceHardness(t: FixSentenceTrial): number {
+  const len = sentenceWordCount(t);
+  // Combine into one monotonic number. Length dominates; index breaks ties.
+  return len * 100 + t.wrongWordIndex;
+}
+
 export function getFixSentenceTrials(options?: {
   /** Tier 1..3 OR engine level 1..10. Both are accepted; engine levels collapse to a tier. */
   difficulty?: number;
@@ -422,34 +440,62 @@ export function getFixSentenceTrials(options?: {
   /** IDs recently shown — selector will prefer fresh items, falling back to LRU. */
   recentIds?: string[];
 }): FixSentenceTrial[] {
-  // ── BAND-ISOLATED selection (no more cumulative `<=` filter) ──
-  // Pick the exact target tier. If the resulting pool is too small for the
-  // requested count, fall back to the immediately adjacent tier (±1) — never
-  // the full bank. This guarantees L1 vs L2 vs L3 produce visibly different
-  // content while still preventing empty pools.
+  const requested = options?.count ?? FIX_SENTENCE_BANK.length;
+
+  // ── Intensity-driven selection (May 2026) ──────────────────────────────
+  // When `difficulty` is an engine level (1..10), use the per-game intensity
+  // ladder to pick cohort(s) by errorType + sub-tier slice.
+  // Falls back to the legacy tier-bucket selector otherwise (or when the
+  // intensity registry has no entry — defensive).
   let pool: FixSentenceTrial[];
 
   if (options?.difficulty != null) {
-    const targetTier = toFixSentenceTier(options.difficulty);
-    const exact = FIX_SENTENCE_BANK.filter(t => t.difficulty === targetTier);
-    const requested = options.count ?? exact.length;
+    const spec = getLevelContent('fix-sentence', options.difficulty);
 
-    if (exact.length >= requested) {
-      pool = exact;
-    } else {
-      // Padding policy: prefer the HARDER neighbor first to preserve the
-      // engine's challenge direction. (Easier-first padding silently drops
-      // perceived difficulty — the exact bug we just removed.)
-      const neighbors: number[] =
-        targetTier === 1 ? [2, 3] :
-        targetTier === 3 ? [2, 1] :
-        [3, 1]; // tier 2: prefer tier 3 over tier 1
-      const padded = [...exact];
-      for (const n of neighbors) {
-        if (padded.length >= requested) break;
-        padded.push(...FIX_SENTENCE_BANK.filter(t => t.difficulty === n));
+
+    if (spec) {
+      // Cohort key = FixSentenceTrial.errorType (one of four).
+      const seen = new Set<string>();
+      const buf: FixSentenceTrial[] = [];
+      for (const slice of resolveCohortMix(spec, requested)) {
+        const cohortPool = FIX_SENTENCE_BANK.filter(t => t.errorType === slice.cohort);
+        if (cohortPool.length === 0) continue;
+        const sliced = sliceCohortByIntensity(
+          cohortPool,
+          fixSentenceHardness,
+          spec.subTierIndex,
+          Math.max(slice.count * 3, 6)
+        );
+        for (const t of sliced) {
+          if (!seen.has(t.id)) { seen.add(t.id); buf.push(t); }
+        }
       }
-      pool = padded;
+      // Safety: if intensity cohorts produced nothing usable, widen to all
+      // items at the level's mapped tier.
+      if (buf.length === 0) {
+        const targetTier = toFixSentenceTier(options.difficulty);
+        pool = FIX_SENTENCE_BANK.filter(t => t.difficulty === targetTier);
+      } else {
+        pool = buf;
+      }
+    } else {
+      // Legacy fallback — strict tier bucket with hardest-neighbor padding.
+      const targetTier = toFixSentenceTier(options.difficulty);
+      const exact = FIX_SENTENCE_BANK.filter(t => t.difficulty === targetTier);
+      if (exact.length >= requested) {
+        pool = exact;
+      } else {
+        const neighbors: number[] =
+          targetTier === 1 ? [2, 3] :
+          targetTier === 3 ? [2, 1] :
+          [3, 1];
+        const padded = [...exact];
+        for (const n of neighbors) {
+          if (padded.length >= requested) break;
+          padded.push(...FIX_SENTENCE_BANK.filter(t => t.difficulty === n));
+        }
+        pool = padded;
+      }
     }
   } else {
     pool = [...FIX_SENTENCE_BANK];

@@ -1,268 +1,173 @@
-# Runtime Integrity Repair Plan (revised, post-review)
+# Per-Game Difficulty: Honor Each Clinical Purpose
 
-Goal: restore the longitudinal write pipeline (mastery + progression authority)
-without touching session-local adaptation, gameplay, or UI semantics.
+## The core insight
 
-Each phase is independently shippable and ends with a concrete verification
-step. These bugs are silent by construction — never skip verification.
+Every game already has a **per-level clinical promise** written in code:
 
-## Review revisions incorporated
+- **PhotoNaming** (`photoNamingLevels.ts`): L1 heavy support → L8 phrase context + generalization
+- **FixSentence** (`fixSentenceLevels.ts`): L1 obvious category violations → L8 ambiguous multi-valid sentences
+- **MinimalPairs** (`minimalPairsLevels.ts`): L1 distinct contrasts → L8 fast discrimination under load
 
-1. **Phase 1 and Phase 4 ship as a single PR.** Shipping Phase 1 alone would
-   instantly route every legacy slug (`two_clues`, `describe_guess`,
-   `meaning_match`, `narrative_retell`, `multi_step_planning`, etc.) into
-   expressive mastery — strictly worse than today's "0 rows" state for those
-   games. The legacy `expressive` fallthrough in `routeTrialMode` is tightened
-   to `skipped_unknown` in the same PR, so only allowlisted + tagged trials
-   contribute.
-2. **Phase 5 is re-scoped.** `sendBeacon` is dropped from the in-process
-   logger (it can only POST to a URL, not call the JS client). Two explicit
-   options documented; no implementation until a decision is made.
-3. **Idempotency uses a real natural key** —
-   `(session_id, exercise_slug, trial_index)` unique constraint with
-   `onConflict` — not a client-generated UUID bolted on top of the existing PK.
-4. **Phase 0 verification adds a `naming.unspecified` post-deploy check** to
-   catch the `difficulty` column being NULL more often than expected.
+These ladders **train different cognitive skills**. PhotoNaming is about *lexical retrieval under fading support*. FixSentence is about *error type sophistication*. MinimalPairs is about *acoustic resolution + speed*.
 
----
+A uniform "sub-tier slice + pressure knob" treatment would be wrong. The shared primitive must standardize *machinery*; each game must own *meaning*.
 
-## Phase 0 — Baseline Evidence (no code changes) — DONE
+## Architecture
 
-Captured before Phase 1 ships:
+```text
+┌──────────────────────────────────────────────────────┐
+│  Shared primitive: GameIntensity                     │
+│  - selectTrialsForLevel(slug, level, count) → trials │
+│  - getLevelModifiers(slug, level) → modifiers        │
+│  - getLevelLabel(slug, level) → string               │
+│  Pure functions. No React. Auditable in one place.   │
+└────────────────────┬─────────────────────────────────┘
+                     │ delegates to per-game module
+   ┌─────────────────┼─────────────────┐
+   ▼                 ▼                 ▼
+PhotoNaming      FixSentence      MinimalPairs
+intensityMap     intensityMap     intensityMap
+(lexical axis)   (error-type axis)(acoustic axis)
+```
 
-| Metric | Value | Notes |
-|---|---|---|
-| `user_skill_mastery` rows | **0** | Confirms mastery layer is dead |
-| `skill_mastery_history` rows | **0** | Confirms longitudinal layer is dead |
-| `adaptation_trial_logs` rows | 460 | Healthy write side |
-| `adaptation_trial_logs` w/ NULL session_id | 16 | Pre-existing; pre-session-ready logger races. Not in scope here. |
-| Slug forms in `adaptation_trial_logs` | All underscore | Confirms writer canonicalizes |
-| Slugs with `trial_mode` populated | `photo_naming` only (91/107) | Confirms only PN is wired for trial-mode |
-| `clinical_progression_state` rows | 1 (`photo-naming`) | Dash-form confirmed |
+Each game registers a config that declares:
+1. Its **primary difficulty axis** (what the clinical ladder is about)
+2. Its **secondary axes** (pressure modifiers that compound the primary)
+3. Its **level → axis-state mapping** (10 levels, what they pull)
 
-Post-Phase 1+4 verification reads (run within 24h of deploy):
-1. `SELECT count(*), max(last_practiced_at) FROM user_skill_mastery;` — must be > 0.
-2. `SELECT count(*) FROM skill_mastery_history;` — must be > 0 within 7 days.
-3. **Naming bucket-degradation check:**
-   ```sql
-   SELECT skill_slug, count(*), max(last_practiced_at)
-   FROM user_skill_mastery
-   GROUP BY skill_slug ORDER BY 2 DESC;
-   ```
-   If `naming.unspecified` dominates, `adaptation_trial_logs.difficulty` is
-   NULL more than expected and `classifyNamingByFrequency` is degrading.
-   Separate problem; file ticket but do not block this rollout.
-4. `SELECT exercise_slug, count(*) FILTER (WHERE n.skipped_unknown) FROM ...`
-   via console — the `[Mastery] N trial(s) for adopted slug "X" had null/missing
-   trial_mode` warning count should match Fix-Sentence trial volume (because
-   Fix Sentence is allowlisted but not yet emitting `trial_mode`).
+The engine calls one shared function. Per-game logic lives in per-game files.
 
----
+## Per-game intensity ladders
 
-## Phase 1+4 (combined) — Slug Normalization + Adoption Tightening (one PR)
+### PhotoNaming — Axis: lexical retrieval under fading support
 
-**Single shippable unit. Do not split.**
+Primary axis = **(word difficulty, support availability)** — they covary.
 
-### Changes
-1. `src/lib/mastery/skillMapping.ts`
-   - Add `normalizeExerciseSlug(slug)` at the entry of `mapTrialToSkills`.
-   - Convert all `switch` cases to canonical underscore form.
-   - Convert `MASTERY_EXCLUDED_EXERCISES` to underscore form
-     (`conversation_partner`, `conversation_coach`).
-   - `isExcludedFromMastery` normalizes its input.
-2. `src/lib/mastery/masterySignalRouting.ts`
-   - Convert `ADOPTED_TRIAL_MODE_SLUGS` to underscore form.
-   - Add `fix_sentence` to the allowlist
-     (currently has 8 trials with NULL `trial_mode` → all will be
-     `skipped_unknown` until the FixSentence game starts emitting tags;
-     this is correct and intended).
-   - Normalize slug at entry of `isAdoptedForTrialMode` and `routeTrialMode`.
-   - **Tighten the legacy fallthrough**: non-adopted slugs return
-     `skipped_unknown` (with no warning, since they aren't expected to be
-     wired yet) instead of `expressive`. This prevents Phase 1 from silently
-     enrolling every legacy game into expressive mastery.
-3. `src/lib/mastery/contaminationAudit.ts`
-   - Convert `QUARANTINED_SLUGS` to underscore.
-   - Use `narrative_retell` for the sample mapping call.
-4. **Delete** `src/hooks/useMasteryWriter.ts` (verified zero callers).
-5. **Update** `src/lib/mastery/__tests__/*` to feed canonical underscore slugs.
-6. **Add** a round-trip test (Phase 9 first deliverable, ships in this PR):
-   `src/lib/mastery/__tests__/writerReaderRoundTrip.test.ts`
-   - For each canonical adopted slug, build a `PendingRow`-shaped object
-     identical to what `useAdaptationTrialLogger` produces, run through
-     `routeTrialMode` + `mapTrialToSkills`, assert non-empty result.
-   - Test must FAIL on main today, PASS after this PR.
+| Lvl | Word difficulty | Support available | Response window | Distractor chips |
+|---|---|---|---|---|
+| 1 | T1, top 500 frequency, 1-syl | semantic + phonemic + carrier on tap | none | n/a |
+| 2 | T1, top 1000, 1-syl | semantic + phonemic on tap | none | n/a |
+| 3 | T1, top 2000, 1–2-syl | semantic on tap | none | n/a |
+| 4 | T2, top 3500, 1–2-syl | semantic on tap, costs a hint | none | n/a |
+| 5 | T2, 3500–6000, 2-syl | semantic only after 8s silence | 20s soft | n/a |
+| 6 | T2, 6000–8000, 2-syl + atypical exemplars | no semantic; phonemic after 10s | 18s soft | n/a |
+| 7 | T2/T3 blend, 2–3-syl, lower frequency | no cues | 15s soft | n/a |
+| 8 | T3, low-frequency, 2–3-syl | no cues | 12s firm | optional 1-chip foil |
+| 9 | T3 stretch (atypical, late-acquired) | no cues | 10s firm | 2-chip foil |
+| 10 | T3 stretch + phrase-context probe ("Say it in a sentence") | no cues | 10s firm | 2-chip foil |
 
-### Behavioral outcome after this PR
-- Photo Naming with `trial_mode='production'` → routes to expressive →
-  `mapTrialToSkills('photo_naming')` → `naming.high-frequency` /
-  `naming.low-frequency` / `naming.unspecified` row written.
-- Fix Sentence with NULL `trial_mode` → `skipped_unknown` (warned).
-  No mastery rows yet — wiring trial_mode emission is a separate, later task.
-- All other games → `skipped_unknown` (silent). No mastery rows.
-  This preserves the current "no contamination" property.
+Sort key inside content tier: `frequency_rank → syllable_count → age_of_acquisition`.
+Stretch slice: tag ~12 of the 33 T3 photos with `stretch: true` for L9–10.
 
-### Out of scope for this PR
-- Wiring `trial_mode` emission for Fix Sentence (separate ticket).
-- Migrating `clinical_progression_state.exercise_slug` form.
-- Adopting any other slug into `ADOPTED_TRIAL_MODE_SLUGS`.
+### FixSentence — Axis: error-type sophistication
 
----
+Primary axis = **what kind of error must be detected and repaired**. This is the entire clinical point — repairing "pillow vs. soap" (category) is a different skill from repairing "coin vs. key" (function mismatch).
 
-## Phase 2 — Surface Production Failures (parallel PR)
+| Lvl | Error type pulled | Sentence length | Hint behavior | Multi-error? |
+|---|---|---|---|---|
+| 1 | category_error only (T1) | short (5–7 words) | "show me" button visible | no |
+| 2 | category_error (T1, harder) + 20% semantic_swap | short | "show me" visible | no |
+| 3 | semantic_swap (T2) dominant | 6–8 words | "show me" visible, costs hint | no |
+| 4 | semantic_swap (T2) + 30% function_error preview | 6–8 words | "show me" after 10s silence | no |
+| 5 | function_error (T2) dominant | 7–10 words | no "show me" | no |
+| 6 | function_error (T3) | 8–11 words | no hint | no |
+| 7 | function_error (T3, subtle) + 25% multiple_valid_repairs | 9–12 words | no hint | no |
+| 8 | multiple_valid_repairs (T3) | 9–12 words | no hint | no |
+| 9 | multiple_valid_repairs + 2-error sentences (Stretch) | 10–14 words | no hint | yes (2 errors) |
+| 10 | 2-error sentences + paragraph-fragment context | 10–14 words | no hint | yes (2 errors) |
 
-**Objective:** never again have a write path die silently in prod.
+Sort key inside `errorType` cohort: `sentenceLength → wrongWordIndex` (errors late in sentence are harder — must hold sentence in working memory).
 
-### Changes
-1. `src/hooks/useAdaptationTrialLogger.ts`
-   - Replace the dev-gated `console.warn` for insert errors with
-     unconditional `console.error('[adaptation_trial_logs] insert failed', ...)`.
-   - Add a counter ref tracking consecutive failed flushes; after 3
-     consecutive failures, emit one `exercise_events` row with
-     `event_type='telemetry_write_failure'` (debounced one-per-session).
-2. `src/lib/mastery/flushMasteryShadow.ts`
-   - Promote the silent `console.warn` in the catch block to `console.error` in prod.
-   - Add `console.info('[mastery] flushed', { sessionId, skills })` on success.
-   - Log when `skillList.length === 0` so the silent early-return becomes visible.
+Bank work needed: tag 8–10 existing T3 items with `multiError: true` or curate a small `STRETCH_FIX_SENTENCES` slice of 12 two-error sentences for L9–10.
 
-### Verification
-- Force a failing insert in dev (RLS denial) and confirm both the console
-  error AND the `exercise_events` failure row appear after 3 attempts.
+### MinimalPairs — Axis: acoustic resolution + speed
 
----
+Primary axis = **(contrast distance, replay budget, response window)**. Replays are the real scaffold here — not cues.
 
-## Phase 9 — Round-Trip Test Suite (parallel; first test ships with Phase 1+4)
+| Lvl | Contrast type | Replay budget | Response window | Foil similarity |
+|---|---|---|---|---|
+| 1 | stop_fricative (max distance) | unlimited | none | distant photo foil |
+| 2 | stop_fricative + place-of-articulation | 3 replays | none | distant photo foil |
+| 3 | voicing contrasts (medium distance) | 2 replays | none | distant |
+| 4 | voicing + fricative_affricate (single-feature) | 2 replays | 12s soft | medium |
+| 5 | single-feature contrasts (T2 broadened) | 2 replays | 10s soft | medium |
+| 6 | single-feature, medial position | 1 replay | 10s soft | close |
+| 7 | single-feature, final position (hardest position) | 1 replay | 8s firm | close |
+| 8 | within-pair confusable triads (Stretch) | 1 replay | 8s firm | very close |
+| 9 | triads, no replay | 0 replays | 8s firm | very close |
+| 10 | triads + dual-load (hold pair in memory through distractor) | 0 replays | 8s firm | very close |
 
-### Tests
-1. `writerReaderRoundTrip.test.ts` — ships in Phase 1+4.
-2. `bridgeFloorRespected.test.ts` — ships with Phase 3.
-3. CI gate: add to existing `vitest` run.
+Sort key inside cohort: `contrastDistance (computed from phoneme feature delta) → contrastPosition (initial < medial < final)`.
 
----
+Bank work needed: compute `contrastDistance` once from existing `phoneme1`/`phoneme2`; tag confusable triads.
 
-## SECOND WAVE (after Phase 1+4 numbers verified clean)
+## Why the axes have to differ
 
-### Phase 3 — Fix the Progression Load Race
+| Game | If you only swap words | If you only add time pressure | If you only strip cues |
+|---|---|---|---|
+| PhotoNaming | partial — you still need fading support | partial — words still too easy | partial — words still too easy |
+| FixSentence | wrong — easy sentences with subtle errors are harder than long sentences with obvious errors | useless — repair isn't a speed task | partial — error-type sophistication is the point |
+| MinimalPairs | partial — replays still rescue any contrast | helps, but replays still mask difficulty | replays ARE the cue; budget is the lever |
 
-Wait at least 24h after Phase 1+4 deploy to confirm mastery rows appear for
-sessions that started at level 1 (current default). Only then change which
-level sessions start at.
+This is why the primitive is *structural*, not *prescriptive*. Each game declares its own axes.
 
-#### Changes
-1. `src/pages/PhotoNamingExercise.tsx` — gate render of `<PhotoNamingGame>`
-   on `progression.loaded === true`. Reuse existing exercise loading skeleton.
-2. `src/pages/FixSentenceExercise.tsx` — same pattern.
-3. Dev-only log on first game mount: `[progression] mounted with floor=X, clinicalLevel=Y`.
+## Implementation plan
 
-#### Verification
-- Seed `clinical_progression_state` for a test profile at `currentLevel=4`.
-- Reload the Photo Naming exercise; confirm `useInGameAdaptation`'s starting
-  `difficultyTier` equals the bridge floor (4), not 1.
+### Step 1 — Shared primitive (no behavior change yet)
+- New `src/lib/intensity/gameIntensity.ts`:
+  - `GameIntensityConfig` interface: `{ sortKey, levelMap, modifierMap }`
+  - `selectTrialsForLevel(slug, level, candidates, count)` — sorts + slices
+  - `getLevelModifiers(slug, level)` — returns `{ cueAvailability, responseWindowMs, replayBudget, foilSimilarity, multiError, stretch }` (game uses whichever apply)
+- Per-game registries: `photoNamingIntensity.ts`, `fixSentenceIntensity.ts`, `minimalPairsIntensity.ts` — encode the three tables above
+- Pure functions, full unit test for each level → expected slice + modifiers
 
-### Phase 6 — DB Invariant + Slug Helper
+### Step 2 — PhotoNaming wiring (reference game)
+- `photoBank.getTrialsForLevel` calls `selectTrialsForLevel('photo-naming', level, ...)` after tier filter
+- `PhotoNamingExercise.tsx`: read modifiers → drive existing cue/timer/chip code (most knobs already exist)
+- Tag ~12 T3 photos with `stretch: true`
+- Update `PHOTO_NAMING_LEVELS[n].description` to match the new content reality
+- Verify with `/dev/adaptation-sim`: confirm L4–L7 now pull visibly different items
 
-Ships only after Phase 1+4 has been in prod for ≥7d with all-underscore writes.
+### Step 3 — FixSentence wiring
+- Add `sentenceLength` to each `FixSentenceTrial` (computed once, write back)
+- New selector reads errorType mix per level from intensity map
+- Curate 10–12 two-error sentences for `STRETCH_FIX_SENTENCES`
+- `FixSentenceExercise.tsx`: read modifiers → hide "show me" at L≥5, hide model at L≥6
+- Update level descriptions
 
-#### Migration
-1. `CHECK (exercise_slug ~ '^[a-z][a-z0-9_]*$')` on `adaptation_trial_logs.exercise_slug`.
-2. `CHECK (exercise_slug ~ '^[a-z][a-z0-9-]*$')` on `clinical_progression_state.exercise_slug`.
-3. **Replace UUID-based idempotency** (per review #3) with a unique constraint:
-   `UNIQUE (session_id, exercise_slug, trial_index)` on `adaptation_trial_logs`.
-   This is the natural key per logical trial. Inserts in Phase 5 use
-   `onConflict: 'session_id,exercise_slug,trial_index'`.
-4. Add `src/lib/exerciseSlugNormalizer.ts` helpers:
-   - `toProgressionSlug(canonical)` — underscore → dash for `clinical_progression_state` reads/writes.
-   - `fromProgressionSlug(progression)` — dash → underscore for cross-table joins.
-   - Document in `src/docs/DATABASE_SCHEMA.md` that telemetry uses underscore,
-     progression uses dash, and **all cross-table boundaries must normalize**.
+### Step 4 — MinimalPairs wiring
+- Compute `contrastDistance` from phoneme feature table (one-shot util)
+- New selector picks contrast cohort per level
+- `MinimalPairsExercise.tsx`: read `replayBudget` → cap audio replay button; read `responseWindowMs` → enable soft timer at L≥4
+- Curate or generate triads for L8–10
 
-#### Reason for the asymmetry
-The progression table is internally symmetric (one hook reads & writes its
-own slug). The real risk is *future* joins between
-`clinical_progression_state` and `adaptation_trial_logs` (e.g., a clinician
-view showing "level X, last N trials"). The helper centralizes the
-conversion so a future grep for `toProgressionSlug` finds every cross-table
-boundary in one search.
+### Step 5 — Verification rig
+- Extend `/dev/adaptation-sim` with **"Intensity Ladder"** panel per game: input level 1–10, see item IDs + modifier values rendered side-by-side. Eyeball that levels are visibly distinct.
+- Extend `contentDepthAudit.test.ts`: report **per-level slice depth** (not just per-tier), warn if any level can't pull ≥5 items
+- New memory: `architecture/per-game-intensity-system` documenting the 3 axes + how to add a 4th game
 
----
+### Step 6 — Roll out Phase 2 games (one per session, post-validation)
+For each: DetectiveMind, MultiStepPlanning, AbstractCompare, MeaningMatch, DualLoadNaming, Synonym, CategoryFluency, TwoClues, DescribeGuess.
 
-## Phase 5 — Tail-Loss Hardening (RE-SCOPED, requires explicit decision)
+Per-game work = define axis(es) + level map + modifier consumption. Should be ~30 min each once the primitive is proven.
 
-### Re-scope (per review #2)
+## What does NOT change
 
-The original plan claimed a one-line `sendBeacon` fix. That is wrong:
-`sendBeacon` only POSTs to a URL — it cannot call the Supabase JS client.
-The team must pick ONE of these before this phase ships:
+- 5-trial engine logic, success bands, recap, soft regression
+- Mastery / cue-dependency / governance gates
+- Progression spec (10 levels, evidence rules, trial weights)
+- Telemetry schema — `task_parameters.intensity_state` is additive
 
-#### Option A — Build a beacon endpoint (full work)
-- New edge function `log-trial-beacon` that accepts a JSON beacon payload
-  and inserts to `adaptation_trial_logs` server-side.
-- Logger registers `pagehide` / `visibilitychange→hidden` handler that
-  serializes the buffer and calls `navigator.sendBeacon('/functions/v1/log-trial-beacon', blob)`.
-- Idempotency via the Phase 6 `(session_id, exercise_slug, trial_index)` constraint.
-- Estimated: 1 dev-day. Adds a new auth surface to harden.
+## Risk + mitigation
 
-#### Option B — Accept iOS Safari tail loss, document it
-- `pagehide` and `visibilitychange→hidden` trigger best-effort `flush()`
-  using the existing client. Most browsers complete the in-flight fetch.
-  iOS Safari may not.
-- Document the loss boundary in `src/docs/DATABASE_SCHEMA.md` and
-  `useAdaptationTrialLogger.ts` JSDoc.
-- Revisit if longitudinal data quality complaints surface.
+- **Per-level slice depth** → audit reports per-level; selector falls back to ±1 level cohort if a level can't fill its trial count
+- **Pressure modifiers stacking too aggressively** → each game tunes its own ramp; PhotoNaming time window only kicks in at L≥5
+- **Re-tagging burden (stretch slice, sentence length, contrast distance)** → all one-shot computed values written back to bank; no per-trial overhead
+- **Tests on existing level evidence** → unchanged; we change content delivery, not what counts as evidence
 
-**Defer this phase until the team picks Option A or B.** Do not implement either silently.
+## What success looks like for your dad
 
-### Items that ship regardless of A/B
-- `useSessionLifecycle.ts` non-completed end paths (pagehide, visibility
-  timeout) must `await flushAdaptationLogsRef.current?.()` before
-  `endSessionWithReason`. Mirror the completed-session pattern.
-- **Mastery flush on non-completed paths** (per the GPT critique): currently
-  `flushMasteryShadow` only runs in the success branch of `sessions.update`.
-  Move it so it also runs after timeout/abandonment, AFTER the trial flush
-  has resolved. Otherwise abandoned sessions produce trial logs with no
-  mastery aggregation — under-counting evidence for cognitively-fatigued
-  users (a clinically sensitive subgroup).
-
----
-
-## OUT OF SCOPE FOR THIS PUSH (held)
-
-### Phase 7 — Minimal Pairs Progression
-Defer until Phases 1+4, 2, 3, 6 are stable in prod. Requires a separate
-decision: in-scope for v1 longitudinal model, or telemetry-only? Do not
-start until that is answered.
-
-### Phase 8 — Consume `consecutiveStruggleSessions` / `supportBaseline`
-Requires team decision: Option A (consume them, make progression
-runtime-authoritative) or Option B (stop writing them, mark v1 as "remembered
-floor only"). Do not ship a clinical-level downward ceiling without this
-decision — a floor that only goes up is clinically unsafe for a stroke
-patient having a bad week.
-
----
-
-## Execution Order
-
-| Wave | Phases | Trigger to next wave |
-|---|---|---|
-| 1 | Phase 0 baseline (done) | — |
-| 2 | Phase 1+4 merged (one PR) + Phase 2 (parallel) + Phase 9 round-trip test | 24h post-deploy: `user_skill_mastery` count > 0; no `naming.unspecified` dominance |
-| 3 | Phase 3 (load race) + bridge test | Manual seed test passes |
-| 4 | Phase 6 (DB constraint + helper) | 7d clean Phase 1+4 in prod |
-| Held | Phase 5 (decision required), 7, 8 | Explicit team decision |
-
-## Hard Constraints (unchanged)
-
-- Do **not** modify `useInGameAdaptation` mid-session behavior.
-- Do **not** migrate `clinical_progression_state.exercise_slug` form.
-- Do **not** wire Minimal Pairs progression before Phase 6 ships.
-- Do **not** introduce a clinical-level downward ceiling until Phase 8 is decided.
-- Do **not** batch Phase 1+4 with Phase 3 or 5. Each later wave needs its own verification.
-
-## Definition of Done (per wave)
-
-**Wave 2:** `user_skill_mastery` row count > 0 within 24h. Round-trip test in CI is green. Telemetry insert failures visible in console + `exercise_events`.
-
-**Wave 3:** Test profile at clinical level 4 starts every Photo Naming session at engine floor 4.
-
-**Wave 4:** DB rejects dash-form slug inserts to `adaptation_trial_logs`. `(session_id, exercise_slug, trial_index)` unique constraint applied.
+- PhotoNaming L5 vs L6: different words AND a soft timer appears
+- FixSentence L4 vs L5: function-mismatch errors start replacing semantic swaps; "show me" disappears
+- MinimalPairs L5 vs L6: same contrast types but moves to medial position, replays drop from 2 → 1
+- He'll feel each level click into a new gear instead of a number going up

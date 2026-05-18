@@ -6,6 +6,7 @@
  */
 
 import { PHOTO_BANK, PhotoTrial } from './photoBank';
+import { getLevelContent, sliceCohortByIntensity } from '@/lib/intensity';
 
 export interface MinimalPair {
   id: string;
@@ -786,14 +787,34 @@ export const mapEngineLevelToMinimalPairsTier = (level: number): MinimalPairsTie
   return 3;
 };
 
+/** Position hardness: initial < medial < final (final = hardest acoustically). */
+function contrastPositionRank(t: MinimalPairTrial): number {
+  switch (t.pair.contrastType) {
+    case 'initial': return 0;
+    case 'medial': return 1;
+    case 'final': return 2;
+    default: return 1;
+  }
+}
+
 /**
- * Get minimal pair trials for the engine level (Phase 1.5 contract).
- * STRICT tier isolation — no blending across difficulties.
+ * MinimalPairs intensity hardness key — sort within a tier cohort by:
+ *   contrastPosition (initial<medial<final) → alphabetical (stable secondary)
+ */
+function minimalPairHardness(t: MinimalPairTrial): number {
+  return contrastPositionRank(t) * 1000 + t.pair.id.charCodeAt(0);
+}
+
+/**
+ * Get minimal pair trials for the engine level.
  *
- * The legacy ±1 tolerance and "if not enough, use all" fallback are removed:
- *   • If the strict-tier pool has fewer items than `count`, we allow repeats
- *     within the same tier rather than leaking other tiers in.
- *   • Phoneme-focus prioritization is preserved but never crosses tiers.
+ * Behavior change (May 2026): reads the per-game intensity ladder
+ * (`src/lib/intensity/minimalPairsIntensity.ts`) to slice each level's
+ * cohort by sub-tier index. Levels 4..7 share Tier 2 but slide from easy
+ * (initial-position contrasts) → hard (final-position contrasts).
+ *
+ * Falls back to the legacy strict-tier selector when the intensity registry
+ * has no entry (defensive — registry is eagerly loaded).
  */
 export function getMinimalPairTrialsForLevel(
   level: number,
@@ -803,18 +824,38 @@ export function getMinimalPairTrialsForLevel(
   const allTrials = getMinimalPairTrials();
   const targetTier = mapEngineLevelToMinimalPairsTier(level);
 
-  // STRICT tier match — Phase 1.5 honesty contract.
-  let filtered = allTrials.filter(t => t.pair.difficulty === targetTier);
+  const spec = getLevelContent('minimal-pairs', level);
 
-  if (filtered.length === 0) {
-    // True empty (no photo-backed pairs at this tier) — degrade to next-easier
-    // tier rather than silently leaking everything. This is a content gap, not
-    // a runtime fallback to mask it.
-    console.warn(`⚠️ MinimalPairs: no photo-backed pairs at tier ${targetTier}`);
-    return [];
+  // Cohort key maps directly to pair.difficulty (1..3).
+  const cohortTier = (cohort: string): 1 | 2 | 3 => {
+    if (cohort === 'tier_1') return 1;
+    if (cohort === 'tier_3') return 3;
+    return 2;
+  };
+
+  let filtered: MinimalPairTrial[];
+  if (spec) {
+    const tier = cohortTier(spec.cohort);
+    const cohortPool = allTrials.filter(t => t.pair.difficulty === tier);
+    if (cohortPool.length === 0) {
+      console.warn(`⚠️ MinimalPairs: no photo-backed pairs at tier ${tier}`);
+      return [];
+    }
+    filtered = sliceCohortByIntensity(
+      cohortPool,
+      minimalPairHardness,
+      spec.subTierIndex,
+      Math.max(count * 2, 6)
+    );
+  } else {
+    filtered = allTrials.filter(t => t.pair.difficulty === targetTier);
+    if (filtered.length === 0) {
+      console.warn(`⚠️ MinimalPairs: no photo-backed pairs at tier ${targetTier}`);
+      return [];
+    }
   }
 
-  // Phoneme-focus prioritization (within tier only).
+  // Phoneme-focus prioritization (within slice).
   const focusPhonemes = options?.focusPhonemes;
   if (focusPhonemes && focusPhonemes.length > 0) {
     const focusSet = new Set(focusPhonemes.map(p => p.toLowerCase().replace(/\//g, '')));
@@ -823,21 +864,19 @@ export function getMinimalPairTrialsForLevel(
       const p2 = trial.pair.phoneme2.toLowerCase().replace(/\//g, '');
       return focusSet.has(p1) || focusSet.has(p2);
     };
-    const prioritized = filtered.filter(matchesFocus).sort(() => Math.random() - 0.5);
-    const others = filtered.filter(t => !matchesFocus(t)).sort(() => Math.random() - 0.5);
+    const prioritized = filtered.filter(matchesFocus);
+    const others = filtered.filter(t => !matchesFocus(t));
     const merged = [...prioritized, ...others];
-    // Allow within-tier repeats if pool is smaller than requested count.
     if (merged.length >= count) return merged.slice(0, count);
     const out: MinimalPairTrial[] = [];
     while (out.length < count) out.push(merged[out.length % merged.length]);
     return out;
   }
 
-  const shuffled = [...filtered].sort(() => Math.random() - 0.5);
-  if (shuffled.length >= count) return shuffled.slice(0, count);
-  // Within-tier repeats only — never blend tiers.
+  // No focus phonemes: preserve intensity-sliced order; tiny tie-break shuffle.
+  if (filtered.length >= count) return filtered.slice(0, count);
   const out: MinimalPairTrial[] = [];
-  while (out.length < count) out.push(shuffled[out.length % shuffled.length]);
+  while (out.length < count) out.push(filtered[out.length % filtered.length]);
   return out;
 }
 

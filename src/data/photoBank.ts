@@ -178,6 +178,7 @@ import dishImg from '@/assets/photos/dish.jpg';
 import sockImg from '@/assets/photos/sock.jpg';
 import lockImg from '@/assets/photos/lock.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
+import { getLevelContent, getLevelModifiers, resolveCohortMix, sliceCohortByIntensity } from '@/lib/intensity';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
@@ -4399,9 +4400,48 @@ export const mapEngineLevelToPhotoTier = (level: number): PhotoTier => {
 };
 
 /**
+ * Lexical hardness score — lower = easier word.
+ *
+ * Primary intensity sort key for the PhotoNaming sub-tier slicer.
+ * Combines frequency, syllable count, and age-of-acquisition into a single
+ * monotonic number so a level's `subTierIndex` selects an actually distinct
+ * slice of the cohort (e.g. L5 vs L7 inside Tier 2).
+ */
+export const lexicalHardness = (trial: PhotoTrial): number => {
+  const f = trial.features;
+  // Normalise each axis to ~[0..1] then weight.
+  const freq = Math.min(1, f.frequency_rank / 15000);            // 0 = common, 1 = rare
+  const syl = Math.min(1, (f.syllable_count - 1) / 3);           // 0 = monosyl, 1 = 4-syl
+  const aoa = Math.min(1, Math.max(0, (f.age_of_acquisition - 3) / 7));
+  const typ = Math.min(1, Math.max(0, (f.typicality_rating - 1) / 6));
+  return freq * 0.45 + syl * 0.20 + aoa * 0.20 + typ * 0.15;
+};
+
+/** A T3 trial counts as "stretch" if it sits at the extreme end of the hardness signals. */
+export const isStretchPhoto = (trial: PhotoTrial): boolean => {
+  if (computePhotoTier(trial) !== 3) return false;
+  const f = trial.features;
+  return (
+    f.frequency_rank >= 12000 ||
+    f.age_of_acquisition >= 9 ||
+    f.syllable_count >= 4 ||
+    (f.typicality_rating >= 6 && f.frequency_rank >= 9000)
+  );
+};
+
+/**
  * Get trials appropriate for current engine level (1-10).
- * Phase 1.5 contract: STRICT tier isolation. No ±1 tolerance, no blending.
- * Engine level → tier via mapEngineLevelToPhotoTier; trial → tier via computePhotoTier.
+ *
+ * Behavior change (May 2026): no longer a flat tier bucket. Reads the
+ * per-game intensity ladder (`src/lib/intensity/photoNamingIntensity.ts`)
+ * to:
+ *   - resolve the level's cohort (`tier_1` / `tier_2` / `tier_3` / `stretch`)
+ *     and optional cohortMix (e.g. L7 = 70% T2 + 30% T3)
+ *   - sort within-cohort by lexicalHardness
+ *   - slice the appropriate sub-window via subTierIndex
+ *
+ * Falls back to the legacy 3-tier mapping when the intensity registry has
+ * no entry (safety net — registry is loaded eagerly so this is rare).
  */
 export const getTrialsForLevel = (
   level: number,
@@ -4415,74 +4455,104 @@ export const getTrialsForLevel = (
     focusWords?: string[]; // Specific words to prioritize
   }
 ): PhotoTrial[] => {
-  const targetTier = mapEngineLevelToPhotoTier(level);
+  // intensity helpers imported statically at top of file
+
 
   const excludeSet = new Set(filterOptions?.excludeTargets || []);
   const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
   const focusPhonemes = filterOptions?.focusPhonemes || [];
-  
-  let filtered = PHOTO_BANK.filter(trial => {
-    // Session-level deduplication: skip already-shown targets
+
+  // Universal filter applied to any cohort.
+  const applyCommonFilters = (trial: PhotoTrial): boolean => {
     if (excludeSet.has(trial.target)) return false;
-
-    // STRICT tier match — Phase 1.5 honesty contract (no ±1 blending).
-    if (computePhotoTier(trial) !== targetTier) return false;
-
-    // Optional filters
     if (filterOptions?.categories &&
         !filterOptions.categories.includes(trial.features.semantic_category)) {
       return false;
     }
-
-    if (filterOptions?.excludeAtypical &&
-        trial.features.typicality_rating > 5) {
+    if (filterOptions?.excludeAtypical && trial.features.typicality_rating > 5) {
       return false;
     }
-
-    if (filterOptions?.requirePhonologicalFoils &&
-        !trial.phonologicalFoils?.length) {
+    if (filterOptions?.requirePhonologicalFoils && !trial.phonologicalFoils?.length) {
       return false;
     }
-
     return true;
-  });
+  };
 
-  // If pool exhausted by exclusions only (still respect tier), allow repeats
-  // within the SAME tier — never blend across tiers.
-  if (filtered.length === 0 && excludeSet.size > 0) {
-    console.warn(`⚠️ Photo pool exhausted at tier ${targetTier}, allowing repeats within tier`);
-    filtered = PHOTO_BANK.filter(trial => computePhotoTier(trial) === targetTier);
+  const cohortPool = (cohort: string): PhotoTrial[] => {
+    if (cohort === 'tier_1' || cohort === 'tier_2' || cohort === 'tier_3') {
+      const tier = cohort === 'tier_1' ? 1 : cohort === 'tier_2' ? 2 : 3;
+      return PHOTO_BANK.filter(t => computePhotoTier(t) === tier && applyCommonFilters(t));
+    }
+    if (cohort === 'stretch') {
+      return PHOTO_BANK.filter(t => isStretchPhoto(t) && applyCommonFilters(t));
+    }
+    // Unknown cohort key — fall back to whole bank within filters.
+    return PHOTO_BANK.filter(applyCommonFilters);
+  };
+
+  const spec = getLevelContent('photo-naming', level);
+  const mods = getLevelModifiers('photo-naming', level);
+
+  // Build the candidate pool from the cohort(s) the level declares.
+  let candidates: PhotoTrial[] = [];
+  if (spec) {
+    const mix = resolveCohortMix(spec, count);
+    const seen = new Set<string>();
+    for (const slice of mix) {
+      const sliced = sliceCohortByIntensity(
+        cohortPool(slice.cohort),
+        lexicalHardness,
+        spec.subTierIndex,
+        Math.max(slice.count * 3, 8) // over-fetch so phoneme/focus sort has options
+      );
+      for (const t of sliced) {
+        if (!seen.has(t.target)) { seen.add(t.target); candidates.push(t); }
+      }
+    }
+    // Stretch override (modifier) — biases toward stretch slice if not already mixed in.
+    if (mods.useStretchSlice && !mix.some(m => m.cohort === 'stretch')) {
+      for (const t of cohortPool('stretch')) {
+        if (!seen.has(t.target)) { seen.add(t.target); candidates.push(t); }
+      }
+    }
+  } else {
+    // Legacy fallback: 3-tier flat bucket.
+    const targetTier = mapEngineLevelToPhotoTier(level);
+    candidates = PHOTO_BANK.filter(t => computePhotoTier(t) === targetTier && applyCommonFilters(t));
   }
 
-  // Pre-compute random values for stable sorting (avoid Math.random() in comparator)
-  // Use lowercase keys for consistent lookup regardless of target casing
-  const randomValues = new Map(filtered.map(t => [t.target.toLowerCase(), Math.random()]));
-  
-  // Sort to prioritize: (1) focus words, (2) phoneme match count (weighted), (3) stable random
-  const shuffled = [...filtered].sort((a, b) => {
+  // If exclusions or filters emptied the pool, allow within-cohort repeats.
+  if (candidates.length === 0 && excludeSet.size > 0) {
+    console.warn(`⚠️ Photo pool exhausted for L${level}, allowing repeats within cohort`);
+    const targetTier = mapEngineLevelToPhotoTier(level);
+    candidates = PHOTO_BANK.filter(t => computePhotoTier(t) === targetTier);
+  }
+
+  // Stable per-pick randomness so the sort is deterministic within a call.
+  const randomValues = new Map(candidates.map(t => [t.target.toLowerCase(), Math.random()]));
+
+  // Final ordering: focus words → phoneme matches → preserve intensity-sliced order
+  // (we no longer fully shuffle — that would undo the sub-tier sort).
+  const ordered = [...candidates].sort((a, b) => {
     const aIsFocusWord = focusWordsSet.has(a.target.toLowerCase()) ? 1 : 0;
     const bIsFocusWord = focusWordsSet.has(b.target.toLowerCase()) ? 1 : 0;
-    
-    // Focus words first
-    if (aIsFocusWord !== bIsFocusWord) {
-      return bIsFocusWord - aIsFocusWord;
-    }
-    
-    // Then phoneme matches - use weighted count, not boolean
-    // Words with more matching phonemes get higher priority
+    if (aIsFocusWord !== bIsFocusWord) return bIsFocusWord - aIsFocusWord;
+
     if (focusPhonemes.length > 0) {
       const aMatchCount = countPhonemeMatches(a.target, focusPhonemes);
       const bMatchCount = countPhonemeMatches(b.target, focusPhonemes);
-      if (aMatchCount !== bMatchCount) {
-        return bMatchCount - aMatchCount;
-      }
+      if (aMatchCount !== bMatchCount) return bMatchCount - aMatchCount;
     }
-    
-    // Stable random for equal priority (use lowercase for consistent lookup)
-    return (randomValues.get(a.target.toLowerCase()) || 0) - (randomValues.get(b.target.toLowerCase()) || 0);
+
+    // Tie-break with a small random jitter so repeated calls don't always
+    // return the exact same order, but the intensity slice is preserved.
+    return (
+      (randomValues.get(a.target.toLowerCase()) || 0) -
+      (randomValues.get(b.target.toLowerCase()) || 0)
+    );
   });
-  
-  return shuffled.slice(0, Math.min(count, shuffled.length));
+
+  return ordered.slice(0, Math.min(count, ordered.length));
 };
 
 export const getRandomTrials = (count: number): PhotoTrial[] => {
@@ -4491,9 +4561,18 @@ export const getRandomTrials = (count: number): PhotoTrial[] => {
 };
 
 export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
-  const choiceCount = level <= 3 ? 3 : 4;
-  const usePhonological = level >= 8 && trial.phonologicalFoils;
-  
+  // Read foil shape from per-game intensity (statically imported at top).
+  const mods = getLevelModifiers('photo-naming', level);
+
+  // Foil chip count: 3 chips for L1-3, 4 chips otherwise (visible challenge step at L4).
+  const choiceCount = mods.foilChipCount === 0
+    ? (level <= 3 ? 3 : 4)
+    : mods.foilChipCount;
+
+  // Confusable foils: prefer phonological foils whenever the level requests them.
+  // Was hardcoded `level >= 8`; intensity ladder now turns this on from L6.
+  const usePhonological = mods.preferConfusableFoils && trial.phonologicalFoils?.length;
+
   let foils: string[];
   if (usePhonological) {
     foils = [
@@ -4503,7 +4582,7 @@ export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
   } else {
     foils = trial.semanticFoils;
   }
-  
+
   const allChoices = [trial.target, ...foils.slice(0, choiceCount - 1)];
   return allChoices.sort(() => Math.random() - 0.5);
 };
