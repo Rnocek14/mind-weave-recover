@@ -178,6 +178,7 @@ import dishImg from '@/assets/photos/dish.jpg';
 import sockImg from '@/assets/photos/sock.jpg';
 import lockImg from '@/assets/photos/lock.jpg';
 import { wordContainsPhoneme as checkWordPhoneme, countPhonemeMatches, getPhonemeMapCoverage } from '@/lib/phonemeWordMap';
+import { getLevelContent, getLevelModifiers, resolveCohortMix, sliceCohortByIntensity } from '@/lib/intensity';
 
 export interface LinguisticFeatures {
   // Core difficulty factors (from research)
