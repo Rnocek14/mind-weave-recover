@@ -4562,9 +4562,21 @@ export const getRandomTrials = (count: number): PhotoTrial[] => {
 };
 
 export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
-  const choiceCount = level <= 3 ? 3 : 4;
-  const usePhonological = level >= 8 && trial.phonologicalFoils;
-  
+  // Read foil shape from per-game intensity. Falls back to legacy heuristic
+  // if the registry hasn't loaded (defensive — registry is eagerly imported).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getLevelModifiers } = require('@/lib/intensity') as typeof import('@/lib/intensity');
+  const mods = getLevelModifiers('photo-naming', level);
+
+  // Foil chip count: 3 chips for L1-3, 4 chips otherwise (visible challenge step at L4).
+  const choiceCount = mods.foilChipCount === 0
+    ? (level <= 3 ? 3 : 4)
+    : mods.foilChipCount;
+
+  // Confusable foils: prefer phonological foils whenever the level requests them.
+  // Was hardcoded `level >= 8`; intensity ladder now turns this on from L6.
+  const usePhonological = mods.preferConfusableFoils && trial.phonologicalFoils?.length;
+
   let foils: string[];
   if (usePhonological) {
     foils = [
@@ -4574,7 +4586,7 @@ export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
   } else {
     foils = trial.semanticFoils;
   }
-  
+
   const allChoices = [trial.target, ...foils.slice(0, choiceCount - 1)];
   return allChoices.sort(() => Math.random() - 0.5);
 };
