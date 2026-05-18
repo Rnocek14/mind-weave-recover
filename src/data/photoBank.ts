@@ -4455,10 +4455,8 @@ export const getTrialsForLevel = (
     focusWords?: string[]; // Specific words to prioritize
   }
 ): PhotoTrial[] => {
-  // Lazy import to avoid circular deps with intensity registry consumers.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getLevelContent, getLevelModifiers, resolveCohortMix, sliceCohortByIntensity } =
-    require('@/lib/intensity') as typeof import('@/lib/intensity');
+  // intensity helpers imported statically at top of file
+
 
   const excludeSet = new Set(filterOptions?.excludeTargets || []);
   const focusWordsSet = new Set(filterOptions?.focusWords?.map(w => w.toLowerCase()) || []);
@@ -4563,10 +4561,7 @@ export const getRandomTrials = (count: number): PhotoTrial[] => {
 };
 
 export const generateChoices = (trial: PhotoTrial, level: number): string[] => {
-  // Read foil shape from per-game intensity. Falls back to legacy heuristic
-  // if the registry hasn't loaded (defensive — registry is eagerly imported).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getLevelModifiers } = require('@/lib/intensity') as typeof import('@/lib/intensity');
+  // Read foil shape from per-game intensity (statically imported at top).
   const mods = getLevelModifiers('photo-naming', level);
 
   // Foil chip count: 3 chips for L1-3, 4 chips otherwise (visible challenge step at L4).
