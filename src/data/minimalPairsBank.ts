@@ -824,9 +824,6 @@ export function getMinimalPairTrialsForLevel(
   const allTrials = getMinimalPairTrials();
   const targetTier = mapEngineLevelToMinimalPairsTier(level);
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getLevelContent, sliceCohortByIntensity } =
-    require('@/lib/intensity') as typeof import('@/lib/intensity');
   const spec = getLevelContent('minimal-pairs', level);
 
   // Cohort key maps directly to pair.difficulty (1..3).
