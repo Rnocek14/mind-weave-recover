@@ -11,6 +11,8 @@
  * - multiple_valid_repairs: multiple "best" answers exist
  */
 
+import { getLevelContent, resolveCohortMix, sliceCohortByIntensity } from '@/lib/intensity';
+
 export interface FixSentenceTrial {
   id: string;
   sentence: string;
@@ -448,10 +450,8 @@ export function getFixSentenceTrials(options?: {
   let pool: FixSentenceTrial[];
 
   if (options?.difficulty != null) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getLevelContent, resolveCohortMix, sliceCohortByIntensity } =
-      require('@/lib/intensity') as typeof import('@/lib/intensity');
     const spec = getLevelContent('fix-sentence', options.difficulty);
+
 
     if (spec) {
       // Cohort key = FixSentenceTrial.errorType (one of four).

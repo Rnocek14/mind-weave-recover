@@ -6,6 +6,7 @@
  */
 
 import { PHOTO_BANK, PhotoTrial } from './photoBank';
+import { getLevelContent, sliceCohortByIntensity } from '@/lib/intensity';
 
 export interface MinimalPair {
   id: string;
