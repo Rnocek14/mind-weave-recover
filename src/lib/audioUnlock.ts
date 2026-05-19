@@ -45,7 +45,24 @@ export function installAudioUnlock() {
     }
 
     try {
-      // 2. Prime speechSynthesis with a silent utterance
+      // 2. Prime an HTMLAudioElement so subsequent `new Audio(blobUrl).play()`
+      // works on iOS Safari / mobile Chrome (which otherwise block playback
+      // when the play() call is separated from the user gesture by an await).
+      // 1-frame silent MP3 data URI.
+      const silentMp3 =
+        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//FJAhRWpJVE0SO+ZJyq0aIQS7whbBEcSXmIxc7GtMjFy6krytkemSeAlPI4xLDjF/Hv2lE+Jzfm7/EfnA3//+4xWQ4QyDhV/wHwQDmAAAVqQVRWZ4ipgsXM3Wbeqj3sLMHpfCdLJzMpYpUuMqdNVScRlPpqMQGqQAGOmnXdaERjAYsq2MwTJUcm';
+      const probe = new Audio(silentMp3);
+      probe.volume = 0;
+      const p = probe.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      // Pause shortly after so it never makes sound on real devices.
+      setTimeout(() => { try { probe.pause(); } catch {} }, 50);
+    } catch (e) {
+      console.warn('[audioUnlock] HTMLAudio prime failed:', e);
+    }
+
+    try {
+      // 3. Prime speechSynthesis with a silent utterance
       if ('speechSynthesis' in window) {
         const u = new SpeechSynthesisUtterance('');
         u.volume = 0;
