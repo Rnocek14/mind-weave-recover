@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID, type MayaTtsMode } from '@/lib/constants/voice';
 import { voiceController } from '@/lib/voiceController';
+import { getUnlockedAudioElement } from '@/lib/audioUnlock';
 
 // Wrap setIsSpeaking-style updates so the global VoiceController stays in
 // sync with whichever component instance is currently driving TTS. Every game
@@ -313,7 +314,9 @@ export const useTextToSpeech = () => {
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         
-        const audio = new Audio(audioUrl);
+        const audio = getUnlockedAudioElement(audioUrl);
+        audio.volume = 1;
+        audio.playbackRate = 1;
         audioRef.current = audio;
         globalAudio = audio;
         globalAudioUrl = audioUrl;
