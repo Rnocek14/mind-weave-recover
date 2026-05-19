@@ -13,9 +13,23 @@
 
 let installed = false;
 let unlocked = false;
+let sharedAudioElement: HTMLAudioElement | null = null;
+
+const silentMp3 =
+  'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//FJAhRWpJVE0SO+ZJyq0aIQS7whbBEcSXmIxc7GtMjFy6krytkemSeAlPI4xLDjF/Hv2lE+Jzfm7/EfnA3//+4xWQ4QyDhV/wHwQDmAAAVqQVRWZ4ipgsXM3Wbeqj3sLMHpfCdLJzMpYpUuMqdNVScRlPpqMQGqQAGOmnXdaERjAYsq2MwTJUcm';
 
 export function isAudioUnlocked(): boolean {
   return unlocked;
+}
+
+export function getUnlockedAudioElement(src: string): HTMLAudioElement {
+  const audio = sharedAudioElement ?? new Audio();
+  sharedAudioElement = audio;
+  audio.pause();
+  audio.preload = 'auto';
+  audio.src = src;
+  audio.load();
+  return audio;
 }
 
 export function installAudioUnlock() {
@@ -48,10 +62,9 @@ export function installAudioUnlock() {
       // 2. Prime an HTMLAudioElement so subsequent `new Audio(blobUrl).play()`
       // works on iOS Safari / mobile Chrome (which otherwise block playback
       // when the play() call is separated from the user gesture by an await).
-      // 1-frame silent MP3 data URI.
-      const silentMp3 =
-        'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjQ1LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//FJAhRWpJVE0SO+ZJyq0aIQS7whbBEcSXmIxc7GtMjFy6krytkemSeAlPI4xLDjF/Hv2lE+Jzfm7/EfnA3//+4xWQ4QyDhV/wHwQDmAAAVqQVRWZ4ipgsXM3Wbeqj3sLMHpfCdLJzMpYpUuMqdNVScRlPpqMQGqQAGOmnXdaERjAYsq2MwTJUcm';
-      const probe = new Audio(silentMp3);
+      const probe = sharedAudioElement ?? new Audio(silentMp3);
+      sharedAudioElement = probe;
+      probe.src = silentMp3;
       probe.volume = 0;
       const p = probe.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
@@ -76,11 +89,15 @@ export function installAudioUnlock() {
     console.log('[audioUnlock] ✅ Audio context primed via user gesture');
 
     window.removeEventListener('touchend', unlock, true);
+    window.removeEventListener('pointerup', unlock, true);
+    window.removeEventListener('click', unlock, true);
     window.removeEventListener('mousedown', unlock, true);
     window.removeEventListener('keydown', unlock, true);
   };
 
   window.addEventListener('touchend', unlock, true);
+  window.addEventListener('pointerup', unlock, true);
+  window.addEventListener('click', unlock, true);
   window.addEventListener('mousedown', unlock, true);
   window.addEventListener('keydown', unlock, true);
 }
