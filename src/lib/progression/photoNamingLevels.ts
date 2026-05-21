@@ -26,6 +26,7 @@
 
 import type { SupportLevel } from './clinicalProgression';
 import { SUPPORT_CREDIT, trialCredit } from './clinicalProgression';
+import { computeImplementedCeiling } from './_shared/implementedCeiling';
 
 /**
  * Photo Naming support ranked from MOST scaffolded (0) to MOST independent (4).
