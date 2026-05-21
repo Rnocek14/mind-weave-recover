@@ -172,10 +172,33 @@ export default function ProgressionStateDev() {
         </Card>
       )}
 
+      <TierStatusLegendCard />
       <SelectorDiagnosticsCard />
       <MinimalPairsSelectorDiagnosticsCard />
       <FixSentenceSelectorDiagnosticsCard />
     </div>
+  );
+}
+
+function TierStatusLegendCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Tier-status legend (PR7)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-xs">
+        <p className="text-muted-foreground">
+          /games surfaces a Tier-status chip per L1–L8 row. Rules live in{' '}
+          <code>src/lib/clinicalIntegrity.ts</code> — banned-language list, allowed
+          hedged contexts, and <code>KNOWN_CAVEATS</code> per (slug, level).
+        </p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li><Badge className="bg-primary/15 text-primary border-primary/30" variant="outline">Implemented</Badge> — ships differentiated content without known integrity caveats affecting interpretation.</li>
+          <li><Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" variant="outline">Partially implemented</Badge> — ships content but carries a known caveat (e.g. probe overlap).</li>
+          <li><Badge variant="outline">Planned — selector skips honestly</Badge> — spec marks <code>contentSelector.implemented: false</code>; selector returns a baseline fallback with <code>skipped: true</code>.</li>
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 
