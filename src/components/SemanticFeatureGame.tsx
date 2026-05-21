@@ -138,7 +138,10 @@ export const SemanticFeatureGame = ({
   sessionId,
 }: SemanticFeatureGameProps) => {
   const { saveLevel } = useExerciseDifficulty(userId, undefined, 'semantic-features');
-  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId || null, 'semantic-features');
+  // startTrial + calculateReactionTime only — exercise_events write moved
+  // to the Exercise page via useTrialSubmission (Phase 2).
+  const { startTrial, calculateReactionTime } = useExerciseTelemetry(sessionId || null, 'semantic-features');
+
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'semantic-features' });
   const vg = useVoiceGuidance('semantic-feature-analysis');
@@ -288,20 +291,22 @@ export const SemanticFeatureGame = ({
     else if (isRetrievalCorrect) playSuccess(); // partial success
     else playError();
 
-    logTrial({
+    // exercise_events is now written by the parent page via the unified
+    // useTrialSubmission pathway (Phase 2 migration). All scoring inputs
+    // the page needs flow through onTrialComplete below so the page can
+    // do the lexical-axis SupportLevel mapping and submitTrial fan-out.
+    onTrialComplete?.({
       correct: overallCorrect,
-      reactionTimeMs: reactionTime,
+      reactionTime,
       cueLevel: sfaCueLevel,
-      errorType: overallCorrect ? null : 'semantic_error',
-      taskParameters: {
-        difficulty: currentDifficulty,
-        word: trial.word,
-        features_correct: result.featuresCorrect,
-        features_missed: result.featuresMissed,
-        features_incorrect: result.featuresIncorrect,
-        retrieval_correct: isRetrievalCorrect,
-        feature_breakdown: result.featureBreakdown,
-      },
+      featureBreakdown: result.featureBreakdown,
+      retrievalCorrect: isRetrievalCorrect,
+      // Extra fields for the unified trial submission contract.
+      word: trial.word,
+      difficulty: currentDifficulty,
+      featuresCorrect: result.featuresCorrect,
+      featuresMissed: result.featuresMissed,
+      featuresIncorrect: result.featuresIncorrect,
       adaptationsActive: adaptations ? {
         extended_time: adaptations.adaptations.extendedTimeouts || false,
         audio_cues: adaptations.adaptations.useAudioCues || false,
@@ -310,16 +315,9 @@ export const SemanticFeatureGame = ({
       } : undefined,
     });
 
-    onTrialComplete?.({
-      correct: overallCorrect,
-      reactionTime,
-      cueLevel: sfaCueLevel,
-      featureBreakdown: result.featureBreakdown,
-      retrievalCorrect: isRetrievalCorrect,
-    });
-
     setPhase('feedback');
-  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, adaptation, engagement, logTrial, onTrialComplete, playSuccess, playError]);
+  }, [trial, retrievalAnswer, game, calculateReactionTime, currentDifficulty, adaptations, adaptation, engagement, onTrialComplete, playSuccess, playError]);
+
 
   const handleNext = useCallback(() => {
     // useInGameAdaptation has already applied any difficulty change via
