@@ -129,8 +129,16 @@ export function useFixSentenceProgression({
 
       const level = prev.currentLevel;
       const levelSpec = getFixSentenceLevelSpec(level);
-      const evidenceMet = evidenceMetForFixSentenceLevel(trials, level);
+      const rawEvidenceMet = evidenceMetForFixSentenceLevel(trials, level);
       const progressDelta = calculateFixSentenceProgressDelta(trials, level);
+
+      // PR3 — Cue-dependency gate. Session is judged scaffold-reliant if
+      // > FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD of trials landed below
+      // the level's target support tier. When blocking, evidence is held
+      // even though accuracy passes — patient must repeat with less help.
+      const cueDependency = cueDependencyForFixSentenceSession(trials, level);
+      const cueDependencyBlocking = isFixSentenceCueDependencyBlocking(trials, level);
+      const evidenceMet = rawEvidenceMet && !cueDependencyBlocking;
 
       // Step 2: longitudinal mastery confidence gate (medium+ required to
       // unlock level-up). Undefined → backward-compatible no-op.
