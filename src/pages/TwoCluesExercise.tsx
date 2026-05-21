@@ -155,14 +155,14 @@ export default function TwoCluesExercise() {
     // TwoClues never escalates to phonemic / full-model, so the ladder
     // stops at semantic_cue.
     const usedAnchor = !!result.reachedAnchor;
-    const supportUsed = usedAnchor ? 'semantic_cue' : 'independent';
+    const supportUsed = mapTwoCluesSupport(usedAnchor);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: adaptation.difficultyTier ?? 1,
+      level: bridge.effective ?? adaptation.difficultyTier ?? 1,
       stimulusId: result.puzzleId,
       expectedResponse: Array.isArray(result.anchors) ? result.anchors[0] ?? null : null,
       userResponse: cleanedAnswer ?? result.spokenWord ?? null,
@@ -186,6 +186,8 @@ export default function TwoCluesExercise() {
         semantic_similarity: result.semanticSimilarity,
         pivot_pending: pivot.hasPending,
         cue_type_given: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
     });
