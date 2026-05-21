@@ -395,18 +395,24 @@ const SentenceConstructionExercise = () => {
         </div>
       </div>
 
-      {/* Game fills remaining space */}
+      {/* Game fills remaining space — load gate on clinical progression. */}
       <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
-        <SentenceConstructionGame
-          config={config}
-          bounds={bounds}
-          difficultyLevel={level}
-          focusPhonemes={adaptation.focusPhonemes}
-          adaptations={getAdaptations('sentence-construction')}
-          sessionId={sessionId}
-          onTrialComplete={handleTrialComplete}
-          onGameComplete={handleGameComplete}
-        />
+        {progression.loaded ? (
+          <SentenceConstructionGame
+            config={config}
+            bounds={bounds}
+            difficultyLevel={level}
+            focusPhonemes={adaptation.focusPhonemes}
+            adaptations={getAdaptations('sentence-construction')}
+            sessionId={sessionId}
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+          />
+        ) : (
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading your progression…
+          </div>
+        )}
       </div>
     </div>
   );
