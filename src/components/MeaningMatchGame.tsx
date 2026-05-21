@@ -102,6 +102,10 @@ export function MeaningMatchGame({
     initialDifficulty: difficultyLevel,
     bounds,
     enableDifficultyToasts: false, // We use the inline badge instead
+    // Page (MeaningMatchExercise) owns the trial logger via useTrialSubmission
+    // and tags every row with trialMode:'recognition'. Disable the auto-logger
+    // here to prevent duplicate untagged rows in adaptation_trial_logs.
+    autoLog: false,
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
     onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
       console.debug('[meaning-match] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });

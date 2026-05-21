@@ -175,6 +175,10 @@ export function CategoryFluencyGame({
     adjustmentThreshold: 0.15,
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Page (CategoryFluencyExercise) now owns the trial logger via
+    // useTrialSubmission and tags every row with trialMode:'production'.
+    // Disable the auto-logger to prevent duplicate untagged rows.
+    autoLog: false,
     getCueDependencyScore: () => {
       const sig = engagement.getState().signals;
       // Use hesitation count as a proxy for needing more support.
