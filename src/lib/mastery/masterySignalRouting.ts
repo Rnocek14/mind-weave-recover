@@ -71,10 +71,29 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // useInGameAdaptation is autoLog:false. Expressive grammar-production task
   // — routes cleanly into expressive mastery.
   'sentence_construction',
+  // sentence_construction (Wave 2): SentenceConstructionExercise emits
+  // trialMode='production' on every submitTrial; SentenceConstructionGame's
+  // useInGameAdaptation is autoLog:false. Expressive grammar-production task
+  // — routes cleanly into expressive mastery.
+  'sentence_construction',
+  // multi_step_planning (Wave 2): MultiStepPlanExercise emits
+  // trialMode='production' on every submitTrial; MultiStepPlanningGame's
+  // useInGameAdaptation is autoLog:false. Expressive procedural-discourse
+  // task — open spoken production with no in-trial scaffold control.
+  'multi_step_planning',
   // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
   // emits trialMode:'recognition' which routes to `excluded`. Adding it
   // here would conflate axes; receptive mastery track is deferred. Same
   // precedent as minimal_pairs.)
+  // INTENTIONALLY NOT ADOPTED: detective_mind (Wave 2 — inferential
+  // reading-comprehension multiple-choice. Emits trialMode:'recognition'.
+  // Same receptive-safe precedent as meaning_match / minimal_pairs;
+  // receptive mastery track deferred.)
+  // INTENTIONALLY NOT ADOPTED: pattern_match (Wave 2 — non-linguistic
+  // visual / working-memory task. Shapes × colors with zero linguistic
+  // content. Stays generic; would contaminate expressive mastery with
+  // non-language trials. No clinical ladder; rides the universal 1–10
+  // adaptation engine only.)
 ]);
 
 export function isAdoptedForTrialMode(exerciseSlug: string): boolean {
