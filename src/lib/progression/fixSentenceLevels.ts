@@ -164,6 +164,44 @@ export function evidenceMetForFixSentenceLevel(
 }
 
 /**
+ * Cue-dependency gate (PR3).
+ *
+ * Threshold above which the *session* is judged scaffold-reliant and a
+ * pending level-up is held even when accuracy + minOnTargetAttempts pass.
+ * Clinically motivated calibration default — not an evidence-derived
+ * constant. Mirrors the in-game adaptive UP-escalation guard
+ * (`useAdaptiveDifficulty.cueDependencyEscalationThreshold = 0.5`).
+ */
+export const FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD = 0.5;
+
+/**
+ * Fraction of trials in the session that landed *below* the level's target
+ * support tier (i.e. relied on `choice_based` / `highlight_plus_choice`
+ * scaffolding when open response was expected). Empty trial list → 0.
+ */
+export function cueDependencyForFixSentenceSession(
+  trials: Array<{ support: SupportLevel }>,
+  level: number,
+): number {
+  if (trials.length === 0) return 0;
+  const scaffolded = trials.filter((t) => !isOnTargetFixSentenceTrial(t, level)).length;
+  return scaffolded / trials.length;
+}
+
+/**
+ * Returns true when the cue-dependency fraction for this session exceeds
+ * the block threshold. Caller ANDs this into `evidenceMet` to hold the
+ * level until the patient demonstrates the same accuracy with less help.
+ */
+export function isFixSentenceCueDependencyBlocking(
+  trials: Array<{ support: SupportLevel }>,
+  level: number,
+  threshold = FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
+): boolean {
+  return cueDependencyForFixSentenceSession(trials, level) > threshold;
+}
+
+/**
  * Per-trial weighted progress contribution. On-target trials earn the full
  * support credit + a small consistency bonus; below-target trials count as
  * partial practice credit only and cannot graduate the level on their own.
