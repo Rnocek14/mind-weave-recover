@@ -218,14 +218,16 @@ export default function ClinicalLibrary() {
     (n, g) => n + g.entries.filter((e) => e.status === 'full').length,
     0,
   );
-  const totalTelemetry = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'telemetry-only').length,
-    0,
-  );
-  const totalGeneric = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'generic').length,
-    0,
-  );
+  const countByStatus = (status: LadderStatus): number =>
+    Object.values(groups).reduce(
+      (n, g) => n + g.entries.filter((e) => e.status === status).length,
+      0,
+    );
+  const totalFull = countByStatus('full');
+  const totalStructural = countByStatus('structural');
+  const totalDesign = countByStatus('design-only');
+  const totalTelemetry = countByStatus('telemetry-only');
+  const totalGeneric = countByStatus('generic');
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
@@ -248,15 +250,31 @@ export default function ClinicalLibrary() {
           Games without a published ladder are flagged honestly.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Badge variant="outline" className={STATUS_BADGE.full.className}>
-            {totalFull} full ladder
-          </Badge>
-          <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
-            {totalTelemetry} telemetry-only
-          </Badge>
-          <Badge variant="outline" className={STATUS_BADGE.generic.className}>
-            {totalGeneric} generic engine
-          </Badge>
+          {totalFull > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.full.className}>
+              {totalFull} full ladder
+            </Badge>
+          )}
+          {totalStructural > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.structural.className}>
+              {totalStructural} structural
+            </Badge>
+          )}
+          {totalDesign > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE['design-only'].className}>
+              {totalDesign} design-only
+            </Badge>
+          )}
+          {totalTelemetry > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
+              {totalTelemetry} telemetry-only
+            </Badge>
+          )}
+          {totalGeneric > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.generic.className}>
+              {totalGeneric} generic engine
+            </Badge>
+          )}
         </div>
       </header>
 
