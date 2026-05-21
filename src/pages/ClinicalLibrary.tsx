@@ -214,10 +214,6 @@ export default function ClinicalLibrary() {
   const navigate = useNavigate();
   const groups = entriesByAxis();
 
-  const totalFull = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'full').length,
-    0,
-  );
   const countByStatus = (status: LadderStatus): number =>
     Object.values(groups).reduce(
       (n, g) => n + g.entries.filter((e) => e.status === status).length,
