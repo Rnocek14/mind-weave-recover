@@ -29,7 +29,29 @@ import {
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
-export type LadderStatus = 'full' | 'telemetry-only' | 'generic';
+/**
+ * Ladder shipping status — honest contract surfaced in /games and on each
+ * game's About page.
+ *
+ *   - full           — real L1–L8 spec + selector + bridge. Engine adapts.
+ *   - structural     — same 5-artifact pattern as `full`, but L6–L8 banks
+ *                      are thin/aspirational. Each row's `readiness` carries
+ *                      the honesty.
+ *   - design-only    — clinical design-of-record published; runtime still
+ *                      uses the generic 1–10 engine. Rows describe the
+ *                      *intended* ladder; attempts/accuracy not yet
+ *                      enforced per level.
+ *   - telemetry-only — Tier-A useTrialSubmission migrated, no ladder yet.
+ *   - generic        — legacy state; should disappear once every game has
+ *                      at least a design-only entry.
+ */
+export type LadderStatus =
+  | 'full'
+  | 'structural'
+  | 'design-only'
+  | 'telemetry-only'
+  | 'generic';
+
 export type ClinicalAxis =
   | 'lexical'
   | 'comprehension'
@@ -42,8 +64,10 @@ export interface LadderRow {
   level: number;
   description: string;
   targetSupport: SupportLevel;
-  minOnTargetAttempts: number;
-  minOnTargetAccuracy: number;
+  /** Omitted for design-only rows (no runtime mastery enforcement yet). */
+  minOnTargetAttempts?: number;
+  /** Omitted for design-only rows. */
+  minOnTargetAccuracy?: number;
   /** Phase 1 readiness flag (only some games provide this). */
   readiness?: 'ready' | 'thin' | 'aspirational';
   /** PR7: per-tier integrity status surfaced in /games. */
@@ -258,9 +282,42 @@ export function entriesByAxis(): Array<{ axis: ClinicalAxis; entries: ClinicalLa
     .map((axis) => ({
       axis,
       entries: grouped.get(axis)!.sort((a, b) => {
-        // Full ladders first, then telemetry, then generic
-        const rank = { full: 0, 'telemetry-only': 1, generic: 2 } as const;
+        // Most-shipped first, then design-only / telemetry-only, then generic.
+        const rank: Record<LadderStatus, number> = {
+          full: 0,
+          structural: 1,
+          'telemetry-only': 2,
+          'design-only': 3,
+          generic: 4,
+        };
         return rank[a.status] - rank[b.status] || a.slug.localeCompare(b.slug);
       }),
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design-only helper — build LadderRow[] from a plain L1–L8 spec table that
+// has no runtime mastery thresholds. Used by Phase-3 Tier-C entries.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DesignRowInput {
+  level: number;
+  description: string;
+  targetSupport: SupportLevel;
+  readiness: 'ready' | 'thin' | 'aspirational';
+}
+
+export function designOnlyRows(slug: string, rows: DesignRowInput[]): LadderRow[] {
+  return rows
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map((r) => ({
+      level: r.level,
+      description: r.description,
+      targetSupport: r.targetSupport,
+      readiness: r.readiness,
+      // No minOnTargetAttempts/Accuracy — design-only rows don't enforce mastery.
+      tierStatus: 'planned' as TierStatus,
+      tierStatusDetail: `${slug} L${r.level} — clinical design published; runtime uses generic engine.`,
     }));
 }

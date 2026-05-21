@@ -33,6 +33,14 @@ const STATUS_BADGE: Record<LadderStatus, { label: string; className: string }> =
     label: 'Full L1–L8 ladder',
     className: 'bg-primary/15 text-primary border-primary/30',
   },
+  structural: {
+    label: 'Structural ladder · thin upper tiers',
+    className: 'bg-primary/10 text-primary border-primary/20',
+  },
+  'design-only': {
+    label: 'Planned ladder · runtime on generic engine',
+    className: 'bg-muted text-muted-foreground border-border',
+  },
   'telemetry-only': {
     label: 'Tier-A telemetry · ladder pending',
     className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
@@ -55,6 +63,10 @@ function formatSupport(support: string): string {
 
 function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
   if (!entry.rows?.length) return null;
+  const showMastery = entry.rows.some(
+    (r) => r.minOnTargetAttempts !== undefined && r.minOnTargetAccuracy !== undefined,
+  );
+  const showReadiness = entry.rows.some((r) => r.readiness);
   return (
     <div className="mt-3 overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-left text-sm">
@@ -63,11 +75,9 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
             <th className="px-3 py-2 font-medium">L</th>
             <th className="px-3 py-2 font-medium">Clinical description</th>
             <th className="px-3 py-2 font-medium">Target support</th>
-            <th className="px-3 py-2 font-medium text-right">Attempts</th>
-            <th className="px-3 py-2 font-medium text-right">Accuracy</th>
-            {entry.rows.some((r) => r.readiness) && (
-              <th className="px-3 py-2 font-medium">Readiness</th>
-            )}
+            {showMastery && <th className="px-3 py-2 font-medium text-right">Attempts</th>}
+            {showMastery && <th className="px-3 py-2 font-medium text-right">Accuracy</th>}
+            {showReadiness && <th className="px-3 py-2 font-medium">Readiness</th>}
           </tr>
         </thead>
         <tbody>
@@ -80,13 +90,19 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
               <td className="px-3 py-2 text-muted-foreground">
                 {formatSupport(row.targetSupport)}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                ≥ {row.minOnTargetAttempts}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                {Math.round(row.minOnTargetAccuracy * 100)}%
-              </td>
-              {entry.rows!.some((r) => r.readiness) && (
+              {showMastery && (
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                  {row.minOnTargetAttempts !== undefined ? `≥ ${row.minOnTargetAttempts}` : '—'}
+                </td>
+              )}
+              {showMastery && (
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                  {row.minOnTargetAccuracy !== undefined
+                    ? `${Math.round(row.minOnTargetAccuracy * 100)}%`
+                    : '—'}
+                </td>
+              )}
+              {showReadiness && (
                 <td className="px-3 py-2">
                   {row.readiness && (
                     <Badge
@@ -111,7 +127,11 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const title = canonical?.title ?? entry.slug;
   const [open, setOpen] = useState(entry.status === 'full');
   const badge = STATUS_BADGE[entry.status];
-  const hasLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
+  const hasLadder =
+    (entry.status === 'full' ||
+      entry.status === 'structural' ||
+      entry.status === 'design-only') &&
+    (entry.rows?.length ?? 0) > 0;
 
   return (
     <Card className="border-border">
@@ -141,6 +161,27 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             No per-level clinical ladder yet. Difficulty is driven by the generic
             1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped.
           </p>
+        )}
+        {entry.status === 'design-only' && (
+          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground">Design of record published.</span>{' '}
+              The L1–L8 ladder below is the clinical intent for this game. Runtime difficulty
+              still rides the generic 1–10 adaptation engine while the per-level scorer is
+              built.
+            </span>
+          </div>
+        )}
+        {entry.status === 'structural' && (
+          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground">Structural ladder live.</span>{' '}
+              Engine adapts content per level. Upper tiers ship with thin or aspirational
+              content banks — see the readiness column.
+            </span>
+          </div>
         )}
 
         {hasLadder && (
@@ -173,18 +214,16 @@ export default function ClinicalLibrary() {
   const navigate = useNavigate();
   const groups = entriesByAxis();
 
-  const totalFull = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'full').length,
-    0,
-  );
-  const totalTelemetry = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'telemetry-only').length,
-    0,
-  );
-  const totalGeneric = Object.values(groups).reduce(
-    (n, g) => n + g.entries.filter((e) => e.status === 'generic').length,
-    0,
-  );
+  const countByStatus = (status: LadderStatus): number =>
+    Object.values(groups).reduce(
+      (n, g) => n + g.entries.filter((e) => e.status === status).length,
+      0,
+    );
+  const totalFull = countByStatus('full');
+  const totalStructural = countByStatus('structural');
+  const totalDesign = countByStatus('design-only');
+  const totalTelemetry = countByStatus('telemetry-only');
+  const totalGeneric = countByStatus('generic');
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
@@ -207,15 +246,31 @@ export default function ClinicalLibrary() {
           Games without a published ladder are flagged honestly.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Badge variant="outline" className={STATUS_BADGE.full.className}>
-            {totalFull} full ladder
-          </Badge>
-          <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
-            {totalTelemetry} telemetry-only
-          </Badge>
-          <Badge variant="outline" className={STATUS_BADGE.generic.className}>
-            {totalGeneric} generic engine
-          </Badge>
+          {totalFull > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.full.className}>
+              {totalFull} full ladder
+            </Badge>
+          )}
+          {totalStructural > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.structural.className}>
+              {totalStructural} structural
+            </Badge>
+          )}
+          {totalDesign > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE['design-only'].className}>
+              {totalDesign} design-only
+            </Badge>
+          )}
+          {totalTelemetry > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
+              {totalTelemetry} telemetry-only
+            </Badge>
+          )}
+          {totalGeneric > 0 && (
+            <Badge variant="outline" className={STATUS_BADGE.generic.className}>
+              {totalGeneric} generic engine
+            </Badge>
+          )}
         </div>
       </header>
 
