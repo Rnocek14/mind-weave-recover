@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePhonoGame } from '@/hooks/usePhonoGame';
 import { useExerciseDifficulty } from '@/hooks/useExerciseDifficulty';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
@@ -18,13 +17,28 @@ import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import type { ExerciseAdaptation } from '@/lib/exerciseGating';
 import type { PhonologicalTrial } from '@/data/phonologicalBank';
 
+/**
+ * Wave 3: trial-completion payload now carries the full per-trial detail
+ * the exercise page needs to call the unified `submitTrial` (parent owns
+ * the single writer for `exercise_events` + progression buffering).
+ */
+export interface PhonologicalTrialDetail {
+  correct: boolean;
+  reactionTime: number;
+  difficulty: number;
+  trial: PhonologicalTrial | null;
+  userAnswer: 'same' | 'different';
+  expectedAnswer: 'same' | 'different';
+  relationType: string;
+}
+
 interface PhonologicalGameProps {
   totalTrials?: number;
   config: ExerciseConfig;
   bounds: DifficultyBounds;
   adaptations?: ExerciseAdaptation | null;
   customTrials?: PhonologicalTrial[];
-  onTrialComplete?: (data: any) => void;
+  onTrialComplete?: (data: PhonologicalTrialDetail) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
   userId?: string;
@@ -44,12 +58,12 @@ export const PhonologicalGame = ({
   sessionId,
 }: PhonologicalGameProps) => {
   const { saveLevel } = useExerciseDifficulty(userId, undefined, 'phonological-awareness');
-  const { startTrial, logTrial, calculateReactionTime } = useExerciseTelemetry(sessionId || null, 'phonological-awareness');
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp } = useGameSounds();
   const { speak, stop: stopSpeech, isSpeaking } = useTextToSpeech();
   const isPlayingAudioRef = useRef(false);
-  
+  const trialStartRef = useRef<number>(Date.now());
+
   const game = usePhonoGame(totalTrials, config.startDifficulty || 1, customTrials);
   const engagement = useEngagementMonitor(sessionId || null);
 
@@ -72,6 +86,7 @@ export const PhonologicalGame = ({
     userId,
     sessionId: sessionId || undefined,
     exerciseSlug: 'phonological_awareness',
+    autoLog: false, // Wave 3: PhonologicalExercise owns the unified submitTrial pathway.
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
