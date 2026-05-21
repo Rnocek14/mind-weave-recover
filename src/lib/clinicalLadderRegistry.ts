@@ -30,6 +30,18 @@ import {
   SEMANTIC_FEATURES_LEVELS,
   type SemanticFeaturesLevelSpec,
 } from './progression/semanticFeaturesLevels';
+import {
+  MEANING_MATCH_LEVELS,
+  type MeaningMatchLevelSpec,
+} from './progression/meaningMatchLevels';
+import {
+  TWO_CLUES_LEVELS,
+  type TwoCluesLevelSpec,
+} from './progression/twoCluesLevels';
+import {
+  CATEGORY_FLUENCY_LEVELS,
+  type CategoryFluencyLevelSpec,
+} from './progression/categoryFluencyLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
