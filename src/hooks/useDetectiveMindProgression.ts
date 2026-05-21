@@ -116,7 +116,7 @@ export function useDetectiveMindProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedDetectiveMindLevel(),
         },
       );

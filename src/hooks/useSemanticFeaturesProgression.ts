@@ -116,7 +116,7 @@ export function useSemanticFeaturesProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedSemanticFeaturesLevel(),
         },
       );

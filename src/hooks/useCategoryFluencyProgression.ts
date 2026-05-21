@@ -115,7 +115,7 @@ export function useCategoryFluencyProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedCategoryFluencyLevel(),
         },
       );

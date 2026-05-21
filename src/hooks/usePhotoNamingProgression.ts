@@ -184,7 +184,7 @@ export function usePhotoNamingProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedPhotoNamingLevel(),
         }
       );

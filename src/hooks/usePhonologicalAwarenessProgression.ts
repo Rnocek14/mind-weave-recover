@@ -118,7 +118,7 @@ export function usePhonologicalAwarenessProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedPhonologicalAwarenessLevel(),
         },
       );
