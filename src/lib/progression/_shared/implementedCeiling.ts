@@ -28,14 +28,19 @@
  */
 
 export interface CeilingSpec {
-  contentSelector?: { implemented?: boolean } | undefined;
+  contentSelector?: { implemented?: boolean } | Record<string, unknown> | undefined;
   readiness?: 'ready' | 'thin' | 'aspirational' | undefined;
 }
 
-export function isRungImplemented(spec: CeilingSpec | undefined): boolean {
-  if (!spec) return false;
-  if (spec.readiness === 'aspirational') return false;
-  if (spec.contentSelector?.implemented === false) return false;
+export function isRungImplemented(spec: unknown): boolean {
+  if (!spec || typeof spec !== 'object') return false;
+  const s = spec as {
+    readiness?: string;
+    contentSelector?: { implemented?: boolean } | Record<string, unknown>;
+  };
+  if (s.readiness === 'aspirational') return false;
+  const cs = s.contentSelector as { implemented?: boolean } | undefined;
+  if (cs && cs.implemented === false) return false;
   return true;
 }
 
@@ -44,8 +49,8 @@ export function isRungImplemented(spec: CeilingSpec | undefined): boolean {
  * Floor of 1: a ladder with zero implemented rungs is a bug, but we return
  * 1 rather than 0 so engine bounds remain well-formed.
  */
-export function computeImplementedCeiling<S extends CeilingSpec>(
-  levels: Record<string | number, S>,
+export function computeImplementedCeiling(
+  levels: Record<string | number, unknown>,
 ): number {
   let max = 1;
   for (const [lvl, spec] of Object.entries(levels)) {
