@@ -160,6 +160,10 @@ export function useMinimalPairsProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          rawEvidenceMet,
+          cueDependency: Number(cueDependency.toFixed(2)),
+          cueDependencyBlocking,
+          cueDependencyThreshold: MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
           prev: {
             level: prev.currentLevel,
             progressPct: prev.progressPct,
