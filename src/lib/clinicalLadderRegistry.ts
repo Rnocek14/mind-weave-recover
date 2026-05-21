@@ -129,12 +129,40 @@ export interface EvidenceBasis {
   tldr: string;
 }
 
+/**
+ * Mastery-track classification (Leak 2 fix).
+ *
+ * Explicit per-slug declaration of which mastery track a game's trials belong
+ * to. This is the AUTHORITATIVE source — the credit-math layer and any future
+ * track-aware logic must read this field rather than deriving track from
+ * `isAdoptedForTrialMode` or `routeTrialMode`. A module-load assertion at the
+ * bottom of this file enforces that registry track and routing adoption stay
+ * in sync; mismatch throws at import time.
+ *
+ *   - expressive    — spoken / produced output; feeds expressive mastery EWMA
+ *                     once adopted into ADOPTED_TRIAL_MODE_SLUGS.
+ *   - receptive     — comprehension / discrimination / metalinguistic
+ *                     judgment; receptive mastery track is deferred. MUST NOT
+ *                     be in ADOPTED_TRIAL_MODE_SLUGS (would contaminate
+ *                     expressive mastery).
+ *   - non-linguistic — visual / WM / motor task with zero linguistic content
+ *                     (pattern-match). Neither track applies; MUST NOT be
+ *                     adopted.
+ */
+export type MasteryTrack = 'expressive' | 'receptive' | 'non-linguistic';
+
 export interface ClinicalLadderEntry {
   slug: string;
   axis: ClinicalAxis;
   /** One-line clinical purpose. */
   purpose: string;
   status: LadderStatus;
+  /**
+   * Leak 2 fix — authoritative mastery-track classification. See MasteryTrack
+   * docs above. Required on every entry; the load-time assertion below blocks
+   * registration if this disagrees with `isAdoptedForTrialMode`.
+   */
+  track: MasteryTrack;
   /** For telemetry-only games: which SupportLevel ladder they emit. */
   telemetryNote?: string;
   /** L1–L8 rows. Only present when status === 'full'. */
