@@ -38,8 +38,14 @@ const Lesson = () => {
 
   // Only redirect if both sources have no lesson
   if (!lesson) {
+    console.warn('[Lesson] No lesson found, redirecting to /today', {
+      hasLocationState: !!location.state,
+      locationStateKeys: location.state ? Object.keys(location.state) : null,
+      hasSessionStorage: !!sessionStorage.getItem('lessonFlowState'),
+    });
     return <Navigate to="/today" replace />;
   }
+
 
   return (
     <LessonFlow 
