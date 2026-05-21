@@ -1,0 +1,171 @@
+/**
+ * useDualLoadNamingProgression — Phase 2, Wave 3 wiring of the
+ * dual-task naming ladder to `clinical_progression_state`.
+ *
+ * Expressive routing: DualLoadNaming's submitTrial emits
+ * `trialMode: 'production'` and the slug IS in ADOPTED_TRIAL_MODE_SLUGS.
+ *
+ * Mirrors useSynonymGeneratorProgression line-for-line; differences are
+ * limited to the slug + per-game helpers and support mapping.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  applySessionToState,
+  defaultProgressionState,
+  loadProgressionState,
+  saveProgressionState,
+  type ClinicalProgressionState,
+  type SupportLevel,
+} from '@/lib/progression/clinicalProgression';
+import {
+  calculateDualLoadNamingProgressDelta,
+  evidenceMetForDualLoadNamingLevel,
+  getDualLoadNamingLevelSpec,
+  highestImplementedDualLoadNamingLevel,
+} from '@/lib/progression/dualLoadNamingLevels';
+import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
+
+const DUAL_LOAD_NAMING_SLUG = 'dual-load-naming';
+
+/**
+ * Map Dual-Load Naming trials to the canonical executive SupportLevel.
+ * The game has no in-trial scaffold (no hint button, no carrier prompt,
+ * no phonemic cue). Every trial is `open_response`.
+ */
+export function mapDualLoadNamingSupport(): SupportLevel {
+  return 'open_response';
+}
+
+interface BufferedTrial {
+  correct: boolean;
+  support: SupportLevel;
+}
+
+export interface UseDualLoadNamingProgressionArgs {
+  userId: string | null | undefined;
+  profileId: string | null | undefined;
+}
+
+export function useDualLoadNamingProgression({
+  userId,
+  profileId,
+}: UseDualLoadNamingProgressionArgs) {
+  const [state, setState] = useState<ClinicalProgressionState | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const trialsRef = useRef<BufferedTrial[]>([]);
+  const flushedRef = useRef(false);
+
+  useEffect(() => {
+    if (!userId || !profileId) return;
+    let cancelled = false;
+    void (async () => {
+      const loadedState = await loadProgressionState({
+        userId,
+        profileId,
+        exerciseSlug: DUAL_LOAD_NAMING_SLUG,
+      });
+      if (cancelled) return;
+      setState(loadedState);
+      setLoaded(true);
+      if (import.meta.env.DEV) {
+        console.debug('[DualLoadNamingProgression] loaded', {
+          currentLevel: loadedState.currentLevel,
+          progressPct: loadedState.progressPct,
+          supportBaseline: loadedState.supportBaseline,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId, profileId]);
+
+  const recordTrialOutcome = useCallback((trial: BufferedTrial) => {
+    trialsRef.current.push(trial);
+  }, []);
+
+  const flushAtSessionEnd = useCallback(
+    async (params: { sessionId: string | null }) => {
+      if (flushedRef.current) return { ok: true, skipped: true as const };
+      const trials = trialsRef.current;
+      if (!userId || !profileId || trials.length === 0) {
+        flushedRef.current = true;
+        return { ok: true, skipped: true as const };
+      }
+
+      const prev =
+        state ??
+        defaultProgressionState({
+          userId,
+          profileId,
+          exerciseSlug: DUAL_LOAD_NAMING_SLUG,
+        });
+
+      const level = prev.currentLevel;
+      const levelSpec = getDualLoadNamingLevelSpec(level);
+      const evidenceMet = evidenceMetForDualLoadNamingLevel(trials, level);
+      const progressDelta = calculateDualLoadNamingProgressDelta(trials, level);
+
+      const gate = await readMasteryGate({
+        profileId,
+        exerciseSlug: DUAL_LOAD_NAMING_SLUG,
+        difficulty: prev.currentLevel,
+      });
+
+      const next = applySessionToState(
+        { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
+        {
+          trials,
+          evidenceMet,
+          progressDelta,
+          masteryConfidence: gate.confidence,
+          maxImplementedLevel: highestImplementedDualLoadNamingLevel(),
+        },
+      );
+
+      if (import.meta.env.DEV) {
+        console.log('[DualLoadNamingProgression] flush diagnostic', {
+          totalTrials: trials.length,
+          level,
+          levelSpec: {
+            description: levelSpec.description,
+            targetSupport: levelSpec.targetSupport,
+            minOnTargetAttempts: levelSpec.minOnTargetAttempts,
+            minOnTargetAccuracy: levelSpec.minOnTargetAccuracy,
+          },
+          progressDelta: Number(progressDelta.toFixed(3)),
+          evidenceMet,
+          prev: { level: prev.currentLevel, pct: prev.progressPct, supportBaseline: prev.supportBaseline },
+          next: { level: next.currentLevel, pct: next.progressPct, supportBaseline: next.supportBaseline },
+        });
+      }
+
+      const result = await saveProgressionState(next);
+      const snapshot = {
+        prev: { level: prev.currentLevel, progressPct: prev.progressPct },
+        next: { level: next.currentLevel, progressPct: next.progressPct },
+        leveledUp: next.currentLevel > prev.currentLevel,
+        evidenceMet,
+        progressDelta,
+      };
+      if (result.ok) {
+        setState(next);
+        flushedRef.current = true;
+      } else {
+        console.warn('[DualLoadNamingProgression] persist failed:', result.error);
+      }
+      return { ...result, snapshot };
+    },
+    [userId, profileId, state],
+  );
+
+  const bufferedTrialCount = useCallback(() => trialsRef.current.length, []);
+
+  return {
+    state,
+    loaded,
+    startingLevel: state?.currentLevel ?? null,
+    recordTrialOutcome,
+    flushAtSessionEnd,
+    __bufferedTrialCount: bufferedTrialCount,
+  };
+}

@@ -74,6 +74,7 @@ export function DualLoadNamingGame({
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    autoLog: false, // Wave 3: DualLoadNamingExercise owns the unified submitTrial pathway.
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
     onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
       console.info('[DualLoad] escalation blocked', {

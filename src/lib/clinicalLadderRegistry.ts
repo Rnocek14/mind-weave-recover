@@ -58,6 +58,14 @@ import {
   SYNONYM_GENERATOR_LEVELS,
   type SynonymGeneratorLevelSpec,
 } from './progression/synonymGeneratorLevels';
+import {
+  DUAL_LOAD_NAMING_LEVELS,
+  type DualLoadNamingLevelSpec,
+} from './progression/dualLoadNamingLevels';
+import {
+  PHONOLOGICAL_AWARENESS_LEVELS,
+  type PhonologicalAwarenessLevelSpec,
+} from './progression/phonologicalAwarenessLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -128,7 +136,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
@@ -301,13 +309,25 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'phonological-awareness',
     axis: 'acoustic',
     purpose: 'Manipulates phonemes within words.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('phonological-awareness', PHONOLOGICAL_AWARENESS_LEVELS),
+    telemetryNote: 'recognition_only on every trial — game UI has no in-trial scaffold. Receptive metalinguistic-judgment task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MinimalPairs / MeaningMatch / DetectiveMind.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/phonological-awareness.md',
+      tldr: 'Phonological-awareness training (Adams; Anthony & Francis; Kendall et al. in aphasia). Bank-difficulty mapping and per-level thresholds are clinically motivated calibration defaults. L7 thin; L8 aspirational (no degraded-signal runtime). Receptive-safe routing.',
+    },
   },
   'dual-load-naming': {
     slug: 'dual-load-naming',
     axis: 'acoustic',
     purpose: 'Names targets while holding a secondary auditory load.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('dual-load-naming', DUAL_LOAD_NAMING_LEVELS),
+    telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on combined naming+recall accuracy at progressively harder content tiers. Expressive confrontation naming under WM load — routed into expressive mastery.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/dual-load-naming.md',
+      tldr: 'Dual-task naming under WM load (Murray & Lenz; Salis WM-in-aphasia reviews) targets interference resistance during retrieval. 3-tier bank collapse is a clinically motivated calibration default. L7 thin; L8 aspirational (no constrained-output runtime mode).',
+    },
   },
   'narrative-retell': {
     slug: 'narrative-retell',
