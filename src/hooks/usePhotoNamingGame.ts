@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PhotoTrial, getTrialsForLevel, generateChoices, PHOTO_BANK } from '@/data/photoBank';
+import {
+  selectPhotoNamingPool,
+  writeSelectorDiagnostics,
+} from '@/lib/progression/photoNamingContentSelector';
 import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 
 /**
@@ -38,6 +42,14 @@ export interface PhotoNamingGameOptions {
   customTrials?: MixedTrial[];
   focusPhonemes?: string[]; // Phonemes to prioritize in word selection
   focusWords?: string[]; // Specific words to prioritize
+  /**
+   * PR4 (Phase 2.5): when present, the session pool is built from the
+   * clinical content selector (frequency band, cross-category spread,
+   * phrase carrier, generalization probe) instead of the generic engine
+   * filter. Fallbacks are surfaced via writeSelectorDiagnostics so
+   * /dev/progression-state shows what actually happened.
+   */
+  clinicalLevel?: number | null;
 }
 
 // ============================================================================
@@ -313,11 +325,38 @@ export const usePhotoNamingGame = (
       lanes = partitionIntoLanes(customTrials, recentByTier);
     } else {
       const poolSize = Math.min(totalTrials * 5, PHOTO_BANK.length);
-      const broadPool = getTrialsForLevel(level, poolSize, {
-        focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
-        focusWords: focusWords.length > 0 ? focusWords : undefined,
-      });
-      lanes = partitionIntoLanes(broadPool as MixedTrial[], recentByTier);
+      // PR4: route L4+ sessions through the clinical content selector when
+      // the caller supplies a clinical level. Falls back to the generic
+      // engine pool whenever the selector skips a tier — and surfaces WHY
+      // via writeSelectorDiagnostics so /dev/progression-state shows it.
+      const clinicalLevel = options?.clinicalLevel ?? null;
+      const useSelector = clinicalLevel != null && clinicalLevel >= 4;
+      let broadPool: MixedTrial[];
+      if (useSelector) {
+        const sel = selectPhotoNamingPool(clinicalLevel as number);
+        writeSelectorDiagnostics(sel, clinicalLevel as number);
+        if (sel.fallback?.skipped || sel.pool.length === 0) {
+          // Honest fallback — do NOT silently downgrade content claims.
+          broadPool = getTrialsForLevel(level, poolSize, {
+            focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
+            focusWords: focusWords.length > 0 ? focusWords : undefined,
+          }) as MixedTrial[];
+          if (import.meta.env.DEV) {
+            console.warn(
+              '[photoNaming:selector] tier %s skipped (%s) — using engine baseline',
+              sel.tier, sel.fallback?.reason,
+            );
+          }
+        } else {
+          broadPool = sel.pool as unknown as MixedTrial[];
+        }
+      } else {
+        broadPool = getTrialsForLevel(level, poolSize, {
+          focusPhonemes: focusPhonemes.length > 0 ? focusPhonemes : undefined,
+          focusWords: focusWords.length > 0 ? focusWords : undefined,
+        }) as MixedTrial[];
+      }
+      lanes = partitionIntoLanes(broadPool, recentByTier);
     }
     
     const { trial: firstTrial, fromLane } = popFromLanesWithInfo(lanes, level);
@@ -333,7 +372,7 @@ export const usePhotoNamingGame = (
     }
     
     return { lanes, firstTrial, firstChoices, firstLane: fromLane };
-  }, [customTrials, totalTrials, focusPhonemes, focusWords, buildRecentByTier, recency]);
+  }, [customTrials, totalTrials, focusPhonemes, focusWords, buildRecentByTier, recency, options?.clinicalLevel]);
 
   // ==========================================================================
   // Initialize on mount - uses ACTUAL firstLane from buildSessionPool
