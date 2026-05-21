@@ -55,7 +55,10 @@ export default function SemanticFeatureExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { toast } = useToast();
+  const trialIndexRef = useRef(0);
+
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('semantic-features');
