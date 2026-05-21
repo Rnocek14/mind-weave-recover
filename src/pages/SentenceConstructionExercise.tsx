@@ -228,9 +228,9 @@ const SentenceConstructionExercise = () => {
         manual_override: manualDifficulty !== null,
         clinical_level: progression.startingLevel,
         clinical_floor: bridge.clinicalFloor,
+        adaptations_active: dynamicTier.getAdaptationsActive(),
         ...adaptationTelemetry,
       },
-      adaptationsActive: dynamicTier.getAdaptationsActive(),
     });
   };
 
