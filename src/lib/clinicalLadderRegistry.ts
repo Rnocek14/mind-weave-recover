@@ -58,6 +58,14 @@ import {
   SYNONYM_GENERATOR_LEVELS,
   type SynonymGeneratorLevelSpec,
 } from './progression/synonymGeneratorLevels';
+import {
+  DUAL_LOAD_NAMING_LEVELS,
+  type DualLoadNamingLevelSpec,
+} from './progression/dualLoadNamingLevels';
+import {
+  PHONOLOGICAL_AWARENESS_LEVELS,
+  type PhonologicalAwarenessLevelSpec,
+} from './progression/phonologicalAwarenessLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
