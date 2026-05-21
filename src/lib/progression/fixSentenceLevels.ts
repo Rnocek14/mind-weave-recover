@@ -55,6 +55,23 @@ export interface FixSentenceLevelSpec {
    * for Photo Naming.
    */
   trialWeight: number;
+  /**
+   * PR6 (Phase 2.5): per-level content-selection contract. Pure metadata —
+   * the runtime selector lives in `fixSentenceContentSelector.ts`. Lets dev
+   * tools, tests, and clinician-facing surfaces describe what content each
+   * level uses, separately from the evidence/accuracy rule.
+   */
+  contentSelector?: {
+    tierKey:
+      | 'baseline'
+      | 'single_error_common_verbs'
+      | 'two_error'
+      | 'mixed_morphology'
+      | 'embedded_clauses'
+      | 'open_ended_repair';
+    description: string;
+    implemented: boolean;
+  };
 }
 
 /**
