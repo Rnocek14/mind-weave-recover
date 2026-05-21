@@ -34,7 +34,7 @@
 
 import type { PhotoTrial } from '@/data/photoBank';
 import { PHOTO_BANK } from '@/data/photoBank';
-import { PROBE_WORDS_EXPORTED as PROBE_WORDS } from '@/data/probeWords';
+import { PROBE_WORDS } from '@/data/probeWords';
 
 // ── Tunables (calibration defaults — see docs/clinical-evidence) ────────
 export const HIGH_FREQ_RANK_MAX = 2000;   // L4 upper bound
