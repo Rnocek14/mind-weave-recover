@@ -1,8 +1,21 @@
 /**
  * Normalize exercise slugs for consistent analytics.
- * 
- * Rule: use underscores, lowercase, no hyphens
- * This ensures all data for the same exercise is grouped together.
+ *
+ * The codebase uses TWO slug namespaces — by design, but historically
+ * undocumented. Both are valid; mixing them silently is the bug:
+ *
+ *   - TELEMETRY namespace (underscore): `photo_naming`, `fix_sentence`,
+ *     `minimal_pairs`. Used by `exercise_events`, `adaptation_trial_logs`,
+ *     `useExerciseTelemetry`, all analytics queries.
+ *   - PROGRESSION namespace (hyphen):  `photo-naming`, `fix-sentence`,
+ *     `minimal-pairs`. Used by `clinical_progression_state`, the per-game
+ *     level specs in `src/lib/progression/`, and the intensity bridges.
+ *
+ * `normalizeExerciseSlug` returns the TELEMETRY (underscore) form.
+ * Use `toProgressionSlug` / `toTelemetrySlug` when you need an explicit
+ * conversion; never hand-roll string replacements at call sites.
+ *
+ * See docs/unified-trial-contract.md §"Slug namespaces" for the contract.
  */
 
 // Canonical slugs for all exercises
