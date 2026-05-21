@@ -32,6 +32,7 @@ import {
   calculateLevelAwareProgressDelta,
   evidenceMetForLevel,
   getPhotoNamingLevelSpec,
+  highestImplementedPhotoNamingLevel,
 } from '@/lib/progression/photoNamingLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
