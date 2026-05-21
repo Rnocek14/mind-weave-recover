@@ -17,7 +17,7 @@ import flowerImg from '@/assets/photos/flower.jpg';
 import spoonImg from '@/assets/photos/spoon.jpg';
 import keyImg from '@/assets/photos/key.jpg';
 import noseImg from '@/assets/photos/nose.jpg';
-const PROBE_WORDS: PhotoTrial[] = [
+export const PROBE_WORDS: PhotoTrial[] = [
   // EASY PROBES (Difficulty 1-2)
   {
     id: 'probe_tree',
