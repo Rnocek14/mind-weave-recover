@@ -172,6 +172,10 @@ export function useFixSentenceProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          rawEvidenceMet,
+          cueDependency: Number(cueDependency.toFixed(2)),
+          cueDependencyBlocking,
+          cueDependencyThreshold: FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
           masteryGate: { confidence: gate.confidence, bySkill: gate.bySkill },
           prev: {
             level: prev.currentLevel,
