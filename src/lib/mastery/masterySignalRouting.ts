@@ -53,6 +53,10 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // emitting `trial_mode='production'`. This is intentional — adoption is
   // ratcheted forward without contamination risk.
   'fix_sentence',
+  // semantic_features: SemanticFeatureExercise emits trialMode='production'
+  // on every submitTrial; SemanticFeatureGame's adaptation auto-logger is
+  // disabled (autoLog:false) so no untagged rows leak into routing.
+  'semantic_features',
 ]);
 
 export function isAdoptedForTrialMode(exerciseSlug: string): boolean {
