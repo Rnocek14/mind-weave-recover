@@ -52,6 +52,10 @@ interface SentenceConstructionGameProps {
     errorType: string | null;
     grammarFocus: string;
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
+    /** True if patient played the model audio (hint) on this trial. */
+    hintUsed: boolean;
+    /** Engine difficulty (1–10) at the moment the trial fired. */
+    difficulty: number;
   }) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
 }
