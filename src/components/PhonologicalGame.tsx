@@ -96,7 +96,7 @@ export const PhonologicalGame = ({
 
   useEffect(() => {
     if (!game.completed && !game.showFeedback && game.getCurrentTrial()) {
-      startTrial();
+      trialStartRef.current = Date.now();
       setHasSubmitted(false);
       setHasPlayedAudio(false);
       const timer = setTimeout(() => { handlePlayAudio(); }, 500);
@@ -129,38 +129,28 @@ export const PhonologicalGame = ({
     if (hasSubmitted) return;
     setHasSubmitted(true);
     const result = game.submitAnswer(answer);
-    const reactionTime = calculateReactionTime();
+    const reactionTime = Date.now() - trialStartRef.current;
     updateTrial(result.correct, reactionTime);
     engagement.recordTrial({ correct: result.correct, reactionTimeMs: reactionTime, timeout: false, cueLevel: 0, timestamp: Date.now() });
     if (result.correct) { playSuccess(); } else { playError(); }
-    
+
     const trial = game.getCurrentTrial();
-    await logTrial({
-      correct: result.correct,
-      reactionTimeMs: reactionTime,
-      cueLevel: 0,
-      errorType: result.correct ? null : 'phonological_error',
-      taskParameters: {
-        difficulty: currentDifficulty,
-        word1: trial?.word1,
-        word2: trial?.word2,
-        relationType: result.relationType,
-        expectedAnswer: result.expectedAnswer,
-        userAnswer: answer,
-        phonemeDifferences: trial?.phonemeDifferences,
-      },
-      adaptationsActive: adaptations ? {
-        extended_time: adaptations.adaptations.extendedTimeouts || false,
-        audio_cues: adaptations.adaptations.useAudioCues || false,
-        high_contrast: adaptations.adaptations.highContrast || false,
-        larger_targets: adaptations.adaptations.largeTargets || false,
-      } : undefined,
-    });
-    
+    // Wave 3: parent (PhonologicalExercise) is the single writer for
+    // exercise_events + progression via useTrialSubmission. We just hand
+    // off the trial detail.
     if (onTrialComplete) {
-      onTrialComplete({ correct: result.correct, reactionTime, relationType: result.relationType });
+      onTrialComplete({
+        correct: result.correct,
+        reactionTime,
+        difficulty: currentDifficulty,
+        trial,
+        userAnswer: answer,
+        expectedAnswer: result.expectedAnswer as 'same' | 'different',
+        relationType: result.relationType,
+      });
     }
   };
+
 
   const handleNext = () => {
     checkAndAdjust();
