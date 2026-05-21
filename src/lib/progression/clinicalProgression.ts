@@ -103,6 +103,35 @@ export function trialCredit(params: {
 }
 
 /**
+ * Receptive-track per-trial credit. The expressive `SUPPORT_CREDIT` table
+ * treats `recognition_only` as the *lowest* form of independence (0.0)
+ * because for expressive naming, being shown the target word IS the
+ * scaffold. For receptive tasks (meaning-match, detective-mind,
+ * phonological-awareness) the inverse holds: `recognition_only` means
+ * "the patient picked the right answer with NO hint" — that IS the
+ * independent baseline and must score full credit. A `semantic_cue` trial
+ * means they tapped the hint button first → partial credit.
+ *
+ * Without this inversion, receptive games whose target rung is
+ * `recognition_only` (L3–L8 on meaning-match / detective-mind, L1–L8 on
+ * phonological-awareness) accrue 0 progress per session regardless of
+ * accuracy, leaving patients permanently stuck at L2.
+ */
+export const RECEPTIVE_SUPPORT_CREDIT: Partial<Record<SupportLevel, number>> = {
+  recognition_only: 1.0, // independent: chose correctly with no scaffold
+  semantic_cue: 0.6,     // used hint, then chose correctly
+};
+
+export function receptiveTrialCredit(params: {
+  correct: boolean;
+  support: SupportLevel;
+}): number {
+  if (!params.correct) return 0;
+  const credit = RECEPTIVE_SUPPORT_CREDIT[params.support];
+  return typeof credit === 'number' ? credit : 0;
+}
+
+/**
  * Struggle signal for a single trial: incorrect, or correct only with heavy
  * support (recognition / full model / multiple replays).
  */
