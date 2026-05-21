@@ -1,8 +1,21 @@
 /**
  * Describe & Guess Exercise Page
- * 
+ *
  * Flagship circumlocution training — wrapper with session lifecycle.
- * Now consumes shared adaptation contract.
+ *
+ * Phase 2 (Universal Clinical Migration):
+ *   - Replaces `useExerciseTelemetry` + manual `logTrial` with the unified
+ *     `useTrialSubmission` pathway (lexical axis). One call site → both
+ *     `exercise_events` and the mastery shadow.
+ *   - `adaptation_trial_logs` continues to be written from
+ *     `DescribeGuessGame`'s own `useInGameAdaptation(autoLog:true)`.
+ *   - SupportLevel mapping (lexical axis, ordinal to `cueLevel`):
+ *       0 prompts → `independent`
+ *       1 prompt  → `semantic_cue`
+ *       2 prompts → `phonemic_cue`
+ *       3 prompts → `carrier_or_full_model`
+ *     `cueLevel` itself is already derived by `deriveCueTelemetry()`.
+ *   - No per-game progression hook yet — `progression: null`.
  */
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
@@ -14,15 +27,24 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+
+/** Ordinal cueLevel (0..3) → lexical-axis SupportLevel. */
+function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
+  if (cueLevel <= 0) return 'independent';
+  if (cueLevel === 1) return 'semantic_cue';
+  if (cueLevel === 2) return 'phonemic_cue';
+  return 'carrier_or_full_model';
+}
+
 
 const EXERCISE_SLUG = 'describe_guess';
 
