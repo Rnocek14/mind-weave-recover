@@ -86,7 +86,7 @@ describe('filterTrialsForExpressiveMastery', () => {
       trial(1, true, 'recognition'),
       trial(1, true, 'production'),
     ];
-    const kept = filterTrialsForExpressiveMastery('two-clues', trials);
+    const kept = filterTrialsForExpressiveMastery('multi-step-plan', trials);
     expect(kept).toHaveLength(0);
   });
 
