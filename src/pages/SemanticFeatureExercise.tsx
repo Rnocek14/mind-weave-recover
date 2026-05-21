@@ -36,19 +36,18 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
-import type { SupportLevel } from '@/lib/progression/clinicalProgression';
+import {
+  useSemanticFeaturesProgression,
+  mapSemanticFeaturesSupport,
+} from '@/hooks/useSemanticFeaturesProgression';
+import { resolveEffectiveSemanticFeaturesInitialDifficulty } from '@/lib/progression/semanticFeaturesDifficultyBridge';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords } from '@/data/semanticFeatureBank';
 
-/** Map SFA cueLevel (0..2) to the lexical-axis SupportLevel ladder. */
-function sfaCueLevelToSupport(cueLevel: number): SupportLevel {
-  if (cueLevel <= 0) return 'independent';
-  if (cueLevel === 1) return 'semantic_cue';
-  return 'phonemic_cue';
-}
+
 
 
 export default function SemanticFeatureExercise() {
