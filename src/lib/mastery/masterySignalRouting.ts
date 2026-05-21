@@ -71,16 +71,17 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // useInGameAdaptation is autoLog:false. Expressive grammar-production task
   // — routes cleanly into expressive mastery.
   'sentence_construction',
-  // sentence_construction (Wave 2): SentenceConstructionExercise emits
-  // trialMode='production' on every submitTrial; SentenceConstructionGame's
-  // useInGameAdaptation is autoLog:false. Expressive grammar-production task
-  // — routes cleanly into expressive mastery.
-  'sentence_construction',
   // multi_step_planning (Wave 2): MultiStepPlanExercise emits
   // trialMode='production' on every submitTrial; MultiStepPlanningGame's
   // useInGameAdaptation is autoLog:false. Expressive procedural-discourse
   // task — open spoken production with no in-trial scaffold control.
   'multi_step_planning',
+  // synonym_generator (Wave 3): SynonymGeneratorExercise emits
+  // trialMode='production' on every submitTrial (per round);
+  // SynonymGeneratorGame's useAdaptiveDifficulty is autoLog:false.
+  // Expressive divergent lexical-semantic retrieval — open spoken (or
+  // typed-fallback) production with no in-trial scaffold control.
+  'synonym_generator',
   // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
   // emits trialMode:'recognition' which routes to `excluded`. Adding it
   // here would conflate axes; receptive mastery track is deferred. Same
