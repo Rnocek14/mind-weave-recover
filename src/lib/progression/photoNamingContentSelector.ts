@@ -88,6 +88,12 @@ export interface ClinicalTieredTrial extends PhotoTrial {
   carrierPhrase?: string;
   /** True on L8 trials. Downstream code must NOT roll these into mastery stats. */
   isGeneralizationProbe?: boolean;
+  /**
+   * True on L8 trials. Replaces the previous `isGeneralizationProbe` claim;
+   * the old field is still emitted as an alias so downstream aggregators
+   * keep segregating these trials from ordinary mastery stats.
+   */
+  isAdvancedReviewTrial?: boolean;
   /** Tier the selector assigned this trial to. */
   __selectorTier?: SelectorTier;
 }
@@ -95,7 +101,7 @@ export interface ClinicalTieredTrial extends PhotoTrial {
 export interface SelectorResult {
   tier: SelectorTier;
   pool: ClinicalTieredTrial[];
-  reason: 'frequency_band' | 'category_spread' | 'phrase_carrier' | 'generalization_probe' | 'baseline';
+  reason: 'frequency_band' | 'category_spread' | 'phrase_carrier' | 'advanced_review' | 'baseline';
   fallback: SelectorFallback | null;
   diagnostics: SelectorDiagnostics;
 }
