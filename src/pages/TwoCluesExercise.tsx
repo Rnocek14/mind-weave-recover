@@ -1,8 +1,18 @@
 /**
  * Two Clues Word Association Exercise Page
- * 
- * Wrapper page for the Two Clues game with session lifecycle management.
- * Now uses shared AdaptationContract for phoneme targeting and cue personalization.
+ *
+ * Phase 2 (Universal Clinical Migration):
+ *   - Replaces `useExerciseTelemetry` + manual `logTrial` with the unified
+ *     `useTrialSubmission` pathway. `exercise_events` + mastery shadow now
+ *     flow through one call site (lexical axis).
+ *   - `adaptation_trial_logs` continues to be auto-written from
+ *     `TwoCluesGame`'s own `useInGameAdaptation(autoLog:true)` controller —
+ *     it already owns the per-trial logger via `onTrialLogged`.
+ *   - SupportLevel mapping uses the **lexical axis** contract:
+ *     baseline retrieval = `independent`, anchor reached = `semantic_cue`.
+ *     See `docs/unified-trial-contract.md` §"Per-axis supportUsed".
+ *   - No per-game progression hook yet — `progression: null` keeps the
+ *     buffer + clinical_progression_state flush as no-ops (Phase 3 work).
  */
 
 import React, { useCallback, useState, useRef } from 'react';
@@ -13,8 +23,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -80,11 +89,16 @@ export default function TwoCluesExercise() {
     getSessionStats,
   });
 
-  // Telemetry
-  const { logTrial, trialNumber } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Unified trial submission (lexical axis). No per-game progression hook
+  // yet — progression:null keeps the clinical_progression_state buffer +
+  // commit flush no-ops; exercise_events + mastery shadow still write.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   // Mid-session pivot
   const pivot = useExerciseMidSessionPivot({
@@ -110,13 +124,30 @@ export default function TwoCluesExercise() {
       cueLevel: result.reachedAnchor ? 1 : 0,
     });
 
-    // Log both raw spoken word and cleaned version for analytics
+    // Lexical axis SupportLevel mapping:
+    //   independent  → produced from the two clues alone (no anchor)
+    //   semantic_cue → anchor word was shown (semantic scaffold)
+    // TwoClues never escalates to phonemic / full-model, so the ladder
+    // stops at semantic_cue.
+    const usedAnchor = !!result.reachedAnchor;
+    const supportUsed = usedAnchor ? 'semantic_cue' : 'independent';
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.reactionTimeMs,
-      errorType: result.tier === 'uncertain' ? 'no_match' : undefined,
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: adaptation.difficultyTier ?? 1,
+      stimulusId: result.puzzleId,
+      expectedResponse: Array.isArray(result.anchors) ? result.anchors[0] ?? null : null,
+      userResponse: cleanedAnswer ?? result.spokenWord ?? null,
+      isCorrect,
+      accuracyScore: typeof result.semanticSimilarity === 'number' ? result.semanticSimilarity : (isCorrect ? 1 : 0),
+      cueLevel: usedAnchor ? 1 : 0,
+      supportUsed,
+      latencyMs: result.reactionTimeMs ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : (result.tier === 'uncertain' ? 'no_match' : 'semantic_paraphasia'),
       taskParameters: {
         puzzle_id: result.puzzleId,
         clues: result.clues,
@@ -129,19 +160,22 @@ export default function TwoCluesExercise() {
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
         pivot_pending: pivot.hasPending,
+        cue_type_given: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
         ...adaptationTelemetry,
       },
-      cueTypeGiven: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
     });
 
     if (pivot.shouldStepDown) {
       console.log('[TwoClues] Mid-session pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptation, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation, adaptationTelemetry, pivot]);
 
   // Handle game completion
-  const handleGameComplete = useCallback((results: TwoCluesTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: TwoCluesTrialResult[]) => {
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    await commitSession();
+
     setCompleted(true);
     completeSession();
 
@@ -158,7 +192,9 @@ export default function TwoCluesExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+
+
 
   // Navigation
   const handleBack = useCallback(() => {

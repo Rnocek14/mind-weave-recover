@@ -1,7 +1,26 @@
-import { useState, useEffect, useMemo } from 'react';
+/**
+ * Semantic Features Exercise Page
+ *
+ * Phase 2 (Universal Clinical Migration):
+ *   - exercise_events now flows through the unified `useTrialSubmission`
+ *     pathway (lexical axis). SemanticFeatureGame stopped writing its own
+ *     trial rows and instead emits a rich `onTrialComplete` payload that
+ *     the page maps into the unified contract.
+ *   - `adaptation_trial_logs` is still auto-written from the Game's own
+ *     `useInGameAdaptation(autoLog:true)` controller.
+ *   - SupportLevel mapping (lexical axis): the SFA feature scaffold is
+ *     itself a semantic cue, so we map the in-game `cueLevel` (0..2 from
+ *     `usedRatio`) up to the canonical ladder:
+ *       0 → independent, 1 → semantic_cue, 2 → phonemic_cue.
+ *     SFA never escalates to full-model.
+ *   - No per-game progression hook yet — `progression: null`.
+ */
+
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { startSession, endSession } from '@/lib/sessionTracking';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
@@ -16,17 +35,30 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { getTrialsByTargetWords } from '@/data/semanticFeatureBank';
 
+/** Map SFA cueLevel (0..2) to the lexical-axis SupportLevel ladder. */
+function sfaCueLevelToSupport(cueLevel: number): SupportLevel {
+  if (cueLevel <= 0) return 'independent';
+  if (cueLevel === 1) return 'semantic_cue';
+  return 'phonemic_cue';
+}
+
+
 export default function SemanticFeatureExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { toast } = useToast();
+  const trialIndexRef = useRef(0);
+
   
   // Extract lesson flow state
   const restored = useRestoredLessonContext('semantic-features');
@@ -139,23 +171,78 @@ export default function SemanticFeatureExercise() {
     }
   };
 
+  // Unified trial submission (lexical axis). progression:null — no per-game
+  // progression hook yet (Phase 3 follow-up). adaptation_trial_logs stay
+  // auto-wired inside SemanticFeatureGame's useInGameAdaptation.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    exerciseSlug: 'semantic_features',
+    progression: null,
+  });
+
+  const handleTrialComplete = useCallback((data: any) => {
+    if (!sessionId) return;
+    trialIndexRef.current += 1;
+    const cueLevel = typeof data?.cueLevel === 'number' ? data.cueLevel : 0;
+    const isCorrect = !!data?.correct;
+    pivot.recordTrialResult({
+      wasCorrect: isCorrect,
+      reactionTimeMs: data?.reactionTime ?? 0,
+      cueLevel,
+    });
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId,
+      gameId: 'semantic_features',
+      level: data?.difficulty ?? adaptation.difficultyTier ?? 1,
+      stimulusId: data?.word ?? `sfa_trial_${trialIndexRef.current}`,
+      expectedResponse: data?.word ?? null,
+      userResponse: null,
+      isCorrect,
+      accuracyScore: isCorrect ? 1 : (data?.retrievalCorrect ? 0.5 : 0),
+      cueLevel,
+      supportUsed: sfaCueLevelToSupport(cueLevel),
+      latencyMs: data?.reactionTime ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : 'semantic_error',
+      taskParameters: {
+        word: data?.word,
+        difficulty: data?.difficulty,
+        features_correct: data?.featuresCorrect,
+        features_missed: data?.featuresMissed,
+        features_incorrect: data?.featuresIncorrect,
+        retrieval_correct: data?.retrievalCorrect,
+        feature_breakdown: data?.featureBreakdown,
+        adaptations_active: data?.adaptationsActive,
+        ...adaptationTelemetry,
+      },
+    });
+    if (pivot.shouldStepDown) pivot.acknowledge();
+  }, [sessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
+
   const handleGameComplete = async (finalScore: number, totalTrials: number) => {
     if (!sessionId || !user?.id) return;
-    
+
+    // Unified commit before session-end housekeeping — flushes mastery
+    // shadow + drains any queued adaptation rows.
+    await commitSession();
+
     const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
     const accuracy = (finalScore / totalTrials) * 100;
-    
+
     await endSession(sessionId, {
       durationSec,
       scores: { 'semantic-features': accuracy },
       reps: totalTrials,
     });
-    
+
     toast({
       title: 'Session saved!',
       description: `You completed ${totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
     });
-    
+
     if (fromLesson) {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate(returnTo, { state: { resuming: true } });
@@ -163,6 +250,7 @@ export default function SemanticFeatureExercise() {
       setTimeout(() => navigate('/today'), 2000);
     }
   };
+
 
   // Start session on mount
   if (!sessionId && user?.id) {
@@ -233,9 +321,8 @@ export default function SemanticFeatureExercise() {
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}
-          onTrialComplete={(data) => {
-            console.log('Trial complete:', { ...data, ...adaptationTelemetry });
-          }}
+          onTrialComplete={handleTrialComplete}
+
         />
       </div>
       </main>

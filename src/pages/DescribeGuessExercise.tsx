@@ -1,8 +1,21 @@
 /**
  * Describe & Guess Exercise Page
- * 
+ *
  * Flagship circumlocution training — wrapper with session lifecycle.
- * Now consumes shared adaptation contract.
+ *
+ * Phase 2 (Universal Clinical Migration):
+ *   - Replaces `useExerciseTelemetry` + manual `logTrial` with the unified
+ *     `useTrialSubmission` pathway (lexical axis). One call site → both
+ *     `exercise_events` and the mastery shadow.
+ *   - `adaptation_trial_logs` continues to be written from
+ *     `DescribeGuessGame`'s own `useInGameAdaptation(autoLog:true)`.
+ *   - SupportLevel mapping (lexical axis, ordinal to `cueLevel`):
+ *       0 prompts → `independent`
+ *       1 prompt  → `semantic_cue`
+ *       2 prompts → `phonemic_cue`
+ *       3 prompts → `carrier_or_full_model`
+ *     `cueLevel` itself is already derived by `deriveCueTelemetry()`.
+ *   - No per-game progression hook yet — `progression: null`.
  */
 
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
@@ -14,15 +27,24 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+
+/** Ordinal cueLevel (0..3) → lexical-axis SupportLevel. */
+function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
+  if (cueLevel <= 0) return 'independent';
+  if (cueLevel === 1) return 'semantic_cue';
+  if (cueLevel === 2) return 'phonemic_cue';
+  return 'carrier_or_full_model';
+}
+
 
 const EXERCISE_SLUG = 'describe_guess';
 
@@ -107,10 +129,16 @@ export default function DescribeGuessExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Unified trial submission (lexical axis). No per-game progression hook
+  // yet — progression:null keeps the progression buffer + commit flush as
+  // no-ops; exercise_events + mastery shadow still write.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'lexical_retrieval', fromLesson });
 
@@ -153,33 +181,47 @@ export default function DescribeGuessExercise() {
     // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
     // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
     // shadow, and cue-independence analytics see real support usage instead
-    // of "always unaided". Mapping rule lives in deriveCueTelemetry().
+    // of "always unaided".
     const promptCount = result.promptsShown?.length ?? 0;
-    const { cueLevel, cueTypeGiven, cueWasEffective } = deriveCueTelemetry(promptCount, isCorrect);
+    const { cueLevel, cueTypeGiven } = deriveCueTelemetry(promptCount, isCorrect);
+    const supportUsed = cueLevelToLexicalSupport(cueLevel);
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.reactionTimeMs,
-      errorType: isCorrect ? undefined : 'no_guess',
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.difficulty ?? adaptation.difficultyTier ?? 1,
+      stimulusId: result.trialId,
+      expectedResponse: result.target ?? null,
+      userResponse: null,
+      isCorrect,
+      // Word win is the harder of the two; weight accordingly so mastery
+      // shadow / adaptation can distinguish full retrieval from
+      // partial-meaning success.
+      accuracyScore: result.wordWin ? 1 : (result.meaningWin ? 0.5 : 0),
       cueLevel,
-      cueTypeGiven,
-      cueWasEffective: cueLevel > 0 ? isCorrect : null,
+      supportUsed,
+      latencyMs: result.reactionTimeMs ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : 'no_guess',
       taskParameters: {
         trial_id: result.trialId, target: result.target,
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
-        cue_level: cueLevel, cue_type_given: cueTypeGiven,
+        cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
         pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
     });
     if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
-  const handleGameComplete = useCallback((results: DescribeGuessTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    await commitSession();
     setCompleted(true);
     completeSession();
 
@@ -188,7 +230,8 @@ export default function DescribeGuessExercise() {
         resumeLessonFlow(results);
       }, 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow]);
+  }, [fromLesson, completeSession, commitSession, resumeLessonFlow]);
+
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
