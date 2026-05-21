@@ -178,20 +178,30 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     },
   },
 
-  // ── Tier-A telemetry migrated, ladder pending ────────────────────────────
+  // ── Tier-A structural ladders (Wave 1) ───────────────────────────────────
   'meaning-match': {
     slug: 'meaning-match',
     axis: 'comprehension',
     purpose: 'Matches words to meanings; semantic recognition.',
-    status: 'telemetry-only',
-    telemetryNote: 'recognition_only (baseline) → semantic_cue (after hint)',
+    status: 'structural',
+    rows: rowsFromSpec('meaning-match', MEANING_MATCH_LEVELS),
+    telemetryNote: 'recognition_only (baseline) → semantic_cue (after hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/meaning-match.md',
+      tldr: 'Comprehension hierarchy (concrete→abstract, distant→close distractors) is grounded; per-level thresholds and tier mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational. Receptive-safe routing.',
+    },
   },
   'two-clues': {
     slug: 'two-clues',
     axis: 'lexical',
     purpose: 'Names a target from two semantic clues.',
-    status: 'telemetry-only',
+    status: 'structural',
+    rows: rowsFromSpec('two-clues', TWO_CLUES_LEVELS),
     telemetryNote: 'independent (solved cold) → semantic_cue (after anchor)',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/two-clues.md',
+      tldr: 'SFA-style converging-features retrieval (Boyle & Coelho; Maddy meta-analysis); per-level thresholds + bank mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational.',
+    },
   },
   'describe-guess': {
     slug: 'describe-guess',
