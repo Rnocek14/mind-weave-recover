@@ -275,7 +275,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'category-fluency',
     axis: 'discourse',
     purpose: 'Generates category exemplars under time pressure.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('category-fluency', CATEGORY_FLUENCY_LEVELS),
+    telemetryNote: 'independent (no sub-prompt) → semantic_cue (sub-prompt shown). One round = one progression trial.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/category-fluency.md',
+      tldr: 'Semantic-category verbal fluency is a long-standing aphasia metric (Henry meta-analysis; Troyer cluster/switch); per-rung minUniqueWords + tier mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational.',
+    },
   },
   'thought-continuation': {
     slug: 'thought-continuation',
