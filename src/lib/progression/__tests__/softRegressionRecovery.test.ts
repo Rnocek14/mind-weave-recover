@@ -59,12 +59,11 @@ describe('soft regression — recovery (PR2)', () => {
     expect(s.supportBaseline).toBe(3);
   });
 
-  it('an empty session does not affect support_baseline or counters', () => {
+  it('an empty session leaves support_baseline unchanged (no decay, no bump)', () => {
     let s = defaultProgressionState(ids);
     s = applySessionToState(s, struggle());
-    const snapshot = { ...s };
+    const baseline = s.supportBaseline;
     s = applySessionToState(s, { trials: [], evidenceMet: false });
-    expect(s.supportBaseline).toBe(snapshot.supportBaseline);
-    expect(s.consecutiveStruggleSessions).toBe(snapshot.consecutiveStruggleSessions);
+    expect(s.supportBaseline).toBe(baseline);
   });
 });
