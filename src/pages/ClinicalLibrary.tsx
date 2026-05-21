@@ -229,31 +229,15 @@ export default function ClinicalLibrary() {
           Games without a published ladder are flagged honestly.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          {totalFull > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.full.className}>
-              {totalFull} full ladder
-            </Badge>
-          )}
-          {totalStructural > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.structural.className}>
-              {totalStructural} structural
-            </Badge>
-          )}
-          {totalDesign > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE['design-only'].className}>
-              {totalDesign} design-only
-            </Badge>
-          )}
-          {totalTelemetry > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
-              {totalTelemetry} telemetry-only
-            </Badge>
-          )}
-          {totalGeneric > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.generic.className}>
-              {totalGeneric} generic engine
-            </Badge>
-          )}
+          <Badge variant="outline" className={STATUS_BADGE.full.className}>
+            {totalFull} full ladder
+          </Badge>
+          <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
+            {totalTelemetry} telemetry-only
+          </Badge>
+          <Badge variant="outline" className={STATUS_BADGE.generic.className}>
+            {totalGeneric + totalStructural + totalDesign} generic engine
+          </Badge>
         </div>
       </header>
 
