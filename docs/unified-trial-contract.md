@@ -120,3 +120,60 @@ clinician/system-issued cue ladder (semantic → phonemic → full). Listen-agai
 re-read, slower-pace, hint-tile-shown are **support tiers**, not cue intensity
 — route them through `supportUsed`. Locked by
 `src/lib/trial/__tests__/cueLevelContract.test.ts`.
+
+---
+
+## Step 3 — Five clinical axes (Phase 1, doc only)
+
+Every rehab game in this codebase targets exactly **one** of five clinical
+axes. The axis decides how `supportUsed` (the `SupportLevel` field of every
+`UnifiedTrialInput`) is mapped from in-game scaffolding, and which engine
+shape — pass/fail vs continuous — the game must use.
+
+This is the contract a new `*Exercise.tsx` must satisfy before
+`scripts/validateTelemetryCoverage.ts` will mark it as Tier-A/B-shaped.
+
+| Axis | Mastery signal | Example games | Engine shape |
+|---|---|---|---|
+| **lexical** | pass/fail per trial | Photo Naming, Two Clues, Describe & Guess, Synonym Generator, Semantic Feature | trial-based + `usePhotoNamingProgression`-shaped hook |
+| **comprehension** | pass/fail per trial | Meaning Match, Yes/No, Auditory Comprehension | trial-based |
+| **discourse** | **continuous** `accuracyScore ∈ [0,1]` | Narrative Retell, Category Fluency, Conversation Coach, Thought Continuation | continuous-mastery contract (Phase 3) |
+| **executive** | pass/fail or graded per trial | Detective Mind, Multi-Step Plan, Pattern Match, Abstract Compare | trial-based |
+| **acoustic** | pass/fail per trial | Minimal Pairs, Phonological Awareness, Dual-Load Naming | trial-based + replay-aware `supportUsed` |
+
+### Per-axis `supportUsed` mapping rule
+
+`supportUsed` must be derived from **observed in-trial scaffolding**, never
+inferred from difficulty level. Same rule as cue_level:0-vs-supportUsed in
+Step 2 — replays, slower pace, hint-tile-shown, partner-modelled, all live
+in `supportUsed`, not `cue_level`.
+
+| Axis | `supportUsed: 'independent'` | `'support_minimal'` | `'support_moderate'` | `'support_max'` |
+|---|---|---|---|---|
+| **lexical** | named without any cue | semantic cue used (category / function / first letter) | phonemic cue used (initial sound, syllable count) | full word / model spoken |
+| **comprehension** | answered on first read | re-read or re-listened once | re-read ≥2× / sentence simplified | full answer modelled or pointed-to |
+| **discourse** | n/a — use `accuracyScore` instead | nudge / prompt repeated | narrowing hint shown (`narrowingLevel ≥ 1`) | full prompt restated or example given |
+| **executive** | solved without intervention | hint highlighted | step revealed / sub-goal given | full plan shown |
+| **acoustic** | `first_listen` correct | `after_replay` (≤2 replays) | `after_replay` (3–4 replays) | `audio_replay_count ≥ 5` or pair revealed |
+
+**Discourse special case.** Discourse games MUST NOT collapse a graded
+score into a pass/fail and emit `supportUsed`. Per the Progression Theory
+Layer (v0.3.0-spec) `MasterySignalGranularity: 'continuous'`, these games
+emit `accuracyScore` only and rely on the continuous-mastery contract
+landing in Phase 3. Until that lands, discourse games run in **shadow** for
+progression and continue to update `adaptation_trial_logs` for telemetry.
+
+### Acceptance signature (used by the validator)
+
+A `*Exercise.tsx` page is considered Tier-A/B-shaped when it imports either:
+
+- `useStandardExerciseFlow` (the bundle from this hook), OR
+- `useTrialSubmission` + `useInGameAdaptation` directly (legacy Tier-A
+  shape — PhotoNaming / FixSentence / MinimalPairs).
+
+Discourse pages additionally need either `useDiscourseAdaptation` or
+`useDiscourseSignalScorer` since the standard trial-based adaptation
+controller does not apply.
+
+`scripts/validateTelemetryCoverage.ts` enforces this statically (no runtime
+data required), so newly-added games fail CI until they are wired.
