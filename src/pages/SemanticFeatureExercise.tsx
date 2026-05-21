@@ -335,19 +335,27 @@ export default function SemanticFeatureExercise() {
           />
         )}
 
-        {/* Game */}
-        <SemanticFeatureGame
-          totalTrials={10}
-          config={config}
-          bounds={bounds}
-          adaptations={getAdaptations('semantic-features')}
-          customTrials={customTrials}
-          userId={user?.id}
-          sessionId={sessionId || undefined}
-          onGameComplete={handleGameComplete}
-          onTrialComplete={handleTrialComplete}
-
-        />
+        {/* Game — gated on clinical progression load so the bridge's
+            effectiveStartDifficulty (clinical floor ⊕ session adaptation)
+            is in place before the game mounts. Mirrors the MinimalPairs
+            load gate from Wave 0. */}
+        {progression.loaded ? (
+          <SemanticFeatureGame
+            totalTrials={10}
+            config={{ ...config, startDifficulty: effectiveStartDifficulty }}
+            bounds={bounds}
+            adaptations={getAdaptations('semantic-features')}
+            customTrials={customTrials}
+            userId={user?.id}
+            sessionId={sessionId || undefined}
+            onGameComplete={handleGameComplete}
+            onTrialComplete={handleTrialComplete}
+          />
+        ) : (
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading your progression…
+          </div>
+        )}
       </div>
       </main>
     </div>
