@@ -25,6 +25,7 @@
 
 import type { SupportLevel } from './clinicalProgression';
 import { SUPPORT_CREDIT, trialCredit } from './clinicalProgression';
+import { computeImplementedCeiling } from './_shared/implementedCeiling';
 
 const SUPPORT_RANK: Record<string, number> = {
   highlight_plus_choice: 0,
