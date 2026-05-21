@@ -205,6 +205,9 @@ export function useMinimalPairsProgression({
         next: { level: next.currentLevel, progressPct: next.progressPct },
         leveledUp: next.currentLevel > prev.currentLevel,
         evidenceMet,
+        rawEvidenceMet,
+        cueDependency,
+        cueDependencyBlocking,
         progressDelta,
       };
       return { ...result, snapshot };
