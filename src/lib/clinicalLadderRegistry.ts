@@ -109,21 +109,33 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Names objects from photos with fading support.',
     status: 'full',
-    rows: rowsFromSpec(PHOTO_NAMING_LEVELS),
+    rows: rowsFromSpec('photo-naming', PHOTO_NAMING_LEVELS),
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/photo-naming.md',
+      tldr: 'Cueing hierarchy + frequency banding are clinically motivated calibration defaults; not a literature-proven cue order.',
+    },
   },
   'fix-sentence': {
     slug: 'fix-sentence',
     axis: 'executive',
     purpose: 'Detects and repairs errors in structured sentences.',
     status: 'full',
-    rows: rowsFromSpec(FIX_SENTENCE_LEVELS),
+    rows: rowsFromSpec('fix-sentence', FIX_SENTENCE_LEVELS),
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/fix-sentence.md',
+      tldr: 'Staged scaffold-fading rationale (Mapping Therapy / TUF / VNeST); specific scaffold order is a design choice, not a head-to-head proven hierarchy.',
+    },
   },
   'minimal-pairs': {
     slug: 'minimal-pairs',
     axis: 'acoustic',
     purpose: 'Discriminates similar-sounding word pairs by ear.',
     status: 'full',
-    rows: rowsFromSpec(MINIMAL_PAIRS_LEVELS),
+    rows: rowsFromSpec('minimal-pairs', MINIMAL_PAIRS_LEVELS),
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/minimal-pairs.md',
+      tldr: 'Place→manner→voicing ordering reflects clinical practice patterns; L7–L8 conditions (degraded signal / triplet RT) are not yet implemented.',
+    },
   },
 
   // ── Tier-A telemetry migrated, ladder pending ────────────────────────────
