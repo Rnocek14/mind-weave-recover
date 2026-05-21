@@ -29,6 +29,7 @@ import {
   evidenceMetForFixSentenceLevel,
   FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
   getFixSentenceLevelSpec,
+  highestImplementedFixSentenceLevel,
   isFixSentenceCueDependencyBlocking,
 } from '@/lib/progression/fixSentenceLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
