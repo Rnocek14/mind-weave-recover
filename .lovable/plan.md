@@ -1,173 +1,196 @@
-# Per-Game Difficulty: Honor Each Clinical Purpose
 
-## The core insight
+# Clinically-Backed Leveling for All 17 Games — Phased Execution Plan
 
-Every game already has a **per-level clinical promise** written in code:
+## 1. What the research actually gives us
 
-- **PhotoNaming** (`photoNamingLevels.ts`): L1 heavy support → L8 phrase context + generalization
-- **FixSentence** (`fixSentenceLevels.ts`): L1 obvious category violations → L8 ambiguous multi-valid sentences
-- **MinimalPairs** (`minimalPairsLevels.ts`): L1 distinct contrasts → L8 fast discrimination under load
+The deep-research doc is a complete clinical design-of-record. For every one of the 17 games it locks down:
 
-These ladders **train different cognitive skills**. PhotoNaming is about *lexical retrieval under fading support*. FixSentence is about *error type sophistication*. MinimalPairs is about *acoustic resolution + speed*.
+- **Clinical target** (one sentence, e.g. "convergent lexical retrieval from sparse semantic cues").
+- **Primary axis** — exactly ONE dimension that drives L1→L8 (e.g. cue diagnosticity, syntactic complexity, semantic distance, inferential load).
+- **Banned axes** — what NOT to use (e.g. "don't ladder by raw frequency", "don't ladder by cue fade").
+- **Archetype** — content-expanding / pressure / hybrid / open-ended.
+- **Orthogonal support model** — what cueing is allowed and how it must stay separate from content level.
+- **Candidate L1–L8 rungs** — concrete, item-level examples.
+- **Confidence label** — High / Moderate / Exploratory.
+- **Known integrity caveats** — the exact failure modes to guard against.
+- **Cross-family map** — which engine helpers can be shared.
 
-A uniform "sub-tier slice + pressure knob" treatment would be wrong. The shared primitive must standardize *machinery*; each game must own *meaning*.
+**Confidence inventory:**
+- **High (1):** `sentence-construction` (TUF / mapping therapy).
+- **Moderate (10):** `semantic-features`, `meaning-match`, `category-fluency`, `narrative-retell`, `multi-step-plan`, `pattern-match`, `phonological-awareness`, `dual-load-naming`, `conversation-coach`, `minimal-pairs` (already shipped).
+- **Exploratory (6):** `two-clues`, `synonym-generator`, `describe-guess`, `thought-continuation`, `abstract-compare`, `detective-mind`, `conversation-partner`.
 
-## Architecture
+Already shipped at `status: 'full'`: `photo-naming`, `fix-sentence`, `minimal-pairs`. Remaining: **14 games**.
+
+## 2. What "done" means for each game
+
+Every game ends up in exactly ONE of these honest states in `clinicalLadderRegistry.ts`:
+
+| Tier | Registry status | What ships | UI surface |
+|---|---|---|---|
+| A — Full ladder | `'full'` | `<slug>Levels.ts` + `ContentSelector.ts` + `DifficultyBridge.ts` + `Intensity.ts` + evidence doc | "Full L1–L8 ladder" badge, all 8 rows ready |
+| B — Structural ladder | `'structural'` (new) | Same 5 artifacts, but L6–L8 rows tagged `readiness: 'thin' \| 'aspirational'` | Same table; amber/muted chips on weak rows |
+| C — Design of record | `'design-only'` (new) | Evidence doc + L1–L8 spec table only; runtime stays on generic engine | "Planned — runtime uses generic engine" banner; design table still rendered |
+
+No "generic" entry survives in the registry once Phase 5 ships — every game has at least a design-of-record.
+
+## 3. Tier assignment per game
+
+Driven by (a) research confidence and (b) the three engineering constraints (content-bank depth, rubric scorer availability, untrained-probe banks).
+
+**Tier A — Full (4 new + 3 existing = 7):**
+`semantic-features`, `meaning-match`, `two-clues`, `category-fluency`
+(plus existing `photo-naming`, `fix-sentence`, `minimal-pairs`)
+
+**Tier B — Structural (7):**
+`synonym-generator`, `sentence-construction`, `multi-step-plan`, `pattern-match`, `detective-mind`, `phonological-awareness`, `dual-load-naming`
+
+**Tier C — Design-of-record (6):**
+`describe-guess`, `narrative-retell`, `thought-continuation`, `abstract-compare`, `conversation-coach`, `conversation-partner`
+(all require discourse-rubric scorer work that is out of scope for this build)
+
+## 4. Phased execution
+
+Five phases. Each phase is independently shippable and reversible (registry-flag controlled).
+
+### Phase 0 — Foundations (1 day)
+
+Pure infra so the rest can move fast in parallel.
+
+1. Extend `LadderStatus` to `'full' | 'structural' | 'design-only' | 'telemetry-only' | 'generic'`.
+2. Add `Readiness = 'ready' | 'thin' | 'aspirational'` to every level spec (already exists in `minimal-pairs`).
+3. Create `src/lib/progression/_shared/`:
+   - `buildLevelSpec.ts` — tiny factory so each game's `Levels.ts` is ~40 lines.
+   - `lexicalRetrievalLevels.ts` — shared helper for the semantic family.
+   - `discourseRubricLevels.ts` — shared helper for the discourse family.
+4. Update `ClinicalLibrary.tsx` `STATUS_BADGE` map: add `structural` and `design-only` variants.
+5. Update `GameAboutPage.tsx` to render a "Planned — runtime on generic engine" banner when `status === 'design-only'`.
+
+### Phase 1 — Tier A Semantic core (Days 2–4)
+
+Ship full ladders for the 4 highest-confidence remaining semantic games using shared lexical helper.
+
+Per game (~½ day each):
+1. `<slug>Levels.ts` — L1–L8 spec copied from research, every rung labelled `readiness: 'ready'`.
+2. `<slug>ContentSelector.ts` — pool partitioning over existing bank.
+3. `<slug>DifficultyBridge.ts` — maps engine 1–10 → level 1–8 + soft-regression parity.
+4. `<slug>Intensity.ts` — registered in `intensity/index.ts`.
+5. `docs/clinical-evidence/<slug>.md` — TL;DR + caveats from research.
+6. Registry entry → `status: 'full'`.
+7. Tests: snapshot of L1–L8 table, bridge monotonicity, selector pool non-empty per level.
+
+**Games:** `semantic-features`, `meaning-match`, `two-clues`, `category-fluency`.
+
+End of Phase 1: 7 of 17 games at full ladder.
+
+### Phase 2 — Tier B Structural ladders (Days 5–8)
+
+Same 5-artifact pattern as Tier A, but `readiness` honesty is inside the table:
+
+- L1–L5 rungs → `'ready'`
+- L6–L7 → `'thin'` (engine selects but content bank is shallow)
+- L8 → `'aspirational'` (engine selects, item set is a stub, telemetry flags caveat)
+
+Each game also writes a `KNOWN_CAVEATS` block into its evidence doc (verbatim from research).
+
+**Games (½ day each):** `synonym-generator`, `sentence-construction`, `multi-step-plan`, `pattern-match`, `detective-mind`, `phonological-awareness`, `dual-load-naming`.
+
+Shared helpers used: `lexicalRetrievalLevels` for synonym/two-clues; new `executiveLoadLevels` for plan/pattern/detective; existing `minimalPairsLevels` patterns adapted for `phonological-awareness` and `dual-load-naming`.
+
+End of Phase 2: 14 of 17 games at structural-or-better.
+
+### Phase 3 — Tier C Design-of-record (Days 9–10)
+
+No runtime change. For each game:
+
+1. Write evidence doc with full L1–L8 spec table, banned axes, caveats.
+2. Add registry entry with `status: 'design-only'` and the L1–L8 rung descriptions (description + targetSupport + readiness only — no attempts/accuracy columns).
+3. `/games/:slug/about` page automatically renders the design table + banner.
+
+**Games:** `describe-guess`, `narrative-retell`, `thought-continuation`, `abstract-compare`, `conversation-coach`, `conversation-partner`.
+
+End of Phase 3: all 17 games have a published clinical design. No game shows as "generic" anywhere.
+
+### Phase 4 — Adaptive engine wiring + validation (Days 11–12)
+
+1. For every Tier A and Tier B game, confirm `useInGameAdaptation` is wired and the universal adaptation telemetry fires.
+2. Run `/dev/adaptation-sim` across all 14 ladders with the 5 synthetic profiles. Required assertions: gate behaves, no inappropriate L→L jumps, soft-regression triggers correctly, narration follows ban-list.
+3. Run `bannedClinicalLanguage.test.ts` across every new evidence doc.
+4. Run `useRecencyExclusion` adoption check per Tier A game.
+5. Flip registry: confirm zero entries at `status: 'generic'`.
+
+### Phase 5 — Clinician/patient surfacing (Days 13–14)
+
+Pure presentation work to make the new ladders visible and honest.
+
+1. `ClinicalLibrary.tsx`: filter chips for Full / Structural / Design-only; readiness chips on each row.
+2. `GameAboutPage.tsx`: confidence label badge (High/Moderate/Exploratory) + caveats accordion drawn from registry.
+3. `AboutGameLink` already wired everywhere (exercise cards, level-up banner, pause overlay, session summary, Patient Hub Plan tab) — no changes.
+4. Write `docs/clinical-evidence/ladders-summary.md`: one-row-per-game master table (axis / archetype / confidence / readiness range / scorer dependency).
+5. Clinician review pass on the 6 exploratory-confidence games before unhiding.
+
+## 5. Risks and how each phase de-risks them
+
+| Risk | Mitigation |
+|---|---|
+| Discourse rubric scope creep eats the whole sprint | Tier C exists for exactly this — Phase 3 ships design only, scorer work is its own future track |
+| Content banks too thin for L6–L8 on some Tier B games | `readiness: 'thin'/'aspirational'` makes this visible to clinicians instead of hidden |
+| Banned-language drift in evidence docs | Phase 4 step 3 runs `bannedClinicalLanguage.test.ts` against every new doc |
+| Engine accidentally jumps the L6→L8 gap on exploratory games | Phase 4 adaptation-sim required assertions block ship |
+| Clinicians see "exploratory" rating and lose trust | Phase 5 surfacing pairs every exploratory badge with the matching caveats list from research |
+
+## 6. Technical details (for engineering reference)
 
 ```text
-┌──────────────────────────────────────────────────────┐
-│  Shared primitive: GameIntensity                     │
-│  - selectTrialsForLevel(slug, level, count) → trials │
-│  - getLevelModifiers(slug, level) → modifiers        │
-│  - getLevelLabel(slug, level) → string               │
-│  Pure functions. No React. Auditable in one place.   │
-└────────────────────┬─────────────────────────────────┘
-                     │ delegates to per-game module
-   ┌─────────────────┼─────────────────┐
-   ▼                 ▼                 ▼
-PhotoNaming      FixSentence      MinimalPairs
-intensityMap     intensityMap     intensityMap
-(lexical axis)   (error-type axis)(acoustic axis)
+src/lib/progression/
+  _shared/
+    buildLevelSpec.ts
+    lexicalRetrievalLevels.ts
+    discourseRubricLevels.ts
+    executiveLoadLevels.ts
+  semanticFeaturesLevels.ts        + ContentSelector + DifficultyBridge
+  meaningMatchLevels.ts            + ContentSelector + DifficultyBridge
+  twoCluesLevels.ts                + ContentSelector + DifficultyBridge
+  categoryFluencyLevels.ts         + ContentSelector + DifficultyBridge
+  synonymGeneratorLevels.ts        + ContentSelector + DifficultyBridge
+  sentenceConstructionLevels.ts    + ContentSelector + DifficultyBridge
+  multiStepPlanLevels.ts           + ContentSelector + DifficultyBridge
+  patternMatchLevels.ts            + ContentSelector + DifficultyBridge
+  detectiveMindLevels.ts           + ContentSelector + DifficultyBridge
+  phonologicalAwarenessLevels.ts   + ContentSelector + DifficultyBridge
+  dualLoadNamingLevels.ts          + ContentSelector + DifficultyBridge
+
+src/lib/intensity/
+  + 11 new per-game intensity files, registered in index.ts
+
+src/lib/clinicalLadderRegistry.ts
+  - LadderStatus union: add 'structural' | 'design-only'
+  - 14 entries updated; 6 design-only entries carry rung tables
+  - rowsFromSpec generalized to accept any spec shape
+
+src/pages/ClinicalLibrary.tsx
+  - STATUS_BADGE: add structural + design-only variants
+  - GameCard: design-only branch renders compact table
+
+src/pages/GameAboutPage.tsx
+  - Banner when status === 'design-only'
+  - Confidence badge + caveats accordion for all statuses
+
+docs/clinical-evidence/
+  + 14 new <slug>.md files
+  + ladders-summary.md (master index)
 ```
 
-Each game registers a config that declares:
-1. Its **primary difficulty axis** (what the clinical ladder is about)
-2. Its **secondary axes** (pressure modifiers that compound the primary)
-3. Its **level → axis-state mapping** (10 levels, what they pull)
+No database migrations. No edge functions. No new tables. No changes to scoring authority (`responseValidation.ts`), drill selection (`drillSelector.ts`), or trial-logging contract. Pure additive spec + bridge + UI work.
 
-The engine calls one shared function. Per-game logic lives in per-game files.
+## 7. Deliverable timeline
 
-## Per-game intensity ladders
-
-### PhotoNaming — Axis: lexical retrieval under fading support
-
-Primary axis = **(word difficulty, support availability)** — they covary.
-
-| Lvl | Word difficulty | Support available | Response window | Distractor chips |
-|---|---|---|---|---|
-| 1 | T1, top 500 frequency, 1-syl | semantic + phonemic + carrier on tap | none | n/a |
-| 2 | T1, top 1000, 1-syl | semantic + phonemic on tap | none | n/a |
-| 3 | T1, top 2000, 1–2-syl | semantic on tap | none | n/a |
-| 4 | T2, top 3500, 1–2-syl | semantic on tap, costs a hint | none | n/a |
-| 5 | T2, 3500–6000, 2-syl | semantic only after 8s silence | 20s soft | n/a |
-| 6 | T2, 6000–8000, 2-syl + atypical exemplars | no semantic; phonemic after 10s | 18s soft | n/a |
-| 7 | T2/T3 blend, 2–3-syl, lower frequency | no cues | 15s soft | n/a |
-| 8 | T3, low-frequency, 2–3-syl | no cues | 12s firm | optional 1-chip foil |
-| 9 | T3 stretch (atypical, late-acquired) | no cues | 10s firm | 2-chip foil |
-| 10 | T3 stretch + phrase-context probe ("Say it in a sentence") | no cues | 10s firm | 2-chip foil |
-
-Sort key inside content tier: `frequency_rank → syllable_count → age_of_acquisition`.
-Stretch slice: tag ~12 of the 33 T3 photos with `stretch: true` for L9–10.
-
-### FixSentence — Axis: error-type sophistication
-
-Primary axis = **what kind of error must be detected and repaired**. This is the entire clinical point — repairing "pillow vs. soap" (category) is a different skill from repairing "coin vs. key" (function mismatch).
-
-| Lvl | Error type pulled | Sentence length | Hint behavior | Multi-error? |
-|---|---|---|---|---|
-| 1 | category_error only (T1) | short (5–7 words) | "show me" button visible | no |
-| 2 | category_error (T1, harder) + 20% semantic_swap | short | "show me" visible | no |
-| 3 | semantic_swap (T2) dominant | 6–8 words | "show me" visible, costs hint | no |
-| 4 | semantic_swap (T2) + 30% function_error preview | 6–8 words | "show me" after 10s silence | no |
-| 5 | function_error (T2) dominant | 7–10 words | no "show me" | no |
-| 6 | function_error (T3) | 8–11 words | no hint | no |
-| 7 | function_error (T3, subtle) + 25% multiple_valid_repairs | 9–12 words | no hint | no |
-| 8 | multiple_valid_repairs (T3) | 9–12 words | no hint | no |
-| 9 | multiple_valid_repairs + 2-error sentences (Stretch) | 10–14 words | no hint | yes (2 errors) |
-| 10 | 2-error sentences + paragraph-fragment context | 10–14 words | no hint | yes (2 errors) |
-
-Sort key inside `errorType` cohort: `sentenceLength → wrongWordIndex` (errors late in sentence are harder — must hold sentence in working memory).
-
-Bank work needed: tag 8–10 existing T3 items with `multiError: true` or curate a small `STRETCH_FIX_SENTENCES` slice of 12 two-error sentences for L9–10.
-
-### MinimalPairs — Axis: acoustic resolution + speed
-
-Primary axis = **(contrast distance, replay budget, response window)**. Replays are the real scaffold here — not cues.
-
-| Lvl | Contrast type | Replay budget | Response window | Foil similarity |
-|---|---|---|---|---|
-| 1 | stop_fricative (max distance) | unlimited | none | distant photo foil |
-| 2 | stop_fricative + place-of-articulation | 3 replays | none | distant photo foil |
-| 3 | voicing contrasts (medium distance) | 2 replays | none | distant |
-| 4 | voicing + fricative_affricate (single-feature) | 2 replays | 12s soft | medium |
-| 5 | single-feature contrasts (T2 broadened) | 2 replays | 10s soft | medium |
-| 6 | single-feature, medial position | 1 replay | 10s soft | close |
-| 7 | single-feature, final position (hardest position) | 1 replay | 8s firm | close |
-| 8 | within-pair confusable triads (Stretch) | 1 replay | 8s firm | very close |
-| 9 | triads, no replay | 0 replays | 8s firm | very close |
-| 10 | triads + dual-load (hold pair in memory through distractor) | 0 replays | 8s firm | very close |
-
-Sort key inside cohort: `contrastDistance (computed from phoneme feature delta) → contrastPosition (initial < medial < final)`.
-
-Bank work needed: compute `contrastDistance` once from existing `phoneme1`/`phoneme2`; tag confusable triads.
-
-## Why the axes have to differ
-
-| Game | If you only swap words | If you only add time pressure | If you only strip cues |
-|---|---|---|---|
-| PhotoNaming | partial — you still need fading support | partial — words still too easy | partial — words still too easy |
-| FixSentence | wrong — easy sentences with subtle errors are harder than long sentences with obvious errors | useless — repair isn't a speed task | partial — error-type sophistication is the point |
-| MinimalPairs | partial — replays still rescue any contrast | helps, but replays still mask difficulty | replays ARE the cue; budget is the lever |
-
-This is why the primitive is *structural*, not *prescriptive*. Each game declares its own axes.
-
-## Implementation plan
-
-### Step 1 — Shared primitive (no behavior change yet)
-- New `src/lib/intensity/gameIntensity.ts`:
-  - `GameIntensityConfig` interface: `{ sortKey, levelMap, modifierMap }`
-  - `selectTrialsForLevel(slug, level, candidates, count)` — sorts + slices
-  - `getLevelModifiers(slug, level)` — returns `{ cueAvailability, responseWindowMs, replayBudget, foilSimilarity, multiError, stretch }` (game uses whichever apply)
-- Per-game registries: `photoNamingIntensity.ts`, `fixSentenceIntensity.ts`, `minimalPairsIntensity.ts` — encode the three tables above
-- Pure functions, full unit test for each level → expected slice + modifiers
-
-### Step 2 — PhotoNaming wiring (reference game)
-- `photoBank.getTrialsForLevel` calls `selectTrialsForLevel('photo-naming', level, ...)` after tier filter
-- `PhotoNamingExercise.tsx`: read modifiers → drive existing cue/timer/chip code (most knobs already exist)
-- Tag ~12 T3 photos with `stretch: true`
-- Update `PHOTO_NAMING_LEVELS[n].description` to match the new content reality
-- Verify with `/dev/adaptation-sim`: confirm L4–L7 now pull visibly different items
-
-### Step 3 — FixSentence wiring
-- Add `sentenceLength` to each `FixSentenceTrial` (computed once, write back)
-- New selector reads errorType mix per level from intensity map
-- Curate 10–12 two-error sentences for `STRETCH_FIX_SENTENCES`
-- `FixSentenceExercise.tsx`: read modifiers → hide "show me" at L≥5, hide model at L≥6
-- Update level descriptions
-
-### Step 4 — MinimalPairs wiring
-- Compute `contrastDistance` from phoneme feature table (one-shot util)
-- New selector picks contrast cohort per level
-- `MinimalPairsExercise.tsx`: read `replayBudget` → cap audio replay button; read `responseWindowMs` → enable soft timer at L≥4
-- Curate or generate triads for L8–10
-
-### Step 5 — Verification rig
-- Extend `/dev/adaptation-sim` with **"Intensity Ladder"** panel per game: input level 1–10, see item IDs + modifier values rendered side-by-side. Eyeball that levels are visibly distinct.
-- Extend `contentDepthAudit.test.ts`: report **per-level slice depth** (not just per-tier), warn if any level can't pull ≥5 items
-- New memory: `architecture/per-game-intensity-system` documenting the 3 axes + how to add a 4th game
-
-### Step 6 — Roll out Phase 2 games (one per session, post-validation)
-For each: DetectiveMind, MultiStepPlanning, AbstractCompare, MeaningMatch, DualLoadNaming, Synonym, CategoryFluency, TwoClues, DescribeGuess.
-
-Per-game work = define axis(es) + level map + modifier consumption. Should be ~30 min each once the primitive is proven.
-
-## What does NOT change
-
-- 5-trial engine logic, success bands, recap, soft regression
-- Mastery / cue-dependency / governance gates
-- Progression spec (10 levels, evidence rules, trial weights)
-- Telemetry schema — `task_parameters.intensity_state` is additive
-
-## Risk + mitigation
-
-- **Per-level slice depth** → audit reports per-level; selector falls back to ±1 level cohort if a level can't fill its trial count
-- **Pressure modifiers stacking too aggressively** → each game tunes its own ramp; PhotoNaming time window only kicks in at L≥5
-- **Re-tagging burden (stretch slice, sentence length, contrast distance)** → all one-shot computed values written back to bank; no per-trial overhead
-- **Tests on existing level evidence** → unchanged; we change content delivery, not what counts as evidence
-
-## What success looks like for your dad
-
-- PhotoNaming L5 vs L6: different words AND a soft timer appears
-- FixSentence L4 vs L5: function-mismatch errors start replacing semantic swaps; "show me" disappears
-- MinimalPairs L5 vs L6: same contrast types but moves to medial position, replays drop from 2 → 1
-- He'll feel each level click into a new gear instead of a number going up
+| Phase | Days | Output |
+|---|---|---|
+| 0 | 1 | Shared helpers + UI variants ready |
+| 1 | 3 | 4 new Tier A ladders live (7 total full) |
+| 2 | 4 | 7 Tier B structural ladders live (14 total) |
+| 3 | 2 | 6 Tier C designs published (17 total) |
+| 4 | 2 | Full sim sweep + telemetry green |
+| 5 | 2 | Clinician/patient surfacing complete |
+| **Total** | **14 days** | **17/17 games clinically backed, leveled, and adaptive** |
