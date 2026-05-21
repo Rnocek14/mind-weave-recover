@@ -18,10 +18,15 @@
  *           sentence ("Pass me the ___", etc). The trial's task context
  *           changes from single-word retrieval to lexical retrieval inside
  *           a syntactic frame.
- *   L8      generalization probe pool — sourced from PROBE_WORDS, which by
- *           design never appears in regular training. Trials are tagged
- *           `isGeneralizationProbe: true` so downstream consumers can
- *           segregate probe results from ordinary mastery stats.
+  *   L8      advanced retrieval review — sourced from PROBE_WORDS. NOTE:
+ *           the current PROBE_WORDS pool overlaps PHOTO_BANK 1:1 by target,
+ *           so this is NOT untrained-probe evidence. Trials are tagged
+ *           `isAdvancedReviewTrial: true`; the legacy `isGeneralizationProbe`
+ *           alias is kept for backward compatibility with consumers that
+ *           segregate these trials from ordinary mastery stats. Once the
+ *           probe bank is made disjoint from the training bank (see
+ *           pr4-probe-bank-cleanup) the L8 tier can be relabeled as a true
+ *           generalization probe and the alias removed.
  *
  * Honest fallbacks: if SUBTLEX-style frequency metadata is missing or the
  * candidate pool is too small for a tier's constraint, the selector returns
