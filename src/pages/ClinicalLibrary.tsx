@@ -28,17 +28,21 @@ import {
 } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 
+// NOTE: `structural` and `design-only` ladders exist in the registry but are
+// intentionally rendered as the neutral generic engine in patient/clinician-
+// facing UI until their content banks and rubrics are clinician-reviewed. Do
+// NOT surface differentiated badges or expanded ladder tables for them here.
 const STATUS_BADGE: Record<LadderStatus, { label: string; className: string }> = {
   full: {
     label: 'Full L1–L8 ladder',
     className: 'bg-primary/15 text-primary border-primary/30',
   },
   structural: {
-    label: 'Structural ladder · thin upper tiers',
-    className: 'bg-primary/10 text-primary border-primary/20',
+    label: 'Generic 1–10 engine',
+    className: 'bg-muted text-muted-foreground border-border',
   },
   'design-only': {
-    label: 'Planned ladder · runtime on generic engine',
+    label: 'Generic 1–10 engine',
     className: 'bg-muted text-muted-foreground border-border',
   },
   'telemetry-only': {
