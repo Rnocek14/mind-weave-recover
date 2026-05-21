@@ -168,6 +168,34 @@ export function evidenceMetForMinimalPairsLevel(
 }
 
 /**
+ * Cue-dependency gate (PR3). For Minimal Pairs the "cue" is patient-driven
+ * audio replays: a trial that needed ≥1 replay = `after_replay` support, a
+ * trial that succeeded `first_listen` = independent. When the level's
+ * target is `first_listen` and the patient leans on replays for more than
+ * this fraction of trials, a pending level-up is held even though raw
+ * accuracy passes. Clinically motivated calibration default — mirrors the
+ * 0.5 in-game adaptive guard, not an evidence-derived constant.
+ */
+export const MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD = 0.5;
+
+export function cueDependencyForMinimalPairsSession(
+  trials: Array<{ support: SupportLevel }>,
+  level: number,
+): number {
+  if (trials.length === 0) return 0;
+  const scaffolded = trials.filter((t) => !isOnTargetMinimalPairsTrial(t, level)).length;
+  return scaffolded / trials.length;
+}
+
+export function isMinimalPairsCueDependencyBlocking(
+  trials: Array<{ support: SupportLevel }>,
+  level: number,
+  threshold = MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
+): boolean {
+  return cueDependencyForMinimalPairsSession(trials, level) > threshold;
+}
+
+/**
  * Level-aware progress delta. Defaults to the level-specific `trialWeight`
  * so cadence matches PhotoNaming + FixSentence. Callers may still pass an
  * explicit override for tests or simulation.

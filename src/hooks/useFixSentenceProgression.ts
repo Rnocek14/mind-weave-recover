@@ -25,8 +25,11 @@ import {
 } from '@/lib/progression/clinicalProgression';
 import {
   calculateFixSentenceProgressDelta,
+  cueDependencyForFixSentenceSession,
   evidenceMetForFixSentenceLevel,
+  FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
   getFixSentenceLevelSpec,
+  isFixSentenceCueDependencyBlocking,
 } from '@/lib/progression/fixSentenceLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
@@ -126,8 +129,16 @@ export function useFixSentenceProgression({
 
       const level = prev.currentLevel;
       const levelSpec = getFixSentenceLevelSpec(level);
-      const evidenceMet = evidenceMetForFixSentenceLevel(trials, level);
+      const rawEvidenceMet = evidenceMetForFixSentenceLevel(trials, level);
       const progressDelta = calculateFixSentenceProgressDelta(trials, level);
+
+      // PR3 — Cue-dependency gate. Session is judged scaffold-reliant if
+      // > FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD of trials landed below
+      // the level's target support tier. When blocking, evidence is held
+      // even though accuracy passes — patient must repeat with less help.
+      const cueDependency = cueDependencyForFixSentenceSession(trials, level);
+      const cueDependencyBlocking = isFixSentenceCueDependencyBlocking(trials, level);
+      const evidenceMet = rawEvidenceMet && !cueDependencyBlocking;
 
       // Step 2: longitudinal mastery confidence gate (medium+ required to
       // unlock level-up). Undefined → backward-compatible no-op.
@@ -161,6 +172,10 @@ export function useFixSentenceProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          rawEvidenceMet,
+          cueDependency: Number(cueDependency.toFixed(2)),
+          cueDependencyBlocking,
+          cueDependencyThreshold: FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
           masteryGate: { confidence: gate.confidence, bySkill: gate.bySkill },
           prev: {
             level: prev.currentLevel,
@@ -189,6 +204,9 @@ export function useFixSentenceProgression({
         next: { level: next.currentLevel, progressPct: next.progressPct },
         leveledUp: next.currentLevel > prev.currentLevel,
         evidenceMet,
+        rawEvidenceMet,
+        cueDependency,
+        cueDependencyBlocking,
         progressDelta,
       };
       return { ...result, snapshot };

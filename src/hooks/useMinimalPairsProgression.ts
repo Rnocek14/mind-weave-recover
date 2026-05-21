@@ -26,8 +26,11 @@ import {
 } from '@/lib/progression/clinicalProgression';
 import {
   calculateMinimalPairsProgressDelta,
+  cueDependencyForMinimalPairsSession,
   evidenceMetForMinimalPairsLevel,
   getMinimalPairsLevelSpec,
+  isMinimalPairsCueDependencyBlocking,
+  MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
 } from '@/lib/progression/minimalPairsLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
@@ -114,8 +117,16 @@ export function useMinimalPairsProgression({
 
       const level = prev.currentLevel;
       const levelSpec = getMinimalPairsLevelSpec(level);
-      const evidenceMet = evidenceMetForMinimalPairsLevel(trials, level);
+      const rawEvidenceMet = evidenceMetForMinimalPairsLevel(trials, level);
       const progressDelta = calculateMinimalPairsProgressDelta(trials, level);
+
+      // PR3 — Cue-dependency gate. "Cue" here = patient-driven audio replay.
+      // When the level's target is `first_listen` and the patient leans on
+      // replays for > MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD of the
+      // session, hold the level even when accuracy passes.
+      const cueDependency = cueDependencyForMinimalPairsSession(trials, level);
+      const cueDependencyBlocking = isMinimalPairsCueDependencyBlocking(trials, level);
+      const evidenceMet = rawEvidenceMet && !cueDependencyBlocking;
 
       const gate = await readMasteryGate({
         profileId,
@@ -149,6 +160,10 @@ export function useMinimalPairsProgression({
           },
           progressDelta: Number(progressDelta.toFixed(3)),
           evidenceMet,
+          rawEvidenceMet,
+          cueDependency: Number(cueDependency.toFixed(2)),
+          cueDependencyBlocking,
+          cueDependencyThreshold: MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
           prev: {
             level: prev.currentLevel,
             progressPct: prev.progressPct,
@@ -190,6 +205,9 @@ export function useMinimalPairsProgression({
         next: { level: next.currentLevel, progressPct: next.progressPct },
         leveledUp: next.currentLevel > prev.currentLevel,
         evidenceMet,
+        rawEvidenceMet,
+        cueDependency,
+        cueDependencyBlocking,
         progressDelta,
       };
       return { ...result, snapshot };
