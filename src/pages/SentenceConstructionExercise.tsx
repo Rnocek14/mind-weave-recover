@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { SentenceConstructionGame } from "@/components/SentenceConstructionGame"
 import { useAuth } from "@/hooks/useAuth";
 import { useExerciseConfig } from "@/hooks/useExerciseConfig";
 import { useExerciseGating } from "@/hooks/useExerciseGating";
-import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -18,6 +17,12 @@ import { toast } from "sonner";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useDynamicTier } from "@/hooks/useDynamicTier";
 import { useProfile } from "@/hooks/useProfile";
+import { useTrialSubmission } from "@/hooks/useTrialSubmission";
+import {
+  useSentenceConstructionProgression,
+  mapSentenceConstructionSupport,
+} from "@/hooks/useSentenceConstructionProgression";
+import { resolveEffectiveSentenceConstructionInitialDifficulty } from "@/lib/progression/sentenceConstructionDifficultyBridge";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
