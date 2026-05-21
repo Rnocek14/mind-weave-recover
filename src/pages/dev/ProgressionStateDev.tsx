@@ -169,6 +169,73 @@ export default function ProgressionStateDev() {
           </CardContent>
         </Card>
       )}
+
+      <SelectorDiagnosticsCard />
     </div>
+  );
+}
+
+function SelectorDiagnosticsCard() {
+  const diag = readSelectorDiagnostics() as null | {
+    at: string;
+    clinicalLevel: number;
+    tier: string;
+    reason: string;
+    fallback: null | { reason: string; detail: string; skipped: boolean };
+    diagnostics: { totalCandidates: number; poolSize: number; distinctCategories: number; frequencyBand?: [number, number] };
+    sampleTargets: string[];
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Photo Naming — last content-selector decision (PR4)</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-2">
+        {!diag && (
+          <p className="text-muted-foreground">
+            No selector decision recorded in this tab yet. Start a Photo Naming session at L4+ to populate.
+          </p>
+        )}
+        {diag && (
+          <>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Badge>{diag.tier}</Badge>
+              <Badge variant="secondary">{diag.reason}</Badge>
+              <span className="text-xs text-muted-foreground">
+                clinical L{diag.clinicalLevel} · {new Date(diag.at).toLocaleString()}
+              </span>
+            </div>
+            <div className="text-xs grid grid-cols-2 gap-x-4 gap-y-1">
+              <span>Pool size:</span><span className="font-mono">{diag.diagnostics.poolSize}</span>
+              <span>Distinct categories:</span><span className="font-mono">{diag.diagnostics.distinctCategories}</span>
+              {diag.diagnostics.frequencyBand && (
+                <>
+                  <span>Frequency band:</span>
+                  <span className="font-mono">
+                    [{diag.diagnostics.frequencyBand[0]}, {diag.diagnostics.frequencyBand[1]}]
+                  </span>
+                </>
+              )}
+            </div>
+            {diag.fallback && (
+              <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
+                <div className="font-medium">Fallback: {diag.fallback.reason}</div>
+                <div className="text-muted-foreground">{diag.fallback.detail}</div>
+                <div className="mt-1">
+                  Skipped tier:{' '}
+                  <Badge variant={diag.fallback.skipped ? 'destructive' : 'secondary'}>
+                    {String(diag.fallback.skipped)}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            <div className="text-xs">
+              <span className="text-muted-foreground">Sample targets: </span>
+              <span className="font-mono">{diag.sampleTargets.join(', ') || '—'}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
