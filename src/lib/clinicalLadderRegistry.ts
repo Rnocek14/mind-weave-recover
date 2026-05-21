@@ -208,6 +208,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Names objects from photos with fading support.',
     status: 'full',
+    track: 'expressive',
     rows: rowsFromSpec('photo-naming', PHOTO_NAMING_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/photo-naming.md',
@@ -219,6 +220,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Detects and repairs errors in structured sentences.',
     status: 'full',
+    track: 'expressive',
     rows: rowsFromSpec('fix-sentence', FIX_SENTENCE_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/fix-sentence.md',
@@ -230,6 +232,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Discriminates similar-sounding word pairs by ear.',
     status: 'full',
+    track: 'receptive',
     rows: rowsFromSpec('minimal-pairs', MINIMAL_PAIRS_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/minimal-pairs.md',
@@ -243,6 +246,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'comprehension',
     purpose: 'Matches words to meanings; semantic recognition.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('meaning-match', MEANING_MATCH_LEVELS),
     telemetryNote: 'recognition_only (baseline) → semantic_cue (after hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred.',
     evidenceBasis: {
@@ -255,6 +259,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Names a target from two semantic clues.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('two-clues', TWO_CLUES_LEVELS),
     telemetryNote: 'independent (solved cold) → semantic_cue (after anchor)',
     evidenceBasis: {
@@ -267,6 +272,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Produces features so the system guesses the word.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('describe-guess', Object.values(DESCRIBE_GUESS_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine + legacy cueLevel 0–3 mapping. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -279,6 +285,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Generates semantic features for a target word (SFA).',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('semantic-features', SEMANTIC_FEATURES_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/semantic-features.md',
@@ -293,6 +300,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'comprehension',
     purpose: 'Inferential reasoning from contextual clues.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('detective-mind', DETECTIVE_MIND_LEVELS),
     telemetryNote: 'recognition_only (baseline) → semantic_cue (after highlight hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MeaningMatch / MinimalPairs.',
     evidenceBasis: {
@@ -305,6 +313,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Orders and executes multi-step plans.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('multi-step-plan', MULTI_STEP_PLANNING_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on accuracy + sequence-coverage growth at progressively harder content tiers. Expressive discourse — routed into expressive mastery.',
     evidenceBasis: {
@@ -326,12 +335,14 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     // working-memory mastery track or a linguistic content overlay —
     // both deferred.
     status: 'generic',
+    track: 'non-linguistic',
   },
   'abstract-compare': {
     slug: 'abstract-compare',
     axis: 'executive',
     purpose: 'Compares abstract concepts (similarities/differences).',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('abstract-compare', Object.values(ABSTRACT_COMPARE_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -344,6 +355,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Builds grammatically valid sentences from constraints.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('sentence-construction', SENTENCE_CONSTRUCTION_LEVELS),
     telemetryNote: 'highlight_plus_choice (model heard) → choice_based (tiles only). Expressive production — routed into expressive mastery.',
     evidenceBasis: {
@@ -356,6 +368,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Manipulates phonemes within words.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('phonological-awareness', PHONOLOGICAL_AWARENESS_LEVELS),
     telemetryNote: 'recognition_only on every trial — game UI has no in-trial scaffold. Receptive metalinguistic-judgment task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MinimalPairs / MeaningMatch / DetectiveMind.',
     evidenceBasis: {
@@ -368,6 +381,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Names targets while holding a secondary auditory load.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('dual-load-naming', DUAL_LOAD_NAMING_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on combined naming+recall accuracy at progressively harder content tiers. Expressive confrontation naming under WM load — routed into expressive mastery.',
     evidenceBasis: {
@@ -380,6 +394,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Retells a heard narrative with key elements intact.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('narrative-retell', Object.values(NARRATIVE_RETELL_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -392,6 +407,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Generates category exemplars under time pressure.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('category-fluency', CATEGORY_FLUENCY_LEVELS),
     telemetryNote: 'independent (no sub-prompt) → semantic_cue (sub-prompt shown). One round = one progression trial.',
     evidenceBasis: {
@@ -404,6 +420,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Continues an open-ended thought spontaneously.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('thought-continuation', Object.values(THOUGHT_CONTINUATION_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -416,6 +433,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Scaffolded conversational practice with SCA-style coaching.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('conversation-coach', Object.values(CONVERSATION_COACH_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides Smart Coach / discourse adaptation engine with existing strategy switching + SCA cueing. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -428,6 +446,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Ecologically valid dyadic conversation with a partner persona.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('conversation-partner', Object.values(CONVERSATION_PARTNER_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides conversation-partner agent loop with existing strategy switching. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -440,6 +459,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Generates synonyms for a target word.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('synonym-generator', SYNONYM_GENERATOR_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on match-count growth at progressively harder content tiers. Expressive divergent retrieval — routed into expressive mastery.',
     evidenceBasis: {
