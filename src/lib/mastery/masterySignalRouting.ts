@@ -82,6 +82,12 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // Expressive divergent lexical-semantic retrieval — open spoken (or
   // typed-fallback) production with no in-trial scaffold control.
   'synonym_generator',
+  // dual_load_naming (Wave 3): DualLoadNamingExercise emits
+  // trialMode='production' on every submitTrial; DualLoadNamingGame's
+  // useInGameAdaptation is autoLog:false. Expressive confrontation
+  // naming under verbal WM load — open spoken production with no
+  // in-trial scaffold control.
+  'dual_load_naming',
   // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
   // emits trialMode:'recognition' which routes to `excluded`. Adding it
   // here would conflate axes; receptive mastery track is deferred. Same
@@ -90,6 +96,10 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // reading-comprehension multiple-choice. Emits trialMode:'recognition'.
   // Same receptive-safe precedent as meaning_match / minimal_pairs;
   // receptive mastery track deferred.)
+  // INTENTIONALLY NOT ADOPTED: phonological_awareness (Wave 3 — auditory
+  // metalinguistic two-alternative judgment, no spoken production. Emits
+  // trialMode:'recognition'. Same receptive-safe precedent as
+  // minimal_pairs / meaning_match / detective_mind.)
   // INTENTIONALLY NOT ADOPTED: pattern_match (Wave 2 — non-linguistic
   // visual / working-memory task. Shapes × colors with zero linguistic
   // content. Stays generic; would contaminate expressive mastery with
