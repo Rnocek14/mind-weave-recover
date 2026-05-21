@@ -372,7 +372,7 @@ export const usePhotoNamingGame = (
     }
     
     return { lanes, firstTrial, firstChoices, firstLane: fromLane };
-  }, [customTrials, totalTrials, focusPhonemes, focusWords, buildRecentByTier, recency]);
+  }, [customTrials, totalTrials, focusPhonemes, focusWords, buildRecentByTier, recency, options?.clinicalLevel]);
 
   // ==========================================================================
   // Initialize on mount - uses ACTUAL firstLane from buildSessionPool
