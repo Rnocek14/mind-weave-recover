@@ -1,8 +1,15 @@
 /**
- * Dual-Load Naming Exercise Page — wrapper with session lifecycle.
- * Now consumes shared adaptation contract.
+ * Dual-Load Naming Exercise Page
+ *
+ * Wave 3 (Phase 2): migrated off raw useExerciseTelemetry to the unified
+ * useTrialSubmission pipeline. Every submitTrial call emits
+ * `trialMode: 'production'` (expressive confrontation naming under WM
+ * load) and the slug `dual_load_naming` is in ADOPTED_TRIAL_MODE_SLUGS,
+ * so longitudinal mastery now flows. Progression is wired via
+ * useDualLoadNamingProgression (L1–L8 ladder) with a load gate so the
+ * engine starts at the correct clinical floor.
  */
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DualLoadNamingGame } from '@/components/DualLoadNamingGame';
 import { DualLoadTrialResult } from '@/hooks/useDualLoadNamingGame';
@@ -10,18 +17,22 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { tierToLevel } from '@/lib/gameLevels';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import {
+  useDualLoadNamingProgression,
+  mapDualLoadNamingSupport,
+} from '@/hooks/useDualLoadNamingProgression';
+import { resolveEffectiveDualLoadNamingInitialDifficulty } from '@/lib/progression/dualLoadNamingDifficultyBridge';
 
 const EXERCISE_SLUG = 'dual_load_naming';
 
@@ -32,16 +43,21 @@ export default function DualLoadNamingExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<number | null>(null);
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  const trialIndexRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    return () => { if (dispatchTimeoutRef.current) clearTimeout(dispatchTimeoutRef.current); };
+  }, []);
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const trialLimit = Number(location.state?.trialLimit) || 2;
 
-  // Shared adaptation contract
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations: location.state?.adaptations,
@@ -50,19 +66,41 @@ export default function DualLoadNamingExercise() {
   });
 
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
-    phonemeSensitive: true,   // naming task benefits from phoneme targeting
+    phonemeSensitive: true,
     cueSensitive: false,
   });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
-  // Per-trial dynamic tier controller (1..3)
+  // Wave 3: Clinical Progression v1 — dual-load-naming L1–L8 ladder.
+  // Persistent Clinical Level supplies a FLOOR for the in-session engine
+  // tier (1–10); session adaptation can still escalate above the floor.
+  const progression = useDualLoadNamingProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveDualLoadNamingInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] DualLoadNaming scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const difficultyLevel = bridge.effective;
+
+  // Per-trial dynamic tier controller (1..3). Seeded from the clinical floor
+  // mapped through engine level → content tier (1..3).
+  const initialTierFromFloor = difficultyLevel <= 3 ? 1 : difficultyLevel <= 7 ? 2 : 3;
   const dynamicTier = useDynamicTier({
     exerciseSlug: EXERCISE_SLUG,
     sessionId: activeSessionId,
     userId: user?.id,
     profileId: activeProfile?.id,
-    initialTier: adaptation.difficultyTier,
+    initialTier: initialTierFromFloor,
     minTier: 1,
     maxTier: 3,
     targetSuccessRate: 0.75,
@@ -77,14 +115,24 @@ export default function DualLoadNamingExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
+  // Wave 3: unified trial submission (expressive axis). DualLoadNamingGame
+  // is autoLog:false; this page owns the writer and emits trialMode:'production'
+  // so the adopted slug routes mastery correctly.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'executive_function', fromLesson });
 
-  const handleTrialComplete = useCallback((result: DualLoadTrialResult) => {
+  const handleTrialComplete = useCallback(async (result: DualLoadTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
     trialsRef.current += 1;
+    trialIndexRef.current += 1;
 
     pivot.recordTrialResult({
       wasCorrect: result.recallAccuracy >= 0.33,
@@ -104,9 +152,26 @@ export default function DualLoadNamingExercise() {
       else errorType = 'partial_recall';
     }
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.durationMs,
+    // Combined accuracy used as the clinical correctness signal for the
+    // expressive mastery scalar. Recall ≥ 0.33 means the patient held the
+    // memory list across the naming load — the minimum criterion for the
+    // dual-task to count as "passed".
+    const combinedAccuracy = (result.namingAccuracy + result.recallAccuracy) / 2;
+
+    await submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: difficultyLevel,
+      stimulusId: result.setId ?? `dln_trial_${trialIndexRef.current}`,
+      expectedResponse: null,
+      userResponse: result.recalledWords?.join(', ') ?? null,
+      isCorrect,
+      accuracyScore: combinedAccuracy,
+      cueLevel: 0,
+      supportUsed: mapDualLoadNamingSupport(),
+      latencyMs: result.durationMs,
+      trialMode: 'production',
       errorType,
       taskParameters: {
         set_id: result.setId,
@@ -115,30 +180,33 @@ export default function DualLoadNamingExercise() {
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
-        // Universal 1–10 GameLevel for analytics + UI consistency
         game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
+        pivot_pending: pivot.hasPending,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
-      adaptationsActive: dynamicTier.getAdaptationsActive(),
-      trialOutputs: {
-        depth: result.depthTelemetry,
-      },
     });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier]);
 
-  const handleGameComplete = useCallback((results: DualLoadTrialResult[]) => {
+    if (pivot.shouldStepDown) { console.log('[DualLoad] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
+  }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
+
+  const handleGameComplete = useCallback(async (results: DualLoadTrialResult[]) => {
     setCompleted(true);
+    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
+    // progression ladder + mastery shadow + drains adaptation rows.
+    await commitSession();
     completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
+      dispatchTimeoutRef.current = window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
 
-  const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
+  const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson, returnTo]);
   const handleContinue = useCallback(() => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
@@ -168,8 +236,20 @@ export default function DualLoadNamingExercise() {
             <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great work under cognitive load!'}</p>
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
+        ) : progression.loaded ? (
+          <DualLoadNamingGame
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+            roundCount={trialLimit}
+            tier={dynamicTier.currentTier}
+            focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            userId={user?.id}
+            sessionId={activeSessionId}
+          />
         ) : (
-          <DualLoadNamingGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined} />
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading your progression…
+          </div>
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
