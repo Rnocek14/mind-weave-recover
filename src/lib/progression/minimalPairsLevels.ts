@@ -67,6 +67,23 @@ export interface MinimalPairsLevelSpec {
    * (~3 sessions); later levels demand more evidence.
    */
   trialWeight: number;
+  /**
+   * PR5 (Phase 2.5): per-level content-selection contract. Pure metadata —
+   * the runtime selector lives in `minimalPairsContentSelector.ts`. Lets
+   * dev tools and tests describe what content/condition each level uses,
+   * separately from the evidence/accuracy rule.
+   */
+  contentSelector?: {
+    tierKey:
+      | 'baseline'
+      | 'place_contrast'
+      | 'manner_contrast'
+      | 'voicing_contrast'
+      | 'degraded_signal'
+      | 'triplet_rt';
+    description: string;
+    implemented: boolean;
+  };
 }
 
 export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
@@ -78,6 +95,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
     trialWeight: 0.4,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content.', implemented: true },
   },
   2: {
     level: 2,
@@ -87,6 +105,7 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAccuracy: 0.75,
     readiness: 'ready',
     trialWeight: 0.55,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content.', implemented: true },
   },
   3: {
     level: 3,
@@ -96,51 +115,65 @@ export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
     trialWeight: 0.75,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content.', implemented: true },
   },
   4: {
     level: 4,
-    description: 'Single-feature contrasts — first listen target',
+    description: 'Place-of-articulation contrasts, quiet condition',
     targetSupport: 'first_listen',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
     trialWeight: 1.0,
+    contentSelector: { tierKey: 'place_contrast', description: 'Place-of-articulation contrasts only, quiet listening.', implemented: true },
   },
   5: {
     level: 5,
-    description: 'Single-feature contrasts — higher accuracy bar',
+    description: 'Manner-of-articulation contrasts, quiet condition',
     targetSupport: 'first_listen',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.75,
     readiness: 'thin',
     trialWeight: 1.25,
+    contentSelector: { tierKey: 'manner_contrast', description: 'Manner-class contrasts (stop/fricative, nasal, affricate, liquid).', implemented: true },
   },
   6: {
     level: 6,
-    description: 'Single-feature contrasts — broadened phoneme coverage',
+    description: 'Voicing contrasts, higher acoustic confusability',
     targetSupport: 'first_listen',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     readiness: 'thin',
     trialWeight: 1.7,
+    contentSelector: { tierKey: 'voicing_contrast', description: 'Voicing contrasts (initial + final position).', implemented: true },
   },
   7: {
     level: 7,
-    description: 'Single-feature contrasts — sustained performance',
+    description: 'Discrimination under degraded signal (noise / low-pass)',
     targetSupport: 'first_listen',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.8,
-    readiness: 'thin',
+    readiness: 'aspirational',
     trialWeight: 2.0,
+    contentSelector: {
+      tierKey: 'degraded_signal',
+      description: 'Requires SNR / low-pass injection in audio pipeline — NOT yet implemented; selector skips honestly.',
+      implemented: false,
+    },
   },
   8: {
     level: 8,
-    description: 'Fast discrimination under load (Phase 2 — aspirational)',
+    description: 'Triplet (3-AFC) discrimination + reaction-time band',
     targetSupport: 'first_listen',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
     readiness: 'aspirational',
     trialWeight: 2.5,
+    contentSelector: {
+      tierKey: 'triplet_rt',
+      description: 'Requires triplet trial type + RT-band scoring — NOT yet implemented; selector skips honestly.',
+      implemented: false,
+    },
   },
 };
 

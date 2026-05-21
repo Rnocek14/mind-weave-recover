@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 import { toProgressionSlug } from '@/lib/exerciseSlugNormalizer';
 import { readSelectorDiagnostics } from '@/lib/progression/photoNamingContentSelector';
+import { readMinimalPairsSelectorDiagnostics } from '@/lib/progression/minimalPairsContentSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -171,7 +172,80 @@ export default function ProgressionStateDev() {
       )}
 
       <SelectorDiagnosticsCard />
+      <MinimalPairsSelectorDiagnosticsCard />
     </div>
+  );
+}
+
+function MinimalPairsSelectorDiagnosticsCard() {
+  const diag = readMinimalPairsSelectorDiagnostics() as null | {
+    at: string;
+    clinicalLevel: number;
+    tier: string;
+    reason: string;
+    fallback: null | { reason: string; detail: string; skipped: boolean };
+    diagnostics: {
+      totalCandidates: number;
+      poolSize: number;
+      contrastClass?: string;
+      signalCondition: string;
+      classCounts?: Record<string, number>;
+    };
+    samplePairs: string[];
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Minimal Pairs — last content-selector decision (PR5)</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-2">
+        {!diag && (
+          <p className="text-muted-foreground">
+            No selector decision recorded in this tab yet. Start a Minimal Pairs session at L4+ to populate.
+          </p>
+        )}
+        {diag && (
+          <>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Badge>{diag.tier}</Badge>
+              <Badge variant="secondary">{diag.reason}</Badge>
+              {diag.diagnostics.contrastClass && (
+                <Badge variant="outline">class: {diag.diagnostics.contrastClass}</Badge>
+              )}
+              <Badge variant="outline">signal: {diag.diagnostics.signalCondition}</Badge>
+              <span className="text-xs text-muted-foreground">
+                clinical L{diag.clinicalLevel} · {new Date(diag.at).toLocaleString()}
+              </span>
+            </div>
+            <div className="text-xs grid grid-cols-2 gap-x-4 gap-y-1">
+              <span>Pool size:</span><span className="font-mono">{diag.diagnostics.poolSize}</span>
+              <span>Total candidates:</span><span className="font-mono">{diag.diagnostics.totalCandidates}</span>
+            </div>
+            {diag.diagnostics.classCounts && (
+              <div className="text-xs text-muted-foreground">
+                Class counts: {Object.entries(diag.diagnostics.classCounts).map(([k, v]) => `${k}=${v}`).join(' · ')}
+              </div>
+            )}
+            {diag.fallback && (
+              <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
+                <div className="font-medium">Fallback: {diag.fallback.reason}</div>
+                <div className="text-muted-foreground">{diag.fallback.detail}</div>
+                <div className="mt-1">
+                  Skipped tier:{' '}
+                  <Badge variant={diag.fallback.skipped ? 'destructive' : 'secondary'}>
+                    {String(diag.fallback.skipped)}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            <div className="text-xs">
+              <span className="text-muted-foreground">Sample pairs: </span>
+              <span className="font-mono">{diag.samplePairs.join(', ') || '—'}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
