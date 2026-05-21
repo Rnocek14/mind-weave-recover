@@ -150,7 +150,13 @@ export function useFixSentenceProgression({
 
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        { trials, evidenceMet, progressDelta, masteryConfidence: gate.confidence },
+        {
+          trials,
+          evidenceMet,
+          progressDelta,
+          masteryConfidence: gate.confidence,
+          maxImplementedLevel: highestImplementedFixSentenceLevel(),
+        },
       );
 
       if (import.meta.env.DEV) {
