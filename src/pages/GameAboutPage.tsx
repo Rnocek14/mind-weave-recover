@@ -23,6 +23,7 @@ import {
   type RungReadiness,
 } from '@/lib/leveling/clinicalRungs';
 import { CLINICAL_DIMENSIONS, type ClinicalDimensionId } from '@/lib/leveling/clinicalDimensions';
+import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 
 function readinessBadge(r: RungReadiness) {
   const map: Record<RungReadiness, { label: string; className: string }> = {
