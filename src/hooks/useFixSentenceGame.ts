@@ -11,6 +11,10 @@ import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
+import {
+  selectFixSentencePool,
+  writeFixSentenceSelectorDiagnostics,
+} from '@/lib/progression/fixSentenceContentSelector';
 
 export interface FixSentenceTrialResult {
   trialId: string;
@@ -31,6 +35,13 @@ export interface FixSentenceTrialResult {
 interface UseFixSentenceGameOptions {
   trialCount?: number;
   difficulty?: 1 | 2 | 3;
+  /**
+   * Clinical level (1–8). When ≥ 4 the PR6 content selector is applied to
+   * filter the trial pool. When the selector falls back (tier not
+   * implemented), the legacy difficulty-based bank pick is used and a
+   * diagnostic is recorded for /dev/progression-state.
+   */
+  clinicalLevel?: number;
   focusPhonemes?: string[];
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
   onGameComplete?: (results: FixSentenceTrialResult[]) => void;
