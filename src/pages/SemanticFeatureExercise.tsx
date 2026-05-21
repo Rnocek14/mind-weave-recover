@@ -171,23 +171,78 @@ export default function SemanticFeatureExercise() {
     }
   };
 
+  // Unified trial submission (lexical axis). progression:null — no per-game
+  // progression hook yet (Phase 3 follow-up). adaptation_trial_logs stay
+  // auto-wired inside SemanticFeatureGame's useInGameAdaptation.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    exerciseSlug: 'semantic_features',
+    progression: null,
+  });
+
+  const handleTrialComplete = useCallback((data: any) => {
+    if (!sessionId) return;
+    trialIndexRef.current += 1;
+    const cueLevel = typeof data?.cueLevel === 'number' ? data.cueLevel : 0;
+    const isCorrect = !!data?.correct;
+    pivot.recordTrialResult({
+      wasCorrect: isCorrect,
+      reactionTimeMs: data?.reactionTime ?? 0,
+      cueLevel,
+    });
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId,
+      gameId: 'semantic_features',
+      level: data?.difficulty ?? adaptation.difficultyTier ?? 1,
+      stimulusId: data?.word ?? `sfa_trial_${trialIndexRef.current}`,
+      expectedResponse: data?.word ?? null,
+      userResponse: null,
+      isCorrect,
+      accuracyScore: isCorrect ? 1 : (data?.retrievalCorrect ? 0.5 : 0),
+      cueLevel,
+      supportUsed: sfaCueLevelToSupport(cueLevel),
+      latencyMs: data?.reactionTime ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : 'semantic_error',
+      taskParameters: {
+        word: data?.word,
+        difficulty: data?.difficulty,
+        features_correct: data?.featuresCorrect,
+        features_missed: data?.featuresMissed,
+        features_incorrect: data?.featuresIncorrect,
+        retrieval_correct: data?.retrievalCorrect,
+        feature_breakdown: data?.featureBreakdown,
+        adaptations_active: data?.adaptationsActive,
+        ...adaptationTelemetry,
+      },
+    });
+    if (pivot.shouldStepDown) pivot.acknowledge();
+  }, [sessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
+
   const handleGameComplete = async (finalScore: number, totalTrials: number) => {
     if (!sessionId || !user?.id) return;
-    
+
+    // Unified commit before session-end housekeeping — flushes mastery
+    // shadow + drains any queued adaptation rows.
+    await commitSession();
+
     const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
     const accuracy = (finalScore / totalTrials) * 100;
-    
+
     await endSession(sessionId, {
       durationSec,
       scores: { 'semantic-features': accuracy },
       reps: totalTrials,
     });
-    
+
     toast({
       title: 'Session saved!',
       description: `You completed ${totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
     });
-    
+
     if (fromLesson) {
       window.dispatchEvent(new CustomEvent('exercise-complete'));
       navigate(returnTo, { state: { resuming: true } });
@@ -195,6 +250,7 @@ export default function SemanticFeatureExercise() {
       setTimeout(() => navigate('/today'), 2000);
     }
   };
+
 
   // Start session on mount
   if (!sessionId && user?.id) {
