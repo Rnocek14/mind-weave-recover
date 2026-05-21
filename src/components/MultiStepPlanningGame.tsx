@@ -69,6 +69,7 @@ export function MultiStepPlanningGame({
     sessionId: sessionId ?? null,
     initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
     bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    autoLog: false, // Wave 2: MultiStepPlanExercise owns the unified submitTrial pathway.
     enableDifficultyToasts: false,
     enableAutoHints: false,
     getCueDependencyScore: () => {
