@@ -46,16 +46,17 @@ describe('routeTrialMode (adopted slug = photo-naming)', () => {
 
 describe('routeTrialMode (non-adopted slugs)', () => {
   it('non-adopted slugs are skipped regardless of trial_mode (Phase 1+4 tightening)', () => {
-    expect(routeTrialMode('two-clues', null)).toBe('skipped_unknown');
-    expect(routeTrialMode('two-clues', 'recognition')).toBe('skipped_unknown');
+    expect(routeTrialMode('multi-step-plan', null)).toBe('skipped_unknown');
+    expect(routeTrialMode('multi-step-plan', 'recognition')).toBe('skipped_unknown');
     expect(routeTrialMode('synonym-generator', undefined)).toBe('skipped_unknown');
-    expect(routeTrialMode('two_clues', 'production')).toBe('skipped_unknown');
+    expect(routeTrialMode('pattern_match', 'production')).toBe('skipped_unknown');
   });
   it('isAdoptedForTrialMode reflects the adoption set (canonical underscore)', () => {
     expect(isAdoptedForTrialMode('photo_naming')).toBe(true);
     expect(isAdoptedForTrialMode('photo-naming')).toBe(true); // normalized
     expect(isAdoptedForTrialMode('fix_sentence')).toBe(true);
-    expect(isAdoptedForTrialMode('two_clues')).toBe(false);
+    expect(isAdoptedForTrialMode('sentence_construction')).toBe(true);
+    expect(isAdoptedForTrialMode('multi_step_plan')).toBe(false);
   });
 });
 
