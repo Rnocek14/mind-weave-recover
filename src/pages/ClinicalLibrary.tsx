@@ -63,6 +63,10 @@ function formatSupport(support: string): string {
 
 function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
   if (!entry.rows?.length) return null;
+  const showMastery = entry.rows.some(
+    (r) => r.minOnTargetAttempts !== undefined && r.minOnTargetAccuracy !== undefined,
+  );
+  const showReadiness = entry.rows.some((r) => r.readiness);
   return (
     <div className="mt-3 overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-left text-sm">
@@ -71,11 +75,9 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
             <th className="px-3 py-2 font-medium">L</th>
             <th className="px-3 py-2 font-medium">Clinical description</th>
             <th className="px-3 py-2 font-medium">Target support</th>
-            <th className="px-3 py-2 font-medium text-right">Attempts</th>
-            <th className="px-3 py-2 font-medium text-right">Accuracy</th>
-            {entry.rows.some((r) => r.readiness) && (
-              <th className="px-3 py-2 font-medium">Readiness</th>
-            )}
+            {showMastery && <th className="px-3 py-2 font-medium text-right">Attempts</th>}
+            {showMastery && <th className="px-3 py-2 font-medium text-right">Accuracy</th>}
+            {showReadiness && <th className="px-3 py-2 font-medium">Readiness</th>}
           </tr>
         </thead>
         <tbody>
@@ -88,13 +90,19 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
               <td className="px-3 py-2 text-muted-foreground">
                 {formatSupport(row.targetSupport)}
               </td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                ≥ {row.minOnTargetAttempts}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                {Math.round(row.minOnTargetAccuracy * 100)}%
-              </td>
-              {entry.rows!.some((r) => r.readiness) && (
+              {showMastery && (
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                  {row.minOnTargetAttempts !== undefined ? `≥ ${row.minOnTargetAttempts}` : '—'}
+                </td>
+              )}
+              {showMastery && (
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                  {row.minOnTargetAccuracy !== undefined
+                    ? `${Math.round(row.minOnTargetAccuracy * 100)}%`
+                    : '—'}
+                </td>
+              )}
+              {showReadiness && (
                 <td className="px-3 py-2">
                   {row.readiness && (
                     <Badge
@@ -119,7 +127,11 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const title = canonical?.title ?? entry.slug;
   const [open, setOpen] = useState(entry.status === 'full');
   const badge = STATUS_BADGE[entry.status];
-  const hasLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
+  const hasLadder =
+    (entry.status === 'full' ||
+      entry.status === 'structural' ||
+      entry.status === 'design-only') &&
+    (entry.rows?.length ?? 0) > 0;
 
   return (
     <Card className="border-border">
