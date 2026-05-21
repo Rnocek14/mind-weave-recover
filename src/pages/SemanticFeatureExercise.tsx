@@ -241,7 +241,7 @@ export default function SemanticFeatureExercise() {
         clinical_level: progression.startingLevel,
         clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
-    });
+      },
     });
     if (pivot.shouldStepDown) pivot.acknowledge();
   }, [sessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
