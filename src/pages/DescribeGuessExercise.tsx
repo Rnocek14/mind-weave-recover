@@ -129,10 +129,16 @@ export default function DescribeGuessExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Unified trial submission (lexical axis). No per-game progression hook
+  // yet — progression:null keeps the progression buffer + commit flush as
+  // no-ops; exercise_events + mastery shadow still write.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'lexical_retrieval', fromLesson });
 
@@ -175,33 +181,47 @@ export default function DescribeGuessExercise() {
     // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
     // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
     // shadow, and cue-independence analytics see real support usage instead
-    // of "always unaided". Mapping rule lives in deriveCueTelemetry().
+    // of "always unaided".
     const promptCount = result.promptsShown?.length ?? 0;
-    const { cueLevel, cueTypeGiven, cueWasEffective } = deriveCueTelemetry(promptCount, isCorrect);
+    const { cueLevel, cueTypeGiven } = deriveCueTelemetry(promptCount, isCorrect);
+    const supportUsed = cueLevelToLexicalSupport(cueLevel);
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.reactionTimeMs,
-      errorType: isCorrect ? undefined : 'no_guess',
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.difficulty ?? adaptation.difficultyTier ?? 1,
+      stimulusId: result.trialId,
+      expectedResponse: result.target ?? null,
+      userResponse: null,
+      isCorrect,
+      // Word win is the harder of the two; weight accordingly so mastery
+      // shadow / adaptation can distinguish full retrieval from
+      // partial-meaning success.
+      accuracyScore: result.wordWin ? 1 : (result.meaningWin ? 0.5 : 0),
       cueLevel,
-      cueTypeGiven,
-      cueWasEffective: cueLevel > 0 ? isCorrect : null,
+      supportUsed,
+      latencyMs: result.reactionTimeMs ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : 'no_guess',
       taskParameters: {
         trial_id: result.trialId, target: result.target,
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
-        cue_level: cueLevel, cue_type_given: cueTypeGiven,
+        cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
         pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
     });
     if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
-  const handleGameComplete = useCallback((results: DescribeGuessTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    await commitSession();
     setCompleted(true);
     completeSession();
 
@@ -210,7 +230,8 @@ export default function DescribeGuessExercise() {
         resumeLessonFlow(results);
       }, 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow]);
+  }, [fromLesson, completeSession, commitSession, resumeLessonFlow]);
+
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
