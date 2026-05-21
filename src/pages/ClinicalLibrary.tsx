@@ -33,6 +33,14 @@ const STATUS_BADGE: Record<LadderStatus, { label: string; className: string }> =
     label: 'Full L1–L8 ladder',
     className: 'bg-primary/15 text-primary border-primary/30',
   },
+  structural: {
+    label: 'Structural ladder · thin upper tiers',
+    className: 'bg-primary/10 text-primary border-primary/20',
+  },
+  'design-only': {
+    label: 'Planned ladder · runtime on generic engine',
+    className: 'bg-muted text-muted-foreground border-border',
+  },
   'telemetry-only': {
     label: 'Tier-A telemetry · ladder pending',
     className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
