@@ -275,7 +275,7 @@ export const PROBE_WORDS: PhotoTrial[] = [
   }
 ];
 
-export { PROBE_WORDS };
+
 
 /**
  * Determine if it's time to run a generalization probe
