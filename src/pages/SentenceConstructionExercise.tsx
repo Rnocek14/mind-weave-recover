@@ -94,24 +94,55 @@ const SentenceConstructionExercise = () => {
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
   const { activeProfile } = useProfile();
 
-  // Per-trial dynamic tier controller (1..10 — sentence construction has 10 difficulty levels)
+  // Wave 2: Clinical Progression v1 — sentence-construction now has an
+  // L1–L8 structural ladder. Persistent Clinical Level supplies a FLOOR
+  // for the in-session engine tier (1–10); session adaptation can still
+  // escalate above the floor. Mirrors the SemanticFeatures/TwoClues
+  // Wave-1 wiring; load gate mirrors the MinimalPairs gate from Wave 0.
+  const progression = useSentenceConstructionProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveSentenceConstructionInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] SentenceConstruction scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveStartDifficulty = bridge.effective;
+
+  // Per-trial dynamic tier controller (1..10). Seeded by clinical floor.
   const dynamicTier = useDynamicTier({
     exerciseSlug: 'sentence-construction',
     sessionId,
     userId: user?.id,
     profileId: activeProfile?.id,
-    initialTier: adaptation.difficultyTier,
+    initialTier: effectiveStartDifficulty,
     minTier: 1,
     maxTier: 10,
     targetSuccessRate: 0.75,
   });
 
   const level = manualDifficulty ?? dynamicTier.currentTier;
-  
-  const { trialNumber, startTrial, logTrial } = useExerciseTelemetry(
-    sessionId || "temp",
-    "sentence-construction"
-  );
+  const trialIndexRef = useRef(0);
+
+  // Wave 2: unified trial submission (executive axis). Progression is wired
+  // through useSentenceConstructionProgression so every submitTrial buffers a
+  // clinical trial (correct + support), and commitSession flushes the L1–L8
+  // ladder. adaptation_trial_logs come from the page (trialMode='production');
+  // SentenceConstructionGame's useInGameAdaptation is autoLog:false.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId,
+    exerciseSlug: 'sentence_construction',
+    progression,
+  });
 
   useEffect(() => {
     if (user) {
@@ -143,8 +174,10 @@ const SentenceConstructionExercise = () => {
     errorType: string | null;
     grammarFocus: string;
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
+    hintUsed: boolean;
+    difficulty: number;
   }) => {
-    startTrial();
+    trialIndexRef.current += 1;
 
     // Feed adaptive controller (skip when manual override active)
     if (manualDifficulty === null) {
@@ -159,10 +192,10 @@ const SentenceConstructionExercise = () => {
       await trackRound(
         sessionId,
         "sentence-construction",
-        trialNumber,
+        trialIndexRef.current,
         data.correct ? 1 : 0,
         {
-          difficulty: level,
+          difficulty: data.difficulty,
           grammarFocus: data.grammarFocus
         },
         {
@@ -172,16 +205,29 @@ const SentenceConstructionExercise = () => {
       );
     }
 
-    await logTrial({
-      correct: data.correct,
-      reactionTimeMs: data.reactionTime,
-      cueLevel: 0,
-      errorType: data.errorType,
+    await submitTrial({
+      profileId: activeProfile?.id,
+      sessionId,
+      gameId: 'sentence_construction',
+      level: data.difficulty ?? level,
+      stimulusId: `sc_trial_${trialIndexRef.current}_${data.grammarFocus}`,
+      expectedResponse: null,
+      userResponse: null,
+      isCorrect: data.correct,
+      accuracyScore: data.correct ? 1 : 0,
+      cueLevel: data.hintUsed ? 1 : 0,
+      supportUsed: mapSentenceConstructionSupport(data.hintUsed),
+      latencyMs: data.reactionTime,
+      trialMode: 'production',
+      errorType: data.correct ? undefined : (data.errorType ?? 'grammar_error'),
       taskParameters: {
-        difficulty: level,
+        difficulty: data.difficulty,
         grammarFocus: data.grammarFocus,
         trial_source: data.trialSource,
+        hint_used: data.hintUsed,
         manual_override: manualDifficulty !== null,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
       adaptationsActive: dynamicTier.getAdaptationsActive(),
