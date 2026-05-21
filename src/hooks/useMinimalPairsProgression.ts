@@ -29,6 +29,7 @@ import {
   cueDependencyForMinimalPairsSession,
   evidenceMetForMinimalPairsLevel,
   getMinimalPairsLevelSpec,
+  highestImplementedMinimalPairsLevel,
   isMinimalPairsCueDependencyBlocking,
   MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
 } from '@/lib/progression/minimalPairsLevels';
@@ -136,7 +137,13 @@ export function useMinimalPairsProgression({
 
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        { trials, evidenceMet, progressDelta, masteryConfidence: gate.confidence },
+        {
+          trials,
+          evidenceMet,
+          progressDelta,
+          masteryConfidence: gate.confidence,
+          maxImplementedLevel: highestImplementedMinimalPairsLevel(),
+        },
       );
 
       if (import.meta.env.DEV) {

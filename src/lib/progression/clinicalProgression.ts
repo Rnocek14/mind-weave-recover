@@ -203,17 +203,20 @@ export function applySessionToState(
       ? input.progressDelta
       : calculateProgressDelta(input.trials, { trialWeight: input.trialWeight });
 
+  const ceiling =
+    typeof input.maxImplementedLevel === 'number'
+      ? clampLevel(input.maxImplementedLevel)
+      : MAX_LEVEL;
+
   let nextProgress = clampProgress(prev.progressPct + delta);
-  let nextLevel = clampLevel(prev.currentLevel);
-  let nextStable = clampLevel(prev.stableLevel);
+  // Clamp prev.currentLevel to the implemented ceiling so legacy state that
+  // advanced past the implemented tier is silently corrected downward.
+  let nextLevel = Math.min(clampLevel(prev.currentLevel), ceiling);
+  let nextStable = Math.min(clampLevel(prev.stableLevel), ceiling);
   let nextSupport = prev.supportBaseline;
 
   if (nextProgress >= MAX_PROGRESS) {
     const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
-    const ceiling =
-      typeof input.maxImplementedLevel === 'number'
-        ? clampLevel(input.maxImplementedLevel)
-        : MAX_LEVEL;
     const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
     if (input.evidenceMet && masteryOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
