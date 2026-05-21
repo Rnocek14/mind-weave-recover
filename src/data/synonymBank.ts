@@ -49,6 +49,23 @@ const T1: Omit<SynonymPrompt, 'difficulty' | 'id'>[] = [
     acceptedSynonyms: ['poor','terrible','awful','lousy','dreadful','unpleasant','negative','rotten','inferior','subpar'] },
   { word: 'tired', partOfSpeech: 'adjective', meaningNote: 'In need of rest',
     acceptedSynonyms: ['sleepy','exhausted','weary','drained','fatigued','worn-out','beat','spent','drowsy'] },
+  // Wave-1 expansion
+  { word: 'wet', partOfSpeech: 'adjective', meaningNote: 'Covered with liquid',
+    acceptedSynonyms: ['damp','soaked','drenched','moist','soggy','dripping','sodden','saturated','watery'] },
+  { word: 'dry', partOfSpeech: 'adjective', meaningNote: 'Free from moisture',
+    acceptedSynonyms: ['arid','parched','dehydrated','crisp','dried','barren','withered','thirsty'] },
+  { word: 'easy', partOfSpeech: 'adjective', meaningNote: 'Not hard to do',
+    acceptedSynonyms: ['simple','effortless','straightforward','painless','basic','light','smooth','breezy'] },
+  { word: 'hard', partOfSpeech: 'adjective', meaningNote: 'Firm and solid',
+    acceptedSynonyms: ['firm','solid','stiff','rigid','tough','dense','rock-hard','sturdy','unyielding'] },
+  { word: 'loud', partOfSpeech: 'adjective', meaningNote: 'Producing a lot of sound',
+    acceptedSynonyms: ['noisy','booming','deafening','blaring','thunderous','roaring','blasting','clamorous'] },
+  { word: 'soft', partOfSpeech: 'adjective', meaningNote: 'Easy to press; not hard',
+    acceptedSynonyms: ['gentle','fluffy','tender','squishy','smooth','plush','silky','cushy','pillowy'] },
+  { word: 'clean', partOfSpeech: 'adjective', meaningNote: 'Free from dirt',
+    acceptedSynonyms: ['spotless','tidy','neat','immaculate','pure','washed','pristine','sparkling','sanitary'] },
+  { word: 'dirty', partOfSpeech: 'adjective', meaningNote: 'Covered in dirt',
+    acceptedSynonyms: ['filthy','grimy','soiled','muddy','dusty','grubby','messy','unclean','stained'] },
 ];
 
 const T2: Omit<SynonymPrompt, 'difficulty' | 'id'>[] = [
@@ -76,6 +93,23 @@ const T2: Omit<SynonymPrompt, 'difficulty' | 'id'>[] = [
     acceptedSynonyms: ['occupied','engaged','active','swamped','tied-up','hectic','bustling','working','involved','absorbed'] },
   { word: 'rich', partOfSpeech: 'adjective', meaningNote: 'Having much wealth',
     acceptedSynonyms: ['wealthy','affluent','prosperous','well-off','moneyed','loaded','opulent','flush','well-heeled'] },
+  // Wave-1 expansion
+  { word: 'curious', partOfSpeech: 'adjective', meaningNote: 'Eager to know or learn',
+    acceptedSynonyms: ['inquisitive','interested','nosy','prying','questioning','wondering','intrigued','probing'] },
+  { word: 'eager', partOfSpeech: 'adjective', meaningNote: 'Enthusiastic and ready to do something',
+    acceptedSynonyms: ['enthusiastic','keen','excited','willing','impatient','ready','zealous','avid','anxious'] },
+  { word: 'gentle', partOfSpeech: 'adjective', meaningNote: 'Kind and mild in manner',
+    acceptedSynonyms: ['tender','mild','soft','kind','soothing','calm','easy','tame','meek','placid'] },
+  { word: 'proud', partOfSpeech: 'adjective', meaningNote: 'Feeling pleased about an achievement',
+    acceptedSynonyms: ['pleased','satisfied','gratified','honored','triumphant','dignified','accomplished','fulfilled'] },
+  { word: 'jealous', partOfSpeech: 'adjective', meaningNote: 'Resentful of what another has',
+    acceptedSynonyms: ['envious','covetous','resentful','green','possessive','suspicious','grudging','bitter'] },
+  { word: 'confident', partOfSpeech: 'adjective', meaningNote: 'Sure of oneself',
+    acceptedSynonyms: ['assured','self-assured','poised','certain','bold','sure','positive','composed','secure'] },
+  { word: 'lonely', partOfSpeech: 'adjective', meaningNote: 'Sad because of being alone',
+    acceptedSynonyms: ['alone','isolated','solitary','forlorn','friendless','abandoned','desolate','secluded'] },
+  { word: 'cheerful', partOfSpeech: 'adjective', meaningNote: 'Noticeably happy and optimistic',
+    acceptedSynonyms: ['happy','jolly','merry','sunny','upbeat','bright','buoyant','perky','chipper','lighthearted'] },
 ];
 
 const T3: Omit<SynonymPrompt, 'difficulty' | 'id'>[] = [
@@ -103,6 +137,23 @@ const T3: Omit<SynonymPrompt, 'difficulty' | 'id'>[] = [
     acceptedSynonyms: ['plentiful','ample','copious','bountiful','rich','overflowing','profuse','lavish','generous','full'] },
   { word: 'tolerate', partOfSpeech: 'verb', meaningNote: 'To allow or put up with',
     acceptedSynonyms: ['endure','accept','permit','allow','bear','stand','withstand','abide','stomach','put-up-with'] },
+  // Wave-1 expansion
+  { word: 'ambiguous', partOfSpeech: 'adjective', meaningNote: 'Open to more than one interpretation',
+    acceptedSynonyms: ['unclear','vague','equivocal','obscure','cryptic','indefinite','uncertain','hazy','murky'] },
+  { word: 'meticulous', partOfSpeech: 'adjective', meaningNote: 'Showing great attention to detail',
+    acceptedSynonyms: ['careful','thorough','precise','painstaking','exact','scrupulous','diligent','rigorous','fastidious'] },
+  { word: 'resilient', partOfSpeech: 'adjective', meaningNote: 'Able to recover quickly from difficulty',
+    acceptedSynonyms: ['tough','hardy','adaptable','flexible','strong','enduring','sturdy','unbreakable','elastic'] },
+  { word: 'pragmatic', partOfSpeech: 'adjective', meaningNote: 'Dealing with things sensibly and realistically',
+    acceptedSynonyms: ['practical','sensible','realistic','levelheaded','down-to-earth','rational','utilitarian','no-nonsense'] },
+  { word: 'scrutinize', partOfSpeech: 'verb', meaningNote: 'To examine closely and critically',
+    acceptedSynonyms: ['inspect','examine','study','analyze','probe','dissect','investigate','review','audit'] },
+  { word: 'mitigate', partOfSpeech: 'verb', meaningNote: 'To make less severe',
+    acceptedSynonyms: ['ease','lessen','reduce','soften','alleviate','diminish','dampen','allay','moderate'] },
+  { word: 'aspire', partOfSpeech: 'verb', meaningNote: 'To direct one\'s hopes toward achieving something',
+    acceptedSynonyms: ['aim','seek','strive','desire','hope','pursue','intend','target','dream'] },
+  { word: 'profound', partOfSpeech: 'adjective', meaningNote: 'Very great or intense; deep',
+    acceptedSynonyms: ['deep','intense','great','immense','heartfelt','sincere','meaningful','weighty','far-reaching'] },
 ];
 
 function withTier(items: Omit<SynonymPrompt, 'difficulty' | 'id'>[], tier: 1 | 2 | 3): SynonymPrompt[] {
