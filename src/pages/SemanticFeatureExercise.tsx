@@ -124,6 +124,27 @@ export default function SemanticFeatureExercise() {
   
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
 
+  // Clinical Progression v1 — Phase 1 wiring for Semantic Features.
+  // Persistent Clinical Level (1–8) supplies a FLOOR for the bank-difficulty
+  // value the in-session engine starts from. Session adaptation can still
+  // escalate above this floor.
+  const progression = useSemanticFeaturesProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveSemanticFeaturesInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] SemanticFeatures scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveStartDifficulty = bridge.effective;
+
   const handleSkipExercise = async () => {
     if (user?.id) {
       try {
@@ -170,15 +191,17 @@ export default function SemanticFeatureExercise() {
     }
   };
 
-  // Unified trial submission (lexical axis). progression:null — no per-game
-  // progression hook yet (Phase 3 follow-up). adaptation_trial_logs stay
-  // auto-wired inside SemanticFeatureGame's useInGameAdaptation.
+  // Unified trial submission (lexical axis). Progression is wired through
+  // useSemanticFeaturesProgression so every submitTrial buffers a clinical
+  // trial (correct + support), and commitSession flushes the L1–L8 ladder.
+  // adaptation_trial_logs come from the page (trialMode='production');
+  // SemanticFeatureGame's useInGameAdaptation is autoLog:false.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
     exerciseSlug: 'semantic_features',
-    progression: null,
+    progression,
   });
 
   const handleTrialComplete = useCallback((data: any) => {
@@ -202,7 +225,23 @@ export default function SemanticFeatureExercise() {
       isCorrect,
       accuracyScore: isCorrect ? 1 : (data?.retrievalCorrect ? 0.5 : 0),
       cueLevel,
-      supportUsed: sfaCueLevelToSupport(cueLevel),
+      supportUsed: mapSemanticFeaturesSupport(cueLevel),
+      latencyMs: data?.reactionTime ?? null,
+      trialMode: 'production',
+      errorType: isCorrect ? undefined : 'semantic_error',
+      taskParameters: {
+        word: data?.word,
+        difficulty: data?.difficulty,
+        features_correct: data?.featuresCorrect,
+        features_missed: data?.featuresMissed,
+        features_incorrect: data?.featuresIncorrect,
+        retrieval_correct: data?.retrievalCorrect,
+        feature_breakdown: data?.featureBreakdown,
+        adaptations_active: data?.adaptationsActive,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
+        ...adaptationTelemetry,
+      },
       latencyMs: data?.reactionTime ?? null,
       trialMode: 'production',
       errorType: isCorrect ? undefined : 'semantic_error',
