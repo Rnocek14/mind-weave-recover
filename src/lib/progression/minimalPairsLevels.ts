@@ -251,3 +251,12 @@ export function calculateMinimalPairsProgressDelta(
 }
 
 export { SUPPORT_CREDIT };
+
+/** Highest level whose contentSelector ships differentiated content. */
+export function highestImplementedMinimalPairsLevel(): number {
+  let max = 1;
+  for (const [lvl, spec] of Object.entries(MINIMAL_PAIRS_LEVELS)) {
+    if (spec.contentSelector?.implemented !== false) max = Math.max(max, Number(lvl));
+  }
+  return max;
+}

@@ -239,3 +239,21 @@ export function calculateLevelAwareProgressDelta(
 
 // Re-export so consumers can reach SUPPORT_CREDIT through one module.
 export { SUPPORT_CREDIT };
+
+/**
+ * Highest level whose contentSelector ships differentiated content.
+ * Used by progression hooks to clamp level-up so the patient never advances
+ * into a planned/unimplemented tier. For Photo Naming today, every level
+ * 1–8 has an implemented selector (L8 is "advanced review", honestly
+ * labeled), so the ceiling is 8.
+ */
+export function highestImplementedPhotoNamingLevel(): number {
+  let max = 1;
+  for (const [lvl, spec] of Object.entries(PHOTO_NAMING_LEVELS)) {
+    // PhotoNaming specs have no `implemented: false` markers today; every
+    // tier ships content. Treat absence as implemented for back-compat.
+    const impl = (spec.contentSelector as { implemented?: boolean } | undefined)?.implemented;
+    if (impl !== false) max = Math.max(max, Number(lvl));
+  }
+  return max;
+}
