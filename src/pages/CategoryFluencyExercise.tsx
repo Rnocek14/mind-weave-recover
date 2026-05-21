@@ -11,14 +11,21 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { tierToLevel } from '@/lib/gameLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import {
+  useCategoryFluencyProgression,
+  mapCategoryFluencySupport,
+} from '@/hooks/useCategoryFluencyProgression';
+import {
+  resolveEffectiveCategoryFluencyInitialDifficulty,
+} from '@/lib/progression/categoryFluencyDifficultyBridge';
+import { getCategoryFluencyLevelSpec } from '@/lib/progression/categoryFluencyLevels';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -77,10 +84,34 @@ export default function CategoryFluencyExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Wave 1: migrated from useExerciseTelemetry.logTrial to the unified
+  // useTrialSubmission pathway with per-game progression. Emits
+  // trialMode='production' on every round (slug is in
+  // ADOPTED_TRIAL_MODE_SLUGS). CategoryFluencyGame is autoLog:false.
+  const progression = useCategoryFluencyProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveCategoryFluencyInitialDifficulty({
+    sessionAdaptationDifficulty: difficultyLevel,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] CategoryFluency scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveTier = bridge.effective;
+
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const pivot = useExerciseMidSessionPivot({
     exerciseSlug: EXERCISE_SLUG,
