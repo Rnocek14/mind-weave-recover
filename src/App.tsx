@@ -74,6 +74,7 @@ import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
 import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
 import GameAboutPage from "./pages/GameAboutPage";
+import ClinicalLibrary from "./pages/ClinicalLibrary";
 import SessionReplayDev from "./pages/dev/SessionReplayDev";
 import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
@@ -164,6 +165,7 @@ const App = () => (
                   <Route path="/lesson" element={<Lesson />} />
 
                   {/* "How this game supports recovery" — public, deep-linkable */}
+                  <Route path="/games" element={<ClinicalLibrary />} />
                   <Route path="/games/:slug/about" element={<GameAboutPage />} />
 
                   {/* Dev-only validation harness — admin-gated */}
