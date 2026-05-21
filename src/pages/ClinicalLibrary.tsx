@@ -162,6 +162,27 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped.
           </p>
         )}
+        {entry.status === 'design-only' && (
+          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground">Design of record published.</span>{' '}
+              The L1–L8 ladder below is the clinical intent for this game. Runtime difficulty
+              still rides the generic 1–10 adaptation engine while the per-level scorer is
+              built.
+            </span>
+          </div>
+        )}
+        {entry.status === 'structural' && (
+          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground">Structural ladder live.</span>{' '}
+              Engine adapts content per level. Upper tiers ship with thin or aspirational
+              content banks — see the readiness column.
+            </span>
+          </div>
+        )}
 
         {hasLadder && (
           <button
