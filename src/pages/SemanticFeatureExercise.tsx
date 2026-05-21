@@ -321,9 +321,8 @@ export default function SemanticFeatureExercise() {
           userId={user?.id}
           sessionId={sessionId || undefined}
           onGameComplete={handleGameComplete}
-          onTrialComplete={(data) => {
-            console.log('Trial complete:', { ...data, ...adaptationTelemetry });
-          }}
+          onTrialComplete={handleTrialComplete}
+
         />
       </div>
       </main>
