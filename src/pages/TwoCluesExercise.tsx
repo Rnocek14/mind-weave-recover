@@ -247,7 +247,10 @@ export default function TwoCluesExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: clinical progression must load before the game mounts so
+  // the bridge's effective floor is in place from trial 1. Mirrors
+  // SemanticFeatures / MinimalPairs Wave 0 gate.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
