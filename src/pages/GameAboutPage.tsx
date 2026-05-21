@@ -131,39 +131,11 @@ export default function GameAboutPage() {
         </div>
       </header>
 
-      {(() => {
-        const reg = CLINICAL_LADDER_REGISTRY[slug ?? ''];
-        if (!reg) return null;
-        if (reg.status === 'design-only') {
-          return (
-            <Card className="mb-6 border-border bg-muted/30">
-              <CardContent className="flex items-start gap-3 py-4 text-sm text-muted-foreground">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
-                <p>
-                  <span className="font-medium text-foreground">Planned ladder — runtime on generic engine.</span>{' '}
-                  The clinical L1–L8 design for this game is published as the design of record. Adaptive
-                  difficulty currently uses the generic 1–10 engine while the per-level scorer is built.
-                </p>
-              </CardContent>
-            </Card>
-          );
-        }
-        if (reg.status === 'structural') {
-          return (
-            <Card className="mb-6 border-border bg-muted/30">
-              <CardContent className="flex items-start gap-3 py-4 text-sm text-muted-foreground">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
-                <p>
-                  <span className="font-medium text-foreground">Structural ladder live.</span>{' '}
-                  Engine adapts content per level. Upper rungs may show "Thin" or "Aspirational"
-                  readiness while content banks fill in.
-                </p>
-              </CardContent>
-            </Card>
-          );
-        }
-        return null;
-      })()}
+      {/* NOTE: status-specific banners for `structural` / `design-only` were
+          intentionally removed pending clinician review of the underlying
+          rungs. Do not re-add patient-facing surfacing of ladder status here. */}
+
+
 
       <Card className="mb-6">
         <CardHeader className="pb-3">
