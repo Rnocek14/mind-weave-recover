@@ -529,3 +529,67 @@ export function designOnlyRows(slug: string, rows: DesignRowInput[]): LadderRow[
       tierStatusDetail: `${slug} L${r.level} — clinical design published; runtime uses generic engine.`,
     }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Leak 2 fix — track lookup + module-load assertion.
+//
+// `getTrackForSlug` is the single read path for mastery-track classification.
+// Credit-math and any future track-aware logic MUST go through this helper
+// rather than re-deriving track from `isAdoptedForTrialMode`. The assertion
+// below guarantees registry track and routing adoption can never silently
+// disagree — a mismatch throws at import time, surfacing the drift loudly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { normalizeExerciseSlug } from './exerciseSlugNormalizer';
+import { isAdoptedForTrialMode } from './mastery/masterySignalRouting';
+
+/**
+ * Returns the authoritative mastery track for a slug, or undefined when the
+ * slug is not in the registry. Accepts either telemetry (underscore) or
+ * progression (hyphen) form.
+ */
+export function getTrackForSlug(rawSlug: string): MasteryTrack | undefined {
+  const normalized = normalizeExerciseSlug(rawSlug);
+  for (const entry of Object.values(CLINICAL_LADDER_REGISTRY)) {
+    if (normalizeExerciseSlug(entry.slug) === normalized) return entry.track;
+  }
+  return undefined;
+}
+
+/**
+ * Assert registry track agrees with trial-mode adoption.
+ *
+ *   - Adopted slug + track !== 'expressive'    → throw (would contaminate
+ *                                                 expressive mastery)
+ *   - track === 'receptive' && adopted          → throw (same shape, caught
+ *                                                 from the other direction)
+ *   - track === 'non-linguistic' && adopted     → throw
+ *
+ * Runs once at import time. Failing loudly is the entire point — silent
+ * drift between these two declarations is exactly the bug class Leak 2
+ * was meant to close.
+ */
+function assertTrackRoutingConsistency(): void {
+  const mismatches: string[] = [];
+  for (const entry of Object.values(CLINICAL_LADDER_REGISTRY)) {
+    const adopted = isAdoptedForTrialMode(entry.slug);
+    if (adopted && entry.track !== 'expressive') {
+      mismatches.push(
+        `"${entry.slug}" is adopted for trial-mode routing but registry ` +
+        `track is "${entry.track}" (must be "expressive").`,
+      );
+    }
+    if (!adopted && entry.track === 'expressive') {
+      // This is allowed — design-only / structural expressive games that
+      // haven't been adopted yet. Not a mismatch.
+    }
+  }
+  if (mismatches.length > 0) {
+    throw new Error(
+      `[clinicalLadderRegistry] Track/adoption mismatch — fix one side:\n` +
+      mismatches.map((m) => `  • ${m}`).join('\n'),
+    );
+  }
+}
+
+assertTrackRoutingConsistency();
