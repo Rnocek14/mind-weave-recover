@@ -282,9 +282,42 @@ export function entriesByAxis(): Array<{ axis: ClinicalAxis; entries: ClinicalLa
     .map((axis) => ({
       axis,
       entries: grouped.get(axis)!.sort((a, b) => {
-        // Full ladders first, then telemetry, then generic
-        const rank = { full: 0, 'telemetry-only': 1, generic: 2 } as const;
+        // Most-shipped first, then design-only / telemetry-only, then generic.
+        const rank: Record<LadderStatus, number> = {
+          full: 0,
+          structural: 1,
+          'telemetry-only': 2,
+          'design-only': 3,
+          generic: 4,
+        };
         return rank[a.status] - rank[b.status] || a.slug.localeCompare(b.slug);
       }),
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Design-only helper — build LadderRow[] from a plain L1–L8 spec table that
+// has no runtime mastery thresholds. Used by Phase-3 Tier-C entries.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DesignRowInput {
+  level: number;
+  description: string;
+  targetSupport: SupportLevel;
+  readiness: 'ready' | 'thin' | 'aspirational';
+}
+
+export function designOnlyRows(slug: string, rows: DesignRowInput[]): LadderRow[] {
+  return rows
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map((r) => ({
+      level: r.level,
+      description: r.description,
+      targetSupport: r.targetSupport,
+      readiness: r.readiness,
+      // No minOnTargetAttempts/Accuracy — design-only rows don't enforce mastery.
+      tierStatus: 'planned' as TierStatus,
+      tierStatusDetail: `${slug} L${r.level} — clinical design published; runtime uses generic engine.`,
     }));
 }
