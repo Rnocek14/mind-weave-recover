@@ -77,7 +77,7 @@ export interface PhotoNamingLevelSpec {
    * use, separately from the evidence/accuracy rule.
    */
   contentSelector?: {
-    tierKey: 'baseline' | 'high_frequency' | 'mid_frequency' | 'cross_category' | 'phrase_carrier' | 'generalization_probe';
+    tierKey: 'baseline' | 'high_frequency' | 'mid_frequency' | 'cross_category' | 'phrase_carrier' | 'advanced_review';
     description: string;
   };
 }
