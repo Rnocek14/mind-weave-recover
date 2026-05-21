@@ -216,6 +216,7 @@ export default function Today() {
   }, [user?.id]);
 
   const handleStartSession = () => {
+    console.log('[Today] handleStartSession clicked', { hasLesson: !!lesson, blocks: lesson?.blocks?.length });
     if (!lesson) return;
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
@@ -235,6 +236,7 @@ export default function Today() {
   const handleStartRecommended = (recommendation: SessionRecommendation) => {
     const presetId = recommendation.templateId as LessonPreset;
     const recLesson = buildPresetLesson(presetId);
+    console.log('[Today] handleStartRecommended', { presetId, hasRecLesson: !!recLesson });
     if (!recLesson) return;
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
@@ -249,6 +251,7 @@ export default function Today() {
       },
     });
   };
+
 
   const handleContinueSession = () => {
     if (!savedSession) return;
