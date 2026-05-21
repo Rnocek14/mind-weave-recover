@@ -116,7 +116,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
