@@ -25,8 +25,11 @@ import {
 } from '@/lib/progression/clinicalProgression';
 import {
   calculateFixSentenceProgressDelta,
+  cueDependencyForFixSentenceSession,
   evidenceMetForFixSentenceLevel,
+  FIX_SENTENCE_CUE_DEPENDENCY_BLOCK_THRESHOLD,
   getFixSentenceLevelSpec,
+  isFixSentenceCueDependencyBlocking,
 } from '@/lib/progression/fixSentenceLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
