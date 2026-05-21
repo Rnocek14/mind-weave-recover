@@ -51,6 +51,13 @@ export const BANNED_PHRASES: readonly string[] = [
   'recovered',
   'validated',
   'clinically validated',
+  // Added post-PR7 review (Claude analysis): bare "achieved" reads as a
+  // clinical milestone claim on patient/caregiver surfaces, and
+  // "normalized" implies recovery to pre-morbid baseline. Both stay safe
+  // outside the scanned clinical surfaces (e.g. FunctionalGoalsWidget),
+  // which the scanner does not include.
+  'achieved',
+  'normalized',
 ];
 
 /**
@@ -59,6 +66,11 @@ export const BANNED_PHRASES: readonly string[] = [
  * window around the hit; if any allowed phrase covers the hit, it passes.
  */
 export const ALLOWED_HEDGED: readonly string[] = [
+  // Note: "generalization probe attempt" was the PR4 wording for L8 photo
+  // naming. After post-PR7 review the L8 tier was relabeled "advanced
+  // retrieval review" because PROBE_WORDS overlaps the training bank. The
+  // hedged phrasings below remain allowed so /docs and KNOWN_CAVEATS can
+  // still describe the prior framing without tripping the scanner.
   'generalization probe',
   'generalization probe attempt',
   'untrained probe',
@@ -81,6 +93,12 @@ export const ALLOWED_HEDGED: readonly string[] = [
   'has been validated in head-to-head',
   'not a literature-proven cue order',
   'literature-proven cue order',
+  // "normalized" is banned as a clinical claim but is also a common
+  // engineering term. Whitelist the technical phrasing the scanner is
+  // likely to encounter inside scanned modules.
+  'whitespace-normalized',
+  'normalized text',
+  'min-max normalized',
 ];
 
 export type TierStatus = 'implemented' | 'partially-implemented' | 'planned';
@@ -97,7 +115,7 @@ export interface TierStatusResult {
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
   'photo-naming': {
-    8: 'Probe pool currently overlaps the training bank; results are a generalization probe attempt, not untrained-probe evidence. Tracked in pr4-probe-bank-cleanup.',
+    8: 'L8 uses PROBE_WORDS as advanced retrieval review. The probe pool currently overlaps PHOTO_BANK 1:1, so this is NOT untrained-probe evidence. Tracked in pr4-probe-bank-cleanup.',
     7: 'Carrier-phrase mode ships, but the underlying frequency band cannot be enforced when bank metadata is missing.',
   },
 };

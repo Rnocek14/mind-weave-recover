@@ -118,28 +118,26 @@ describe('selectPhotoNamingPool — happy paths against real banks', () => {
     }
   });
 
-  it('L8 returns probe pool tagged as generalization probes', () => {
+  it('L8 returns advanced-review pool tagged with both new + legacy flags', () => {
     const r = selectPhotoNamingPool(8);
     if (r.fallback?.skipped) return;
     expect(r.tier).toBe('L8');
-    expect(r.reason).toBe('generalization_probe');
+    expect(r.reason).toBe('advanced_review');
     for (const t of r.pool) {
+      expect(t.isAdvancedReviewTrial).toBe(true);
+      // Legacy alias preserved for back-compat with existing aggregators.
       expect(t.isGeneralizationProbe).toBe(true);
     }
   });
 
-  it('L8 probe pool is segregated by flag so mastery aggregators can exclude it', () => {
-    // The user-facing requirement is runtime segregation, not data-bank
-    // distinctness. Probe trials must carry isGeneralizationProbe so
-    // downstream consumers can filter them out of ordinary mastery stats
-    // unless they explicitly opt in.
+  it('L8 pool is segregated by flag so mastery aggregators can exclude it', () => {
     const r = selectPhotoNamingPool(8);
     if (r.fallback?.skipped) return;
-    expect(r.pool.every((t) => t.isGeneralizationProbe === true)).toBe(true);
+    expect(r.pool.every((t) => t.isAdvancedReviewTrial === true)).toBe(true);
 
     // Diagnostic-only: surface (but do not fail on) any probe target that
-    // also appears in PHOTO_BANK. This is a content-bank concern tracked
-    // separately from selector correctness.
+    // also appears in PHOTO_BANK. This is exactly why L8 is labeled
+    // "advanced review" rather than "generalization probe."
     const trainingTargets = new Set(PHOTO_BANK.map((t) => t.target.toLowerCase()));
     const overlap = PROBE_WORDS
       .map((p) => p.target.toLowerCase())
@@ -192,19 +190,18 @@ describe('selectPhotoNamingPool — honest fallback when metadata missing', () =
 });
 
 describe('selectPhotoNamingPool — segregation contract', () => {
-  it('L8 probe trials are flagged so mastery aggregators can exclude them', () => {
+  it('L8 trials are flagged so mastery aggregators can exclude them', () => {
     const r = selectPhotoNamingPool(8);
     if (r.fallback?.skipped) return;
-    // Every trial must carry the isGeneralizationProbe flag. Aggregators
-    // that filter on this flag will keep probe sessions out of ordinary
-    // mastery stats unless they explicitly opt in.
+    expect(r.pool.every((t) => t.isAdvancedReviewTrial === true)).toBe(true);
     expect(r.pool.every((t) => t.isGeneralizationProbe === true)).toBe(true);
   });
 
-  it('non-probe tiers do NOT mark trials as probes', () => {
+  it('non-L8 tiers do NOT mark trials as advanced-review or probe', () => {
     for (const lvl of [1, 2, 3, 4, 5, 6, 7]) {
       const r = selectPhotoNamingPool(lvl);
       for (const t of r.pool) {
+        expect(t.isAdvancedReviewTrial).not.toBe(true);
         expect(t.isGeneralizationProbe).not.toBe(true);
       }
     }

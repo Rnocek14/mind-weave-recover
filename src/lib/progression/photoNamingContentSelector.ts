@@ -18,10 +18,15 @@
  *           sentence ("Pass me the ___", etc). The trial's task context
  *           changes from single-word retrieval to lexical retrieval inside
  *           a syntactic frame.
- *   L8      generalization probe pool — sourced from PROBE_WORDS, which by
- *           design never appears in regular training. Trials are tagged
- *           `isGeneralizationProbe: true` so downstream consumers can
- *           segregate probe results from ordinary mastery stats.
+  *   L8      advanced retrieval review — sourced from PROBE_WORDS. NOTE:
+ *           the current PROBE_WORDS pool overlaps PHOTO_BANK 1:1 by target,
+ *           so this is NOT untrained-probe evidence. Trials are tagged
+ *           `isAdvancedReviewTrial: true`; the legacy `isGeneralizationProbe`
+ *           alias is kept for backward compatibility with consumers that
+ *           segregate these trials from ordinary mastery stats. Once the
+ *           probe bank is made disjoint from the training bank (see
+ *           pr4-probe-bank-cleanup) the L8 tier can be relabeled as a true
+ *           generalization probe and the alias removed.
  *
  * Honest fallbacks: if SUBTLEX-style frequency metadata is missing or the
  * candidate pool is too small for a tier's constraint, the selector returns
@@ -83,6 +88,12 @@ export interface ClinicalTieredTrial extends PhotoTrial {
   carrierPhrase?: string;
   /** True on L8 trials. Downstream code must NOT roll these into mastery stats. */
   isGeneralizationProbe?: boolean;
+  /**
+   * True on L8 trials. Replaces the previous `isGeneralizationProbe` claim;
+   * the old field is still emitted as an alias so downstream aggregators
+   * keep segregating these trials from ordinary mastery stats.
+   */
+  isAdvancedReviewTrial?: boolean;
   /** Tier the selector assigned this trial to. */
   __selectorTier?: SelectorTier;
 }
@@ -90,7 +101,7 @@ export interface ClinicalTieredTrial extends PhotoTrial {
 export interface SelectorResult {
   tier: SelectorTier;
   pool: ClinicalTieredTrial[];
-  reason: 'frequency_band' | 'category_spread' | 'phrase_carrier' | 'generalization_probe' | 'baseline';
+  reason: 'frequency_band' | 'category_spread' | 'phrase_carrier' | 'advanced_review' | 'baseline';
   fallback: SelectorFallback | null;
   diagnostics: SelectorDiagnostics;
 }
@@ -290,7 +301,11 @@ export function selectPhotoNamingPool(
     };
   }
 
-  // L8 → generalization probe pool.
+  // L8 → advanced retrieval review pool (PROBE_WORDS).
+  // The current probe bank overlaps PHOTO_BANK 1:1, so this is honest
+  // advanced review, NOT a true generalization probe. The flag pair
+  // (isAdvancedReviewTrial + legacy isGeneralizationProbe alias) lets
+  // downstream aggregators keep these trials out of mastery stats either way.
   if (probeBank.length < MIN_TIER_POOL_SIZE) {
     return {
       tier: 'L8',
@@ -306,13 +321,14 @@ export function selectPhotoNamingPool(
   }
   const probePool: ClinicalTieredTrial[] = probeBank.map((t) => ({
     ...t,
-    isGeneralizationProbe: true,
+    isAdvancedReviewTrial: true,
+    isGeneralizationProbe: true, // legacy alias — remove once probe bank is disjoint
     __selectorTier: 'L8',
   }));
   return {
     tier: 'L8',
     pool: probePool,
-    reason: 'generalization_probe',
+    reason: 'advanced_review',
     fallback: null,
     diagnostics: diag(probeBank),
   };

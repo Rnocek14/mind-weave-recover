@@ -159,6 +159,14 @@ export interface SessionRollupInput {
    * exist). This is the FIRST enforcement layer for the mastery substrate.
    */
   masteryConfidence?: MasteryConfidenceLevel;
+  /**
+   * Highest level whose contentSelector actually ships differentiated
+   * content. When provided, level-up is clamped here so the patient never
+   * advances into a planned tier and silently receives baseline-fallback
+   * content labeled as the higher level. Optional for backward compat —
+   * undefined disables the clamp.
+   */
+  maxImplementedLevel?: number;
 }
 
 /**
@@ -202,13 +210,18 @@ export function applySessionToState(
 
   if (nextProgress >= MAX_PROGRESS) {
     const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
-    if (input.evidenceMet && masteryOk && nextLevel < MAX_LEVEL) {
+    const ceiling =
+      typeof input.maxImplementedLevel === 'number'
+        ? clampLevel(input.maxImplementedLevel)
+        : MAX_LEVEL;
+    const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
+    if (input.evidenceMet && masteryOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
       nextProgress = MIN_PROGRESS;
       nextSupport = 0;
       nextStable = nextLevel;
     } else {
-      nextProgress = MAX_PROGRESS; // hold at top of level
+      nextProgress = MAX_PROGRESS; // hold at top of level (or top of implemented ceiling)
     }
   }
 
