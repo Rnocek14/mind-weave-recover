@@ -46,6 +46,14 @@ import {
   SENTENCE_CONSTRUCTION_LEVELS,
   type SentenceConstructionLevelSpec,
 } from './progression/sentenceConstructionLevels';
+import {
+  MULTI_STEP_PLANNING_LEVELS,
+  type MultiStepPlanningLevelSpec,
+} from './progression/multiStepPlanningLevels';
+import {
+  DETECTIVE_MIND_LEVELS,
+  type DetectiveMindLevelSpec,
+} from './progression/detectiveMindLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
