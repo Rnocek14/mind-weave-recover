@@ -15,6 +15,7 @@ import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 import { toProgressionSlug } from '@/lib/exerciseSlugNormalizer';
 import { readSelectorDiagnostics } from '@/lib/progression/photoNamingContentSelector';
 import { readMinimalPairsSelectorDiagnostics } from '@/lib/progression/minimalPairsContentSelector';
+import { readFixSentenceSelectorDiagnostics } from '@/lib/progression/fixSentenceContentSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -173,7 +174,78 @@ export default function ProgressionStateDev() {
 
       <SelectorDiagnosticsCard />
       <MinimalPairsSelectorDiagnosticsCard />
+      <FixSentenceSelectorDiagnosticsCard />
     </div>
+  );
+}
+
+function FixSentenceSelectorDiagnosticsCard() {
+  const diag = readFixSentenceSelectorDiagnostics() as null | {
+    at: string;
+    clinicalLevel: number;
+    tier: string;
+    reason: string;
+    fallback: null | { reason: string; detail: string; skipped: boolean };
+    diagnostics: {
+      totalCandidates: number;
+      poolSize: number;
+      errorTypeCounts: Record<string, number>;
+      verbMatched?: number;
+    };
+    sampleSentences: string[];
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Fix Sentence — last content-selector decision (PR6)</CardTitle>
+      </CardHeader>
+      <CardContent className="text-sm space-y-2">
+        {!diag && (
+          <p className="text-muted-foreground">
+            No selector decision recorded in this tab yet. Start a Fix Sentence session at L4+ to populate.
+          </p>
+        )}
+        {diag && (
+          <>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Badge>{diag.tier}</Badge>
+              <Badge variant="secondary">{diag.reason}</Badge>
+              {typeof diag.diagnostics.verbMatched === 'number' && (
+                <Badge variant="outline">verb-matched: {diag.diagnostics.verbMatched}</Badge>
+              )}
+              <span className="text-xs text-muted-foreground">
+                clinical L{diag.clinicalLevel} · {new Date(diag.at).toLocaleString()}
+              </span>
+            </div>
+            <div className="text-xs grid grid-cols-2 gap-x-4 gap-y-1">
+              <span>Pool size:</span><span className="font-mono">{diag.diagnostics.poolSize}</span>
+              <span>Total candidates:</span><span className="font-mono">{diag.diagnostics.totalCandidates}</span>
+            </div>
+            {diag.diagnostics.errorTypeCounts && (
+              <div className="text-xs text-muted-foreground">
+                Error types: {Object.entries(diag.diagnostics.errorTypeCounts).map(([k, v]) => `${k}=${v}`).join(' · ')}
+              </div>
+            )}
+            {diag.fallback && (
+              <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
+                <div className="font-medium">Fallback: {diag.fallback.reason}</div>
+                <div className="text-muted-foreground">{diag.fallback.detail}</div>
+                <div className="mt-1">
+                  Skipped tier:{' '}
+                  <Badge variant={diag.fallback.skipped ? 'destructive' : 'secondary'}>
+                    {String(diag.fallback.skipped)}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            <div className="text-xs">
+              <span className="text-muted-foreground">Sample sentences: </span>
+              <span className="font-mono">{diag.sampleSentences.join(' | ') || '—'}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
