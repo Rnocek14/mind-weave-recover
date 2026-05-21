@@ -163,15 +163,15 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
   },
   8: {
     level: 8,
-    description: 'Stable functional naming with generalization',
+    description: 'Stable functional naming — advanced retrieval review',
     targetSupport: 'independent',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
     trialWeight: 2.5,
     contentSelector: {
-      tierKey: 'generalization_probe',
+      tierKey: 'advanced_review',
       description:
-        'Generalization PROBE pool (untrained items). Probe trials are segregated from ordinary mastery stats.',
+        'Advanced retrieval review (PROBE_WORDS). The current probe pool overlaps PHOTO_BANK, so this is honest advanced review, not untrained-probe evidence. Trials are segregated from ordinary mastery stats via isAdvancedReviewTrial.',
     },
   },
 };
