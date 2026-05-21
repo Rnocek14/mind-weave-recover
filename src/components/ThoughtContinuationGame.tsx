@@ -699,7 +699,7 @@ export function ThoughtContinuationGame({
       lastDecision = decision;
       return decision;
     };
-    await scorer.scoreAndRecord(
+    const scoreResult = await scorer.scoreAndRecord(
       {
         exerciseSlug: 'thought_continuation',
         promptText: currentPrompt.promptText,
@@ -713,6 +713,7 @@ export function ThoughtContinuationGame({
       },
       recordTurnWithCapture,
     );
+    const signal = scoreResult?.signal;
 
     // Mirror the discourse-adaptation decision into adaptation_trial_logs so
     // this game shows up in the same telemetry surface as trial-based games.
@@ -747,27 +748,49 @@ export function ThoughtContinuationGame({
       });
     }
 
+    // =========================================================================
+    // CONTENT-AWARE FEEDBACK
+    // The visible message reflects WHAT the user said (via the LLM scorer),
+    // not just whether they spoke. Falls back to momentum-only feedback if the
+    // scorer signal is unavailable.
+    // =========================================================================
 
-    
-    // =========================================================================
-    // FEEDBACK
-    // =========================================================================
-    
-    const feedbackTypes = determineFeedbackTypes(flowMetrics);
-    const feedback = selectFeedback(feedbackTypes);
+    let feedback: string;
+    if (signal && didSpeak) {
+      const { errorType, onTopicScore, successScore } = signal;
+      if (errorType === 'off_topic' || onTopicScore < 0.25) {
+        feedback = `Interesting — try to bring it back to: "${currentPrompt.promptText}"`;
+      } else if (errorType === 'surrender' || errorType === 'no_response') {
+        feedback = "That's okay — give it a try, even one sentence.";
+      } else if (wordCount < 3) {
+        feedback = "Good start — can you add one more sentence?";
+      } else if (errorType === 'incomplete' || !completionResult.isComplete) {
+        feedback = "Keep going — finish that thought.";
+      } else if (errorType === 'word_finding' || errorType === 'circumlocution') {
+        feedback = "Nice — you worked through that.";
+      } else if (successScore >= 0.7 && wordCount >= 8) {
+        feedback = "Great — that was a full, clear thought.";
+      } else {
+        // fluent_correct, shorter answers → use the existing flow templates
+        feedback = selectFeedback(determineFeedbackTypes(flowMetrics));
+      }
+    } else {
+      feedback = selectFeedback(determineFeedbackTypes(flowMetrics));
+    }
     setFeedbackMessage(feedback);
-    
+
     // Update streak
     if (didSpeak) {
       setStreak(prev => prev + 1);
     }
-    
+
     setPhase('celebrated');
-    
+
     // Auto-advance after showing feedback
     setTimeout(() => {
       moveToNextPrompt();
     }, 2000);
+
   }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
