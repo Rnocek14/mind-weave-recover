@@ -1,8 +1,21 @@
 /**
  * Meaning Match Arena Exercise Page
- * 
+ *
  * Wrapper with session lifecycle, telemetry, and navigation.
- * Now uses adaptive difficulty instead of hardcoded DIFFICULTY_LEVEL = 1.
+ *
+ * Phase 2 (Universal Clinical Migration):
+ *   - Telemetry/adaptation now flows through `useTrialSubmission`, the
+ *     unified Tier-A pathway used by Photo Naming, Fix Sentence, and
+ *     Minimal Pairs. This fans out to `exercise_events`,
+ *     `clinical_progression_state` (no-op until a per-game progression
+ *     hook lands), and the mastery shadow flush on commit.
+ *   - `adaptation_trial_logs` is still auto-written from
+ *     `MeaningMatchGame`'s own `useInGameAdaptation(autoLog:true)` —
+ *     `sessionId` is now forwarded so those rows actually persist.
+ *   - SupportLevel mapping uses the **comprehension axis** contract:
+ *     baseline trials = `recognition_only` (multi-choice picker),
+ *     hint-assisted trials = `semantic_cue` (keyword highlight).
+ *     See `docs/unified-trial-contract.md` §"Per-axis supportUsed".
  */
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
@@ -13,13 +26,11 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
-import { useDynamicTier } from '@/hooks/useDynamicTier';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -55,12 +66,15 @@ export default function MeaningMatchExercise() {
   const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
-  // Adaptive difficulty from shared contract (session-static seed)
+  // Shared session-static adaptation (seeds tier; in-game controller lives in MeaningMatchGame).
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
-  const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
+  const adaptationTelemetry = buildAdaptationTelemetry(adaptation, {
+    phonemeSensitive: false,
+    cueSensitive: true,
+  });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
     user?.id,
@@ -68,18 +82,7 @@ export default function MeaningMatchExercise() {
     EXERCISE_SLUG
   );
 
-  // Per-trial dynamic tier (1..3) — adapts based on rolling success rate.
-  const dynamicTier = useDynamicTier({
-    exerciseSlug: EXERCISE_SLUG,
-    sessionId: activeSessionId,
-    userId: user?.id,
-    profileId: activeProfile?.id,
-    initialTier: adaptation.difficultyTier,
-    minTier: 1,
-    maxTier: 3,
-    targetSuccessRate: 0.75,
-  });
-  const difficultyLevel = dynamicTier.currentTier;
+  const difficultyLevel = adaptation.difficultyTier;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -95,10 +98,16 @@ export default function MeaningMatchExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Unified trial submission. No per-game progression hook yet (Phase 3
+  // follow-up) — progression: null, so the buffer + commit progression
+  // flush no-op and only exercise_events + mastery shadow get the write.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   // Mid-session pivot for frustration/crash detection
   const pivot = useExerciseMidSessionPivot({
@@ -113,7 +122,6 @@ export default function MeaningMatchExercise() {
     scoreRef.current += result.points;
     trialsRef.current += 1;
 
-    // Record trial for mid-session pivot evaluation
     pivot.recordTrialResult({
       wasCorrect: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -121,17 +129,26 @@ export default function MeaningMatchExercise() {
       cueLevel: result.usedHint ? 1 : 0,
     });
 
-    // Drive adaptive tier based on per-trial outcome
-    dynamicTier.recordTrial({
-      correct: result.correct,
-      reactionTimeMs: result.reactionTimeMs,
-      errorType: result.correct ? undefined : 'wrong_option',
-    });
+    // Comprehension axis SupportLevel mapping:
+    //   recognition_only  → multi-choice baseline (no hint)
+    //   semantic_cue      → keyword-highlight hint used
+    const supportUsed = result.usedHint ? 'semantic_cue' : 'recognition_only';
 
-    logTrial({
-      correct: result.correct,
-      reactionTimeMs: result.reactionTimeMs,
-      errorType: result.correct ? undefined : 'wrong_option',
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.tier ?? difficultyLevel ?? 1,
+      stimulusId: result.itemId,
+      expectedResponse: null,
+      userResponse: null,
+      isCorrect: result.correct,
+      accuracyScore: result.correct ? 1 : 0,
+      cueLevel: result.usedHint ? 1 : 0,
+      supportUsed,
+      latencyMs: result.reactionTimeMs ?? null,
+      trialMode: 'recognition',
+      errorType: result.correct ? undefined : 'semantic_confusion',
       taskParameters: {
         item_id: result.itemId,
         tier: result.tier,
@@ -146,19 +163,30 @@ export default function MeaningMatchExercise() {
         pivot_pending: pivot.hasPending,
         ...adaptationTelemetry,
       },
-      adaptationsActive: dynamicTier.getAdaptationsActive(),
-      cueTypeGiven: result.usedHint ? 'semantic' : 'none',
-      cueWasEffective: result.usedHint ? result.correct : null,
     });
 
-    // Handle pivot recommendations
     if (pivot.shouldStepDown) {
       console.log('[MeaningMatch] Mid-session pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot, dynamicTier, trialLimit, blockIndex, lessonSource, presetId]);
+  }, [
+    activeSessionId,
+    activeProfile?.id,
+    submitTrial,
+    adaptationTelemetry,
+    pivot,
+    difficultyLevel,
+    trialLimit,
+    blockIndex,
+    lessonSource,
+    presetId,
+  ]);
 
-  const handleGameComplete = useCallback((results: MeaningMatchTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[]) => {
+    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    // No per-game progression snapshot yet (progression: null above).
+    await commitSession();
+
     setCompleted(true);
     completeSession();
 
@@ -175,11 +203,11 @@ export default function MeaningMatchExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
-  }, [navigate, fromLesson]);
+  }, [navigate, fromLesson, returnTo]);
 
   const handleContinue = useCallback(() => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -240,6 +268,7 @@ export default function MeaningMatchExercise() {
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
             difficultyLevel={difficultyLevel}
+            sessionId={activeSessionId}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />
         )}

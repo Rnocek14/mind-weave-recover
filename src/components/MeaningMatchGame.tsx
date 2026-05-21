@@ -33,6 +33,13 @@ interface MeaningMatchGameProps {
   roundCount?: number;
   difficultyLevel?: number;
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
+  /**
+   * Active session id — forwarded to useInGameAdaptation so the auto-wired
+   * adaptation_trial_logs logger can persist per-trial telemetry. Without
+   * this, the in-game adaptation controller still runs but its rows are
+   * dropped at the persistence layer (autoLog no-ops on null sessionId).
+   */
+  sessionId?: string | null;
 }
 
 type Phase = 'answering' | 'feedback' | 'explaining';
@@ -64,7 +71,9 @@ export function MeaningMatchGame({
   roundCount = 10,
   difficultyLevel = 1,
   recommendedCueType,
+  sessionId = null,
 }: MeaningMatchGameProps) {
+
   const {
     currentItem,
     currentIndex,
@@ -88,7 +97,8 @@ export function MeaningMatchGame({
 
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'meaning-match',
-    sessionId: null,
+    sessionId,
+
     initialDifficulty: difficultyLevel,
     bounds,
     enableDifficultyToasts: false, // We use the inline badge instead
