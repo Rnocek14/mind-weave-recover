@@ -29,7 +29,29 @@ import {
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
-export type LadderStatus = 'full' | 'telemetry-only' | 'generic';
+/**
+ * Ladder shipping status — honest contract surfaced in /games and on each
+ * game's About page.
+ *
+ *   - full           — real L1–L8 spec + selector + bridge. Engine adapts.
+ *   - structural     — same 5-artifact pattern as `full`, but L6–L8 banks
+ *                      are thin/aspirational. Each row's `readiness` carries
+ *                      the honesty.
+ *   - design-only    — clinical design-of-record published; runtime still
+ *                      uses the generic 1–10 engine. Rows describe the
+ *                      *intended* ladder; attempts/accuracy not yet
+ *                      enforced per level.
+ *   - telemetry-only — Tier-A useTrialSubmission migrated, no ladder yet.
+ *   - generic        — legacy state; should disappear once every game has
+ *                      at least a design-only entry.
+ */
+export type LadderStatus =
+  | 'full'
+  | 'structural'
+  | 'design-only'
+  | 'telemetry-only'
+  | 'generic';
+
 export type ClinicalAxis =
   | 'lexical'
   | 'comprehension'
@@ -42,8 +64,10 @@ export interface LadderRow {
   level: number;
   description: string;
   targetSupport: SupportLevel;
-  minOnTargetAttempts: number;
-  minOnTargetAccuracy: number;
+  /** Omitted for design-only rows (no runtime mastery enforcement yet). */
+  minOnTargetAttempts?: number;
+  /** Omitted for design-only rows. */
+  minOnTargetAccuracy?: number;
   /** Phase 1 readiness flag (only some games provide this). */
   readiness?: 'ready' | 'thin' | 'aspirational';
   /** PR7: per-tier integrity status surfaced in /games. */
