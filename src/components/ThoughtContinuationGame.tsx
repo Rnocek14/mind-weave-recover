@@ -756,22 +756,28 @@ export function ThoughtContinuationGame({
     // =========================================================================
 
     let feedback: string;
+    // When true, we re-arm the mic on the SAME prompt instead of advancing,
+    // so the user can actually keep going when we tell them to.
+    let continueSamePrompt = false;
     if (signal && didSpeak) {
       const { errorType, onTopicScore, successScore } = signal;
       if (errorType === 'off_topic' || onTopicScore < 0.25) {
         feedback = `Interesting — try to bring it back to: "${currentPrompt.promptText}"`;
+        continueSamePrompt = true;
       } else if (errorType === 'surrender' || errorType === 'no_response') {
         feedback = "That's okay — give it a try, even one sentence.";
+        continueSamePrompt = true;
       } else if (wordCount < 3) {
         feedback = "Good start — can you add one more sentence?";
+        continueSamePrompt = true;
       } else if (errorType === 'incomplete' || !completionResult.isComplete) {
         feedback = "Keep going — finish that thought.";
+        continueSamePrompt = true;
       } else if (errorType === 'word_finding' || errorType === 'circumlocution') {
         feedback = "Nice — you worked through that.";
       } else if (successScore >= 0.7 && wordCount >= 8) {
         feedback = "Great — that was a full, clear thought.";
       } else {
-        // fluent_correct, shorter answers → use the existing flow templates
         feedback = selectFeedback(determineFeedbackTypes(flowMetrics));
       }
     } else {
@@ -786,10 +792,27 @@ export function ThoughtContinuationGame({
 
     setPhase('celebrated');
 
-    // Auto-advance after showing feedback
-    setTimeout(() => {
-      moveToNextPrompt();
-    }, 2000);
+    if (continueSamePrompt) {
+      // Re-open the mic on the SAME prompt so the user can add more.
+      // Preserve transcript-so-far so their additional speech accumulates.
+      setTimeout(async () => {
+        if (!currentPrompt) return;
+        hasCommittedRef.current = false;
+        setShowDoneButton(false);
+        setFeedbackMessage(null);
+        setPhase('idle');
+        // Keep latestTranscriptRef + transcript intact (discourse accumulation).
+        await awaitMicSafe(3000);
+        void startRecording();
+        startListening();
+      }, 3500);
+    } else {
+      // Auto-advance after showing positive feedback
+      setTimeout(() => {
+        moveToNextPrompt();
+      }, 2000);
+    }
+
 
   }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
 
