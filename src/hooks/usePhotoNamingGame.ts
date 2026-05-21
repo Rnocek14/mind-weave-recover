@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PhotoTrial, getTrialsForLevel, generateChoices, PHOTO_BANK } from '@/data/photoBank';
+import {
+  selectPhotoNamingPool,
+  writeSelectorDiagnostics,
+} from '@/lib/progression/photoNamingContentSelector';
 import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 
 /**
