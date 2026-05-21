@@ -147,16 +147,94 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
   );
 }
 
+/**
+ * Patient-safe progression view for `structural` and `design-only` games.
+ *
+ * Collapses the 8 internal clinical rungs into 4 patient-readable stages.
+ * We surface the spec-authored `description` (it's the cleanest clinical
+ * sentence we have) but DELIBERATELY OMIT:
+ *   - target support level (clinician language)
+ *   - mastery attempts / accuracy thresholds
+ *   - readiness flags (thin / aspirational)
+ *   - per-tier integrity detail
+ *
+ * Rationale: patients interpret ladders emotionally. Showing a trajectory
+ * is motivating; surfacing "thin"/"aspirational" reads as "unfinished".
+ * Clinician mode (future) can surface the full table for these games.
+ */
+const STAGE_BUCKETS: { label: string; range: [number, number] }[] = [
+  { label: 'Early recovery', range: [1, 2] },
+  { label: 'Functional', range: [3, 4] },
+  { label: 'Complex', range: [5, 6] },
+  { label: 'Advanced integration', range: [7, 8] },
+];
+
+function RecoveryRoadmap({
+  entry,
+  variant,
+}: {
+  entry: ClinicalLadderEntry;
+  variant: 'structural' | 'design-only';
+}) {
+  if (!entry.rows?.length) return null;
+  const buckets = STAGE_BUCKETS.map((bucket) => ({
+    label: bucket.label,
+    rows: entry.rows!.filter(
+      (r) => r.level >= bucket.range[0] && r.level <= bucket.range[1],
+    ),
+  })).filter((b) => b.rows.length > 0);
+
+  const heading =
+    variant === 'structural' ? 'Recovery roadmap' : 'Planned progression focus';
+  const note =
+    variant === 'structural'
+      ? 'Simplified stages. The engine adapts per level internally; the detailed L1–L8 table is reserved for clinician review.'
+      : 'Conceptual progression. Clinical design-of-record; runtime adaptation still rides the generic 1–10 engine.';
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h4 className="text-sm font-semibold text-foreground">{heading}</h4>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {buckets.length} stages
+        </span>
+      </div>
+      <ol className="space-y-2">
+        {buckets.map((bucket, i) => (
+          <li key={bucket.label} className="flex gap-3">
+            <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold tabular-nums text-primary">
+              {i + 1}
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-foreground">
+                {bucket.label}
+              </div>
+              <ul className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                {bucket.rows.map((r) => (
+                  <li key={r.level}>{r.description}</li>
+                ))}
+              </ul>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 text-[11px] italic text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
 function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const canonical = getCanonicalExercise(entry.slug);
   const title = canonical?.title ?? entry.slug;
-  const [open, setOpen] = useState(entry.status === 'full');
+  const hasFullLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
+  const hasRoadmap =
+    (entry.status === 'structural' || entry.status === 'design-only') &&
+    (entry.rows?.length ?? 0) > 0;
+  // Default-open the progression view so the user sees the trajectory
+  // without an extra click — that's the whole point of this surface.
+  const [open, setOpen] = useState(hasFullLadder || hasRoadmap);
   const badge = STATUS_BADGE[entry.status];
   const trackBadge = TRACK_BADGE[entry.track];
-  // Only `full` ladders surface a live L1–L8 table to users. Structural and
-  // design-only entries show their rationale but withhold the per-level table
-  // until content banks are clinician-reviewed.
-  const hasLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
 
   return (
     <Card className="border-border">
@@ -177,10 +255,6 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
         </div>
       </CardHeader>
       <CardContent className="pt-1">
-        {/* Clinical rationale — the "why this game" line. Sourced from
-            evidenceBasis.tldr; rendered identically for full / structural /
-            design-only so the user sees significance regardless of runtime
-            enforcement maturity. */}
         {entry.evidenceBasis?.tldr && (
           <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -191,8 +265,6 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
           </div>
         )}
 
-        {/* Routing / scope note — describes which mastery track and what the
-            in-game support telemetry maps to. Honest about exclusions. */}
         {entry.telemetryNote && (
           <div className="mt-2 flex items-start gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -210,7 +282,7 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
           </p>
         )}
 
-        {hasLadder && (
+        {(hasFullLadder || hasRoadmap) && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -218,10 +290,20 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             aria-expanded={open}
           >
             {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            {open ? 'Hide L1–L8 ladder' : 'Show L1–L8 ladder'}
+            {hasFullLadder
+              ? open ? 'Hide L1–L8 ladder' : 'Show L1–L8 ladder'
+              : entry.status === 'structural'
+                ? open ? 'Hide recovery roadmap' : 'Show recovery roadmap'
+                : open ? 'Hide progression focus' : 'Show planned progression focus'}
           </button>
         )}
-        {hasLadder && open && <LadderTable entry={entry} />}
+        {hasFullLadder && open && <LadderTable entry={entry} />}
+        {hasRoadmap && open && (
+          <RecoveryRoadmap
+            entry={entry}
+            variant={entry.status as 'structural' | 'design-only'}
+          />
+        )}
 
         <div className="mt-3">
           <Link
