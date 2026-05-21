@@ -26,6 +26,10 @@ import {
   MINIMAL_PAIRS_LEVELS,
   type MinimalPairsLevelSpec,
 } from './progression/minimalPairsLevels';
+import {
+  SEMANTIC_FEATURES_LEVELS,
+  type SemanticFeaturesLevelSpec,
+} from './progression/semanticFeaturesLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -96,7 +100,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
@@ -188,8 +192,12 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'semantic-features',
     axis: 'lexical',
     purpose: 'Generates semantic features for a target word (SFA).',
-    status: 'telemetry-only',
-    telemetryNote: 'cueLevel 0–2 mapped to semantic support ladder',
+    status: 'structural',
+    rows: rowsFromSpec('semantic-features', SEMANTIC_FEATURES_LEVELS),
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/semantic-features.md',
+      tldr: 'SFA direction (scaffolded perceptual → independent functional → associative) is well-supported; per-level thresholds + bank-difficulty mapping are clinically motivated calibration defaults. L6–L7 banks are thin; L8 is aspirational.',
+    },
   },
 
   // ── Generic engine (pre-migration) ───────────────────────────────────────

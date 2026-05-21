@@ -170,6 +170,15 @@ export const SemanticFeatureGame = ({
     bounds,
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Phase 1 fix: SemanticFeatureExercise is the single writer for
+    // adaptation_trial_logs (via useTrialSubmission, tagging
+    // trialMode='production'). Disabling autoLog here prevents:
+    //   (a) double-inserts to adaptation_trial_logs
+    //   (b) untagged rows on the now-adopted `semantic_features` slug,
+    //       which routeTrialMode would otherwise drop as skipped_unknown
+    //       and spam aggregated console warnings on every session.
+    // Mirrors PhotoNaming / FixSentence / TwoClues.
+    autoLog: false,
     // SFA cue dependency = how reliant the user is on the visible feature
     // options (the scaffolding) to retrieve the target word.
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
