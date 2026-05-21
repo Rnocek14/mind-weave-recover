@@ -54,6 +54,10 @@ import {
   DETECTIVE_MIND_LEVELS,
   type DetectiveMindLevelSpec,
 } from './progression/detectiveMindLevels';
+import {
+  SYNONYM_GENERATOR_LEVELS,
+  type SynonymGeneratorLevelSpec,
+} from './progression/synonymGeneratorLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -333,7 +337,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'synonym-generator',
     axis: 'lexical',
     purpose: 'Generates synonyms for a target word.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('synonym-generator', SYNONYM_GENERATOR_LEVELS),
+    telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on match-count growth at progressively harder content tiers. Expressive divergent retrieval — routed into expressive mastery.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/synonym-generator.md',
+      tldr: 'Divergent lexical-semantic production (SFA, VNeST, verbal-fluency intervention). 3-tier word-abstractness collapse is a clinically motivated calibration default against the existing SYNONYM_PROMPTS bank. L6–L7 thin; L8 aspirational (no constrained-output runtime mode).',
+    },
   },
 };
 

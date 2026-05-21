@@ -1,7 +1,15 @@
 /**
  * Synonym Generator Exercise Page
- * 
- * "Give as many synonyms for [word] as you can" with adaptive difficulty
+ *
+ * "Give as many synonyms for [word] as you can" with adaptive difficulty.
+ *
+ * Wave 3 (Phase 2): migrated off raw useExerciseTelemetry to the unified
+ * useTrialSubmission pipeline. Every submitTrial call emits
+ * `trialMode: 'production'` (expressive divergent lexical-semantic
+ * retrieval) and the slug `synonym_generator` is in
+ * ADOPTED_TRIAL_MODE_SLUGS, so longitudinal mastery now flows.
+ * Progression is wired via useSynonymGeneratorProgression (L1–L8 ladder)
+ * with a load gate so the engine starts at the correct clinical floor.
  */
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
@@ -11,8 +19,6 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -21,6 +27,12 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import {
+  useSynonymGeneratorProgression,
+  mapSynonymGeneratorSupport,
+} from '@/hooks/useSynonymGeneratorProgression';
+import { resolveEffectiveSynonymGeneratorInitialDifficulty } from '@/lib/progression/synonymGeneratorDifficultyBridge';
 
 const EXERCISE_SLUG = 'synonym_generator';
 
@@ -39,6 +51,7 @@ export default function SynonymGeneratorExercise() {
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  const trialIndexRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
@@ -51,7 +64,6 @@ export default function SynonymGeneratorExercise() {
     exerciseSlug: EXERCISE_SLUG,
     lessonAdaptations,
   });
-  const difficultyLevel = adaptation.difficultyTier;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(
@@ -59,6 +71,26 @@ export default function SynonymGeneratorExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  // Wave 3: Clinical Progression v1 — synonym-generator L1–L8 ladder.
+  // Persistent Clinical Level supplies a FLOOR for the in-session engine
+  // tier (1–10); session adaptation can still escalate above the floor.
+  const progression = useSynonymGeneratorProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveSynonymGeneratorInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] SynonymGenerator scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const difficultyLevel = bridge.effective;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -74,10 +106,16 @@ export default function SynonymGeneratorExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Wave 3: unified trial submission (expressive axis). SynonymGeneratorGame
+  // is autoLog:false; this page owns the writer and emits
+  // trialMode:'production' so the adopted slug routes mastery correctly.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const pivot = useExerciseMidSessionPivot({
     exerciseSlug: EXERCISE_SLUG,
@@ -89,9 +127,10 @@ export default function SynonymGeneratorExercise() {
     console.log(`[SynonymGenerator] Adaptive difficulty ${direction}: now level ${newLevel}`);
   }, []);
 
-  const handleRoundComplete = useCallback((result: SynonymRoundResult) => {
+  const handleRoundComplete = useCallback(async (result: SynonymRoundResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
+    trialIndexRef.current += 1;
     scoreRef.current += result.matchCount;
 
     pivot.recordTrialResult({
@@ -107,9 +146,20 @@ export default function SynonymGeneratorExercise() {
       else errorType = 'low_synonym_count';
     }
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.durationSec * 1000,
+    await submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.difficulty ?? difficultyLevel,
+      stimulusId: result.targetWord ?? `syn_trial_${trialIndexRef.current}`,
+      expectedResponse: null,
+      userResponse: result.enteredWords?.join(', ') ?? null,
+      isCorrect,
+      accuracyScore: result.totalEntered > 0 ? result.matchCount / Math.max(result.totalEntered, 1) : 0,
+      cueLevel: 0,
+      supportUsed: mapSynonymGeneratorSupport(),
+      latencyMs: Math.round(result.durationSec * 1000),
+      trialMode: 'production',
       errorType,
       taskParameters: {
         target_word: result.targetWord,
@@ -121,6 +171,8 @@ export default function SynonymGeneratorExercise() {
         difficulty: result.difficulty,
         difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
     });
@@ -129,10 +181,13 @@ export default function SynonymGeneratorExercise() {
       console.log('[SynonymGenerator] Pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback((results: SynonymRoundResult[]) => {
+  const handleGameComplete = useCallback(async (results: SynonymRoundResult[]) => {
     setCompleted(true);
+    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
+    // progression ladder + mastery shadow + drains adaptation rows.
+    await commitSession();
     completeSession();
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -148,11 +203,11 @@ export default function SynonymGeneratorExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, navigate]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
-  }, [navigate, fromLesson]);
+  }, [navigate, fromLesson, returnTo]);
 
   const isReady = !isCreatingSession && !!activeSessionId;
 
@@ -192,7 +247,7 @@ export default function SynonymGeneratorExercise() {
               <Button onClick={() => navigate('/today')} size="lg">Continue</Button>
             )}
           </div>
-        ) : (
+        ) : progression.loaded ? (
           <SynonymGeneratorGame
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
@@ -203,6 +258,10 @@ export default function SynonymGeneratorExercise() {
             userId={user?.id}
             sessionId={activeSessionId}
           />
+        ) : (
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading your progression…
+          </div>
         )}
       </main>
 

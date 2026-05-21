@@ -160,6 +160,10 @@ export function SynonymGeneratorGame({
     userId,
     sessionId,
     exerciseSlug: 'synonym-generator',
+    // Wave 3: SynonymGeneratorExercise owns the unified submitTrial pathway
+    // (trialMode='production'). Disable the in-game adaptation auto-logger
+    // so we don't double-insert adaptation_trial_logs rows.
+    autoLog: false,
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
   });
 
