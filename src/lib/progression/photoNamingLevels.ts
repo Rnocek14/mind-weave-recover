@@ -104,7 +104,8 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     targetSupport: 'recognition_only',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
-    trialWeight: 0.4, // ~3 perfect sessions to graduate — build momentum
+    trialWeight: 0.4,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content; no extra filter.' },
   },
   2: {
     level: 2,
@@ -113,6 +114,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     trialWeight: 0.55,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content; no extra filter.' },
   },
   3: {
     level: 3,
@@ -121,6 +123,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     trialWeight: 0.75,
+    contentSelector: { tierKey: 'baseline', description: 'Engine difficulty bands handle L1–L3 content; no extra filter.' },
   },
   4: {
     level: 4,
@@ -129,6 +132,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     trialWeight: 1.0,
+    contentSelector: { tierKey: 'high_frequency', description: 'High-frequency concrete nouns (SUBTLEX-proxy rank ≤ 2000).' },
   },
   5: {
     level: 5,
@@ -137,6 +141,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     trialWeight: 1.25,
+    contentSelector: { tierKey: 'mid_frequency', description: 'Mid-frequency nouns (rank 2001–6000). Disjoint from L4.' },
   },
   6: {
     level: 6,
@@ -145,6 +150,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     trialWeight: 1.7,
+    contentSelector: { tierKey: 'cross_category', description: 'Cross-category semantic spread (≥4 distinct categories, no category > 45%).' },
   },
   7: {
     level: 7,
@@ -153,6 +159,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     trialWeight: 2.0,
+    contentSelector: { tierKey: 'phrase_carrier', description: 'Phrase-carrier mode: every trial tagged with a carrier sentence.' },
   },
   8: {
     level: 8,
@@ -161,6 +168,11 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
     trialWeight: 2.5,
+    contentSelector: {
+      tierKey: 'generalization_probe',
+      description:
+        'Generalization PROBE pool (untrained items). Probe trials are segregated from ordinary mastery stats.',
+    },
   },
 };
 
