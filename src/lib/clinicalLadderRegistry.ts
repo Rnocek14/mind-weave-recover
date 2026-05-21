@@ -46,6 +46,14 @@ import {
   SENTENCE_CONSTRUCTION_LEVELS,
   type SentenceConstructionLevelSpec,
 } from './progression/sentenceConstructionLevels';
+import {
+  MULTI_STEP_PLANNING_LEVELS,
+  type MultiStepPlanningLevelSpec,
+} from './progression/multiStepPlanningLevels';
+import {
+  DETECTIVE_MIND_LEVELS,
+  type DetectiveMindLevelSpec,
+} from './progression/detectiveMindLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -116,7 +124,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
@@ -227,22 +235,44 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
   },
 
   // ── Generic engine (pre-migration) ───────────────────────────────────────
+  // ── Tier-A structural ladders (Wave 2) ───────────────────────────────────
   'detective-mind': {
     slug: 'detective-mind',
-    axis: 'executive',
+    axis: 'comprehension',
     purpose: 'Inferential reasoning from contextual clues.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('detective-mind', DETECTIVE_MIND_LEVELS),
+    telemetryNote: 'recognition_only (baseline) → semantic_cue (after highlight hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MeaningMatch / MinimalPairs.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/detective-mind.md',
+      tldr: 'Inferential discourse-comprehension hierarchy (factual → bridging → multi-step inference) grounded in Sohlberg/Mateer APT-II and clinical practice patterns. Per-level thresholds + tier mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational. Receptive-safe routing.',
+    },
   },
   'multi-step-plan': {
     slug: 'multi-step-plan',
     axis: 'executive',
     purpose: 'Orders and executes multi-step plans.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('multi-step-plan', MULTI_STEP_PLANNING_LEVELS),
+    telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on accuracy + sequence-coverage growth at progressively harder content tiers. Expressive discourse — routed into expressive mastery.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/multi-step-planning.md',
+      tldr: 'Procedural-discourse training (Sohlberg/Mateer APT; script training; Ulatowska macrostructure). 3-tier complexity collapse is a clinically motivated calibration default against the existing bank. L7 thin; L8 aspirational (no constrained-output runtime mode).',
+    },
   },
   'pattern-match': {
     slug: 'pattern-match',
     axis: 'executive',
     purpose: 'Detects and extends visual/semantic patterns.',
+    // INTENTIONALLY left `generic`: Pattern Match is a non-linguistic
+    // visual / working-memory task (shapes × colors, zero linguistic
+    // content). It is NOT aphasia therapy in the strict sense. Per the
+    // research doc's Exploratory rating, we leave it on the universal
+    // 1–10 adaptation engine without a clinical ladder and exclude it
+    // from ADOPTED_TRIAL_MODE_SLUGS so its trials never contaminate the
+    // expressive mastery track. Promoting it would require either a
+    // working-memory mastery track or a linguistic content overlay —
+    // both deferred.
     status: 'generic',
   },
   'abstract-compare': {

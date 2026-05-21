@@ -94,6 +94,7 @@ export function DetectiveMindGame({
     sessionId,
     initialDifficulty: difficultyLevel,
     bounds: { floor: 1, ceiling: 10, suggestedStart: difficultyLevel },
+    autoLog: false, // Wave 2: DetectiveMindExercise owns the unified submitTrial pathway.
     enableDifficultyToasts: false, // we render AdaptationBadge instead
     enableAutoHints: true,
     // Hint usage = direct cue dependency signal for this comprehension task.
