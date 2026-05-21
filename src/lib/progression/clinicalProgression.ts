@@ -237,7 +237,7 @@ export function applySessionToState(
   let nextSupport = prev.supportBaseline;
 
   if (nextProgress >= MAX_PROGRESS) {
-    const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
+    const masteryOk = masteryGateAllowsAdvance(input);
     const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
     if (input.evidenceMet && masteryOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
