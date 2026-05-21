@@ -210,13 +210,18 @@ export function applySessionToState(
 
   if (nextProgress >= MAX_PROGRESS) {
     const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
-    if (input.evidenceMet && masteryOk && nextLevel < MAX_LEVEL) {
+    const ceiling =
+      typeof input.maxImplementedLevel === 'number'
+        ? clampLevel(input.maxImplementedLevel)
+        : MAX_LEVEL;
+    const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
+    if (input.evidenceMet && masteryOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
       nextProgress = MIN_PROGRESS;
       nextSupport = 0;
       nextStable = nextLevel;
     } else {
-      nextProgress = MAX_PROGRESS; // hold at top of level
+      nextProgress = MAX_PROGRESS; // hold at top of level (or top of implemented ceiling)
     }
   }
 
