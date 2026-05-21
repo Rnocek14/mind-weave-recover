@@ -255,7 +255,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'sentence-construction',
     axis: 'executive',
     purpose: 'Builds grammatically valid sentences from constraints.',
-    status: 'generic',
+    status: 'structural',
+    rows: rowsFromSpec('sentence-construction', SENTENCE_CONSTRUCTION_LEVELS),
+    telemetryNote: 'highlight_plus_choice (model heard) → choice_based (tiles only). Expressive production — routed into expressive mastery.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/sentence-construction.md',
+      tldr: 'Mapping Therapy / TUF / VNeST support structured grammar-production training with scaffold fading; specific tier ordering and per-level thresholds are clinically motivated calibration defaults. L6–L7 thin; L8 (open production) aspirational — no tile-suppressed runtime mode yet.',
+    },
   },
   'phonological-awareness': {
     slug: 'phonological-awareness',
