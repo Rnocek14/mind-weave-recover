@@ -164,7 +164,7 @@ export default function GameAboutPage() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          <strong>Readiness</strong> shows whether we have enough validated content for that rung today.
+          <strong>Readiness</strong> shows whether we have enough curated content for that rung today.
           "Thin" or "Aspirational" rungs are still being built out — your level may temporarily cap until more content lands.
         </p>
       </section>
