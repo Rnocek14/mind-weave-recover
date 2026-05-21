@@ -117,8 +117,16 @@ export function useMinimalPairsProgression({
 
       const level = prev.currentLevel;
       const levelSpec = getMinimalPairsLevelSpec(level);
-      const evidenceMet = evidenceMetForMinimalPairsLevel(trials, level);
+      const rawEvidenceMet = evidenceMetForMinimalPairsLevel(trials, level);
       const progressDelta = calculateMinimalPairsProgressDelta(trials, level);
+
+      // PR3 — Cue-dependency gate. "Cue" here = patient-driven audio replay.
+      // When the level's target is `first_listen` and the patient leans on
+      // replays for > MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD of the
+      // session, hold the level even when accuracy passes.
+      const cueDependency = cueDependencyForMinimalPairsSession(trials, level);
+      const cueDependencyBlocking = isMinimalPairsCueDependencyBlocking(trials, level);
+      const evidenceMet = rawEvidenceMet && !cueDependencyBlocking;
 
       const gate = await readMasteryGate({
         profileId,
