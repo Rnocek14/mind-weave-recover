@@ -235,6 +235,10 @@ const SentenceConstructionExercise = () => {
   };
 
   const handleGameComplete = async (finalScore: number, totalTrials: number) => {
+    // Unified commit before session-end housekeeping — flushes mastery
+    // shadow + drains queued adaptation rows + persists the L1–L8 ladder.
+    await commitSession();
+
     if (sessionId) {
       const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
       const accuracy = Math.round((finalScore / totalTrials) * 100);
