@@ -117,7 +117,7 @@ export function useDualLoadNamingProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedDualLoadNamingLevel(),
         },
       );

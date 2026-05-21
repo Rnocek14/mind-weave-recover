@@ -117,7 +117,7 @@ export function useMultiStepPlanningProgression({
           trials,
           evidenceMet,
           progressDelta,
-          masteryConfidence: gate.confidence,
+          masteryVerdict: gate.verdict,
           maxImplementedLevel: highestImplementedMultiStepPlanningLevel(),
         },
       );

@@ -152,13 +152,21 @@ export interface SessionRollupInput {
    */
   progressDelta?: number;
   /**
-   * Longitudinal mastery confidence (minimum across the skills this game
-   * trains). When provided, level-up requires confidence ≥ 'medium' in
-   * addition to accuracy/support evidence. When undefined, mastery gating
-   * is skipped (legacy callers / first-ever session before mastery rows
-   * exist). This is the FIRST enforcement layer for the mastery substrate.
+   * Legacy mastery input: minimum confidence across trained skills.
+   * Preserved for backward compatibility with tests and any caller that
+   * has not migrated to `masteryVerdict`. New callers should pass
+   * `masteryVerdict` instead — see Leak 4 fix in `readMasteryGate.ts`.
    */
   masteryConfidence?: MasteryConfidenceLevel;
+  /**
+   * Verdict from the mastery gate rule (Leak 4 fix). Takes precedence
+   * over `masteryConfidence` when both are supplied.
+   *   'pass'  → unlock level-up (subject to accuracy + evidence floors)
+   *   'block' → hold at top of level even at 100% progress
+   *   'skip'  → no opinion (no signal yet); gate is a no-op
+   * When neither field is provided, gate is a no-op (legacy behavior).
+   */
+  masteryVerdict?: 'pass' | 'block' | 'skip';
   /**
    * Highest level whose contentSelector actually ships differentiated
    * content. When provided, level-up is clamped here so the patient never
@@ -170,14 +178,27 @@ export interface SessionRollupInput {
 }
 
 /**
- * Mastery gate: medium or high confidence is required to unlock level-up.
- * Exposed for testing + diagnostics.
+ * Legacy gate function — true when confidence is medium/high or undefined.
+ * Kept for back-compat with tests; new code should use the verdict path.
  */
 export function masteryConfidenceMeetsGate(
   confidence: MasteryConfidenceLevel | undefined,
 ): boolean {
-  if (confidence === undefined) return true; // backward-compatible no-op
+  if (confidence === undefined) return true;
   return confidence === 'medium' || confidence === 'high';
+}
+
+/**
+ * Verdict-aware gate. Prefers the explicit verdict; falls back to the
+ * legacy confidence check; defaults to open when nothing is supplied.
+ */
+export function masteryGateAllowsAdvance(
+  input: Pick<SessionRollupInput, 'masteryVerdict' | 'masteryConfidence'>,
+): boolean {
+  if (input.masteryVerdict !== undefined) {
+    return input.masteryVerdict !== 'block';
+  }
+  return masteryConfidenceMeetsGate(input.masteryConfidence);
 }
 
 /**
@@ -216,7 +237,7 @@ export function applySessionToState(
   let nextSupport = prev.supportBaseline;
 
   if (nextProgress >= MAX_PROGRESS) {
-    const masteryOk = masteryConfidenceMeetsGate(input.masteryConfidence);
+    const masteryOk = masteryGateAllowsAdvance(input);
     const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
     if (input.evidenceMet && masteryOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
