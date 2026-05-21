@@ -161,13 +161,13 @@ export default function MeaningMatchExercise() {
     // Comprehension axis SupportLevel mapping:
     //   recognition_only  → multi-choice baseline (no hint)
     //   semantic_cue      → keyword-highlight hint used
-    const supportUsed = result.usedHint ? 'semantic_cue' : 'recognition_only';
+    const supportUsed = mapMeaningMatchSupport(!!result.usedHint);
 
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: result.tier ?? difficultyLevel ?? 1,
+      level: effectiveDifficulty ?? result.tier ?? difficultyLevel ?? 1,
       stimulusId: result.itemId,
       expectedResponse: null,
       userResponse: null,
@@ -190,6 +190,8 @@ export default function MeaningMatchExercise() {
         lesson_source: lessonSource,
         preset_id: presetId,
         pivot_pending: pivot.hasPending,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
     });
@@ -249,7 +251,9 @@ export default function MeaningMatchExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: progression must load so the bridge floor is in place
+  // before the game mounts. Mirrors SemanticFeatures Wave 1 gate.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
@@ -296,7 +300,7 @@ export default function MeaningMatchExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
-            difficultyLevel={difficultyLevel}
+            difficultyLevel={effectiveDifficulty}
             sessionId={activeSessionId}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />
