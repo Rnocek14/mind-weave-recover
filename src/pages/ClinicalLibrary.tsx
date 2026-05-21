@@ -131,11 +131,9 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const title = canonical?.title ?? entry.slug;
   const [open, setOpen] = useState(entry.status === 'full');
   const badge = STATUS_BADGE[entry.status];
-  const hasLadder =
-    (entry.status === 'full' ||
-      entry.status === 'structural' ||
-      entry.status === 'design-only') &&
-    (entry.rows?.length ?? 0) > 0;
+  // Only `full` ladders surface a live L1–L8 table to users. Structural and
+  // design-only entries remain registry-only until clinician review.
+  const hasLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
 
   return (
     <Card className="border-border">
@@ -160,32 +158,13 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             </span>
           </div>
         )}
-        {entry.status === 'generic' && (
+        {(entry.status === 'generic' ||
+          entry.status === 'structural' ||
+          entry.status === 'design-only') && (
           <p className="text-xs text-muted-foreground">
             No per-level clinical ladder yet. Difficulty is driven by the generic
-            1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped.
+            1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped and clinician-reviewed.
           </p>
-        )}
-        {entry.status === 'design-only' && (
-          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium text-foreground">Design of record published.</span>{' '}
-              The L1–L8 ladder below is the clinical intent for this game. Runtime difficulty
-              still rides the generic 1–10 adaptation engine while the per-level scorer is
-              built.
-            </span>
-          </div>
-        )}
-        {entry.status === 'structural' && (
-          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium text-foreground">Structural ladder live.</span>{' '}
-              Engine adapts content per level. Upper tiers ship with thin or aspirational
-              content banks — see the readiness column.
-            </span>
-          </div>
         )}
 
         {hasLadder && (
