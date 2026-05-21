@@ -249,7 +249,9 @@ export default function CategoryFluencyExercise() {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: progression must load so the bridge floor + rung-aware
+  // correctness threshold are in place before the game mounts.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
