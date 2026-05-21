@@ -7,6 +7,10 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { MinimalPairTrial, getMinimalPairTrialsForLevel } from '@/data/minimalPairsBank';
+import {
+  selectMinimalPairsPool,
+  writeMinimalPairsSelectorDiagnostics,
+} from '@/lib/progression/minimalPairsContentSelector';
 
 export interface MinimalPairsGameState {
   currentTrial: MinimalPairTrial | null;
@@ -26,17 +30,49 @@ export interface MinimalPairsGameOptions {
   totalTrials?: number;
   difficultyLevel?: number;
   focusPhonemes?: string[];
+  /**
+   * PR5 (Phase 2.5): when present, the session pool is built from the
+   * clinical content selector (contrast class / signal condition) instead
+   * of the engine difficulty selector. Skipped tiers (L7 degraded signal,
+   * L8 triplet RT) fall back to the engine pool with a diagnostic surfaced
+   * via writeMinimalPairsSelectorDiagnostics.
+   */
+  clinicalLevel?: number | null;
 }
 
 export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
-  const { totalTrials = 10, difficultyLevel = 1, focusPhonemes } = options;
-  
-  // Generate trials based on difficulty
+  const { totalTrials = 10, difficultyLevel = 1, focusPhonemes, clinicalLevel = null } = options;
+
+  // Generate trials based on difficulty.
   const initialTrials = useMemo(() => {
-    const trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, {
-      focusPhonemes,
-    });
-    // Regenerate target indices for variety
+    let trials: MinimalPairTrial[];
+    if (clinicalLevel != null && clinicalLevel >= 4) {
+      const sel = selectMinimalPairsPool(clinicalLevel);
+      writeMinimalPairsSelectorDiagnostics(sel, clinicalLevel);
+      if (sel.fallback?.skipped || sel.pool.length === 0) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[minimalPairs:selector] tier %s skipped (%s) — using engine baseline',
+            sel.tier, sel.fallback?.reason,
+          );
+        }
+        trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, { focusPhonemes });
+      } else {
+        // Selector returned a contrast-class-filtered pool; trim/repeat to count.
+        const pool = sel.pool as unknown as MinimalPairTrial[];
+        if (pool.length >= totalTrials) {
+          trials = pool.slice(0, totalTrials);
+        } else {
+          const out: MinimalPairTrial[] = [];
+          while (out.length < totalTrials) out.push(pool[out.length % pool.length]);
+          trials = out;
+        }
+      }
+    } else {
+      trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, { focusPhonemes });
+    }
+    // Regenerate target indices for variety.
     return trials.map(trial => ({
       ...trial,
       targetIndex: (Math.random() < 0.5 ? 0 : 1) as 0 | 1,
@@ -46,7 +82,7 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
       targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficultyLevel, totalTrials, focusPhonemes?.join(',')]);
+  }, [difficultyLevel, totalTrials, focusPhonemes?.join(','), clinicalLevel]);
   
   const [state, setState] = useState<MinimalPairsGameState>({
     currentTrial: initialTrials[0] || null,
