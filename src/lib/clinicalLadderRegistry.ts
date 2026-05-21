@@ -66,6 +66,13 @@ import {
   PHONOLOGICAL_AWARENESS_LEVELS,
   type PhonologicalAwarenessLevelSpec,
 } from './progression/phonologicalAwarenessLevels';
+import { DESCRIBE_GUESS_LEVELS } from './progression/describeGuessLevels';
+import { NARRATIVE_RETELL_LEVELS } from './progression/narrativeRetellLevels';
+import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLevels';
+import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
+import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
+import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
+import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -231,8 +238,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'describe-guess',
     axis: 'lexical',
     purpose: 'Produces features so the system guesses the word.',
-    status: 'telemetry-only',
-    telemetryNote: 'cueLevel 0–3 mapped to semantic support ladder',
+    status: 'design-only',
+    rows: designOnlyRows('describe-guess', Object.values(DESCRIBE_GUESS_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides discourse adaptation engine + legacy cueLevel 0–3 mapping. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/describe-guess.md',
+      tldr: 'SFA-style feature production (Boyle & Coelho; Maddy meta-analysis) + PACE communicative-success frame. 3-tier complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+    },
   },
   'semantic-features': {
     slug: 'semantic-features',
@@ -291,7 +303,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'abstract-compare',
     axis: 'executive',
     purpose: 'Compares abstract concepts (similarities/differences).',
-    status: 'generic',
+    status: 'design-only',
+    rows: designOnlyRows('abstract-compare', Object.values(ABSTRACT_COMPARE_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/abstract-compare.md',
+      tldr: 'Similarities/differences subtests (WAIS; BDAE Concept Comparisons) + concept-comparison rehab literature. 4-stage abstraction ladder is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+    },
   },
   'sentence-construction': {
     slug: 'sentence-construction',
@@ -333,7 +351,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'narrative-retell',
     axis: 'discourse',
     purpose: 'Retells a heard narrative with key elements intact.',
-    status: 'generic',
+    status: 'design-only',
+    rows: designOnlyRows('narrative-retell', Object.values(NARRATIVE_RETELL_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/narrative-retell.md',
+      tldr: 'Story-grammar macrostructure (Ulatowska; Stein & Glenn) + discourse-in-aphasia (Wright & Capilouto) + script training. 4-stage complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+    },
   },
   'category-fluency': {
     slug: 'category-fluency',
@@ -351,7 +375,37 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'thought-continuation',
     axis: 'discourse',
     purpose: 'Continues an open-ended thought spontaneously.',
-    status: 'generic',
+    status: 'design-only',
+    rows: designOnlyRows('thought-continuation', Object.values(THOUGHT_CONTINUATION_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/thought-continuation.md',
+      tldr: 'Discourse-in-aphasia propositional density + cohesion (Wright & Capilouto; Armstrong; CHAT/CLAN). 4-band complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+    },
+  },
+  'conversation-coach': {
+    slug: 'conversation-coach',
+    axis: 'discourse',
+    purpose: 'Scaffolded conversational practice with SCA-style coaching.',
+    status: 'design-only',
+    rows: designOnlyRows('conversation-coach', Object.values(CONVERSATION_COACH_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides Smart Coach / discourse adaptation engine with existing strategy switching + SCA cueing. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/conversation-coach.md',
+      tldr: 'SCA (Kagan) + PACE (Davis & Wilcox) + Conversation Therapy (Hopper, Holland). 4-stage independence ladder (scripted → choice-supported → semi-scripted → independent → multi-turn → topic-initiation → repair) is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+    },
+  },
+  'conversation-partner': {
+    slug: 'conversation-partner',
+    axis: 'discourse',
+    purpose: 'Ecologically valid dyadic conversation with a partner persona.',
+    status: 'design-only',
+    rows: designOnlyRows('conversation-partner', Object.values(CONVERSATION_PARTNER_LEVELS) as DesignOfRecordLevelSpec[]),
+    telemetryNote: 'Runtime rides conversation-partner agent loop with existing strategy switching. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    evidenceBasis: {
+      docPath: 'docs/clinical-evidence/conversation-partner.md',
+      tldr: 'SCA + Communication Partner Training meta-analyses (Simmons-Mackie et al.) + PACE + LPAA. Partner-load progression (predictable → naturalistic → unfamiliar → multi-party) is a clinically motivated design default mapped onto the existing partner-agent runtime. Design-of-record only — no per-level enforcement.',
+    },
   },
   'synonym-generator': {
     slug: 'synonym-generator',
