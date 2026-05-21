@@ -42,6 +42,14 @@ export interface PhotoNamingGameOptions {
   customTrials?: MixedTrial[];
   focusPhonemes?: string[]; // Phonemes to prioritize in word selection
   focusWords?: string[]; // Specific words to prioritize
+  /**
+   * PR4 (Phase 2.5): when present, the session pool is built from the
+   * clinical content selector (frequency band, cross-category spread,
+   * phrase carrier, generalization probe) instead of the generic engine
+   * filter. Fallbacks are surfaced via writeSelectorDiagnostics so
+   * /dev/progression-state shows what actually happened.
+   */
+  clinicalLevel?: number | null;
 }
 
 // ============================================================================
