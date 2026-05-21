@@ -241,21 +241,7 @@ export default function SemanticFeatureExercise() {
         clinical_level: progression.startingLevel,
         clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
-      },
-      latencyMs: data?.reactionTime ?? null,
-      trialMode: 'production',
-      errorType: isCorrect ? undefined : 'semantic_error',
-      taskParameters: {
-        word: data?.word,
-        difficulty: data?.difficulty,
-        features_correct: data?.featuresCorrect,
-        features_missed: data?.featuresMissed,
-        features_incorrect: data?.featuresIncorrect,
-        retrieval_correct: data?.retrievalCorrect,
-        feature_breakdown: data?.featureBreakdown,
-        adaptations_active: data?.adaptationsActive,
-        ...adaptationTelemetry,
-      },
+    });
     });
     if (pivot.shouldStepDown) pivot.acknowledge();
   }, [sessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
