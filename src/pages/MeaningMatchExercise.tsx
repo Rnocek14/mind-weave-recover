@@ -31,6 +31,11 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import {
+  useMeaningMatchProgression,
+  mapMeaningMatchSupport,
+} from '@/hooks/useMeaningMatchProgression';
+import { resolveEffectiveMeaningMatchInitialDifficulty } from '@/lib/progression/meaningMatchDifficultyBridge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -98,15 +103,39 @@ export default function MeaningMatchExercise() {
     getSessionStats,
   });
 
-  // Unified trial submission. No per-game progression hook yet (Phase 3
-  // follow-up) — progression: null, so the buffer + commit progression
-  // flush no-op and only exercise_events + mastery shadow get the write.
+  // Clinical Progression v1 — Wave 1 wiring for Meaning Match (receptive-safe).
+  // The hook drives persistent Clinical Level + engine floor, but `submitTrial`
+  // continues to emit `trialMode: 'recognition'` and the slug is INTENTIONALLY
+  // NOT in ADOPTED_TRIAL_MODE_SLUGS. Routing this comprehension task into the
+  // expressive mastery track would conflate axes. Receptive-mastery track is
+  // deferred. Same precedent as MinimalPairs.
+  const progression = useMeaningMatchProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveMeaningMatchInitialDifficulty({
+    sessionAdaptationDifficulty: difficultyLevel,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] MeaningMatch scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveDifficulty = bridge.effective;
+
+  // Unified trial submission. Progression is wired through
+  // useMeaningMatchProgression — every submitTrial buffers a clinical trial
+  // and commitSession flushes the L1–L8 ladder. trialMode stays 'recognition'
+  // (receptive-safe routing; see comment above).
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
     exerciseSlug: EXERCISE_SLUG,
-    progression: null,
+    progression,
   });
 
   // Mid-session pivot for frustration/crash detection
@@ -132,13 +161,13 @@ export default function MeaningMatchExercise() {
     // Comprehension axis SupportLevel mapping:
     //   recognition_only  → multi-choice baseline (no hint)
     //   semantic_cue      → keyword-highlight hint used
-    const supportUsed = result.usedHint ? 'semantic_cue' : 'recognition_only';
+    const supportUsed = mapMeaningMatchSupport(!!result.usedHint);
 
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: result.tier ?? difficultyLevel ?? 1,
+      level: effectiveDifficulty ?? result.tier ?? difficultyLevel ?? 1,
       stimulusId: result.itemId,
       expectedResponse: null,
       userResponse: null,
@@ -161,6 +190,8 @@ export default function MeaningMatchExercise() {
         lesson_source: lessonSource,
         preset_id: presetId,
         pivot_pending: pivot.hasPending,
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
     });
@@ -220,7 +251,9 @@ export default function MeaningMatchExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: progression must load so the bridge floor is in place
+  // before the game mounts. Mirrors SemanticFeatures Wave 1 gate.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
@@ -267,7 +300,7 @@ export default function MeaningMatchExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
-            difficultyLevel={difficultyLevel}
+            difficultyLevel={effectiveDifficulty}
             sessionId={activeSessionId}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />

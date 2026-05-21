@@ -57,6 +57,19 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // on every submitTrial; SemanticFeatureGame's adaptation auto-logger is
   // disabled (autoLog:false) so no untagged rows leak into routing.
   'semantic_features',
+  // two_clues: TwoCluesExercise emits trialMode='production' on every
+  // submitTrial; TwoCluesGame's adaptation auto-logger is autoLog:false
+  // (already in place pre-Wave 1).
+  'two_clues',
+  // category_fluency: CategoryFluencyExercise (Wave 1) migrated from
+  // legacy useExerciseTelemetry.logTrial to useTrialSubmission, emitting
+  // trialMode='production' on every round. CategoryFluencyGame is
+  // autoLog:false.
+  'category_fluency',
+  // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
+  // emits trialMode:'recognition' which routes to `excluded`. Adding it
+  // here would conflate axes; receptive mastery track is deferred. Same
+  // precedent as minimal_pairs.)
 ]);
 
 export function isAdoptedForTrialMode(exerciseSlug: string): boolean {

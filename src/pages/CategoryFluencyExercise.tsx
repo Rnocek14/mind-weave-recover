@@ -11,14 +11,21 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { tierToLevel } from '@/lib/gameLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import {
+  useCategoryFluencyProgression,
+  mapCategoryFluencySupport,
+} from '@/hooks/useCategoryFluencyProgression';
+import {
+  resolveEffectiveCategoryFluencyInitialDifficulty,
+} from '@/lib/progression/categoryFluencyDifficultyBridge';
+import { getCategoryFluencyLevelSpec } from '@/lib/progression/categoryFluencyLevels';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -77,10 +84,34 @@ export default function CategoryFluencyExercise() {
     getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(
-    activeSessionId,
-    normalizeExerciseSlug(EXERCISE_SLUG)
-  );
+  // Wave 1: migrated from useExerciseTelemetry.logTrial to the unified
+  // useTrialSubmission pathway with per-game progression. Emits
+  // trialMode='production' on every round (slug is in
+  // ADOPTED_TRIAL_MODE_SLUGS). CategoryFluencyGame is autoLog:false.
+  const progression = useCategoryFluencyProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveCategoryFluencyInitialDifficulty({
+    sessionAdaptationDifficulty: difficultyLevel,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] CategoryFluency scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveTier = bridge.effective;
+
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const pivot = useExerciseMidSessionPivot({
     exerciseSlug: EXERCISE_SLUG,
@@ -97,13 +128,16 @@ export default function CategoryFluencyExercise() {
     trialsRef.current += 1;
     scoreRef.current += result.uniqueWordCount;
 
+    // Rung-aware correctness: uniqueWordCount >= rung's minUniqueWords.
+    const clinicalLevel = progression.startingLevel ?? 1;
+    const rungSpec = getCategoryFluencyLevelSpec(clinicalLevel);
+    const isCorrect = result.uniqueWordCount >= rungSpec.minUniqueWords;
+
     pivot.recordTrialResult({
-      wasCorrect: result.uniqueWordCount >= 3,
+      wasCorrect: isCorrect,
       reactionTimeMs: result.durationSec * 1000,
     });
 
-    // Derive a clinically meaningful errorType for fluency tasks
-    const isCorrect = result.uniqueWordCount >= 3;
     let errorType: string | undefined;
     if (!isCorrect) {
       if (result.uniqueWordCount === 0) errorType = 'no_response';
@@ -111,9 +145,25 @@ export default function CategoryFluencyExercise() {
       else errorType = 'low_fluency';
     }
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.durationSec * 1000,
+    // CategoryFluency does not currently surface a sub-prompt scaffold per
+    // round; treat all rounds as `independent` for support until a
+    // sub-prompt feature ships. Keeps support mapping honest.
+    const supportUsed = mapCategoryFluencySupport(false);
+
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: effectiveTier ?? result.difficulty ?? 1,
+      stimulusId: result.category ?? `cf_round_${trialsRef.current}`,
+      expectedResponse: null,
+      userResponse: Array.isArray(result.words) ? result.words.join(', ') : null,
+      isCorrect,
+      accuracyScore: isCorrect ? 1 : Math.min(1, result.uniqueWordCount / Math.max(1, rungSpec.minUniqueWords)),
+      cueLevel: 0,
+      supportUsed,
+      latencyMs: result.durationSec * 1000,
+      trialMode: 'production',
       errorType,
       taskParameters: {
         category: result.category,
@@ -122,12 +172,14 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         words: result.words,
         difficulty: result.difficulty,
-        // Universal 1–10 GameLevel — Category Fluency uses a 1–3 internal tier.
         game_level: typeof result.difficulty === 'number'
           ? tierToLevel(result.difficulty, { min: 1, max: 3 })
           : null,
         difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
+        clinical_level: clinicalLevel,
+        clinical_floor: bridge.clinicalFloor,
+        min_unique_words_rung: rungSpec.minUniqueWords,
         ...adaptationTelemetry,
       },
     });
@@ -136,9 +188,11 @@ export default function CategoryFluencyExercise() {
       console.log('[CategoryFluency] Pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, logTrial, adaptationTelemetry, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor, effectiveTier]);
 
-  const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
+  const handleGameComplete = useCallback(async (results: CategoryFluencyResult[]) => {
+    // Unified commit: flushes mastery shadow + per-game progression ladder.
+    await commitSession();
     completeSession();
 
     // Save structured details for reflection engine
@@ -185,7 +239,7 @@ export default function CategoryFluencyExercise() {
       // Standalone mode: mark completed so the game summary stays visible with onFinish
       setCompleted(true);
     }
-  }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo, blockIndex]);
 
   const handleFinish = useCallback(() => {
     navigate('/today');
@@ -195,7 +249,9 @@ export default function CategoryFluencyExercise() {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: progression must load so the bridge floor + rung-aware
+  // correctness threshold are in place before the game mounts.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
@@ -223,7 +279,7 @@ export default function CategoryFluencyExercise() {
 
       <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
           <CategoryFluencyGame
-            difficulty={difficultyLevel}
+            difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}

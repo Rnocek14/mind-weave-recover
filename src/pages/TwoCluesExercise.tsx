@@ -29,6 +29,11 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import {
+  useTwoCluesProgression,
+  mapTwoCluesSupport,
+} from '@/hooks/useTwoCluesProgression';
+import { resolveEffectiveTwoCluesInitialDifficulty } from '@/lib/progression/twoCluesDifficultyBridge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -89,15 +94,35 @@ export default function TwoCluesExercise() {
     getSessionStats,
   });
 
-  // Unified trial submission (lexical axis). No per-game progression hook
-  // yet — progression:null keeps the clinical_progression_state buffer +
-  // commit flush no-ops; exercise_events + mastery shadow still write.
+  // Clinical Progression v1 — Wave 1 wiring for Two Clues.
+  // Persistent Clinical Level (1–8) supplies a FLOOR on the 1–10 engine
+  // tier. Session adaptation can still escalate above this floor.
+  const progression = useTwoCluesProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveTwoCluesInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] TwoClues scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+
+  // Unified trial submission (lexical axis). Progression is wired through
+  // useTwoCluesProgression — every submitTrial buffers a clinical trial,
+  // commitSession flushes the L1–L8 ladder. TwoCluesGame's adaptation is
+  // autoLog:false, so the page is the single writer.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
     exerciseSlug: EXERCISE_SLUG,
-    progression: null,
+    progression,
   });
 
   // Mid-session pivot
@@ -130,14 +155,14 @@ export default function TwoCluesExercise() {
     // TwoClues never escalates to phonemic / full-model, so the ladder
     // stops at semantic_cue.
     const usedAnchor = !!result.reachedAnchor;
-    const supportUsed = usedAnchor ? 'semantic_cue' : 'independent';
+    const supportUsed = mapTwoCluesSupport(usedAnchor);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: adaptation.difficultyTier ?? 1,
+      level: bridge.effective ?? adaptation.difficultyTier ?? 1,
       stimulusId: result.puzzleId,
       expectedResponse: Array.isArray(result.anchors) ? result.anchors[0] ?? null : null,
       userResponse: cleanedAnswer ?? result.spokenWord ?? null,
@@ -161,6 +186,8 @@ export default function TwoCluesExercise() {
         semantic_similarity: result.semanticSimilarity,
         pivot_pending: pivot.hasPending,
         cue_type_given: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
       },
     });
@@ -220,7 +247,10 @@ export default function TwoCluesExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Load gate: clinical progression must load before the game mounts so
+  // the bridge's effective floor is in place from trial 1. Mirrors
+  // SemanticFeatures / MinimalPairs Wave 0 gate.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return (
