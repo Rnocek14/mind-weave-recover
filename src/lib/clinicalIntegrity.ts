@@ -79,6 +79,8 @@ export const ALLOWED_HEDGED: readonly string[] = [
   'was not validated',
   'is not a literature-validated',
   'has been validated in head-to-head',
+  'not a literature-proven cue order',
+  'literature-proven cue order',
 ];
 
 export type TierStatus = 'implemented' | 'partially-implemented' | 'planned';
