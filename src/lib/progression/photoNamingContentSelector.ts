@@ -301,7 +301,11 @@ export function selectPhotoNamingPool(
     };
   }
 
-  // L8 → generalization probe pool.
+  // L8 → advanced retrieval review pool (PROBE_WORDS).
+  // The current probe bank overlaps PHOTO_BANK 1:1, so this is honest
+  // advanced review, NOT a true generalization probe. The flag pair
+  // (isAdvancedReviewTrial + legacy isGeneralizationProbe alias) lets
+  // downstream aggregators keep these trials out of mastery stats either way.
   if (probeBank.length < MIN_TIER_POOL_SIZE) {
     return {
       tier: 'L8',
@@ -317,13 +321,14 @@ export function selectPhotoNamingPool(
   }
   const probePool: ClinicalTieredTrial[] = probeBank.map((t) => ({
     ...t,
-    isGeneralizationProbe: true,
+    isAdvancedReviewTrial: true,
+    isGeneralizationProbe: true, // legacy alias — remove once probe bank is disjoint
     __selectorTier: 'L8',
   }));
   return {
     tier: 'L8',
     pool: probePool,
-    reason: 'generalization_probe',
+    reason: 'advanced_review',
     fallback: null,
     diagnostics: diag(probeBank),
   };
