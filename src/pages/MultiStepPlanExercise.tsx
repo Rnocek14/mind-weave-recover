@@ -1,5 +1,13 @@
 /**
  * Multi-Step Planning Exercise Page — wrapper with session lifecycle.
+ *
+ * Wave 2 (Phase 2): migrated off raw useExerciseTelemetry to the unified
+ * useTrialSubmission pipeline. Every submitTrial call emits
+ * `trialMode: 'production'` (expressive procedural discourse) and the slug
+ * `multi_step_planning` is in ADOPTED_TRIAL_MODE_SLUGS, so longitudinal
+ * mastery now flows. Progression is wired via useMultiStepPlanningProgression
+ * (L1–L8 ladder) with a load gate so the engine starts at the correct
+ * clinical floor.
  */
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -9,8 +17,6 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -19,6 +25,12 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import {
+  useMultiStepPlanningProgression,
+  mapMultiStepPlanningSupport,
+} from '@/hooks/useMultiStepPlanningProgression';
+import { resolveEffectiveMultiStepPlanningInitialDifficulty } from '@/lib/progression/multiStepPlanningDifficultyBridge';
 
 const EXERCISE_SLUG = 'multi_step_planning';
 
@@ -31,6 +43,7 @@ export default function MultiStepPlanExercise() {
   const exerciseCompleteSentRef = useRef(false);
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  const trialIndexRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
@@ -58,6 +71,26 @@ export default function MultiStepPlanExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
+  // Wave 2: Clinical Progression v1 — multi-step-plan L1–L8 ladder.
+  // Persistent Clinical Level supplies a FLOOR for the in-session engine
+  // tier (1–10); session adaptation can still escalate above the floor.
+  const progression = useMultiStepPlanningProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveMultiStepPlanningInitialDifficulty({
+    sessionAdaptationDifficulty: adaptation.difficultyTier,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] MultiStepPlanning scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveTier = bridge.effective;
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
   }), []);
@@ -67,14 +100,24 @@ export default function MultiStepPlanExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
+  // Wave 2: unified trial submission (expressive axis). MSP game component
+  // is autoLog:false; this page owns the writer and emits
+  // trialMode: 'production' so the adopted slug routes mastery correctly.
+  const { submitTrial, commitSession } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'executive_function', fromLesson });
 
-  const handleTrialComplete = useCallback((result: PlanningTrialResult) => {
+  const handleTrialComplete = useCallback(async (result: PlanningTrialResult) => {
     if (!activeSessionId) return;
     scoreRef.current += Math.round(result.goalCoverage * 100);
     trialsRef.current += 1;
+    trialIndexRef.current += 1;
 
     pivot.recordTrialResult({
       wasCorrect: result.goalCoverage >= 0.3,
@@ -89,18 +132,31 @@ export default function MultiStepPlanExercise() {
       else errorType = 'incomplete_plan';
     }
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.durationMs,
+    await submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: result.tier ?? effectiveTier,
+      stimulusId: result.itemId ?? `msp_trial_${trialIndexRef.current}`,
+      expectedResponse: null,
+      userResponse: null,
+      isCorrect,
+      accuracyScore: result.goalCoverage,
+      cueLevel: 0,
+      supportUsed: mapMultiStepPlanningSupport(),
+      latencyMs: result.durationMs,
+      trialMode: 'production',
       errorType,
       taskParameters: {
-        item_id: result.itemId, goal: result.goal,
-        steps_found: result.stepsFound, steps_total: result.stepsTotal,
-        sequence_score: result.sequenceScore, trial_limit: trialLimit,
+        item_id: result.itemId,
+        goal: result.goal,
+        steps_found: result.stepsFound,
+        steps_total: result.stepsTotal,
+        sequence_score: result.sequenceScore,
+        trial_limit: trialLimit,
         tier: result.tier,
-        ...adaptationTelemetry,
-      },
-      trialOutputs: {
+        clinical_level: progression.startingLevel,
+        clinical_floor: bridge.clinicalFloor,
         explanation: {
           coverageRatio: result.goalCoverage,
           onTopicScore: null,
@@ -108,12 +164,16 @@ export default function MultiStepPlanExercise() {
           conceptsTotal: result.stepsTotal,
         },
         depth: result.depthTelemetry,
+        ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, pivot]);
+  }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, pivot, activeProfile?.id, effectiveTier, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: PlanningTrialResult[]) => {
     setCompleted(true);
+    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
+    // progression ladder + mastery shadow + drains adaptation rows.
+    await commitSession();
     completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
@@ -122,9 +182,9 @@ export default function MultiStepPlanExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
 
-  const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
+  const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson, returnTo]);
   const handleContinue = useCallback(() => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
@@ -172,8 +232,12 @@ export default function MultiStepPlanExercise() {
             <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great executive planning!'}</p>
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
+        ) : progression.loaded ? (
+          <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={effectiveTier} autoStart={fromLesson} />
         ) : (
-          <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} autoStart={fromLesson} />
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading your progression…
+          </div>
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
