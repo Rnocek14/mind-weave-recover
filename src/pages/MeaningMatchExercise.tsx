@@ -31,6 +31,11 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import {
+  useMeaningMatchProgression,
+  mapMeaningMatchSupport,
+} from '@/hooks/useMeaningMatchProgression';
+import { resolveEffectiveMeaningMatchInitialDifficulty } from '@/lib/progression/meaningMatchDifficultyBridge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -98,15 +103,39 @@ export default function MeaningMatchExercise() {
     getSessionStats,
   });
 
-  // Unified trial submission. No per-game progression hook yet (Phase 3
-  // follow-up) — progression: null, so the buffer + commit progression
-  // flush no-op and only exercise_events + mastery shadow get the write.
+  // Clinical Progression v1 — Wave 1 wiring for Meaning Match (receptive-safe).
+  // The hook drives persistent Clinical Level + engine floor, but `submitTrial`
+  // continues to emit `trialMode: 'recognition'` and the slug is INTENTIONALLY
+  // NOT in ADOPTED_TRIAL_MODE_SLUGS. Routing this comprehension task into the
+  // expressive mastery track would conflate axes. Receptive-mastery track is
+  // deferred. Same precedent as MinimalPairs.
+  const progression = useMeaningMatchProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
+  const bridge = resolveEffectiveMeaningMatchInitialDifficulty({
+    sessionAdaptationDifficulty: difficultyLevel,
+    clinicalLevel: progression.startingLevel,
+    supportBaseline: progression.state?.supportBaseline ?? 0,
+  });
+  if (import.meta.env.DEV && bridge.softRegressionScaffold) {
+    console.log(
+      `[SoftRegression] MeaningMatch scaffolding active — supportBaseline=${progression.state?.supportBaseline} ` +
+        `lowered floor by 1 (clinicalLevel=${progression.startingLevel}, floor=${bridge.clinicalFloor}, effective=${bridge.effective})`,
+    );
+  }
+  const effectiveDifficulty = bridge.effective;
+
+  // Unified trial submission. Progression is wired through
+  // useMeaningMatchProgression — every submitTrial buffers a clinical trial
+  // and commitSession flushes the L1–L8 ladder. trialMode stays 'recognition'
+  // (receptive-safe routing; see comment above).
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
     exerciseSlug: EXERCISE_SLUG,
-    progression: null,
+    progression,
   });
 
   // Mid-session pivot for frustration/crash detection
