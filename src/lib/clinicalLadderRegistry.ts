@@ -66,6 +66,13 @@ import {
   PHONOLOGICAL_AWARENESS_LEVELS,
   type PhonologicalAwarenessLevelSpec,
 } from './progression/phonologicalAwarenessLevels';
+import { DESCRIBE_GUESS_LEVELS } from './progression/describeGuessLevels';
+import { NARRATIVE_RETELL_LEVELS } from './progression/narrativeRetellLevels';
+import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLevels';
+import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
+import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
+import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
+import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
