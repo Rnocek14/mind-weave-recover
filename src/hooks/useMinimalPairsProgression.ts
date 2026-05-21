@@ -26,8 +26,11 @@ import {
 } from '@/lib/progression/clinicalProgression';
 import {
   calculateMinimalPairsProgressDelta,
+  cueDependencyForMinimalPairsSession,
   evidenceMetForMinimalPairsLevel,
   getMinimalPairsLevelSpec,
+  isMinimalPairsCueDependencyBlocking,
+  MINIMAL_PAIRS_CUE_DEPENDENCY_BLOCK_THRESHOLD,
 } from '@/lib/progression/minimalPairsLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
