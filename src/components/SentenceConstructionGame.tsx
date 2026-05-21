@@ -160,6 +160,10 @@ export const SentenceConstructionGame = ({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Wave 2: page owns the unified trial writer via useTrialSubmission and
+    // tags every trial with trialMode='production'. Disabling the auto-logger
+    // here prevents untagged duplicate rows from polluting mastery routing.
+    autoLog: false,
     onDifficultyChange: (newLvl, reason) => {
       setActiveDifficultyRef.current?.(newLvl);
       if (import.meta.env.DEV) {
