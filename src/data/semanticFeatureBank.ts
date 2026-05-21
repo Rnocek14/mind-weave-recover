@@ -392,7 +392,98 @@ export const SEMANTIC_TRIALS: SemanticFeatureTrial[] = [
       { text: 'soft', category: 'perceptual', abstractness: 2 },
       { text: 'has legs', category: 'associative', abstractness: 2 },
     ],
+  {
+    word: 'shoe',
+    imageCategory: 'shoe',
+    difficulty: 2,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'clothing', category: 'categorical', abstractness: 2 },
+      { text: 'you wear it', category: 'functional', abstractness: 2 },
+      { text: 'has laces', category: 'perceptual', abstractness: 2 },
+      { text: 'protects feet', category: 'functional', abstractness: 3 },
+    ],
+    typicalDistractors: [
+      { text: 'food', category: 'categorical', abstractness: 2 },
+      { text: 'you drink it', category: 'functional', abstractness: 2 },
+      { text: 'has wings', category: 'perceptual', abstractness: 2 },
+      { text: 'grows on trees', category: 'associative', abstractness: 2 },
+    ],
   },
+  {
+    word: 'broom',
+    imageCategory: 'broom',
+    difficulty: 2,
+    wordFrequency: 'medium',
+    correctFeatures: [
+      { text: 'tool', category: 'categorical', abstractness: 2 },
+      { text: 'you sweep with it', category: 'functional', abstractness: 2 },
+      { text: 'has a long handle', category: 'perceptual', abstractness: 2 },
+      { text: 'used for cleaning', category: 'functional', abstractness: 3 },
+    ],
+    typicalDistractors: [
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'round', category: 'perceptual', abstractness: 1 },
+      { text: 'grows in gardens', category: 'associative', abstractness: 2 },
+    ],
+  },
+  {
+    word: 'umbrella',
+    imageCategory: 'umbrella',
+    difficulty: 2,
+    wordFrequency: 'medium',
+    correctFeatures: [
+      { text: 'tool', category: 'categorical', abstractness: 2 },
+      { text: 'keeps you dry', category: 'functional', abstractness: 3 },
+      { text: 'has a handle', category: 'perceptual', abstractness: 2 },
+      { text: 'used in rain', category: 'associative', abstractness: 3 },
+    ],
+    typicalDistractors: [
+      { text: 'food', category: 'categorical', abstractness: 2 },
+      { text: 'you wear on feet', category: 'functional', abstractness: 2 },
+      { text: 'has wheels', category: 'perceptual', abstractness: 2 },
+      { text: 'lives in water', category: 'associative', abstractness: 2 },
+    ],
+  },
+  {
+    word: 'pillow',
+    imageCategory: 'pillow',
+    difficulty: 2,
+    wordFrequency: 'high',
+    correctFeatures: [
+      { text: 'furniture', category: 'categorical', abstractness: 2 },
+      { text: 'soft', category: 'perceptual', abstractness: 2 },
+      { text: 'you rest your head on it', category: 'functional', abstractness: 3 },
+      { text: 'found on a bed', category: 'associative', abstractness: 2 },
+    ],
+    typicalDistractors: [
+      { text: 'vehicle', category: 'categorical', abstractness: 2 },
+      { text: 'sharp', category: 'perceptual', abstractness: 2 },
+      { text: 'you drive it', category: 'functional', abstractness: 2 },
+      { text: 'has feathers', category: 'associative', abstractness: 2 },
+    ],
+  },
+  {
+    word: 'mirror',
+    imageCategory: 'mirror',
+    difficulty: 2,
+    wordFrequency: 'medium',
+    correctFeatures: [
+      { text: 'object', category: 'categorical', abstractness: 2 },
+      { text: 'reflects images', category: 'functional', abstractness: 3 },
+      { text: 'made of glass', category: 'perceptual', abstractness: 2 },
+      { text: 'found in bathrooms', category: 'associative', abstractness: 2 },
+    ],
+    typicalDistractors: [
+      { text: 'animal', category: 'categorical', abstractness: 2 },
+      { text: 'you eat it', category: 'functional', abstractness: 2 },
+      { text: 'made of wood', category: 'perceptual', abstractness: 2 },
+      { text: 'grows on trees', category: 'associative', abstractness: 2 },
+    ],
+  },
+
+
 
   // Level 3: More abstract features
   {
