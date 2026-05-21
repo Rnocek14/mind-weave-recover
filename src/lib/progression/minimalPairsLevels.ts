@@ -35,6 +35,7 @@
 
 import type { SupportLevel } from './clinicalProgression';
 import { SUPPORT_CREDIT, trialCredit } from './clinicalProgression';
+import { computeImplementedCeiling } from './_shared/implementedCeiling';
 
 /**
  * Minimal Pairs support ranked from MOST scaffolded (0) to MOST independent.
