@@ -27,6 +27,7 @@ import {
   type MinimalPairsLevelSpec,
 } from './progression/minimalPairsLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
+import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
 export type LadderStatus = 'full' | 'telemetry-only' | 'generic';
 export type ClinicalAxis =
@@ -45,6 +46,16 @@ export interface LadderRow {
   minOnTargetAccuracy: number;
   /** Phase 1 readiness flag (only some games provide this). */
   readiness?: 'ready' | 'thin' | 'aspirational';
+  /** PR7: per-tier integrity status surfaced in /games. */
+  tierStatus: TierStatus;
+  tierStatusDetail: string;
+  /** PR7: clinician-readable content label from the level spec, when present. */
+  contentTierLabel?: string;
+}
+
+export interface EvidenceBasis {
+  docPath: string;
+  tldr: string;
 }
 
 export interface ClinicalLadderEntry {
@@ -57,21 +68,30 @@ export interface ClinicalLadderEntry {
   telemetryNote?: string;
   /** L1–L8 rows. Only present when status === 'full'. */
   rows?: LadderRow[];
+  /** PR7: pointer to the clinical-evidence write-up, when one exists. */
+  evidenceBasis?: EvidenceBasis;
 }
 
 function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec>(
+  slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
   return Object.values(table)
     .sort((a, b) => a.level - b.level)
-    .map((spec) => ({
-      level: spec.level,
-      description: spec.description,
-      targetSupport: spec.targetSupport,
-      minOnTargetAttempts: spec.minOnTargetAttempts,
-      minOnTargetAccuracy: spec.minOnTargetAccuracy,
-      readiness: 'readiness' in spec ? spec.readiness : undefined,
-    }));
+    .map((spec) => {
+      const status = deriveTierStatusFromSpec(slug, spec.level, spec as { contentSelector?: { implemented?: boolean; description?: string } });
+      return {
+        level: spec.level,
+        description: spec.description,
+        targetSupport: spec.targetSupport,
+        minOnTargetAttempts: spec.minOnTargetAttempts,
+        minOnTargetAccuracy: spec.minOnTargetAccuracy,
+        readiness: 'readiness' in spec ? spec.readiness : undefined,
+        tierStatus: status.tierStatus,
+        tierStatusDetail: status.tierStatusDetail,
+        contentTierLabel: (spec as { contentSelector?: { description?: string } }).contentSelector?.description,
+      };
+    });
 }
 
 /**
