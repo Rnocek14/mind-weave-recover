@@ -67,6 +67,23 @@ export interface MinimalPairsLevelSpec {
    * (~3 sessions); later levels demand more evidence.
    */
   trialWeight: number;
+  /**
+   * PR5 (Phase 2.5): per-level content-selection contract. Pure metadata —
+   * the runtime selector lives in `minimalPairsContentSelector.ts`. Lets
+   * dev tools and tests describe what content/condition each level uses,
+   * separately from the evidence/accuracy rule.
+   */
+  contentSelector?: {
+    tierKey:
+      | 'baseline'
+      | 'place_contrast'
+      | 'manner_contrast'
+      | 'voicing_contrast'
+      | 'degraded_signal'
+      | 'triplet_rt';
+    description: string;
+    implemented: boolean;
+  };
 }
 
 export const MINIMAL_PAIRS_LEVELS: Record<number, MinimalPairsLevelSpec> = {
