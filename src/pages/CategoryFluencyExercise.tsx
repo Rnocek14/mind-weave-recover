@@ -190,7 +190,9 @@ export default function CategoryFluencyExercise() {
     }
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor, effectiveTier]);
 
-  const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
+  const handleGameComplete = useCallback(async (results: CategoryFluencyResult[]) => {
+    // Unified commit: flushes mastery shadow + per-game progression ladder.
+    await commitSession();
     completeSession();
 
     // Save structured details for reflection engine
@@ -237,7 +239,7 @@ export default function CategoryFluencyExercise() {
       // Standalone mode: mark completed so the game summary stays visible with onFinish
       setCompleted(true);
     }
-  }, [fromLesson, completeSession, navigate, returnTo, blockIndex]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo, blockIndex]);
 
   const handleFinish = useCallback(() => {
     navigate('/today');
