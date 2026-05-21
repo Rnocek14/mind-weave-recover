@@ -392,6 +392,7 @@ export const SEMANTIC_TRIALS: SemanticFeatureTrial[] = [
       { text: 'soft', category: 'perceptual', abstractness: 2 },
       { text: 'has legs', category: 'associative', abstractness: 2 },
     ],
+  },
   {
     word: 'shoe',
     imageCategory: 'shoe',
