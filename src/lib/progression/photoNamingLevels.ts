@@ -70,6 +70,16 @@ export interface PhotoNamingLevelSpec {
    *   L1 ~3-4, L2 ~5, L3 ~7, L4 ~9, L5 ~11, L6 ~16, L7 ~19, L8 ~22.
    */
   trialWeight: number;
+  /**
+   * PR4 (Phase 2.5): per-level content-selection contract. Pure metadata —
+   * the runtime selector lives in `photoNamingContentSelector.ts`. Lets
+   * dev tools and tests describe what content each level is supposed to
+   * use, separately from the evidence/accuracy rule.
+   */
+  contentSelector?: {
+    tierKey: 'baseline' | 'high_frequency' | 'mid_frequency' | 'cross_category' | 'phrase_carrier' | 'generalization_probe';
+    description: string;
+  };
 }
 
 /**
