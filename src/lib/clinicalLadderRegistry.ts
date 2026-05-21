@@ -129,12 +129,40 @@ export interface EvidenceBasis {
   tldr: string;
 }
 
+/**
+ * Mastery-track classification (Leak 2 fix).
+ *
+ * Explicit per-slug declaration of which mastery track a game's trials belong
+ * to. This is the AUTHORITATIVE source — the credit-math layer and any future
+ * track-aware logic must read this field rather than deriving track from
+ * `isAdoptedForTrialMode` or `routeTrialMode`. A module-load assertion at the
+ * bottom of this file enforces that registry track and routing adoption stay
+ * in sync; mismatch throws at import time.
+ *
+ *   - expressive    — spoken / produced output; feeds expressive mastery EWMA
+ *                     once adopted into ADOPTED_TRIAL_MODE_SLUGS.
+ *   - receptive     — comprehension / discrimination / metalinguistic
+ *                     judgment; receptive mastery track is deferred. MUST NOT
+ *                     be in ADOPTED_TRIAL_MODE_SLUGS (would contaminate
+ *                     expressive mastery).
+ *   - non-linguistic — visual / WM / motor task with zero linguistic content
+ *                     (pattern-match). Neither track applies; MUST NOT be
+ *                     adopted.
+ */
+export type MasteryTrack = 'expressive' | 'receptive' | 'non-linguistic';
+
 export interface ClinicalLadderEntry {
   slug: string;
   axis: ClinicalAxis;
   /** One-line clinical purpose. */
   purpose: string;
   status: LadderStatus;
+  /**
+   * Leak 2 fix — authoritative mastery-track classification. See MasteryTrack
+   * docs above. Required on every entry; the load-time assertion below blocks
+   * registration if this disagrees with `isAdoptedForTrialMode`.
+   */
+  track: MasteryTrack;
   /** For telemetry-only games: which SupportLevel ladder they emit. */
   telemetryNote?: string;
   /** L1–L8 rows. Only present when status === 'full'. */
@@ -180,6 +208,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Names objects from photos with fading support.',
     status: 'full',
+    track: 'expressive',
     rows: rowsFromSpec('photo-naming', PHOTO_NAMING_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/photo-naming.md',
@@ -191,6 +220,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Detects and repairs errors in structured sentences.',
     status: 'full',
+    track: 'expressive',
     rows: rowsFromSpec('fix-sentence', FIX_SENTENCE_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/fix-sentence.md',
@@ -202,6 +232,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Discriminates similar-sounding word pairs by ear.',
     status: 'full',
+    track: 'receptive',
     rows: rowsFromSpec('minimal-pairs', MINIMAL_PAIRS_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/minimal-pairs.md',
@@ -215,6 +246,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'comprehension',
     purpose: 'Matches words to meanings; semantic recognition.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('meaning-match', MEANING_MATCH_LEVELS),
     telemetryNote: 'recognition_only (baseline) → semantic_cue (after hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred.',
     evidenceBasis: {
@@ -227,6 +259,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Names a target from two semantic clues.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('two-clues', TWO_CLUES_LEVELS),
     telemetryNote: 'independent (solved cold) → semantic_cue (after anchor)',
     evidenceBasis: {
@@ -239,6 +272,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Produces features so the system guesses the word.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('describe-guess', Object.values(DESCRIBE_GUESS_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine + legacy cueLevel 0–3 mapping. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -251,6 +285,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Generates semantic features for a target word (SFA).',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('semantic-features', SEMANTIC_FEATURES_LEVELS),
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/semantic-features.md',
@@ -265,6 +300,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'comprehension',
     purpose: 'Inferential reasoning from contextual clues.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('detective-mind', DETECTIVE_MIND_LEVELS),
     telemetryNote: 'recognition_only (baseline) → semantic_cue (after highlight hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MeaningMatch / MinimalPairs.',
     evidenceBasis: {
@@ -277,6 +313,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Orders and executes multi-step plans.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('multi-step-plan', MULTI_STEP_PLANNING_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on accuracy + sequence-coverage growth at progressively harder content tiers. Expressive discourse — routed into expressive mastery.',
     evidenceBasis: {
@@ -298,12 +335,14 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     // working-memory mastery track or a linguistic content overlay —
     // both deferred.
     status: 'generic',
+    track: 'non-linguistic',
   },
   'abstract-compare': {
     slug: 'abstract-compare',
     axis: 'executive',
     purpose: 'Compares abstract concepts (similarities/differences).',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('abstract-compare', Object.values(ABSTRACT_COMPARE_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -316,6 +355,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'executive',
     purpose: 'Builds grammatically valid sentences from constraints.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('sentence-construction', SENTENCE_CONSTRUCTION_LEVELS),
     telemetryNote: 'highlight_plus_choice (model heard) → choice_based (tiles only). Expressive production — routed into expressive mastery.',
     evidenceBasis: {
@@ -328,6 +368,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Manipulates phonemes within words.',
     status: 'structural',
+    track: 'receptive',
     rows: rowsFromSpec('phonological-awareness', PHONOLOGICAL_AWARENESS_LEVELS),
     telemetryNote: 'recognition_only on every trial — game UI has no in-trial scaffold. Receptive metalinguistic-judgment task — NOT routed into expressive mastery; receptive mastery track deferred. Same precedent as MinimalPairs / MeaningMatch / DetectiveMind.',
     evidenceBasis: {
@@ -340,6 +381,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'acoustic',
     purpose: 'Names targets while holding a secondary auditory load.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('dual-load-naming', DUAL_LOAD_NAMING_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on combined naming+recall accuracy at progressively harder content tiers. Expressive confrontation naming under WM load — routed into expressive mastery.',
     evidenceBasis: {
@@ -352,6 +394,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Retells a heard narrative with key elements intact.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('narrative-retell', Object.values(NARRATIVE_RETELL_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -364,6 +407,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Generates category exemplars under time pressure.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('category-fluency', CATEGORY_FLUENCY_LEVELS),
     telemetryNote: 'independent (no sub-prompt) → semantic_cue (sub-prompt shown). One round = one progression trial.',
     evidenceBasis: {
@@ -376,6 +420,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Continues an open-ended thought spontaneously.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('thought-continuation', Object.values(THOUGHT_CONTINUATION_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -388,6 +433,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Scaffolded conversational practice with SCA-style coaching.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('conversation-coach', Object.values(CONVERSATION_COACH_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides Smart Coach / discourse adaptation engine with existing strategy switching + SCA cueing. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -400,6 +446,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'discourse',
     purpose: 'Ecologically valid dyadic conversation with a partner persona.',
     status: 'design-only',
+    track: 'expressive',
     rows: designOnlyRows('conversation-partner', Object.values(CONVERSATION_PARTNER_LEVELS) as DesignOfRecordLevelSpec[]),
     telemetryNote: 'Runtime rides conversation-partner agent loop with existing strategy switching. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
@@ -412,6 +459,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     axis: 'lexical',
     purpose: 'Generates synonyms for a target word.',
     status: 'structural',
+    track: 'expressive',
     rows: rowsFromSpec('synonym-generator', SYNONYM_GENERATOR_LEVELS),
     telemetryNote: 'open_response on every trial — game UI has no in-trial scaffold; ladder advances on match-count growth at progressively harder content tiers. Expressive divergent retrieval — routed into expressive mastery.',
     evidenceBasis: {
@@ -481,3 +529,67 @@ export function designOnlyRows(slug: string, rows: DesignRowInput[]): LadderRow[
       tierStatusDetail: `${slug} L${r.level} — clinical design published; runtime uses generic engine.`,
     }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Leak 2 fix — track lookup + module-load assertion.
+//
+// `getTrackForSlug` is the single read path for mastery-track classification.
+// Credit-math and any future track-aware logic MUST go through this helper
+// rather than re-deriving track from `isAdoptedForTrialMode`. The assertion
+// below guarantees registry track and routing adoption can never silently
+// disagree — a mismatch throws at import time, surfacing the drift loudly.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { normalizeExerciseSlug } from './exerciseSlugNormalizer';
+import { isAdoptedForTrialMode } from './mastery/masterySignalRouting';
+
+/**
+ * Returns the authoritative mastery track for a slug, or undefined when the
+ * slug is not in the registry. Accepts either telemetry (underscore) or
+ * progression (hyphen) form.
+ */
+export function getTrackForSlug(rawSlug: string): MasteryTrack | undefined {
+  const normalized = normalizeExerciseSlug(rawSlug);
+  for (const entry of Object.values(CLINICAL_LADDER_REGISTRY)) {
+    if (normalizeExerciseSlug(entry.slug) === normalized) return entry.track;
+  }
+  return undefined;
+}
+
+/**
+ * Assert registry track agrees with trial-mode adoption.
+ *
+ *   - Adopted slug + track !== 'expressive'    → throw (would contaminate
+ *                                                 expressive mastery)
+ *   - track === 'receptive' && adopted          → throw (same shape, caught
+ *                                                 from the other direction)
+ *   - track === 'non-linguistic' && adopted     → throw
+ *
+ * Runs once at import time. Failing loudly is the entire point — silent
+ * drift between these two declarations is exactly the bug class Leak 2
+ * was meant to close.
+ */
+function assertTrackRoutingConsistency(): void {
+  const mismatches: string[] = [];
+  for (const entry of Object.values(CLINICAL_LADDER_REGISTRY)) {
+    const adopted = isAdoptedForTrialMode(entry.slug);
+    if (adopted && entry.track !== 'expressive') {
+      mismatches.push(
+        `"${entry.slug}" is adopted for trial-mode routing but registry ` +
+        `track is "${entry.track}" (must be "expressive").`,
+      );
+    }
+    if (!adopted && entry.track === 'expressive') {
+      // This is allowed — design-only / structural expressive games that
+      // haven't been adopted yet. Not a mismatch.
+    }
+  }
+  if (mismatches.length > 0) {
+    throw new Error(
+      `[clinicalLadderRegistry] Track/adoption mismatch — fix one side:\n` +
+      mismatches.map((m) => `  • ${m}`).join('\n'),
+    );
+  }
+}
+
+assertTrackRoutingConsistency();
