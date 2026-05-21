@@ -159,6 +159,14 @@ export interface SessionRollupInput {
    * exist). This is the FIRST enforcement layer for the mastery substrate.
    */
   masteryConfidence?: MasteryConfidenceLevel;
+  /**
+   * Highest level whose contentSelector actually ships differentiated
+   * content. When provided, level-up is clamped here so the patient never
+   * advances into a planned tier and silently receives baseline-fallback
+   * content labeled as the higher level. Optional for backward compat —
+   * undefined disables the clamp.
+   */
+  maxImplementedLevel?: number;
 }
 
 /**
