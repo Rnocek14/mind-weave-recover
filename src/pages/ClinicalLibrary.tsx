@@ -226,13 +226,12 @@ function RecoveryRoadmap({
 function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const canonical = getCanonicalExercise(entry.slug);
   const title = canonical?.title ?? entry.slug;
-  const hasFullLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
-  const hasRoadmap =
-    (entry.status === 'structural' || entry.status === 'design-only') &&
-    (entry.rows?.length ?? 0) > 0;
-  // Default-open the progression view so the user sees the trajectory
-  // without an extra click — that's the whole point of this surface.
-  const [open, setOpen] = useState(hasFullLadder || hasRoadmap);
+  // Review mode: surface the full L1–L8 table for any game that has rows,
+  // regardless of clinician-review status, so the team can audit every
+  // ladder side-by-side. Re-gate later if we ship this to patients.
+  const hasFullLadder = (entry.rows?.length ?? 0) > 0;
+  const hasRoadmap = false;
+  const [open, setOpen] = useState(hasFullLadder);
   const badge = STATUS_BADGE[entry.status];
   const trackBadge = TRACK_BADGE[entry.track];
 
