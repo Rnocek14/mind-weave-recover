@@ -190,19 +190,18 @@ describe('selectPhotoNamingPool — honest fallback when metadata missing', () =
 });
 
 describe('selectPhotoNamingPool — segregation contract', () => {
-  it('L8 probe trials are flagged so mastery aggregators can exclude them', () => {
+  it('L8 trials are flagged so mastery aggregators can exclude them', () => {
     const r = selectPhotoNamingPool(8);
     if (r.fallback?.skipped) return;
-    // Every trial must carry the isGeneralizationProbe flag. Aggregators
-    // that filter on this flag will keep probe sessions out of ordinary
-    // mastery stats unless they explicitly opt in.
+    expect(r.pool.every((t) => t.isAdvancedReviewTrial === true)).toBe(true);
     expect(r.pool.every((t) => t.isGeneralizationProbe === true)).toBe(true);
   });
 
-  it('non-probe tiers do NOT mark trials as probes', () => {
+  it('non-L8 tiers do NOT mark trials as advanced-review or probe', () => {
     for (const lvl of [1, 2, 3, 4, 5, 6, 7]) {
       const r = selectPhotoNamingPool(lvl);
       for (const t of r.pool) {
+        expect(t.isAdvancedReviewTrial).not.toBe(true);
         expect(t.isGeneralizationProbe).not.toBe(true);
       }
     }
