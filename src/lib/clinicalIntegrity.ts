@@ -70,6 +70,13 @@ export const ALLOWED_HEDGED: readonly string[] = [
   'mastery shadow',
   'clinically motivated',
   'clinically motivated calibration',
+  // Negation / honesty contexts — explicitly stating something is NOT
+  // validated is the point of those docs.
+  'not validated',
+  'not yet validated',
+  'literature-validated',
+  'was not validated',
+  'is not a literature-validated',
 ];
 
 export type TierStatus = 'implemented' | 'partially-implemented' | 'planned';
