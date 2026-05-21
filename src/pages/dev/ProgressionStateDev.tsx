@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
 import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 import { toProgressionSlug } from '@/lib/exerciseSlugNormalizer';
+import { readSelectorDiagnostics } from '@/lib/progression/photoNamingContentSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
