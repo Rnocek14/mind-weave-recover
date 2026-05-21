@@ -310,6 +310,8 @@ export const SentenceConstructionGame = ({
           errorType: result.errorAnalysis.errorType,
           grammarFocus: result.trial.grammarFocus,
           trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
+          hintUsed,
+          difficulty: currentDifficulty,
         });
       }
     }, 300);
