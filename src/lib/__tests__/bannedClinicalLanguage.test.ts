@@ -20,7 +20,8 @@ const ROOT = resolve(__dirname, '../../..');
 
 const SCAN_FILES = [
   'src/lib/clinicalLadderRegistry.ts',
-  'src/lib/clinicalIntegrity.ts',
+  // NOTE: src/lib/clinicalIntegrity.ts intentionally excluded — it defines
+  // BANNED_PHRASES as data and would self-flag.
   'src/lib/progression/photoNamingLevels.ts',
   'src/lib/progression/fixSentenceLevels.ts',
   'src/lib/progression/minimalPairsLevels.ts',
