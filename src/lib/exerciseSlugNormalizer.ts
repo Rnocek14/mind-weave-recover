@@ -146,3 +146,16 @@ export const getExerciseModality = (slug: string): ExerciseModality => {
   
   return 'mixed';
 };
+
+// ---------- Namespace conversion (telemetry ↔ progression) ----------
+
+/** Telemetry (underscore) → Progression (hyphen). Always canonicalises first. */
+export const toProgressionSlug = (rawSlug: string): string => {
+  const canonical = normalizeExerciseSlug(rawSlug); // underscore form
+  return canonical.replace(/_/g, '-');
+};
+
+/** Progression (hyphen) → Telemetry (underscore). Alias of `normalizeExerciseSlug`. */
+export const toTelemetrySlug = (rawSlug: string): string =>
+  normalizeExerciseSlug(rawSlug);
+
