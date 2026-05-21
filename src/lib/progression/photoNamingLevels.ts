@@ -1,6 +1,13 @@
 /**
  * Photo Naming — level-specific clinical criteria.
  *
+ * Clinical basis & honest scope: see docs/clinical-evidence/photo-naming.md.
+ * TL;DR: cueing-hierarchy direction is well-supported (Linebaugh & Lehner
+ * 1977; Boyle & Coelho 1995; Kiran & Thompson 2003). The specific numeric
+ * thresholds shipped here (accuracy bars, SUPPORT_CREDIT magnitudes,
+ * trialWeight) are CLINICALLY MOTIVATED CALIBRATION DEFAULTS — not
+ * literature-proven constants. They must remain tunable.
+ *
  * Spec correction (post-Step 2): the generic progression engine treated
  * every level the same — independent-only evidence, flat per-trial weight.
  * That made Level 1 (heavy-support recovery) behave like Level 4
