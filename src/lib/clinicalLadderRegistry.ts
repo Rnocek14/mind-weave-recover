@@ -42,6 +42,10 @@ import {
   CATEGORY_FLUENCY_LEVELS,
   type CategoryFluencyLevelSpec,
 } from './progression/categoryFluencyLevels';
+import {
+  SENTENCE_CONSTRUCTION_LEVELS,
+  type SentenceConstructionLevelSpec,
+} from './progression/sentenceConstructionLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
