@@ -51,6 +51,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const {
     trialCount = 5,
     difficulty = 2,
+    clinicalLevel,
     focusPhonemes = [],
     onTrialComplete,
     onGameComplete,
@@ -80,7 +81,36 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // difficulty changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getFixSentenceTrials({ difficulty, count: trialCount, focusPhonemes, recentIds: initialRecentIds }),
+    () => {
+      // Legacy difficulty-banded selection (always available).
+      const baseline = getFixSentenceTrials({
+        difficulty,
+        count: trialCount,
+        focusPhonemes,
+        recentIds: initialRecentIds,
+      });
+      // PR6: clinical content selector applied when clinicalLevel ≥ 4.
+      if (typeof clinicalLevel === 'number' && clinicalLevel >= 4) {
+        const result = selectFixSentencePool(clinicalLevel);
+        writeFixSentenceSelectorDiagnostics(result, clinicalLevel);
+        // If selector falls back / skips, keep baseline trials — do NOT
+        // silently downgrade by pretending the tier was applied.
+        if (result.fallback?.skipped || result.pool.length < trialCount) {
+          return baseline;
+        }
+        // Use selector pool, intersected with the requested baseline order
+        // when possible, otherwise just sample fresh from the tier pool.
+        const tierIds = new Set(result.pool.map((t) => t.id));
+        const fromBaseline = baseline.filter((t) => tierIds.has(t.id));
+        if (fromBaseline.length >= trialCount) return fromBaseline.slice(0, trialCount);
+        // Pad from the selector pool, oldest-recency last.
+        const recentSet = new Set(initialRecentIds);
+        const fresh = result.pool.filter((t) => !recentSet.has(t.id));
+        const filler = [...fromBaseline, ...fresh.filter((t) => !fromBaseline.some((b) => b.id === t.id))];
+        return filler.slice(0, trialCount);
+      }
+      return baseline;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trialCount, focusPhonemes.join(',')]
   );
