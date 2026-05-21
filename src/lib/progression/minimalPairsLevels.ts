@@ -1,6 +1,14 @@
 /**
  * Minimal Pairs — level-specific clinical criteria (Phase 1 stub).
  *
+ * Clinical basis & honest scope: see docs/clinical-evidence/minimal-pairs.md.
+ * TL;DR: phonemic-discrimination impairment in aphasia is well-documented
+ * (Robson et al. 2012; Binder et al. 2017). The first_listen / after_replay
+ * support tiers are a CLINICAL DESIGN CHOICE reflecting patient-side
+ * independence, not a literature-validated support hierarchy. Accuracy
+ * bands, SUPPORT_CREDIT magnitudes, and trialWeight are CLINICALLY
+ * MOTIVATED CALIBRATION DEFAULTS — tunable, not evidence-based constants.
+ *
  * HONEST SCOPE NOTE
  * -----------------
  * Minimal Pairs is declared Archetype II (performance-pressure) in the

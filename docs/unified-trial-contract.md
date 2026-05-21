@@ -2,6 +2,32 @@
 
 One canonical pathway every rehab game uses to record a trial.
 
+## Slug namespaces (read before adding a game)
+
+The codebase uses **two** exercise-slug namespaces — by design, but they
+were historically undocumented. Both are valid; mixing them silently is
+the bug:
+
+| Namespace | Form | Used by |
+|---|---|---|
+| **Telemetry** | underscore (`photo_naming`) | `exercise_events`, `adaptation_trial_logs`, `useExerciseTelemetry`, every analytics query, `CANONICAL_SLUGS.*` |
+| **Progression** | hyphen (`photo-naming`) | `clinical_progression_state` rows, `src/lib/progression/*Levels.ts`, `src/lib/intensity/*Intensity.ts`, soft-regression bridges |
+
+Conversion is via `src/lib/exerciseSlugNormalizer.ts`:
+
+- `normalizeExerciseSlug(s)` → telemetry form (also handles route aliases).
+- `toTelemetrySlug(s)` → alias of the above.
+- `toProgressionSlug(s)` → hyphen form.
+
+**Do not hand-roll `s.replace('_', '-')` at a call site.** The guard
+`src/lib/__tests__/slugNamespaceContract.test.ts` enforces this contract
+and will fail CI if any new per-game slug constant violates it.
+
+When adding a game's progression hook, declare the slug exactly once as a
+module-scoped constant (e.g. `const PHOTO_NAMING_SLUG = 'photo-naming'`)
+and verify it matches `toProgressionSlug(CANONICAL_SLUGS.PHOTO_NAMING)`.
+
+
 ## API
 
 ```ts

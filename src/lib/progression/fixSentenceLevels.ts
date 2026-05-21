@@ -1,6 +1,13 @@
 /**
  * Fix the Sentence — domain-specific clinical level ladder.
  *
+ * Clinical basis & honest scope: see docs/clinical-evidence/fix-sentence.md.
+ * TL;DR: staged scaffold-fading is the design rationale (Mapping Therapy,
+ * TUF, VNeST). The specific scaffold→open ordering shipped here is a
+ * clinical design choice, NOT a literature-proven cue ranking. Numeric
+ * thresholds (accuracy bars, SUPPORT_CREDIT, trialWeight) are CLINICALLY
+ * MOTIVATED CALIBRATION DEFAULTS — tunable, not evidence-based constants.
+ *
  * IMPORTANT: Fix Sentence is NOT lexical retrieval. Its rehab progression is
  * about *sentence-repair independence* — detecting an error in a structured
  * sentence and producing a grammatically/semantically coherent replacement
