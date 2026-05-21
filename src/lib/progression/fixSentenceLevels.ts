@@ -25,6 +25,7 @@
 
 import type { SupportLevel } from './clinicalProgression';
 import { SUPPORT_CREDIT, trialCredit } from './clinicalProgression';
+import { computeImplementedCeiling } from './_shared/implementedCeiling';
 
 const SUPPORT_RANK: Record<string, number> = {
   highlight_plus_choice: 0,
@@ -279,9 +280,5 @@ export { SUPPORT_CREDIT };
 
 /** Highest level whose contentSelector ships differentiated content. */
 export function highestImplementedFixSentenceLevel(): number {
-  let max = 1;
-  for (const [lvl, spec] of Object.entries(FIX_SENTENCE_LEVELS)) {
-    if (spec.contentSelector?.implemented !== false) max = Math.max(max, Number(lvl));
-  }
-  return max;
+  return computeImplementedCeiling(FIX_SENTENCE_LEVELS);
 }

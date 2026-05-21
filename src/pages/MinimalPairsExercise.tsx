@@ -95,32 +95,39 @@ export default function MinimalPairsExercise() {
     progression,
   });
   
-  // Initialize session
+  // Initialize session — gated on Clinical Progression load.
+  // Wave 0 fix: without this gate the session and first trials can begin
+  // while `progression.loaded === false`, which means the difficulty bridge
+  // runs against `startingLevel = null` and the game opens at the engine
+  // default (typically L1) regardless of the patient's persisted clinical
+  // level. When state resolves a render later, the bridge recomputes but
+  // the patient has already seen lower-tier content for the opening trials.
   useEffect(() => {
     const initSession = async () => {
       if (!user?.id) return;
-      
+      if (!progression.loaded) return;
+
       // Use lesson session if provided
       if (fromLesson && lessonSessionId) {
         setSessionId(lessonSessionId);
         return;
       }
-      
+
       const session = await startSession(
-        user.id, 
+        user.id,
         { blocks: [{ exercise: 'minimal_pairs', duration: 10 }] },
         { modality: 'listening' }
       );
-      
+
       if (session) {
         setSessionId(session.id);
       }
     };
-    
+
     if (isStarted) {
       initSession();
     }
-  }, [user?.id, isStarted, fromLesson, lessonSessionId]);
+  }, [user?.id, isStarted, fromLesson, lessonSessionId, progression.loaded]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');

@@ -142,6 +142,15 @@ export function FixSentenceGame({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Wave 0 fix: FixSentenceExercise is the single writer for
+    // adaptation_trial_logs (via useTrialSubmission, which tags
+    // trialMode='production'). Disabling autoLog here prevents:
+    //   (a) double-inserts to adaptation_trial_logs
+    //   (b) untagged rows on the adopted `fix_sentence` slug, which
+    //       routeTrialMode would otherwise drop as `skipped_unknown`
+    //       and spam aggregated console warnings on every session.
+    // Mirrors PhotoNamingGame / TwoCluesGame.
+    autoLog: false,
     getCueDependencyScore: () => engagement.getState().signals.cueDependency,
     onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
       console.debug('[fix_sentence] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });

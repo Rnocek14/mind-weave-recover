@@ -28,17 +28,21 @@ import {
 } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 
+// NOTE: `structural` and `design-only` ladders exist in the registry but are
+// intentionally rendered as the neutral generic engine in patient/clinician-
+// facing UI until their content banks and rubrics are clinician-reviewed. Do
+// NOT surface differentiated badges or expanded ladder tables for them here.
 const STATUS_BADGE: Record<LadderStatus, { label: string; className: string }> = {
   full: {
     label: 'Full L1–L8 ladder',
     className: 'bg-primary/15 text-primary border-primary/30',
   },
   structural: {
-    label: 'Structural ladder · thin upper tiers',
-    className: 'bg-primary/10 text-primary border-primary/20',
+    label: 'Generic 1–10 engine',
+    className: 'bg-muted text-muted-foreground border-border',
   },
   'design-only': {
-    label: 'Planned ladder · runtime on generic engine',
+    label: 'Generic 1–10 engine',
     className: 'bg-muted text-muted-foreground border-border',
   },
   'telemetry-only': {
@@ -127,11 +131,9 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const title = canonical?.title ?? entry.slug;
   const [open, setOpen] = useState(entry.status === 'full');
   const badge = STATUS_BADGE[entry.status];
-  const hasLadder =
-    (entry.status === 'full' ||
-      entry.status === 'structural' ||
-      entry.status === 'design-only') &&
-    (entry.rows?.length ?? 0) > 0;
+  // Only `full` ladders surface a live L1–L8 table to users. Structural and
+  // design-only entries remain registry-only until clinician review.
+  const hasLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
 
   return (
     <Card className="border-border">
@@ -156,32 +158,13 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             </span>
           </div>
         )}
-        {entry.status === 'generic' && (
+        {(entry.status === 'generic' ||
+          entry.status === 'structural' ||
+          entry.status === 'design-only') && (
           <p className="text-xs text-muted-foreground">
             No per-level clinical ladder yet. Difficulty is driven by the generic
-            1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped.
+            1–10 adaptation engine until a <code className="text-foreground">{entry.slug}Levels.ts</code> spec is shipped and clinician-reviewed.
           </p>
-        )}
-        {entry.status === 'design-only' && (
-          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium text-foreground">Design of record published.</span>{' '}
-              The L1–L8 ladder below is the clinical intent for this game. Runtime difficulty
-              still rides the generic 1–10 adaptation engine while the per-level scorer is
-              built.
-            </span>
-          </div>
-        )}
-        {entry.status === 'structural' && (
-          <div className="flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-              <span className="font-medium text-foreground">Structural ladder live.</span>{' '}
-              Engine adapts content per level. Upper tiers ship with thin or aspirational
-              content banks — see the readiness column.
-            </span>
-          </div>
         )}
 
         {hasLadder && (
@@ -246,31 +229,15 @@ export default function ClinicalLibrary() {
           Games without a published ladder are flagged honestly.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          {totalFull > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.full.className}>
-              {totalFull} full ladder
-            </Badge>
-          )}
-          {totalStructural > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.structural.className}>
-              {totalStructural} structural
-            </Badge>
-          )}
-          {totalDesign > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE['design-only'].className}>
-              {totalDesign} design-only
-            </Badge>
-          )}
-          {totalTelemetry > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
-              {totalTelemetry} telemetry-only
-            </Badge>
-          )}
-          {totalGeneric > 0 && (
-            <Badge variant="outline" className={STATUS_BADGE.generic.className}>
-              {totalGeneric} generic engine
-            </Badge>
-          )}
+          <Badge variant="outline" className={STATUS_BADGE.full.className}>
+            {totalFull} full ladder
+          </Badge>
+          <Badge variant="outline" className={STATUS_BADGE['telemetry-only'].className}>
+            {totalTelemetry} telemetry-only
+          </Badge>
+          <Badge variant="outline" className={STATUS_BADGE.generic.className}>
+            {totalGeneric + totalStructural + totalDesign} generic engine
+          </Badge>
         </div>
       </header>
 
