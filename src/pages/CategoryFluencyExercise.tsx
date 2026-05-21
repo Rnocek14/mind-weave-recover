@@ -279,7 +279,7 @@ export default function CategoryFluencyExercise() {
 
       <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
           <CategoryFluencyGame
-            difficulty={difficultyLevel}
+            difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
