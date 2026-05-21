@@ -62,7 +62,7 @@ describe('mastery writer↔reader round-trip', () => {
     // After Phase 1+4: the legacy `expressive` fallthrough is tightened.
     // Non-adopted slugs must not silently flow into expressive mastery
     // even when their trial_mode is null.
-    for (const slug of ['two_clues', 'describe_guess', 'narrative_retell', 'multi_step_planning']) {
+    for (const slug of ['multi_step_plan', 'describe_guess', 'narrative_retell', 'pattern_match']) {
       expect(routeTrialMode(slug, null)).toBe('skipped_unknown');
       expect(routeTrialMode(slug, 'production')).toBe('skipped_unknown');
     }

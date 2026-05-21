@@ -52,6 +52,10 @@ interface SentenceConstructionGameProps {
     errorType: string | null;
     grammarFocus: string;
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
+    /** True if patient played the model audio (hint) on this trial. */
+    hintUsed: boolean;
+    /** Engine difficulty (1–10) at the moment the trial fired. */
+    difficulty: number;
   }) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
 }
@@ -156,6 +160,10 @@ export const SentenceConstructionGame = ({
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false,
     enableAutoHints: false,
+    // Wave 2: page owns the unified trial writer via useTrialSubmission and
+    // tags every trial with trialMode='production'. Disabling the auto-logger
+    // here prevents untagged duplicate rows from polluting mastery routing.
+    autoLog: false,
     onDifficultyChange: (newLvl, reason) => {
       setActiveDifficultyRef.current?.(newLvl);
       if (import.meta.env.DEV) {
@@ -306,6 +314,8 @@ export const SentenceConstructionGame = ({
           errorType: result.errorAnalysis.errorType,
           grammarFocus: result.trial.grammarFocus,
           trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
+          hintUsed,
+          difficulty: currentDifficulty,
         });
       }
     }, 300);
@@ -344,6 +354,8 @@ export const SentenceConstructionGame = ({
         errorType: result.errorAnalysis.errorType,
         grammarFocus: result.trial.grammarFocus,
         trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
+        hintUsed,
+        difficulty: currentDifficulty,
       });
     }
   };

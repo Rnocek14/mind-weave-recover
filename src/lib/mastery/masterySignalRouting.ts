@@ -66,6 +66,11 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // trialMode='production' on every round. CategoryFluencyGame is
   // autoLog:false.
   'category_fluency',
+  // sentence_construction (Wave 2): SentenceConstructionExercise emits
+  // trialMode='production' on every submitTrial; SentenceConstructionGame's
+  // useInGameAdaptation is autoLog:false. Expressive grammar-production task
+  // — routes cleanly into expressive mastery.
+  'sentence_construction',
   // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
   // emits trialMode:'recognition' which routes to `excluded`. Adding it
   // here would conflate axes; receptive mastery track is deferred. Same
