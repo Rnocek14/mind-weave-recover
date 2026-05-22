@@ -58,8 +58,8 @@ describe('Content depth audit — all 14 progression-wired games', () => {
         counts: tally(SENTENCE_TRIALS as any[], (t: any) => b10(t.difficulty)),
         note: 'bank diff 1–10 bucketed into T1(1–3)/T2(4–7)/T3(8–10)' },
       { game: 'semantic-features',
-        counts: tally(SEMANTIC_TRIALS, (t: any) => t.difficulty),
-        note: 'difficulty field used directly as tier (1|2|3)' },
+        counts: tally(SEMANTIC_TRIALS, (t: any) => (t.difficulty <= 1 ? 1 : t.difficulty <= 3 ? 2 : 3)),
+        note: 'bank diff 1–5 bucketed into T1(1)/T2(2–3)/T3(4–5), matches semanticFeaturesDifficultyBridge' },
       { game: 'dual-load-naming',
         counts: tally(DUAL_LOAD_SETS, (t) => t.tier) },
       { game: 'synonym-generator',
@@ -105,6 +105,20 @@ describe('Content depth audit — all 14 progression-wired games', () => {
     for (const t of thin) {
       console.log(`  ${t.game.padEnd(30)} T${t.tier}=${t.count}  → need +${TARGET - t.count}`);
     }
+
+    console.log('\n🔬 PER-BANK-DIFFICULTY (true engine-relevant counts, floor=15):');
+    const perDiff = (label: string, items: readonly any[], get: (x: any) => number, max: number) => {
+      const c: Record<number, number> = {};
+      for (let i = 1; i <= max; i++) c[i] = 0;
+      for (const x of items) { const d = get(x); if (c[d] !== undefined) c[d]++; }
+      const cells = Object.entries(c).map(([d, n]) => `d${d}=${String(n).padStart(2)}`).join('  ');
+      const min = Math.min(...Object.values(c));
+      console.log(`  ${label.padEnd(28)} ${cells}   ${min < FLOOR ? '🔴' : min < TARGET ? '⚠️' : '✅'} min=${min}`);
+    };
+    perDiff('semantic-features', SEMANTIC_TRIALS, (t) => t.difficulty, 5);
+    perDiff('phonological-awareness', PHONO_TRIALS, (t) => t.difficulty, 5);
+    perDiff('sentence-construction', SENTENCE_TRIALS as any[], (t: any) => t.difficulty, 10);
+    perDiff('minimal-pairs (raw)', MINIMAL_PAIRS, (t) => t.difficulty, 5);
 
     console.log('\n📝 Notes:');
     for (const r of rows) if (r.note) console.log(`  ${r.game}: ${r.note}`);

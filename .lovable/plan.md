@@ -1,82 +1,81 @@
-## Where we are
+## Goal
+Lift every progression-wired game to ✅ healthy (≥20 items per tier) so the engine can always find a next-tier item. Same discipline as Wave 1: each phase ends with the audit harness green before moving on. No engine, hook, or bridge changes — content + spot-checks only.
 
-Two separate "healths" to look at — they're often confused.
-
-### 1. Persistence health (the DB itself)
-
-`clinical_progression_state` query right now:
+## Current state (just ran the audit)
 
 ```
-exercise_slug | profiles | with_progress | leveled_up | max_lvl
-photo-naming  |    1     |       0       |     1      |    2
+🔴 BELOW FLOOR (engine can't reliably level into this tier)
+  semantic-features        T2=13  T3=7
+  phonological-awareness   T2=10  T3=14
+  meaning-match            T2=14
+
+⚠️  THIN (levels but variety stalls)
+  meaning-match            T1=18  T3=15
+  two-clues                T3=18
+  detective-mind           T1=15  T2=15  T3=15
+  multi-step-plan          T1=15  T2=15  T3=15
+  minimal-pairs (raw)      T1=16  T3=17
+  minimal-pairs (playable) T1=16  T2=17  T3=15
 ```
 
-That's the entire table. 13 progression hooks exist (`usePhotoNamingProgression`, `useSemanticFeaturesProgression`, … `useCategoryFluencyProgression`) — all wired to `applySessionToState` + `saveProgressionState`. So the **plumbing is in place**; the row count is 1 because almost no one has actually played sessions since the wave-1 work landed. This is a usage gap, not a code gap. We can't judge "do users level up" from production data until trial users run sessions.
+## Phases
 
-### 2. Content-bank health (can the engine *find* the next-tier item to escalate to?)
+### Phase 1 — Below-floor (unblocks level-up)
+Highest priority; these tiers mathematically prevent escalation.
 
-This is the one that actually blocks leveling — if T2 only has 8 items, the engine literally can't keep T2 sessions fresh enough to satisfy the evidence gate, and the user stalls.
+1. **semantic-features** — +7 T2, +13 T3
+   - T3 items must match existing `PHOTO_BANK` assets and be low-frequency / multi-step semantic features.
+   - If a candidate target lacks a photo, drop it; do not invent assets.
+2. **phonological-awareness** — +10 T2 (bank diff 3), +6 T3 (bank diff 4–5)
+   - T2: onset/coda contrasts.
+   - T3: vowel + multi-phoneme + nonword/low-frequency contrasts at diff 4–5. **L8 stays aspirational** (degraded-signal mode not built); flag separately, do not fake-fill diff 6–10.
+3. **meaning-match** — +6 T2
 
-Latest audit run (just executed):
+→ Run audit. Confirm all three exit 🔴.
 
-```
-Game                          T1     T2     T3   Status
-PhotoNaming                    58     73     33   ✅ healthy
-DetectiveMind                  15     15     15   ⚠️  thin
-MultiStepPlanning              15     15     15   ⚠️  thin
-MinimalPairs (raw)             16     30     17   ⚠️  thin
-MinimalPairs (playable)        16     17     15   ⚠️  thin
-```
+### Phase 2 — Thin tiers, expressive games
+Variety / recency comfort across a full session.
 
-And from the wave-1 work we already verified:
+4. **two-clues** — +2 T3
+5. **meaning-match** — +2 T1, +5 T3
 
-```
-SemanticFeatures               20     20     20   ✅ healthy
-DualLoadNaming                 20     21     20   ✅ healthy
-SynonymGenerator               20     20     20   ✅ healthy
-TwoClues                       50     20     18   ⚠️ T3 thin (pre-existing)
-```
+→ Run audit.
 
-**Not yet audited** (no rows in the harness at all): `fix-sentence`, `meaning-match`, `phonological-awareness`, `sentence-construction`, `category-fluency`. Five games with progression hooks but no content-depth coverage in CI. We don't actually know if they can level up.
+### Phase 3 — Thin tiers, receptive comprehension games
+6. **detective-mind** — +5 each tier (T1/T2/T3)
+7. **multi-step-plan** — +5 each tier (T1/T2/T3)
 
-## The honest answer to your question
+→ Run audit.
 
-- **Below floor (15) — blocked from leveling:** none right now.
-- **Thin (15–19) — will level but stall faster than they should:** DetectiveMind (all 3 tiers), MultiStepPlanning (all 3 tiers), MinimalPairs (T1, T3), TwoClues (T3).
-- **Unknown — could be anywhere:** fix-sentence, meaning-match, phonological-awareness, sentence-construction, category-fluency.
-- **Healthy:** PhotoNaming, SemanticFeatures, DualLoadNaming, SynonymGenerator.
+### Phase 4 — Minimal pairs
+Two views (raw bank vs playable trials after filter).
 
-The unknowns are the bigger risk than the thin ones. Thin means "works, less variety." Unknown means we're flying blind.
+8. **minimal-pairs** — +4 T1 raw, +3 T3 raw; ensure +5 T3 playable after filter
 
-## Plan
+→ Run audit. Confirm every game ✅ healthy.
 
-### Step 1 — Extend the audit harness to cover all 14 games
-One source of truth. Add the missing 5 to `contentDepthAudit.test.ts` so every game prints `T1/T2/T3` counts on every CI run. Run it, get the real numbers. No content changes yet.
+### Phase 5 — Spot-check & document
+- Difficulty parity within tier (no diff-2 item filed as T3, etc.).
+- Frequency band where relevant (semantic_features, synonym_generator pattern).
+- Recency-exclusion sanity (no near-duplicates).
+- Append final audit snapshot to `.lovable/plan.md`.
+- Surface the phono-awareness L8 gap as a separate scoped decision (bank mode work, not content work).
 
-### Step 2 — Triage based on step 1 output
-Categorize the now-complete picture into: below floor (urgent), thin (target work), healthy. Surface that table to you before writing any content.
+## Discipline (carried from Wave 1)
+- Each phase ends with `bunx vitest run src/data/__tests__/contentDepthAudit.test.ts`. Green = move on. Red = stop and fix before next phase.
+- One game per file edit; no batch-editing multiple banks in a single tool call when the schemas differ.
+- No changes to: hooks, level specs, bridges, gate logic, schema, or new game/tier introduction.
 
-### Step 3 — Close below-floor tiers first
-Anything <15 gets lifted to 20 immediately. These are the only ones that mathematically block level-up.
+## What I'm NOT doing
+- Touching `clinical_progression_state` (still a usage gap, not a code gap).
+- Filling phono diff 6–10 (no runtime mode for it; would create dead content).
+- Extending PHOTO_BANK to match invented semantic-features targets (asset work is its own decision).
 
-### Step 4 — Lift thin tiers to 20 (target)
-The known-thin set: DetectiveMind, MultiStepPlanning, MinimalPairs, TwoClues T3. Plus whatever step 2 surfaces. Each tier gets enough items to satisfy variety + the existing recency-exclusion window without re-serving the same trial.
+## Estimated scope
+- Phase 1: ~29 items across 3 files
+- Phase 2: ~9 items across 2 files
+- Phase 3: ~30 items across 2 files
+- Phase 4: ~12 items in 1 file
+- Total: ~80 new items, 5 audit runs, 1 final spot-check pass.
 
-### Step 5 — Spot-check the new items
-Difficulty parity within tier, frequency band where relevant (semantic_features / synonym_generator pattern), no leaks across tiers. Same discipline we applied in wave 1.
-
-### Step 6 — Re-run audit, confirm green across all 14 games
-Then we have a defensible "every game can level up" claim.
-
-### What I'm *not* doing in this plan
-- Not touching `clinical_progression_state` — the row-count problem is "users haven't played," not a schema issue.
-- Not changing progression hooks, level specs, or the gate logic.
-- Not adding new games or new tiers.
-- Pure content + harness work.
-
-## Notes for implementation
-- Each new game audited needs whatever its content-source export is (`DETECTIVE_CASES`, `PLANNING_ITEMS`, etc.) — for the 5 unknowns I'll find the equivalent in `src/data/` and the tier classifier in `src/lib/progression/<game>DifficultyBridge.ts`.
-- Recency-exclusion standard says we want enough items that the LRU window doesn't repeat within a session. 20/tier is the conservative target; some games may want more if a single session pulls many trials at one tier.
-- All work guarded by the existing audit test — green = move on, same rule as wave 1.
-
-Want me to proceed?
+Ready to start Phase 1 on approval.
