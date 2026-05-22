@@ -117,4 +117,6 @@ Profile-aware variants live in **presentation components only**, branching on th
 
 ## 8. Next step
 
-Pass B: drive `/today`, `/exercise/fix-sentence`, `/exercise/multi-step-plan`, `/exercise/category-fluency`, `/exercise/minimal-pairs`, and Session Summary as each archetype; fill in P4 numbers; revisit §5 recommendation.
+1. **Unblock Pass B** by landing the anon-session E2E fixture (already queued from Phase 1). Without it, `/today` and all `/exercise/*` routes sit behind `/auth` for the browser walker.
+2. After fixture lands, run the §1 archetype walkthrough at 390×844 and 1366×768; fill P4 numbers in §3.2.
+3. Revisit §5 recommendation with the new data, then proceed to Phase 2B.
