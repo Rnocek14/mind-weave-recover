@@ -173,6 +173,8 @@ export default function Today() {
     activeProfile?.id,
     clinicalProfile
   );
+  const offlineLesson = isOfflineMode ? buildPresetLesson('low_energy') : null;
+  const activeLesson = lesson ?? offlineLesson;
 
   const currentTab = location.pathname === '/practice' ? 'practice' 
     : location.pathname === '/progress' ? 'progress' 
@@ -220,15 +222,15 @@ export default function Today() {
   }, [user?.id, authLoading, isOfflineMode]);
 
   const handleStartSession = () => {
-    console.log('[Today] handleStartSession clicked', { hasLesson: !!lesson, blocks: lesson?.blocks?.length });
-    if (!lesson) return;
+    console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
+    if (!activeLesson) return;
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
-        lesson,
+        lesson: activeLesson,
         clinicalProfile,
         todayFocus,
         skipDailyCheck: true,
@@ -295,7 +297,7 @@ export default function Today() {
   const greeting = getGreeting();
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
   const sessionNumber = (stats?.totalSessions ?? 0) + 1;
-  const lessonReady = !!lesson;
+  const lessonReady = !!activeLesson;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
