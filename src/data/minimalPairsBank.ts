@@ -729,6 +729,114 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     contrastDescription: 'Voiced bilabial stop vs. voiceless alveolar stop',
     difficulty: 1, category: 'place_voicing',
   },
+
+  // ============================================================
+  // Phase 4 top-up (May 2026) — photo-backed pairs to bring all
+  // three playable tiers to the 20-item variety target.
+  // Every word1/word2 below is verified present in PHOTO_BANK.
+  // ============================================================
+
+  // --- Tier 1 (distinct contrasts, clinical L1–L3) ---
+  {
+    id: 'fork_pork',
+    word1: 'fork', word2: 'pork',
+    contrastType: 'initial',
+    phoneme1: '/f/', phoneme2: '/p/',
+    contrastDescription: 'Voiceless labiodental fricative vs. bilabial stop',
+    difficulty: 1, category: 'stop_fricative',
+  },
+  {
+    id: 'lock_sock',
+    word1: 'lock', word2: 'sock',
+    contrastType: 'initial',
+    phoneme1: '/l/', phoneme2: '/s/',
+    contrastDescription: 'Lateral liquid vs. voiceless alveolar fricative',
+    difficulty: 1, category: 'liquid_fricative',
+  },
+  {
+    id: 'car_jar',
+    word1: 'car', word2: 'jar',
+    contrastType: 'initial',
+    phoneme1: '/k/', phoneme2: '/dʒ/',
+    contrastDescription: 'Voiceless velar stop vs. voiced palato-alveolar affricate',
+    difficulty: 1, category: 'stop_affricate',
+  },
+  {
+    id: 'bell_yell',
+    word1: 'bell', word2: 'yell',
+    contrastType: 'initial',
+    phoneme1: '/b/', phoneme2: '/j/',
+    contrastDescription: 'Voiced bilabial stop vs. palatal glide',
+    difficulty: 1, category: 'stop_glide',
+  },
+
+  // --- Tier 2 (single-feature contrasts, clinical L4–L7) ---
+  {
+    id: 'rope_robe',
+    word1: 'rope', word2: 'robe',
+    contrastType: 'final',
+    phoneme1: '/p/', phoneme2: '/b/',
+    contrastDescription: 'Voiceless vs. voiced bilabial stop (final position)',
+    difficulty: 2, category: 'final_voicing',
+  },
+  {
+    id: 'ham_hat',
+    word1: 'ham', word2: 'hat',
+    contrastType: 'final',
+    phoneme1: '/m/', phoneme2: '/t/',
+    contrastDescription: 'Bilabial nasal vs. voiceless alveolar stop (final position)',
+    difficulty: 2, category: 'nasal_stop',
+  },
+  {
+    id: 'chip_zip',
+    word1: 'chip', word2: 'zip',
+    contrastType: 'initial',
+    phoneme1: '/tʃ/', phoneme2: '/z/',
+    contrastDescription: 'Voiceless palato-alveolar affricate vs. voiced alveolar fricative',
+    difficulty: 2, category: 'fricative_affricate',
+  },
+
+  // --- Tier 3 (close-feature contrasts, clinical L8 aspirational) ---
+  {
+    id: 'pie_tie',
+    word1: 'pie', word2: 'tie',
+    contrastType: 'initial',
+    phoneme1: '/p/', phoneme2: '/t/',
+    contrastDescription: 'Voiceless bilabial vs. alveolar stop (placement only)',
+    difficulty: 3, category: 'placement',
+  },
+  {
+    id: 'rose_nose',
+    word1: 'rose', word2: 'nose',
+    contrastType: 'initial',
+    phoneme1: '/r/', phoneme2: '/n/',
+    contrastDescription: 'Liquid vs. nasal — sonorant placement contrast',
+    difficulty: 3, category: 'placement',
+  },
+  {
+    id: 'web_red',
+    word1: 'web', word2: 'red',
+    contrastType: 'initial',
+    phoneme1: '/w/', phoneme2: '/r/',
+    contrastDescription: 'Labio-velar glide vs. liquid — highly confusable',
+    difficulty: 3, category: 'placement',
+  },
+  {
+    id: 'bell_bed',
+    word1: 'bell', word2: 'bed',
+    contrastType: 'final',
+    phoneme1: '/l/', phoneme2: '/d/',
+    contrastDescription: 'Lateral liquid vs. voiced alveolar stop (final position)',
+    difficulty: 3, category: 'placement',
+  },
+  {
+    id: 'net_jet',
+    word1: 'net', word2: 'jet',
+    contrastType: 'initial',
+    phoneme1: '/n/', phoneme2: '/dʒ/',
+    contrastDescription: 'Nasal vs. voiced affricate — manner-distant but confusable in noise',
+    difficulty: 3, category: 'nasal_affricate',
+  },
 ];
 
 export interface MinimalPairTrial {
