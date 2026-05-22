@@ -738,11 +738,11 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
 
   // --- Tier 1 (distinct contrasts, clinical L1–L3) ---
   {
-    id: 'fork_pork',
-    word1: 'fork', word2: 'pork',
+    id: 'frog_dog',
+    word1: 'frog', word2: 'dog',
     contrastType: 'initial',
-    phoneme1: '/f/', phoneme2: '/p/',
-    contrastDescription: 'Voiceless labiodental fricative vs. bilabial stop',
+    phoneme1: '/f/', phoneme2: '/d/',
+    contrastDescription: 'Voiceless labiodental fricative vs. voiced alveolar stop',
     difficulty: 1, category: 'stop_fricative',
   },
   {
