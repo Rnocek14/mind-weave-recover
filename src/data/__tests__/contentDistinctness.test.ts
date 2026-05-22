@@ -1,23 +1,24 @@
 /**
  * Content Distinctness Audit (test-as-tool)
  *
- * Verifies that after the cumulative-filter fix, the FixSentence and
- * DescribeGuess banks produce BAND-ISOLATED pools.
+ * Verifies that the FixSentence selector produces COHORT-ISOLATED pools.
  *
- * IMPORTANT: `difficulty` passed to the selectors is now treated as the
- * engine level (1..10). The selector centrally maps:
- *   engine 1..3  → tier 1
- *   engine 4..7  → tier 2
- *   engine 8..10 → tier 3
- * To prove tier isolation, we probe at engine levels 1, 5, and 10.
+ * IMPORTANT (May 2026): FixSentence switched to an intensity-cohort selector.
+ * The selector picks by `errorType` cohort (semantic_swap / category_error /
+ * function_error / multiple_valid_repairs) defined per engine level in the
+ * intensity registry, then slices by sub-tier hardness. The bank-level
+ * `difficulty: 1|2|3` tag is no longer the unit of isolation — the cohort is.
+ * These tests assert the cohort contract the runtime selector actually uses.
  */
 import { describe, it, expect } from 'vitest';
-import { getFixSentenceTrials } from '@/data/fixSentenceBank';
+import { getFixSentenceTrials, FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
 import { getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { getTrialsForLevel as getPhraseTrials, mapEngineLevelToPhraseTier } from '@/data/phraseBank';
 import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPromptBank';
 import { selectNextPrompt, createEmptySessionHistory } from '@/lib/adaptivePromptSelector';
 import { getSynonymTrials, mapEngineLevelToSynonymTier, SYNONYM_PROMPTS } from '@/data/synonymBank';
+import { getLevelContent, resolveCohortMix } from '@/lib/intensity';
+import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
@@ -32,26 +33,38 @@ function summarize<T extends { id: string; difficulty: number }>(label: string, 
   console.log(`  ${label}: n=${trials.length}  tier-distribution=${JSON.stringify(dist)}`);
 }
 
-describe('Content distinctness — FixSentence', () => {
+/** Declared cohort keys for a given engine level, per the intensity registry. */
+function declaredCohorts(level: number): Set<string> {
+  const spec = getLevelContent('fix-sentence', level);
+  if (!spec) return new Set();
+  return new Set(resolveCohortMix(spec, 10).map(s => s.cohort));
+}
+
+describe('Content distinctness — FixSentence (cohort contract)', () => {
   it('logs pool composition per engine level', () => {
-    summarize('engine L1 (→ tier 1)', getFixSentenceTrials({ difficulty: 1, count: 10 }));
-    summarize('engine L5 (→ tier 2)', getFixSentenceTrials({ difficulty: 5, count: 10 }));
-    summarize('engine L10 (→ tier 3)', getFixSentenceTrials({ difficulty: 10, count: 10 }));
+    summarize('engine L1', getFixSentenceTrials({ difficulty: 1, count: 10 }));
+    summarize('engine L5', getFixSentenceTrials({ difficulty: 5, count: 10 }));
+    summarize('engine L10', getFixSentenceTrials({ difficulty: 10, count: 10 }));
   });
 
-  it('engine L1 (count=10) is exclusively tier 1', () => {
+  it('engine L1 returns only items from its declared cohort(s)', () => {
     const small = getFixSentenceTrials({ difficulty: 1, count: 10 });
-    expect(small.every(t => t.difficulty === 1)).toBe(true);
+    const allowed = declaredCohorts(1);
+    expect(small.every(t => allowed.has(t.errorType))).toBe(true);
   });
 
-  it('engine L5 (count=10) is exclusively tier 2', () => {
+  it('engine L5 returns only items from its declared cohort(s)', () => {
     const small = getFixSentenceTrials({ difficulty: 5, count: 10 });
-    expect(small.every(t => t.difficulty === 2)).toBe(true);
+    const allowed = declaredCohorts(5);
+    expect(small.every(t => allowed.has(t.errorType))).toBe(true);
   });
 
-  it('engine L10 (count=10) is exclusively tier 3', () => {
-    const small = getFixSentenceTrials({ difficulty: 10, count: 10 });
-    expect(small.every(t => t.difficulty === 3)).toBe(true);
+  it('engine L10 returns only items from its declared cohort(s) and 0 leak from L1', () => {
+    const l1 = new Set(getFixSentenceTrials({ difficulty: 1, count: 10 }).map(t => t.id));
+    const l10 = getFixSentenceTrials({ difficulty: 10, count: 10 });
+    const allowed = declaredCohorts(10);
+    expect(l10.every(t => allowed.has(t.errorType))).toBe(true);
+    expect(l10.filter(t => l1.has(t.id)).length).toBe(0);
   });
 
   it('engine L1 vs L5 vs L10 pools are pairwise disjoint (Jaccard = 0)', () => {
@@ -66,30 +79,51 @@ describe('Content distinctness — FixSentence', () => {
     expect(bc).toBe(0);
   });
 
-  it('engine L4 and L7 both resolve to tier 2 (denser pool after L4–L10 expansion: ~20 trials)', () => {
-    const a = getFixSentenceTrials({ difficulty: 4, count: 10 });
-    const b = getFixSentenceTrials({ difficulty: 7, count: 10 });
-    expect(a.every(t => t.difficulty === 2)).toBe(true);
-    expect(b.every(t => t.difficulty === 2)).toBe(true);
+  it('L4 and L7 share the function_error cohort (intensity ladder overlap)', () => {
+    const c4 = declaredCohorts(4);
+    const c7 = declaredCohorts(7);
+    const shared = [...c4].filter(k => c7.has(k));
+    expect(shared).toContain('function_error');
   });
 
-  it('each tier now has ≥20 trials after FixSentence L1–L10 expansion', () => {
-    const t1 = getFixSentenceTrials({ difficulty: 1, count: 100 }).filter(t => t.difficulty === 1);
-    const t2 = getFixSentenceTrials({ difficulty: 5, count: 100 }).filter(t => t.difficulty === 2);
-    const t3 = getFixSentenceTrials({ difficulty: 10, count: 100 }).filter(t => t.difficulty === 3);
+  it('every (errorType × tier) cell used by an implemented level has ≥ 8 items', () => {
+    // The cohort selector (sliceCohortByIntensity uses count*3) needs ≥ ~8
+    // items per (cohort × tier) cell to avoid neighbor fallback. Cells not
+    // referenced by any implemented level are exempt (e.g. L5–L8 aspirational
+    // cohorts that selector skips honestly).
+    const counts: Record<string, number> = {};
+    for (const t of FIX_SENTENCE_BANK) {
+      const k = `${t.errorType}/T${t.difficulty}`;
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
     // eslint-disable-next-line no-console
-    console.log(`  FixSentence tier sizes: T1=${t1.length} T2=${t2.length} T3=${t3.length}`);
-    expect(t1.length).toBeGreaterThanOrEqual(20);
-    expect(t2.length).toBeGreaterThanOrEqual(20);
-    expect(t3.length).toBeGreaterThanOrEqual(20);
+    console.log('  FixSentence cohort cells:', counts);
+
+    const usedCells = new Set<string>();
+    for (let lvl = 1; lvl <= 10; lvl++) {
+      const lvlSpec = FIX_SENTENCE_LEVELS[lvl];
+      if (!lvlSpec?.contentSelector?.implemented) continue;
+      const spec = getLevelContent('fix-sentence', lvl);
+      if (!spec) continue;
+      for (const slice of resolveCohortMix(spec, 10)) {
+        for (const tier of [1, 2, 3]) {
+          const key = `${slice.cohort}/T${tier}`;
+          if ((counts[key] ?? 0) > 0) usedCells.add(key);
+        }
+      }
+    }
+
+    const offenders = [...usedCells].filter(k => (counts[k] ?? 0) < 8);
+    expect(offenders).toEqual([]);
   });
 
-  it('mid-session re-pool from L1 to L8 returns 100% new tier-3 trials', () => {
+  it('mid-session re-pool from L1 to L8 returns 0 repeats and items from L8 cohort(s)', () => {
     const played = getFixSentenceTrials({ difficulty: 1, count: 5 });
     const next = getFixSentenceTrials({ difficulty: 8, count: 5 });
     const playedIds = new Set(played.map(t => t.id));
+    const allowed = declaredCohorts(8);
     expect(next.filter(t => playedIds.has(t.id)).length).toBe(0);
-    expect(next.every(t => t.difficulty === 3)).toBe(true);
+    expect(next.every(t => allowed.has(t.errorType))).toBe(true);
   });
 });
 
