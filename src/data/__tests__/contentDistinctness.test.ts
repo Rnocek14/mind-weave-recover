@@ -101,8 +101,10 @@ describe('Content distinctness — FixSentence (cohort contract)', () => {
 
     const usedCells = new Set<string>();
     for (let lvl = 1; lvl <= 10; lvl++) {
+      const lvlSpec = FIX_SENTENCE_LEVELS[lvl];
+      if (!lvlSpec?.contentSelector?.implemented) continue;
       const spec = getLevelContent('fix-sentence', lvl);
-      if (!spec || !spec.implemented) continue;
+      if (!spec) continue;
       for (const slice of resolveCohortMix(spec, 10)) {
         for (const tier of [1, 2, 3]) {
           const key = `${slice.cohort}/T${tier}`;
