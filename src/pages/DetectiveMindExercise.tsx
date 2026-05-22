@@ -44,6 +44,7 @@ export default function DetectiveMindExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
@@ -123,7 +124,7 @@ export default function DetectiveMindExercise() {
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'executive_function', fromLesson });
 
   const handleTrialComplete = useCallback(async (result: DetectiveTrialResult) => {
-    if (!activeSessionId) return;
+    if (!activeSessionId && !isOfflineMode) return;
     scoreRef.current += result.points;
     trialsRef.current += 1;
     trialIndexRef.current += 1;
@@ -166,7 +167,7 @@ export default function DetectiveMindExercise() {
     });
 
     if (pivot.shouldStepDown) { console.log('[DetectiveMind] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, trialLimit, blockIndex, lessonSource, presetId, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
+  }, [activeSessionId, isOfflineMode, submitTrial, adaptationTelemetry, pivot, trialLimit, blockIndex, lessonSource, presetId, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: DetectiveTrialResult[]) => {
     setCompleted(true);
@@ -212,7 +213,7 @@ export default function DetectiveMindExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  const isReady = isOfflineMode || (!isCreatingSession && !!activeSessionId);
 
   if (!isReady) {
     return (

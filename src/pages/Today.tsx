@@ -80,6 +80,7 @@ export default function Today() {
   // All hooks at the top — never after conditionals
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { mode, setMode } = useCoachingMode();
   const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
@@ -172,14 +173,16 @@ export default function Today() {
     activeProfile?.id,
     clinicalProfile
   );
+  const offlineLesson = isOfflineMode ? buildPresetLesson('core_communication') : null;
+  const activeLesson = lesson ?? offlineLesson;
 
   const currentTab = location.pathname === '/practice' ? 'practice' 
     : location.pathname === '/progress' ? 'progress' 
     : 'home';
 
   useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading, navigate]);
+    if (!authLoading && !user && !isOfflineMode) navigate('/auth');
+  }, [user, authLoading, isOfflineMode, navigate]);
 
   // Load clinical profile
   useEffect(() => {
@@ -212,19 +215,22 @@ export default function Today() {
         }),
         loadAdherenceStats(user.id).then(setStats),
       ]).finally(() => setLoaded(true));
+    } else if (!authLoading && isOfflineMode) {
+      setStats({ totalSessions: 0, currentStreak: 0 });
+      setLoaded(true);
     }
-  }, [user?.id]);
+  }, [user?.id, authLoading, isOfflineMode]);
 
   const handleStartSession = () => {
-    console.log('[Today] handleStartSession clicked', { hasLesson: !!lesson, blocks: lesson?.blocks?.length });
-    if (!lesson) return;
+    console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
+    if (!activeLesson) return;
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
     setSavedSession(null);
     navigate('/lesson', {
       state: {
-        lesson,
+        lesson: activeLesson,
         clinicalProfile,
         todayFocus,
         skipDailyCheck: true,
@@ -285,13 +291,13 @@ export default function Today() {
     );
   }
 
-  if (!user) return null;
+  if (!user && !isOfflineMode) return null;
 
-  const displayName = user.user_metadata?.display_name || 'there';
+  const displayName = user?.user_metadata?.display_name || 'there';
   const greeting = getGreeting();
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
   const sessionNumber = (stats?.totalSessions ?? 0) + 1;
-  const lessonReady = !!lesson;
+  const lessonReady = !!activeLesson;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

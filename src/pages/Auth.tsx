@@ -23,6 +23,7 @@ const Auth = () => {
   // Redirect if already logged in (only after loading completes)
   useEffect(() => {
     if (!loading && user) {
+      localStorage.removeItem("offlineMode");
       navigate("/today");
     }
   }, [user, loading, navigate]);
@@ -100,12 +101,13 @@ const Auth = () => {
     
     if (error) {
       // Fallback to sessionless mode
+      localStorage.setItem("offlineMode", "true");
       toast({
         title: "Starting in offline mode",
         description: "Your progress will be saved locally. Create an account to sync across devices.",
       });
       // Still navigate to dashboard for sessionless mode
-      navigate("/today");
+      navigate("/today", { replace: true });
     } else {
       toast({
         title: "Starting session",
