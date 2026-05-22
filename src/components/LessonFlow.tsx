@@ -61,6 +61,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { showPurpose, isVoiceLed } = useCoachingMode();
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
   const autoStart = location.state?.autoStart ?? false;
@@ -323,7 +324,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Navigate to exercise when phase is exercise AND sessionId is ready
   useEffect(() => {
-    if (phase === "exercise" && currentBlock && sessionId) {
+    if (phase === "exercise" && currentBlock && (sessionId || isOfflineMode)) {
       // One-time first-launch tracking
       if (!hasTrackedFirstLaunchRef.current) {
         hasTrackedFirstLaunchRef.current = true;
@@ -332,7 +333,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       console.log('[LessonFlow] Navigating to exercise:', currentBlock.exerciseId);
       navigateToExercise(currentBlock.exerciseId);
     }
-  }, [phase, currentBlock, sessionId]);
+  }, [phase, currentBlock, sessionId, isOfflineMode]);
 
   const createSession = async () => {
     if (!user) return;
@@ -445,7 +446,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       return;
     }
     
-    if (!sessionId) {
+    if (!sessionId && !isOfflineMode) {
       console.error('[LessonFlow] No sessionId available');
       toast.error("Session not ready. Please wait...");
       return;
