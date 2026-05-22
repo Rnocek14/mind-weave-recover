@@ -447,6 +447,12 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     category: 'bathroom', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/t/', '/aʊ/', '/l/'],
   },
+  {
+    id: 'fs_67b', sentence: 'I swept the floor with a mop.', wrongWord: 'mop', wrongWordIndex: 6,
+    acceptedFixes: ['broom'], fixAliases: { broom: ['brooms'] },
+    category: 'home', difficulty: 1, errorType: 'semantic_swap',
+    phonemeTargets: ['/b/', '/r/', '/uː/', '/m/'],
+  },
 
   // ── T1/multiple_valid_repairs (was 3, +5 → 8) ────────────────────────
   {
