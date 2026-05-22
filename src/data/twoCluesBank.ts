@@ -1084,6 +1084,17 @@ const midPuzzles: TwoCluesPuzzle[] = [
     cluster: ['wick', 'flame', 'light', 'holder', 'birthday'],
     nearMisses: ['lamp', 'torch', 'lighter'],
     coachHints: { 'lamp': "Lamps don't use wax. What WAX item burns?", 'lighter': "Lighters use fuel. What burns wax with a wick?" } },
+  // === T3 top-up (Phase 6) — abstract/figurative pairings ===
+  { id: 'tc-hard-t3-1', clues: ['keeps', 'secret'], category: 'people', difficulty: 3,
+    anchors: ['diary', 'journal'], anchorAliases: { 'diary': ['diaries'], 'journal': ['journals'] },
+    cluster: ['notebook', 'private', 'lock', 'entry', 'confide', 'log'],
+    nearMisses: ['vault', 'whisper', 'friend'],
+    coachHints: { 'vault': "Vaults keep secrets too. What PERSONAL book do you write in?", 'friend': "Friends keep secrets. What BOOK holds them?" } },
+  { id: 'tc-hard-t3-2', clues: ['guides', 'darkness'], category: 'home', difficulty: 3,
+    anchors: ['lighthouse', 'flashlight'], anchorAliases: { 'lighthouse': ['lighthouses'], 'flashlight': ['flashlights', 'torch'] },
+    cluster: ['beacon', 'lantern', 'beam', 'signal', 'guide', 'navigate'],
+    nearMisses: ['star', 'compass', 'map'],
+    coachHints: { 'star': "Stars guide too. What man-made LIGHT guides in darkness?", 'compass': "Compasses guide direction. What gives LIGHT in the dark?" } },
 ];
 
 // ============================================
