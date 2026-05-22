@@ -301,6 +301,17 @@ export default function Today() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* TEMP: dev sign-out for /auth testing — remove after verifying offline flow */}
+      <button
+        onClick={async () => {
+          await supabase.auth.signOut();
+          localStorage.removeItem('offlineMode');
+          navigate('/auth', { replace: true });
+        }}
+        className="fixed top-2 right-2 z-50 text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+      >
+        Sign out (dev)
+      </button>
       <div className="flex-1 flex items-center justify-center p-6 pb-20">
         <div className="w-full max-w-sm space-y-6 text-center">
           {/* Greeting */}
