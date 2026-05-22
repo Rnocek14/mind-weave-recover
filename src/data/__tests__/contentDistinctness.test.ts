@@ -18,6 +18,7 @@ import { THOUGHT_PROMPTS, mapDiscourseLevelToPromptTier } from '@/data/thoughtPr
 import { selectNextPrompt, createEmptySessionHistory } from '@/lib/adaptivePromptSelector';
 import { getSynonymTrials, mapEngineLevelToSynonymTier, SYNONYM_PROMPTS } from '@/data/synonymBank';
 import { getLevelContent, resolveCohortMix } from '@/lib/intensity';
+import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 
 function jaccard<T>(a: Set<T>, b: Set<T>): number {
   const inter = [...a].filter(x => b.has(x)).length;
