@@ -209,6 +209,58 @@ export const PLANNING_ITEMS: PlanningItem[] = [
   { id: 'plan-45', goal: 'Plan a return to driving after a long break', emoji: '🚗',
     keySteps: ['decide on a goal date and route', 'review traffic rules and any new laws', 'practice in an empty lot first', 'take a few short supervised drives', 'gradually drive on busier roads alone'],
     idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+
+  // === Phase 6 expansion — +5 per tier toward Target=20 ===
+  // T1 — familiar daily routines
+  { id: 'plan-46', goal: 'Make a piece of toast with jam', emoji: '🍞',
+    keySteps: ['take bread from the bag', 'place it in the toaster', 'wait until it pops up', 'spread jam on top', 'put it on a plate to eat'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1 },
+  { id: 'plan-47', goal: 'Make the bed', emoji: '🛏️',
+    keySteps: ['pull off the old sheets if needed', 'straighten the bottom sheet', 'pull the blanket up evenly', 'arrange the pillows at the top', 'smooth out any wrinkles'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1 },
+  { id: 'plan-48', goal: 'Sweep the kitchen floor', emoji: '🧹',
+    keySteps: ['move chairs out of the way', 'get the broom and dustpan', 'sweep into one pile', 'scoop pile into dustpan', 'empty dustpan into trash'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1 },
+  { id: 'plan-49', goal: 'Pour a glass of water', emoji: '💧',
+    keySteps: ['get a clean glass from the cabinet', 'walk to the sink or fridge', 'pour water into the glass', 'turn off the tap if used', 'carry the glass carefully'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1 },
+  { id: 'plan-50', goal: 'Put on a coat to go outside', emoji: '🧥',
+    keySteps: ['take coat off the hook', 'put one arm in a sleeve', 'put the other arm in', 'zip or button it up', 'check pockets for keys'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 1 },
+
+  // T2 — multi-stage with mild decision points
+  { id: 'plan-51', goal: 'Schedule a haircut appointment', emoji: '✂️',
+    keySteps: ['look up the salon phone number', 'check your calendar for free times', 'call and ask for an opening', 'confirm date and stylist', 'write it in your calendar'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+  { id: 'plan-52', goal: 'Order food for delivery', emoji: '🥡',
+    keySteps: ['decide what kind of food you want', 'open the menu or app', 'pick items and add to cart', 'enter address and payment', 'wait and tip the driver'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+  { id: 'plan-53', goal: 'Change the sheets on a bed', emoji: '🛌',
+    keySteps: ['take pillows and blankets off', 'strip the old sheets', 'put on the fitted sheet', 'add the flat sheet and blanket', 'put pillows back on'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+  { id: 'plan-54', goal: 'Book a ride share to an appointment', emoji: '🚕',
+    keySteps: ['check what time you need to arrive', 'open the ride share app', 'enter pickup and drop-off', 'request the ride and confirm', 'wait outside at pickup spot'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+  { id: 'plan-55', goal: 'Return a library book', emoji: '📚',
+    keySteps: ['find the book at home', 'check the due date', 'bring it to the library', 'drop it in the return slot', 'check if you owe a fine'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 2 },
+
+  // T3 — abstract / initiative-heavy
+  { id: 'plan-56', goal: 'Choose a new hobby to try this month', emoji: '🎨',
+    keySteps: ['list what interests you', 'check time and budget you have', 'pick one to try first', 'gather any needed supplies', 'schedule a first session this week'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+  { id: 'plan-57', goal: 'Prepare to host a holiday gathering', emoji: '🎄',
+    keySteps: ['decide on date and guest list', 'plan the menu', 'send invitations', 'shop and cook ahead', 'set up the space and welcome guests'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+  { id: 'plan-58', goal: 'Plan a weekly meal prep routine', emoji: '🥗',
+    keySteps: ['pick recipes for the week', 'make a grocery list', 'shop for ingredients', 'cook and portion meals', 'store them in the fridge or freezer'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+  { id: 'plan-59', goal: 'Reconnect with an old friend', emoji: '💌',
+    keySteps: ['find their current contact info', 'decide on a friendly opening message', 'reach out by text, call, or email', 'suggest a time to catch up', 'follow through with the plan'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
+  { id: 'plan-60', goal: 'Plan a volunteer day in your community', emoji: '🤲',
+    keySteps: ['decide what cause matters to you', 'search local organizations', 'sign up for a shift', 'plan transport and what to bring', 'show up and follow their lead'],
+    idealOrder: [0, 1, 2, 3, 4], tier: 3 },
 ];
 
 export function getPlanningItemsByTier(tier: number): PlanningItem[] {
