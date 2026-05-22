@@ -1,7 +1,7 @@
 # Stroke-Profile Accessibility Audit (Phase 2A)
 
-**Status:** FIRST PASS COMPLETE — code-level audit, manual browser sweep still pending.
-**Owner:** AI agent (initial pass), human review pending.
+**Status:** PASS A COMPLETE. PASS B BLOCKED on anon-session E2E fixture.
+**Owner:** AI agent (Pass A + Pass B attempt), human review pending.
 **Date:** 2026-05-22
 **Decision gate:** Phase 2B (user picks adaptive vs single-toggle vs global replace).
 
@@ -13,8 +13,8 @@ This document is **analysis only**. It does not touch app code, clinical engines
 
 Phase 2A is intentionally lightweight so we can scope Phase 2B (the build phase) without guesswork. Two passes:
 
-- **Pass A — Code-level scan (this commit).** Static scan of `src/pages/**` and `src/components/**` for the high-leverage failure modes listed in §3: icon-only buttons missing `aria-label`, `onClick` on non-interactive elements, `<img>` without `alt`, `autoFocus` outside dialogs, `h-screen` vs `h-dvh`, tap-target sizing, words-per-screen on patient routes, decisions-per-screen on patient routes.
-- **Pass B — Manual archetype walkthrough (TODO before Phase 2B).** Drive a real session as each of the four archetypes in §2 on `/today`, three representative `/exercise/*` routes, and Session Summary. Capture qualitative blockers per profile.
+- **Pass A — Code-level scan (complete).** Static scan of `src/pages/**` and `src/components/**` for the high-leverage failure modes listed in §3: icon-only buttons missing `aria-label`, `onClick` on non-interactive elements, `<img>` without `alt`, `autoFocus` outside dialogs, `h-screen` vs `h-dvh`, tap-target sizing, words-per-screen on patient routes, decisions-per-screen on patient routes.
+- **Pass B — Manual archetype walkthrough (BLOCKED).** Attempted 2026-05-22 at 390×844 viewport. `/today` requires an authenticated session; the "Start Without Account" offline path shows the toast but does not redirect past `/auth`. The anon-session E2E fixture (already queued in Phase 1 follow-ups) is a hard prerequisite for Pass B. Once that fixture lands, drive `/today`, `/exercise/fix-sentence`, `/exercise/multi-step-plan`, `/exercise/category-fluency`, `/exercise/minimal-pairs`, and Session Summary as each archetype; fill P4 in §3.2 and revisit §5.
 
 axe-core via Playwright is deferred to Phase 2B — the runner is not wired yet and the static scan already surfaces enough to inform the routing decision.
 
