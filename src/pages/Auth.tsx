@@ -18,7 +18,7 @@ const Auth = () => {
   
   const { signUp, signIn, signInAnonymously, user, loading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
 
   // Redirect if already logged in (only after loading completes)
   useEffect(() => {
@@ -96,16 +96,13 @@ const Auth = () => {
   };
 
   const handleAnonymous = async () => {
+    dismiss();
     setSubmitting(true);
     const { error } = await signInAnonymously();
     
     if (error) {
       // Fallback to local, sessionless practice while anonymous auth is unavailable
       localStorage.setItem("offlineMode", "true");
-      toast({
-        title: "Continuing without an account",
-        description: "You can practice now. Create an account later to sync progress across devices.",
-      });
       navigate("/today", { replace: true });
     } else {
       toast({
