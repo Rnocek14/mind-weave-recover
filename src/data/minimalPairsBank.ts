@@ -772,12 +772,12 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
 
   // --- Tier 2 (single-feature contrasts, clinical L4–L7) ---
   {
-    id: 'rope_robe',
-    word1: 'rope', word2: 'robe',
-    contrastType: 'final',
-    phoneme1: '/p/', phoneme2: '/b/',
-    contrastDescription: 'Voiceless vs. voiced bilabial stop (final position)',
-    difficulty: 2, category: 'final_voicing',
+    id: 'tooth_teeth',
+    word1: 'tooth', word2: 'teeth',
+    contrastType: 'medial',
+    phoneme1: '/uː/', phoneme2: '/iː/',
+    contrastDescription: 'High back vs. high front tense vowel — singular/plural pair',
+    difficulty: 2, category: 'vowel_contrast',
   },
   {
     id: 'ham_hat',
