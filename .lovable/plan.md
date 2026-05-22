@@ -1,95 +1,82 @@
-## Goal
+## Where we are
 
-Get every game's content bank above the FLOOR (15 items per tier) and to TARGET (20 per tier) where possible, so the adaptive engine has real room to move. Today only 3 of 15 games clear that bar.
+Two separate "healths" to look at — they're often confused.
 
-## Current state (from `contentCoverage` + `contentDepthAudit` harnesses)
+### 1. Persistence health (the DB itself)
 
-| Game | T1 | T2 | T3 | Status |
-|---|---|---|---|---|
-| photo_naming | 58 | 73 | 33 | ready |
-| fix_sentence | 20 | 20 | 20 | ready |
-| sentence_construction | 30 | 24 | 32 | ready |
-| detective_mind | 15 | 15 | 15 | at floor |
-| multi_step_planning | 15 | 15 | 15 | at floor |
-| abstract_compare | 16 | 16 | 16 | at floor |
-| minimal_pairs (playable) | 16 | 17 | 15 | at floor |
-| phonological_awareness | 16 | 22 | **14** | T3 below |
-| two_clues | 50 | **6** | 18 | T2 critical |
-| describe_guess | 16 | 15 | **14** | T3 below |
-| meaning_match | 18 | **14** | 15 | T2 below |
-| narrative_retell | **10** | 15 | **12** | T1+T3 below |
-| semantic_features | **8** | 15 | **6** | T1+T3 critical |
-| synonym_generator | 12 | 12 | 12 | tier tagging exists, just thin |
-| dual_load_naming | **8** | **9** | **8** | critical everywhere |
+`clinical_progression_state` query right now:
 
-## Strategy
+```
+exercise_slug | profiles | with_progress | leveled_up | max_lvl
+photo-naming  |    1     |       0       |     1      |    2
+```
 
-Three priority waves. Each wave ends with the coverage harness green for the games it touched. Stop between waves so you can review the content before the next push.
+That's the entire table. 13 progression hooks exist (`usePhotoNamingProgression`, `useSemanticFeaturesProgression`, … `useCategoryFluencyProgression`) — all wired to `applySessionToState` + `saveProgressionState`. So the **plumbing is in place**; the row count is 1 because almost no one has actually played sessions since the wave-1 work landed. This is a usage gap, not a code gap. We can't judge "do users level up" from production data until trial users run sessions.
 
-### Wave 1 — Critical gaps (engine is currently lying)
+### 2. Content-bank health (can the engine *find* the next-tier item to escalate to?)
 
-Bring these to ≥20 per tier. These are games where, today, a patient lands at a level and sees the same items 3–5× per session.
+This is the one that actually blocks leveling — if T2 only has 8 items, the engine literally can't keep T2 sessions fresh enough to satisfy the evidence gate, and the user stalls.
 
-1. **dual_load_naming** — add 12 sets per tier (currently 8/9/8 → 20/20/20). +36 sets. Each set = 3 memory words + 6 picture targets with emoji.
-2. **semantic_features** — add 12 T1 and 14 T3 trials (currently 8/15/6 → 20/20/20). +26 trials. Reuse existing FEATURE_POOL, only author new word entries.
-3. **two_clues** T2 — add 14 puzzles (currently 6 → 20). +14 puzzles with anchors/cluster/nearMisses/coachHints.
-4. **synonym_generator** — add 8 prompts per tier (currently 12/12/12 → 20/20/20). +24 prompts. Tier tagging already exists in file.
+Latest audit run (just executed):
 
-Wave 1 total: ~100 new items. Largest authoring cost is two_clues (rich answer graphs) and dual_load (needs emoji pairing).
+```
+Game                          T1     T2     T3   Status
+PhotoNaming                    58     73     33   ✅ healthy
+DetectiveMind                  15     15     15   ⚠️  thin
+MultiStepPlanning              15     15     15   ⚠️  thin
+MinimalPairs (raw)             16     30     17   ⚠️  thin
+MinimalPairs (playable)        16     17     15   ⚠️  thin
+```
 
-### Wave 2 — Below floor (one or two tiers)
+And from the wave-1 work we already verified:
 
-Bring to ≥20 per tier.
+```
+SemanticFeatures               20     20     20   ✅ healthy
+DualLoadNaming                 20     21     20   ✅ healthy
+SynonymGenerator               20     20     20   ✅ healthy
+TwoClues                       50     20     18   ⚠️ T3 thin (pre-existing)
+```
 
-5. **narrative_retell** — add 10 T1 stories and 8 T3 stories (currently 10/15/12 → 20/20/20). +18 stories. Each = 4 scenes + keyEvents + structureMap.
-6. **meaning_match** T2 — add 6 items (14 → 20). +6 items.
-7. **describe_guess** T3 — add 6 items (14 → 20). +6 items.
-8. **phonological_awareness** T3 — add 6 trials (14 → 20). +6 trials.
+**Not yet audited** (no rows in the harness at all): `fix-sentence`, `meaning-match`, `phonological-awareness`, `sentence-construction`, `category-fluency`. Five games with progression hooks but no content-depth coverage in CI. We don't actually know if they can level up.
 
-Wave 2 total: ~36 new items.
+## The honest answer to your question
 
-### Wave 3 — At-floor games (no headroom for recency exclusion)
+- **Below floor (15) — blocked from leveling:** none right now.
+- **Thin (15–19) — will level but stall faster than they should:** DetectiveMind (all 3 tiers), MultiStepPlanning (all 3 tiers), MinimalPairs (T1, T3), TwoClues (T3).
+- **Unknown — could be anywhere:** fix-sentence, meaning-match, phonological-awareness, sentence-construction, category-fluency.
+- **Healthy:** PhotoNaming, SemanticFeatures, DualLoadNaming, SynonymGenerator.
 
-Lift from 15–17 → 20.
+The unknowns are the bigger risk than the thin ones. Thin means "works, less variety." Unknown means we're flying blind.
 
-9. **detective_mind** — +5 per tier = +15 cases. Heaviest authoring (multi-clue mystery format).
-10. **multi_step_planning** — +5 per tier = +15 items.
-11. **abstract_compare** — +4 per tier = +12 items.
-12. **minimal_pairs** — +4 T1, +3 T2, +5 T3 (playable pool). Also fill raw L4–L5 buckets (separate concern, listed as backlog).
+## Plan
 
-Wave 3 total: ~50 new items.
+### Step 1 — Extend the audit harness to cover all 14 games
+One source of truth. Add the missing 5 to `contentDepthAudit.test.ts` so every game prints `T1/T2/T3` counts on every CI run. Run it, get the real numbers. No content changes yet.
 
-### Grand total
-~186 new content items across 12 games. Doable in three focused passes.
+### Step 2 — Triage based on step 1 output
+Categorize the now-complete picture into: below floor (urgent), thin (target work), healthy. Surface that table to you before writing any content.
 
-## How content gets authored
+### Step 3 — Close below-floor tiers first
+Anything <15 gets lifted to 20 immediately. These are the only ones that mathematically block level-up.
 
-For each bank, the workflow per wave:
+### Step 4 — Lift thin tiers to 20 (target)
+The known-thin set: DetectiveMind, MultiStepPlanning, MinimalPairs, TwoClues T3. Plus whatever step 2 surfaces. Each tier gets enough items to satisfy variety + the existing recency-exclusion window without re-serving the same trial.
 
-1. Read the existing bank file and the schema (interfaces, tier conventions, any aliases/cues/distractors).
-2. Author new items that match the existing tier definition exactly — same word frequency, same syntactic complexity, same scene/event count. No drift in difficulty contract.
-3. Reuse the existing helper structures (FEATURE_POOL for semantic_features, DEFAULT_STRUCTURE for narrative_retell, anchorAliases pattern for two_clues, etc.). Don't introduce new fields.
-4. Run `bunx vitest run src/lib/leveling/__tests__/contentCoverage.test.ts src/data/__tests__/contentDepthAudit.test.ts` after each game. Green = move on.
-5. For games with a `contentReadiness` field in `PER_GAME_CONTRACTS`, flip from `needs_bank_expansion` → `ready` once that game clears 20/20/20. This is what the `/games/:slug/about` surface reads.
+### Step 5 — Spot-check the new items
+Difficulty parity within tier, frequency band where relevant (semantic_features / synonym_generator pattern), no leaks across tiers. Same discipline we applied in wave 1.
 
-## Technical notes (for reference)
+### Step 6 — Re-run audit, confirm green across all 14 games
+Then we have a defensible "every game can level up" claim.
 
-- All banks live in `src/data/*.ts` as plain exported arrays — no DB writes.
-- Tier values are 1|2|3 (game-internal); engine levels 1–10 map onto these via per-game progression files in `src/lib/progression/`. Bank work doesn't touch the engine.
-- For minimal_pairs, the "playable pool" filter requires photo-bank coverage. Adding raw pairs without photo coverage won't lift the playable count. Either expand photo_bank or pick pairs from existing photo targets — the latter is faster.
-- synonym_generator already has T1/T2/T3 arrays — the `needs_tier_tagging` label in the registry is stale and should be updated to `needs_bank_expansion` then `ready`.
-- No migrations, no edge functions, no UI changes. This is pure data authoring against existing schemas.
+### What I'm *not* doing in this plan
+- Not touching `clinical_progression_state` — the row-count problem is "users haven't played," not a schema issue.
+- Not changing progression hooks, level specs, or the gate logic.
+- Not adding new games or new tiers.
+- Pure content + harness work.
 
-## What I will NOT do in this scope
+## Notes for implementation
+- Each new game audited needs whatever its content-source export is (`DETECTIVE_CASES`, `PLANNING_ITEMS`, etc.) — for the 5 unknowns I'll find the equivalent in `src/data/` and the tier classifier in `src/lib/progression/<game>DifficultyBridge.ts`.
+- Recency-exclusion standard says we want enough items that the LRU window doesn't repeat within a session. 20/tier is the conservative target; some games may want more if a single session pulls many trials at one tier.
+- All work guarded by the existing audit test — green = move on, same rule as wave 1.
 
-- Won't expand photo_bank (already healthy).
-- Won't redesign tier contracts or progression archetypes (frozen per memory).
-- Won't wire mastery confidence or change the level-up math.
-- Won't ship the `/games` gating idea — separate decision.
-- Won't touch sentence_construction or fix_sentence (already ready).
-
-## Suggested next step
-
-Start with **Wave 1** since it's where the engine is actively misbehaving. I'd recommend doing it as four sub-commits (one per game) so you can review each bank before the next.
-
-Want me to start at the top of Wave 1 (dual_load_naming), or pick a different entry point?
+Want me to proceed?
