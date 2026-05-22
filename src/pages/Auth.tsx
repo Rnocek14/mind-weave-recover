@@ -100,13 +100,12 @@ const Auth = () => {
     const { error } = await signInAnonymously();
     
     if (error) {
-      // Fallback to sessionless mode
+      // Fallback to local, sessionless practice while anonymous auth is unavailable
       localStorage.setItem("offlineMode", "true");
       toast({
-        title: "Starting in offline mode",
-        description: "Your progress will be saved locally. Create an account to sync across devices.",
+        title: "Continuing without an account",
+        description: "You can practice now. Create an account later to sync progress across devices.",
       });
-      // Still navigate to dashboard for sessionless mode
       navigate("/today", { replace: true });
     } else {
       toast({
