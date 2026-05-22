@@ -28,6 +28,7 @@ export default function NarrativeRetellExercise() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
@@ -93,7 +94,7 @@ export default function NarrativeRetellExercise() {
   });
 
   const handleTrialComplete = useCallback((result: NarrativeTrialResult) => {
-    if (!activeSessionId) return;
+    if (!activeSessionId && !isOfflineMode) return;
     const points = Math.round(result.eventCoverage * 100);
     scoreRef.current += points;
     trialsRef.current += 1;
@@ -146,7 +147,7 @@ export default function NarrativeRetellExercise() {
         depth: result.depthTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry]);
+  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -192,7 +193,7 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  if (isCreatingSession || !activeSessionId) {
+  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
   }
 
