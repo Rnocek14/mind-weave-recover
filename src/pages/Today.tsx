@@ -173,7 +173,7 @@ export default function Today() {
     activeProfile?.id,
     clinicalProfile
   );
-  const offlineLesson = isOfflineMode ? buildPresetLesson('low_energy') : null;
+  const offlineLesson = isOfflineMode ? buildPresetLesson('core_communication') : null;
   const activeLesson = lesson ?? offlineLesson;
 
   const currentTab = location.pathname === '/practice' ? 'practice' 
