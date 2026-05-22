@@ -2270,6 +2270,45 @@ export type Database = {
           },
         ]
       }
+      qa_runs: {
+        Row: {
+          build_sha: string | null
+          device_label: string | null
+          id: string
+          note: string | null
+          recorded_at: string
+          result: string
+          role: string | null
+          scenario_id: string
+          step_id: string
+          user_id: string
+        }
+        Insert: {
+          build_sha?: string | null
+          device_label?: string | null
+          id?: string
+          note?: string | null
+          recorded_at?: string
+          result: string
+          role?: string | null
+          scenario_id: string
+          step_id: string
+          user_id: string
+        }
+        Update: {
+          build_sha?: string | null
+          device_label?: string | null
+          id?: string
+          note?: string | null
+          recorded_at?: string
+          result?: string
+          role?: string | null
+          scenario_id?: string
+          step_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       recovery_alerts: {
         Row: {
           acknowledged_at: string | null
