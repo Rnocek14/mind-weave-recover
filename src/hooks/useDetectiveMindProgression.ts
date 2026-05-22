@@ -56,7 +56,15 @@ export function useDetectiveMindProgression({
   const flushedRef = useRef(false);
 
   useEffect(() => {
-    if (!userId || !profileId) return;
+    if (!userId || !profileId) {
+      setState(defaultProgressionState({
+        userId: userId ?? 'offline',
+        profileId: profileId ?? 'offline',
+        exerciseSlug: DETECTIVE_MIND_SLUG,
+      }));
+      setLoaded(true);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       const loadedState = await loadProgressionState({
