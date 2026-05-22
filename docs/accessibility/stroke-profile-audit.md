@@ -117,6 +117,6 @@ Profile-aware variants live in **presentation components only**, branching on th
 
 ## 8. Next step
 
-1. **Unblock Pass B** by landing the anon-session E2E fixture (already queued from Phase 1). Without it, `/today` and all `/exercise/*` routes sit behind `/auth` for the browser walker.
-2. After fixture lands, run the §1 archetype walkthrough at 390×844 and 1366×768; fill P4 numbers in §3.2.
+1. **Unblock Pass B** by enabling Anonymous Sign-Ins in Supabase → Authentication → Providers (one-toggle dashboard change; `signInAnonymously()` path already exists in `useAuth.ts` / `Auth.tsx`).
+2. Run the walkthrough per `docs/qa/pass-b-archetype-walkthrough.md` at 390×844 and 1366×768 across the 6 routes × 4 archetypes; fill P4 numbers.
 3. Revisit §5 recommendation with the new data, then proceed to Phase 2B.
