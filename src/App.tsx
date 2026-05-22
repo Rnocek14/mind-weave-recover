@@ -82,6 +82,7 @@ import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
 import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
 import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
+import QaRunbook from "./pages/dev/QaRunbook";
 import { VoiceGateHud } from "./components/dev/VoiceGateHud";
 import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
 import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
@@ -179,6 +180,7 @@ const App = () => (
                   <Route path="/dev/mastery-audit" element={<AdminProtectedRoute><MasteryAuditDev /></AdminProtectedRoute>} />
                   <Route path="/dev/leveling-contract" element={<AdminProtectedRoute><LevelingContractDev /></AdminProtectedRoute>} />
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
