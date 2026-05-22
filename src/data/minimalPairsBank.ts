@@ -798,20 +798,20 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
 
   // --- Tier 3 (close-feature contrasts, clinical L8 aspirational) ---
   {
-    id: 'pie_tie',
-    word1: 'pie', word2: 'tie',
-    contrastType: 'initial',
-    phoneme1: '/p/', phoneme2: '/t/',
-    contrastDescription: 'Voiceless bilabial vs. alveolar stop (placement only)',
-    difficulty: 3, category: 'placement',
+    id: 'ham_hen',
+    word1: 'ham', word2: 'hen',
+    contrastType: 'medial',
+    phoneme1: '/æ/', phoneme2: '/ɛ/',
+    contrastDescription: 'Low front vs. mid front vowel — close vowel contrast',
+    difficulty: 3, category: 'vowel_contrast',
   },
   {
-    id: 'rose_nose',
-    word1: 'rose', word2: 'nose',
-    contrastType: 'initial',
-    phoneme1: '/r/', phoneme2: '/n/',
-    contrastDescription: 'Liquid vs. nasal — sonorant placement contrast',
-    difficulty: 3, category: 'placement',
+    id: 'bin_bun',
+    word1: 'bin', word2: 'bun',
+    contrastType: 'medial',
+    phoneme1: '/ɪ/', phoneme2: '/ʌ/',
+    contrastDescription: 'High front lax vs. mid central vowel',
+    difficulty: 3, category: 'vowel_contrast',
   },
   {
     id: 'web_red',
