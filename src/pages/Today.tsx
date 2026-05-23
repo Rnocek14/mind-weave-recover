@@ -515,6 +515,7 @@ export default function Today() {
       )}
 
       <PatientTabBar />
+      <UiVariantPicker />
     </div>
   );
 }
