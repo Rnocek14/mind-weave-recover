@@ -34,8 +34,9 @@ export function broadcastGateDecision(source: string, result: GateResult, transc
 
 function shouldShowHud(): boolean {
   if (typeof window === 'undefined') return false;
-  if (import.meta.env.DEV) return true;
-  return new URLSearchParams(window.location.search).get('hud') === '1';
+  // Opt-in only — never auto-show, even in DEV. Use ?hud=1 or localStorage.hud=1.
+  if (new URLSearchParams(window.location.search).get('hud') === '1') return true;
+  try { return window.localStorage.getItem('hud') === '1'; } catch { return false; }
 }
 
 export function VoiceGateHud() {

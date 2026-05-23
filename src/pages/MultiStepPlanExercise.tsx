@@ -9,6 +9,7 @@
  * (L1–L8 ladder) with a load gate so the engine starts at the correct
  * clinical floor.
  */
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MultiStepPlanningGame } from '@/components/MultiStepPlanningGame';
@@ -211,7 +212,7 @@ export default function MultiStepPlanExercise() {
         </div>
       );
     }
-    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
+    return <ExerciseLoading />;
   }
 
   return (

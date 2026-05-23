@@ -1,6 +1,7 @@
 /**
  * Abstract Comparison Exercise Page — wrapper with session lifecycle.
  */
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AbstractCompareGame } from '@/components/AbstractCompareGame';
@@ -149,7 +150,7 @@ export default function AbstractCompareExercise() {
   }, [fromLesson, navigate]);
 
   if (isCreatingSession || !activeSessionId) {
-    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
+    return <ExerciseLoading />;
   }
 
   return (

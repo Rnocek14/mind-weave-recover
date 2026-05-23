@@ -15,6 +15,7 @@
  *     buffer + clinical_progression_state flush as no-ops (Phase 3 work).
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TwoCluesGame } from '@/components/TwoCluesGame';
@@ -253,13 +254,7 @@ export default function TwoCluesExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">
-          Loading exercise...
-        </div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (

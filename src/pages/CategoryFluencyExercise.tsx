@@ -4,6 +4,7 @@
  * "Name as many [category] as you can" with adaptive difficulty
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CategoryFluencyGame, type CategoryFluencyResult } from '@/components/CategoryFluencyGame';
@@ -254,11 +255,7 @@ export default function CategoryFluencyExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (

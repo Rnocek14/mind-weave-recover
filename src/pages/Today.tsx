@@ -21,6 +21,7 @@ import { buildPresetLesson, type LessonPreset } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
+import { useUiMode } from '@/hooks/useUiMode';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -82,6 +83,8 @@ export default function Today() {
   const { user, loading: authLoading } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { mode, setMode } = useCoachingMode();
+  const { isAtLeast } = useUiMode();
+  const canSeeClinicianHub = isAtLeast('clinician');
   const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -474,13 +477,15 @@ export default function Today() {
         </div>
       </div>
 
-      {/* Dev/testing shortcut to Patient Hub */}
-      <button
-        onClick={() => navigate('/clinician/review')}
-        className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
-      >
-        Clinician Hub →
-      </button>
+      {/* Clinician Hub shortcut — only visible to clinicians/admins */}
+      {canSeeClinicianHub && (
+        <button
+          onClick={() => navigate('/clinician/review')}
+          className="fixed top-4 right-4 z-50 px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+        >
+          Clinician Hub →
+        </button>
+      )}
 
       <PatientTabBar />
     </div>

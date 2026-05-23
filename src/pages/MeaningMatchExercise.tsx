@@ -18,6 +18,7 @@
  *     See `docs/unified-trial-contract.md` §"Per-axis supportUsed".
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MeaningMatchGame } from '@/components/MeaningMatchGame';
@@ -256,13 +257,7 @@ export default function MeaningMatchExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">
-          Loading exercise...
-        </div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (

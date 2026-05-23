@@ -2,6 +2,7 @@
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
  * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
  */
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { NarrativeRetellGame } from '@/components/NarrativeRetellGame';
@@ -194,7 +195,7 @@ export default function NarrativeRetellExercise() {
   }, [fromLesson, navigate, resumeLessonFlow]);
 
   if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
-    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Loading exercise...</div></div>;
+    return <ExerciseLoading />;
   }
 
   return (

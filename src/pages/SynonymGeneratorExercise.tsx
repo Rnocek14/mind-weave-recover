@@ -12,6 +12,7 @@
  * with a load gate so the engine starts at the correct clinical floor.
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SynonymGeneratorGame, type SynonymRoundResult } from '@/components/SynonymGeneratorGame';
@@ -212,11 +213,7 @@ export default function SynonymGeneratorExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (

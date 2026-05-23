@@ -18,6 +18,7 @@
  *   - No per-game progression hook yet — `progression: null`.
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -248,11 +249,7 @@ export default function DescribeGuessExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (
