@@ -34,6 +34,10 @@ const SCAN_FILES = [
 
 function walk(dir: string, acc: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    // Exclude raw research-evidence subdirectories — these are reference
+    // literature reviews, not clinician-facing copy. They legitimately quote
+    // and discuss banned terms in linguistic/scientific context.
+    if (name === 'ladders-research') continue;
     const p = join(dir, name);
     const s = statSync(p);
     if (s.isDirectory()) walk(p, acc);
