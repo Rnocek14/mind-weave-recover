@@ -1,11 +1,11 @@
 /**
  * Dev-only floating picker for previewing UI variants.
  *
- * Sets `?uiProfile=…` on the current URL so `useUiProfile` picks it up.
- * Auto-hidden in production builds. Remove once the clinician picker
- * (Phase 2C-iv) ships.
+ * Uses SPA navigation (no full page reload) so switching is instant.
+ * Auto-hidden in production builds.
  */
 
+import { useSearchParams } from 'react-router-dom';
 import { UiVariant } from '@/lib/ui/variantClass';
 
 const VARIANTS: UiVariant[] = [
@@ -18,17 +18,14 @@ const VARIANTS: UiVariant[] = [
 
 export function UiVariantPicker() {
   if (!import.meta.env.DEV) return null;
-
-  const current =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('uiProfile') ?? 'standard'
-      : 'standard';
+  const [params, setParams] = useSearchParams();
+  const current = params.get('uiProfile') ?? 'standard';
 
   const set = (v: string) => {
-    const url = new URL(window.location.href);
-    if (v === 'standard') url.searchParams.delete('uiProfile');
-    else url.searchParams.set('uiProfile', v);
-    window.location.href = url.toString();
+    const next = new URLSearchParams(params);
+    if (v === 'standard') next.delete('uiProfile');
+    else next.set('uiProfile', v);
+    setParams(next, { replace: true });
   };
 
   return (

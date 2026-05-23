@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { UiVariant } from '@/lib/ui/variantClass';
@@ -62,6 +63,7 @@ function readUrlOverride(): UiVariant | null {
 
 export function useUiProfile(): { profile: UiProfile; loading: boolean } {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [profile, setProfile] = useState<UiProfile>(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(true);
 
@@ -108,7 +110,7 @@ export function useUiProfile(): { profile: UiProfile; loading: boolean } {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, authLoading]);
+  }, [user?.id, authLoading, location.search]);
 
   return { profile, loading };
 }
