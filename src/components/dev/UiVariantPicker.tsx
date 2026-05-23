@@ -1,8 +1,11 @@
 /**
  * Dev-only floating picker for previewing UI variants.
  *
- * Uses SPA navigation (no full page reload) so switching is instant.
- * Auto-hidden in production builds.
+ * Persists choice in sessionStorage so it survives SPA navigation
+ * (the URL param often gets dropped by <Link> / navigate() calls).
+ *
+ * Visible in Vite dev AND on Lovable preview/published hosts so
+ * the team can QA variants from the live preview.
  */
 
 import { useSearchParams } from 'react-router-dom';
@@ -16,6 +19,8 @@ const VARIANTS: UiVariant[] = [
   'minimal',
 ];
 
+const STORAGE_KEY = 'uiProfileOverride';
+
 function isPreviewHost() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname;
@@ -25,17 +30,28 @@ function isPreviewHost() {
 export function UiVariantPicker() {
   if (!import.meta.env.DEV && !isPreviewHost()) return null;
   const [params, setParams] = useSearchParams();
-  const current = params.get('uiProfile') ?? 'standard';
+  const urlValue = params.get('uiProfile');
+  const stored = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null;
+  const current = urlValue ?? stored ?? 'standard';
 
   const set = (v: string) => {
     const next = new URLSearchParams(params);
-    if (v === 'standard') next.delete('uiProfile');
-    else next.set('uiProfile', v);
+    if (v === 'standard') {
+      next.delete('uiProfile');
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    } else {
+      next.set('uiProfile', v);
+      try { sessionStorage.setItem(STORAGE_KEY, v); } catch { /* ignore */ }
+    }
     setParams(next, { replace: true });
+    // Force a re-render of consumers of useUiProfile (location.search changed,
+    // but if it didn't, reload is the safest signal for the sticky storage case).
+    if (v === current) return;
+    window.location.reload();
   };
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] rounded-lg border-2 border-primary bg-background px-3 py-2 shadow-lg text-xs flex items-center gap-2">
+    <div className="fixed bottom-20 right-4 z-[9999] rounded-lg border-2 border-primary bg-background px-3 py-2 shadow-lg text-xs flex items-center gap-2">
       <span className="text-muted-foreground">UI variant</span>
       <select
         value={current}
