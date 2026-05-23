@@ -84,6 +84,7 @@ import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
 import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
 import QaRunbook from "./pages/dev/QaRunbook";
+import UiVariantPreview from "./pages/dev/UiVariantPreview";
 import { VoiceGateHud } from "./components/dev/VoiceGateHud";
 import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
 import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
