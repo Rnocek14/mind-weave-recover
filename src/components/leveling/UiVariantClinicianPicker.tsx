@@ -40,22 +40,6 @@ export function UiVariantClinicianPicker({ userId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  if (!userId) {
-    return (
-      <Card className="p-5 space-y-2 border-dashed">
-        <div className="flex items-start gap-2">
-          <Eye className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-foreground">Adaptive UI variant</h3>
-            <p className="text-xs text-muted-foreground">
-              Pick a patient from the clinician dashboard to set their adaptive UI variant. This control writes to the selected patient's profile.
-            </p>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -75,6 +59,22 @@ export function UiVariantClinicianPicker({ userId }: Props) {
     })();
     return () => { cancelled = true; };
   }, [userId]);
+
+  if (!userId) {
+    return (
+      <Card className="p-5 space-y-2 border-dashed">
+        <div className="flex items-start gap-2">
+          <Eye className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">Adaptive UI variant</h3>
+            <p className="text-xs text-muted-foreground">
+              Pick a patient from the clinician dashboard to set their adaptive UI variant. This control writes to the selected patient's profile.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   const dirty = selected !== current;
 
