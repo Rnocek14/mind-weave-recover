@@ -49,7 +49,6 @@ import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
 import { ProfileCompletenessBanner } from "@/components/patient-hub/ProfileCompletenessBanner";
 import { RecoveryProfileSection } from "@/components/leveling/RecoveryProfileSection";
-import { UiVariantClinicianPicker } from "@/components/leveling/UiVariantClinicianPicker";
 
 import { ClinicianStatusCard } from "@/components/patient-hub/glance/ClinicianStatusCard";
 import { ClinicianPracticeCard } from "@/components/patient-hub/glance/ClinicianPracticeCard";
@@ -65,6 +64,7 @@ export default function PatientHub() {
   const { isAdmin } = useUserPermissions(user?.id);
   const { activeProfile } = useProfile();
   const profileId = activeProfile?.id;
+  const patientUserId = activeProfile?.user_id || user?.id || "";
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
@@ -328,11 +328,7 @@ export default function PatientHub() {
                 </p>
 
                 <section id="plan-recovery" className="scroll-mt-4">
-                  <RecoveryProfileSection userId={user?.id || ""} />
-                </section>
-
-                <section id="plan-ui-variant" className="scroll-mt-4">
-                  <UiVariantClinicianPicker userId={user?.id || ""} />
+                  <RecoveryProfileSection userId={patientUserId} />
                 </section>
 
                 <section id="plan-info" className="scroll-mt-4 border-t border-border pt-5">
@@ -340,7 +336,7 @@ export default function PatientHub() {
                     <Target className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold text-foreground">Patient Plan</h3>
                   </div>
-                  <PatientInfoTab userId={user?.id || ""} profileId={profileId} timeline={timeline} />
+                  <PatientInfoTab userId={patientUserId} profileId={profileId} timeline={timeline} />
                 </section>
               </TabsContent>
             </Tabs>
