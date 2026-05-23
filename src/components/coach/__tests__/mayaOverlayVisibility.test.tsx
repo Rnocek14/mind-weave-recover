@@ -21,7 +21,7 @@ vi.mock('@/contexts/CoachingModeContext', () => ({
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
-vi.mock('./MayaAssistantBubble', () => ({
+vi.mock('@/components/coach/MayaAssistantBubble', () => ({
   MayaAssistantBubble: ({ visible }: { visible?: boolean }) =>
     visible ? <div data-testid="maya-bubble">MAYA_BUBBLE</div> : null,
 }));
