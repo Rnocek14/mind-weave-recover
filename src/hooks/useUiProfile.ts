@@ -110,7 +110,7 @@ export function useUiProfile(): { profile: UiProfile; loading: boolean } {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, authLoading]);
+  }, [user?.id, authLoading, location.search]);
 
   return { profile, loading };
 }
