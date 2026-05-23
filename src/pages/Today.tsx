@@ -22,6 +22,8 @@ import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
 import { useUiMode } from '@/hooks/useUiMode';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isSimplified, isMinimal } from '@/lib/ui/variantClass';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -85,6 +87,12 @@ export default function Today() {
   const { mode, setMode } = useCoachingMode();
   const { isAtLeast } = useUiMode();
   const canSeeClinicianHub = isAtLeast('clinician');
+  const { profile: uiProfile } = useUiProfile();
+  const variant = uiProfile.variant;
+  const simplified = isSimplified(variant);
+  const minimal = isMinimal(variant);
+  const isNonFluent = variant === 'simplified-non-fluent';
+  const isNeglect = variant === 'simplified-neglect';
   const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
