@@ -549,9 +549,9 @@ import { isAdoptedForTrialMode } from './mastery/masterySignalRouting';
  * progression (hyphen) form.
  */
 export function getTrackForSlug(rawSlug: string): MasteryTrack | undefined {
-  const normalized = normalizeExerciseSlug(rawSlug);
+  const canonical = normalizeExerciseSlug(rawSlug);
   for (const entry of Object.values(CLINICAL_LADDER_REGISTRY)) {
-    if (normalizeExerciseSlug(entry.slug) === normalized) return entry.track;
+    if (normalizeExerciseSlug(entry.slug) === canonical) return entry.track;
   }
   return undefined;
 }

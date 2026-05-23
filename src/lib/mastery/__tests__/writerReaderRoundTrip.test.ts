@@ -61,8 +61,9 @@ describe('mastery writer↔reader round-trip', () => {
   it('non-adopted slugs are skipped (no contamination after slug fix)', () => {
     // After Phase 1+4: the legacy `expressive` fallthrough is tightened.
     // Non-adopted slugs must not silently flow into expressive mastery
-    // even when their trial_mode is null.
-    for (const slug of ['multi_step_plan', 'describe_guess', 'narrative_retell', 'pattern_match']) {
+    // even when their trial_mode is null. Receptive / non-linguistic games
+    // remain non-adopted across Waves 1–3.
+    for (const slug of ['meaning_match', 'pattern_match', 'detective_mind', 'phonological_awareness', 'minimal_pairs']) {
       expect(routeTrialMode(slug, null)).toBe('skipped_unknown');
       expect(routeTrialMode(slug, 'production')).toBe('skipped_unknown');
     }

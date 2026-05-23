@@ -46,9 +46,12 @@ describe('routeTrialMode (adopted slug = photo-naming)', () => {
 
 describe('routeTrialMode (non-adopted slugs)', () => {
   it('non-adopted slugs are skipped regardless of trial_mode (Phase 1+4 tightening)', () => {
-    expect(routeTrialMode('multi-step-plan', null)).toBe('skipped_unknown');
-    expect(routeTrialMode('multi-step-plan', 'recognition')).toBe('skipped_unknown');
-    expect(routeTrialMode('synonym-generator', undefined)).toBe('skipped_unknown');
+    // Use slugs that are NOT in the current adoption set. The adoption set
+    // has expanded through Waves 1–3; multi_step_planning and synonym_generator
+    // are now adopted. These remain non-adopted (receptive/non-linguistic):
+    expect(routeTrialMode('meaning_match', null)).toBe('skipped_unknown');
+    expect(routeTrialMode('meaning_match', 'recognition')).toBe('skipped_unknown');
+    expect(routeTrialMode('detective_mind', undefined)).toBe('skipped_unknown');
     expect(routeTrialMode('pattern_match', 'production')).toBe('skipped_unknown');
   });
   it('isAdoptedForTrialMode reflects the adoption set (canonical underscore)', () => {
@@ -56,7 +59,11 @@ describe('routeTrialMode (non-adopted slugs)', () => {
     expect(isAdoptedForTrialMode('photo-naming')).toBe(true); // normalized
     expect(isAdoptedForTrialMode('fix_sentence')).toBe(true);
     expect(isAdoptedForTrialMode('sentence_construction')).toBe(true);
-    expect(isAdoptedForTrialMode('multi_step_plan')).toBe(false);
+    // multi_step_plan normalizes to multi_step_planning, which IS adopted (Wave 2).
+    expect(isAdoptedForTrialMode('multi_step_planning')).toBe(true);
+    // Truly non-adopted (receptive / non-linguistic):
+    expect(isAdoptedForTrialMode('meaning_match')).toBe(false);
+    expect(isAdoptedForTrialMode('pattern_match')).toBe(false);
   });
 });
 
@@ -86,7 +93,7 @@ describe('filterTrialsForExpressiveMastery', () => {
       trial(1, true, 'recognition'),
       trial(1, true, 'production'),
     ];
-    const kept = filterTrialsForExpressiveMastery('multi-step-plan', trials);
+    const kept = filterTrialsForExpressiveMastery('pattern_match', trials);
     expect(kept).toHaveLength(0);
   });
 
