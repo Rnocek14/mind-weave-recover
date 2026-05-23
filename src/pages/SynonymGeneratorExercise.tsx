@@ -213,11 +213,7 @@ export default function SynonymGeneratorExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (

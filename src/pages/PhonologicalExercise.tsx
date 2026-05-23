@@ -255,11 +255,7 @@ export default function PhonologicalExercise() {
   }, [activeSessionId, user?.id, commitSession, completeSession, fromLesson, navigate, returnTo, toast]);
 
   if (isCreatingSession || !activeSessionId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
-      </div>
-    );
+    return <ExerciseLoading />;
   }
 
   return (
