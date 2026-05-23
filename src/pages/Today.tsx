@@ -308,7 +308,7 @@ export default function Today() {
           localStorage.removeItem('offlineMode');
           navigate('/auth', { replace: true });
         }}
-        className="fixed top-2 right-2 z-50 text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+        className="fixed top-3 right-3 z-[9999] text-xs px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground shadow-lg hover:opacity-90"
       >
         Sign out (dev)
       </button>
