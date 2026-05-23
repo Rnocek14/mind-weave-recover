@@ -316,8 +316,7 @@ export default function Today() {
       neglect: 'pr-2',
     })}>
       <div className={variantClass(variant, {
-        base: 'flex-1 flex items-center p-6 pb-20',
-        simplified: 'justify-center',
+        base: 'flex-1 flex items-center justify-center p-6 pb-20',
         neglect: 'justify-end pr-8',
       })}>
         <div className={variantClass(variant, {
