@@ -82,9 +82,8 @@ export function UiVariantClinicianPicker({ userId }: Props) {
     toast({ title: "UI variant updated", description: `Patient will see the ${selected} variant on next load.` });
   };
 
-  if (!userId) return null;
-
   const selectedHint = VARIANT_OPTIONS.find(o => o.value === selected)?.hint;
+  const canSave = Boolean(userId) && dirty && !saving && !loading;
 
   return (
     <Card className="p-5 space-y-4">
@@ -103,7 +102,7 @@ export function UiVariantClinicianPicker({ userId }: Props) {
         <Select
           value={selected}
           onValueChange={(v) => setSelected(v as UiVariant)}
-          disabled={loading || saving}
+          disabled={!userId || loading || saving}
         >
           <SelectTrigger id="ui-variant" className="w-full">
             <SelectValue />
@@ -122,6 +121,9 @@ export function UiVariantClinicianPicker({ userId }: Props) {
         {selectedHint && (
           <p className="text-xs text-muted-foreground italic">{selectedHint}</p>
         )}
+        {!userId && (
+          <p className="text-xs text-muted-foreground">Select a patient profile before saving a clinician override.</p>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
@@ -131,7 +133,7 @@ export function UiVariantClinicianPicker({ userId }: Props) {
         </div>
         <Button
           onClick={save}
-          disabled={!dirty || saving || loading}
+          disabled={!canSave}
           size="sm"
         >
           <Save className="w-3.5 h-3.5 mr-1.5" />
