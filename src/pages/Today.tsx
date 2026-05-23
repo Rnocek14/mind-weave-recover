@@ -22,6 +22,8 @@ import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
 import { useUiMode } from '@/hooks/useUiMode';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isSimplified, isMinimal } from '@/lib/ui/variantClass';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -85,6 +87,12 @@ export default function Today() {
   const { mode, setMode } = useCoachingMode();
   const { isAtLeast } = useUiMode();
   const canSeeClinicianHub = isAtLeast('clinician');
+  const { profile: uiProfile } = useUiProfile();
+  const variant = uiProfile.variant;
+  const simplified = isSimplified(variant);
+  const minimal = isMinimal(variant);
+  const isNonFluent = variant === 'simplified-non-fluent';
+  const isNeglect = variant === 'simplified-neglect';
   const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
@@ -303,18 +311,35 @@ export default function Today() {
   const lessonReady = !!activeLesson;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-6 pb-20">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          {/* Greeting */}
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold">{greeting}, {displayName}</h1>
-            <p className="text-muted-foreground">
-              {lastSession
-                ? "Ready to build on last time?"
-                : "Let's get started with your first session."}
-            </p>
-          </div>
+    <div className={variantClass(variant, {
+      base: 'min-h-screen bg-background flex flex-col',
+      neglect: 'pr-2',
+    })}>
+      <div className={variantClass(variant, {
+        base: 'flex-1 flex items-center p-6 pb-20',
+        simplified: 'justify-center',
+        neglect: 'justify-end pr-8',
+      })}>
+        <div className={variantClass(variant, {
+          base: 'w-full max-w-sm space-y-6',
+          simplified: 'text-center',
+          neglect: 'text-right',
+        })}>
+          {/* Greeting — hidden in minimal, shortened in non-fluent */}
+          {!minimal && (
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold">
+                {isNonFluent ? `Hi, ${displayName}` : `${greeting}, ${displayName}`}
+              </h1>
+              {!simplified && (
+                <p className="text-muted-foreground">
+                  {lastSession
+                    ? "Ready to build on last time?"
+                    : "Let's get started with your first session."}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Streak + Session count */}
           {stats && stats.totalSessions > 0 && (
@@ -356,33 +381,35 @@ export default function Today() {
             </div>
           )}
 
-          {/* Coaching mode toggle */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              <Brain className="w-3.5 h-3.5" />
-              <span>Coaching level</span>
+          {/* Coaching mode toggle — hidden for minimal & non-fluent (decision cap) */}
+          {!minimal && !isNonFluent && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Brain className="w-3.5 h-3.5" />
+                <span>Coaching level</span>
+              </div>
+              <div className="flex rounded-lg border bg-muted/30 p-0.5">
+                {MODE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setMode(opt.value)}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+                      mode === opt.value
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    title={opt.desc}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {MODE_OPTIONS.find(o => o.value === mode)?.desc}
+              </p>
             </div>
-            <div className="flex rounded-lg border bg-muted/30 p-0.5">
-              {MODE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setMode(opt.value)}
-                  className={cn(
-                    'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
-                    mode === opt.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                  title={opt.desc}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {MODE_OPTIONS.find(o => o.value === mode)?.desc}
-            </p>
-          </div>
+          )}
 
           {/* Resume in-progress session */}
           {savedSession && (

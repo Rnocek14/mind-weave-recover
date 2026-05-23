@@ -3514,6 +3514,42 @@ export type Database = {
           },
         ]
       }
+      user_ui_profile: {
+        Row: {
+          auto_selected: boolean
+          created_at: string
+          decision_cap: number
+          density: string
+          reading_load_cap: number
+          source: string
+          updated_at: string
+          user_id: string
+          variant: string
+        }
+        Insert: {
+          auto_selected?: boolean
+          created_at?: string
+          decision_cap?: number
+          density?: string
+          reading_load_cap?: number
+          source?: string
+          updated_at?: string
+          user_id: string
+          variant?: string
+        }
+        Update: {
+          auto_selected?: boolean
+          created_at?: string
+          decision_cap?: number
+          density?: string
+          reading_load_cap?: number
+          source?: string
+          updated_at?: string
+          user_id?: string
+          variant?: string
+        }
+        Relationships: []
+      }
       utterance_analyses: {
         Row: {
           alignment_data: Json | null
