@@ -35,6 +35,8 @@ import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
 import { MayaSessionFrame } from "./MayaSessionFrame";
 import { getSessionFrame, getOrCreateSessionFrame } from "@/lib/sessionFrameTemplates";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
+import { useUiProfile } from "@/hooks/useUiProfile";
+import { variantClass, isMinimal, isSimplified } from "@/lib/ui/variantClass";
 
 
 type FlowPhase = 
