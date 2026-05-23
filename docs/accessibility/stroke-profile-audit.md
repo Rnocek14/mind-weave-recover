@@ -80,20 +80,15 @@ Cells: `pass` (no known issue) / `risk` (likely friction for that profile) / `bl
 
 `CapabilityAssessment.tsx:548` is the only confirmed **block** from Pass A — its full-area `onClick` is the kind of UI right-hemisphere patients miss systematically. Worth flagging before the Phase 2B routing decision.
 
-## 5. Recommendation gate (do not commit yet)
+## 5. Recommendation gate — DECISION LOCKED (2026-05-23)
 
-Three live options, mapped to what Pass A surfaced:
+**Decision: Option A — Adaptive UI keyed to `uiProfile`.** Confirmed by Pass B (see §9). Phase 2C build proceeds with sub-phases 2C-i → 2C-ii → 2C-iii. Profiles: `simplified-fluent`, `simplified-non-fluent`, `simplified-neglect`, `minimal`; default `standard`. Clinician assigns via Patient Hub Plan tab.
 
-- **A — Adaptive UI keyed to `uiProfile`** (4 variants: `simplified-fluent`, `simplified-non-fluent`, `simplified-neglect`, `minimal`; default `standard`). Clinician sets via Patient Hub Plan tab.
-  - **Fits the data:** patterns P5 (reading load) and P6 (left-side salience) are profile-specific — no single global tweak helps both Wernicke's and right-hemisphere.
-  - **Cost:** higher — N variants per presentation component.
-- **B — Single Simplified Mode toggle.**
-  - **Fits the data partially:** would absorb P1, P3, P5 in one pass, but leaves P6 (neglect) and P2 (assessment hit area) unsolved.
-  - **Cost:** lower, ships faster.
-- **C — Global replacement.**
-  - **Not justified.** Pass A shows the existing UI is sound for many profiles on many routes — only ~5 of 21 routes show a confirmed `block`, and all blocks cluster in two patterns (open speech under fatigue, reading-heavy clues).
+Rationale recap (kept for traceability):
 
-**Pass A leans toward A**, but Pass B (manual archetype walkthrough) should run before that decision is locked. The audit deliberately stops short of recommending until P4 numbers are in.
+- **A — Adaptive UI keyed to `uiProfile`** ← **chosen**. Patterns P5 (reading load) and P6 (left-side salience) are profile-specific; no single global tweak helps both Wernicke's and right-hemisphere. Pass B confirmed `block` for RH neglect on Detective Mind and 10× reading-load gap for Wernicke's between routes — neither resolvable by a single toggle.
+- **B — Single Simplified Mode toggle.** Rejected: cannot resolve RH-neglect left-edge pattern without becoming Option A in disguise.
+- **C — Global replacement.** Rejected: only ~5 of 21 routes show a confirmed `block`; existing UI is sound for many profiles on many routes.
 
 ## 6. Hard guarantees (carried from Phase 2 plan, unchanged)
 
