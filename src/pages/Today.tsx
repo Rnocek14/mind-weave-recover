@@ -24,6 +24,7 @@ import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionR
 import { useUiMode } from '@/hooks/useUiMode';
 import { useUiProfile } from '@/hooks/useUiProfile';
 import { variantClass, isSimplified, isMinimal } from '@/lib/ui/variantClass';
+import { UiVariantPicker } from '@/components/dev/UiVariantPicker';
 
 interface AdherenceStats {
   totalSessions: number;
@@ -316,8 +317,7 @@ export default function Today() {
       neglect: 'pr-2',
     })}>
       <div className={variantClass(variant, {
-        base: 'flex-1 flex items-center p-6 pb-20',
-        simplified: 'justify-center',
+        base: 'flex-1 flex items-center justify-center p-6 pb-20',
         neglect: 'justify-end pr-8',
       })}>
         <div className={variantClass(variant, {
@@ -515,6 +515,7 @@ export default function Today() {
       )}
 
       <PatientTabBar />
+      <UiVariantPicker />
     </div>
   );
 }
