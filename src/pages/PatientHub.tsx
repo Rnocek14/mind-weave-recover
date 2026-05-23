@@ -331,6 +331,10 @@ export default function PatientHub() {
                   <RecoveryProfileSection userId={user?.id || ""} />
                 </section>
 
+                <section id="plan-ui-variant" className="scroll-mt-4">
+                  <UiVariantClinicianPicker userId={user?.id || ""} />
+                </section>
+
                 <section id="plan-info" className="scroll-mt-4 border-t border-border pt-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="w-4 h-4 text-primary" />
