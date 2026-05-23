@@ -238,7 +238,7 @@ const App = () => (
                   <Route path="/caregiver/docs" element={<Navigate to="/clinical-documents" replace />} />
                   <Route path="/caregiver/insights" element={<Navigate to="/insights?tab=alerts" replace />} />
                   <Route path="/caregiver/history" element={<Navigate to="/history" replace />} />
-                  <Route path="/caregiver/dashboard" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/caregiver/dashboard" element={<Navigate to="/caregiver" replace />} />
                   <Route path="/caregiver/settings" element={<Navigate to="/settings/privacy" replace />} />
                   
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
