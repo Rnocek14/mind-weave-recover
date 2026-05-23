@@ -381,33 +381,35 @@ export default function Today() {
             </div>
           )}
 
-          {/* Coaching mode toggle */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              <Brain className="w-3.5 h-3.5" />
-              <span>Coaching level</span>
+          {/* Coaching mode toggle — hidden for minimal & non-fluent (decision cap) */}
+          {!minimal && !isNonFluent && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Brain className="w-3.5 h-3.5" />
+                <span>Coaching level</span>
+              </div>
+              <div className="flex rounded-lg border bg-muted/30 p-0.5">
+                {MODE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setMode(opt.value)}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+                      mode === opt.value
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    title={opt.desc}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {MODE_OPTIONS.find(o => o.value === mode)?.desc}
+              </p>
             </div>
-            <div className="flex rounded-lg border bg-muted/30 p-0.5">
-              {MODE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setMode(opt.value)}
-                  className={cn(
-                    'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
-                    mode === opt.value
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                  title={opt.desc}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {MODE_OPTIONS.find(o => o.value === mode)?.desc}
-            </p>
-          </div>
+          )}
 
           {/* Resume in-progress session */}
           {savedSession && (
