@@ -12,6 +12,7 @@
  * with a load gate so the engine starts at the correct clinical floor.
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SynonymGeneratorGame, type SynonymRoundResult } from '@/components/SynonymGeneratorGame';

@@ -18,6 +18,7 @@
  *     See `docs/unified-trial-contract.md` §"Per-axis supportUsed".
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MeaningMatchGame } from '@/components/MeaningMatchGame';

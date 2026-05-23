@@ -18,6 +18,7 @@
  *   - No per-game progression hook yet — `progression: null`.
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';

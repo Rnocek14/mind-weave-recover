@@ -1,6 +1,7 @@
 /**
  * Abstract Comparison Exercise Page — wrapper with session lifecycle.
  */
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AbstractCompareGame } from '@/components/AbstractCompareGame';

@@ -11,6 +11,7 @@
  * ladder) with a load gate so the engine starts at the correct clinical
  * floor.
  */
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PhonologicalGame, type PhonologicalTrialDetail } from '@/components/PhonologicalGame';

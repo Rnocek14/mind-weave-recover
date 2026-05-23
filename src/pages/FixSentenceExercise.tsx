@@ -5,6 +5,7 @@
  * Now consumes shared adaptation contract.
  */
 
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FixSentenceGame } from '@/components/FixSentenceGame';
