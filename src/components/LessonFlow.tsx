@@ -35,6 +35,8 @@ import { getExerciseMicroGuidance } from "@/lib/exerciseMicroGuidance";
 import { MayaSessionFrame } from "./MayaSessionFrame";
 import { getSessionFrame, getOrCreateSessionFrame } from "@/lib/sessionFrameTemplates";
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
+import { useUiProfile } from "@/hooks/useUiProfile";
+import { variantClass, isMinimal, isSimplified } from "@/lib/ui/variantClass";
 
 
 type FlowPhase = 
@@ -61,6 +63,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { showPurpose, isVoiceLed } = useCoachingMode();
+  const { profile: uiProfile } = useUiProfile();
+  const variant = uiProfile.variant;
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
@@ -737,33 +741,55 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       : 'stretch';
     const adaptMsg = getAdaptivityMessage(recentScoresRef.current, phaseLabel);
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md p-8 space-y-6 text-center">
-          {/* Session arc progress */}
-          <SessionArcBar 
-            blocks={runtimeBlocks} 
-            currentIndex={currentBlockIndex} 
-          />
+      <div className={variantClass(variant, {
+        base: "min-h-screen bg-background flex items-center justify-center p-4",
+        simplified: "p-6",
+      })}>
+        <Card className={variantClass(variant, {
+          base: "w-full max-w-md p-8 space-y-6 text-center",
+          simplified: "max-w-lg p-10 space-y-8",
+          minimal: "max-w-lg p-10 space-y-6 shadow-none border-2",
+        })}>
+          {/* Session arc progress — hidden in minimal to reduce visual load */}
+          {!isMinimal(variant) && (
+            <SessionArcBar 
+              blocks={runtimeBlocks} 
+              currentIndex={currentBlockIndex} 
+            />
+          )}
           
-          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto animate-pulse">
-            <Play className="w-8 h-8 text-primary" />
+          <div className={variantClass(variant, {
+            base: "w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto animate-pulse",
+            simplified: "w-20 h-20",
+            minimal: "w-20 h-20 animate-none",
+          })}>
+            <Play className={variantClass(variant, {
+              base: "w-8 h-8 text-primary",
+              simplified: "w-10 h-10",
+            })} />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">
+            <h2 className={variantClass(variant, {
+              base: "text-2xl font-bold",
+              simplified: "text-3xl",
+            })}>
               {!sessionId ? "Preparing session..." : "Loading Exercise..."}
             </h2>
-            <p className="text-muted-foreground">
+            <p className={variantClass(variant, {
+              base: "text-muted-foreground",
+              simplified: "text-lg",
+            })}>
               {humanizeSlug(currentBlock?.exerciseId || '')}
             </p>
-            {/* Micro-guidance — Guided/Full only */}
-            {showPurpose && (() => {
+            {/* Micro-guidance — Guided/Full only, suppressed in minimal */}
+            {showPurpose && !isMinimal(variant) && (() => {
               const guidance = getExerciseMicroGuidance(currentBlock?.exerciseId || '');
               return guidance ? (
                 <p className="text-sm text-muted-foreground/80 italic">{guidance}</p>
               ) : null;
             })()}
-            {/* Visible adaptivity message */}
-            {adaptMsg && (
+            {/* Visible adaptivity message — hidden in minimal */}
+            {adaptMsg && !isMinimal(variant) && (
               <p className="text-sm text-primary/80 font-medium mt-2">
                 {adaptMsg}
               </p>
