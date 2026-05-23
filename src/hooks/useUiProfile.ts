@@ -46,9 +46,15 @@ const VALID_VARIANTS: UiVariant[] = [
   'minimal',
 ];
 
+function isPreviewHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h.includes('lovable.app') || h.includes('lovableproject.com') || h === 'localhost';
+}
+
 function readUrlOverride(): UiVariant | null {
   if (typeof window === 'undefined') return null;
-  if (!import.meta.env.DEV) return null;
+  if (!import.meta.env.DEV && !isPreviewHost()) return null;
   try {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('uiProfile');
