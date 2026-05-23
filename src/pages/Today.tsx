@@ -24,6 +24,7 @@ import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionR
 import { useUiMode } from '@/hooks/useUiMode';
 import { useUiProfile } from '@/hooks/useUiProfile';
 import { variantClass, isSimplified, isMinimal } from '@/lib/ui/variantClass';
+import { UiVariantPicker } from '@/components/dev/UiVariantPicker';
 
 interface AdherenceStats {
   totalSessions: number;
