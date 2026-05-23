@@ -52,6 +52,8 @@ function isPreviewHost(): boolean {
   return h.includes('lovable.app') || h.includes('lovableproject.com') || h === 'localhost';
 }
 
+const STORAGE_KEY = 'uiProfileOverride';
+
 function readUrlOverride(): UiVariant | null {
   if (typeof window === 'undefined') return null;
   if (!import.meta.env.DEV && !isPreviewHost()) return null;
@@ -59,7 +61,12 @@ function readUrlOverride(): UiVariant | null {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('uiProfile');
     if (v && (VALID_VARIANTS as string[]).includes(v)) {
+      sessionStorage.setItem(STORAGE_KEY, v);
       return v as UiVariant;
+    }
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (stored && (VALID_VARIANTS as string[]).includes(stored)) {
+      return stored as UiVariant;
     }
   } catch {
     /* ignore */

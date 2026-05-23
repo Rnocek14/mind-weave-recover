@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { UiVariantPicker } from "@/components/dev/UiVariantPicker";
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
@@ -130,6 +131,7 @@ const App = () => (
                 <MayaSessionOverlay />
                 <SessionPauseControl />
                 <VoiceGateHud />
+                <UiVariantPicker />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
