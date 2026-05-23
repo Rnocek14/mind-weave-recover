@@ -63,6 +63,8 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { showPurpose, isVoiceLed } = useCoachingMode();
+  const { profile: uiProfile } = useUiProfile();
+  const variant = uiProfile.variant;
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
