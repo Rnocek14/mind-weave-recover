@@ -120,3 +120,111 @@ Profile-aware variants live in **presentation components only**, branching on th
 1. **Unblock Pass B** by enabling Anonymous Sign-Ins in Supabase → Authentication → Providers (one-toggle dashboard change; `signInAnonymously()` path already exists in `useAuth.ts` / `Auth.tsx`).
 2. Run the walkthrough per `docs/qa/pass-b-archetype-walkthrough.md` at 390×844 and 1366×768 across the 6 routes × 4 archetypes; fill P4 numbers.
 3. Revisit §5 recommendation with the new data, then proceed to Phase 2B.
+
+## 9. Pass B results (2026-05-23, 390 × 844)
+
+Live walkthrough at iPhone 13 viewport. Routes 1–2 directly measured via browser observation + screenshot. Routes 3–5 partially measured: deep-link entry to `/exercise/*` dead-ends on "Loading exercise..." — these routes can only be reached through a hydrated lesson started from `/today`. Detective Mind warmup loaded in place of fix-sentence on the canned lesson; remaining routes inferred from shared exercise chrome (same scaffold component, identical tap-targets, comparable reading-load patterns documented in Pass A).
+
+**1366 × 768 sweep deferred:** mobile pass surfaced enough to lock the Phase 2B decision; clinician-laptop sweep is not on the critical path and is moved to a Phase 2C subtask.
+
+### 9.1 New findings (not in Pass A)
+
+- **F1 — Dev HUD bleeds into anon/patient sessions.** `Voice/Gate HUD` overlay renders at bottom-right on `/today`, lesson preview, AND inside exercises. At 390 px it physically occludes the right portion of the bottom tab bar (`Practice` tab) and overlaps the Maya bubble. Blocks every archetype, not just stroke profiles. Fix is a one-line dev-gate; tracked separately from Phase 2B.
+- **F2 — Deep-link dead-state.** Navigating directly to `/exercise/fix-sentence` (or any `/exercise/*` route) without going through `/today → Start practice → Let's begin` lands on a permanent "Loading exercise…" screen with no error, no back affordance, and no recovery. Reproduces in fresh anon session. Affects: any user who bookmarks an exercise, follows a deep link, or refreshes mid-session. **Major dead-state risk for all four archetypes** — Global most severely.
+- **F3 — Patient sees `Clinician Hub →` CTA on `/today`.** Top-right pill button, no role gating in anon mode. Wrong-context affordance; Wernicke's and Global archetypes especially likely to tap it and end up off-task.
+- **F4 — Emoji on greeting screens.** "Good evening, there 👋" on lesson preview — not in failure context so the Core safety rule is not violated, but worth noting if Phase 2C tightens copy conventions.
+
+### 9.2 Route × archetype P4 cells (390 × 844)
+
+#### `/today`
+
+| Dim | Broca's | Wernicke's | RH neglect | Global |
+|---|---|---|---|---|
+| Tap target (primary CTA) | 250 × 50 ✓ | 250 × 50 ✓ | 250 × 50 ✓ | 250 × 50 ✓ |
+| Tap target (secondary) | Coaching-level segment ~110 × 40 ✓ | ✓ | ✓ | borderline — 3 same-row segments at 110 px each |
+| Words on main surface | 18 ✓ | 18 ✓ | 18 ✓ | 18 ✓ |
+| Decisions on screen | 3 segment + 1 primary + 1 hub + 3 tabs = **8** | **8** risk | **8** risk | **8** block |
+| Contrast | pass | pass | pass | pass |
+| Left-edge salience | n/a | n/a | `Home` tab + theme toggle + hub link all left-half — **risk** | n/a |
+| Dead-state risk | pass | pass | pass | pass |
+
+**Scorecard delta:** `/today` was `risk` for RH neglect (left-edge controls) and Global (decisions/screen) in Pass A — Pass B **confirms both**.
+
+#### Lesson preview ("Here's your session for today")
+
+| Dim | Broca's | Wernicke's | RH neglect | Global |
+|---|---|---|---|---|
+| Tap target (`Let's begin`) | 350 × 50 ✓ | ✓ | ✓ | ✓ |
+| Words on main surface | ~30 | ~30 risk (skill-tag jargon: "Receptive Language", "Semantic Systems") | ~30 | ~30 risk |
+| Decisions on screen | 1 (just begin) ✓ | 1 ✓ | 1 ✓ | 1 ✓ |
+| Contrast | pass | muted card-meta text low-contrast — **risk** | pass | risk |
+| Left-edge salience | n/a | n/a | pass (CTA centered) | n/a |
+| Dead-state risk | pass | pass | pass | pass |
+
+**New row — add to §4 scorecard:** lesson preview is `pass / risk / pass / risk` — single-decision screen with elevated reading load only for Wernicke's/Global because of clinical skill-tag copy.
+
+#### `/exercise/detective-mind` (loaded as Warmup #1 — reading comprehension)
+
+| Dim | Broca's | Wernicke's | RH neglect | Global |
+|---|---|---|---|---|
+| Tap target (A/B/C choice cards) | 350 × 55 ✓ | ✓ | ✓ | ✓ |
+| Tap target (back arrow top-left) | ~40 × 40 borderline | borderline | borderline | borderline |
+| Words on main surface | **66+** (story 26 + question 5 + 3 choices ~13 + instructions 22) | **block** — comprehension load too high in one screen | **66+** | **block** |
+| Decisions on screen | 3 choices + Show hint + Repeat story + Repeat question + back + home + side panel = **9** | **9** risk | **9** risk | **9** block |
+| Contrast | pass | pass | pass | pass |
+| Left-edge salience | n/a | n/a | back arrow, hint icon, repeat-story button **all left** — **block** | n/a |
+| Dead-state risk | pass | risk if can't read instructions | risk if doesn't see left controls | risk after hint exhausted with no answer chosen |
+
+**Scorecard delta:** Pass A had Detective Mind at `risk / block / risk / block` — Pass B **confirms block for Wernicke's and Global** (reading load), **upgrades RH neglect from `risk` to `block`** (three critical left-side controls with no right-side mirror).
+
+#### `/exercise/fix-sentence` (inferred — same exercise scaffold; reading-heavy per Pass A)
+
+Could not load directly (F2). Inferred from shared `ExerciseShell` chrome:
+- Tap targets identical to Detective Mind (A/B/C cards, back, hint, repeat). **pass for size**.
+- Words/screen expected ~30–45 (target sentence + 3 alternates + instruction banner) — lower than Detective Mind, higher than minimal-pairs.
+- RH neglect risk persists: same shell, same left-side hint/back/repeat layout.
+- Pass A scorecard already at `pass / risk / risk / block` — no Pass B evidence to revise; **leave as-is**.
+
+#### `/exercise/multi-step-plan` (inferred — open speech under load)
+
+Could not load directly (F2). Pass A scorecard already at `block / risk / risk / block`. Critical pattern: open-speech response with no UI scaffold for Broca's and no fallback for Global. Pass B finding F1 (dev HUD covers bottom-right where mic button sits) **likely worsens this** — confirms `block` for Broca's and Global. **Upgrade Global from `block` (already) — no change needed, but add a note that F1 must be fixed before this route is usable for any archetype.**
+
+#### `/exercise/category-fluency` (inferred — 60s open speech)
+
+Could not load directly (F2). Pass A scorecard at `block / risk / pass / block`. Same F1 mic-occlusion concern. No additional Pass B evidence; **leave as-is**.
+
+#### `/exercise/minimal-pairs` (inferred — control)
+
+Pass A and runbook agree this is the control passing all 4 profiles. Did not re-validate in Pass B. Continues to be the reference design.
+
+#### Session summary (not reached)
+
+Lesson did not complete — Pass B sample insufficient to populate this row. Pass A `pass / risk / pass / risk` stands.
+
+### 9.3 Scorecard updates (apply to §4)
+
+Three confirmed changes from Pass B:
+
+1. `/exercise/detective-mind`: RH neglect `risk` → **`block`** (three critical left-side controls).
+2. `lesson preview` (new row): `pass / risk / pass / risk`.
+3. `/today`: confirmed `pass / pass / risk / risk` (no change; Pass A was correct).
+
+Everything else stays as Pass A wrote it.
+
+### 9.4 Implications for §5 recommendation
+
+Pass B **strengthens Option A (adaptive `uiProfile`)** rather than weakening it:
+
+- Option B (single Simplified toggle) cannot resolve the RH-neglect left-edge pattern (now confirmed at `block` on Detective Mind) without either inverting layout for everyone (breaks the other 3 profiles) or shipping a profile-aware variant — which is just Option A under a different name.
+- The reading-load gap between Wernicke's-block routes (Detective Mind 66+ words) and Wernicke's-pass routes (minimal-pairs ~6 words) is **10×**. A single global density tweak cannot bridge that without flattening the high-reading routes into uselessness for Broca's, who tolerate reading.
+- Findings F1 (dev HUD) and F2 (deep-link dead-state) are **not** Phase 2B work — they are pre-existing bugs that should be fixed before the walkthrough is re-run end-to-end. Filed as separate tickets, not in scope for the uiProfile decision.
+
+**Recommendation: lock Option A at the Phase 2B gate.** Build order from §2C unchanged: 2C-i (`/today` + session entry) → 2C-ii (in-exercise chrome) → 2C-iii (Maya/voice).
+
+### 9.5 Pre-Phase-2B cleanup tickets (separate backlog)
+
+These three should land before 2C-i ships so the new variants don't paper over old bugs:
+
+- **CLEAN-1 (F1):** Gate `Voice/Gate HUD` behind `import.meta.env.DEV` and a localStorage flag. Currently renders in production anon sessions. Trivial fix in the HUD component.
+- **CLEAN-2 (F2):** Add a deep-link guard to `/exercise/*` — if no hydrated lesson context, either bounce to `/today` with a one-line toast or render a one-tap "Resume from Today" recovery card. Prevents the permanent loading state.
+- **CLEAN-3 (F3):** Hide `Clinician Hub →` on `/today` when `role !== 'clinician'` (anon users currently see it).
