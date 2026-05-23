@@ -83,6 +83,8 @@ export default function Today() {
   const { user, loading: authLoading } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { mode, setMode } = useCoachingMode();
+  const { isAtLeast } = useUiMode();
+  const canSeeClinicianHub = isAtLeast('clinician');
   const { activeProfile } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
