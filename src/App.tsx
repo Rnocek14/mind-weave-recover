@@ -130,6 +130,7 @@ const App = () => (
                 <MayaSessionOverlay />
                 <SessionPauseControl />
                 <VoiceGateHud />
+                <UiVariantPicker />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
