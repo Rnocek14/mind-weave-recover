@@ -21,6 +21,7 @@ import { buildPresetLesson, type LessonPreset } from '@/lib/dailyLessonEngine';
 import { ClinicalProfile } from '@/lib/clinicalProfileMapper';
 import { cn } from '@/lib/utils';
 import { recommendNextSession, type SessionRecommendation } from '@/lib/sessionRecommender';
+import { useUiMode } from '@/hooks/useUiMode';
 
 interface AdherenceStats {
   totalSessions: number;
