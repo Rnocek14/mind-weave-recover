@@ -63,6 +63,7 @@ function readUrlOverride(): UiVariant | null {
 
 export function useUiProfile(): { profile: UiProfile; loading: boolean } {
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [profile, setProfile] = useState<UiProfile>(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(true);
 
