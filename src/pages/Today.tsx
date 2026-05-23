@@ -311,18 +311,35 @@ export default function Today() {
   const lessonReady = !!activeLesson;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-6 pb-20">
-        <div className="w-full max-w-sm space-y-6 text-center">
-          {/* Greeting */}
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold">{greeting}, {displayName}</h1>
-            <p className="text-muted-foreground">
-              {lastSession
-                ? "Ready to build on last time?"
-                : "Let's get started with your first session."}
-            </p>
-          </div>
+    <div className={variantClass(variant, {
+      base: 'min-h-screen bg-background flex flex-col',
+      neglect: 'pr-2',
+    })}>
+      <div className={variantClass(variant, {
+        base: 'flex-1 flex items-center p-6 pb-20',
+        simplified: 'justify-center',
+        neglect: 'justify-end pr-8',
+      })}>
+        <div className={variantClass(variant, {
+          base: 'w-full max-w-sm space-y-6',
+          simplified: 'text-center',
+          neglect: 'text-right',
+        })}>
+          {/* Greeting — hidden in minimal, shortened in non-fluent */}
+          {!minimal && (
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold">
+                {isNonFluent ? `Hi, ${displayName}` : `${greeting}, ${displayName}`}
+              </h1>
+              {!simplified && (
+                <p className="text-muted-foreground">
+                  {lastSession
+                    ? "Ready to build on last time?"
+                    : "Let's get started with your first session."}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Streak + Session count */}
           {stats && stats.totalSessions > 0 && (
