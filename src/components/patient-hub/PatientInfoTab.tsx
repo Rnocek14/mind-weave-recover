@@ -16,6 +16,7 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
+import { UiVariantClinicianPicker } from "@/components/leveling/UiVariantClinicianPicker";
 import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
@@ -103,6 +104,8 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
         profileName={activeProfile?.profile_name || "Patient"}
         speechLabel={speechLabel}
       />
+
+      <UiVariantClinicianPicker userId={userId} />
 
       {/* Functional Goals */}
       <Card>
