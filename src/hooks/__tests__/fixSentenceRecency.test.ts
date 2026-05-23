@@ -27,12 +27,16 @@ describe('fix_sentence — recency integration', () => {
     expect(seen.size).toBe(tier1Size);
   });
 
-  it('after pool exhaustion, selector still returns an item (LRU fallback)', () => {
+  it('after pool exhaustion, selector still returns a T1 item (never undefined)', () => {
+    // NOTE: The May 2026 intensity-driven cohort selector partitions T1 by
+    // errorType and shuffles within cohorts, so strict LRU ordering (oldest-first)
+    // no longer holds. The safety contract is weaker but still essential:
+    // the patient must never see a missing stimulus.
     const allT1Ids = FIX_SENTENCE_BANK.filter(t => t.difficulty === 1).map(t => t.id);
     const [pick] = getFixSentenceTrials({ difficulty: 1, count: 1, recentIds: allT1Ids });
     expect(pick).toBeDefined();
-    // Must be the oldest (first in recentIds).
-    expect(pick.id).toBe(allT1Ids[0]);
+    expect(pick.difficulty).toBe(1);
+    expect(allT1Ids).toContain(pick.id);
   });
 
   it('respects difficulty bucketing — recent T2 ids do not affect T1 picks', () => {
