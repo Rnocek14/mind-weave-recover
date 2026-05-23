@@ -321,10 +321,10 @@ export default function Today() {
         neglect: 'justify-end pr-8',
       })}>
         <div className={variantClass(variant, {
-          base: 'w-full max-w-sm space-y-6',
-          simplified: 'text-center',
+          base: 'w-full max-w-sm space-y-6 text-center',
           neglect: 'text-right',
         })}>
+
           {/* Greeting — hidden in minimal, shortened in non-fluent */}
           {!minimal && (
             <div className="space-y-2">
