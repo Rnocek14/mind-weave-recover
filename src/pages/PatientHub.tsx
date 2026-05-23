@@ -49,6 +49,7 @@ import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
 import { ProfileCompletenessBanner } from "@/components/patient-hub/ProfileCompletenessBanner";
 import { RecoveryProfileSection } from "@/components/leveling/RecoveryProfileSection";
+import { UiVariantClinicianPicker } from "@/components/leveling/UiVariantClinicianPicker";
 
 import { ClinicianStatusCard } from "@/components/patient-hub/glance/ClinicianStatusCard";
 import { ClinicianPracticeCard } from "@/components/patient-hub/glance/ClinicianPracticeCard";
