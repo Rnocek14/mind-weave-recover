@@ -82,7 +82,9 @@ export default function CaregiverPortal() {
         <header className="flex items-center gap-2 px-1">
           <Heart className="w-4 h-4 text-pink-500" />
           <h1 className="text-base font-semibold text-foreground">Caregiver Home</h1>
-          <span className="text-xs text-muted-foreground ml-auto">{patientName}</span>
+          <div className="ml-auto">
+            <ProfileSwitcher />
+          </div>
         </header>
 
         {/* The five Glance Cards */}
