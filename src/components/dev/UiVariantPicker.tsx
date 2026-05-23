@@ -16,8 +16,14 @@ const VARIANTS: UiVariant[] = [
   'minimal',
 ];
 
+function isPreviewHost() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h.includes('lovable.app') || h.includes('lovableproject.com') || h === 'localhost';
+}
+
 export function UiVariantPicker() {
-  if (!import.meta.env.DEV) return null;
+  if (!import.meta.env.DEV && !isPreviewHost()) return null;
   const [params, setParams] = useSearchParams();
   const current = params.get('uiProfile') ?? 'standard';
 
