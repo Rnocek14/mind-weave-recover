@@ -298,29 +298,47 @@ export const detectLowMoodStreak = async (userId: string, profileId?: string): P
 /**
  * NEW: Detects speech fluency regression (WPM, pause burden, effortful rate)
  */
-export const detectSpeechRegressions = async (userId: string): Promise<RedFlag[]> => {
+export const detectSpeechRegressions = async (userId: string, profileId?: string): Promise<RedFlag[]> => {
   const flags: RedFlag[] = [];
   const now = new Date();
   
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  // Resolve profile session scope (utterance_analyses has no profile_id)
+  let sessionIds: string[] | null = null;
+  if (profileId) {
+    const { data: sessRows } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('profile_id', profileId)
+      .gte('started_at', fourteenDaysAgo.toISOString());
+    sessionIds = (sessRows || []).map((s) => s.id);
+    if (sessionIds.length === 0) return flags;
+  }
+
   // Get baseline (days 8-14)
-  const { data: baseline } = await supabase
+  let baselineQ = supabase
     .from('utterance_analyses')
     .select('speech_rate_wpm, pause_count, avg_pause_duration_ms, effortful_speech')
     .eq('user_id', userId)
     .gte('created_at', fourteenDaysAgo.toISOString())
     .lt('created_at', sevenDaysAgo.toISOString())
     .not('speech_rate_wpm', 'is', null);
+  if (sessionIds) baselineQ = baselineQ.in('session_id', sessionIds);
+  const { data: baseline } = await baselineQ;
 
   // Get recent (last 7 days)
-  const { data: recent } = await supabase
+  let recentQ = supabase
     .from('utterance_analyses')
     .select('speech_rate_wpm, pause_count, avg_pause_duration_ms, effortful_speech')
     .eq('user_id', userId)
     .gte('created_at', sevenDaysAgo.toISOString())
     .not('speech_rate_wpm', 'is', null);
+  if (sessionIds) recentQ = recentQ.in('session_id', sessionIds);
+  const { data: recent } = await recentQ;
+
 
   if (!baseline || !recent || baseline.length < MIN_SAMPLES.speech_regression || recent.length < MIN_SAMPLES.speech_regression) {
     return flags;
