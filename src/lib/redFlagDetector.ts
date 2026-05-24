@@ -50,16 +50,18 @@ const isSpeechSession = (session: { plan?: any }): boolean => {
  * Detects if user has plateaued (no improvement for 14+ days)
  * Only considers speaking sessions
  */
-export const detectPlateau = async (userId: string): Promise<RedFlag | null> => {
+export const detectPlateau = async (userId: string, profileId?: string): Promise<RedFlag | null> => {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-  const { data: sessions, error } = await supabase
+  let q = supabase
     .from('sessions')
     .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', fourteenDaysAgo.toISOString())
     .order('started_at', { ascending: true });
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data: sessions, error } = await q;
 
   if (error || !sessions || sessions.length < 5) {
     return null;
@@ -104,25 +106,29 @@ export const detectPlateau = async (userId: string): Promise<RedFlag | null> => 
  * Detects if user's performance is declining (regression)
  * Only considers speaking sessions
  */
-export const detectRegression = async (userId: string): Promise<RedFlag | null> => {
+export const detectRegression = async (userId: string, profileId?: string): Promise<RedFlag | null> => {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { data: baselineSessions } = await supabase
+  let baselineQ = supabase
     .from('sessions')
     .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', thirtyDaysAgo.toISOString())
     .lt('started_at', sevenDaysAgo.toISOString());
+  if (profileId) baselineQ = baselineQ.eq('profile_id', profileId);
+  const { data: baselineSessions } = await baselineQ;
 
-  const { data: recentSessions } = await supabase
+  let recentQ = supabase
     .from('sessions')
     .select('summary, plan')
     .eq('user_id', userId)
     .gte('started_at', sevenDaysAgo.toISOString());
+  if (profileId) recentQ = recentQ.eq('profile_id', profileId);
+  const { data: recentSessions } = await recentQ;
 
   if (!baselineSessions || !recentSessions) {
     return null;
@@ -168,15 +174,17 @@ export const detectRegression = async (userId: string): Promise<RedFlag | null> 
 /**
  * Detects low adherence (fewer than 3 sessions per week)
  */
-export const detectLowAdherence = async (userId: string): Promise<RedFlag | null> => {
+export const detectLowAdherence = async (userId: string, profileId?: string): Promise<RedFlag | null> => {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { data: sessions, error } = await supabase
+  let q = supabase
     .from('sessions')
     .select('id')
     .eq('user_id', userId)
     .gte('started_at', sevenDaysAgo.toISOString());
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data: sessions, error } = await q;
 
   if (error) return null;
 
@@ -199,17 +207,19 @@ export const detectLowAdherence = async (userId: string): Promise<RedFlag | null
 /**
  * Detects sessions with high fatigue or quit early
  */
-export const detectHighFatigueOrQuit = async (userId: string): Promise<RedFlag | null> => {
+export const detectHighFatigueOrQuit = async (userId: string, profileId?: string): Promise<RedFlag | null> => {
   const threeDaysAgo = new Date();
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-  const { data: sessions, error } = await supabase
+  let q = supabase
     .from('sessions')
     .select('id, engagement_summary, duration_sec, started_at')
     .eq('user_id', userId)
     .gte('started_at', threeDaysAgo.toISOString())
     .order('started_at', { ascending: false })
     .limit(5);
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data: sessions, error } = await q;
 
   if (error || !sessions || sessions.length === 0) return null;
 
@@ -252,14 +262,16 @@ export const detectHighFatigueOrQuit = async (userId: string): Promise<RedFlag |
 /**
  * Detects low mood streaks (3+ consecutive sessions with mood <= 2)
  */
-export const detectLowMoodStreak = async (userId: string): Promise<RedFlag | null> => {
-  const { data: sessions, error } = await supabase
+export const detectLowMoodStreak = async (userId: string, profileId?: string): Promise<RedFlag | null> => {
+  let q = supabase
     .from('sessions')
     .select('mood_rating, started_at')
     .eq('user_id', userId)
     .not('mood_rating', 'is', null)
     .order('started_at', { ascending: false })
     .limit(5);
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data: sessions, error } = await q;
 
   if (error || !sessions || sessions.length < 3) {
     return null;
@@ -281,6 +293,7 @@ export const detectLowMoodStreak = async (userId: string): Promise<RedFlag | nul
 
   return null;
 };
+
 
 /**
  * NEW: Detects speech fluency regression (WPM, pause burden, effortful rate)
