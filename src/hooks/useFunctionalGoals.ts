@@ -34,7 +34,7 @@ export interface GoalProgressRating {
   confidence_level?: number;
 }
 
-export const useFunctionalGoals = (userId: string | null) => {
+export const useFunctionalGoals = (userId: string | null, profileId?: string | null) => {
   const [goals, setGoals] = useState<FunctionalGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +47,17 @@ export const useFunctionalGoals = (userId: string | null) => {
       setError(null);
 
       // Fetch goals with latest rating
-      const { data: goalsData, error: goalsError } = await supabase
+      let q = supabase
         .from('functional_goals')
         .select('*')
         .eq('user_id', userId)
         .is('archived_at', null)
         .order('created_at', { ascending: false });
+      if (profileId) q = q.eq('profile_id', profileId);
+      const { data: goalsData, error: goalsError } = await q;
 
       if (goalsError) throw goalsError;
+
 
       // Fetch latest ratings for each goal
       const goalsWithRatings = await Promise.all(
