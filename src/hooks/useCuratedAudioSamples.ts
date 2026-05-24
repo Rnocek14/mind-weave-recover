@@ -26,7 +26,7 @@ interface GopData {
   pronunciationScore?: number;
 }
 
-export function useCuratedAudioSamples(userId: string | undefined, daysBack: number = 7) {
+export function useCuratedAudioSamples(userId: string | undefined, daysBack: number = 7, profileId?: string | undefined) {
   const [samples, setSamples] = useState<CuratedSamples>({ challenging: [], best: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,25 @@ export function useCuratedAudioSamples(userId: string | undefined, daysBack: num
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - daysBack);
 
-        const { data, error: fetchError } = await supabase
+        // If scoping to a specific profile, first fetch its session IDs in window
+        let sessionIds: string[] | null = null;
+        if (profileId) {
+          const { data: sessRows, error: sessErr } = await supabase
+            .from('sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('profile_id', profileId)
+            .gte('started_at', startDate.toISOString());
+          if (sessErr) throw sessErr;
+          sessionIds = (sessRows || []).map((s) => s.id);
+          if (sessionIds.length === 0) {
+            setSamples({ challenging: [], best: [] });
+            setLoading(false);
+            return;
+          }
+        }
+
+        let query = supabase
           .from('utterance_analyses')
           .select('id, target_word, transcript, gop_data, audio_storage_path, created_at, error_type')
           .eq('user_id', userId)
@@ -53,6 +71,12 @@ export function useCuratedAudioSamples(userId: string | undefined, daysBack: num
           .not('audio_storage_path', 'is', null)
           .not('gop_data', 'is', null)
           .order('created_at', { ascending: false });
+
+        if (sessionIds) {
+          query = query.in('session_id', sessionIds);
+        }
+
+        const { data, error: fetchError } = await query;
 
         if (fetchError) throw fetchError;
 
@@ -74,10 +98,7 @@ export function useCuratedAudioSamples(userId: string | undefined, daysBack: num
             errorType: row.error_type
           }));
 
-        // Sort by score
         const sorted = [...validSamples].sort((a, b) => a.score - b.score);
-
-        // Get 3 lowest (challenging) and 3 highest (best)
         const challenging = sorted.slice(0, 3);
         const best = sorted.slice(-3).reverse();
 
@@ -91,7 +112,8 @@ export function useCuratedAudioSamples(userId: string | undefined, daysBack: num
     };
 
     fetchSamples();
-  }, [userId, daysBack]);
+  }, [userId, daysBack, profileId]);
 
   return { samples, loading, error };
 }
+
