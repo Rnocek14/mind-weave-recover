@@ -107,6 +107,7 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
     .from('coach_conversation_summaries' as any)
     .insert({
       user_id: input.userId,
+      profile_id: input.profileId ?? null,
       session_id: input.sessionId,
       ...summary,
       // Persist session intelligence + conversation transcript in metadata column
