@@ -104,8 +104,8 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { score: recoveryScore, breakdown: rsBreakdown, confidence: rsConfidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
-  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
-  const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
+  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId, { profileId });
+  const { learningRates, isLoading: lrLoading } = useLearningRate(userId, { profileId });
   const { goals, loading: goalsLoading } = useFunctionalGoals(userId, profileId);
 
   // Retention data for readiness signal

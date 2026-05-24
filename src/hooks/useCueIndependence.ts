@@ -30,9 +30,9 @@ export interface UseCueIndependenceResult {
 
 export function useCueIndependence(
   userId: string | undefined,
-  options: { enabled?: boolean; lookbackDays?: number } = {}
+  options: { enabled?: boolean; lookbackDays?: number; profileId?: string } = {}
 ): UseCueIndependenceResult {
-  const { enabled = true, lookbackDays = 90 } = options;
+  const { enabled = true, lookbackDays = 90, profileId } = options;
   const [dataPoints, setDataPoints] = useState<CueIndependenceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,13 +44,30 @@ export function useCueIndependence(
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - lookbackDays);
 
-      const { data, error } = await supabase
+      // If scoped to a profile, prefetch session ids belonging to it
+      let sessionIds: string[] | null = null;
+      if (profileId) {
+        const { data: sessRows } = await supabase
+          .from('sessions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('profile_id', profileId)
+          .gte('started_at', cutoff.toISOString());
+        sessionIds = (sessRows || []).map((s) => s.id);
+        if (sessionIds.length === 0) {
+          setDataPoints([]); setLoading(false); return;
+        }
+      }
+
+      let q = supabase
         .from('exercise_events')
         .select('score, cue_level, created_at, session_id!inner(user_id)')
         .eq('session_id.user_id', userId)
         .gte('created_at', cutoff.toISOString())
         .not('cue_level', 'is', null)
         .order('created_at', { ascending: true });
+      if (sessionIds) q = q.in('session_id', sessionIds);
+      const { data, error } = await q;
 
       if (error) throw error;
       if (!data || data.length === 0) { setDataPoints([]); setLoading(false); return; }
@@ -108,7 +125,7 @@ export function useCueIndependence(
     } finally {
       setLoading(false);
     }
-  }, [userId, enabled, lookbackDays]);
+  }, [userId, enabled, lookbackDays, profileId]);
 
   useEffect(() => { fetch(); }, [fetch]);
 

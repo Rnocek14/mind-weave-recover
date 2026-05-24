@@ -100,9 +100,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
     userId, { profileId, enabled: !!userId }
   );
   const { summary: adaptationSummary, isLoading: adaptLoading } = useAdaptationProof(userId, windowSize);
-  const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
+  const { learningRates, isLoading: lrLoading } = useLearningRate(userId, { profileId });
   const { score: recoveryScore, breakdown, confidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
-  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
+  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId, { profileId });
   const { mastered, emerging, struggling, loading: wmLoading } = useWordMastery(userId);
   const { currentScore: errorScore, trend: errorTrend, loading: eqLoading } = useErrorQualityScore(userId);
 

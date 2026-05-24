@@ -28,13 +28,14 @@ export interface ClusterComparison {
 interface UseLearningRateOptions {
   autoCalculate?: boolean;
   enabled?: boolean;
+  profileId?: string;
 }
 
 export const useLearningRate = (
   userId: string | null | undefined,
   options: UseLearningRateOptions = {}
 ) => {
-  const { autoCalculate = true, enabled = true } = options;
+  const { autoCalculate = true, enabled = true, profileId } = options;
   const [learningRates, setLearningRates] = useState<LearningRate[]>([]);
   const [clusterComparisons, setClusterComparisons] = useState<ClusterComparison[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,12 +53,14 @@ export const useLearningRate = (
         setIsLoading(true);
         setError(null);
 
-        // Fetch user's learning rates
-        const { data: rates, error: ratesError } = await supabase
+        // Fetch user's learning rates (scoped to profile when provided)
+        let lrQ = supabase
           .from('learning_rates')
           .select('*')
           .eq('user_id', userId)
           .order('calculated_at', { ascending: false });
+        if (profileId) lrQ = lrQ.eq('profile_id', profileId);
+        const { data: rates, error: ratesError } = await lrQ;
 
         if (ratesError) throw ratesError;
 
@@ -95,7 +98,7 @@ export const useLearningRate = (
     };
 
     fetchLearningRates();
-  }, [userId, autoCalculate, enabled]);
+  }, [userId, autoCalculate, enabled, profileId]);
 
   const fetchClusterComparisons = async (uid: string, userRates: LearningRate[]) => {
     try {
@@ -177,11 +180,13 @@ export const useLearningRate = (
       await calculateAllLearningRates(userId);
       
       // Re-fetch learning rates
-      const { data: rates, error: ratesError } = await supabase
+      let lrQ2 = supabase
         .from('learning_rates')
         .select('*')
         .eq('user_id', userId)
         .order('calculated_at', { ascending: false });
+      if (profileId) lrQ2 = lrQ2.eq('profile_id', profileId);
+      const { data: rates, error: ratesError } = await lrQ2;
 
       if (ratesError) throw ratesError;
 
