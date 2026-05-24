@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Props { userId: string; }
+interface Props { userId: string; profileId?: string; }
 
 interface Row {
   slug: string;
