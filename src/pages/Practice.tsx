@@ -131,7 +131,7 @@ export default function Practice() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
-  const { profile: intelligence, isLoading: intellLoading } = usePatientIntelligence(user?.id);
+  const { profile: intelligence, isLoading: intellLoading } = usePatientIntelligence(user?.id, activeProfile?.id);
 
   const suggestions = useMemo(() => getSmartSuggestions(intelligence), [intelligence]);
 
