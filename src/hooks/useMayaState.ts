@@ -42,7 +42,7 @@ export function useMayaState({ userId, profileId }: UseMayaStateOptions): UseMay
     setSummaryLoading(true);
     // Use aggregated memory (last 10 sessions) for richer cross-session context
     import('@/lib/coachSessionMemory').then(({ loadAggregatedMemory }) => {
-      loadAggregatedMemory(userId, 10).then(summary => {
+      loadAggregatedMemory(userId, 10, profileId).then(summary => {
         if (!cancelled) {
           setPriorSummary(summary);
           setSummaryLoading(false);
