@@ -37,7 +37,8 @@ interface UseAdaptationTimelineResult {
 export const useAdaptationTimeline = (
   userId: string | undefined,
   daysBack = 7,
-  limit = 100
+  limit = 100,
+  profileId?: string | undefined
 ): UseAdaptationTimelineResult => {
   const [events, setEvents] = useState<AdaptationEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +57,19 @@ export const useAdaptationTimeline = (
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);
 
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('adaptation_events' as any)
         .select('*')
         .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      if (profileId) {
+        query = query.eq('profile_id', profileId);
+      }
+
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -75,7 +82,8 @@ export const useAdaptationTimeline = (
     } finally {
       setIsLoading(false);
     }
-  }, [userId, daysBack, limit]);
+  }, [userId, daysBack, limit, profileId]);
+
 
   useEffect(() => {
     fetchEvents();

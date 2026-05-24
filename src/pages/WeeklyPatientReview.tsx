@@ -131,12 +131,13 @@ export default function WeeklyPatientReview() {
     };
   }, [sessionStats]);
   const { alerts, unacknowledgedCount, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
-  const { flags: redFlags } = useRedFlagDetection(user?.id || null);
+  const { flags: redFlags } = useRedFlagDetection(user?.id || null, {}, profileId);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
-  const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize);
+  const { samples: audioSamples, loading: audioLoading } = useCuratedAudioSamples(user?.id, windowSize, profileId);
   const { activeOverrides, suggestedOverrides, recentOverrides, isLoading: overridesLoading, refetch: refetchOverrides } = useClinicianOverrides(profileId);
-  const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize);
+  const { events: adaptationEvents } = useAdaptationTimeline(user?.id, windowSize, 100, profileId);
+
   const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(user?.id, profileId);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
