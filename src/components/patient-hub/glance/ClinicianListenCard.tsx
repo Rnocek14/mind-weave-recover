@@ -17,6 +17,8 @@ import { Link } from "react-router-dom";
 
 interface Props {
   userId: string;
+  profileId?: string;
+
 }
 
 interface Clip {
