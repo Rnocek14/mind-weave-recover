@@ -201,6 +201,7 @@ const App = () => (
                   <Route path="/speech-profile" element={<AppLayout><SpeechProfile /></AppLayout>} />
                   
                   {/* Clinician routes - with header */}
+                  <Route path="/clinician" element={<Navigate to="/clinician/review" replace />} />
                   <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
                   <Route path="/clinician/dashboard" element={<AppLayout><ClinicianPanel /></AppLayout>} />
                   <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
