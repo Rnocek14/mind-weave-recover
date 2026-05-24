@@ -192,7 +192,8 @@ export const useFunctionalGoals = (userId: string | null, profileId?: string | n
 
   useEffect(() => {
     fetchGoals();
-  }, [userId]);
+  }, [userId, profileId]);
+
 
   return {
     goals,
