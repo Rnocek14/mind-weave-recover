@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface DoseCap {
   todayMinutes: number;
@@ -30,6 +31,7 @@ export const useDoseCap = (userId: string | undefined) => {
     warningLevel: 'safe'
   });
   const [isLoading, setIsLoading] = useState(true);
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     if (!userId) {
@@ -39,12 +41,13 @@ export const useDoseCap = (userId: string | undefined) => {
 
     const fetchDoseCap = async () => {
       try {
-        // Get user's dose cap preferences
-        const { data: profile } = await supabase
+        // Get user's dose cap preferences (profile-scoped if available)
+        let pq = supabase
           .from('profiles')
           .select('daily_cap_minutes, session_cap_minutes, enforce_dose_caps')
-          .eq('user_id', userId)
-          .single();
+          .eq('user_id', userId);
+        if (activeProfileId) pq = pq.eq('id', activeProfileId);
+        const { data: profile } = await pq.maybeSingle();
 
         const dailyCapMinutes = profile?.daily_cap_minutes || 45;
         const sessionCapMinutes = profile?.session_cap_minutes || 30;
@@ -52,13 +55,15 @@ export const useDoseCap = (userId: string | undefined) => {
 
         // Get today's practice time
         const today = new Date().toISOString().split('T')[0];
-        const { data: sessions } = await supabase
+        let sq = supabase
           .from('sessions')
           .select('duration_sec, ended_at')
           .eq('user_id', userId)
           .gte('started_at', `${today}T00:00:00`)
           .lte('started_at', `${today}T23:59:59`)
           .order('ended_at', { ascending: false });
+        if (activeProfileId) sq = sq.eq('profile_id', activeProfileId);
+        const { data: sessions } = await sq;
 
         const todayMinutes = sessions?.reduce((sum, s) => {
           return sum + (s.duration_sec ? Math.round(s.duration_sec / 60) : 0);
@@ -116,19 +121,21 @@ export const useDoseCap = (userId: string | undefined) => {
     // Refresh every minute during active session
     const interval = setInterval(fetchDoseCap, 60000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [userId, activeProfileId]);
 
   const refresh = async () => {
     if (!userId) return;
     setIsLoading(true);
     // Re-run the fetch logic
     const today = new Date().toISOString().split('T')[0];
-    const { data: sessions } = await supabase
+    let rq = supabase
       .from('sessions')
       .select('duration_sec')
       .eq('user_id', userId)
       .gte('started_at', `${today}T00:00:00`)
       .lte('started_at', `${today}T23:59:59`);
+    if (activeProfileId) rq = rq.eq('profile_id', activeProfileId);
+    const { data: sessions } = await rq;
 
     const todayMinutes = sessions?.reduce((sum, s) => {
       return sum + (s.duration_sec ? Math.round(s.duration_sec / 60) : 0);

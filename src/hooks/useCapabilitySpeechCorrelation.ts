@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 interface CorrelationInsight {
   factor: string;
@@ -50,7 +51,9 @@ export const useCapabilitySpeechCorrelation = (
   userId: string | null | undefined,
   options: UseCapabilitySpeechOptions = {}
 ) => {
-  const { profileId, enabled = true } = options;
+  const { profileId: explicitProfileId, enabled = true } = options;
+  const activeProfileId = useActiveProfileId();
+  const profileId = explicitProfileId ?? activeProfileId;
   const [analytics, setAnalytics] = useState<CrossDomainAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,20 +69,21 @@ export const useCapabilitySpeechCorrelation = (
       setError(null);
 
       // Fetch capability assessment
-      const { data: assessmentData } = await supabase
+      let capQ = supabase
         .from('capability_assessments')
         .select('vision_score, motor_score, attention_score')
         .eq('user_id', userId)
         .eq('completed', true)
         .order('assessed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+      if (profileId) capQ = capQ.eq('profile_id', profileId);
+      const { data: assessmentData } = await capQ.maybeSingle();
 
       // Fetch utterance analyses (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: utteranceData } = await supabase
+      let uttQ = supabase
         .from('utterance_analyses')
         .select(`
           is_correct,
@@ -95,6 +99,8 @@ export const useCapabilitySpeechCorrelation = (
         .eq('user_id', userId)
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('created_at', { ascending: true });
+      if (profileId) uttQ = uttQ.eq('profile_id', profileId);
+      const { data: utteranceData } = await uttQ;
 
       const utterances = utteranceData || [];
       const assessment = assessmentData;

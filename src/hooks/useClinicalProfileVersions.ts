@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface ClinicalProfileVersion {
   id: string;
@@ -23,17 +24,19 @@ export interface ClinicalProfileVersion {
 export function useClinicalProfileVersions(userId?: string) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const getActiveProfile = async () => {
     if (!userId) return null;
 
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('clinical_profile_versions')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data, error } = await q.single();
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -99,11 +102,13 @@ export function useClinicalProfileVersions(userId?: string) {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('clinical_profile_versions')
         .select('*')
         .eq('user_id', userId)
         .order('version_number', { ascending: false });
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data, error } = await q;
 
       if (error) throw error;
       return data as ClinicalProfileVersion[];

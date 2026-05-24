@@ -82,6 +82,7 @@ export const useExerciseDifficulty = (
     try {
       await supabase.from('exercise_events').insert({
         session_id: sessionId ?? null,
+        profile_id: profileId ?? null,
         exercise_slug: normalizeExerciseSlug(exerciseSlug),
         round: 0,
         score: null,

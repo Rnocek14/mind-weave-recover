@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface AnchorAnalyticsSummary {
   /** Across all recent sessions */
@@ -31,21 +32,24 @@ interface SessionAnchorData {
 export function useAnchorAnalytics(userId: string | undefined, options?: { daysBack?: number; enabled?: boolean }) {
   const daysBack = options?.daysBack ?? 14;
   const enabled = options?.enabled !== false && !!userId;
+  const activeProfileId = useActiveProfileId();
 
   return useQuery({
-    queryKey: ['anchor-analytics', userId, daysBack],
+    queryKey: ['anchor-analytics', userId, activeProfileId, daysBack],
     enabled,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<AnchorAnalyticsSummary> => {
       const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
       
-      const { data: sessions } = await supabase
+      let sq = supabase
         .from('sessions')
         .select('id, started_at, engagement_summary')
         .eq('user_id', userId!)
         .not('ended_at', 'is', null)
         .gte('started_at', since)
         .order('started_at', { ascending: false });
+      if (activeProfileId) sq = sq.eq('profile_id', activeProfileId);
+      const { data: sessions } = await sq;
 
       if (!sessions?.length) {
         return { totalTurns: 0, anchorRequiredTurns: 0, anchorPassRate: 0, preferredAnchorRate: 0, regenerationRate: 0, sessions: [] };

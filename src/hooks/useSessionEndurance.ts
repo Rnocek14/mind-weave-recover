@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface EnduranceDataPoint {
   sessionId: string;
@@ -33,6 +34,7 @@ export function useSessionEndurance(
   const { enabled = true, lookbackDays = 90 } = options;
   const [dataPoints, setDataPoints] = useState<EnduranceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const activeProfileId = useActiveProfileId();
 
   const fetch = useCallback(async () => {
     if (!userId || !enabled) { setLoading(false); return; }
@@ -43,13 +45,15 @@ export function useSessionEndurance(
       cutoff.setDate(cutoff.getDate() - lookbackDays);
 
       // Get sessions with their trials ordered by trial_index
-      const { data: sessions, error: sessErr } = await supabase
+      let sq = supabase
         .from('sessions')
         .select('id, started_at')
         .eq('user_id', userId)
         .gte('started_at', cutoff.toISOString())
         .not('ended_at', 'is', null)
         .order('started_at', { ascending: true });
+      if (activeProfileId) sq = sq.eq('profile_id', activeProfileId);
+      const { data: sessions, error: sessErr } = await sq;
 
       if (sessErr) throw sessErr;
       if (!sessions || sessions.length === 0) { setDataPoints([]); setLoading(false); return; }
@@ -107,7 +111,7 @@ export function useSessionEndurance(
     } finally {
       setLoading(false);
     }
-  }, [userId, enabled, lookbackDays]);
+  }, [userId, enabled, lookbackDays, activeProfileId]);
 
   useEffect(() => { fetch(); }, [fetch]);
 

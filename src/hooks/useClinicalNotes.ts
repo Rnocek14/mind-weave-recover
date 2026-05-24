@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface ClinicalNote {
   id: string;
@@ -35,17 +36,20 @@ export interface CreateNoteParams {
 export function useClinicalNotes(userId?: string) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const fetchNotes = async () => {
     if (!userId) return [];
     
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('clinical_notes')
         .select('*')
         .eq('user_id', userId)
         .order('document_date', { ascending: false });
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data, error } = await q;
 
       if (error) throw error;
       return data as ClinicalNote[];
@@ -71,6 +75,7 @@ export function useClinicalNotes(userId?: string) {
         .from('clinical_notes')
         .insert({
           user_id: userId,
+          profile_id: activeProfileId ?? null,
           ...params,
           uploaded_by: userId,
         })
@@ -78,6 +83,7 @@ export function useClinicalNotes(userId?: string) {
         .single();
 
       if (error) throw error;
+      
       
       toast({
         title: 'Document saved',
