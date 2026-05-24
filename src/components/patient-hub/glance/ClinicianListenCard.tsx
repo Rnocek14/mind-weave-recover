@@ -145,7 +145,7 @@ function ClipRow({ clip, label, tone }: { clip: Clip | null; label: string; tone
   );
 }
 
-export function ClinicianListenCard({ userId }: Props) {
+export function ClinicianListenCard({ userId, profileId }: Props) {
   const [clips, setClips] = useState<{ best: Clip | null; struggle: Clip | null }>({ best: null, struggle: null });
   const [loading, setLoading] = useState(true);
 
@@ -153,7 +153,23 @@ export function ClinicianListenCard({ userId }: Props) {
     let mounted = true;
     const run = async () => {
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-      const { data } = await supabase
+
+      let sessionIds: string[] | null = null;
+      if (profileId) {
+        const { data: sessRows } = await supabase
+          .from("sessions")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("profile_id", profileId)
+          .gte("started_at", since);
+        sessionIds = (sessRows || []).map((s) => s.id);
+        if (sessionIds.length === 0) {
+          if (mounted) { setClips({ best: null, struggle: null }); setLoading(false); }
+          return;
+        }
+      }
+
+      let q = supabase
         .from("utterance_analyses")
         .select(
           "id, session_id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type"
@@ -164,6 +180,8 @@ export function ClinicianListenCard({ userId }: Props) {
         .not("transcript", "is", null)
         .order("created_at", { ascending: false })
         .limit(120);
+      if (sessionIds) q = q.in("session_id", sessionIds);
+      const { data } = await q;
 
       if (!mounted) return;
       const rows = (data || []) as any[];
@@ -212,7 +230,8 @@ export function ClinicianListenCard({ userId }: Props) {
     };
     run();
     return () => { mounted = false; };
-  }, [userId]);
+  }, [userId, profileId]);
+
 
   return (
     <Card className="p-5">
