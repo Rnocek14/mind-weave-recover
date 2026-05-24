@@ -51,7 +51,7 @@ export function ClinicianSummaryHeader({
 }: ClinicianSummaryHeaderProps) {
 
   const { score: recoveryScore, loading: rsLoading } = useRecoveryScore(userId, profileId);
-  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
+  const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId, { profileId });
 
   const [retentionRate, setRetentionRate] = useState<number | null>(null);
   useEffect(() => {
