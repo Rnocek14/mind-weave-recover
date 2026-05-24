@@ -222,16 +222,18 @@ export default function PatientHub() {
         streak={streak}
       />
 
-      <ClinicianListenCard userId={user?.id || ""} />
+      <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
 
       <ClinicianProgressCard
         userId={user?.id || ""}
+        profileId={profileId}
         accuracySlope={sessionStats.accuracySlope}
         recentTrials={sessionStats.trialCount}
         priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
       />
 
-      <ClinicianLevelsCard userId={user?.id || ""} />
+      <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+
 
       {/* === One drawer: everything deeper === */}
       <Collapsible>
