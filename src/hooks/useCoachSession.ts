@@ -243,7 +243,7 @@ export function useCoachSession({
   // Load cross-session intelligence and fallback summary
   useEffect(() => {
     if (!mayaState) {
-      loadLatestCoachSummary(userId).then(setFallbackSummary);
+      loadLatestCoachSummary(userId, profileId).then(setFallbackSummary);
     }
     // Always load patient intelligence for exercise biasing + strategy selection
     loadPatientIntelligence(userId, 10, profileId).then(async (profile) => {
