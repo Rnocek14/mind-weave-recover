@@ -60,7 +60,7 @@ function bandLabel(rate: number | null): { text: string; color: string } | null 
   return { text: `${pct}% in band`, color: "text-emerald-700 border-emerald-500/30" };
 }
 
-export function ClinicianLevelsCard({ userId }: Props) {
+export function ClinicianLevelsCard({ userId, profileId }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,12 +68,30 @@ export function ClinicianLevelsCard({ userId }: Props) {
     let mounted = true;
     const run = async () => {
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-      const { data } = await supabase
+
+      let sessionIds: string[] | null = null;
+      if (profileId) {
+        const { data: sessRows } = await supabase
+          .from("sessions")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("profile_id", profileId)
+          .gte("started_at", since);
+        sessionIds = (sessRows || []).map((s) => s.id);
+        if (sessionIds.length === 0) {
+          if (mounted) { setRows([]); setLoading(false); }
+          return;
+        }
+      }
+
+      let q = supabase
         .from("adaptation_trial_logs")
         .select("exercise_slug, difficulty, difficulty_change_direction, success_rate, cue_dependency, escalation_blocked, created_at")
         .eq("user_id", userId)
         .gte("created_at", since)
         .order("created_at", { ascending: false });
+      if (sessionIds) q = q.in("session_id", sessionIds);
+      const { data } = await q;
 
       if (!mounted) return;
       const map = new Map<string, { latest?: any; trials: number; lastDir?: string; blocked: boolean }>();
@@ -112,7 +130,8 @@ export function ClinicianLevelsCard({ userId }: Props) {
     };
     run();
     return () => { mounted = false; };
-  }, [userId]);
+  }, [userId, profileId]);
+
 
   const dirStyle = {
     up: { Icon: ArrowUp, color: "text-emerald-600 bg-emerald-500/10", verb: "Up" },
