@@ -399,19 +399,34 @@ export const detectSpeechRegressions = async (userId: string, profileId?: string
 /**
  * NEW: Detects micro-fluency issues (requires alignment data)
  */
-export const detectMicroFluencyFlags = async (userId: string): Promise<RedFlag[]> => {
+export const detectMicroFluencyFlags = async (userId: string, profileId?: string): Promise<RedFlag[]> => {
   const flags: RedFlag[] = [];
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  let sessionIds: string[] | null = null;
+  if (profileId) {
+    const { data: sessRows } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('profile_id', profileId)
+      .gte('started_at', sevenDaysAgo.toISOString());
+    sessionIds = (sessRows || []).map((s) => s.id);
+    if (sessionIds.length === 0) return flags;
+  }
+
   // Get recent utterances with alignment
-  const { data: recent } = await supabase
+  let q = supabase
     .from('utterance_analyses')
     .select('alignment_data, gop_data')
     .eq('user_id', userId)
     .eq('analysis_status', 'complete')
     .gte('created_at', sevenDaysAgo.toISOString())
     .not('alignment_data', 'is', null);
+  if (sessionIds) q = q.in('session_id', sessionIds);
+  const { data: recent } = await q;
+
 
   if (!recent || recent.length < MIN_SAMPLES.micro_fluency) {
     return flags; // Not enough aligned data
