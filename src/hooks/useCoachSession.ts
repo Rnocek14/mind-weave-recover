@@ -1750,6 +1750,7 @@ export function useCoachSession({
 
     saveCoachSessionSummary({
       userId,
+      profileId,
       sessionId,
       popupResults: popupResultsRef.current,
       turnsCompleted: orchestratorStateRef.current.turnNumber,
