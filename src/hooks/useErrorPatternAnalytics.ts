@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 interface ErrorBreakdown {
   correct: number;
@@ -62,6 +63,7 @@ export const useErrorPatternAnalytics = (
   options: UseErrorPatternOptions = {}
 ) => {
   const { weeksBack = 12, enabled = true } = options;
+  const activeProfileId = useActiveProfileId();
   const [analytics, setAnalytics] = useState<ErrorPatternAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,7 @@ export const useErrorPatternAnalytics = (
       startDate.setDate(startDate.getDate() - (weeksBack * 7));
 
       // Fetch from utterance_analyses for accurate error classification
-      const { data: utteranceData, error: utteranceError } = await supabase
+      let uaQ = supabase
         .from('utterance_analyses')
         .select(`
           error_type,
@@ -103,6 +105,8 @@ export const useErrorPatternAnalytics = (
         .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: true });
+      if (activeProfileId) uaQ = uaQ.eq('profile_id', activeProfileId);
+      const { data: utteranceData, error: utteranceError } = await uaQ;
 
       if (utteranceError) throw utteranceError;
 
@@ -315,13 +319,13 @@ export const useErrorPatternAnalytics = (
     } finally {
       setIsLoading(false);
     }
-  }, [userId, weeksBack, enabled]);
+  }, [userId, weeksBack, enabled, activeProfileId]);
 
   useEffect(() => {
     if (enabled && userId) {
       fetchAnalytics();
     }
-  }, [userId, weeksBack, enabled, fetchAnalytics]);
+  }, [userId, weeksBack, enabled, activeProfileId, fetchAnalytics]);
 
   // Set up real-time subscription to utterance_analyses
   useEffect(() => {

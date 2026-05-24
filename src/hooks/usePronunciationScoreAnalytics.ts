@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 interface PhonemeStats {
   phoneme: string;
@@ -60,6 +61,7 @@ interface GopData {
 }
 
 export function usePronunciationScoreAnalytics(userId: string | undefined, daysBack: number = 7) {
+  const activeProfileId = useActiveProfileId();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rawData, setRawData] = useState<Array<{
@@ -83,13 +85,15 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - daysBack);
 
-        const { data, error: fetchError } = await supabase
+        let q = supabase
           .from('utterance_analyses')
           .select('gop_data, target_word, created_at, audio_storage_path')
           .eq('user_id', userId)
           .gte('created_at', startDate.toISOString())
           .not('gop_data', 'is', null)
           .order('created_at', { ascending: true });
+        if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+        const { data, error: fetchError } = await q;
 
         if (fetchError) throw fetchError;
 
@@ -116,7 +120,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
     };
 
     fetchData();
-  }, [userId, daysBack]);
+  }, [userId, daysBack, activeProfileId]);
 
   const analytics = useMemo<PronunciationScoreAnalytics | null>(() => {
     if (rawData.length === 0) return null;
