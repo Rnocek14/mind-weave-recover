@@ -27,12 +27,20 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
       return;
     }
 
+    // CRITICAL: flip back into loading whenever userId changes (including
+    // undefined→defined). Without this, guards see isLoading=false + no
+    // roles for one render and redirect before the role fetch resolves.
+    setIsLoading(true);
+    let cancelled = false;
+
     const fetchRoles = async () => {
       try {
         const { data, error } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', userId);
+
+        if (cancelled) return;
 
         if (error) {
           console.error('Error fetching user roles:', error);
@@ -41,14 +49,18 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
           setRoles(data?.map(r => r.role as AppRole) || []);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to fetch permissions:', err);
         setRoles([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchRoles();
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   return {
