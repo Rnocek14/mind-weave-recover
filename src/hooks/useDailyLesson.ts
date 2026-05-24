@@ -27,6 +27,7 @@ import {
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
 import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
+import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
@@ -42,6 +43,13 @@ interface UseDailyLessonResult {
 // Cache key for session storage
 const LESSON_CACHE_KEY = 'dailyLessonCache';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+const FALLBACK_CAPABILITY_SCORES: CapabilityScores = {
+  vision: 6,
+  motor: 6,
+  attention: 6,
+  confidence: 0.35,
+};
 
 interface LessonCache {
   lesson: DailyLesson;
@@ -87,10 +95,10 @@ export const useDailyLesson = (
       motor: assessmentToUse.motor_score || 0,
       attention: assessmentToUse.attention_score || 0,
       confidence: assessmentToUse.confidence_score || 0,
-    } : capabilityScores;
+    } : capabilityScores ?? FALLBACK_CAPABILITY_SCORES;
 
-    if (!userId || !scores) {
-      console.log('[useDailyLesson] Cannot build lesson: missing userId or scores', { userId, scores });
+    if (!userId) {
+      console.log('[useDailyLesson] Cannot build lesson: missing userId', { userId });
       setLoading(false);
       return null;
     }
@@ -141,6 +149,7 @@ export const useDailyLesson = (
         .from('sessions')
         .select('id, started_at, ended_at, engagement_summary')
         .eq('user_id', userId)
+        .eq('profile_id', profileId)
         .gte('started_at', sevenDaysAgo.toISOString())
         .order('started_at', { ascending: false })
         .limit(20);
@@ -449,11 +458,12 @@ export const useDailyLesson = (
     // Don't build yet if readiness is still loading
     if (readinessLoading) return;
     
-    // Only build if we have the required data (use effective assessment which handles fallback)
-    if (userId && (capabilityScores || effectiveAssessment?.completed)) {
+    // Build even when a newly scoped profile has no capability assessment yet.
+    // A conservative fallback prevents the patient from being stuck on Today.
+    if (userId && profileId) {
       buildLessonFromState();
     }
-  }, [userId, profileId, effectiveAssessment?.id, readinessLoading]);
+  }, [userId, profileId, effectiveAssessment?.id, capabilityScores, readinessLoading]);
 
   return {
     lesson,
