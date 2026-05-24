@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export type MasteryLevel = 'mastered' | 'emerging' | 'struggling' | 'untested';
 
@@ -88,6 +89,7 @@ export function useWordMastery(
   options: { enabled?: boolean; lookbackDays?: number } = {}
 ): UseWordMasteryResult {
   const { enabled = true, lookbackDays = 90 } = options;
+  const activeProfileId = useActiveProfileId();
   const [words, setWords] = useState<WordMasteryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,25 +104,29 @@ export function useWordMastery(
       cutoff.setDate(cutoff.getDate() - lookbackDays);
 
       // Query utterance_analyses for word-level data
-      const { data, error: fetchErr } = await supabase
+      let uaQ = supabase
         .from('utterance_analyses')
         .select('target_word, is_correct, created_at')
         .eq('user_id', userId)
         .gte('created_at', cutoff.toISOString())
         .not('target_word', 'is', null)
         .order('created_at', { ascending: false });
+      if (activeProfileId) uaQ = uaQ.eq('profile_id', activeProfileId);
+      const { data, error: fetchErr } = await uaQ;
 
       if (fetchErr) throw fetchErr;
       if (!data || data.length === 0) { setWords([]); setLoading(false); return; }
 
       // Also get cue_level from exercise_events via attempt linkage
       // For now, use a simpler approach: query exercise_events directly
-      const { data: eeData } = await supabase
+      let eeQ = supabase
         .from('exercise_events')
         .select('inputs, score, cue_level, created_at, session_id!inner(user_id)')
         .eq('session_id.user_id', userId)
         .gte('created_at', cutoff.toISOString())
         .not('inputs', 'is', null);
+      if (activeProfileId) eeQ = eeQ.eq('profile_id', activeProfileId);
+      const { data: eeData } = await eeQ;
 
       // Build word-level trial map from both sources
       const wordMap: Record<string, WordTrialRow[]> = {};
@@ -180,7 +186,7 @@ export function useWordMastery(
     } finally {
       setLoading(false);
     }
-  }, [userId, enabled, lookbackDays]);
+  }, [userId, enabled, lookbackDays, activeProfileId]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
