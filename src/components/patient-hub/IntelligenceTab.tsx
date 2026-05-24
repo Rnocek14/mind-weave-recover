@@ -106,7 +106,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { score: recoveryScore, breakdown: rsBreakdown, confidence: rsConfidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
   const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId);
-  const { goals, loading: goalsLoading } = useFunctionalGoals(userId);
+  const { goals, loading: goalsLoading } = useFunctionalGoals(userId, profileId);
 
   // Retention data for readiness signal
   const [retentionRate, setRetentionRate] = useState<number | null>(null);

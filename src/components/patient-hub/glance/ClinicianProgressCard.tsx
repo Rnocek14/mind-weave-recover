@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   userId: string;
+  profileId?: string;
   /** Slope in % accuracy / week, computed in PatientHub. */
   accuracySlope: number | null;
   recentTrials: number;
@@ -20,7 +21,7 @@ interface Props {
 
 interface DayPoint { date: string; accuracy: number; count: number; }
 
-export function ClinicianProgressCard({ userId, accuracySlope, recentTrials, priorTrials }: Props) {
+export function ClinicianProgressCard({ userId, profileId, accuracySlope, recentTrials, priorTrials }: Props) {
   const [points, setPoints] = useState<DayPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,12 +29,30 @@ export function ClinicianProgressCard({ userId, accuracySlope, recentTrials, pri
     let mounted = true;
     const run = async () => {
       const since = new Date(Date.now() - 28 * 86_400_000).toISOString();
-      const { data } = await supabase
+
+      let sessionIds: string[] | null = null;
+      if (profileId) {
+        const { data: sessRows } = await supabase
+          .from("sessions")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("profile_id", profileId)
+          .gte("started_at", since);
+        sessionIds = (sessRows || []).map((s) => s.id);
+        if (sessionIds.length === 0) {
+          if (mounted) { setPoints([]); setLoading(false); }
+          return;
+        }
+      }
+
+      let q = supabase
         .from("utterance_analyses")
         .select("created_at, is_correct")
         .eq("user_id", userId)
         .gte("created_at", since)
         .not("is_correct", "is", null);
+      if (sessionIds) q = q.in("session_id", sessionIds);
+      const { data } = await q;
 
       if (!mounted) return;
       const buckets: Record<string, { c: number; t: number }> = {};
@@ -57,7 +76,8 @@ export function ClinicianProgressCard({ userId, accuracySlope, recentTrials, pri
     };
     run();
     return () => { mounted = false; };
-  }, [userId]);
+  }, [userId, profileId]);
+
 
   const { thisWeekAvg, hasData } = useMemo(() => {
     const last7 = points.slice(-7).filter((p) => p.count > 0);
