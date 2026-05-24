@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface EngagementIntervention {
   id: string;
@@ -27,6 +28,7 @@ export const useEngagementInterventions = (userId: string, daysBack: number = 30
   const [stats, setStats] = useState<InterventionStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     const fetchInterventions = async () => {
@@ -38,11 +40,13 @@ export const useEngagementInterventions = (userId: string, daysBack: number = 30
         startDate.setDate(startDate.getDate() - daysBack);
 
         // Fetch interventions for user's sessions
-        const { data: sessionData, error: sessionError } = await supabase
+        let sq = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', userId)
           .gte('started_at', startDate.toISOString());
+        if (activeProfileId) sq = sq.eq('profile_id', activeProfileId);
+        const { data: sessionData, error: sessionError } = await sq;
 
         if (sessionError) throw sessionError;
 
@@ -55,12 +59,14 @@ export const useEngagementInterventions = (userId: string, daysBack: number = 30
           return;
         }
 
-        // Fetch interventions for those sessions
-        const { data, error: interventionError } = await supabase
+        // Fetch interventions for those sessions (also profile-scoped for defense-in-depth)
+        let iq: any = supabase
           .from('engagement_interventions')
           .select('*')
           .in('session_id', sessionIds)
-          .order('created_at', { ascending: false }) as any;
+          .order('created_at', { ascending: false });
+        if (activeProfileId) iq = iq.eq('profile_id', activeProfileId);
+        const { data, error: interventionError } = await iq;
 
         if (interventionError) throw interventionError;
 
@@ -116,7 +122,7 @@ export const useEngagementInterventions = (userId: string, daysBack: number = 30
     if (userId) {
       fetchInterventions();
     }
-  }, [userId, daysBack]);
+  }, [userId, daysBack, activeProfileId]);
 
   /**
    * Get interventions for a specific session

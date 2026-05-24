@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, subWeeks, parseISO } from 'date-fns';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface DaySession {
   date: Date;
@@ -20,6 +21,7 @@ export const useSessionAdherence = (userId: string | null, weeksToShow: number =
   const [days, setDays] = useState<DaySession[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     if (!userId) {
@@ -31,12 +33,14 @@ export const useSessionAdherence = (userId: string | null, weeksToShow: number =
       const endDate = new Date();
       const startDate = subWeeks(endDate, weeksToShow);
 
-      const { data: sessions, error } = await supabase
+      let sq = supabase
         .from('sessions')
         .select('started_at')
         .eq('user_id', userId)
         .gte('started_at', startDate.toISOString())
         .order('started_at', { ascending: true });
+      if (activeProfileId) sq = sq.eq('profile_id', activeProfileId);
+      const { data: sessions, error } = await sq;
 
       if (error || !sessions) {
         setLoading(false);
@@ -89,7 +93,7 @@ export const useSessionAdherence = (userId: string | null, weeksToShow: number =
     };
 
     fetchAdherence();
-  }, [userId, weeksToShow]);
+  }, [userId, weeksToShow, activeProfileId]);
 
   return { days, weeklyStats, loading };
 };

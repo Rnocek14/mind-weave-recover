@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface CapabilityProgressionPoint {
   date: string;
@@ -12,6 +13,7 @@ export interface CapabilityProgressionPoint {
 export const useCapabilityProgression = (userId: string | undefined) => {
   const [progression, setProgression] = useState<CapabilityProgressionPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     if (!userId) return;
@@ -20,16 +22,18 @@ export const useCapabilityProgression = (userId: string | undefined) => {
       setLoading(true);
       try {
         // Type workaround until types are regenerated after migration
-        const { data, error } = await (supabase as any)
+        let q: any = (supabase as any)
           .from('capability_assessments')
           .select('assessed_at, vision_score, motor_score, attention_score, confidence_score, completed')
           .eq('user_id', userId)
           .eq('completed', true)
           .order('assessed_at', { ascending: true });
+        if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+        const { data, error } = await q;
 
         if (error) throw error;
 
-        const progressionData: CapabilityProgressionPoint[] = (data || []).map(assessment => ({
+        const progressionData: CapabilityProgressionPoint[] = (data || []).map((assessment: any) => ({
           date: new Date(assessment.assessed_at).toLocaleDateString('en-US', { 
             month: 'short', 
             day: 'numeric' 
@@ -49,7 +53,7 @@ export const useCapabilityProgression = (userId: string | undefined) => {
     };
 
     fetchProgression();
-  }, [userId]);
+  }, [userId, activeProfileId]);
 
   const getTrend = (capability: 'vision' | 'motor' | 'attention'): 'up' | 'down' | 'stable' => {
     if (progression.length < 2) return 'stable';
