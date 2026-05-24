@@ -101,6 +101,7 @@ export const useFunctionalGoals = (userId: string | null, profileId?: string | n
         .from('functional_goals')
         .insert({
           user_id: userId,
+          profile_id: profileId ?? null,
           goal_text: goalText,
           target_domain: targetDomain,
           baseline_status: baselineStatus,
@@ -111,6 +112,7 @@ export const useFunctionalGoals = (userId: string | null, profileId?: string | n
         .single();
 
       if (error) throw error;
+
 
       toast.success('Goal created successfully');
       await fetchGoals();
