@@ -16,6 +16,7 @@
 import { useMemo } from 'react';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface OutcomeComparison {
   label: string;
@@ -211,6 +212,7 @@ export const useAdaptationOutcomes = (
   daysBack = 14,
   exerciseFilter?: string,
 ): UseAdaptationOutcomesResult => {
+  const activeProfileId = useActiveProfileId();
   const [rawTrials, setRawTrials] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -222,12 +224,15 @@ export const useAdaptationOutcomes = (
       try {
         const since = new Date(Date.now() - daysBack * 86400000).toISOString();
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('exercise_events')
           .select('score, task_parameters, exercise_slug, sessions!inner(user_id)')
           .eq('sessions.user_id', userId)
           .gte('created_at', since)
           .limit(2000);
+        if (activeProfileId) query = query.eq('profile_id', activeProfileId);
+
+        const { data, error } = await query;
 
         if (error) {
           console.error('[useAdaptationOutcomes] Query error:', error);
@@ -244,7 +249,7 @@ export const useAdaptationOutcomes = (
     };
 
     fetchData();
-  }, [userId, daysBack]);
+  }, [userId, daysBack, activeProfileId]);
 
   const outcomes = useMemo<AdaptationOutcomesSummary | null>(() => {
     if (rawTrials.length === 0) return null;
