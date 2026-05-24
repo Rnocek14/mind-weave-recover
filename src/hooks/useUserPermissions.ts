@@ -18,19 +18,19 @@ interface UserPermissions {
  */
 export function useUserPermissions(userId: string | undefined): UserPermissions {
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Track which userId the current `roles` value corresponds to. If it
+  // doesn't match the userId prop, we're stale and must report loading=true
+  // synchronously — otherwise guards see isAdmin=false for one render
+  // during the userId-undefined → defined transition and redirect.
+  const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
       setRoles([]);
-      setIsLoading(false);
+      setLoadedForUserId(null);
       return;
     }
 
-    // CRITICAL: flip back into loading whenever userId changes (including
-    // undefined→defined). Without this, guards see isLoading=false + no
-    // roles for one render and redirect before the role fetch resolves.
-    setIsLoading(true);
     let cancelled = false;
 
     const fetchRoles = async () => {
@@ -53,7 +53,7 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
         console.error('Failed to fetch permissions:', err);
         setRoles([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setLoadedForUserId(userId);
       }
     };
 
@@ -63,11 +63,17 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
     };
   }, [userId]);
 
+  // Synchronous loading state: if userId is set but roles haven't been
+  // loaded for THIS userId yet, we're loading. Survives the render gap
+  // before useEffect runs.
+  const isLoading = userId ? loadedForUserId !== userId : false;
+
   return {
-    isAdmin: roles.includes('admin'),
-    isModerator: roles.includes('moderator') || roles.includes('admin'),
-    isCaregiver: roles.includes('caregiver') || roles.includes('moderator') || roles.includes('admin'),
-    roles,
+    isAdmin: !isLoading && roles.includes('admin'),
+    isModerator: !isLoading && (roles.includes('moderator') || roles.includes('admin')),
+    isCaregiver: !isLoading && (roles.includes('caregiver') || roles.includes('moderator') || roles.includes('admin')),
+    roles: isLoading ? [] : roles,
     isLoading,
   };
 }
+
