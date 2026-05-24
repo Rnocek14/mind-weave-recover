@@ -1458,6 +1458,7 @@ export type Database = {
           created_at: string | null
           id: string
           intervention: string
+          profile_id: string | null
           session_id: string
           trigger_data: Json | null
           trigger_type: string
@@ -1467,6 +1468,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           intervention: string
+          profile_id?: string | null
           session_id: string
           trigger_data?: Json | null
           trigger_type: string
@@ -1476,12 +1478,20 @@ export type Database = {
           created_at?: string | null
           id?: string
           intervention?: string
+          profile_id?: string | null
           session_id?: string
           trigger_data?: Json | null
           trigger_type?: string
           user_action?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "engagement_interventions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "engagement_interventions_session_id_fkey"
             columns: ["session_id"]
@@ -1520,6 +1530,7 @@ export type Database = {
           needs_review: boolean | null
           outputs: Json | null
           phonological_similarity: number | null
+          profile_id: string | null
           reaction_time_ms: number | null
           recording_duration_ms: number | null
           round: number
@@ -1564,6 +1575,7 @@ export type Database = {
           needs_review?: boolean | null
           outputs?: Json | null
           phonological_similarity?: number | null
+          profile_id?: string | null
           reaction_time_ms?: number | null
           recording_duration_ms?: number | null
           round: number
@@ -1608,6 +1620,7 @@ export type Database = {
           needs_review?: boolean | null
           outputs?: Json | null
           phonological_similarity?: number | null
+          profile_id?: string | null
           reaction_time_ms?: number | null
           recording_duration_ms?: number | null
           round?: number
@@ -1631,6 +1644,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "exercises"
             referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "exercise_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "exercise_events_session_id_fkey"
@@ -3601,6 +3621,7 @@ export type Database = {
           next_retry_at: string | null
           pause_count: number | null
           phonological_similarity: number | null
+          profile_id: string | null
           prompt_intent_type: string | null
           prompt_theme: string | null
           pron_request_id: string | null
@@ -3678,6 +3699,7 @@ export type Database = {
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          profile_id?: string | null
           prompt_intent_type?: string | null
           prompt_theme?: string | null
           pron_request_id?: string | null
@@ -3755,6 +3777,7 @@ export type Database = {
           next_retry_at?: string | null
           pause_count?: number | null
           phonological_similarity?: number | null
+          profile_id?: string | null
           prompt_intent_type?: string | null
           prompt_theme?: string | null
           pron_request_id?: string | null
@@ -3786,6 +3809,13 @@ export type Database = {
           validity_signals?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "utterance_analyses_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "utterance_analyses_session_id_fkey"
             columns: ["session_id"]
