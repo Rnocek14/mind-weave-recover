@@ -154,6 +154,7 @@ export async function saveSessionSummary(
   topic: string,
   metrics: SessionMetrics,
   strategies: string[],
+  profileId?: string | null,
 ): Promise<void> {
   try {
     const wins: string[] = [];
@@ -168,6 +169,7 @@ export async function saveSessionSummary(
       .from('coach_conversation_summaries')
       .insert({
         user_id: userId,
+        profile_id: profileId ?? null,
         session_id: sessionId,
         primary_domain: topic,
         top_wins: wins,
