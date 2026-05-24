@@ -595,7 +595,7 @@ export const detectPipelineFlags = async (): Promise<RedFlag[]> => {
 /**
  * Runs all red flag checks and returns all detected flags
  */
-export const detectAllRedFlags = async (userId: string): Promise<RedFlag[]> => {
+export const detectAllRedFlags = async (userId: string, profileId?: string): Promise<RedFlag[]> => {
   const [
     plateau,
     regression,
@@ -606,13 +606,14 @@ export const detectAllRedFlags = async (userId: string): Promise<RedFlag[]> => {
     microFluencyFlags,
     pipelineFlags
   ] = await Promise.all([
-    detectPlateau(userId),
-    detectRegression(userId),
-    detectLowAdherence(userId),
-    detectHighFatigueOrQuit(userId),
-    detectLowMoodStreak(userId),
-    detectSpeechRegressions(userId),
-    detectMicroFluencyFlags(userId),
+    detectPlateau(userId, profileId),
+    detectRegression(userId, profileId),
+    detectLowAdherence(userId, profileId),
+    detectHighFatigueOrQuit(userId, profileId),
+    detectLowMoodStreak(userId, profileId),
+    detectSpeechRegressions(userId, profileId),
+    detectMicroFluencyFlags(userId, profileId),
+
     detectPipelineFlags()
   ]);
 
