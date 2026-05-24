@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 interface CueEvent {
   created_at: string;
@@ -61,6 +62,7 @@ export const useCueTelemetry = (
   options: UseCueTelemetryOptions = {}
 ) => {
   const { daysBack = 7, enabled = true } = options;
+  const activeProfileId = useActiveProfileId();
   const [stats, setStats] = useState<CueTelemetryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +78,15 @@ export const useCueTelemetry = (
       cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
       // Fetch utterances with limit to protect performance
-      const { data: utterances, error: fetchError } = await supabase
+      let q = supabase
         .from('utterance_analyses')
         .select('cue_type_given, cue_trigger, cue_was_effective, time_to_success_after_cue_ms, target_word, category, created_at, audio_storage_path')
         .eq('user_id', userId)
         .gte('created_at', cutoffDate.toISOString())
         .order('created_at', { ascending: false })
         .limit(QUERY_LIMIT);
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data: utterances, error: fetchError } = await q;
 
       if (fetchError) throw fetchError;
 
@@ -199,7 +203,7 @@ export const useCueTelemetry = (
     } finally {
       setLoading(false);
     }
-  }, [userId, daysBack, enabled]);
+  }, [userId, daysBack, enabled, activeProfileId]);
 
   useEffect(() => {
     if (!enabled || !userId) {

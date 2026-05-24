@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface CaregiverSummary {
   totalSessions: number;
@@ -32,6 +33,7 @@ export interface SessionFlag {
 }
 
 export const useCaregiverAnalytics = (userId: string | null, daysBack: number = 30) => {
+  const activeProfileId = useActiveProfileId();
   const [summary, setSummary] = useState<CaregiverSummary | null>(null);
   const [flaggedSessions, setFlaggedSessions] = useState<SessionFlag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,23 +54,27 @@ export const useCaregiverAnalytics = (userId: string | null, daysBack: number = 
         startDate.setDate(startDate.getDate() - daysBack);
 
         // Step 1: Fetch recent sessions
-        const { data: sessions, error: sessionError } = await supabase
+        let sessionsQuery = supabase
           .from('sessions')
           .select('id, started_at, ended_at, duration_sec, engagement_summary, summary')
           .eq('user_id', userId)
           .gte('started_at', startDate.toISOString())
           .order('started_at', { ascending: false });
+        if (activeProfileId) sessionsQuery = sessionsQuery.eq('profile_id', activeProfileId);
+        const { data: sessions, error: sessionError } = await sessionsQuery;
 
         if (sessionError) throw sessionError;
 
         const sessionIds = sessions?.map(s => s.id) || [];
 
         // Step 2: Fetch interventions for those sessions
-        const { data: interventions, error: interventionError } = await supabase
+        let intQuery = supabase
           .from('engagement_interventions')
           .select('*')
           .in('session_id', sessionIds)
           .order('created_at', { ascending: false });
+        if (activeProfileId) intQuery = intQuery.eq('profile_id', activeProfileId);
+        const { data: interventions, error: interventionError } = await intQuery;
 
         if (interventionError) throw interventionError;
 
@@ -152,7 +158,7 @@ export const useCaregiverAnalytics = (userId: string | null, daysBack: number = 
     };
 
     fetchAnalytics();
-  }, [userId, daysBack]);
+  }, [userId, daysBack, activeProfileId]);
 
   return { summary, flaggedSessions, isLoading, error };
 };

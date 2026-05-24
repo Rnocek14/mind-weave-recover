@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface StrugglingWord {
   word: string;
@@ -40,6 +41,7 @@ export const useStrugglingWords = ({
   maxWords = 10,
   enabled = true,
 }: UseStrugglingWordsOptions): UseStrugglingWordsResult => {
+  const activeProfileId = useActiveProfileId();
   const [strugglingWords, setStrugglingWords] = useState<StrugglingWord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,13 +60,15 @@ export const useStrugglingWords = ({
       cutoffDate.setDate(cutoffDate.getDate() - lookbackDays);
 
       // Fetch recent utterance analyses
-      const { data, error: fetchError } = await supabase
+      let q = supabase
         .from('utterance_analyses')
         .select('target_word, category, is_correct, error_type, created_at')
         .eq('user_id', userId)
         .gte('created_at', cutoffDate.toISOString())
         .not('target_word', 'is', null)
         .order('created_at', { ascending: false });
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data, error: fetchError } = await q;
 
       if (fetchError) throw fetchError;
 
@@ -154,7 +158,7 @@ export const useStrugglingWords = ({
     } finally {
       setLoading(false);
     }
-  }, [userId, minAttempts, minErrorRate, lookbackDays, maxWords, enabled]);
+  }, [userId, minAttempts, minErrorRate, lookbackDays, maxWords, enabled, activeProfileId]);
 
   useEffect(() => {
     fetchStrugglingWords();
