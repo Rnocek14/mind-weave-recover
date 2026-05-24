@@ -7,7 +7,8 @@ interface UseRedFlagOptions {
 
 export const useRedFlagDetection = (
   userId: string | null | undefined,
-  options: UseRedFlagOptions = {}
+  options: UseRedFlagOptions = {},
+  profileId?: string | null | undefined
 ) => {
   const { enabled = true } = options;
   const [flags, setFlags] = useState<RedFlag[]>([]);
@@ -25,7 +26,7 @@ export const useRedFlagDetection = (
       try {
         setIsLoading(true);
         setError(null);
-        const detectedFlags = await detectAllRedFlags(userId);
+        const detectedFlags = await detectAllRedFlags(userId, profileId ?? undefined);
         setFlags(detectedFlags);
       } catch (err) {
         console.error('Error detecting red flags:', err);
@@ -36,14 +37,14 @@ export const useRedFlagDetection = (
     };
 
     fetchFlags();
-  }, [userId, enabled]);
+  }, [userId, enabled, profileId]);
 
   const refresh = async () => {
     if (!userId) return;
     
     try {
       setIsLoading(true);
-      const detectedFlags = await detectAllRedFlags(userId);
+      const detectedFlags = await detectAllRedFlags(userId, profileId ?? undefined);
       setFlags(detectedFlags);
     } catch (err) {
       console.error('Error refreshing red flags:', err);
@@ -54,3 +55,4 @@ export const useRedFlagDetection = (
 
   return { flags, isLoading, error, refresh };
 };
+
