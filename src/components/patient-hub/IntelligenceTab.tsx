@@ -100,7 +100,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   }, [sessionStats]);
 
   const { alerts } = useRecoveryAlerts(profileId, timeline, alertSessionStats);
-  const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId);
+  const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId, profileId);
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
   const { score: recoveryScore, breakdown: rsBreakdown, confidence: rsConfidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
