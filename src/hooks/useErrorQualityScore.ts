@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 const ERROR_SEVERITY: Record<string, number> = {
   no_response: 0,
@@ -53,6 +54,7 @@ export function useErrorQualityScore(
   options: { enabled?: boolean; lookbackDays?: number } = {}
 ): UseErrorQualityResult {
   const { enabled = true, lookbackDays = 90 } = options;
+  const activeProfileId = useActiveProfileId();
   const [dataPoints, setDataPoints] = useState<ErrorQualityDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,12 +66,14 @@ export function useErrorQualityScore(
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - lookbackDays);
 
-      const { data, error } = await supabase
+      let q = supabase
         .from('utterance_analyses')
         .select('is_correct, error_type, created_at')
         .eq('user_id', userId)
         .gte('created_at', cutoff.toISOString())
         .order('created_at', { ascending: true });
+      if (activeProfileId) q = q.eq('profile_id', activeProfileId);
+      const { data, error } = await q;
 
       if (error) throw error;
       if (!data || data.length === 0) { setDataPoints([]); setLoading(false); return; }
@@ -111,7 +115,7 @@ export function useErrorQualityScore(
     } finally {
       setLoading(false);
     }
-  }, [userId, enabled, lookbackDays]);
+  }, [userId, enabled, lookbackDays, activeProfileId]);
 
   useEffect(() => { fetch(); }, [fetch]);
 
