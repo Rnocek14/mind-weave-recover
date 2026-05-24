@@ -85,13 +85,23 @@ export function serializeSnapshotForStorage(snapshot: SessionIntelligenceSnapsho
 
 export async function loadPatientIntelligence(
   userId: string,
-  limit = 10
+  limit = 10,
+  profileId?: string | null
 ): Promise<PatientIntelligenceProfile | null> {
-  const { data, error } = await (supabase as any)
+  let query = (supabase as any)
     .from('coach_conversation_summaries')
-    .select('metadata, avg_score, created_at')
+    .select('metadata, avg_score, created_at, profile_id')
     .eq('user_id', userId)
-    .not('metadata', 'is', null)
+    .not('metadata', 'is', null);
+
+  // Scope to a specific patient profile when provided.
+  // Critical: accounts with multiple profiles (e.g. demo/clinician test accounts)
+  // would otherwise bleed one patient's Maya summaries into another's review.
+  if (profileId) {
+    query = query.eq('profile_id', profileId);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(limit);
 

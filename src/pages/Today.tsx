@@ -216,7 +216,7 @@ export default function Today() {
   useEffect(() => {
     if (user?.id) {
       Promise.all([
-        loadLastSessionSummary(user.id).then(summary => {
+        loadLastSessionSummary(user.id, activeProfile?.id).then(summary => {
           if (summary) {
             setLastSession({
               topic: summary.metadata?.topic || summary.primaryDomain || 'practice',

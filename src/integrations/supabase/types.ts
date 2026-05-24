@@ -971,6 +971,7 @@ export type Database = {
           maya_summary: string | null
           metadata: Json | null
           primary_domain: string | null
+          profile_id: string | null
           session_id: string | null
           top_struggles: string[] | null
           top_wins: string[] | null
@@ -985,6 +986,7 @@ export type Database = {
           maya_summary?: string | null
           metadata?: Json | null
           primary_domain?: string | null
+          profile_id?: string | null
           session_id?: string | null
           top_struggles?: string[] | null
           top_wins?: string[] | null
@@ -999,6 +1001,7 @@ export type Database = {
           maya_summary?: string | null
           metadata?: Json | null
           primary_domain?: string | null
+          profile_id?: string | null
           session_id?: string | null
           top_struggles?: string[] | null
           top_wins?: string[] | null

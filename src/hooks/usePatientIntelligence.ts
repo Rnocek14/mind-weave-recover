@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react';
 import { loadPatientIntelligence, type PatientIntelligenceProfile } from '@/lib/patientIntelligence';
 
-export function usePatientIntelligence(userId: string | undefined) {
+/**
+ * Loads cross-session Maya intelligence for a patient.
+ *
+ * IMPORTANT: pass `profileId` whenever you can. Accounts with multiple profiles
+ * (e.g. clinician demo accounts, families sharing a login) will otherwise
+ * aggregate other patients' summaries into the active patient's review.
+ */
+export function usePatientIntelligence(
+  userId: string | undefined,
+  profileId?: string | null,
+) {
   const [profile, setProfile] = useState<PatientIntelligenceProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -14,7 +24,7 @@ export function usePatientIntelligence(userId: string | undefined) {
     let cancelled = false;
     setIsLoading(true);
 
-    loadPatientIntelligence(userId, 20).then((result) => {
+    loadPatientIntelligence(userId, 20, profileId ?? null).then((result) => {
       if (!cancelled) {
         setProfile(result);
         setIsLoading(false);
@@ -24,7 +34,7 @@ export function usePatientIntelligence(userId: string | undefined) {
     });
 
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [userId, profileId]);
 
   return { profile, isLoading };
 }

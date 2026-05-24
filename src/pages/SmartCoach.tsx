@@ -332,7 +332,7 @@ export default function SmartCoach() {
         strategiesThatHelped: [],
         avgLatencyEstimate: 0,
       };
-      saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, []);
+      saveSessionSummary(user.id, sessionIdRef.current, plan.topic.id, metrics, [], activeProfile?.id);
 
       // Persist retention snapshots for cohort research
       if (wordHistory.length > 0) {

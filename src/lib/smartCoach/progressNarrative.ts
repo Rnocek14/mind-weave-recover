@@ -37,13 +37,21 @@ export interface ProgressComparison {
 
 // ─── Load Last Session ──────────────────────────────────────
 
-/** Load the most recent session summary for a user */
-export async function loadLastSessionSummary(userId: string): Promise<LastSessionSummary | null> {
+/** Load the most recent session summary for a user/profile */
+export async function loadLastSessionSummary(
+  userId: string,
+  profileId?: string | null,
+): Promise<LastSessionSummary | null> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('coach_conversation_summaries')
       .select('primary_domain, top_wins, top_struggles, maya_summary, avg_score, metadata, created_at')
-      .eq('user_id', userId)
+      .eq('user_id', userId);
+
+    // Scope to current patient profile to avoid mixing summaries across patients
+    if (profileId) query = query.eq('profile_id', profileId);
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -146,6 +154,7 @@ export async function saveSessionSummary(
   topic: string,
   metrics: SessionMetrics,
   strategies: string[],
+  profileId?: string | null,
 ): Promise<void> {
   try {
     const wins: string[] = [];
@@ -160,6 +169,7 @@ export async function saveSessionSummary(
       .from('coach_conversation_summaries')
       .insert({
         user_id: userId,
+        profile_id: profileId ?? null,
         session_id: sessionId,
         primary_domain: topic,
         top_wins: wins,

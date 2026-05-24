@@ -26,6 +26,8 @@ export interface CoachSessionSummary {
 
 export interface SessionSummaryInput {
   userId: string;
+  /** Profile (patient) the session belongs to — required to scope clinician aggregates per patient */
+  profileId?: string | null;
   sessionId: string | null;
   popupResults: NormalizedExerciseResult[];
   turnsCompleted: number;
@@ -105,6 +107,7 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
     .from('coach_conversation_summaries' as any)
     .insert({
       user_id: input.userId,
+      profile_id: input.profileId ?? null,
       session_id: input.sessionId,
       ...summary,
       // Persist session intelligence + conversation transcript in metadata column
@@ -121,11 +124,16 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
 
 // ─── Load Latest (single) ───
 
-export async function loadLatestCoachSummary(userId: string): Promise<CoachSessionSummary | null> {
-  const { data, error } = await (supabase as any)
+export async function loadLatestCoachSummary(
+  userId: string,
+  profileId?: string | null,
+): Promise<CoachSessionSummary | null> {
+  let q = (supabase as any)
     .from('coach_conversation_summaries')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', userId);
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data, error } = await q
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
@@ -136,11 +144,17 @@ export async function loadLatestCoachSummary(userId: string): Promise<CoachSessi
 
 // ─── Load Aggregated (multi-session memory) ───
 
-export async function loadAggregatedMemory(userId: string, limit = 10): Promise<CoachSessionSummary | null> {
-  const { data, error } = await (supabase as any)
+export async function loadAggregatedMemory(
+  userId: string,
+  limit = 10,
+  profileId?: string | null,
+): Promise<CoachSessionSummary | null> {
+  let q = (supabase as any)
     .from('coach_conversation_summaries')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', userId);
+  if (profileId) q = q.eq('profile_id', profileId);
+  const { data, error } = await q
     .order('created_at', { ascending: false })
     .limit(limit);
 
