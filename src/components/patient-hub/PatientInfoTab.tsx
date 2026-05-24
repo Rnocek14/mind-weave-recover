@@ -40,10 +40,11 @@ function deriveSpeechLabel(cp: Record<string, any> | null): string | null {
 
 export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfoTabProps) {
   const { activeProfile } = useProfile();
-  const { goals, loading: goalsLoading } = useFunctionalGoals(userId);
+  const { goals, loading: goalsLoading } = useFunctionalGoals(userId, profileId);
   const { todayCheckin } = useDailyReadiness(profileId);
   const { activeOverrides } = useClinicianOverrides(profileId);
-  const { flags: redFlags, isLoading: redFlagsLoading } = useRedFlagDetection(userId);
+  const { flags: redFlags, isLoading: redFlagsLoading } = useRedFlagDetection(userId, {}, profileId);
+
   const { alerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline);
 
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
