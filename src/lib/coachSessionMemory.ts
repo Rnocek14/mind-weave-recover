@@ -26,6 +26,8 @@ export interface CoachSessionSummary {
 
 export interface SessionSummaryInput {
   userId: string;
+  /** Profile (patient) the session belongs to — required to scope clinician aggregates per patient */
+  profileId?: string | null;
   sessionId: string | null;
   popupResults: NormalizedExerciseResult[];
   turnsCompleted: number;
