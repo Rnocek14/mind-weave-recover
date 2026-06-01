@@ -159,6 +159,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       });
     }
 
+    // Hard-stop any in-flight / queued Maya audio so the last exercise's
+    // instructions can't keep speaking over the summary screen.
+    flushVoiceSessionQueue('session-complete');
     setPhase('summary');
   }, []);
 
