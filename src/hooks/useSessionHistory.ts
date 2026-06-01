@@ -36,7 +36,7 @@ export interface FilterOptions {
   maxScore?: number;
 }
 
-export const useSessionHistory = (userId: string | undefined) => {
+export const useSessionHistory = (userId: string | undefined | null, profileId?: string | null) => {
   const [sessions, setSessions] = useState<SessionDetail[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<SessionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,30 +44,36 @@ export const useSessionHistory = (userId: string | undefined) => {
   const [filters, setFilters] = useState<FilterOptions>({});
 
   useEffect(() => {
-    if (userId) {
+    if (userId && profileId !== null) {
       loadSessions();
+    } else {
+      setSessions([]);
+      setFilteredSessions([]);
+      setLoading(false);
     }
-  }, [userId]);
+  }, [userId, profileId]);
 
   useEffect(() => {
     applyFilters();
   }, [sessions, filters]);
 
   const loadSessions = async () => {
-    if (!userId) return;
+    if (!userId || profileId === null) return;
 
     setLoading(true);
     setError(null);
 
     try {
       // Fetch all sessions (excluding superseded duplicates + ghost sweeps)
-      const { data: sessionsData, error: sessionsError } = await supabase
+      let sessionsQuery = supabase
         .from("sessions")
         .select("*")
         .eq("user_id", userId)
         .not("ended_at", "is", null)
         .not("ended_reason", "in", "(superseded,timeout_sweep,stale_auto_closed)")
         .order("ended_at", { ascending: false });
+      if (profileId) sessionsQuery = sessionsQuery.eq("profile_id", profileId);
+      const { data: sessionsData, error: sessionsError } = await sessionsQuery;
 
       if (sessionsError) throw sessionsError;
       if (!sessionsData || sessionsData.length === 0) {
