@@ -33,6 +33,7 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus, Keyboard, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { voiceController } from '@/lib/voiceController';
 
 const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
