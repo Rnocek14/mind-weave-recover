@@ -154,6 +154,7 @@ export const PhotoNamingGame = ({
   // NOTE: currentDifficulty and consecutiveErrors now managed by useInGameAdaptation hook
   // BUT we keep local timedOut state for UI control
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
+  const [difficultyNote, setDifficultyNote] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
