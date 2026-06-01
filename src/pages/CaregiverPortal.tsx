@@ -58,6 +58,7 @@ export default function CaregiverPortal() {
       return;
     }
     if (user && activeProfile) {
+      setLoading(true);
       calculateStreak(user.id, activeProfile.id).then(setStreak).finally(() => setLoading(false));
     } else if (user && !profileLoading) {
       setStreak(0);
