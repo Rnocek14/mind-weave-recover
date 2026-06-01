@@ -429,8 +429,16 @@ export const PhotoNamingGame = ({
         reasonKind: classifyReason(reason),
         context: { successRate: recentSuccessRate },
       });
+      // Concrete, in-game cue so the user can see WHAT changed, not just "Level up".
+      const concrete = direction === 'up'
+        ? 'Harder words coming up'
+        : 'Simpler words and a little more help';
+      setDifficultyNote(narration || concrete);
       onDifficultyChange?.(level, narration || reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
+      setTimeout(() => {
+        setDifficultyChanged(null);
+        setDifficultyNote(null);
+      }, 4000);
     },
     onTrialLogged: (snap) => {
       logAdaptationTrial({
