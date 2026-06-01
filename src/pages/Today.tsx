@@ -227,15 +227,17 @@ export default function Today() {
               wordsProduced: summary.metadata?.metrics?.wordsProduced || 0,
               date: summary.createdAt || '',
             });
+          } else {
+            setLastSession(null);
           }
         }),
-        loadAdherenceStats(user.id).then(setStats),
+        loadAdherenceStats(user.id, activeProfile?.id).then(setStats),
       ]).finally(() => setLoaded(true));
     } else if (!authLoading && isOfflineMode) {
       setStats({ totalSessions: 0, currentStreak: 0 });
       setLoaded(true);
     }
-  }, [user?.id, authLoading, isOfflineMode]);
+  }, [user?.id, activeProfile?.id, authLoading, isOfflineMode]);
 
   const handleStartSession = () => {
     console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
