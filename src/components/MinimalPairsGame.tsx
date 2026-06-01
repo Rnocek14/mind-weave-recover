@@ -229,6 +229,9 @@ export function MinimalPairsGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       stallTimerRef.current = setTimeout(() => {
         if (!showFeedback) {
+          // Actually replay the target word so "listen one more time" is truthful,
+          // then give the spoken reminder to tap an answer.
+          speak(currentTrial.targetWord);
           vg.speakReminder();
         }
       }, 10000);
