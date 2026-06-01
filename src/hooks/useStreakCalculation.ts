@@ -5,12 +5,14 @@ const toUtcDay = (timestamp: string): number => {
   return Math.floor(Date.parse(timestamp) / 86400000);
 };
 
-export const calculateStreak = async (userId: string): Promise<number> => {
-  const { data: sessions, error } = await supabase
+export const calculateStreak = async (userId: string, profileId?: string | null): Promise<number> => {
+  let query = supabase
     .from('sessions')
     .select('started_at')
     .eq('user_id', userId)
     .order('started_at', { ascending: false });
+  if (profileId) query = query.eq('profile_id', profileId);
+  const { data: sessions, error } = await query;
 
   if (error || !sessions || sessions.length === 0) {
     return 0;
@@ -40,25 +42,29 @@ export const calculateStreak = async (userId: string): Promise<number> => {
   return streak;
 };
 
-export const getTotalReps = async (userId: string): Promise<number> => {
-  const { count, error } = await supabase
+export const getTotalReps = async (userId: string, profileId?: string | null): Promise<number> => {
+  let query = supabase
     .from('exercise_events')
     .select('id, session_id!inner(user_id)', { count: 'exact', head: true })
     .eq('session_id.user_id', userId);
+  if (profileId) query = query.eq('profile_id', profileId);
+  const { count, error } = await query;
 
   if (error || count === null) return 0;
   return count;
 };
 
-export const getTodayProgress = async (userId: string, dailyGoalMinutes: number = 20): Promise<number> => {
+export const getTodayProgress = async (userId: string, dailyGoalMinutes: number = 20, profileId?: string | null): Promise<number> => {
   const today = new Date().toISOString().split('T')[0];
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('sessions')
     .select('duration_sec')
     .eq('user_id', userId)
     .gte('started_at', `${today}T00:00:00`)
     .lte('started_at', `${today}T23:59:59`);
+  if (profileId) query = query.eq('profile_id', profileId);
+  const { data, error } = await query;
 
   if (error || !data) return 0;
 
