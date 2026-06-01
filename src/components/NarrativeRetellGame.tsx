@@ -954,7 +954,7 @@ export function NarrativeRetellGame({
             {/* Stall support prompts */}
             {stallPromptIndex >= 0 && (
               <div className="bg-accent/30 border border-accent/50 rounded-lg px-3 py-2 text-sm text-foreground animate-in fade-in duration-500">
-                💬 {STALL_PROMPTS[stallPromptIndex]}
+                {STALL_PROMPTS[stallPromptIndex]}
               </div>
             )}
 
