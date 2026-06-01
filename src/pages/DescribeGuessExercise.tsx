@@ -96,6 +96,8 @@ export default function DescribeGuessExercise() {
     : (restoredLessonContext?.fromLesson ?? false);
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const returnTo = location.state?.returnTo || '/lesson';
+  // Honor the lesson plan's trial limit so a short plan doesn't run the full 8.
+  const trialCount = Number(location.state?.trialLimit) || 8;
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -281,7 +283,7 @@ export default function DescribeGuessExercise() {
           <DescribeGuessGame
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
-            trialCount={8}
+            trialCount={trialCount}
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}

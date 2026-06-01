@@ -525,13 +525,18 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
         lesson.supportBlocks?.length &&
         shouldPivotToSupport(recentScoresRef.current, currentPriority)
       ) {
-        console.log('[LessonFlow] 🔄 SUPPORT PIVOT: Injecting support exercise due to low performance');
-        const supportBlock = lesson.supportBlocks[0];
-        const newBlocks = [...runtimeBlocks];
-        newBlocks.splice(nextIndex, 0, supportBlock);
-        setRuntimeBlocks(newBlocks);
-        setActiveSupportPivot(true);
-        setLastPivotWasSupport(true);
+        // Pick a support exercise that isn't already in the session to avoid
+        // running the user through the same exercise twice in one round.
+        const existingIds = new Set(runtimeBlocks.map(b => b.exerciseId));
+        const supportBlock = lesson.supportBlocks.find(b => !existingIds.has(b.exerciseId));
+        if (supportBlock) {
+          console.log('[LessonFlow] 🔄 SUPPORT PIVOT: Injecting support exercise due to low performance');
+          const newBlocks = [...runtimeBlocks];
+          newBlocks.splice(nextIndex, 0, supportBlock);
+          setRuntimeBlocks(newBlocks);
+          setActiveSupportPivot(true);
+          setLastPivotWasSupport(true);
+        }
       }
       
       setCurrentBlockIndex(nextIndex);
