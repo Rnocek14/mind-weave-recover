@@ -2506,15 +2506,15 @@ export const PhotoNamingGame = ({
           difficultyChanged === 'up' ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           {difficultyChanged === 'up' ? (
-            <>
-              <TrendingUp className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Level up</span>
-            </>
+            <TrendingUp className="w-4 h-4 shrink-0" />
           ) : (
-            <>
-              <TrendingDown className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Adjusting to help</span>
-            </>
+            <TrendingDown className="w-4 h-4 shrink-0" />
+          )}
+          <span className="font-medium">
+            {difficultyChanged === 'up' ? 'Level up' : 'Adjusting to help'}
+          </span>
+          {difficultyNote && (
+            <span className="text-muted-foreground hidden sm:inline">— {difficultyNote}</span>
           )}
           <span className="ml-auto">
             <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-level-change" />
