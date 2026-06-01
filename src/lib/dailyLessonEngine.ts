@@ -1153,8 +1153,8 @@ export function generateDailyLesson(
     // First try: any exercise not already in session and doesn't share component with last
     consolidationExercise = scoredExercises.find(e => 
       e && !usedIds.has(e.id) && !sharesBaseComponent(e, lastAddedExercise)
-    ) || scoredExercises.find(e => e && !usedIds.has(e.id)) // fallback: just not duplicate
-    || warmup; // Last resort: repeat warmup
+    ) || scoredExercises.find(e => e && !usedIds.has(e.id)) // fallback: just not a duplicate
+    || null; // Never repeat an exercise already in the session; skip consolidation instead
     
     if (consolidationExercise) {
       blocks.push({
