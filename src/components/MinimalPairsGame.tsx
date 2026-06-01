@@ -289,9 +289,13 @@ export function MinimalPairsGame({
   useEffect(() => {
     if (!showFeedback || isComplete) return;
     if (state.isCorrect) {
-      if (echoStatus !== 'heard' && echoStatus !== 'skipped') return;
-      const t = setTimeout(() => { nextTrial(); }, 1200);
-      return () => clearTimeout(t);
+      if (echoStatus === 'heard' || echoStatus === 'skipped') {
+        const t = setTimeout(() => { nextTrial(); }, 1200);
+        return () => clearTimeout(t);
+      }
+      // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
+      const fallback = setTimeout(() => { nextTrial(); }, 9000);
+      return () => clearTimeout(fallback);
     }
     const t = setTimeout(() => { nextTrial(); }, 2400);
     return () => clearTimeout(t);
