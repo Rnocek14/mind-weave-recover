@@ -283,7 +283,7 @@ export default function DescribeGuessExercise() {
           <DescribeGuessGame
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
-            trialCount={8}
+            trialCount={trialCount}
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
