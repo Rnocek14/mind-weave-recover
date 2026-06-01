@@ -78,7 +78,7 @@ export function decidePause(signals: PerformanceSignals): PauseDecision {
     }
     return {
       type: 'encouragement',
-      duration: 1.2,
+      duration: 3,
       reason: 'momentum_preservation',
     };
   }
