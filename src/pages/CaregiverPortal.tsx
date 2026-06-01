@@ -41,7 +41,7 @@ import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
 export default function CaregiverPortal() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { activeProfile } = useProfile();
+  const { activeProfile, loading: profileLoading } = useProfile();
   const { setUiMode } = useUiMode();
   const { flags: redFlags } = useRedFlagDetection(user?.id || null, {}, activeProfile?.id ?? null);
 
@@ -59,8 +59,11 @@ export default function CaregiverPortal() {
     }
     if (user && activeProfile) {
       calculateStreak(user.id, activeProfile.id).then(setStreak).finally(() => setLoading(false));
+    } else if (user && !profileLoading) {
+      setStreak(0);
+      setLoading(false);
     }
-  }, [user, activeProfile?.id, authLoading, navigate]);
+  }, [user, activeProfile?.id, profileLoading, authLoading, navigate]);
 
   if (authLoading || loading) {
     return (
