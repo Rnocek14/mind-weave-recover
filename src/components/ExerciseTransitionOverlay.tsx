@@ -76,31 +76,36 @@ export const ExerciseTransitionOverlay = ({
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
-  // Coaching-mode-aware duration: brief enough to feel like flow, long enough to read.
-  // Tightened from 3.5s/1.5s → 2.2s/1.2s to remove ~8s of waiting per session.
+  // Coaching-mode-aware duration: long enough to read, never a sub-second flash.
+  // Floor at 3s for plain encouragement, 3.5s when guidance copy is shown.
   const hasGuidanceContent = !!(microGuidance || coachingBridge);
-  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 2.2 : 1.2;
+  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 3;
   const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
 
   // Sync timeLeft to computed duration on mount
   useEffect(() => { setTimeLeft(duration); }, []);
 
   useEffect(() => {
     if (isPaused) return;
-    
+
+    // Drive the countdown from real elapsed time so it always shows the full
+    // duration (no off-by-one early exit) regardless of tick alignment.
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          trackTransitionAction(
-            sessionId ?? null, completedCount, totalCount,
-            type, 'auto_advance', Date.now() - startTimeRef.current
-          );
-          onContinue();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      const remaining = durationRef.current - elapsed;
+      if (remaining <= 0) {
+        trackTransitionAction(
+          sessionId ?? null, completedCount, totalCount,
+          type, 'auto_advance', Date.now() - startTimeRef.current
+        );
+        setTimeLeft(0);
+        onContinue();
+        return;
+      }
+      setTimeLeft(remaining);
+    }, 250);
 
     return () => clearInterval(timer);
   }, [onContinue, isPaused, sessionId, completedCount, totalCount, type]);
