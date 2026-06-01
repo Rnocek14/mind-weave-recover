@@ -31,11 +31,13 @@ interface AdherenceStats {
   currentStreak: number;
 }
 
-async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
+async function loadAdherenceStats(userId: string, profileId?: string | null): Promise<AdherenceStats> {
   // Count completed *lesson flows* (multi-block sessions). Standalone single-exercise
   // practice and timeout-swept sessions don't count. Source-of-truth = `sessions` table
   // (the legacy `coach_conversation_summaries` is no longer written by the new flow).
-  const { data, error } = await supabase
+  // MUST be scoped to the active profile — otherwise one auth user with multiple
+  // patient profiles sees a combined count (cross-profile leak).
+  let query = supabase
     .from('sessions')
     .select('ended_at, plan')
     .eq('user_id', userId)
@@ -43,6 +45,8 @@ async function loadAdherenceStats(userId: string): Promise<AdherenceStats> {
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1000);
+  if (profileId) query = query.eq('profile_id', profileId);
+  const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
     return { totalSessions: 0, currentStreak: 0 };
