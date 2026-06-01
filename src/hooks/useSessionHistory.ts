@@ -65,7 +65,7 @@ export const useSessionHistory = (userId: string | undefined | null, profileId?:
 
     try {
       // Fetch all sessions (excluding superseded duplicates + ghost sweeps)
-      let sessionsQuery = supabase
+      let sessionsQuery: any = supabase
         .from("sessions")
         .select("*")
         .eq("user_id", userId)
