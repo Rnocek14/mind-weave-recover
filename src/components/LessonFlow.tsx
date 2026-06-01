@@ -21,6 +21,7 @@ import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import { resetFeedbackHistory } from "@/lib/sessionFeedbackCopy";
 import { endSession as endSessionTracking } from "@/lib/sessionTracking";
+import { flushVoiceSessionQueue } from "@/lib/voiceController";
 import {
   trackFirstExerciseLaunch,
   trackExerciseComplete,
@@ -158,6 +159,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       });
     }
 
+    // Hard-stop any in-flight / queued Maya audio so the last exercise's
+    // instructions can't keep speaking over the summary screen.
+    flushVoiceSessionQueue('session-complete');
     setPhase('summary');
   }, []);
 

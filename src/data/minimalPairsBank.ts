@@ -91,17 +91,9 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
   },
   
   // Vowel contrasts
-  {
-    id: 'bed_red',
-    word1: 'bed',
-    word2: 'red',
-    contrastType: 'initial',
-    phoneme1: '/b/',
-    phoneme2: '/r/',
-    contrastDescription: 'Voiced bilabial stop vs. alveolar approximant',
-    difficulty: 1,
-    category: 'stop_approximant',
-  },
+  // NOTE: 'bed_red' removed — red.jpg depicts a red apple, so the pair rendered
+  // a bed photo next to an apple. "red" stays out until a true red swatch exists.
+
   
   // Voicing contrasts (initial)
   {
@@ -155,18 +147,10 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     category: 'zh_sound',
   },
   
-  // /j/ contrasts (y sound)
-  {
-    id: 'yawn_yell',
-    word1: 'yawn',
-    word2: 'yell',
-    contrastType: 'initial',
-    phoneme1: '/j/',
-    phoneme2: '/j/',
-    contrastDescription: 'Both begin with palatal approximant (/j/) - different vowels',
-    difficulty: 1,
-    category: 'y_sound',
-  },
+  // NOTE: 'yawn_yell' removed — both photos show a wide-open mouth and are
+  // visually indistinguishable. Also both words start with /j/ (not a true
+  // single-phoneme contrast). Drop until distinct artwork exists.
+
   
   // New minimal pairs using expanded photo bank
   {
@@ -813,14 +797,9 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     contrastDescription: 'High front lax vs. mid central vowel',
     difficulty: 3, category: 'vowel_contrast',
   },
-  {
-    id: 'web_red',
-    word1: 'web', word2: 'red',
-    contrastType: 'initial',
-    phoneme1: '/w/', phoneme2: '/r/',
-    contrastDescription: 'Labio-velar glide vs. liquid — highly confusable',
-    difficulty: 3, category: 'placement',
-  },
+  // NOTE: 'web_red' removed — red.jpg depicts a red apple, making "red" an
+  // ambiguous stimulus (users name it "apple"). Drop until a true red swatch exists.
+
   {
     id: 'bell_bed',
     word1: 'bell', word2: 'bed',
@@ -981,12 +960,73 @@ export function getMinimalPairTrialsForLevel(
     return out;
   }
 
-  // No focus phonemes: preserve intensity-sliced order; tiny tie-break shuffle.
-  if (filtered.length >= count) return filtered.slice(0, count);
+  // No focus phonemes: apply cross-session recency so each round draws a
+  // fresh batch instead of repeating the same trials in the same order.
+  return selectWithRecency(filtered, count);
+}
+
+/* --------------------------------------------------------------------------
+ * Cross-session recency for minimal-pairs batches.
+ * Persists the IDs used in the last few rounds (localStorage) and prefers
+ * unseen pairs, so the user stops "going through the same batch."
+ * ------------------------------------------------------------------------ */
+const MP_RECENCY_KEY = 'minimalPairs_recent_v1';
+
+function readRecentIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(MP_RECENCY_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentIds(ids: string[], lookback: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    const trimmed = ids.slice(-lookback);
+    window.localStorage.setItem(MP_RECENCY_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore quota / disabled storage */
+  }
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function selectWithRecency(
+  pool: MinimalPairTrial[],
+  count: number
+): MinimalPairTrial[] {
+  if (pool.length === 0) return [];
+
+  const recent = new Set(readRecentIds());
+  const fresh = shuffle(pool.filter((t) => !recent.has(t.pair.id)));
+  const seen = shuffle(pool.filter((t) => recent.has(t.pair.id)));
+  // Fresh pairs first, then least-recent fallback if the pool is small.
+  const ordered = [...fresh, ...seen];
+
   const out: MinimalPairTrial[] = [];
-  while (out.length < count) out.push(filtered[out.length % filtered.length]);
+  let i = 0;
+  while (out.length < count) {
+    out.push(ordered[i % ordered.length]);
+    i++;
+  }
+
+  // Remember this batch (keep ~2 rounds of history so we rotate, not starve).
+  const usedIds = out.map((t) => t.pair.id);
+  writeRecentIds([...readRecentIds(), ...usedIds], Math.max(count * 2, 12));
+
   return out;
 }
+
 
 /**
  * Get pairs for a specific contrast category
