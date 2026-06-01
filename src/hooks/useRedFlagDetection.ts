@@ -16,7 +16,7 @@ export const useRedFlagDetection = (
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !userId) {
+    if (!enabled || !userId || profileId === null) {
       setIsLoading(false);
       setFlags([]);
       return;
