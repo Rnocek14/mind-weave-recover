@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ProgressCardProps {
   userId: string;
+  profileId?: string | null;
 }
 
 interface DayPoint {
@@ -18,20 +19,27 @@ interface DayPoint {
   count: number;
 }
 
-export function ProgressCard({ userId }: ProgressCardProps) {
+export function ProgressCard({ userId, profileId }: ProgressCardProps) {
   const [points, setPoints] = useState<DayPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const run = async () => {
+      if (profileId === null) {
+        setPoints([]);
+        setLoading(false);
+        return;
+      }
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-      const { data } = await supabase
+      let query: any = supabase
         .from("utterance_analyses")
         .select("created_at, is_correct")
         .eq("user_id", userId)
         .gte("created_at", since)
         .not("is_correct", "is", null);
+      if (profileId) query = query.eq("profile_id", profileId);
+      const { data } = await query;
 
       if (!mounted) return;
       const buckets: Record<string, { c: number; t: number }> = {};
@@ -64,7 +72,7 @@ export function ProgressCard({ userId }: ProgressCardProps) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [userId, profileId]);
 
   const { thisWeekAvg, lastWeekAvg, hasData, thisWeekTrials, lastWeekTrials } = useMemo(() => {
     const last7 = points.slice(-7).filter((p) => p.count > 0);

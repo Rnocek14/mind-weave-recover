@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 
 interface SessionHistoryListProps {
   userId: string;
+  profileId?: string | null;
 }
 
 function sessionRating(accuracy: number): { label: string; className: string; icon: typeof CheckCircle } {
@@ -18,8 +19,8 @@ function sessionRating(accuracy: number): { label: string; className: string; ic
  * Compact session history for patient view.
  * Shows last 5 sessions with date, duration, and plain-language rating.
  */
-export function SessionHistoryList({ userId }: SessionHistoryListProps) {
-  const { sessions, loading } = useSessionHistory(userId);
+export function SessionHistoryList({ userId, profileId }: SessionHistoryListProps) {
+  const { sessions, loading } = useSessionHistory(userId, profileId);
 
   const recent = useMemo(() => sessions.slice(0, 5), [sessions]);
 

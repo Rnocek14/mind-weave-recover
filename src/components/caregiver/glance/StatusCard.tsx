@@ -12,13 +12,14 @@ import { useMemo } from "react";
 interface StatusCardProps {
   userId: string;
   patientName: string;
+  profileId?: string | null;
 }
 
 type Status = "good" | "watch" | "concern";
 
-export function StatusCard({ userId, patientName }: StatusCardProps) {
-  const { sessions } = useSessionHistory(userId);
-  const { flags, isLoading } = useRedFlagDetection(userId);
+export function StatusCard({ userId, patientName, profileId }: StatusCardProps) {
+  const { sessions } = useSessionHistory(userId, profileId);
+  const { flags, isLoading } = useRedFlagDetection(userId, {}, profileId);
 
   const { status, headline, sub } = useMemo(() => {
     const weekAgo = Date.now() - 7 * 86_400_000;

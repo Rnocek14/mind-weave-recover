@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ListenCardProps {
   userId: string;
+  profileId?: string | null;
 }
 
 interface Clip {
@@ -124,7 +125,7 @@ function ClipRow({
   );
 }
 
-export function ListenCard({ userId }: ListenCardProps) {
+export function ListenCard({ userId, profileId }: ListenCardProps) {
   const [clips, setClips] = useState<{ best: Clip | null; struggle: Clip | null }>({
     best: null,
     struggle: null,
@@ -134,9 +135,14 @@ export function ListenCard({ userId }: ListenCardProps) {
   useEffect(() => {
     let mounted = true;
     const fetchClips = async () => {
+      if (profileId === null) {
+        setClips({ best: null, struggle: null });
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-      const { data } = await supabase
+      let query: any = supabase
         .from("utterance_analyses")
         .select(
           "id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type"
@@ -147,6 +153,8 @@ export function ListenCard({ userId }: ListenCardProps) {
         .not("transcript", "is", null)
         .order("created_at", { ascending: false })
         .limit(120);
+      if (profileId) query = query.eq("profile_id", profileId);
+      const { data } = await query;
 
       if (!mounted) return;
 
@@ -207,7 +215,7 @@ export function ListenCard({ userId }: ListenCardProps) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [userId, profileId]);
 
   return (
     <Card className="p-5">

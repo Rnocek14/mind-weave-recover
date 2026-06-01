@@ -11,10 +11,11 @@ import { useMemo } from "react";
 interface PracticeCardProps {
   userId: string;
   streak: number;
+  profileId?: string | null;
 }
 
-export function PracticeCard({ userId, streak }: PracticeCardProps) {
-  const { sessions } = useSessionHistory(userId);
+export function PracticeCard({ userId, streak, profileId }: PracticeCardProps) {
+  const { sessions } = useSessionHistory(userId, profileId);
 
   const dots = useMemo(() => {
     const today = new Date();
