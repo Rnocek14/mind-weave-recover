@@ -142,6 +142,9 @@ export function DescribeGuessGame({
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
     micAutoRetryTimerRef.current = setTimeout(() => {
+      // Never reopen the mic while Maya is still speaking (or in her tail-lock),
+      // otherwise her voice gets captured as the user's answer.
+      if (voiceController.isMicLocked) { scheduleMicRecoveryCheck(); return; }
       if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) startListeningRef.current();
     }, 650);
     micRecoveryTimerRef.current = setTimeout(() => {
