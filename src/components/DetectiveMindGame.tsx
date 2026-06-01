@@ -28,6 +28,7 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isAudioUnlocked } from '@/lib/audioUnlock';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -404,7 +405,8 @@ export function DetectiveMindGame({
   const processStableSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     // Guard: ignore anything captured while Maya is still speaking, or
-    // within 800ms of her finishing — that's TTS bleed, not the user.
+    // within the post-speech tail-lock — that's TTS bleed, not the user.
+    if (voiceController.isMicLocked) return;
     if (isDirectSpeakingRef.current) return;
     if (Date.now() - ttsEndedAtRef.current < 800) return;
 
@@ -572,15 +574,26 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
+  // Explain-why visibility: progressively lighter, never fully gone
+  const explainPromptLevel = useMemo(() => {
+    if (explainSkipCount < 3) return 'full';      // "Explain why (bonus points)" button
+    if (explainSkipCount < 6) return 'collapsed';  // Small text link
+    return 'minimal';                               // Tiny optional link
+  }, [explainSkipCount]);
+
   // Auto-advance from feedback → next case to keep session rhythm.
-  // Correct: 3.5s (most users want to move on). Incorrect: 6s (read the "why").
+  // Incorrect: 6s (read the "why"). Correct: 3.5s normally, but when the
+  // "Explain why (bonus)" button is prominently offered, give 9s so the user
+  // actually has a chance to tap it before we move on.
   // Tapping "Next Case" or "Explain why" before timer fires cancels it.
   useEffect(() => {
     if (phase !== 'feedback' || !lastResult) return;
-    const delay = lastResult.correct ? 3500 : 6000;
+    const delay = lastResult.correct
+      ? (explainPromptLevel === 'full' ? 9000 : 3500)
+      : 6000;
     const t = setTimeout(() => { handleSkipExplain(); }, delay);
     return () => clearTimeout(t);
-  }, [phase, lastResult, handleSkipExplain]);
+  }, [phase, lastResult, handleSkipExplain, explainPromptLevel]);
 
   // Handle explanation completion
   const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
@@ -599,12 +612,7 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
-  // Explain-why visibility: progressively lighter, never fully gone
-  const explainPromptLevel = useMemo(() => {
-    if (explainSkipCount < 3) return 'full';      // "Explain why (bonus points)" button
-    if (explainSkipCount < 6) return 'collapsed';  // Small text link
-    return 'minimal';                               // Tiny optional link
-  }, [explainSkipCount]);
+
 
   if (!currentCase || isComplete) {
     return <DetectiveSummary results={results} totalPoints={totalPoints} rank={rank} reasoningPoints={reasoningPoints} />;

@@ -29,6 +29,7 @@ import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoac
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
@@ -751,6 +752,11 @@ export const PhotoNamingGame = ({
   
   // Helper: Debounced scoring logic (called after transcript stabilizes)
   const processStableTranscript = useCallback((transcript: string) => {
+    // Discard anything captured while Maya is speaking (or tail-lock).
+    if (voiceController.isMicLocked) {
+      console.log('🎤 processStableTranscript blocked - mic locked (Maya speaking)');
+      return;
+    }
     // Double-check guards at execution time
     if (showFeedbackRef.current || selectedAnswerRef.current || timedOutRef.current) {
       console.log('🎤 processStableTranscript blocked - feedback/answer/timeout active');
@@ -863,6 +869,12 @@ export const PhotoNamingGame = ({
   
   // Handle speech recognition results - DEBOUNCED SCORING
   const handleSpeechResult = useCallback((transcript: string) => {
+    // Guard: discard audio captured while Maya is speaking (or tail-lock) —
+    // that's TTS bleed (e.g. her instructions), not the patient naming.
+    if (voiceController.isMicLocked) {
+      console.log('🎤 handleSpeechResult blocked - mic locked (Maya speaking)');
+      return;
+    }
     // Guard: ignore if already processing/scored
     if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) {
       console.log('🎤 handleSpeechResult blocked - state guard');

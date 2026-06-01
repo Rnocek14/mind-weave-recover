@@ -35,6 +35,7 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
@@ -503,6 +504,12 @@ export function DescribeGuessGame({
 
   // Update display — use fullTranscript (accumulated) for display and evaluation
   useEffect(() => {
+    // Discard anything captured while Maya is still speaking (or in the 400ms
+    // tail-lock) — that's TTS bleed, not the user's description.
+    if (voiceController.isMicLocked) {
+      rawTranscriptRef.current = '';
+      return;
+    }
     if (fullTranscript) {
       setDisplayTranscript(fullTranscript);
       rawTranscriptRef.current = fullTranscript;

@@ -326,6 +326,8 @@ export function NarrativeRetellGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'retelling' || hasProcessedRef.current || !transcript.trim()) return;
+    // Discard audio captured while Maya is speaking (or tail-lock) — TTS bleed.
+    if (voiceController.isMicLocked) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, transcript);
   }, [phase]);

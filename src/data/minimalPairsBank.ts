@@ -705,14 +705,8 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     contrastDescription: 'Bilabial nasal vs. voiceless glottal fricative',
     difficulty: 1, category: 'nasal_fricative',
   },
-  {
-    id: 'bee_tie',
-    word1: 'bee', word2: 'tie',
-    contrastType: 'initial',
-    phoneme1: '/b/', phoneme2: '/t/',
-    contrastDescription: 'Voiced bilabial stop vs. voiceless alveolar stop',
-    difficulty: 1, category: 'place_voicing',
-  },
+  // NOTE: 'bee_tie' removed — bee /biː/ vs tie /taɪ/ differ in BOTH the
+  // onset consonant AND the vowel, so it is not a true minimal pair.
 
   // ============================================================
   // Phase 4 top-up (May 2026) — photo-backed pairs to bring all

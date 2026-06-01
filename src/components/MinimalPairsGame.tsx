@@ -229,6 +229,9 @@ export function MinimalPairsGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       stallTimerRef.current = setTimeout(() => {
         if (!showFeedback) {
+          // Actually replay the target word so "listen one more time" is truthful,
+          // then give the spoken reminder to tap an answer.
+          speak(currentTrial.targetWord);
           vg.speakReminder();
         }
       }, 10000);
@@ -279,15 +282,24 @@ export function MinimalPairsGame({
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
 
-  // Auto-advance after selection — always progresses regardless of echo state.
-  // Echo (mic exposure) runs in parallel but never blocks the rhythm.
-  // Correct: 1.6s (brief celebration). Incorrect: 2.4s (time to read contrast info).
+  // Auto-advance after selection.
+  // Incorrect: 2.4s (time to read contrast info), no say-it step.
+  // Correct: wait for the optional "Say it" echo to resolve (heard/skipped)
+  // so the production step is never cut off; once resolved, brief 1.2s beat.
   useEffect(() => {
     if (!showFeedback || isComplete) return;
-    const delay = state.isCorrect ? 1600 : 2400;
-    const t = setTimeout(() => { nextTrial(); }, delay);
+    if (state.isCorrect) {
+      if (echoStatus === 'heard' || echoStatus === 'skipped') {
+        const t = setTimeout(() => { nextTrial(); }, 1200);
+        return () => clearTimeout(t);
+      }
+      // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
+      const fallback = setTimeout(() => { nextTrial(); }, 9000);
+      return () => clearTimeout(fallback);
+    }
+    const t = setTimeout(() => { nextTrial(); }, 2400);
     return () => clearTimeout(t);
-  }, [showFeedback, isComplete, state.isCorrect, trialIndex, nextTrial]);
+  }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
   useEffect(() => {
