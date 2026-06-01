@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface LevelsCardProps {
   userId: string;
+  profileId?: string | null;
 }
 
 interface LevelRow {
@@ -47,7 +48,7 @@ function pretty(slug: string): string {
   return PRETTY[slug] || slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function LevelsCard({ userId }: LevelsCardProps) {
+export function LevelsCard({ userId, profileId }: LevelsCardProps) {
   const [rows, setRows] = useState<LevelRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,12 +56,14 @@ export function LevelsCard({ userId }: LevelsCardProps) {
     let mounted = true;
     const run = async () => {
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-      const { data } = await supabase
+      let query = supabase
         .from("adaptation_trial_logs")
         .select("exercise_slug, difficulty, difficulty_change_direction, created_at")
         .eq("user_id", userId)
         .gte("created_at", since)
         .order("created_at", { ascending: false });
+      if (profileId) query = query.eq("profile_id", profileId);
+      const { data } = await query;
 
       if (!mounted) return;
       const byExercise = new Map<string, { latest?: any; trials: number; lastDir?: string }>();
@@ -97,7 +100,7 @@ export function LevelsCard({ userId }: LevelsCardProps) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [userId, profileId]);
 
   // Caregivers think in "are they improving?", not "level number".
   // Lead with the human verb, keep the level as quiet supporting detail.
