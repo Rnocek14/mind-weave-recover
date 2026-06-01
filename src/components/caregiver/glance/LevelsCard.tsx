@@ -55,8 +55,13 @@ export function LevelsCard({ userId, profileId }: LevelsCardProps) {
   useEffect(() => {
     let mounted = true;
     const run = async () => {
+      if (profileId === null) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-      let query = supabase
+      let query: any = supabase
         .from("adaptation_trial_logs")
         .select("exercise_slug, difficulty, difficulty_change_direction, created_at")
         .eq("user_id", userId)

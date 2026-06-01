@@ -26,8 +26,13 @@ export function ProgressCard({ userId, profileId }: ProgressCardProps) {
   useEffect(() => {
     let mounted = true;
     const run = async () => {
+      if (profileId === null) {
+        setPoints([]);
+        setLoading(false);
+        return;
+      }
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
-      let query = supabase
+      let query: any = supabase
         .from("utterance_analyses")
         .select("created_at, is_correct")
         .eq("user_id", userId)

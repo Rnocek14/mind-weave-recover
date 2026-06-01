@@ -135,9 +135,14 @@ export function ListenCard({ userId, profileId }: ListenCardProps) {
   useEffect(() => {
     let mounted = true;
     const fetchClips = async () => {
+      if (profileId === null) {
+        setClips({ best: null, struggle: null });
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
-      let query = supabase
+      let query: any = supabase
         .from("utterance_analyses")
         .select(
           "id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type"
