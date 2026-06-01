@@ -575,14 +575,18 @@ export function DetectiveMindGame({
   }, [nextCase, lastResult, onTrialComplete]);
 
   // Auto-advance from feedback → next case to keep session rhythm.
-  // Correct: 3.5s (most users want to move on). Incorrect: 6s (read the "why").
+  // Incorrect: 6s (read the "why"). Correct: 3.5s normally, but when the
+  // "Explain why (bonus)" button is prominently offered, give 9s so the user
+  // actually has a chance to tap it before we move on.
   // Tapping "Next Case" or "Explain why" before timer fires cancels it.
   useEffect(() => {
     if (phase !== 'feedback' || !lastResult) return;
-    const delay = lastResult.correct ? 3500 : 6000;
+    const delay = lastResult.correct
+      ? (explainPromptLevel === 'full' ? 9000 : 3500)
+      : 6000;
     const t = setTimeout(() => { handleSkipExplain(); }, delay);
     return () => clearTimeout(t);
-  }, [phase, lastResult, handleSkipExplain]);
+  }, [phase, lastResult, handleSkipExplain, explainPromptLevel]);
 
   // Handle explanation completion
   const handleExplainComplete = useCallback((explainResult: ExplainWhyResult) => {
