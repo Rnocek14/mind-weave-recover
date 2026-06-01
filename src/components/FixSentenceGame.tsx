@@ -615,10 +615,15 @@ export function FixSentenceGame({
       });
     }
 
-    startListening();
-    setIsListening(true);
-    if (isRecordingSupported) startRecording();
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt]);
+    // Sync-Wait: wait until Maya's feedback finishes before re-opening the mic,
+    // so the retry doesn't immediately capture her voice as the answer.
+    void voiceController.awaitMicSafe().then(() => {
+      if (showTextInput) return;
+      startListening();
+      setIsListening(true);
+      if (isRecordingSupported) startRecording();
+    });
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, showTextInput]);
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
