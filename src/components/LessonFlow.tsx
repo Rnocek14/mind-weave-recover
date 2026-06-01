@@ -21,6 +21,7 @@ import { isAdaptationEnabled } from "@/lib/adaptiveEngineConfig";
 import { decidePause, type PauseDecision } from "@/lib/adaptivePauseLogic";
 import { resetFeedbackHistory } from "@/lib/sessionFeedbackCopy";
 import { endSession as endSessionTracking } from "@/lib/sessionTracking";
+import { flushVoiceSessionQueue } from "@/lib/voiceController";
 import {
   trackFirstExerciseLaunch,
   trackExerciseComplete,
