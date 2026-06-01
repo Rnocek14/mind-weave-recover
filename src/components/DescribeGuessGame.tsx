@@ -504,6 +504,12 @@ export function DescribeGuessGame({
 
   // Update display — use fullTranscript (accumulated) for display and evaluation
   useEffect(() => {
+    // Discard anything captured while Maya is still speaking (or in the 400ms
+    // tail-lock) — that's TTS bleed, not the user's description.
+    if (voiceController.isMicLocked) {
+      rawTranscriptRef.current = '';
+      return;
+    }
     if (fullTranscript) {
       setDisplayTranscript(fullTranscript);
       rawTranscriptRef.current = fullTranscript;

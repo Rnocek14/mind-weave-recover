@@ -405,7 +405,8 @@ export function DetectiveMindGame({
   const processStableSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     // Guard: ignore anything captured while Maya is still speaking, or
-    // within 800ms of her finishing — that's TTS bleed, not the user.
+    // within the post-speech tail-lock — that's TTS bleed, not the user.
+    if (voiceController.isMicLocked) return;
     if (isDirectSpeakingRef.current) return;
     if (Date.now() - ttsEndedAtRef.current < 800) return;
 
