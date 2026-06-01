@@ -394,9 +394,14 @@ export function NarrativeRetellGame({
       return;
     }
 
-    startRecording();
-    startListening();
-  }, [phase, useTyping, vg.isVoiceLed, isVoiceSequenceCurrent, scheduleAutoListen, startRecording, startListening]);
+    // Non-voice-led: wait for any audio tail (playback / Maya) to clear before
+    // opening the mic so we never capture system audio as the user's retell.
+    void awaitMicSafe(5000).then(() => {
+      if (phase !== 'retelling' || hasProcessedRef.current || useTyping) return;
+      startRecording();
+      startListening();
+    });
+  }, [phase, useTyping, vg.isVoiceLed, isVoiceSequenceCurrent, scheduleAutoListen, startRecording, startListening, awaitMicSafe]);
 
   const visibleTranscript = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript || collectedTranscript);
   const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
