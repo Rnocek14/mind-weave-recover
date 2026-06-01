@@ -960,12 +960,73 @@ export function getMinimalPairTrialsForLevel(
     return out;
   }
 
-  // No focus phonemes: preserve intensity-sliced order; tiny tie-break shuffle.
-  if (filtered.length >= count) return filtered.slice(0, count);
+  // No focus phonemes: apply cross-session recency so each round draws a
+  // fresh batch instead of repeating the same trials in the same order.
+  return selectWithRecency(filtered, count);
+}
+
+/* --------------------------------------------------------------------------
+ * Cross-session recency for minimal-pairs batches.
+ * Persists the IDs used in the last few rounds (localStorage) and prefers
+ * unseen pairs, so the user stops "going through the same batch."
+ * ------------------------------------------------------------------------ */
+const MP_RECENCY_KEY = 'minimalPairs_recent_v1';
+
+function readRecentIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(MP_RECENCY_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentIds(ids: string[], lookback: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    const trimmed = ids.slice(-lookback);
+    window.localStorage.setItem(MP_RECENCY_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore quota / disabled storage */
+  }
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function selectWithRecency(
+  pool: MinimalPairTrial[],
+  count: number
+): MinimalPairTrial[] {
+  if (pool.length === 0) return [];
+
+  const recent = new Set(readRecentIds());
+  const fresh = shuffle(pool.filter((t) => !recent.has(t.pair.id)));
+  const seen = shuffle(pool.filter((t) => recent.has(t.pair.id)));
+  // Fresh pairs first, then least-recent fallback if the pool is small.
+  const ordered = [...fresh, ...seen];
+
   const out: MinimalPairTrial[] = [];
-  while (out.length < count) out.push(filtered[out.length % filtered.length]);
+  let i = 0;
+  while (out.length < count) {
+    out.push(ordered[i % ordered.length]);
+    i++;
+  }
+
+  // Remember this batch (keep ~2 rounds of history so we rotate, not starve).
+  const usedIds = out.map((t) => t.pair.id);
+  writeRecentIds([...readRecentIds(), ...usedIds], Math.max(count * 2, 12));
+
   return out;
 }
+
 
 /**
  * Get pairs for a specific contrast category
