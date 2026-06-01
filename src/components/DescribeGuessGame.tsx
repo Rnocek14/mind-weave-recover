@@ -35,6 +35,7 @@ import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';

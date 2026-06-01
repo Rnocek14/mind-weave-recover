@@ -28,6 +28,7 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isAudioUnlocked } from '@/lib/audioUnlock';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;

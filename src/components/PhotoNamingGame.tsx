@@ -29,6 +29,7 @@ import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoac
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { broadcastGateDecision } from '@/components/dev/VoiceGateHud';
 import { useVoiceState } from '@/hooks/useVoiceState';
+import { voiceController } from '@/lib/voiceController';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
