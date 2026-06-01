@@ -43,7 +43,7 @@ export default function CaregiverPortal() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const { setUiMode } = useUiMode();
-  const { flags: redFlags } = useRedFlagDetection(user?.id || null);
+  const { flags: redFlags } = useRedFlagDetection(user?.id || null, {}, activeProfile?.id ?? null);
 
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -57,10 +57,10 @@ export default function CaregiverPortal() {
       navigate("/auth");
       return;
     }
-    if (user) {
-      calculateStreak(user.id).then(setStreak).finally(() => setLoading(false));
+    if (user && activeProfile) {
+      calculateStreak(user.id, activeProfile.id).then(setStreak).finally(() => setLoading(false));
     }
-  }, [user, authLoading, navigate]);
+  }, [user, activeProfile?.id, authLoading, navigate]);
 
   if (authLoading || loading) {
     return (
@@ -88,11 +88,11 @@ export default function CaregiverPortal() {
         </header>
 
         {/* The five Glance Cards */}
-        <StatusCard userId={user!.id} patientName={patientName} />
-        <PracticeCard userId={user!.id} streak={streak} />
-        <ListenCard userId={user!.id} />
-        <ProgressCard userId={user!.id} />
-        <LevelsCard userId={user!.id} />
+        <StatusCard userId={user!.id} patientName={patientName} profileId={activeProfile?.id ?? null} />
+        <PracticeCard userId={user!.id} streak={streak} profileId={activeProfile?.id ?? null} />
+        <ListenCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        <ProgressCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        <LevelsCard userId={user!.id} profileId={activeProfile?.id ?? null} />
 
         {/* Concerns — only when present, never above the cards */}
         {visibleConcerns.length > 0 && (
@@ -130,7 +130,7 @@ export default function CaregiverPortal() {
               <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
                 Session History
               </div>
-              <SessionHistoryList userId={user!.id} />
+              <SessionHistoryList userId={user!.id} profileId={activeProfile?.id ?? null} />
             </Card>
 
             <Card className="p-4 space-y-3">
