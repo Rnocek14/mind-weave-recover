@@ -96,6 +96,8 @@ export default function DescribeGuessExercise() {
     : (restoredLessonContext?.fromLesson ?? false);
   const providedSessionId = location.state?.sessionId ?? restoredLessonContext?.sessionId ?? null;
   const returnTo = location.state?.returnTo || '/lesson';
+  // Honor the lesson plan's trial limit so a short plan doesn't run the full 8.
+  const trialCount = Number(location.state?.trialLimit ?? restoredLessonContext?.trialLimit) || 8;
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
