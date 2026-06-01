@@ -72,6 +72,7 @@ async function loadProgressStats(userId: string, profileId?: string | null): Pro
 export default function Progress() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
   const [stats, setStats] = useState<ProgressStats | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -81,12 +82,12 @@ export default function Progress() {
 
   useEffect(() => {
     if (user?.id) {
-      loadProgressStats(user.id).then(s => {
+      loadProgressStats(user.id, activeProfile?.id).then(s => {
         setStats(s);
         setLoaded(true);
       }).catch(() => setLoaded(true));
     }
-  }, [user?.id]);
+  }, [user?.id, activeProfile?.id]);
 
   if (authLoading || !loaded) {
     return (
