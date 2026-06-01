@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { SessionAdherenceTracker } from '@/components/SessionAdherenceTracker';
 import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/hooks/useProfile';
 
 interface ProgressStats {
   totalSessions: number;
@@ -19,9 +20,10 @@ interface ProgressStats {
   totalWords: number;
 }
 
-async function loadProgressStats(userId: string): Promise<ProgressStats> {
+async function loadProgressStats(userId: string, profileId?: string | null): Promise<ProgressStats> {
   // Source-of-truth = `sessions` table; count completed lesson flows (multi-block).
-  const { data, error } = await supabase
+  // MUST be scoped to the active profile to avoid cross-profile leakage.
+  let query = supabase
     .from('sessions')
     .select('ended_at, plan, summary')
     .eq('user_id', userId)
@@ -29,6 +31,8 @@ async function loadProgressStats(userId: string): Promise<ProgressStats> {
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1000);
+  if (profileId) query = query.eq('profile_id', profileId);
+  const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
     return { totalSessions: 0, currentStreak: 0, totalWords: 0 };
@@ -68,6 +72,7 @@ async function loadProgressStats(userId: string): Promise<ProgressStats> {
 export default function Progress() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
   const [stats, setStats] = useState<ProgressStats | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -77,12 +82,12 @@ export default function Progress() {
 
   useEffect(() => {
     if (user?.id) {
-      loadProgressStats(user.id).then(s => {
+      loadProgressStats(user.id, activeProfile?.id).then(s => {
         setStats(s);
         setLoaded(true);
       }).catch(() => setLoaded(true));
     }
-  }, [user?.id]);
+  }, [user?.id, activeProfile?.id]);
 
   if (authLoading || !loaded) {
     return (
