@@ -440,12 +440,23 @@ export function FixSentenceGame({
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
-    const validation = validateSpokenResponse({ transcript, expectedMode: 'sentence_fix', promptText: trial?.sentence });
-    trackValidation('fix_sentence', validation);
-    logValidationDetail('fix_sentence', transcript, validation);
-    if (!validation.valid || candidate.length < 2) {
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'fix_sentence' }).then(line => setValidationHint(line));
+    // Full pre-scoring gate: echo filter (rejects Maya's own voice) + validation.
+    const gate = gateResponse({
+      transcript,
+      expectedMode: 'sentence_fix',
+      promptText: trial?.sentence,
+      extraSpokenContext: trial?.sentence ? [trial.sentence] : [],
+      expectedAnswers: trial?.acceptedFixes ?? [],
+    });
+    if (gate.validation) {
+      trackValidation('fix_sentence', gate.validation);
+      logValidationDetail('fix_sentence', transcript, gate.validation);
+    }
+    if (!gate.ok || candidate.length < 2) {
+      const isEcho = gate.classification === 'echo_of_maya' || gate.classification === 'echo_short_mimic';
+      // Echo of Maya's own voice: silently drop — do NOT coach (avoids a feedback loop).
+      if (!isEcho && gate.rejectionReason) {
+        speakMayaCoaching(gate.rejectionReason as any, speak, { exerciseKey: 'fix_sentence' }).then(line => setValidationHint(line));
       }
       return;
     }
