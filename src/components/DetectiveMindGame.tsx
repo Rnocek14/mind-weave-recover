@@ -574,6 +574,13 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
+  // Explain-why visibility: progressively lighter, never fully gone
+  const explainPromptLevel = useMemo(() => {
+    if (explainSkipCount < 3) return 'full';      // "Explain why (bonus points)" button
+    if (explainSkipCount < 6) return 'collapsed';  // Small text link
+    return 'minimal';                               // Tiny optional link
+  }, [explainSkipCount]);
+
   // Auto-advance from feedback → next case to keep session rhythm.
   // Incorrect: 6s (read the "why"). Correct: 3.5s normally, but when the
   // "Explain why (bonus)" button is prominently offered, give 9s so the user
