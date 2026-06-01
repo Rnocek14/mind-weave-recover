@@ -612,12 +612,7 @@ export function DetectiveMindGame({
     nextCase();
   }, [nextCase, lastResult, onTrialComplete]);
 
-  // Explain-why visibility: progressively lighter, never fully gone
-  const explainPromptLevel = useMemo(() => {
-    if (explainSkipCount < 3) return 'full';      // "Explain why (bonus points)" button
-    if (explainSkipCount < 6) return 'collapsed';  // Small text link
-    return 'minimal';                               // Tiny optional link
-  }, [explainSkipCount]);
+
 
   if (!currentCase || isComplete) {
     return <DetectiveSummary results={results} totalPoints={totalPoints} rank={rank} reasoningPoints={reasoningPoints} />;
