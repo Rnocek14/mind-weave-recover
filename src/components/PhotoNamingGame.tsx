@@ -154,6 +154,7 @@ export const PhotoNamingGame = ({
   // NOTE: currentDifficulty and consecutiveErrors now managed by useInGameAdaptation hook
   // BUT we keep local timedOut state for UI control
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
+  const [difficultyNote, setDifficultyNote] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [cueLevel, setCueLevel] = useState(0); // 0=none, 1=semantic, 2=phonemic, 3=full
   const [showCue, setShowCue] = useState(false);
@@ -428,8 +429,16 @@ export const PhotoNamingGame = ({
         reasonKind: classifyReason(reason),
         context: { successRate: recentSuccessRate },
       });
+      // Concrete, in-game cue so the user can see WHAT changed, not just "Level up".
+      const concrete = direction === 'up'
+        ? 'Harder words coming up'
+        : 'Simpler words and a little more help';
+      setDifficultyNote(narration || concrete);
       onDifficultyChange?.(level, narration || reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
+      setTimeout(() => {
+        setDifficultyChanged(null);
+        setDifficultyNote(null);
+      }, 4000);
     },
     onTrialLogged: (snap) => {
       logAdaptationTrial({
@@ -2497,15 +2506,15 @@ export const PhotoNamingGame = ({
           difficultyChanged === 'up' ? 'bg-success/10 border-success/30 text-success' : 'bg-warning/10 border-warning/30 text-warning'
         }`}>
           {difficultyChanged === 'up' ? (
-            <>
-              <TrendingUp className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Level up</span>
-            </>
+            <TrendingUp className="w-4 h-4 shrink-0" />
           ) : (
-            <>
-              <TrendingDown className="w-4 h-4 shrink-0" />
-              <span className="font-medium">Adjusting to help</span>
-            </>
+            <TrendingDown className="w-4 h-4 shrink-0" />
+          )}
+          <span className="font-medium">
+            {difficultyChanged === 'up' ? 'Level up' : 'Adjusting to help'}
+          </span>
+          {difficultyNote && (
+            <span className="text-muted-foreground hidden sm:inline">— {difficultyNote}</span>
           )}
           <span className="ml-auto">
             <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-level-change" />
