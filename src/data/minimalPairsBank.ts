@@ -91,17 +91,9 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
   },
   
   // Vowel contrasts
-  {
-    id: 'bed_red',
-    word1: 'bed',
-    word2: 'red',
-    contrastType: 'initial',
-    phoneme1: '/b/',
-    phoneme2: '/r/',
-    contrastDescription: 'Voiced bilabial stop vs. alveolar approximant',
-    difficulty: 1,
-    category: 'stop_approximant',
-  },
+  // NOTE: 'bed_red' removed — red.jpg depicts a red apple, so the pair rendered
+  // a bed photo next to an apple. "red" stays out until a true red swatch exists.
+
   
   // Voicing contrasts (initial)
   {
@@ -155,18 +147,10 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     category: 'zh_sound',
   },
   
-  // /j/ contrasts (y sound)
-  {
-    id: 'yawn_yell',
-    word1: 'yawn',
-    word2: 'yell',
-    contrastType: 'initial',
-    phoneme1: '/j/',
-    phoneme2: '/j/',
-    contrastDescription: 'Both begin with palatal approximant (/j/) - different vowels',
-    difficulty: 1,
-    category: 'y_sound',
-  },
+  // NOTE: 'yawn_yell' removed — both photos show a wide-open mouth and are
+  // visually indistinguishable. Also both words start with /j/ (not a true
+  // single-phoneme contrast). Drop until distinct artwork exists.
+
   
   // New minimal pairs using expanded photo bank
   {
@@ -813,14 +797,9 @@ export const MINIMAL_PAIRS: MinimalPair[] = [
     contrastDescription: 'High front lax vs. mid central vowel',
     difficulty: 3, category: 'vowel_contrast',
   },
-  {
-    id: 'web_red',
-    word1: 'web', word2: 'red',
-    contrastType: 'initial',
-    phoneme1: '/w/', phoneme2: '/r/',
-    contrastDescription: 'Labio-velar glide vs. liquid — highly confusable',
-    difficulty: 3, category: 'placement',
-  },
+  // NOTE: 'web_red' removed — red.jpg depicts a red apple, making "red" an
+  // ambiguous stimulus (users name it "apple"). Drop until a true red swatch exists.
+
   {
     id: 'bell_bed',
     word1: 'bell', word2: 'bed',
