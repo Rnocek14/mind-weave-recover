@@ -855,7 +855,7 @@ export function DetectiveMindGame({
                   : <XCircle className="h-5 w-5 text-red-600" />
                 }
                 <span className="font-bold">
-                  {lastResult.correct ? '🎯 Case Solved!' : '❌ Not quite...'}
+                  {lastResult.correct ? 'Case solved' : 'Not quite'}
                 </span>
                 {lastResult.correct && (
                   <span className="ml-auto text-sm text-green-700 dark:text-green-400 font-medium">
