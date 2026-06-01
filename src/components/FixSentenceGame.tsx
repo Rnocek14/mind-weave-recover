@@ -33,6 +33,7 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus, Keyboard, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { voiceController } from '@/lib/voiceController';
 
 const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before scoring
 const AUTO_ADVANCE_DELAY_MS = 2500;
@@ -428,6 +429,13 @@ export function FixSentenceGame({
     // Prevents stale transcripts from a previous trial leaking in (the
     // "same answer reused for every sentence" bug).
     if (!speechIsListening) return;
+    // Sync-Wait: ignore any transcript captured while Maya is speaking (or within
+    // the post-speech tail lock). Otherwise Maya's own feedback bleeds into the
+    // mic and gets scored as the user's (wrong) answer.
+    if (voiceController.isMicLocked) {
+      rawTranscriptRef.current = '';
+      return;
+    }
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
@@ -607,10 +615,15 @@ export function FixSentenceGame({
       });
     }
 
-    startListening();
-    setIsListening(true);
-    if (isRecordingSupported) startRecording();
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt]);
+    // Sync-Wait: wait until Maya's feedback finishes before re-opening the mic,
+    // so the retry doesn't immediately capture her voice as the answer.
+    void voiceController.awaitMicSafe().then(() => {
+      if (showTextInput) return;
+      startListening();
+      setIsListening(true);
+      if (isRecordingSupported) startRecording();
+    });
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, showTextInput]);
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
