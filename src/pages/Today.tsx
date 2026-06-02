@@ -36,16 +36,21 @@ async function loadAdherenceStats(userId: string, profileId?: string | null): Pr
   // practice and timeout-swept sessions don't count. Source-of-truth = `sessions` table
   // (the legacy `coach_conversation_summaries` is no longer written by the new flow).
   // MUST be scoped to the active profile — otherwise one auth user with multiple
-  // patient profiles sees a combined count (cross-profile leak).
-  let query = supabase
+  // patient profiles sees a combined count (cross-profile leak). If we don't yet
+  // know which profile is active, return zeros rather than aggregating across all
+  // profiles (that produced the wrong "Start session #66" / cross-profile bug).
+  if (!profileId) {
+    return { totalSessions: 0, currentStreak: 0 };
+  }
+  const query = supabase
     .from('sessions')
     .select('ended_at, plan')
     .eq('user_id', userId)
+    .eq('profile_id', profileId)
     .eq('ended_reason', 'completed')
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1000);
-  if (profileId) query = query.eq('profile_id', profileId);
   const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
@@ -98,7 +103,7 @@ export default function Today() {
   const minimal = isMinimal(variant);
   const isNonFluent = variant === 'simplified-non-fluent';
   const isNeglect = variant === 'simplified-neglect';
-  const { activeProfile } = useProfile();
+  const { activeProfile, loading: profileLoading } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -218,7 +223,10 @@ export default function Today() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (user?.id) {
+    // Wait until the profile context has resolved. Running before it does would
+    // call the loaders with an undefined profileId, which previously aggregated
+    // every profile's sessions together (the "Start session #66" cross-profile bug).
+    if (user?.id && !profileLoading) {
       Promise.all([
         loadLastSessionSummary(user.id, activeProfile?.id).then(summary => {
           if (summary) {
@@ -237,7 +245,8 @@ export default function Today() {
       setStats({ totalSessions: 0, currentStreak: 0 });
       setLoaded(true);
     }
-  }, [user?.id, activeProfile?.id, authLoading, isOfflineMode]);
+  }, [user?.id, activeProfile?.id, profileLoading, authLoading, isOfflineMode]);
+
 
   const handleStartSession = () => {
     console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
