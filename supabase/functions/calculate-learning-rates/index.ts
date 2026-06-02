@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
 async function calculateLearningRate(
   supabase: any,
   userId: string,
+  profileId: string | null,
   domain: string,
   windowDays: number
 ): Promise<LearningRateResult | null> {
@@ -138,13 +139,19 @@ async function calculateLearningRate(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - windowDays);
 
-  // Get sessions in time window
-  const { data: sessions } = await supabase
+  // Get sessions in time window, scoped to this profile to prevent cross-profile blending
+  let sessionsQuery = supabase
     .from('sessions')
     .select('id')
     .eq('user_id', userId)
     .gte('started_at', startDate.toISOString())
     .lte('started_at', endDate.toISOString());
+
+  sessionsQuery = profileId
+    ? sessionsQuery.eq('profile_id', profileId)
+    : sessionsQuery.is('profile_id', null);
+
+  const { data: sessions } = await sessionsQuery;
 
   if (!sessions || sessions.length === 0) {
     return null;
