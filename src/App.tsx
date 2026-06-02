@@ -97,6 +97,7 @@ import { AppLayout } from "@/components/layout";
 import { VoiceBleedGuard } from "@/components/VoiceBleedGuard";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
+import { RequireAuth } from "@/components/RequireAuth";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { SessionPauseControl } from "@/components/SessionPauseControl";
 import { useAuth } from "@/hooks/useAuth";
@@ -144,30 +145,35 @@ const App = () => (
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
                   
-                  {/* Exercise routes - no header for immersive experience */}
-                  <Route path="/exercise/:exerciseId" element={<Exercise />} />
-                  <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
-                  <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
-                  <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
-                  <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
-                  <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
-                  <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
-                  <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
-                  <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
-                  <Route path="/exercise/two-clues" element={<TwoCluesExercise />} />
-                  <Route path="/exercise/thought-continuation" element={<ThoughtContinuationExercise />} />
-                  <Route path="/exercise/fix-sentence" element={<FixSentenceExercise />} />
-                  <Route path="/exercise/describe-guess" element={<DescribeGuessExercise />} />
-                  <Route path="/exercise/detective-mind" element={<DetectiveMindExercise />} />
-                  <Route path="/exercise/meaning-match" element={<MeaningMatchExercise />} />
-                  <Route path="/exercise/narrative-retell" element={<NarrativeRetellExercise />} />
-                  <Route path="/exercise/abstract-compare" element={<AbstractCompareExercise />} />
-                  <Route path="/exercise/multi-step-plan" element={<MultiStepPlanExercise />} />
-                  <Route path="/exercise/dual-load-naming" element={<DualLoadNamingExercise />} />
-                  <Route path="/exercise/category-fluency" element={<CategoryFluencyExercise />} />
-                  <Route path="/exercise/synonym-generator" element={<SynonymGeneratorExercise />} />
-                  <Route path="/exercise/voice-practice" element={<VoicePractice />} />
+                  {/* Exercise routes - no header for immersive experience.
+                      Guarded by RequireAuth so deep links can't reach a
+                      profile-less dead state (CLEAN-2). */}
+                  <Route element={<RequireAuth />}>
+                    <Route path="/exercise/:exerciseId" element={<Exercise />} />
+                    <Route path="/exercise/semantic-features" element={<SemanticFeatureExercise />} />
+                    <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
+                    <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
+                    <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
+                    <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
+                    <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
+                    <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
+                    <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
+                    <Route path="/exercise/two-clues" element={<TwoCluesExercise />} />
+                    <Route path="/exercise/thought-continuation" element={<ThoughtContinuationExercise />} />
+                    <Route path="/exercise/fix-sentence" element={<FixSentenceExercise />} />
+                    <Route path="/exercise/describe-guess" element={<DescribeGuessExercise />} />
+                    <Route path="/exercise/detective-mind" element={<DetectiveMindExercise />} />
+                    <Route path="/exercise/meaning-match" element={<MeaningMatchExercise />} />
+                    <Route path="/exercise/narrative-retell" element={<NarrativeRetellExercise />} />
+                    <Route path="/exercise/abstract-compare" element={<AbstractCompareExercise />} />
+                    <Route path="/exercise/multi-step-plan" element={<MultiStepPlanExercise />} />
+                    <Route path="/exercise/dual-load-naming" element={<DualLoadNamingExercise />} />
+                    <Route path="/exercise/category-fluency" element={<CategoryFluencyExercise />} />
+                    <Route path="/exercise/synonym-generator" element={<SynonymGeneratorExercise />} />
+                    <Route path="/exercise/voice-practice" element={<VoicePractice />} />
+                  </Route>
                   <Route path="/lesson" element={<Lesson />} />
+
 
                   {/* "How this game supports recovery" — public, deep-linkable */}
                   <Route path="/games" element={<ClinicalLibrary />} />
