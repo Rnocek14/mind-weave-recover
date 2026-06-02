@@ -5,10 +5,16 @@
  * and why it matters. Designed for aphasia users: clear, adult, non-patronizing.
  * 
  * Part of the system foundation (Phase 1).
+ *
+ * Phase 2C-ii: profile-aware chrome. Larger type in simplified variants;
+ * suppressed entirely in `minimal` to cut reading load. Layout-only — no
+ * change to what exercise runs or how it scores.
  */
 
 import React from 'react';
 import { getExercisePurpose } from '@/lib/exercisePurposeMap';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 
 interface ExercisePurposeBannerProps {
   exerciseSlug: string;
@@ -24,11 +30,21 @@ export function ExercisePurposeBanner({
   adaptiveMessage,
   className = '',
 }: ExercisePurposeBannerProps) {
+  const { profile } = useUiProfile();
+  const { variant } = profile;
   const text = adaptiveMessage || getExercisePurpose(exerciseSlug);
   if (!text) return null;
 
+  // Minimal variant suppresses the "why" framing to reduce reading load.
+  if (isMinimal(variant)) return null;
+
   return (
-    <div className={`bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-sm text-foreground/80 ${className}`}>
+    <div
+      className={variantClass(variant, {
+        base: `bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-sm text-foreground/80 ${className}`,
+        simplified: 'px-5 py-4 text-base leading-relaxed',
+      })}
+    >
       <span className="font-medium text-primary/90">Why this matters:</span>{' '}
       {text}
     </div>
