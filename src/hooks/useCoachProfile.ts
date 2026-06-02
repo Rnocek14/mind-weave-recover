@@ -298,7 +298,7 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
     };
     
     loadExtraData();
-  }, [userId]);
+  }, [userId, profileId]);
   
   // Derived values
   const severityProfile = useMemo(() => extractSeverity(clinicalProfile), [clinicalProfile]);
