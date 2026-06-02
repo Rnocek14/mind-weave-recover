@@ -1,9 +1,9 @@
 # Stroke-Profile Accessibility Audit (Phase 2A)
 
-**Status:** PASS A COMPLETE. PASS B BLOCKED on anon-session E2E fixture.
-**Owner:** AI agent (Pass A + Pass B attempt), human review pending.
-**Date:** 2026-05-22
-**Decision gate:** Phase 2B (user picks adaptive vs single-toggle vs global replace).
+**Status:** PASS A COMPLETE. PASS B UNBLOCKED — anon-session E2E fixture landed (`tests/e2e/fixtures/anonSession.ts` + `tests/e2e/pass-b-patient-journey.spec.ts`). Manual archetype walkthrough can now proceed (CI runs it with `playwright install --with-deps`).
+**Owner:** AI agent (Pass A + Pass B fixture), human review pending.
+**Date:** 2026-05-22 (Pass B fixture: 2026-06-02)
+**Decision gate:** Phase 2B — DECIDED: option A (adaptive `uiProfile`, 4 stroke variants). Scaffold already wired (`useUiProfile`, `variantClass`, `user_ui_profile` table, `/dev/ui-variants`).
 
 This document is **analysis only**. It does not touch app code, clinical engines, scoring, content banks, or any progression hook.
 
@@ -14,7 +14,7 @@ This document is **analysis only**. It does not touch app code, clinical engines
 Phase 2A is intentionally lightweight so we can scope Phase 2B (the build phase) without guesswork. Two passes:
 
 - **Pass A — Code-level scan (complete).** Static scan of `src/pages/**` and `src/components/**` for the high-leverage failure modes listed in §3: icon-only buttons missing `aria-label`, `onClick` on non-interactive elements, `<img>` without `alt`, `autoFocus` outside dialogs, `h-screen` vs `h-dvh`, tap-target sizing, words-per-screen on patient routes, decisions-per-screen on patient routes.
-- **Pass B — Manual archetype walkthrough (BLOCKED).** Attempted 2026-05-22 at 390×844 viewport. `/today` requires an authenticated session; the "Start Without Account" offline path shows the toast but does not redirect past `/auth`. The anon-session E2E fixture (already queued in Phase 1 follow-ups) is a hard prerequisite for Pass B. Once that fixture lands, drive `/today`, `/exercise/fix-sentence`, `/exercise/multi-step-plan`, `/exercise/category-fluency`, `/exercise/minimal-pairs`, and Session Summary as each archetype; fill P4 in §3.2 and revisit §5.
+- **Pass B — Manual archetype walkthrough (UNBLOCKED 2026-06-02).** The blocker (no way past `/auth` for automation) is resolved by `tests/e2e/fixtures/anonSession.ts`, which mints a real Supabase anonymous session and injects it into localStorage so the SPA boots signed in. `tests/e2e/pass-b-patient-journey.spec.ts` drives `/today` + the archetype exercise routes (`photo-naming`, `fix-sentence`, `category-fluency`, `minimal-pairs`) asserting each reaches a non-dead state (render or ExerciseLoadGate escape hatch). Remaining manual work: walk the routes as each archetype at 390×844, fill P4 in §3.2 (measured tap targets, words/screen, decisions/screen, token contrast) and revisit §5. Anon sign-in verified to mint a valid session; browser run requires `playwright install --with-deps` (wired in CI).
 
 axe-core via Playwright is deferred to Phase 2B — the runner is not wired yet and the static scan already surfaces enough to inform the routing decision.
 
