@@ -195,6 +195,7 @@ async function calculateLearningRate(
 
   return {
     userId,
+    profileId,
     domain,
     timeWindowDays: windowDays,
     accuracySlope,
@@ -213,6 +214,7 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
     .from('learning_rates')
     .upsert({
       user_id: result.userId,
+      profile_id: result.profileId,
       domain: result.domain,
       time_window_days: result.timeWindowDays,
       accuracy_slope: result.accuracySlope,
