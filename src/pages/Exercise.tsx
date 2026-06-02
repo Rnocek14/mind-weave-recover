@@ -172,11 +172,14 @@ const Exercise = () => {
       if (!user?.id) return;
       
       try {
-        const { data, error } = await supabase
+        let profileQuery = supabase
           .from('profiles')
           .select('clinical_profile')
-          .eq('user_id', user.id)
-          .single();
+          .eq('user_id', user.id);
+        profileQuery = activeProfileId
+          ? profileQuery.eq('id', activeProfileId)
+          : profileQuery.eq('is_active', true);
+        const { data, error } = await profileQuery.maybeSingle();
 
         if (error) throw error;
         if (data?.clinical_profile) {
