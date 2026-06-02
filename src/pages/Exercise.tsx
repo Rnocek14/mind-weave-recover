@@ -34,6 +34,7 @@ import { useDoseCap } from "@/hooks/useDoseCap";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
+import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -41,6 +42,7 @@ const Exercise = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const activeProfileId = useActiveProfileId();
   
   // Check if we're coming from lesson flow (with sessionStorage fallback)
   const restored = useRestoredLessonContext(exerciseId || 'unknown');
