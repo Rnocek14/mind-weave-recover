@@ -6,13 +6,18 @@ const TRIAL_THRESHOLD = 20; // Regenerate after 20+ new trials
  * Check if summary regeneration is needed and trigger it in the background
  * Called after session completion
  */
-export const checkAndTriggerSummaryRegeneration = async (userId: string) => {
+export const checkAndTriggerSummaryRegeneration = async (
+  userId: string,
+  profileId?: string | null,
+) => {
   try {
-    // Get all session IDs for this user
-    const { data: sessions } = await supabase
+    // Get all session IDs for this user (scoped to active profile)
+    let sessionsQuery = supabase
       .from('sessions')
       .select('id')
       .eq('user_id', userId);
+    if (profileId) sessionsQuery = sessionsQuery.eq('profile_id', profileId);
+    const { data: sessions } = await sessionsQuery;
 
     if (!sessions || sessions.length === 0) return;
 
@@ -26,11 +31,13 @@ export const checkAndTriggerSummaryRegeneration = async (userId: string) => {
 
     if (!currentTrialCount) return;
 
-    // Get latest summaries for both types
-    const { data: summaries } = await supabase
+    // Get latest summaries for both types (scoped to active profile)
+    let summariesQuery = supabase
       .from('recovery_summaries')
       .select('summary_type, trial_count_at_generation, generated_at')
-      .eq('user_id', userId)
+      .eq('user_id', userId);
+    if (profileId) summariesQuery = summariesQuery.eq('profile_id', profileId);
+    const { data: summaries } = await summariesQuery
       .order('generated_at', { ascending: false })
       .limit(2);
 
