@@ -10,6 +10,7 @@
  * clinical floor.
  */
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MultiStepPlanningGame } from '@/components/MultiStepPlanningGame';
@@ -236,9 +237,7 @@ export default function MultiStepPlanExercise() {
         ) : progression.loaded ? (
           <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={effectiveTier} autoStart={fromLesson} />
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            Loading your progression…
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

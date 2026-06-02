@@ -10,6 +10,7 @@
  * engine starts at the correct clinical floor.
  */
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DualLoadNamingGame } from '@/components/DualLoadNamingGame';
@@ -248,9 +249,7 @@ export default function DualLoadNamingExercise() {
             sessionId={activeSessionId}
           />
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            Loading your progression…
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

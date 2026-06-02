@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -342,9 +343,7 @@ const SentenceConstructionExercise = () => {
               onGameComplete={handleGameComplete}
             />
           ) : (
-            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-              Loading your progression…
-            </div>
+            <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
           )}
         </div>
       </div>
@@ -409,9 +408,7 @@ const SentenceConstructionExercise = () => {
             onGameComplete={handleGameComplete}
           />
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            Loading your progression…
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </div>
     </div>

@@ -13,6 +13,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SynonymGeneratorGame, type SynonymRoundResult } from '@/components/SynonymGeneratorGame';
@@ -256,9 +257,7 @@ export default function SynonymGeneratorExercise() {
             sessionId={activeSessionId}
           />
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            Loading your progression…
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </main>
 
