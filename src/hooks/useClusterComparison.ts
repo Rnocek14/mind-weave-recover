@@ -56,6 +56,7 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
   const [data, setData] = useState<ClusterComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     const fetchClusterComparison = async () => {
