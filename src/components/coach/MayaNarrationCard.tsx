@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Volume2, ArrowRight, Mic, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 
 interface MayaNarrationCardProps {
   /** Maya's narration text */
@@ -56,6 +58,8 @@ export function MayaNarrationCard({
   icon,
 }: MayaNarrationCardProps) {
   const tts = useTextToSpeech();
+  const { profile } = useUiProfile();
+  const { variant } = profile;
   const [inputText, setInputText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,7 +108,7 @@ export function MayaNarrationCard({
               />
             ))}
           </div>
-          {phaseLabels?.[phaseIndex] && (
+          {phaseLabels?.[phaseIndex] && !isMinimal(variant) && (
             <p className="text-[10px] text-muted-foreground text-center mt-1.5 uppercase tracking-wider font-medium">
               {phaseLabels[phaseIndex]}
             </p>
@@ -114,7 +118,10 @@ export function MayaNarrationCard({
 
       {/* Main content — centered */}
       <div className="flex-1 flex items-center justify-center px-6">
-        <div className="w-full max-w-sm space-y-6">
+        <div className={variantClass(variant, {
+          base: 'w-full max-w-sm space-y-6',
+          simplified: 'max-w-md space-y-8',
+        })}>
           {/* Maya avatar + name */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
@@ -122,7 +129,10 @@ export function MayaNarrationCard({
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Maya</p>
-              <p className="text-[10px] text-muted-foreground">Speech Therapist</p>
+              {/* Role sub-label dropped in minimal to reduce reading load */}
+              {!isMinimal(variant) && (
+                <p className="text-[10px] text-muted-foreground">Speech Therapist</p>
+              )}
             </div>
             <button
               onClick={() => tts.speak(narration)}
@@ -142,11 +152,17 @@ export function MayaNarrationCard({
 
           {/* Narration */}
           <div className="space-y-3">
-            <p className="text-lg leading-relaxed text-foreground">
+            <p className={variantClass(variant, {
+              base: 'text-lg leading-relaxed text-foreground',
+              simplified: 'text-2xl leading-relaxed',
+            })}>
               {narration}
             </p>
             {subtitle && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className={variantClass(variant, {
+                base: 'text-sm text-muted-foreground leading-relaxed',
+                simplified: 'text-lg',
+              })}>
                 {subtitle}
               </p>
             )}
@@ -164,15 +180,21 @@ export function MayaNarrationCard({
                   onKeyDown={handleKeyDown}
                   placeholder={inputPlaceholder}
                   disabled={isProcessing}
-                  className="flex-1 h-12 rounded-xl border bg-muted/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                  className={variantClass(variant, {
+                    base: 'flex-1 h-12 rounded-xl border bg-muted/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50',
+                    simplified: 'h-16 text-lg',
+                  })}
                 />
                 <Button
                   size="icon"
                   onClick={handleSubmit}
                   disabled={!inputText.trim() || isProcessing}
-                  className="h-12 w-12 rounded-xl shrink-0"
+                  className={variantClass(variant, {
+                    base: 'h-12 w-12 rounded-xl shrink-0',
+                    simplified: 'h-16 w-16',
+                  })}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className={variantClass(variant, { base: 'w-4 h-4', simplified: 'w-6 h-6' })} />
                 </Button>
               </div>
             </div>
@@ -181,7 +203,10 @@ export function MayaNarrationCard({
               size="lg"
               onClick={onContinue}
               disabled={isProcessing}
-              className="w-full gap-2 h-12"
+              className={variantClass(variant, {
+                base: 'w-full gap-2 h-12',
+                simplified: 'h-16 text-lg',
+              })}
             >
               {isProcessing ? (
                 <span className="flex items-center gap-2">
