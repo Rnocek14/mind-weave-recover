@@ -194,8 +194,15 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const durationMin = durationSec ? Math.max(1, Math.round(durationSec / 60)) : lesson.totalDuration;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-xl p-8 space-y-6 text-center animate-fade-in">
+    <div className={variantClass(variant, {
+      base: "min-h-screen bg-background flex items-center justify-center p-4",
+      simplified: "p-6",
+    })}>
+      <Card className={variantClass(variant, {
+        base: "w-full max-w-xl p-8 space-y-6 text-center animate-fade-in",
+        simplified: "max-w-2xl p-10 space-y-8",
+        minimal: "max-w-2xl p-10 space-y-8 shadow-none border-2",
+      })}>
         {/* Celebration icon */}
         <div className="w-20 h-20 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
           <span className="text-4xl">{headline.emoji}</span>
@@ -203,8 +210,14 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
         {/* Headline */}
         <div className="space-y-2">
-          <h2 className="text-3xl font-bold text-foreground">{headline.text}</h2>
-          <p className="text-muted-foreground text-lg">
+          <h2 className={variantClass(variant, {
+            base: "text-3xl font-bold text-foreground",
+            simplified: "text-4xl",
+          })}>{headline.text}</h2>
+          <p className={variantClass(variant, {
+            base: "text-muted-foreground text-lg",
+            simplified: "text-xl",
+          })}>
             You practiced for {durationMin} {durationMin === 1 ? "minute" : "minutes"}
           </p>
           <p className="text-sm text-primary/80 font-medium mt-1">
