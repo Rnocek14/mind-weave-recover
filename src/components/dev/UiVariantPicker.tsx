@@ -21,14 +21,25 @@ const VARIANTS: UiVariant[] = [
 
 const STORAGE_KEY = 'uiProfileOverride';
 
-function isPreviewHost() {
+/**
+ * Opt-in only — never auto-show for patients/anon, even on preview/published
+ * hosts (CLEAN-1). Enable with `?uivars=1` in the URL or `localStorage.uivars=1`.
+ * The `?uiProfile=` override itself still works regardless (handled in
+ * useUiProfile) — this only controls the floating selector chrome.
+ */
+function shouldShowPicker() {
   if (typeof window === 'undefined') return false;
-  const h = window.location.hostname;
-  return h.includes('lovable.app') || h.includes('lovableproject.com') || h === 'localhost';
+  if (import.meta.env.DEV) return true;
+  try {
+    if (new URLSearchParams(window.location.search).get('uivars') === '1') return true;
+    return window.localStorage.getItem('uivars') === '1';
+  } catch {
+    return false;
+  }
 }
 
 export function UiVariantPicker() {
-  if (!import.meta.env.DEV && !isPreviewHost()) return null;
+  if (!shouldShowPicker()) return null;
   const [params, setParams] = useSearchParams();
   const urlValue = params.get('uiProfile');
   const stored = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null;
