@@ -25,19 +25,20 @@ interface CaregiverGuidanceResult {
 }
 
 export function useCaregiverDomainGuidance(userId: string | undefined): CaregiverGuidanceResult {
+  const activeProfileId = useActiveProfileId();
   const { data: scores, isLoading } = useQuery({
-    queryKey: ["caregiver-domain-scores", userId],
+    queryKey: ["caregiver-domain-scores", userId, activeProfileId],
     queryFn: async () => {
       if (!userId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("cognitive_domain_scores")
         .select("domain_slug, score, trial_count, computed_at")
         .eq("user_id", userId)
         .eq("granularity", "day")
         .gte("trial_count", 3)
         .order("computed_at", { ascending: false });
-
-      if (error) throw error;
+      if (activeProfileId) query = query.eq("profile_id", activeProfileId);
+      const { data, error } = await query;
 
       // De-duplicate: keep latest per domain
       const seen = new Set<string>();
