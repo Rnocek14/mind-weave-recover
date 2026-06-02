@@ -41,9 +41,14 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
         .eq('user_id', userId)
         .order('generated_at', { ascending: false });
 
+      if (activeProfileId) {
+        query = query.eq('profile_id', activeProfileId);
+      }
+
       if (summaryType) {
         query = query.eq('summary_type', summaryType);
       }
+
 
       const { data, error: fetchError } = await query;
 
