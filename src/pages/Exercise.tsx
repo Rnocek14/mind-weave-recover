@@ -226,7 +226,7 @@ const Exercise = () => {
 
     fetchProfile();
     fetchSessionCount();
-  }, [user?.id, exerciseId]);
+  }, [user?.id, exerciseId, activeProfileId]);
 
   // Resume embedded game when isPlaying transitions back to true
   useEffect(() => {
