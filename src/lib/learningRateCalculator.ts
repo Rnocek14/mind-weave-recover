@@ -102,6 +102,7 @@ export const saveLearningRate = async (result: LearningRateResult): Promise<void
     .from('learning_rates')
     .upsert({
       user_id: result.userId,
+      profile_id: result.profileId ?? null,
       domain: result.domain,
       time_window_days: result.timeWindowDays,
       accuracy_slope: result.accuracySlope,
@@ -114,7 +115,7 @@ export const saveLearningRate = async (result: LearningRateResult): Promise<void
       confidence_score: result.confidenceScore,
       calculated_at: new Date().toISOString()
     }, {
-      onConflict: 'user_id,domain,time_window_days,end_date'
+      onConflict: 'user_id,profile_id,domain,time_window_days,end_date'
     });
 
   if (error) {
