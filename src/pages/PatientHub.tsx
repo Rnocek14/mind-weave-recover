@@ -69,6 +69,7 @@ export default function PatientHub() {
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
   const [activeTab, setActiveTab] = useState("overview");
+  const [detailOpen, setDetailOpen] = useState(false);
   const [streak, setStreak] = useState(0);
 
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
@@ -201,7 +202,13 @@ export default function PatientHub() {
 
       <ProfileCompletenessBanner
         profile={activeProfile}
-        onEditProfile={() => setActiveTab("plan")}
+        onEditProfile={() => {
+          setDetailOpen(true);
+          setActiveTab("plan");
+          requestAnimationFrame(() =>
+            document.getElementById("plan-recovery")?.scrollIntoView({ behavior: "smooth", block: "start" })
+          );
+        }}
       />
 
       {/* === The five Glance Cards === */}
@@ -236,7 +243,7 @@ export default function PatientHub() {
 
 
       {/* === One drawer: everything deeper === */}
-      <Collapsible>
+      <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
         <CollapsibleTrigger className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2 print:hidden">
           <span className="font-medium">Clinical Detail</span>
           <ChevronDown className="w-4 h-4" />
