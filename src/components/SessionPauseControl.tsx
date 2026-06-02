@@ -22,10 +22,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Pause, Play, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 
 export function SessionPauseControl() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile } = useUiProfile();
+  const { variant } = profile;
   const [isPaused, setIsPaused] = useState(false);
   const pauseStartRef = useRef<number | null>(null);
 
