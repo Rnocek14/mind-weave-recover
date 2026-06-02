@@ -58,10 +58,10 @@ serve(async (req) => {
     if (summaryType === 'progress') {
       // Fetch progress-related data
       const [profileRes, capabilityRes, learningRatesRes, goalsRes] = await Promise.all([
-        supabase.from('profiles').select('stroke_date, clinical_profile').eq('user_id', userId).single(),
-        supabase.from('capability_assessments').select('*').eq('user_id', userId).order('assessed_at', { ascending: false }).limit(5),
-        supabase.from('learning_rates').select('*').eq('user_id', userId).order('calculated_at', { ascending: false }).limit(10),
-        supabase.from('functional_goals').select('*, goal_progress_ratings(*)').eq('user_id', userId).is('archived_at', null)
+        profileFilter(supabase.from('profiles').select('stroke_date, clinical_profile')).maybeSingle(),
+        scope(supabase.from('capability_assessments').select('*').eq('user_id', userId)).order('assessed_at', { ascending: false }).limit(5),
+        scope(supabase.from('learning_rates').select('*').eq('user_id', userId)).order('calculated_at', { ascending: false }).limit(10),
+        scope(supabase.from('functional_goals').select('*, goal_progress_ratings(*)').eq('user_id', userId)).is('archived_at', null)
       ]);
 
       const profile = profileRes.data;
