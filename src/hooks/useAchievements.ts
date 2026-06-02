@@ -101,7 +101,7 @@ export function useAchievements(userId: string | undefined, profileId: string | 
           value: item.value,
           awarded_at: new Date().toISOString(),
         },
-        { onConflict: 'user_id,type', ignoreDuplicates: true }
+        { onConflict: 'profile_id,type', ignoreDuplicates: true }
       );
       if (!error) {
         newOnes.push({ type: item.type, value: item.value, awardedAt: new Date().toISOString() });
