@@ -244,6 +244,7 @@ Return as JSON:
       .from('recovery_summaries')
       .insert({
         user_id: userId,
+        profile_id: profileId ?? null,
         summary_type: summaryType,
         data_snapshot: dataSnapshot,
         ai_summary: parsedResponse.summary,
