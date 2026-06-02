@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { COGNITIVE_DOMAINS } from "@/lib/cognitiveStateEngine";
 import { getActionsForDomain, type CaregiverAction } from "@/lib/caregiverActionMap";
+import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 
 interface DomainGuidance {
   domainSlug: string;
