@@ -108,7 +108,7 @@ export function MayaNarrationCard({
               />
             ))}
           </div>
-          {phaseLabels?.[phaseIndex] && (
+          {phaseLabels?.[phaseIndex] && !isMinimal(variant) && (
             <p className="text-[10px] text-muted-foreground text-center mt-1.5 uppercase tracking-wider font-medium">
               {phaseLabels[phaseIndex]}
             </p>
@@ -118,7 +118,10 @@ export function MayaNarrationCard({
 
       {/* Main content — centered */}
       <div className="flex-1 flex items-center justify-center px-6">
-        <div className="w-full max-w-sm space-y-6">
+        <div className={variantClass(variant, {
+          base: 'w-full max-w-sm space-y-6',
+          simplified: 'max-w-md space-y-8',
+        })}>
           {/* Maya avatar + name */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
@@ -126,7 +129,10 @@ export function MayaNarrationCard({
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">Maya</p>
-              <p className="text-[10px] text-muted-foreground">Speech Therapist</p>
+              {/* Role sub-label dropped in minimal to reduce reading load */}
+              {!isMinimal(variant) && (
+                <p className="text-[10px] text-muted-foreground">Speech Therapist</p>
+              )}
             </div>
             <button
               onClick={() => tts.speak(narration)}
@@ -146,11 +152,17 @@ export function MayaNarrationCard({
 
           {/* Narration */}
           <div className="space-y-3">
-            <p className="text-lg leading-relaxed text-foreground">
+            <p className={variantClass(variant, {
+              base: 'text-lg leading-relaxed text-foreground',
+              simplified: 'text-2xl leading-relaxed',
+            })}>
               {narration}
             </p>
             {subtitle && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className={variantClass(variant, {
+                base: 'text-sm text-muted-foreground leading-relaxed',
+                simplified: 'text-lg',
+              })}>
                 {subtitle}
               </p>
             )}
