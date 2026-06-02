@@ -89,13 +89,15 @@ export const useAdaptationProof = (
         
         // User-scoped: join through sessions to ensure ownership
         // RLS enforces this at DB level; explicit join for defense-in-depth
-        const { data, error } = await supabase
+        let query = supabase
           .from('exercise_events')
           .select('exercise_slug, task_parameters, created_at, session_id, sessions!inner(user_id)')
           .eq('sessions.user_id', userId)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(2000);
+        if (activeProfileId) query = query.eq('profile_id', activeProfileId);
+        const { data, error } = await query;
 
         if (error) {
           console.error('[useAdaptationProof] Query error:', error);
