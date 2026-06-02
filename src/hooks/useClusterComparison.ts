@@ -252,7 +252,7 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
     };
 
     void fetchClusterComparison();
-  }, [userId, clinicalProfile]);
+  }, [userId, clinicalProfile, activeProfileId]);
 
   return { data, loading };
 };
