@@ -44,7 +44,7 @@ axe-core via Playwright is deferred to Phase 2B — the runner is not wired yet 
 | P1 | `min-h-screen` used instead of `min-h-dvh` on patient routes | `FixSentenceExercise.tsx:235`, `Exercise.tsx:596,635`, `DualLoadNamingExercise.tsx:218`, `DetectiveMindExercise.tsx:219`, `DescribeGuessExercise.tsx:252`, `Welcome.tsx:41,52` | Warning | All on mobile Safari with bottom URL bar |
 | P2 | `onClick` on `<div>` without keyboard role | `CapabilityAssessment.tsx:548` (full-area click), `coach/ScenarioOverlay.tsx:204` (backdrop) | Warning (backdrop is fine; assessment area-click is a real issue) | Right-hemisphere (left-side hit area), Broca's (keyboard users) |
 | P3 | `autoFocus` used outside modals on text inputs | `FixSentenceGame.tsx:774`, `CategoryFluencyGame.tsx:1031`, `NarrativeRetellGame.tsx:934`, `DescribeGuessGame.tsx:1165`, `DualLoadNamingGame.tsx:442` | Info | Wernicke's (forced focus jump can disorient), Global (screen-reader jump) |
-| P4 | No measured per-route audit yet for **tap-target size (≥44×44)**, **words-per-screen**, **decisions-per-screen**, **contrast ratios on semantic tokens** | All patient routes | Unknown | All four |
+| P4 | Per-route tap-target / words-per-screen / decisions-per-screen / contrast — **measured in §9.2 and §10.2 (Pass B)** | All patient routes | Resolved (see §9–§10) | All four |
 | P5 | Patient-facing routes assume reading literacy in instruction banners (mem://ux/exercise-entry-clarity-standard fades after one read) | Every `/exercise/*` | Warning | Wernicke's, Global |
 | P6 | No left-edge salience reinforcement (icons, color shift, secondary cue) | `/today`, exercise headers | Warning | Right-hemisphere neglect |
 
