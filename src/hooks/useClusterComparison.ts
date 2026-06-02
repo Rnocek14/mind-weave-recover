@@ -159,11 +159,13 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         );
 
         // Fetch and compare assessments
-        const { data: userAssessments } = await supabase
+        let userAssessmentsQuery = supabase
           .from('standardized_assessments')
           .select('*')
           .eq('user_id', userId)
           .order('assessment_date', { ascending: false });
+        if (activeProfileId) userAssessmentsQuery = userAssessmentsQuery.eq('profile_id', activeProfileId);
+        const { data: userAssessments } = await userAssessmentsQuery;
 
         const assessmentsByType: Record<string, any> = {};
         (userAssessments || []).forEach((a) => {
