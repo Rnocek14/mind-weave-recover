@@ -195,23 +195,26 @@ const Exercise = () => {
       
       try {
         // Count total sessions for this exercise
-        const { count, error } = await supabase
+        let countQuery = supabase
           .from('sessions')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
+        if (activeProfileId) countQuery = countQuery.eq('profile_id', activeProfileId);
+        const { count, error } = await countQuery;
 
         if (error) throw error;
         setSessionCount(count || 0);
         
         // Check when last probe was run (stored in session metadata)
-        const { data: lastProbeData } = await supabase
+        let probeQuery = supabase
           .from('sessions')
           .select('summary')
           .eq('user_id', user.id)
           .not('summary->last_probe_session', 'is', null)
           .order('started_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
+        if (activeProfileId) probeQuery = probeQuery.eq('profile_id', activeProfileId);
+        const { data: lastProbeData } = await probeQuery.maybeSingle();
         
         if (lastProbeData?.summary && typeof lastProbeData.summary === 'object' && 'last_probe_session' in lastProbeData.summary) {
           setLastProbeSession(lastProbeData.summary.last_probe_session as number);
