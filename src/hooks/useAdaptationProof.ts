@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface RecentAdaptedTrial {
   createdAt: string;
