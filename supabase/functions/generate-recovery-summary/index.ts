@@ -44,6 +44,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Helper: scope a query to the active profile when profileId is provided
+    const scope = (q: any) => (profileId ? q.eq('profile_id', profileId) : q);
+    // Profiles row for the active profile (avoids .single() failures for multi-profile users)
+    const profileFilter = (q: any) =>
+      profileId ? q.eq('id', profileId) : q.eq('user_id', userId).eq('is_active', true);
+
     // Fetch data based on summary type
     let dataSnapshot: any = {};
     let systemPrompt = '';
