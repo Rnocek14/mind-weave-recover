@@ -45,7 +45,8 @@ export function useAchievements(userId: string | undefined, profileId: string | 
       const { data, error } = await supabase
         .from('achievements')
         .select('type, value, awarded_at')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('profile_id', profileId);
 
       if (!error && data) {
         setAchievements(
