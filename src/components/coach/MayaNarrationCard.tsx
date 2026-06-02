@@ -180,15 +180,21 @@ export function MayaNarrationCard({
                   onKeyDown={handleKeyDown}
                   placeholder={inputPlaceholder}
                   disabled={isProcessing}
-                  className="flex-1 h-12 rounded-xl border bg-muted/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                  className={variantClass(variant, {
+                    base: 'flex-1 h-12 rounded-xl border bg-muted/50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50',
+                    simplified: 'h-16 text-lg',
+                  })}
                 />
                 <Button
                   size="icon"
                   onClick={handleSubmit}
                   disabled={!inputText.trim() || isProcessing}
-                  className="h-12 w-12 rounded-xl shrink-0"
+                  className={variantClass(variant, {
+                    base: 'h-12 w-12 rounded-xl shrink-0',
+                    simplified: 'h-16 w-16',
+                  })}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className={variantClass(variant, { base: 'w-4 h-4', simplified: 'w-6 h-6' })} />
                 </Button>
               </div>
             </div>
@@ -197,7 +203,10 @@ export function MayaNarrationCard({
               size="lg"
               onClick={onContinue}
               disabled={isProcessing}
-              className="w-full gap-2 h-12"
+              className={variantClass(variant, {
+                base: 'w-full gap-2 h-12',
+                simplified: 'h-16 text-lg',
+              })}
             >
               {isProcessing ? (
                 <span className="flex items-center gap-2">
