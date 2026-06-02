@@ -58,9 +58,9 @@ interface PronunciationAnalytics {
   };
 }
 
-export const usePronunciationAnalytics = (userId?: string) => {
+export const usePronunciationAnalytics = (userId?: string, profileId?: string | null) => {
   return useQuery({
-    queryKey: ['pronunciation-analytics', userId],
+    queryKey: ['pronunciation-analytics', userId, profileId],
     queryFn: async (): Promise<PronunciationAnalytics> => {
       if (!userId) {
         return {
@@ -80,21 +80,24 @@ export const usePronunciationAnalytics = (userId?: string) => {
       }
 
       // Fetch from utterance_analyses (preferred - includes Azure GOP data)
-      const { data: utterances, error: uaError } = await supabase
+      let uaQuery = supabase
         .from('utterance_analyses')
         .select('created_at, speech_rate_wpm, pause_count, avg_pause_duration_ms, asr_confidence, gop_data, recording_duration_ms')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
+        .eq('user_id', userId);
+      if (profileId) uaQuery = uaQuery.eq('profile_id', profileId);
+      const { data: utterances, error: uaError } = await uaQuery.order('created_at', { ascending: true });
 
       if (uaError) throw uaError;
 
       // If no data from utterance_analyses, fall back to exercise_events
       if (!utterances || utterances.length === 0) {
         // Fallback to legacy exercise_events query
-        const { data: sessions } = await supabase
+        let sessQuery = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', userId);
+        if (profileId) sessQuery = sessQuery.eq('profile_id', profileId);
+        const { data: sessions } = await sessQuery;
 
         if (!sessions || sessions.length === 0) {
           return {
