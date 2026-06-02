@@ -11,6 +11,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import {
   resolveEffectiveInitialDifficulty,
   clinicalLevelToEngineFloor,
