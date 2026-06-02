@@ -154,7 +154,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
 
   useEffect(() => {
     fetchSummaries();
-  }, [userId, summaryType]);
+  }, [userId, summaryType, activeProfileId]);
 
   return {
     summaries,
