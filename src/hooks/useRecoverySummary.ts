@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export type SummaryType = 'progress' | 'education';
 
@@ -25,6 +26,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const fetchSummaries = async () => {
     if (!userId) return;
@@ -39,9 +41,14 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
         .eq('user_id', userId)
         .order('generated_at', { ascending: false });
 
+      if (activeProfileId) {
+        query = query.eq('profile_id', activeProfileId);
+      }
+
       if (summaryType) {
         query = query.eq('summary_type', summaryType);
       }
+
 
       const { data, error: fetchError } = await query;
 
@@ -147,7 +154,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
 
   useEffect(() => {
     fetchSummaries();
-  }, [userId, summaryType]);
+  }, [userId, summaryType, activeProfileId]);
 
   return {
     summaries,

@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface RecentAdaptedTrial {
   createdAt: string;
@@ -71,6 +72,7 @@ export const useAdaptationProof = (
   userId: string | undefined,
   daysBack = 14
 ): UseAdaptationProofResult => {
+  const activeProfileId = useActiveProfileId();
   const [rawEvents, setRawEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchCount, setFetchCount] = useState(0);
@@ -87,13 +89,15 @@ export const useAdaptationProof = (
         
         // User-scoped: join through sessions to ensure ownership
         // RLS enforces this at DB level; explicit join for defense-in-depth
-        const { data, error } = await supabase
+        let query = supabase
           .from('exercise_events')
           .select('exercise_slug, task_parameters, created_at, session_id, sessions!inner(user_id)')
           .eq('sessions.user_id', userId)
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(2000);
+        if (activeProfileId) query = query.eq('profile_id', activeProfileId);
+        const { data, error } = await query;
 
         if (error) {
           console.error('[useAdaptationProof] Query error:', error);
@@ -110,7 +114,7 @@ export const useAdaptationProof = (
     };
 
     fetchEvents();
-  }, [userId, daysBack, fetchCount]);
+  }, [userId, daysBack, fetchCount, activeProfileId]);
 
   const summary = useMemo<AdaptationProofSummary | null>(() => {
     if (rawEvents.length === 0) return null;

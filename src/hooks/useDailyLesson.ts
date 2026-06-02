@@ -238,6 +238,7 @@ export const useDailyLesson = (
         .from('learning_rates')
         .select('*')
         .eq('user_id', userId)
+        .eq('profile_id', profileId)
         .gte('calculated_at', sevenDaysAgo.toISOString())
         .order('calculated_at', { ascending: false });
 
@@ -262,6 +263,7 @@ export const useDailyLesson = (
           .from('utterance_analyses')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', userId)
+          .eq('profile_id', profileId)
           .not('alignment_data', 'is', null)
           .gte('created_at', fourteenDaysAgo.toISOString());
 
@@ -270,6 +272,7 @@ export const useDailyLesson = (
           .from('user_speech_profiles')
           .select('error_type_distribution, cue_efficacy_by_type, most_challenging_categories, last_computed_at, phoneme_difficulty_map')
           .eq('user_id', userId)
+          .eq('profile_id', profileId)
           .maybeSingle();
 
         // Log profile freshness for observability

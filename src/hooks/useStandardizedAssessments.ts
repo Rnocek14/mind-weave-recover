@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export type AssessmentType = 'WAB-R' | 'BNT' | 'NIHSS' | 'ASHA-NOMS';
 
@@ -20,6 +21,7 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
   const [assessments, setAssessments] = useState<StandardizedAssessment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const fetchAssessments = async () => {
     if (!userId) {
@@ -28,11 +30,13 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('standardized_assessments')
         .select('*')
         .eq('user_id', userId)
         .order('assessment_date', { ascending: false });
+      if (activeProfileId) query = query.eq('profile_id', activeProfileId);
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -63,7 +67,7 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
 
   useEffect(() => {
     void fetchAssessments();
-  }, [userId]);
+  }, [userId, activeProfileId]);
 
   const addAssessment = async (
     assessmentType: AssessmentType,

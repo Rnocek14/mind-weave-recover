@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 interface ClusterProfile {
   lesionZone: string | null;
@@ -55,6 +56,7 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
   const [data, setData] = useState<ClusterComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     const fetchClusterComparison = async () => {
@@ -87,12 +89,14 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
           .eq('stroke_mechanism', clusterProfile.strokeMechanism);
 
         // Fetch user's learning rates
-        const { data: userLR } = await supabase
+        let userLRQuery = supabase
           .from('learning_rates')
           .select('*')
           .eq('user_id', userId)
           .eq('time_window_days', 14)
           .order('calculated_at', { ascending: false });
+        if (activeProfileId) userLRQuery = userLRQuery.eq('profile_id', activeProfileId);
+        const { data: userLR } = await userLRQuery;
 
         // Compare learning rates
         const learningRates: LearningRateComparison[] = (userLR || []).map((ulr) => {
@@ -121,10 +125,12 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         });
 
         // Fetch and compare error patterns
-        const { data: userSessions } = await supabase
+        let userSessionsQuery = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', userId);
+        if (activeProfileId) userSessionsQuery = userSessionsQuery.eq('profile_id', activeProfileId);
+        const { data: userSessions } = await userSessionsQuery;
 
         const sessionIds = (userSessions || []).map((s) => s.id);
 
@@ -153,11 +159,13 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         );
 
         // Fetch and compare assessments
-        const { data: userAssessments } = await supabase
+        let userAssessmentsQuery = supabase
           .from('standardized_assessments')
           .select('*')
           .eq('user_id', userId)
           .order('assessment_date', { ascending: false });
+        if (activeProfileId) userAssessmentsQuery = userAssessmentsQuery.eq('profile_id', activeProfileId);
+        const { data: userAssessments } = await userAssessmentsQuery;
 
         const assessmentsByType: Record<string, any> = {};
         (userAssessments || []).forEach((a) => {
@@ -180,10 +188,12 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         );
 
         // Fetch and compare goal achievement
-        const { data: userGoals } = await supabase
+        let userGoalsQuery = supabase
           .from('functional_goals')
           .select('*, goal_progress_ratings(*)')
           .eq('user_id', userId);
+        if (activeProfileId) userGoalsQuery = userGoalsQuery.eq('profile_id', activeProfileId);
+        const { data: userGoals } = await userGoalsQuery;
 
         const goalsByDomain: Record<string, { total: number; achieved: number }> = {};
         
@@ -242,7 +252,7 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
     };
 
     void fetchClusterComparison();
-  }, [userId, clinicalProfile]);
+  }, [userId, clinicalProfile, activeProfileId]);
 
   return { data, loading };
 };

@@ -34,6 +34,7 @@ import { useDoseCap } from "@/hooks/useDoseCap";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
+import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -41,6 +42,7 @@ const Exercise = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const activeProfileId = useActiveProfileId();
   
   // Check if we're coming from lesson flow (with sessionStorage fallback)
   const restored = useRestoredLessonContext(exerciseId || 'unknown');
@@ -109,12 +111,14 @@ const Exercise = () => {
       
       try {
         const today = new Date().toISOString().split('T')[0];
-        const { data: sessions } = await supabase
+        let sessionsQuery = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', user.id)
           .gte('started_at', `${today}T00:00:00`)
           .lte('started_at', `${today}T23:59:59`);
+        if (activeProfileId) sessionsQuery = sessionsQuery.eq('profile_id', activeProfileId);
+        const { data: sessions } = await sessionsQuery;
         
         const sessionIds = sessions?.map(s => s.id) || [];
         if (sessionIds.length === 0) return;
@@ -134,7 +138,7 @@ const Exercise = () => {
     };
     
     fetchStats();
-  }, [user?.id, sessionId, currentRound]);
+  }, [user?.id, sessionId, currentRound, activeProfileId]);
 
   // Mock exercise data
   const exercises: Record<string, any> = {
@@ -168,11 +172,14 @@ const Exercise = () => {
       if (!user?.id) return;
       
       try {
-        const { data, error } = await supabase
+        let profileQuery = supabase
           .from('profiles')
           .select('clinical_profile')
-          .eq('user_id', user.id)
-          .single();
+          .eq('user_id', user.id);
+        profileQuery = activeProfileId
+          ? profileQuery.eq('id', activeProfileId)
+          : profileQuery.eq('is_active', true);
+        const { data, error } = await profileQuery.maybeSingle();
 
         if (error) throw error;
         if (data?.clinical_profile) {
@@ -188,23 +195,26 @@ const Exercise = () => {
       
       try {
         // Count total sessions for this exercise
-        const { count, error } = await supabase
+        let countQuery = supabase
           .from('sessions')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
+        if (activeProfileId) countQuery = countQuery.eq('profile_id', activeProfileId);
+        const { count, error } = await countQuery;
 
         if (error) throw error;
         setSessionCount(count || 0);
         
         // Check when last probe was run (stored in session metadata)
-        const { data: lastProbeData } = await supabase
+        let probeQuery = supabase
           .from('sessions')
           .select('summary')
           .eq('user_id', user.id)
           .not('summary->last_probe_session', 'is', null)
           .order('started_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
+        if (activeProfileId) probeQuery = probeQuery.eq('profile_id', activeProfileId);
+        const { data: lastProbeData } = await probeQuery.maybeSingle();
         
         if (lastProbeData?.summary && typeof lastProbeData.summary === 'object' && 'last_probe_session' in lastProbeData.summary) {
           setLastProbeSession(lastProbeData.summary.last_probe_session as number);
@@ -216,7 +226,7 @@ const Exercise = () => {
 
     fetchProfile();
     fetchSessionCount();
-  }, [user?.id, exerciseId]);
+  }, [user?.id, exerciseId, activeProfileId]);
 
   // Resume embedded game when isPlaying transitions back to true
   useEffect(() => {
