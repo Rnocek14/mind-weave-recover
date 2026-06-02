@@ -9,6 +9,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, RotateCcw, Lightbulb, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 
 interface MayaAssistantBubbleProps {
   /** Whether Maya is currently "speaking" (glow animation) */
