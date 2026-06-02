@@ -58,9 +58,9 @@ interface PronunciationAnalytics {
   };
 }
 
-export const usePronunciationAnalytics = (userId?: string) => {
+export const usePronunciationAnalytics = (userId?: string, profileId?: string | null) => {
   return useQuery({
-    queryKey: ['pronunciation-analytics', userId],
+    queryKey: ['pronunciation-analytics', userId, profileId],
     queryFn: async (): Promise<PronunciationAnalytics> => {
       if (!userId) {
         return {
