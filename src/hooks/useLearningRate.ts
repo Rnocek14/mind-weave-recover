@@ -177,7 +177,7 @@ export const useLearningRate = (
       setIsCalculating(true);
       
       // Trigger calculation
-      await calculateAllLearningRates(userId);
+      await calculateAllLearningRates(userId, profileId);
       
       // Re-fetch learning rates
       let lrQ2 = supabase
