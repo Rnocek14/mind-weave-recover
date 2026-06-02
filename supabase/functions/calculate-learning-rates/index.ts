@@ -227,7 +227,7 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
       confidence_score: result.confidenceScore,
       calculated_at: new Date().toISOString()
     }, {
-      onConflict: 'user_id,domain,time_window_days,end_date'
+      onConflict: 'user_id,profile_id,domain,time_window_days,end_date'
     });
 
   if (error) {
