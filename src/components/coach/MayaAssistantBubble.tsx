@@ -74,8 +74,14 @@ export function MayaAssistantBubble({
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
       {/* Transcript bubble (shown briefly when speaking) */}
       {showTranscript && lastSpokenText && !isOpen && (
-        <div className="bg-card border rounded-xl shadow-md p-3 w-60 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+        <div className={variantClass(variant, {
+          base: 'bg-card border rounded-xl shadow-md p-3 w-60 animate-in fade-in slide-in-from-bottom-2 duration-200',
+          simplified: 'w-72 p-4',
+        })}>
+          <p className={variantClass(variant, {
+            base: 'text-xs text-muted-foreground leading-relaxed line-clamp-3',
+            simplified: 'text-base text-foreground/80',
+          })}>
             {lastSpokenText}
           </p>
         </div>
@@ -83,9 +89,15 @@ export function MayaAssistantBubble({
 
       {/* Help panel */}
       {isOpen && (
-        <div className="bg-card border rounded-2xl shadow-lg p-3 w-60 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className={variantClass(variant, {
+          base: 'bg-card border rounded-2xl shadow-lg p-3 w-60 animate-in fade-in slide-in-from-bottom-2 duration-200',
+          simplified: 'w-72 p-4',
+        })}>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-foreground">Maya can help</p>
+            <p className={variantClass(variant, {
+              base: 'text-xs font-semibold text-foreground',
+              simplified: 'text-sm',
+            })}>Maya can help</p>
             <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -95,7 +107,10 @@ export function MayaAssistantBubble({
               <button
                 key={opt.action}
                 onClick={() => handleAction(opt.action)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted transition-colors text-left"
+                className={variantClass(variant, {
+                  base: 'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted transition-colors text-left',
+                  simplified: 'gap-3 px-4 py-3.5 text-base',
+                })}
               >
                 <span className="text-muted-foreground shrink-0">{opt.icon}</span>
                 <div className="min-w-0">
@@ -116,7 +131,11 @@ export function MayaAssistantBubble({
       <button
         onClick={() => setIsOpen(prev => !prev)}
         className={cn(
-          'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg relative',
+          variantClass(variant, {
+            base: 'w-12 h-12',
+            simplified: 'w-16 h-16',
+          }),
+          'rounded-full flex items-center justify-center transition-all duration-300 shadow-lg relative',
           'bg-primary text-primary-foreground',
           isSpeaking && 'ring-4 ring-primary/30',
           isOpen && 'ring-2 ring-primary/50'
@@ -124,13 +143,13 @@ export function MayaAssistantBubble({
         title="Ask Maya for help"
       >
         {isOpen ? (
-          <X className="w-5 h-5" />
+          <X className={variantClass(variant, { base: 'w-5 h-5', simplified: 'w-7 h-7' })} />
         ) : (
-          <span className="text-sm font-bold">M</span>
+          <span className={variantClass(variant, { base: 'text-sm font-bold', simplified: 'text-lg font-bold' })}>M</span>
         )}
-        
-        {/* Speaking indicator dots */}
-        {isSpeaking && !isOpen && (
+
+        {/* Speaking indicator dots — suppressed in minimal to cut visual load (glow ring remains) */}
+        {isSpeaking && !isOpen && !isMinimal(variant) && (
           <div className="absolute -top-1 -right-1 flex gap-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
