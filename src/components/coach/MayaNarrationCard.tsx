@@ -58,6 +58,8 @@ export function MayaNarrationCard({
   icon,
 }: MayaNarrationCardProps) {
   const tts = useTextToSpeech();
+  const { profile } = useUiProfile();
+  const { variant } = profile;
   const [inputText, setInputText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
