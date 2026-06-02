@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface LearningRateResult {
   userId: string;
+  profileId?: string | null;
   domain: string;
   timeWindowDays: number;
   accuracySlope: number;
