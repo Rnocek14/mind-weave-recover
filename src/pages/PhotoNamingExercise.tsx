@@ -198,6 +198,21 @@ function PhotoNamingExerciseInner() {
   const sessionId = activeSessionId;
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
+
+  // Dead-state guard: if the load gate (photos + clinical progression) never
+  // resolves — e.g. no active profile, anonymous session, or a failed fetch —
+  // surface an escape hatch instead of an infinite spinner. Presentation only;
+  // does not touch progression/scoring logic.
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const stillGating = isLoading || !progression.loaded;
+  useEffect(() => {
+    if (!stillGating) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => setLoadTimedOut(true), 8000);
+    return () => clearTimeout(t);
+  }, [stillGating]);
   // Unified trial submission. progression:null because PhotoNamingGame owns
   // its own usePhotoNamingProgression instance and buffers there — passing
   // it again here would double-buffer trials.
