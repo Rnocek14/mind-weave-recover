@@ -138,7 +138,7 @@ const Exercise = () => {
     };
     
     fetchStats();
-  }, [user?.id, sessionId, currentRound]);
+  }, [user?.id, sessionId, currentRound, activeProfileId]);
 
   // Mock exercise data
   const exercises: Record<string, any> = {
