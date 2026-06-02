@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface LearningRateResult {
   userId: string;
+  profileId: string | null;
   domain: string;
   timeWindowDays: number;
   accuracySlope: number;
@@ -29,28 +30,47 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { userId, allUsers } = await req.json();
+    const { userId, profileId, allUsers } = await req.json();
 
-    console.log('Starting learning rate calculation:', { userId, allUsers });
+    console.log('Starting learning rate calculation:', { userId, profileId, allUsers });
 
-    let userIds: string[] = [];
+    // Operate on (user_id, profile_id) pairs so multi-profile accounts stay isolated
+    let pairs: { userId: string; profileId: string | null }[] = [];
 
     if (allUsers) {
-      // Get all users who have had activity in last 90 days
+      // Get all profiles that have had activity in last 90 days
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
       const { data: activeSessions } = await supabase
         .from('sessions')
-        .select('user_id')
+        .select('user_id, profile_id')
         .gte('started_at', ninetyDaysAgo.toISOString());
 
       if (activeSessions) {
-        userIds = [...new Set(activeSessions.map(s => s.user_id))];
+        const seen = new Set<string>();
+        for (const s of activeSessions) {
+          const key = `${s.user_id}::${s.profile_id ?? ''}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            pairs.push({ userId: s.user_id, profileId: s.profile_id ?? null });
+          }
+        }
       }
-      console.log(`Found ${userIds.length} active users`);
+      console.log(`Found ${pairs.length} active profiles`);
+    } else if (userId && profileId) {
+      pairs = [{ userId, profileId }];
     } else if (userId) {
-      userIds = [userId];
+      // No explicit profile: discover all profiles belonging to this user
+      const { data: userProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId);
+      if (userProfiles && userProfiles.length > 0) {
+        pairs = userProfiles.map((p: any) => ({ userId, profileId: p.id }));
+      } else {
+        pairs = [{ userId, profileId: null }];
+      }
     } else {
       throw new Error('Must provide userId or allUsers=true');
     }
@@ -60,28 +80,28 @@ Deno.serve(async (req) => {
     const domains = ['phonological', 'semantic', 'grammar', 'motor', 'visuospatial', 'speech', 'language'];
     const windows = [7, 14, 30];
 
-    for (const uid of userIds) {
-      console.log(`Calculating learning rates for user ${uid}`);
-      
+    for (const { userId: uid, profileId: pid } of pairs) {
+      console.log(`Calculating learning rates for user ${uid} profile ${pid}`);
+
       for (const domain of domains) {
         for (const window of windows) {
           try {
-            const result = await calculateLearningRate(supabase, uid, domain, window);
+            const result = await calculateLearningRate(supabase, uid, pid, domain, window);
             if (result) {
               await saveLearningRate(supabase, result);
-              results.push({ userId: uid, domain, window, success: true });
+              results.push({ userId: uid, profileId: pid, domain, window, success: true });
             }
           } catch (err) {
-            console.error(`Error calculating ${domain} ${window}d for ${uid}:`, err);
+            console.error(`Error calculating ${domain} ${window}d for ${uid}/${pid}:`, err);
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            results.push({ userId: uid, domain, window, success: false, error: errorMessage });
+            results.push({ userId: uid, profileId: pid, domain, window, success: false, error: errorMessage });
           }
         }
       }
     }
 
     console.log('Learning rate calculation complete:', {
-      totalUsers: userIds.length,
+      totalProfiles: pairs.length,
       totalCalculations: results.length,
       successful: results.filter(r => r.success).length
     });
@@ -89,7 +109,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        usersProcessed: userIds.length,
+        profilesProcessed: pairs.length,
         calculations: results.length,
         results 
       }),
@@ -111,6 +131,7 @@ Deno.serve(async (req) => {
 async function calculateLearningRate(
   supabase: any,
   userId: string,
+  profileId: string | null,
   domain: string,
   windowDays: number
 ): Promise<LearningRateResult | null> {
@@ -118,13 +139,19 @@ async function calculateLearningRate(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - windowDays);
 
-  // Get sessions in time window
-  const { data: sessions } = await supabase
+  // Get sessions in time window, scoped to this profile to prevent cross-profile blending
+  let sessionsQuery = supabase
     .from('sessions')
     .select('id')
     .eq('user_id', userId)
     .gte('started_at', startDate.toISOString())
     .lte('started_at', endDate.toISOString());
+
+  sessionsQuery = profileId
+    ? sessionsQuery.eq('profile_id', profileId)
+    : sessionsQuery.is('profile_id', null);
+
+  const { data: sessions } = await sessionsQuery;
 
   if (!sessions || sessions.length === 0) {
     return null;
@@ -168,6 +195,7 @@ async function calculateLearningRate(
 
   return {
     userId,
+    profileId,
     domain,
     timeWindowDays: windowDays,
     accuracySlope,
@@ -186,6 +214,7 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
     .from('learning_rates')
     .upsert({
       user_id: result.userId,
+      profile_id: result.profileId,
       domain: result.domain,
       time_window_days: result.timeWindowDays,
       accuracy_slope: result.accuracySlope,
@@ -198,7 +227,7 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
       confidence_score: result.confidenceScore,
       calculated_at: new Date().toISOString()
     }, {
-      onConflict: 'user_id,domain,time_window_days,end_date'
+      onConflict: 'user_id,profile_id,domain,time_window_days,end_date'
     });
 
   if (error) {

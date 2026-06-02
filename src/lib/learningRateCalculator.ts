@@ -126,9 +126,9 @@ export const saveLearningRate = async (result: LearningRateResult): Promise<void
  * Calculate learning rates for all domains and all time windows for a user
  * Calls the edge function to perform the calculation
  */
-export const calculateAllLearningRates = async (userId: string): Promise<void> => {
+export const calculateAllLearningRates = async (userId: string, profileId?: string | null): Promise<void> => {
   const { data, error } = await supabase.functions.invoke('calculate-learning-rates', {
-    body: { userId }
+    body: profileId ? { userId, profileId } : { userId }
   });
 
   if (error) {
