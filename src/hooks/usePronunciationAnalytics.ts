@@ -80,11 +80,12 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
       }
 
       // Fetch from utterance_analyses (preferred - includes Azure GOP data)
-      const { data: utterances, error: uaError } = await supabase
+      let uaQuery = supabase
         .from('utterance_analyses')
         .select('created_at, speech_rate_wpm, pause_count, avg_pause_duration_ms, asr_confidence, gop_data, recording_duration_ms')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
+        .eq('user_id', userId);
+      if (profileId) uaQuery = uaQuery.eq('profile_id', profileId);
+      const { data: utterances, error: uaError } = await uaQuery.order('created_at', { ascending: true });
 
       if (uaError) throw uaError;
 
