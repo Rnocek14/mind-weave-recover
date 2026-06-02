@@ -63,7 +63,7 @@ export const useExerciseStats = (
     };
 
     void fetchStats();
-  }, [userId, exerciseSlug]);
+  }, [userId, exerciseSlug, activeProfileId]);
 
   return { stats, loading, error };
 };
