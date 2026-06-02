@@ -223,7 +223,10 @@ export default function Today() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (user?.id) {
+    // Wait until the profile context has resolved. Running before it does would
+    // call the loaders with an undefined profileId, which previously aggregated
+    // every profile's sessions together (the "Start session #66" cross-profile bug).
+    if (user?.id && !profileLoading) {
       Promise.all([
         loadLastSessionSummary(user.id, activeProfile?.id).then(summary => {
           if (summary) {
@@ -242,7 +245,8 @@ export default function Today() {
       setStats({ totalSessions: 0, currentStreak: 0 });
       setLoaded(true);
     }
-  }, [user?.id, activeProfile?.id, authLoading, isOfflineMode]);
+  }, [user?.id, activeProfile?.id, profileLoading, authLoading, isOfflineMode]);
+
 
   const handleStartSession = () => {
     console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
