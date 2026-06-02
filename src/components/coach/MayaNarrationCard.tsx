@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Volume2, ArrowRight, Mic, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useUiProfile } from '@/hooks/useUiProfile';
+import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 
 interface MayaNarrationCardProps {
   /** Maya's narration text */
