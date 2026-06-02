@@ -72,6 +72,7 @@ export const useAdaptationProof = (
   userId: string | undefined,
   daysBack = 14
 ): UseAdaptationProofResult => {
+  const activeProfileId = useActiveProfileId();
   const [rawEvents, setRawEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchCount, setFetchCount] = useState(0);
