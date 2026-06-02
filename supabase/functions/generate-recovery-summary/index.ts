@@ -131,8 +131,8 @@ Return your response as JSON:
     } else {
       // Education mode - fetch clinical data
       const [profileRes, notesRes] = await Promise.all([
-        supabase.from('profiles').select('clinical_profile').eq('user_id', userId).single(),
-        supabase.from('clinical_notes').select('raw_text, document_date, note_type').eq('user_id', userId).order('document_date', { ascending: false }).limit(1)
+        profileFilter(supabase.from('profiles').select('clinical_profile')).maybeSingle(),
+        scope(supabase.from('clinical_notes').select('raw_text, document_date, note_type').eq('user_id', userId)).order('document_date', { ascending: false }).limit(1)
       ]);
 
       const profile = profileRes.data?.clinical_profile || {};
