@@ -138,14 +138,24 @@ export function SessionPauseControl() {
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-2xl font-semibold text-foreground">Paused</h2>
-              <p className="text-muted-foreground text-base">
+              <h2 className={variantClass(variant, {
+                base: 'text-2xl font-semibold text-foreground',
+                simplified: 'text-3xl',
+              })}>Paused</h2>
+              <p className={variantClass(variant, {
+                base: 'text-muted-foreground text-base',
+                simplified: 'text-lg',
+              })}>
                 Take your time. Resume whenever you're ready.
               </p>
             </div>
 
             <div className="flex flex-col gap-2.5">
-              <Button size="lg" onClick={exitPause} className="w-full gap-2">
+              <Button
+                size="lg"
+                onClick={exitPause}
+                className={variantClass(variant, { base: 'w-full gap-2', simplified: 'h-16 text-lg' })}
+              >
                 <Play className="w-4 h-4" />
                 Resume
               </Button>
@@ -153,16 +163,22 @@ export function SessionPauseControl() {
                 size="lg"
                 variant="ghost"
                 onClick={handleEndEarly}
-                className="w-full text-muted-foreground gap-2"
+                className={variantClass(variant, {
+                  base: 'w-full text-muted-foreground gap-2',
+                  simplified: 'h-16 text-lg',
+                })}
               >
                 <X className="w-4 h-4" />
                 End session early
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground/60">
-              Tip: press Esc to resume
-            </p>
+            {/* Keyboard tip is desktop-oriented detail; hidden in minimal. */}
+            {!isMinimal(variant) && (
+              <p className="text-xs text-muted-foreground/60">
+                Tip: press Esc to resume
+              </p>
+            )}
 
             {currentSlug && (
               <div className="pt-1">
