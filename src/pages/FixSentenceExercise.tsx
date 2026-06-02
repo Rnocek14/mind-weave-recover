@@ -6,6 +6,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FixSentenceGame } from '@/components/FixSentenceGame';
@@ -278,12 +279,8 @@ export default function FixSentenceExercise() {
         ) : !progression.loaded ? (
           // Phase 3 load-gate: don't mount the game until persistent
           // clinical progression resolves, otherwise the floor collapses to 1.
-          <div className="min-h-[40vh] flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading your progress...</p>
-            </div>
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progress..." />
+
         ) : (
           <>
             {import.meta.env.DEV &&

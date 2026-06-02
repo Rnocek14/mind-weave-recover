@@ -11,6 +11,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import {
   resolveEffectiveInitialDifficulty,
   clinicalLevelToEngineFloor,
@@ -185,6 +186,8 @@ function PhotoNamingExerciseInner() {
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
   const sessionStartRef = useRef(Date.now());
 
+
+
   // Single owner of session creation: useStandaloneSession (mutex-protected,
   // StrictMode-safe, remount-safe). When fromLesson, lessonSessionId is forwarded
   // and standalone hook short-circuits via its `providedSessionId` branch.
@@ -196,6 +199,8 @@ function PhotoNamingExerciseInner() {
   const sessionId = activeSessionId;
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
+
+
   // Unified trial submission. progression:null because PhotoNamingGame owns
   // its own usePhotoNamingProgression instance and buffers there — passing
   // it again here would double-buffer trials.
@@ -744,14 +749,9 @@ function PhotoNamingExerciseInner() {
   // running the patient an entire session below their stored level.
   if (isLoading || !progression.loaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            {isLoading ? 'Loading photos...' : 'Loading your progress...'}
-          </p>
-        </div>
-      </div>
+      <ExerciseLoadGate
+        loadingLabel={isLoading ? 'Loading photos...' : 'Loading your progress...'}
+      />
     );
   }
 

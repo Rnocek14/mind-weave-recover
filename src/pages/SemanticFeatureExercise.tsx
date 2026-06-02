@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
@@ -352,9 +353,7 @@ export default function SemanticFeatureExercise() {
             onTrialComplete={handleTrialComplete}
           />
         ) : (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            Loading your progression…
-          </div>
+          <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </div>
       </main>
