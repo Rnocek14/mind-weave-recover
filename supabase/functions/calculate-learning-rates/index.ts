@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('Learning rate calculation complete:', {
-      totalUsers: userIds.length,
+      totalProfiles: pairs.length,
       totalCalculations: results.length,
       successful: results.filter(r => r.success).length
     });
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        usersProcessed: userIds.length,
+        profilesProcessed: pairs.length,
         calculations: results.length,
         results 
       }),
