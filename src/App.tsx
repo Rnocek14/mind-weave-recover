@@ -97,6 +97,7 @@ import { AppLayout } from "@/components/layout";
 import { VoiceBleedGuard } from "@/components/VoiceBleedGuard";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
+import { RequireAuth } from "@/components/RequireAuth";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { SessionPauseControl } from "@/components/SessionPauseControl";
 import { useAuth } from "@/hooks/useAuth";
