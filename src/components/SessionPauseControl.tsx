@@ -108,9 +108,12 @@ export function SessionPauseControl() {
           type="button"
           onClick={enterPause}
           aria-label="Pause session"
-          className="fixed top-3 right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+          className={variantClass(variant, {
+            base: 'fixed top-3 right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors',
+            simplified: 'h-14 w-14 top-4 right-4 text-foreground border-2',
+          })}
         >
-          <Pause className="w-4 h-4" />
+          <Pause className={variantClass(variant, { base: 'w-4 h-4', simplified: 'w-6 h-6' })} />
         </button>
       )}
 
@@ -121,7 +124,10 @@ export function SessionPauseControl() {
           role="dialog"
           aria-label="Session paused"
         >
-          <div className="max-w-sm w-full text-center space-y-8">
+          <div className={variantClass(variant, {
+            base: 'max-w-sm w-full text-center space-y-8',
+            simplified: 'max-w-md w-full text-center space-y-10',
+          })}>
             {/* Breathing dot — calm, not animated frantically */}
             <div className="relative w-20 h-20 mx-auto">
               <div className="absolute inset-0 rounded-full bg-primary/10" />
