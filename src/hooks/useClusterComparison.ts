@@ -89,12 +89,14 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
           .eq('stroke_mechanism', clusterProfile.strokeMechanism);
 
         // Fetch user's learning rates
-        const { data: userLR } = await supabase
+        let userLRQuery = supabase
           .from('learning_rates')
           .select('*')
           .eq('user_id', userId)
           .eq('time_window_days', 14)
           .order('calculated_at', { ascending: false });
+        if (activeProfileId) userLRQuery = userLRQuery.eq('profile_id', activeProfileId);
+        const { data: userLR } = await userLRQuery;
 
         // Compare learning rates
         const learningRates: LearningRateComparison[] = (userLR || []).map((ulr) => {
