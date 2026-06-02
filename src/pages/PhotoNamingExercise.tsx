@@ -760,6 +760,27 @@ function PhotoNamingExerciseInner() {
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
   if (isLoading || !progression.loaded) {
+    if (loadTimedOut) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="text-center max-w-sm space-y-4">
+            <p className="text-lg font-medium text-foreground">
+              We couldn't load your practice
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This sometimes happens if your connection drops or your profile
+              isn't ready yet. You can try again or head back.
+            </p>
+            <div className="flex gap-3 justify-center pt-2">
+              <Button onClick={() => window.location.reload()}>Try again</Button>
+              <Button variant="outline" onClick={() => navigate('/today')}>
+                Go back
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
