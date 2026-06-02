@@ -195,6 +195,7 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
   const [lastSessionRaw, setLastSessionRaw] = useState<any>(null);
   const [extraLoading, setExtraLoading] = useState(false);
   
+  const profileId = activeProfile?.id;
   useEffect(() => {
     if (!userId) return;
     setExtraLoading(true);
@@ -203,22 +204,29 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
       try {
         // Load domain scores and last session in parallel
         const [domainRes, sessionRes] = await Promise.all([
-          // Domain scores (most recent per domain)
-          supabase
-            .from('cognitive_domain_scores')
-            .select('domain_slug, score, confidence, trial_count')
-            .eq('user_id', userId)
-            .order('computed_at', { ascending: false })
-            .limit(20),
+          // Domain scores (most recent per domain) — scoped to active profile
+          (() => {
+            let q = supabase
+              .from('cognitive_domain_scores')
+              .select('domain_slug, score, confidence, trial_count')
+              .eq('user_id', userId)
+              .order('computed_at', { ascending: false })
+              .limit(20);
+            if (profileId) q = q.eq('profile_id', profileId);
+            return q;
+          })(),
           
-          // Last coach session
-          supabase
-            .from('coach_conversation_summaries')
-            .select('primary_domain, top_wins, top_struggles, maya_summary, avg_score, metadata, created_at')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+          // Last coach session — scoped to active profile
+          (() => {
+            let q = supabase
+              .from('coach_conversation_summaries')
+              .select('primary_domain, top_wins, top_struggles, maya_summary, avg_score, metadata, created_at')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (profileId) q = q.eq('profile_id', profileId);
+            return q.maybeSingle();
+          })(),
         ]);
         
         // Process domain scores — deduplicate by domain
