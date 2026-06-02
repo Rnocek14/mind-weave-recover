@@ -4300,14 +4300,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      get_exercise_stats_last7d: {
-        Args: { slug: string; uid: string }
-        Returns: {
-          avg_accuracy: number
-          median_rt: number
-          trial_count: number
-        }[]
-      }
+      get_exercise_stats_last7d:
+        | {
+            Args: { slug: string; uid: string }
+            Returns: {
+              avg_accuracy: number
+              median_rt: number
+              trial_count: number
+            }[]
+          }
+        | {
+            Args: { pid?: string; slug: string; uid: string }
+            Returns: {
+              avg_accuracy: number
+              median_rt: number
+              trial_count: number
+            }[]
+          }
       get_resumable_session: {
         Args: never
         Returns: {

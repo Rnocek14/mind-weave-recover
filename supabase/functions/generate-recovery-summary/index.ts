@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface GenerateSummaryRequest {
   userId: string;
+  profileId?: string | null;
   summaryType: 'progress' | 'education';
   trialCount?: number; // Optional: current trial count for tracking
 }
@@ -21,7 +22,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { userId, summaryType, trialCount }: GenerateSummaryRequest = await req.json();
+    const { userId, profileId, summaryType, trialCount }: GenerateSummaryRequest = await req.json();
 
     if (!userId || !summaryType) {
       return new Response(
@@ -43,6 +44,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Helper: scope a query to the active profile when profileId is provided
+    const scope = (q: any) => (profileId ? q.eq('profile_id', profileId) : q);
+    // Profiles row for the active profile (avoids .single() failures for multi-profile users)
+    const profileFilter = (q: any) =>
+      profileId ? q.eq('id', profileId) : q.eq('user_id', userId).eq('is_active', true);
+
     // Fetch data based on summary type
     let dataSnapshot: any = {};
     let systemPrompt = '';
@@ -51,10 +58,10 @@ serve(async (req) => {
     if (summaryType === 'progress') {
       // Fetch progress-related data
       const [profileRes, capabilityRes, learningRatesRes, goalsRes] = await Promise.all([
-        supabase.from('profiles').select('stroke_date, clinical_profile').eq('user_id', userId).single(),
-        supabase.from('capability_assessments').select('*').eq('user_id', userId).order('assessed_at', { ascending: false }).limit(5),
-        supabase.from('learning_rates').select('*').eq('user_id', userId).order('calculated_at', { ascending: false }).limit(10),
-        supabase.from('functional_goals').select('*, goal_progress_ratings(*)').eq('user_id', userId).is('archived_at', null)
+        profileFilter(supabase.from('profiles').select('stroke_date, clinical_profile')).maybeSingle(),
+        scope(supabase.from('capability_assessments').select('*').eq('user_id', userId)).order('assessed_at', { ascending: false }).limit(5),
+        scope(supabase.from('learning_rates').select('*').eq('user_id', userId)).order('calculated_at', { ascending: false }).limit(10),
+        scope(supabase.from('functional_goals').select('*, goal_progress_ratings(*)').eq('user_id', userId)).is('archived_at', null)
       ]);
 
       const profile = profileRes.data;
@@ -124,8 +131,8 @@ Return your response as JSON:
     } else {
       // Education mode - fetch clinical data
       const [profileRes, notesRes] = await Promise.all([
-        supabase.from('profiles').select('clinical_profile').eq('user_id', userId).single(),
-        supabase.from('clinical_notes').select('raw_text, document_date, note_type').eq('user_id', userId).order('document_date', { ascending: false }).limit(1)
+        profileFilter(supabase.from('profiles').select('clinical_profile')).maybeSingle(),
+        scope(supabase.from('clinical_notes').select('raw_text, document_date, note_type').eq('user_id', userId)).order('document_date', { ascending: false }).limit(1)
       ]);
 
       const profile = profileRes.data?.clinical_profile || {};
@@ -237,6 +244,7 @@ Return as JSON:
       .from('recovery_summaries')
       .insert({
         user_id: userId,
+        profile_id: profileId ?? null,
         summary_type: summaryType,
         data_snapshot: dataSnapshot,
         ai_summary: parsedResponse.summary,

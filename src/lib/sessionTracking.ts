@@ -135,7 +135,7 @@ export const endSession = async (
   // Get user_id for post-session tasks
   const { data: session } = await supabase
     .from('sessions')
-    .select('user_id')
+    .select('user_id, profile_id')
     .eq('id', sessionId)
     .single();
     
@@ -148,7 +148,7 @@ export const endSession = async (
     
     // Trigger learning rate calculation in background (don't await)
     supabase.functions.invoke('calculate-learning-rates', {
-      body: { userId: session.user_id }
+      body: { userId: session.user_id, profileId: session.profile_id }
     }).then(() => {
       console.log('Learning rates calculation triggered for user:', session.user_id);
     }).catch(err => {
@@ -156,7 +156,7 @@ export const endSession = async (
     });
     
     // Trigger smart summary regeneration in background (don't await)
-    checkAndTriggerSummaryRegeneration(session.user_id).catch(err => {
+    checkAndTriggerSummaryRegeneration(session.user_id, session.profile_id).catch(err => {
       console.error('Error checking summary regeneration:', err);
     });
   }

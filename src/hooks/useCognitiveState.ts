@@ -62,11 +62,13 @@ export function useCognitiveState({
 
     try {
       // 1. Fetch sessions within the current + previous comparison window
-      const { data: sessions } = await supabase
+      let sessionsQuery = supabase
         .from('sessions')
         .select('id')
         .eq('user_id', userId)
         .gte('started_at', `${previousWindowStart}T00:00:00Z`);
+      if (profileId) sessionsQuery = sessionsQuery.eq('profile_id', profileId);
+      const { data: sessions } = await sessionsQuery;
 
       const sessionIds = (sessions || []).map(s => s.id);
       if (sessionIds.length === 0) {

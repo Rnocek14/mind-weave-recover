@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveProfileId } from '@/hooks/useActiveProfileId';
 
 export interface ExerciseStats {
   avgAccuracy: number; // 0-1
@@ -14,6 +15,7 @@ export const useExerciseStats = (
   const [stats, setStats] = useState<ExerciseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeProfileId = useActiveProfileId();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -31,6 +33,7 @@ export const useExerciseStats = (
           {
             uid: userId,
             slug: exerciseSlug,
+            pid: activeProfileId ?? undefined,
           }
         );
 
@@ -60,7 +63,7 @@ export const useExerciseStats = (
     };
 
     void fetchStats();
-  }, [userId, exerciseSlug]);
+  }, [userId, exerciseSlug, activeProfileId]);
 
   return { stats, loading, error };
 };
