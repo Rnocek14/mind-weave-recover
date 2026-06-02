@@ -248,12 +248,14 @@ export function useCoachProfile(userId: string | null | undefined): CoachProfile
         }
         
         // Load exercise history: get recent sessions then their events
-        const sessionsRes = await supabase
+        let sessionsQ = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', userId)
           .gte('started_at', new Date(Date.now() - 14 * 86400000).toISOString())
           .limit(50);
+        if (profileId) sessionsQ = sessionsQ.eq('profile_id', profileId);
+        const sessionsRes = await sessionsQ;
         
         if (sessionsRes.data && sessionsRes.data.length > 0) {
           const sessionIds = sessionsRes.data.map(s => s.id);
