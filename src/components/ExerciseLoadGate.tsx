@@ -21,12 +21,15 @@ interface ExerciseLoadGateProps {
   backTo?: string;
   /** Milliseconds before the escape hatch appears. */
   timeoutMs?: number;
+  /** Render compactly inside existing page chrome instead of full-screen. */
+  inline?: boolean;
 }
 
 export function ExerciseLoadGate({
   loadingLabel = 'Loading your progress...',
   backTo = '/today',
   timeoutMs = 8000,
+  inline = false,
 }: ExerciseLoadGateProps) {
   const navigate = useNavigate();
   const [timedOut, setTimedOut] = useState(false);
@@ -36,9 +39,13 @@ export function ExerciseLoadGate({
     return () => clearTimeout(t);
   }, [timeoutMs]);
 
+  const wrapper = inline
+    ? 'min-h-[40vh] flex items-center justify-center p-6'
+    : 'min-h-screen bg-background flex items-center justify-center p-6';
+
   if (timedOut) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className={wrapper}>
         <div className="text-center max-w-sm space-y-4">
           <p className="text-lg font-medium text-foreground">
             We couldn't load your practice
@@ -59,7 +66,7 @@ export function ExerciseLoadGate({
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className={inline ? 'min-h-[40vh] flex items-center justify-center' : 'min-h-screen bg-background flex items-center justify-center'}>
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
         <p className="text-muted-foreground">{loadingLabel}</p>
@@ -67,3 +74,4 @@ export function ExerciseLoadGate({
     </div>
   );
 }
+
