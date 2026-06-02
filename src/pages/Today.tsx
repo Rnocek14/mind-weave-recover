@@ -36,16 +36,21 @@ async function loadAdherenceStats(userId: string, profileId?: string | null): Pr
   // practice and timeout-swept sessions don't count. Source-of-truth = `sessions` table
   // (the legacy `coach_conversation_summaries` is no longer written by the new flow).
   // MUST be scoped to the active profile — otherwise one auth user with multiple
-  // patient profiles sees a combined count (cross-profile leak).
-  let query = supabase
+  // patient profiles sees a combined count (cross-profile leak). If we don't yet
+  // know which profile is active, return zeros rather than aggregating across all
+  // profiles (that produced the wrong "Start session #66" / cross-profile bug).
+  if (!profileId) {
+    return { totalSessions: 0, currentStreak: 0 };
+  }
+  const query = supabase
     .from('sessions')
     .select('ended_at, plan')
     .eq('user_id', userId)
+    .eq('profile_id', profileId)
     .eq('ended_reason', 'completed')
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1000);
-  if (profileId) query = query.eq('profile_id', profileId);
   const { data, error } = await query;
 
   if (error || !data || data.length === 0) {
