@@ -7,6 +7,7 @@ const corsHeaders = {
 
 interface LearningRateResult {
   userId: string;
+  profileId: string | null;
   domain: string;
   timeWindowDays: number;
   accuracySlope: number;
