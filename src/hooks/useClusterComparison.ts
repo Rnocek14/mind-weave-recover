@@ -188,10 +188,12 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         );
 
         // Fetch and compare goal achievement
-        const { data: userGoals } = await supabase
+        let userGoalsQuery = supabase
           .from('functional_goals')
           .select('*, goal_progress_ratings(*)')
           .eq('user_id', userId);
+        if (activeProfileId) userGoalsQuery = userGoalsQuery.eq('profile_id', activeProfileId);
+        const { data: userGoals } = await userGoalsQuery;
 
         const goalsByDomain: Record<string, { total: number; achieved: number }> = {};
         
