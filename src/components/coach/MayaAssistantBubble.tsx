@@ -45,6 +45,8 @@ export function MayaAssistantBubble({
   hintLevel = 0,
   lastSpokenText,
 }: MayaAssistantBubbleProps) {
+  const { profile } = useUiProfile();
+  const { variant } = profile;
   const [isOpen, setIsOpen] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const transcriptTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
