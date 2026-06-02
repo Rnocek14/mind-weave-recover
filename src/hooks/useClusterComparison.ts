@@ -125,10 +125,12 @@ export const useClusterComparison = (userId: string | undefined, clinicalProfile
         });
 
         // Fetch and compare error patterns
-        const { data: userSessions } = await supabase
+        let userSessionsQuery = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', userId);
+        if (activeProfileId) userSessionsQuery = userSessionsQuery.eq('profile_id', activeProfileId);
+        const { data: userSessions } = await userSessionsQuery;
 
         const sessionIds = (userSessions || []).map((s) => s.id);
 
