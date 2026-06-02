@@ -111,12 +111,14 @@ const Exercise = () => {
       
       try {
         const today = new Date().toISOString().split('T')[0];
-        const { data: sessions } = await supabase
+        let sessionsQuery = supabase
           .from('sessions')
           .select('id')
           .eq('user_id', user.id)
           .gte('started_at', `${today}T00:00:00`)
           .lte('started_at', `${today}T23:59:59`);
+        if (activeProfileId) sessionsQuery = sessionsQuery.eq('profile_id', activeProfileId);
+        const { data: sessions } = await sessionsQuery;
         
         const sessionIds = sessions?.map(s => s.id) || [];
         if (sessionIds.length === 0) return;
