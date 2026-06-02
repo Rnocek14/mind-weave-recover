@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface GenerateSummaryRequest {
   userId: string;
+  profileId?: string | null;
   summaryType: 'progress' | 'education';
   trialCount?: number; // Optional: current trial count for tracking
 }
@@ -21,7 +22,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { userId, summaryType, trialCount }: GenerateSummaryRequest = await req.json();
+    const { userId, profileId, summaryType, trialCount }: GenerateSummaryRequest = await req.json();
 
     if (!userId || !summaryType) {
       return new Response(
