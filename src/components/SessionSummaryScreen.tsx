@@ -20,6 +20,8 @@ import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
+import { useUiProfile } from "@/hooks/useUiProfile";
+import { variantClass } from "@/lib/ui/variantClass";
 
 interface SessionSummaryScreenProps {
   lesson: DailyLesson;
