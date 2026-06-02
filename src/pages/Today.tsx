@@ -103,7 +103,7 @@ export default function Today() {
   const minimal = isMinimal(variant);
   const isNonFluent = variant === 'simplified-non-fluent';
   const isNeglect = variant === 'simplified-neglect';
-  const { activeProfile } = useProfile();
+  const { activeProfile, loading: profileLoading } = useProfile();
   const [lastSession, setLastSession] = useState<{ topic: string; wordsProduced: number; date: string } | null>(null);
   const [stats, setStats] = useState<AdherenceStats | null>(null);
   const [loaded, setLoaded] = useState(false);
