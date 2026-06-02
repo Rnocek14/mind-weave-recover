@@ -26,6 +26,7 @@ export const useRecoverySummary = (userId: string | undefined, summaryType?: Sum
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const fetchSummaries = async () => {
     if (!userId) return;
