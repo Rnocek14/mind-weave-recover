@@ -60,6 +60,7 @@ export const checkAndTriggerSummaryRegeneration = async (
           .invoke('generate-recovery-summary', {
             body: {
               userId,
+              profileId: profileId ?? null,
               summaryType,
               trialCount: currentTrialCount
             }
