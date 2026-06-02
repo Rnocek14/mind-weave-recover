@@ -114,7 +114,7 @@ export const useAdaptationProof = (
     };
 
     fetchEvents();
-  }, [userId, daysBack, fetchCount]);
+  }, [userId, daysBack, fetchCount, activeProfileId]);
 
   const summary = useMemo<AdaptationProofSummary | null>(() => {
     if (rawEvents.length === 0) return null;
