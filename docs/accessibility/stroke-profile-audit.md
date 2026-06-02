@@ -1,9 +1,9 @@
 # Stroke-Profile Accessibility Audit (Phase 2A)
 
-**Status:** PASS A COMPLETE. PASS B BLOCKED on anon-session E2E fixture.
-**Owner:** AI agent (Pass A + Pass B attempt), human review pending.
-**Date:** 2026-05-22
-**Decision gate:** Phase 2B (user picks adaptive vs single-toggle vs global replace).
+**Status:** PASS A COMPLETE. PASS B UNBLOCKED — anon-session E2E fixture landed (`tests/e2e/fixtures/anonSession.ts` + `tests/e2e/pass-b-patient-journey.spec.ts`). Manual archetype walkthrough can now proceed (CI runs it with `playwright install --with-deps`).
+**Owner:** AI agent (Pass A + Pass B fixture), human review pending.
+**Date:** 2026-05-22 (Pass B fixture: 2026-06-02)
+**Decision gate:** Phase 2B — DECIDED: option A (adaptive `uiProfile`, 4 stroke variants). Scaffold already wired (`useUiProfile`, `variantClass`, `user_ui_profile` table, `/dev/ui-variants`).
 
 This document is **analysis only**. It does not touch app code, clinical engines, scoring, content banks, or any progression hook.
 
