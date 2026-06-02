@@ -21,6 +21,7 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
   const [assessments, setAssessments] = useState<StandardizedAssessment[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const activeProfileId = useActiveProfileId();
 
   const fetchAssessments = async () => {
     if (!userId) {
@@ -29,11 +30,13 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('standardized_assessments')
         .select('*')
         .eq('user_id', userId)
         .order('assessment_date', { ascending: false });
+      if (activeProfileId) query = query.eq('profile_id', activeProfileId);
+      const { data, error } = await query;
 
       if (error) throw error;
 
