@@ -33,6 +33,7 @@ export const useExerciseStats = (
           {
             uid: userId,
             slug: exerciseSlug,
+            pid: activeProfileId ?? undefined,
           }
         );
 
