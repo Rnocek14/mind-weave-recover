@@ -43,13 +43,15 @@ export async function loadLastSessionSummary(
   profileId?: string | null,
 ): Promise<LastSessionSummary | null> {
   try {
-    let query = supabase
+    // Scope to current patient profile to avoid mixing summaries across patients.
+    // Without a known profile, return null rather than leaking another profile's summary.
+    if (!profileId) return null;
+    const query = supabase
       .from('coach_conversation_summaries')
       .select('primary_domain, top_wins, top_struggles, maya_summary, avg_score, metadata, created_at')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('profile_id', profileId);
 
-    // Scope to current patient profile to avoid mixing summaries across patients
-    if (profileId) query = query.eq('profile_id', profileId);
 
     const { data, error } = await query
       .order('created_at', { ascending: false })
