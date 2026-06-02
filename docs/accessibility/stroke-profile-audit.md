@@ -223,3 +223,31 @@ These three should land before 2C-i ships so the new variants don't paper over o
 - **CLEAN-1 (F1):** Gate `Voice/Gate HUD` behind `import.meta.env.DEV` and a localStorage flag. Currently renders in production anon sessions. Trivial fix in the HUD component.
 - **CLEAN-2 (F2):** Add a deep-link guard to `/exercise/*` — if no hydrated lesson context, either bounce to `/today` with a one-line toast or render a one-tap "Resume from Today" recovery card. Prevents the permanent loading state.
 - **CLEAN-3 (F3):** Hide `Clinician Hub →` on `/today` when `role !== 'clinician'` (anon users currently see it).
+
+## 10. Pass B re-walkthrough (2026-06-02, 390 × 844, post-ExerciseLoadGate)
+
+Re-ran the full journey through the proper flow after the anon-fixture + `ExerciseLoadGate` work. Path: `/auth → Start Without Account → /today → Start practice → Let's begin → Maya intro → Category Fluency`. Reached the first exercise live (not inferred).
+
+### 10.1 Deltas vs §9
+
+- **F2 (deep-link dead-state) — now mitigated.** The permanent "Loading exercise…" state is the gate `ExerciseLoadGate` now wraps: after `timeoutMs` it surfaces a "We couldn't load your practice / Try again / Go back" escape hatch instead of an infinite spinner. The in-flow path (via `/today → Let's begin`) loads exercises normally; CLEAN-2's deep-link bounce is still worth adding but the dead-state itself no longer traps users.
+- **In-flow exercise entry confirmed non-dead.** Maya intro frame ("Welcome back. Let's warm up…") → Category Fluency rendered fully: "Why this matters" banner, single-line task ("Name as many colors as you can"), one large mic CTA ("Start when you're ready"), 3-2-1 countdown note. No spinner, no trap.
+- **F1 update — the bottom-right overlay now visible in anon sessions is the `UI variant` dev selector** (the Phase 2C variant switcher), not the old Voice/Gate HUD. Same class of concern: a dev tool rendering in a patient/anon session. Should be gated behind `import.meta.env.DEV` / preview-host before any real-user build. Folded into CLEAN-1.
+- **Adaptive `uiProfile` verified live.** Toggling `?uiProfile=simplified-non-fluent` on `/today` dropped the surface from the standard layout (greeting + 3 coaching-level chips + subtext + CTA) to greeting + single CTA only — decisions/screen ~4 → ~1. Confirms Option A actively reduces decision load exactly as §5 predicts.
+
+### 10.2 Category Fluency entry — measured directly (replaces §9 "inferred / leave as-is")
+
+| Dim | Broca's | Wernicke's | RH neglect | Global |
+|---|---|---|---|---|
+| Tap target (Start CTA) | ~280 × 56 ✓ | ✓ | ✓ | ✓ |
+| Tap target (back/home top) | ~40 × 40 borderline | borderline | borderline | borderline |
+| Words on entry surface | ~28 ✓ | ~28 ✓ | ~28 ✓ | ~28 risk (open-speech task ahead) |
+| Decisions on screen | 1 (Start) ✓ | 1 ✓ | 1 ✓ | 1 ✓ |
+| Contrast | pass | pass | pass | pass |
+| Dead-state risk | pass | pass | pass | pass |
+
+Entry screen is clean for all four; the `block` risk in the §4 scorecard is the 60s open-speech round itself, not the entry chrome — unchanged.
+
+### 10.3 Status
+
+Pass B is now sufficient to proceed. Decision (Option A) remains locked and is reinforced. Remaining open items are the CLEAN-1/2/3 cleanup tickets (pre-2C-i) and the deferred 1366×768 clinician-laptop sweep.
