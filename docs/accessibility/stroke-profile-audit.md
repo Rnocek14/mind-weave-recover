@@ -48,7 +48,7 @@ axe-core via Playwright is deferred to Phase 2B — the runner is not wired yet 
 | P5 | Patient-facing routes assume reading literacy in instruction banners (mem://ux/exercise-entry-clarity-standard fades after one read) | Every `/exercise/*` | Warning | Wernicke's, Global |
 | P6 | No left-edge salience reinforcement (icons, color shift, secondary cue) | `/today`, exercise headers | Warning | Right-hemisphere neglect |
 
-P4 is the one that genuinely needs Pass B to fill in.
+P4 was the one that needed Pass B — now filled (§9.2 for `/today`/lesson preview/Detective Mind, §10.2 for Category Fluency entry).
 
 ## 4. Per-route scorecard (first pass)
 
