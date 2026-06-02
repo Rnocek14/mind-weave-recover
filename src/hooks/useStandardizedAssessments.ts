@@ -67,7 +67,7 @@ export const useStandardizedAssessments = (userId: string | undefined) => {
 
   useEffect(() => {
     void fetchAssessments();
-  }, [userId]);
+  }, [userId, activeProfileId]);
 
   const addAssessment = async (
     assessmentType: AssessmentType,
