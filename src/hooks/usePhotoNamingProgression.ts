@@ -108,7 +108,17 @@ export function usePhotoNamingProgression({
 
   // Load on mount / when ids resolve.
   useEffect(() => {
-    if (!userId || !profileId) return;
+    // Resolve the load gate even when ids are not (yet) available — e.g. a
+    // signed-in account with no active patient profile. Leaving `loaded`
+    // false here strands the exercise on an infinite "Loading your
+    // progress..." gate (dead state). With no ids we open the gate with a
+    // null state; the page falls back to the engine default floor.
+    if (!userId || !profileId) {
+      setState(null);
+      setLoaded(true);
+      return;
+    }
+    setLoaded(false);
     let cancelled = false;
     void (async () => {
       const loadedState = await loadProgressionState({

@@ -131,3 +131,8 @@ Not started. See `.lovable/plan.md` / initiative plan for scope.
   - `src/components/patient-hub/SessionReviewTab.tsx` — early return now sets `setSessions([]); setSessionsLoading(false)`. Now shows "No completed sessions yet for this patient."
 - Audited all remaining patient-hub components with `useState(true)` loading (glance cards, CueResponsePanel, SessionNotesPanel, IntelligenceTab/SummaryHeader/SpeechProfile derived loading) — all already reset loading before early returns. No other dead states found.
 - No mic involved anywhere in the clinician experience.
+
+## Phase 1b — Photo Naming live entry (reported: "nothing loads") — FIXED dead state
+- Root cause: `usePhotoNamingProgression` load effect did `if (!userId || !profileId) return;` WITHOUT setting `loaded=true`. When `activeProfile?.id` was unavailable (no active patient profile / reached from clinician context / profile not yet resolved), `progression.loaded` stayed false, so PhotoNamingExercise sat on the `ExerciseLoadGate` ("Loading your progress…") forever — blank/stuck screen.
+- Fix (`src/hooks/usePhotoNamingProgression.ts`): when ids are absent, set `state=null; setLoaded(true)` so the gate opens with the engine default floor; reset `loaded=false` then load real state once ids resolve (no wrong-floor persistence for real patients).
+- Verified other gate (`useCustomPhotoTrials`, RQ v5 `enabled:!!userId`) does NOT hang when disabled (isLoading=false). `loadProgressionState` is already error-safe (returns default). No other infinite-gate paths in this page.
