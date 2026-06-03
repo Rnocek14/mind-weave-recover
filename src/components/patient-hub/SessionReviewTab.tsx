@@ -72,7 +72,11 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
 
   // Load last 10 sessions for the picker
   useEffect(() => {
-    if (!profileId) return;
+    if (!profileId) {
+      setSessions([]);
+      setSessionsLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setSessionsLoading(true);
