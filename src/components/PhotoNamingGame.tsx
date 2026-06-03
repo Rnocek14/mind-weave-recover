@@ -2055,6 +2055,8 @@ export const PhotoNamingGame = ({
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
+    const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
+    const capturedAttemptId = currentAttemptId ?? undefined;
     
     // Run analysis in background without blocking
     (async () => {
