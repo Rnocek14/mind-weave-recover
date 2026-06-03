@@ -185,6 +185,9 @@ export const PhotoNamingGame = ({
   const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTranscriptRef = useRef<string | null>(null);
   const lastRetryToastTimeRef = useRef<number>(0);
+  // Counts deferred re-tries when scoring is briefly blocked by Maya's mic-lock,
+  // so a correct answer captured during her audio tail isn't silently dropped.
+  const stableRetryRef = useRef<number>(0);
   const TRANSCRIPT_STABLE_DELAY_MS = 750; // Wait 750ms of no changes before scoring
   const RETRY_TOAST_THROTTLE_MS = 3000; // Only show retry toast every 3s
   const STALL_TIMER_DELAY_MS = 7000; // Wait 7s before auto-cue (was 3s - too aggressive)
@@ -764,11 +767,23 @@ export const PhotoNamingGame = ({
   
   // Helper: Debounced scoring logic (called after transcript stabilizes)
   const processStableTranscript = useCallback((transcript: string) => {
-    // Discard anything captured while Maya is speaking (or tail-lock).
+    // Maya's mic-lock (her speech + tail) is brief. Instead of silently dropping
+    // a correct answer captured during that window, defer and retry for ~1.5s so
+    // it still scores once the lock clears. This fixes "I said it, it shows
+    // 'Heard: <word>', but nothing happens."
     if (voiceController.isMicLocked) {
-      console.log('🎤 processStableTranscript blocked - mic locked (Maya speaking)');
+      if (stableRetryRef.current < 6) {
+        stableRetryRef.current += 1;
+        console.log(`🎤 processStableTranscript deferred - mic locked, retry ${stableRetryRef.current}/6`);
+        setTimeout(() => processStableTranscript(transcript), 250);
+      } else {
+        console.log('🎤 processStableTranscript dropped - mic locked too long');
+        stableRetryRef.current = 0;
+        needsVoiceRestartRef.current = true;
+      }
       return;
     }
+    stableRetryRef.current = 0;
     // Double-check guards at execution time
     if (showFeedbackRef.current || selectedAnswerRef.current || timedOutRef.current) {
       console.log('🎤 processStableTranscript blocked - feedback/answer/timeout active');
