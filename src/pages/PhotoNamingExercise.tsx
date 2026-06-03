@@ -185,6 +185,7 @@ function PhotoNamingExerciseInner() {
   const [caregiverNotes, setCaregiverNotes] = useState('');
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
   const sessionStartRef = useRef(Date.now());
+  const trialsFrozenRef = useRef(false);
 
 
 
@@ -249,6 +250,10 @@ function PhotoNamingExerciseInner() {
 
   useEffect(() => {
     if (customPhotosLoading) return;
+    if (trialsFrozenRef.current) {
+      console.log('[PhotoNaming] trial list already frozen for this round; ignoring late data update');
+      return;
+    }
 
     const totalTrials = 10;
     let selectedTrials: MixedTrial[] = [];
@@ -430,6 +435,7 @@ function PhotoNamingExerciseInner() {
     }
 
     setTrials(selectedTrials);
+    trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
   }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
 
