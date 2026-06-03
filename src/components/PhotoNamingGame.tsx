@@ -2591,6 +2591,11 @@ export const PhotoNamingGame = ({
           )}
           <span className="text-muted-foreground/60">·</span>
           <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-intro" />
+          {useVoice && (
+            <span className="basis-full text-[11px] text-muted-foreground/80">
+              🎧 Tip: headphones help us hear you clearly and stop the mic picking up Maya's voice.
+            </span>
+          )}
         </div>
       )}
 
