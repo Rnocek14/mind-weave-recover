@@ -2424,6 +2424,9 @@ export const PhotoNamingGame = ({
       cueLevel: cueLevel,
       encouragementScore: caregiverEncouragementScore,
       effortfulSpeech: false, // Not applicable in caregiver assist mode
+      browserTranscript: lastHeardText ?? undefined,
+      attemptId: currentAttemptId ?? undefined,
+      trialIndex: state.trialNumber,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
