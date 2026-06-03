@@ -1,10 +1,12 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Azure ticks are 100-nanosecond units. 10,000,000 ticks = 1 second.
+const TICKS_PER_SECOND = 10_000_000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,21 +15,22 @@ serve(async (req) => {
 
   try {
     const { audioBlob, mimeType } = await req.json();
-    
+
     if (!audioBlob) {
       throw new Error('No audio data provided');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
+    const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');
+    const AZURE_SPEECH_REGION = Deno.env.get('AZURE_SPEECH_REGION');
+    if (!AZURE_SPEECH_KEY || !AZURE_SPEECH_REGION) {
+      throw new Error('AZURE_SPEECH_KEY / AZURE_SPEECH_REGION not configured');
     }
 
     // Convert base64 to binary
     const binaryAudio = Uint8Array.from(atob(audioBlob), c => c.charCodeAt(0));
-    
-    // Check minimum audio size (rough estimate: 0.1s of audio at typical bitrates is ~1-2KB minimum)
-    const minAudioBytes = 500; // Very conservative minimum
+
+    // Check minimum audio size (rough estimate: ~0.1s of audio is ~1-2KB minimum)
+    const minAudioBytes = 500;
     if (binaryAudio.length < minAudioBytes) {
       console.warn(`Audio too short: ${binaryAudio.length} bytes (minimum ${minAudioBytes})`);
       return new Response(
@@ -38,106 +41,103 @@ serve(async (req) => {
           warning: 'audio_too_short',
           message: 'Recording was too short to analyze. Please try speaking for at least 1 second.',
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
-    // Prepare form data for Whisper — derive extension from mimeType so Whisper
-    // accepts the file (it validates by filename extension, not bytes).
+
+    // Determine content type for Azure (matches analyze-pronunciation)
     const resolvedMime = (mimeType || 'audio/webm').toLowerCase();
-    const extFromMime = (() => {
-      if (resolvedMime.includes('webm')) return 'webm';
-      if (resolvedMime.includes('ogg') || resolvedMime.includes('opus')) return 'ogg';
-      if (resolvedMime.includes('wav') || resolvedMime.includes('wave') || resolvedMime.includes('x-pcm')) return 'wav';
-      if (resolvedMime.includes('mp4') || resolvedMime.includes('m4a') || resolvedMime.includes('aac')) return 'mp4';
-      if (resolvedMime.includes('mpeg') || resolvedMime.includes('mp3')) return 'mp3';
-      if (resolvedMime.includes('flac')) return 'flac';
-      return 'webm';
-    })();
-    const formData = new FormData();
-    const blob = new Blob([binaryAudio], { type: resolvedMime });
-    formData.append('file', blob, `audio.${extFromMime}`);
-    formData.append('model', 'whisper-1');
-    formData.append('response_format', 'verbose_json'); // Get word-level timestamps
+    const contentType = resolvedMime.includes('webm')
+      ? 'audio/webm; codecs=opus'
+      : resolvedMime.includes('mp4') || resolvedMime.includes('m4a') || resolvedMime.includes('aac')
+      ? 'audio/mp4'
+      : resolvedMime.includes('ogg') || resolvedMime.includes('opus')
+      ? 'audio/ogg; codecs=opus'
+      : 'audio/wav';
 
-    console.log(`Sending ${binaryAudio.length} bytes to Whisper API...`);
+    // Azure Speech-to-Text, detailed format gives confidence + word-level timing.
+    const azureUrl = `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed`;
 
-    // Call OpenAI Whisper API
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    console.log(`[analyze-speech] Sending ${binaryAudio.length} bytes to Azure STT...`);
+
+    const azureResponse = await fetch(azureUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+        'Content-Type': contentType,
+        'Accept': 'application/json',
       },
-      body: formData,
+      body: binaryAudio,
     });
 
-    if (!whisperResponse.ok) {
-      const errorText = await whisperResponse.text();
-      console.error('Whisper API error:', whisperResponse.status, errorText);
-      
-      // Handle rate limit (429) and server errors (5xx) gracefully
-      if (whisperResponse.status === 429 || whisperResponse.status >= 500) {
+    if (!azureResponse.ok) {
+      const errorText = await azureResponse.text();
+      console.error('[analyze-speech] Azure STT error:', azureResponse.status, errorText);
+
+      // Rate limit / server errors → graceful fallback to browser recognition.
+      if (azureResponse.status === 429 || azureResponse.status >= 500) {
         return new Response(
           JSON.stringify({
             transcript: '',
             confidence: 0,
             acousticMetrics: null,
             fallback: true,
-            warning: whisperResponse.status === 429 ? 'rate_limited' : 'service_unavailable',
+            warning: azureResponse.status === 429 ? 'rate_limited' : 'service_unavailable',
             message: 'Speech service is temporarily busy. Your browser speech recognition will be used instead.',
           }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-      
-      // Handle specific Whisper errors gracefully
-      if (errorText.includes('audio_too_short')) {
-        return new Response(
-          JSON.stringify({
-            transcript: '',
-            confidence: 0,
-            acousticMetrics: null,
-            warning: 'audio_too_short',
-            message: 'Recording was too short to analyze. Please try speaking for at least 1 second.',
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Whisper 400 (e.g. "Invalid file format") — don't crash the client.
-      // Return a graceful fallback so the UI can use browser speech recognition.
       return new Response(
         JSON.stringify({
           transcript: '',
           confidence: 0,
           acousticMetrics: null,
           fallback: true,
-          warning: 'whisper_rejected',
+          warning: 'stt_rejected',
           message: 'Speech analysis unavailable for this clip. Falling back to browser recognition.',
           detail: errorText.slice(0, 300),
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const whisperData = await whisperResponse.json();
-    
-    // Calculate acoustic metrics
-    const acousticMetrics = calculateAcousticMetrics(whisperData);
-    const confidence = calculateOverallConfidence(whisperData);
+    const azureData = await azureResponse.json();
+    const recognitionStatus = azureData.RecognitionStatus;
+
+    // No speech recognized → empty transcript (validity gate handles classification).
+    if (recognitionStatus && recognitionStatus !== 'Success') {
+      const durationMsNoSpeech = Math.round(((azureData.Duration ?? 0) / TICKS_PER_SECOND) * 1000);
+      const validity = classifyUtteranceValidity({
+        transcript: '',
+        asrConfidence: 0,
+        recordingDurationMs: durationMsNoSpeech,
+        acousticMetrics: null,
+      });
+      return new Response(
+        JSON.stringify({
+          transcript: '',
+          confidence: 0,
+          acousticMetrics: null,
+          validity,
+          rawWhisperData: azureData,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const best = azureData.NBest?.[0] ?? null;
+    const transcript = (best?.Display ?? azureData.DisplayText ?? '').trim();
+    const confidence = typeof best?.Confidence === 'number' ? best.Confidence : 0;
+    const totalDurationSec = (azureData.Duration ?? 0) / TICKS_PER_SECOND;
+
+    const acousticMetrics = calculateAcousticMetrics(best?.Words ?? [], totalDurationSec, transcript);
 
     // Speech Validity Gate (Phase 1) — classify before scoring
-    const recordingDurationMs = Math.round((whisperData.duration ?? 0) * 1000);
+    const recordingDurationMs = Math.round(totalDurationSec * 1000);
     const validity = classifyUtteranceValidity({
-      transcript: whisperData.text,
+      transcript,
       asrConfidence: confidence,
       recordingDurationMs,
       acousticMetrics: {
@@ -148,15 +148,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        transcript: whisperData.text,
+        transcript,
         confidence,
         acousticMetrics,
         validity,
-        rawWhisperData: whisperData,
+        rawWhisperData: azureData,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in analyze-speech:', error);
@@ -170,57 +168,32 @@ serve(async (req) => {
   }
 });
 
-function calculateOverallConfidence(whisperData: any): number {
-  // Whisper doesn't provide word-level confidence in standard API
-  // Use duration and segment count as proxy for confidence
-  if (!whisperData.segments || whisperData.segments.length === 0) {
-    return 0;
-  }
-  
-  // Higher segment count relative to duration suggests clearer speech
-  const avgSegmentDuration = whisperData.duration / whisperData.segments.length;
-  
-  // Typical clear speech has segments of 2-4 seconds
-  // Too short = fragmented, too long = mumbled
-  if (avgSegmentDuration >= 2 && avgSegmentDuration <= 4) {
-    return 0.9;
-  } else if (avgSegmentDuration >= 1 && avgSegmentDuration <= 6) {
-    return 0.7;
-  }
-  
-  return 0.5;
-}
-
-function calculateAcousticMetrics(whisperData: any): any {
-  const segments = whisperData.segments || [];
-  const duration = whisperData.duration || 0;
-  const text = whisperData.text || '';
-  
-  // Calculate speech rate (words per minute)
-  const wordCount = text.trim().split(/\s+/).length;
+// Calculate acoustic metrics from Azure word-level timing (Offset/Duration in ticks).
+function calculateAcousticMetrics(words: any[], duration: number, text: string): any {
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const speechRate = duration > 0 ? (wordCount / duration) * 60 : 0;
-  
-  // Calculate pause patterns
+
+  // Pauses = gaps between consecutive words.
   const pauses: number[] = [];
-  for (let i = 1; i < segments.length; i++) {
-    const pauseDuration = segments[i].start - segments[i - 1].end;
-    if (pauseDuration > 0.1) { // Only count pauses > 100ms
+  for (let i = 1; i < words.length; i++) {
+    const prevEnd = (words[i - 1].Offset + words[i - 1].Duration) / TICKS_PER_SECOND;
+    const curStart = words[i].Offset / TICKS_PER_SECOND;
+    const pauseDuration = curStart - prevEnd;
+    if (pauseDuration > 0.1) {
       pauses.push(pauseDuration);
     }
   }
-  
-  const avgPauseDuration = pauses.length > 0 
-    ? pauses.reduce((a, b) => a + b, 0) / pauses.length 
+
+  const avgPauseDuration = pauses.length > 0
+    ? pauses.reduce((a, b) => a + b, 0) / pauses.length
     : 0;
-  
   const totalPauseDuration = pauses.reduce((a, b) => a + b, 0);
-  
-  // Calculate speech vs pause ratio
+
   const actualSpeechDuration = duration - totalPauseDuration;
-  const speechToPauseRatio = totalPauseDuration > 0 
-    ? actualSpeechDuration / totalPauseDuration 
+  const speechToPauseRatio = totalPauseDuration > 0
+    ? actualSpeechDuration / totalPauseDuration
     : actualSpeechDuration;
-  
+
   return {
     speechRateWpm: Math.round(speechRate * 10) / 10,
     totalDurationSec: Math.round(duration * 10) / 10,
@@ -229,7 +202,7 @@ function calculateAcousticMetrics(whisperData: any): any {
     avgPauseDurationMs: Math.round(avgPauseDuration * 1000),
     totalPauseDurationSec: Math.round(totalPauseDuration * 10) / 10,
     speechToPauseRatio: Math.round(speechToPauseRatio * 100) / 100,
-    segmentCount: segments.length,
+    segmentCount: words.length,
   };
 }
 
