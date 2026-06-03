@@ -44,11 +44,11 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 
 // Tab configuration — focused on pattern recognition, not progress (that's /recovery-progress)
 const INSIGHT_TABS = [
-  { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'challenges', label: "What's Hard", icon: Target },
-  { id: 'strategies', label: 'What Helps', icon: Lightbulb },
-  { id: 'intelligence', label: 'Intelligence', icon: Brain },
-  { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
+  { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: LayoutGrid },
+  { id: 'challenges', label: "What's Hard", shortLabel: 'Hard', icon: Target },
+  { id: 'strategies', label: 'What Helps', shortLabel: 'Helps', icon: Lightbulb },
+  { id: 'intelligence', label: 'Intelligence', shortLabel: 'Intel', icon: Brain },
+  { id: 'alerts', label: 'Alerts', shortLabel: 'Alerts', icon: AlertTriangle },
 ] as const;
 
 type InsightTabId = typeof INSIGHT_TABS[number]['id'];
