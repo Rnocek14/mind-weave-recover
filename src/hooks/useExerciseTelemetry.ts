@@ -30,6 +30,9 @@ export interface TrialData {
   audioMimeType?: string; // MIME type of audio (webm, mp4, etc.)
   whisperTranscript?: string; // Whisper transcription of audio
   whisperConfidence?: number; // Whisper confidence score (0-1)
+  browserTranscript?: string; // Raw browser Web Speech transcript
+  attemptId?: string; // Utterance attempt id (correlation key)
+  trialIndex?: number; // Trial index within the round
   acousticMetrics?: {
     speechRateWpm: number;
     totalDurationSec: number;
