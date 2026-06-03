@@ -520,12 +520,18 @@ export const PhotoNamingGame = ({
   useEffect(() => {
     if (state.isComplete || state.trialNumber !== 1) return;
     if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      const introKey = activeSessionId ? `photo-naming-intro-spoken:${activeSessionId}` : null;
+      if (introKey && sessionStorage.getItem(introKey) === 'true') {
+        hasSpokenIntroRef.current = true;
+        return;
+      }
       hasSpokenIntroRef.current = true;
+      if (introKey) sessionStorage.setItem(introKey, 'true');
       vg.speakIntro().then(() => {
         vg.speakIfVoiceLed('Say what you see.');
       });
     }
-  }, [state.trialNumber, state.isComplete, vg]);
+  }, [state.trialNumber, state.isComplete, vg, activeSessionId]);
 
   // Reset logger counters when session starts/changes
   useEffect(() => {
