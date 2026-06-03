@@ -98,3 +98,19 @@ speech + audio pipelines. Photo Naming already validated standalone.
 
 ## Phase 2–6
 Not started. See `.lovable/plan.md` / initiative plan for scope.
+
+## Phase 1 — Mic/Audio Exercise Sweep (driven live, mobile 390px)
+
+### Minimal Pairs (/exercise/minimal-pairs) — PASS
+- Tap-based discrimination; audio is output-only, so **no mic required** for core loop.
+- Verified: intro → start, audio replay button, trial counter/progress, answer selection, auto-advance.
+- Feedback timing healthy: incorrect 2.4s, correct 1.2s; optional "Say it" echo step has a 9s fallback (no dead state without a mic).
+
+### Narrative Retell (/exercise/narrative-retell) — PASS
+- Mic-unavailable path surfaces "Retry" + "Type" plus a clear toast (no dead state).
+- Typing fallback: textarea + memory-hint emoji strip; "I'm done" gated until input.
+- Structured scoring accurate (4/4 key events, Beginning/Middle/End structure, content checklist, next-step coaching, "You said" echo).
+- Flow continuity: advances Story 1→2 of 3 with a tone-aware bridge; progress bar updates.
+
+### Fixed
+- **Dev UI Variant Picker overlapped bottom-anchored CTAs** (e.g. "Start Practice") in the fixed mobile-width app frame, blocking taps during QA. Made it a collapsible corner chip (`src/components/dev/UiVariantPicker.tsx`) so it no longer covers content. Dev/preview-only chrome; opt-in on published.
