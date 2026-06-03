@@ -37,6 +37,19 @@ import {
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
+const PROGRESSION_LOAD_TIMEOUT_MS = 5000;
+
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      reject(new Error(`Progression load timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
 
 /** Spec §2: legacy constant retained for reference; per-level evidence
  * thresholds now live in `photoNamingLevels.ts`. */
@@ -121,11 +134,24 @@ export function usePhotoNamingProgression({
     setLoaded(false);
     let cancelled = false;
     void (async () => {
-      const loadedState = await loadProgressionState({
-        userId,
-        profileId,
-        exerciseSlug: PHOTO_NAMING_SLUG,
-      });
+      let loadedState: ClinicalProgressionState;
+      try {
+        loadedState = await withTimeout(
+          loadProgressionState({
+            userId,
+            profileId,
+            exerciseSlug: PHOTO_NAMING_SLUG,
+          }),
+          PROGRESSION_LOAD_TIMEOUT_MS,
+        );
+      } catch (error) {
+        console.warn('[PhotoNamingProgression] load fallback:', error);
+        loadedState = defaultProgressionState({
+          userId,
+          profileId,
+          exerciseSlug: PHOTO_NAMING_SLUG,
+        });
+      }
       if (cancelled) return;
       setState(loadedState);
       setLoaded(true);

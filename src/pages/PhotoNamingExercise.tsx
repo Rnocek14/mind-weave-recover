@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -199,6 +199,26 @@ function PhotoNamingExerciseInner() {
   const sessionId = activeSessionId;
 
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
+  const [customPhotoGateTimedOut, setCustomPhotoGateTimedOut] = useState(false);
+  const customPhotosLoading = isLoading && !customPhotoGateTimedOut;
+  const usableCustomPhotos = useMemo(
+    () => (customPhotoGateTimedOut ? [] : customPhotos),
+    [customPhotoGateTimedOut, customPhotos],
+  );
+
+  useEffect(() => {
+    if (!isLoading) {
+      setCustomPhotoGateTimedOut(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      console.warn('[PhotoNaming] custom photo load timed out; falling back to stock photos');
+      setCustomPhotoGateTimedOut(true);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [isLoading]);
 
 
   // Unified trial submission. progression:null because PhotoNamingGame owns
@@ -228,7 +248,7 @@ function PhotoNamingExerciseInner() {
   }, [sessionId, adaptation.difficultyTier]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (customPhotosLoading) return;
 
     const totalTrials = 10;
     let selectedTrials: MixedTrial[] = [];
@@ -238,7 +258,7 @@ function PhotoNamingExerciseInner() {
       lessonFocusPhonemes,
       targetedWords,
       photoSource,
-      customPhotosCount: customPhotos.length,
+      customPhotosCount: usableCustomPhotos.length,
       strugglingWordsFallbackCount: strugglingWordsFallback?.length,
       photoBankSize: PHOTO_BANK.length,
     });
@@ -324,23 +344,23 @@ function PhotoNamingExerciseInner() {
         targets: selectedTrials.map(t => t.target),
       });
     } else if (photoSource === 'custom') {
-      if (customPhotos.length === 0) {
+      if (usableCustomPhotos.length === 0) {
         selectedTrials = [];
         console.log('📸 Custom photo mode (empty)');
       } else {
-        selectedTrials = shuffleArray(customPhotos).slice(0, totalTrials);
+        selectedTrials = shuffleArray(usableCustomPhotos).slice(0, totalTrials);
         console.log('📸 Custom photo mode:', { selectedCount: selectedTrials.length });
       }
     } else {
       // Mixed: 60% custom, 40% stock if custom photos exist
       const levelFilteredTrials = getTrialsForLevel(initialDifficulty, PHOTO_BANK.length);
-      if (customPhotos.length > 0) {
-        const customCount = Math.min(Math.ceil(totalTrials * 0.6), customPhotos.length);
+      if (usableCustomPhotos.length > 0) {
+        const customCount = Math.min(Math.ceil(totalTrials * 0.6), usableCustomPhotos.length);
         const stockCount = totalTrials - customCount;
         // Use difficulty-filtered stock photos
         const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
         selectedTrials = [
-          ...shuffleArray(customPhotos).slice(0, customCount),
+          ...shuffleArray(usableCustomPhotos).slice(0, customCount),
           ...uniqueStock.slice(0, stockCount),
         ];
         selectedTrials = shuffleArray(selectedTrials);
@@ -411,7 +431,7 @@ function PhotoNamingExerciseInner() {
 
     setTrials(selectedTrials);
     setGameKey(prev => prev + 1);
-  }, [photoSource, customPhotos, isLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
+  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;
@@ -753,10 +773,10 @@ function PhotoNamingExerciseInner() {
   // progression has resolved. Otherwise `initialDifficulty` is captured at
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
-  if (isLoading || !progression.loaded) {
+  if (customPhotosLoading || !progression.loaded) {
     return (
       <ExerciseLoadGate
-        loadingLabel={isLoading ? 'Loading photos...' : 'Loading your progress...'}
+        loadingLabel={customPhotosLoading ? 'Loading photos...' : 'Loading your progress...'}
       />
     );
   }
