@@ -48,7 +48,7 @@ const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
   ],
   // Tier 2 (Medium) — concrete but narrower
   [
-    { category: 'clothes', label: 'Clothing' },
+    { category: 'clothes', label: 'Clothing Items' },
     { category: 'kitchen', label: 'Kitchen Items' },
     { category: 'tools', label: 'Tools' },
     { category: 'vehicles', label: 'Vehicles' },
