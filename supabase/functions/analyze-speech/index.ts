@@ -105,6 +105,13 @@ serve(async (req) => {
 
     const azureData = await azureResponse.json();
     const recognitionStatus = azureData.RecognitionStatus;
+    console.log('[analyze-speech] Azure response', {
+      recognitionStatus,
+      transcript: azureData.NBest?.[0]?.Display ?? azureData.DisplayText ?? '',
+      confidence: azureData.NBest?.[0]?.Confidence ?? null,
+      wordCount: azureData.NBest?.[0]?.Words?.length ?? 0,
+    });
+
 
     // No speech recognized → empty transcript (validity gate handles classification).
     if (recognitionStatus && recognitionStatus !== 'Success') {
