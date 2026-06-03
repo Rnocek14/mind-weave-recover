@@ -185,6 +185,7 @@ export const PhotoNamingGame = ({
   const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTranscriptRef = useRef<string | null>(null);
   const lastRetryToastTimeRef = useRef<number>(0);
+  const lastSpokenFingerprintRef = useRef<{ trialNumber: number; transcript: string; at: number } | null>(null);
   // Counts deferred re-tries when scoring is briefly blocked by Maya's mic-lock,
   // so a correct answer captured during her audio tail isn't silently dropped.
   const stableRetryRef = useRef<number>(0);
@@ -794,6 +795,24 @@ export const PhotoNamingGame = ({
       console.log('🎤 processStableTranscript blocked - game not ready');
       return;
     }
+
+    const normalizedFingerprint = normalizeASROutput(transcript).toLowerCase().trim();
+    const priorFingerprint = lastSpokenFingerprintRef.current;
+    if (
+      normalizedFingerprint &&
+      priorFingerprint &&
+      priorFingerprint.trialNumber === state.trialNumber &&
+      priorFingerprint.transcript === normalizedFingerprint &&
+      Date.now() - priorFingerprint.at < 2500
+    ) {
+      console.log('🎤 processStableTranscript skipped duplicate final transcript:', normalizedFingerprint);
+      return;
+    }
+    lastSpokenFingerprintRef.current = {
+      trialNumber: state.trialNumber,
+      transcript: normalizedFingerprint,
+      at: Date.now(),
+    };
 
     // ─── HOMOPHONE / ALIAS SHORT-CIRCUIT ──────────────────────────────────
     // The validation gate rejects single-letter utterances like "I" as filler,
