@@ -253,6 +253,19 @@ export const useExerciseTelemetry = (
           eventData.whisper_transcript = trial.whisperTranscript;
           eventData.whisper_confidence = trial.whisperConfidence;
         }
+
+        // Always persist the raw browser transcript + correlation keys when present.
+        // This is the primary transcript when Whisper is unavailable, and is what
+        // Session Review reads back as voice evidence.
+        if (trial.browserTranscript) {
+          eventData.browser_transcript = trial.browserTranscript;
+        }
+        if (trial.attemptId) {
+          eventData.attempt_id = trial.attemptId;
+        }
+        if (typeof trial.trialIndex === 'number') {
+          eventData.trial_index = trial.trialIndex;
+        }
         
         if (trial.acousticMetrics) {
           eventData.acoustic_metrics = trial.acousticMetrics;
