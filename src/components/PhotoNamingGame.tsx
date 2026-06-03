@@ -185,6 +185,7 @@ export const PhotoNamingGame = ({
   const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTranscriptRef = useRef<string | null>(null);
   const lastRetryToastTimeRef = useRef<number>(0);
+  const lastSpokenFingerprintRef = useRef<{ trialNumber: number; transcript: string; at: number } | null>(null);
   // Counts deferred re-tries when scoring is briefly blocked by Maya's mic-lock,
   // so a correct answer captured during her audio tail isn't silently dropped.
   const stableRetryRef = useRef<number>(0);
@@ -519,12 +520,18 @@ export const PhotoNamingGame = ({
   useEffect(() => {
     if (state.isComplete || state.trialNumber !== 1) return;
     if (!hasSpokenIntroRef.current && vg.shouldAutoSpeak) {
+      const introKey = activeSessionId ? `photo-naming-intro-spoken:${activeSessionId}` : null;
+      if (introKey && sessionStorage.getItem(introKey) === 'true') {
+        hasSpokenIntroRef.current = true;
+        return;
+      }
       hasSpokenIntroRef.current = true;
+      if (introKey) sessionStorage.setItem(introKey, 'true');
       vg.speakIntro().then(() => {
         vg.speakIfVoiceLed('Say what you see.');
       });
     }
-  }, [state.trialNumber, state.isComplete, vg]);
+  }, [state.trialNumber, state.isComplete, vg, activeSessionId]);
 
   // Reset logger counters when session starts/changes
   useEffect(() => {
@@ -864,6 +871,24 @@ export const PhotoNamingGame = ({
     }
 
     console.log('✅ Transcript stable + gated, scoring:', transcript);
+
+    const normalizedFingerprint = normalizeASROutput(transcript).toLowerCase().trim();
+    const priorFingerprint = lastSpokenFingerprintRef.current;
+    if (
+      normalizedFingerprint &&
+      priorFingerprint &&
+      priorFingerprint.trialNumber === state.trialNumber &&
+      priorFingerprint.transcript === normalizedFingerprint &&
+      Date.now() - priorFingerprint.at < 2500
+    ) {
+      console.log('🎤 processStableTranscript skipped duplicate final transcript:', normalizedFingerprint);
+      return;
+    }
+    lastSpokenFingerprintRef.current = {
+      trialNumber: state.trialNumber,
+      transcript: normalizedFingerprint,
+      at: Date.now(),
+    };
 
     const matchedChoice = findMatchingChoice(transcript);
 

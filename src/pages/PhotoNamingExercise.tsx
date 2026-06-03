@@ -185,6 +185,7 @@ function PhotoNamingExerciseInner() {
   const [caregiverNotes, setCaregiverNotes] = useState('');
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
   const sessionStartRef = useRef(Date.now());
+  const trialsFrozenRef = useRef(false);
 
 
 
@@ -249,6 +250,10 @@ function PhotoNamingExerciseInner() {
 
   useEffect(() => {
     if (customPhotosLoading) return;
+    if (trialsFrozenRef.current) {
+      console.log('[PhotoNaming] trial list already frozen for this round; ignoring late data update');
+      return;
+    }
 
     const totalTrials = 10;
     let selectedTrials: MixedTrial[] = [];
@@ -430,6 +435,7 @@ function PhotoNamingExerciseInner() {
     }
 
     setTrials(selectedTrials);
+    trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
   }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
 
@@ -824,7 +830,7 @@ function PhotoNamingExerciseInner() {
           
           {/* Controls - hidden on mobile, visible on sm+ */}
           <div className="hidden sm:flex items-center gap-2">
-            <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)}>
+            <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)} disabled={trials.length > 0}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
@@ -835,7 +841,7 @@ function PhotoNamingExerciseInner() {
               </SelectContent>
             </Select>
 
-            <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)}>
+            <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)} disabled={trials.length > 0}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
