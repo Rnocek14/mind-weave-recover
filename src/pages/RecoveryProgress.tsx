@@ -525,9 +525,9 @@ function MetricCard({
   return (
     <Card className="relative overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className={cn('p-1.5 rounded-lg', TREND_CONFIG[trend].bg)}>
+            <div className={cn('p-1.5 rounded-lg shrink-0', TREND_CONFIG[trend].bg)}>
               <Icon className={cn('h-4 w-4', TREND_CONFIG[trend].color)} />
             </div>
             <div className="min-w-0">
@@ -535,7 +535,7 @@ function MetricCard({
               <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 pl-9 sm:pl-0">
             <TrendIndicator trend={trend} isClinician={isClinician} />
             <WhyTooltip tip={whyTip}>
               <button className="text-muted-foreground/40 hover:text-muted-foreground transition-colors">
