@@ -796,24 +796,6 @@ export const PhotoNamingGame = ({
       return;
     }
 
-    const normalizedFingerprint = normalizeASROutput(transcript).toLowerCase().trim();
-    const priorFingerprint = lastSpokenFingerprintRef.current;
-    if (
-      normalizedFingerprint &&
-      priorFingerprint &&
-      priorFingerprint.trialNumber === state.trialNumber &&
-      priorFingerprint.transcript === normalizedFingerprint &&
-      Date.now() - priorFingerprint.at < 2500
-    ) {
-      console.log('🎤 processStableTranscript skipped duplicate final transcript:', normalizedFingerprint);
-      return;
-    }
-    lastSpokenFingerprintRef.current = {
-      trialNumber: state.trialNumber,
-      transcript: normalizedFingerprint,
-      at: Date.now(),
-    };
-
     // ─── HOMOPHONE / ALIAS SHORT-CIRCUIT ──────────────────────────────────
     // The validation gate rejects single-letter utterances like "I" as filler,
     // which blocks legitimate homophone answers (e.g. "I" for an "eye" trial)
@@ -883,6 +865,24 @@ export const PhotoNamingGame = ({
     }
 
     console.log('✅ Transcript stable + gated, scoring:', transcript);
+
+    const normalizedFingerprint = normalizeASROutput(transcript).toLowerCase().trim();
+    const priorFingerprint = lastSpokenFingerprintRef.current;
+    if (
+      normalizedFingerprint &&
+      priorFingerprint &&
+      priorFingerprint.trialNumber === state.trialNumber &&
+      priorFingerprint.transcript === normalizedFingerprint &&
+      Date.now() - priorFingerprint.at < 2500
+    ) {
+      console.log('🎤 processStableTranscript skipped duplicate final transcript:', normalizedFingerprint);
+      return;
+    }
+    lastSpokenFingerprintRef.current = {
+      trialNumber: state.trialNumber,
+      transcript: normalizedFingerprint,
+      at: Date.now(),
+    };
 
     const matchedChoice = findMatchingChoice(transcript);
 
