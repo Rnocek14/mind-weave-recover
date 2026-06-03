@@ -6,10 +6,16 @@
  *
  * Visible in Vite dev AND on Lovable preview/published hosts so
  * the team can QA variants from the live preview.
+ *
+ * Collapsible: renders as a small chip by default so it never covers
+ * bottom-anchored primary CTAs (e.g. "Start Practice"). Click the chip
+ * to expand the full variant selector.
  */
 
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { UiVariant } from '@/lib/ui/variantClass';
+import { SlidersHorizontal, X } from 'lucide-react';
 
 const VARIANTS: UiVariant[] = [
   'standard',
@@ -41,6 +47,7 @@ function shouldShowPicker() {
 export function UiVariantPicker() {
   if (!shouldShowPicker()) return null;
   const [params, setParams] = useSearchParams();
+  const [expanded, setExpanded] = useState(false);
   const urlValue = params.get('uiProfile');
   const stored = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null;
   const current = urlValue ?? stored ?? 'standard';
@@ -61,18 +68,46 @@ export function UiVariantPicker() {
     window.location.reload();
   };
 
+  // Collapsed: a small, unobtrusive chip that never blocks CTAs.
+  if (!expanded) {
+    const isOverridden = current !== 'standard';
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        title={`UI variant: ${current} (click to change)`}
+        aria-label={`UI variant picker (current: ${current})`}
+        className="fixed bottom-4 right-4 z-[9999] flex h-9 w-9 items-center justify-center rounded-full border border-primary/40 bg-background/90 text-primary shadow-md backdrop-blur transition-transform hover:scale-105"
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+        {isOverridden && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary" />
+        )}
+      </button>
+    );
+  }
+
   return (
-    <div className="fixed bottom-20 right-4 z-[9999] rounded-lg border-2 border-primary bg-background px-3 py-2 shadow-lg text-xs flex items-center gap-2">
+    <div className="fixed bottom-4 right-4 z-[9999] flex items-center gap-2 rounded-lg border-2 border-primary bg-background px-3 py-2 text-xs shadow-lg">
       <span className="text-muted-foreground">UI variant</span>
       <select
         value={current}
         onChange={(e) => set(e.target.value)}
-        className="bg-transparent text-foreground outline-none cursor-pointer"
+        className="cursor-pointer bg-transparent text-foreground outline-none"
       >
         {VARIANTS.map((v) => (
           <option key={v} value={v}>{v}</option>
         ))}
       </select>
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        title="Collapse"
+        aria-label="Collapse UI variant picker"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
