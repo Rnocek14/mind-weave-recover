@@ -94,7 +94,11 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
   }, [timeline]);
 
   useEffect(() => {
-    if (!profileId) return;
+    if (!profileId) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - windowSize);
 
