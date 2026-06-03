@@ -208,7 +208,7 @@ export default function Insights() {
                 >
                   <tab.icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                  <span className="sm:hidden">{tab.shortLabel}</span>
                   {tab.id === 'alerts' && !flagsLoading && redFlags.length > 0 && (
                     <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
                       {redFlags.length}
