@@ -122,3 +122,12 @@ Not started. See `.lovable/plan.md` / initiative plan for scope.
 - Role switcher dropdown works.
 - No real horizontal overflow at 390px (scrollbar in capture was a rendering artifact; content does not shift on horizontal scroll).
 - No mic involved anywhere in the caregiver experience.
+
+## Phase 3 — Clinician Sweep (driven live, desktop 1280px) — PASS (2 dead-states fixed)
+- `/clinician` Patient Hub renders 5 Glance Cards (Triage/Status "Monitor closely", Practice/Dose 0% adherence shown neutrally, Voice Evidence "No qualifying recordings", Trajectory Plateau/"Insufficient data", Adaptation/Levels "No adaptation data") — all safe empty states, no false celebration.
+- Single "Clinical Detail" drawer with 3 jobs-based tabs (Overview / Review / Plan) matches unified-hub spec. Sticky doc bar (Copy Note / Copy EHR / Print) + Documentation link present.
+- **FIXED — perpetual skeletons (dead state):** When `profileId` was falsy, the data effects `return`ed early *without* clearing `loading`, so the Sessions section (Overview tab) and Session Review section (Review tab) spun grey skeletons forever.
+  - `src/components/patient-hub/SessionsTab.tsx` — early return now sets `setSessions([]); setLoading(false)`. Now shows "No sessions in this time window."
+  - `src/components/patient-hub/SessionReviewTab.tsx` — early return now sets `setSessions([]); setSessionsLoading(false)`. Now shows "No completed sessions yet for this patient."
+- Audited all remaining patient-hub components with `useState(true)` loading (glance cards, CueResponsePanel, SessionNotesPanel, IntelligenceTab/SummaryHeader/SpeechProfile derived loading) — all already reset loading before early returns. No other dead states found.
+- No mic involved anywhere in the clinician experience.
