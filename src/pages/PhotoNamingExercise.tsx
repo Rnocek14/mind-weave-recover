@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -201,7 +201,10 @@ function PhotoNamingExerciseInner() {
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const [customPhotoGateTimedOut, setCustomPhotoGateTimedOut] = useState(false);
   const customPhotosLoading = isLoading && !customPhotoGateTimedOut;
-  const usableCustomPhotos = customPhotoGateTimedOut ? [] : customPhotos;
+  const usableCustomPhotos = useMemo(
+    () => (customPhotoGateTimedOut ? [] : customPhotos),
+    [customPhotoGateTimedOut, customPhotos],
+  );
 
   useEffect(() => {
     if (!isLoading) {
@@ -770,10 +773,10 @@ function PhotoNamingExerciseInner() {
   // progression has resolved. Otherwise `initialDifficulty` is captured at
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
-  if (isLoading || !progression.loaded) {
+  if (customPhotosLoading || !progression.loaded) {
     return (
       <ExerciseLoadGate
-        loadingLabel={isLoading ? 'Loading photos...' : 'Loading your progress...'}
+        loadingLabel={customPhotosLoading ? 'Loading photos...' : 'Loading your progress...'}
       />
     );
   }
