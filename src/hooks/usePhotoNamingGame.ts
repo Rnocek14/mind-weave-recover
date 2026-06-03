@@ -476,10 +476,8 @@ export const usePhotoNamingGame = (
       console.debug('[recency:photo_naming] markUsed id=%s tier=%s', nextTrialData.id, nextTrialData.computed_difficulty);
     }
     
-    // Check if this was the last trial (show trial 10, then complete)
-    if (nextNum >= totalTrials) {
-      setIsComplete(true);
-    }
+    // Do not mark complete when the final trial first appears. Completion
+    // happens on the next advance call, after that final trial is answered.
   }, [totalTrials, recency]);
 
   // ==========================================================================
