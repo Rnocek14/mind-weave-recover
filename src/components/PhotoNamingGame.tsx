@@ -767,11 +767,23 @@ export const PhotoNamingGame = ({
   
   // Helper: Debounced scoring logic (called after transcript stabilizes)
   const processStableTranscript = useCallback((transcript: string) => {
-    // Discard anything captured while Maya is speaking (or tail-lock).
+    // Maya's mic-lock (her speech + tail) is brief. Instead of silently dropping
+    // a correct answer captured during that window, defer and retry for ~1.5s so
+    // it still scores once the lock clears. This fixes "I said it, it shows
+    // 'Heard: <word>', but nothing happens."
     if (voiceController.isMicLocked) {
-      console.log('🎤 processStableTranscript blocked - mic locked (Maya speaking)');
+      if (stableRetryRef.current < 6) {
+        stableRetryRef.current += 1;
+        console.log(`🎤 processStableTranscript deferred - mic locked, retry ${stableRetryRef.current}/6`);
+        setTimeout(() => processStableTranscript(transcript), 250);
+      } else {
+        console.log('🎤 processStableTranscript dropped - mic locked too long');
+        stableRetryRef.current = 0;
+        needsVoiceRestartRef.current = true;
+      }
       return;
     }
+    stableRetryRef.current = 0;
     // Double-check guards at execution time
     if (showFeedbackRef.current || selectedAnswerRef.current || timedOutRef.current) {
       console.log('🎤 processStableTranscript blocked - feedback/answer/timeout active');
