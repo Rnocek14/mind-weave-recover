@@ -35,6 +35,12 @@ export interface UnifiedTrialInput {
   stimulusId?: string | null;
   expectedResponse?: string | null;
   userResponse?: string | null;
+  /** Raw browser Web Speech transcript (persisted to exercise_events.browser_transcript). */
+  browserTranscript?: string | null;
+  /** Utterance attempt id correlating exercise_events ↔ utterance_analyses. */
+  attemptId?: string | null;
+  /** Zero/one-based trial index within the round (exercise_events.trial_index). */
+  trialIndex?: number | null;
 
   // ---- outcome ----
   isCorrect: boolean;

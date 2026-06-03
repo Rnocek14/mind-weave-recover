@@ -73,6 +73,9 @@ interface PhotoNamingGameProps {
     audioMimeType?: string;
     whisperTranscript?: string;
     whisperConfidence?: number;
+    browserTranscript?: string;
+    attemptId?: string;
+    trialIndex?: number;
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -1706,6 +1709,9 @@ export const PhotoNamingGame = ({
       audioMimeType: mimeType,
       whisperTranscript,
       whisperConfidence,
+      browserTranscript: lastHeardText ?? undefined,
+      attemptId: currentAttemptId ?? undefined,
+      trialIndex: state.trialNumber,
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
@@ -2049,6 +2055,8 @@ export const PhotoNamingGame = ({
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
+    const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
+    const capturedAttemptId = currentAttemptId ?? undefined;
     
     // Run analysis in background without blocking
     (async () => {
@@ -2174,6 +2182,9 @@ export const PhotoNamingGame = ({
           audioMimeType: mimeType,
           whisperTranscript,
           whisperConfidence,
+          browserTranscript: capturedBrowserTranscript,
+          attemptId: capturedAttemptId,
+          trialIndex: capturedTrialNumber,
           acousticMetrics,
           encouragementScore: speechEncouragementScore,
           effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
@@ -2293,6 +2304,9 @@ export const PhotoNamingGame = ({
           cueLevel: capturedCueLevel,
           whisperTranscript: undefined,
           whisperConfidence: undefined,
+          browserTranscript: capturedBrowserTranscript,
+          attemptId: capturedAttemptId,
+          trialIndex: capturedTrialNumber,
           acousticMetrics: undefined,
           encouragementScore: undefined,
           effortfulSpeech: false,
@@ -2410,6 +2424,9 @@ export const PhotoNamingGame = ({
       cueLevel: cueLevel,
       encouragementScore: caregiverEncouragementScore,
       effortfulSpeech: false, // Not applicable in caregiver assist mode
+      browserTranscript: lastHeardText ?? undefined,
+      attemptId: currentAttemptId ?? undefined,
+      trialIndex: state.trialNumber,
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
@@ -2574,6 +2591,11 @@ export const PhotoNamingGame = ({
           )}
           <span className="text-muted-foreground/60">·</span>
           <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-intro" />
+          {useVoice && (
+            <span className="basis-full text-[11px] text-muted-foreground/80">
+              🎧 Tip: headphones help us hear you clearly and stop the mic picking up Maya's voice.
+            </span>
+          )}
         </div>
       )}
 

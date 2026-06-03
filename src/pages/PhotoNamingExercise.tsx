@@ -425,6 +425,9 @@ function PhotoNamingExerciseInner() {
     audioMimeType?: string;
     whisperTranscript?: string;
     whisperConfidence?: number;
+    browserTranscript?: string;
+    attemptId?: string;
+    trialIndex?: number;
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -488,7 +491,10 @@ function PhotoNamingExerciseInner() {
         level: typeof result.difficultyLevel === 'number' ? result.difficultyLevel : 1,
         stimulusId: trial.id,
         expectedResponse: trial.target,
-        userResponse: result.whisperTranscript ?? null,
+        userResponse: result.whisperTranscript ?? result.browserTranscript ?? null,
+        browserTranscript: result.browserTranscript ?? null,
+        attemptId: result.attemptId ?? null,
+        trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
         cueLevel: result.cueLevel ?? 0,
         supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),

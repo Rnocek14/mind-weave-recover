@@ -30,6 +30,9 @@ export interface TrialData {
   audioMimeType?: string; // MIME type of audio (webm, mp4, etc.)
   whisperTranscript?: string; // Whisper transcription of audio
   whisperConfidence?: number; // Whisper confidence score (0-1)
+  browserTranscript?: string; // Raw browser Web Speech transcript
+  attemptId?: string; // Utterance attempt id (correlation key)
+  trialIndex?: number; // Trial index within the round
   acousticMetrics?: {
     speechRateWpm: number;
     totalDurationSec: number;
@@ -249,6 +252,19 @@ export const useExerciseTelemetry = (
         if (trial.whisperTranscript) {
           eventData.whisper_transcript = trial.whisperTranscript;
           eventData.whisper_confidence = trial.whisperConfidence;
+        }
+
+        // Always persist the raw browser transcript + correlation keys when present.
+        // This is the primary transcript when Whisper is unavailable, and is what
+        // Session Review reads back as voice evidence.
+        if (trial.browserTranscript) {
+          eventData.browser_transcript = trial.browserTranscript;
+        }
+        if (trial.attemptId) {
+          eventData.attempt_id = trial.attemptId;
+        }
+        if (typeof trial.trialIndex === 'number') {
+          eventData.trial_index = trial.trialIndex;
         }
         
         if (trial.acousticMetrics) {
