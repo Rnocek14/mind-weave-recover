@@ -114,3 +114,11 @@ Not started. See `.lovable/plan.md` / initiative plan for scope.
 
 ### Fixed
 - **Dev UI Variant Picker overlapped bottom-anchored CTAs** (e.g. "Start Practice") in the fixed mobile-width app frame, blocking taps during QA. Made it a collapsible corner chip (`src/components/dev/UiVariantPicker.tsx`) so it no longer covers content. Dev/preview-only chrome; opt-in on published.
+
+## Phase 2 — Caregiver Sweep (driven live, mobile 390px) — PASS
+- `/caregiver` renders the 5 Glance Cards (Status, Practice, Listen, Progress, Game Levels) + Concerns to Review, all with safe, friendly empty states (no dead states, no false-celebration on zero data).
+- "More detail" drawer expands to Session Adherence + Session History (empty state) + Quick Actions — matches the single-drawer Glance Card model.
+- Quick Actions navigate correctly (verified Upload Photos → /photo-library clean empty state).
+- Role switcher dropdown works.
+- No real horizontal overflow at 390px (scrollbar in capture was a rendering artifact; content does not shift on horizontal scroll).
+- No mic involved anywhere in the caregiver experience.
