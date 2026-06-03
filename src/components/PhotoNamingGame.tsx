@@ -73,6 +73,9 @@ interface PhotoNamingGameProps {
     audioMimeType?: string;
     whisperTranscript?: string;
     whisperConfidence?: number;
+    browserTranscript?: string;
+    attemptId?: string;
+    trialIndex?: number;
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
