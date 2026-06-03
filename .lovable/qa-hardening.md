@@ -41,18 +41,29 @@ Method: anonymous sign-in ("Start Without Account"), 390×844 mobile viewport.
 | → chip scoring + advance | ✅ pass | Tapping a chip scores and auto-advances to next trial |
 | → stall auto-cue | ✅ pass | Stall detected → semantic cue delivered, no dead state |
 
-### Observations (polish, not defects)
-- During choice-audio playback the answer chips are `disabled`; tapping one in
-  that window is silently ignored with no visual "wait" affordance. Low-priority
-  UX polish — **not** a dead state (button re-enables after audio).
-- The "Could not start recording / check microphone permissions" toast re-fires
-  on every trial in a fully mic-denied environment. Real, but the documented
-  fallback (choice chips) is always available. Candidate for once-per-session
-  suppression — backlog, not a blocker.
+| `/insights` | ✅ pass | Safe "building baseline" empty states, concern banner |
+| `/history` | ✅ pass | QA session logged correctly (1 try, 0%, photo_naming) |
+| `/recovery-progress` | ✅ pass | BETA, clinical-safe empty states |
+| `/speech-profile` | ✅ pass | Empty state + Profile/Adaptation/Evidence tabs |
+| `/photo-library` | ✅ pass | Empty state + Take Photo / Upload CTAs |
+
+### Fixes applied (presentation-only, engine untouched)
+- **Insights mobile tabs**: first-word split produced ambiguous "What's"/"What".
+  Added explicit `shortLabel` (Hard / Helps / Intel) — `src/pages/Insights.tsx`.
+- **Recovery Progress cards**: long patient status sentence in a `shrink-0`
+  group crushed the title column on mobile; header now stacks below `sm` —
+  `src/pages/RecoveryProgress.tsx`.
+
+### Observations (polish backlog, not defects)
+- During choice-audio playback the answer chips are `disabled`; tapping one is
+  silently ignored with no "wait" affordance (re-enables after audio).
+- Mic-denied "Could not start recording" toast re-fires every trial; candidate
+  for once-per-session suppression.
 
 ### Remaining patient routes to drive
-`/insights`, `/history`, `/photo-library`, `/speech-profile`,
-`/recovery-progress`, `/lesson` (full guided session), remaining `/exercise/*`.
+`/lesson` (full guided session) and the remaining `/exercise/*` games —
+best driven live by the user with a real mic to exercise speech scoring.
+
 
 ---
 
