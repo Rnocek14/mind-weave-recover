@@ -185,6 +185,9 @@ export const PhotoNamingGame = ({
   const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTranscriptRef = useRef<string | null>(null);
   const lastRetryToastTimeRef = useRef<number>(0);
+  // Counts deferred re-tries when scoring is briefly blocked by Maya's mic-lock,
+  // so a correct answer captured during her audio tail isn't silently dropped.
+  const stableRetryRef = useRef<number>(0);
   const TRANSCRIPT_STABLE_DELAY_MS = 750; // Wait 750ms of no changes before scoring
   const RETRY_TOAST_THROTTLE_MS = 3000; // Only show retry toast every 3s
   const STALL_TIMER_DELAY_MS = 7000; // Wait 7s before auto-cue (was 3s - too aggressive)
