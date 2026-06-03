@@ -830,7 +830,7 @@ function PhotoNamingExerciseInner() {
           
           {/* Controls - hidden on mobile, visible on sm+ */}
           <div className="hidden sm:flex items-center gap-2">
-            <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)}>
+            <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)} disabled={trials.length > 0}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
@@ -841,7 +841,7 @@ function PhotoNamingExerciseInner() {
               </SelectContent>
             </Select>
 
-            <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)}>
+            <Select value={mode} onValueChange={(v: typeof mode) => setMode(v)} disabled={trials.length > 0}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
