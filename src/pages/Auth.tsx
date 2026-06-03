@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -18,15 +18,17 @@ const Auth = () => {
   
   const { signUp, signIn, signInAnonymously, user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast, dismiss } = useToast();
+  const from = typeof location.state?.from === "string" ? location.state.from : "/today";
 
   // Redirect if already logged in (only after loading completes)
   useEffect(() => {
     if (!loading && user) {
       localStorage.removeItem("offlineMode");
-      navigate("/today");
+      navigate(from, { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, from]);
 
   const [forgotMode, setForgotMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -103,7 +105,7 @@ const Auth = () => {
     if (error) {
       // Fallback to local, sessionless practice while anonymous auth is unavailable
       localStorage.setItem("offlineMode", "true");
-      navigate("/today", { replace: true });
+      navigate(from, { replace: true });
     } else {
       toast({
         title: "Starting session",
