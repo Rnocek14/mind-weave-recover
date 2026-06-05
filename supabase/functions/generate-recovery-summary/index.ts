@@ -45,6 +45,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Authorization: this reads PHI via the service role, so the caller must be
+    // the patient, an admin, or a clinician assigned to the patient's profile.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== userId) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      const allowed = callerIsAdmin || (!!profileId && await isAssignedClinician(supabase, caller.id, profileId));
+      if (!allowed) return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
+
     // Helper: scope a query to the active profile when profileId is provided
     const scope = (q: any) => (profileId ? q.eq('profile_id', profileId) : q);
     // Profiles row for the active profile (avoids .single() failures for multi-profile users)
