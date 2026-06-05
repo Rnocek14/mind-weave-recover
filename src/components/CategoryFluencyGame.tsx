@@ -1030,7 +1030,7 @@ export function CategoryFluencyGame({
             className="min-h-[48px] text-base"
             autoFocus
           />
-          <Button size="icon" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
+          <Button size="icon" aria-label="Add word" onClick={addWord} disabled={!currentInput.trim()} className="min-h-[48px] min-w-[48px]">
             <Plus className="w-5 h-5" />
           </Button>
         </div>
