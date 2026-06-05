@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { getAuthedUser, userHasAnyRole, jsonResponse } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +34,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Authorization: require a valid session and ownership of the target user
+    // (or admin). Prevents anonymous mass recompute / data overwrite.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== user_id) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      if (!callerIsAdmin) return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
 
     // Get profile_id - either provided or look up user's active profile
     let profile_id = providedProfileId;

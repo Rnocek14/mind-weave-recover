@@ -6,6 +6,7 @@
  * half-written state on the client.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { userHasAnyRole, isAssignedClinician } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +63,27 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Authorization: caller must hold a clinician/admin role AND (unless admin)
+    // be the assigned clinician for the target patient's profile. This prevents
+    // any authenticated patient from self-assigning as clinician.
+    const isAdmin = await userHasAnyRole(admin, user.id, ["admin"]);
+    if (!isAdmin) {
+      const isClinician = await userHasAnyRole(admin, user.id, ["clinician", "moderator"]);
+      if (!isClinician) {
+        return new Response(JSON.stringify({ error: "Forbidden: clinician role required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const assigned = await isAssignedClinician(admin, user.id, profileId);
+      if (!assigned) {
+        return new Response(JSON.stringify({ error: "Forbidden: not assigned to this patient" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     let result: { success: boolean; message: string; overrideId?: string };

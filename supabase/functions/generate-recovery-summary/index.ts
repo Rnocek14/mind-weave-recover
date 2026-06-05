@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { getAuthedUser, userHasAnyRole, isAssignedClinician, jsonResponse } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,6 +44,17 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Authorization: this reads PHI via the service role, so the caller must be
+    // the patient, an admin, or a clinician assigned to the patient's profile.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== userId) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      const allowed = callerIsAdmin || (!!profileId && await isAssignedClinician(supabase, caller.id, profileId));
+      if (!allowed) return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
 
     // Helper: scope a query to the active profile when profileId is provided
     const scope = (q: any) => (profileId ? q.eq('profile_id', profileId) : q);

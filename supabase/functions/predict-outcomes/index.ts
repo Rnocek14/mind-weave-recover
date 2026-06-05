@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getAuthedUser, userHasAnyRole, jsonResponse } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,15 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Authorization: reads PHI via the service role — caller must be the patient
+    // or an admin.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== userId) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      if (!callerIsAdmin) return jsonResponse({ error: "Forbidden" }, 403);
+    }
 
     // Fetch user's learning rates
     const { data: learningRates } = await supabase

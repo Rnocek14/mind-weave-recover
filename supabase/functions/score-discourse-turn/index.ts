@@ -1,6 +1,8 @@
 // Score Discourse Turn — LLM-first clinical scoring with structured output
 // Returns a ClinicalSignal that drives discourse adaptation.
 // Used by ConversationPartner + ThoughtContinuation.
+import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -268,7 +270,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require a valid Supabase session — prevents anonymous AI-credit abuse.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+
     const body = (await req.json()) as ScoreRequest;
+
 
     // Basic input validation
     if (!body || typeof body.transcript !== "string" || typeof body.promptText !== "string") {

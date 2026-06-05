@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
+import { getAuthedUser, userHasAnyRole, jsonResponse } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +32,23 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { userId, profileId, allUsers } = await req.json();
+
+    // Authorization: require a valid session. all-users recompute requires admin;
+    // single-user recompute requires ownership or admin.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+    if (allUsers) {
+      if (!callerIsAdmin) return jsonResponse({ error: "Forbidden: admin required" }, 403);
+    } else if (!callerIsAdmin) {
+      let ownerId = userId;
+      if (!ownerId && profileId) {
+        const { data: prof } = await supabase
+          .from("profiles").select("user_id").eq("id", profileId).maybeSingle();
+        ownerId = prof?.user_id;
+      }
+      if (!ownerId || ownerId !== caller.id) return jsonResponse({ error: "Forbidden" }, 403);
+    }
 
     console.log('Starting learning rate calculation:', { userId, profileId, allUsers });
 
