@@ -177,6 +177,7 @@ export default function PatientHub() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <RoleHelpButton role="clinician" />
           {isAdmin && (
             <Button
               variant="outline" size="sm"
