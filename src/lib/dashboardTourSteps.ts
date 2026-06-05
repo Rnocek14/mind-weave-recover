@@ -116,4 +116,56 @@ export const DASHBOARD_TOUR_STEPS: Record<TourId, SpotlightStep[]> = {
       how: "Open it periodically to spot-check data quality and unusual patterns.",
     },
   ],
+
+  "patient-hub": [
+    {
+      target: "ph-header",
+      title: "Patient Hub",
+      what: "The single place to review one patient in depth — their status, practice, and clinical detail.",
+      why: "Everything you need to assess and decide for this patient lives here, so you don't hop between screens.",
+      how: "Use the day-window selector (top right) to change the time range, and the back arrow to return to your caseload.",
+    },
+    {
+      target: "ph-status",
+      title: "Status — should I worry?",
+      what: "Triage summary: active red/orange flags, unacknowledged alerts, and the recent accuracy trend.",
+      why: "It surfaces clinical risk first, so you can decide in seconds whether this patient needs action today.",
+      how: "If flags or alerts show, open Clinical Detail → Overview to see the underlying sessions.",
+    },
+    {
+      target: "ph-practice",
+      title: "Practice — are they engaged?",
+      what: "Session count, trial volume, and streak over the selected window.",
+      why: "Engagement is the strongest predictor of progress; low practice explains many plateaus.",
+      how: "Pair this with Status — declining accuracy plus low practice usually means a dose or motivation issue.",
+    },
+    {
+      target: "ph-listen",
+      title: "Listen — what does it sound like?",
+      what: "Real voice samples from recent sessions.",
+      why: "Audio reveals error patterns (phonemic, anomic, agrammatic) that summary numbers can miss.",
+      how: "Play a few clips before changing a plan — what you hear should match the metrics.",
+    },
+    {
+      target: "ph-progress",
+      title: "Progress — getting better?",
+      what: "The longer-term accuracy trajectory across sessions.",
+      why: "Distinguishes a genuine trend from a single off day, which guides whether to hold or advance.",
+      how: "Look at slope direction over the window, not isolated points.",
+    },
+    {
+      target: "ph-levels",
+      title: "Levels — where are they working?",
+      what: "Current difficulty levels the adaptive engine has settled on for this patient.",
+      why: "Shows whether the patient is appropriately challenged — too easy stalls gains, too hard erodes confidence.",
+      how: "If levels look mismatched to ability, review the Plan tab before manually intervening.",
+    },
+    {
+      target: "ph-detail",
+      title: "Clinical Detail",
+      what: "The deep drawer with three jobs-based tabs: Overview (triage), Review (listen), and Plan (decide).",
+      why: "Keeps the glance view clean while giving you full session data, notes, and planning tools when needed.",
+      how: "Expand it, then move Overview → Review → Plan as you work from assessing to deciding next steps.",
+    },
+  ],
 };
