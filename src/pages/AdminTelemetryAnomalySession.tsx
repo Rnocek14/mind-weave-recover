@@ -66,7 +66,7 @@ export default function AdminTelemetryAnomalySession() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) { setLoading(false); return; }
     let alive = true;
     (async () => {
       setLoading(true);
