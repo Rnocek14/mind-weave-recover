@@ -47,7 +47,6 @@ export default function CaregiverPortal() {
   const { flags: redFlags } = useRedFlagDetection(user?.id || null, {}, activeProfile?.id ?? null);
 
   const [streak, setStreak] = useState(0);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && user) setUiMode("caregiver");
@@ -56,18 +55,26 @@ export default function CaregiverPortal() {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
-      return;
     }
+  }, [authLoading, user, navigate]);
+
+  // Compute the streak in the background — never blanks the page while it loads.
+  useEffect(() => {
+    let cancelled = false;
     if (user && activeProfile) {
-      setLoading(true);
-      calculateStreak(user.id, activeProfile.id).then(setStreak).finally(() => setLoading(false));
+      calculateStreak(user.id, activeProfile.id).then((s) => {
+        if (!cancelled) setStreak(s);
+      });
     } else if (user && !profileLoading) {
       setStreak(0);
-      setLoading(false);
     }
-  }, [user, activeProfile?.id, profileLoading, authLoading, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, activeProfile?.id, profileLoading]);
 
-  if (authLoading || loading) {
+  // Only show the full-screen spinner during genuine identity load (once).
+  if (authLoading || (user && profileLoading && !activeProfile)) {
     return (
       <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
