@@ -505,6 +505,42 @@ export type Database = {
           },
         ]
       }
+      caregiver_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          caregiver_id: string
+          id: string
+          notes: string | null
+          patient_user_id: string
+          profile_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          caregiver_id: string
+          id?: string
+          notes?: string | null
+          patient_user_id: string
+          profile_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          caregiver_id?: string
+          id?: string
+          notes?: string | null
+          patient_user_id?: string
+          profile_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: []
+      }
       caregiver_context_notes: {
         Row: {
           created_at: string
@@ -4357,6 +4393,11 @@ export type Database = {
         Args: { _clinician_id: string; _profile_id: string }
         Returns: boolean
       }
+      is_caregiver_for: {
+        Args: { _caregiver_id: string; _profile_id: string }
+        Returns: boolean
+      }
+      is_clinician_or_admin: { Args: { _user_id: string }; Returns: boolean }
       is_study_clinician: {
         Args: { _clinician_id: string; _study_id: string }
         Returns: boolean

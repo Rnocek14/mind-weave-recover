@@ -149,7 +149,6 @@ export function SessionSidePanel() {
       <Button
         variant="outline"
         size="icon"
-        aria-label="Toggle panel"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'fixed left-0 top-1/2 -translate-y-1/2 z-40 rounded-l-none border-l-0',

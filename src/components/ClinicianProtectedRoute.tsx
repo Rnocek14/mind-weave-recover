@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
-import { useUiMode } from "@/hooks/useUiMode";
 import { Loader2 } from "lucide-react";
 
 interface ClinicianProtectedRouteProps {
@@ -12,15 +11,18 @@ interface ClinicianProtectedRouteProps {
 
 /**
  * Route wrapper that allows clinicians, moderators, and admins.
- * Falls back to uiMode check if no DB roles exist (dev/testing).
+ *
+ * Authorization boundary = real DB roles (user_roles), NOT uiMode.
+ * uiMode lives in localStorage and is freely editable, so it must never
+ * gate clinician access. A user only reaches clinician screens if they
+ * hold the clinician/moderator/admin role in the database.
  */
-export function ClinicianProtectedRoute({ 
-  children, 
-  redirectTo = "/today" 
+export function ClinicianProtectedRoute({
+  children,
+  redirectTo = "/today"
 }: ClinicianProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isModerator, roles, isLoading: permissionsLoading } = useUserPermissions(user?.id);
-  const { isAtLeast } = useUiMode();
+  const { isClinician, isLoading: permissionsLoading } = useUserPermissions(user?.id);
 
   if (authLoading || permissionsLoading) {
     return (
@@ -37,12 +39,7 @@ export function ClinicianProtectedRoute({
     return <Navigate to="/auth" replace />;
   }
 
-  // Allow if DB roles grant access, OR if clinician/admin uiMode is active.
-  // This app uses uiMode for clinician workflows even when the DB role is just 'user'.
-  const hasDbAccess = isAdmin || isModerator;
-  const hasUiModeAccess = isAtLeast("clinician");
-
-  if (!hasDbAccess && !hasUiModeAccess) {
+  if (!isClinician) {
     return <Navigate to={redirectTo} replace />;
   }
 

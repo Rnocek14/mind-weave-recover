@@ -407,7 +407,6 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  aria-label="Play recording"
                                   className="h-8 w-8 flex-shrink-0"
                                   onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
                                   aria-label={playingId === trial.attempt_id ? "Stop audio" : "Play audio"}

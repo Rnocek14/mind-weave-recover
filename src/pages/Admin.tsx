@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, Image as ImageIcon, Loader2, Brain, ClipboardCheck, LayoutDashboard } from "lucide-react";
+import { ChevronLeft, Image as ImageIcon, Loader2, Brain, ClipboardCheck, LayoutDashboard, Users } from "lucide-react";
 import ClinicalReviewDashboard from "@/components/ClinicalReviewDashboard";
 import PhotoLibraryAdmin from "@/components/admin/PhotoLibraryAdmin";
 import AdminTools from "@/components/admin/AdminTools";
 import { AdminNavHub } from "@/components/admin/AdminNavHub";
+import UserRoleManager from "@/components/admin/UserRoleManager";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -74,10 +75,14 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue={initialTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="hub" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Users
             </TabsTrigger>
             <TabsTrigger value="review" className="flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4" />
@@ -96,6 +101,11 @@ const Admin = () => {
           <TabsContent value="hub">
             <AdminNavHub />
           </TabsContent>
+
+          <TabsContent value="users">
+            <UserRoleManager />
+          </TabsContent>
+
 
           <TabsContent value="review">
             <ClinicalReviewDashboard />
