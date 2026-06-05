@@ -10,6 +10,8 @@ import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
 import About from "./pages/About";
 import Onboarding from "./pages/Onboarding";
+import RoleOnboarding from "./pages/RoleOnboarding";
+import { OnboardingGate } from "@/components/OnboardingGate";
 import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
 import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
