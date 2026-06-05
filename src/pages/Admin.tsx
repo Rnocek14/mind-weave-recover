@@ -102,6 +102,11 @@ const Admin = () => {
             <AdminNavHub />
           </TabsContent>
 
+          <TabsContent value="users">
+            <UserRoleManager />
+          </TabsContent>
+
+
           <TabsContent value="review">
             <ClinicalReviewDashboard />
           </TabsContent>
