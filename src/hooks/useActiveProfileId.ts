@@ -10,7 +10,7 @@
  * has multiple patient profiles.
  */
 import { useContext } from "react";
-import { ProfileContext } from "@/contexts/ProfileContext";
+import { ProfileContext } from "@/contexts/profile-context-value";
 
 export function useActiveProfileId(): string | null {
   const ctx = useContext(ProfileContext);
