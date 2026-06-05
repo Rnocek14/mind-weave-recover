@@ -87,6 +87,7 @@ import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
 import QaRunbook from "./pages/dev/QaRunbook";
 import UiVariantPreview from "./pages/dev/UiVariantPreview";
+import OnboardingPreviewDev from "./pages/dev/OnboardingPreviewDev";
 import { VoiceGateHud } from "./components/dev/VoiceGateHud";
 import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
 import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
@@ -195,6 +196,7 @@ const App = () => (
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
                   <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
                   <Route path="/dev/ui-variants" element={<UiVariantPreview />} />
+                  <Route path="/dev/onboarding-preview" element={<AdminProtectedRoute><OnboardingPreviewDev /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
                   <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
