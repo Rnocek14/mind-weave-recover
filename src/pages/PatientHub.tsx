@@ -17,6 +17,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { RoleHelpButton } from "@/components/RoleHelpButton";
+import { DashboardTour } from "@/components/tour/DashboardTour";
 import { Card } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -163,8 +164,9 @@ export default function PatientHub() {
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-6 pb-24 space-y-4 print:py-0">
+      <DashboardTour tourId="patient-hub" ready={!!activeProfile} />
       {/* Header */}
-      <div className="flex items-center justify-between print:hidden">
+      <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" aria-label="Back to dashboard" onClick={() => navigate("/clinician/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
@@ -178,7 +180,7 @@ export default function PatientHub() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <RoleHelpButton role="clinician" />
+          <RoleHelpButton role="clinician" spotlight spotlightTourId="patient-hub" />
           {isAdmin && (
             <Button
               variant="outline" size="sm"
@@ -214,39 +216,49 @@ export default function PatientHub() {
       />
 
       {/* === The five Glance Cards === */}
-      <ClinicianStatusCard
-        patientName={patientName}
-        redFlagCount={redFlagCount}
-        orangeFlagCount={orangeFlagCount}
-        unacknowledgedAlerts={unacknowledgedCount}
-        accuracySlope={sessionStats.accuracySlope}
-        activeDays={activeDays}
-        lastActiveDate={lastActiveLabel}
-      />
+      <div data-tour="ph-status">
+        <ClinicianStatusCard
+          patientName={patientName}
+          redFlagCount={redFlagCount}
+          orangeFlagCount={orangeFlagCount}
+          unacknowledgedAlerts={unacknowledgedCount}
+          accuracySlope={sessionStats.accuracySlope}
+          activeDays={activeDays}
+          lastActiveDate={lastActiveLabel}
+        />
+      </div>
 
-      <ClinicianPracticeCard
-        timeline={timeline as any}
-        trialCount={sessionStats.trialCount}
-        sessionCount={sessionStats.sessionCount}
-        streak={streak}
-      />
+      <div data-tour="ph-practice">
+        <ClinicianPracticeCard
+          timeline={timeline as any}
+          trialCount={sessionStats.trialCount}
+          sessionCount={sessionStats.sessionCount}
+          streak={streak}
+        />
+      </div>
 
-      <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+      <div data-tour="ph-listen">
+        <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+      </div>
 
-      <ClinicianProgressCard
-        userId={user?.id || ""}
-        profileId={profileId}
-        accuracySlope={sessionStats.accuracySlope}
-        recentTrials={sessionStats.trialCount}
-        priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
-      />
+      <div data-tour="ph-progress">
+        <ClinicianProgressCard
+          userId={user?.id || ""}
+          profileId={profileId}
+          accuracySlope={sessionStats.accuracySlope}
+          recentTrials={sessionStats.trialCount}
+          priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
+        />
+      </div>
 
-      <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+      <div data-tour="ph-levels">
+        <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+      </div>
 
 
       {/* === One drawer: everything deeper === */}
       <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
-        <CollapsibleTrigger className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2 print:hidden">
+        <CollapsibleTrigger data-tour="ph-detail" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2 print:hidden">
           <span className="font-medium">Clinical Detail</span>
           <ChevronDown className="w-4 h-4" />
         </CollapsibleTrigger>
