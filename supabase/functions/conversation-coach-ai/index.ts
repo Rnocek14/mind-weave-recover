@@ -347,6 +347,10 @@ serve(async (req) => {
   }
 
   try {
+    // Require a valid Supabase session — prevents anonymous AI-credit abuse.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+
     const {
       userTranscript,
       turnNumber,
