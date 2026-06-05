@@ -16,10 +16,10 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   
-  const { signUp, signIn, signInAnonymously, user, loading } = useAuth();
+  const { signUp, signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast, dismiss } = useToast();
+  const { toast } = useToast();
   const from = typeof location.state?.from === "string" ? location.state.from : "/today";
 
   // Redirect if already logged in (only after loading completes)
@@ -97,24 +97,7 @@ const Auth = () => {
     }
   };
 
-  const handleAnonymous = async () => {
-    dismiss();
-    setSubmitting(true);
-    const { error } = await signInAnonymously();
-    
-    if (error) {
-      // Fallback to local, sessionless practice while anonymous auth is unavailable
-      localStorage.setItem("offlineMode", "true");
-      navigate(from, { replace: true });
-    } else {
-      toast({
-        title: "Starting session",
-        description: "You can create an account later to save your progress."
-      });
-      // Navigation will happen via useEffect when user state updates
-    }
-    setSubmitting(false);
-  };
+
 
 
   return (
@@ -216,24 +199,6 @@ const Auth = () => {
             )}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or</span>
-          </div>
-        </div>
-
-        <Button 
-          variant="outline" 
-          className="w-full"
-          onClick={handleAnonymous}
-          disabled={submitting || loading}
-        >
-          Start Without Account
-        </Button>
 
         <p className="text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
