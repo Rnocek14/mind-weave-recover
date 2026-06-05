@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { useContext } from "react";
 import { UiVariantPicker } from "@/components/dev/UiVariantPicker";
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
@@ -94,6 +95,7 @@ import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
+import { ProfileContext } from "@/contexts/profile-context-value";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
 import { CoachingModeProvider } from "@/contexts/CoachingModeContext";
 import { AppLayout } from "@/components/layout";
@@ -104,14 +106,14 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { SessionPauseControl } from "@/components/SessionPauseControl";
 import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
 
 const queryClient = new QueryClient();
 
 // Wrapper component to access auth and profile context
 function AssessmentProviderWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { activeProfile } = useProfile();
+  const profileContext = useContext(ProfileContext);
+  const activeProfile = profileContext?.activeProfile ?? null;
   
   return (
     <AssessmentProvider userId={user?.id} profileId={activeProfile?.id}>
