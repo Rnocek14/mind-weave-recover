@@ -165,7 +165,7 @@ export default function PatientHub() {
       {/* Header */}
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3 min-w-0">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/clinician/dashboard")}>
+          <Button variant="ghost" size="icon" aria-label="Back to dashboard" onClick={() => navigate("/clinician/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0">

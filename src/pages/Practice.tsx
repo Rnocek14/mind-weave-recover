@@ -165,7 +165,7 @@ export default function Practice() {
     <div className="min-h-screen bg-background flex flex-col pb-20">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/today')} className="shrink-0">
+        <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")} className="shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
