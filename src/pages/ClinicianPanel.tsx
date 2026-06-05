@@ -173,7 +173,7 @@ export default function ClinicianPanel() {
 
       {/* Needs Attention Section — PRIMARY, visually dominant */}
       {!isLoading && needsAttention.length > 0 && (
-        <Card className="border-l-4 border-l-destructive/60 shadow-md">
+        <Card data-tour="cl-attention" className="border-l-4 border-l-destructive/60 shadow-md">
           <CardHeader className="pb-3 pt-4">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
