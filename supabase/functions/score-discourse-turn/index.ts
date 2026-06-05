@@ -270,7 +270,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require a valid Supabase session — prevents anonymous AI-credit abuse.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+
     const body = (await req.json()) as ScoreRequest;
+
 
     // Basic input validation
     if (!body || typeof body.transcript !== "string" || typeof body.promptText !== "string") {
