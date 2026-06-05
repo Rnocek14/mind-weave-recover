@@ -40,19 +40,36 @@ export function ProgressionRecap({
   const dismissedRef = useRef(false);
   const [animatedPct, setAnimatedPct] = useState(prev.progressPct);
 
+  // Keep the latest onContinue without re-arming the auto-advance timer.
+  // (Inline callbacks from parents change identity every render; depending on
+  // them here would repeatedly clear/reset the timer.)
+  const onContinueRef = useRef(onContinue);
+  useEffect(() => {
+    onContinueRef.current = onContinue;
+  }, [onContinue]);
+
   useEffect(() => {
     const t = setTimeout(() => setAnimatedPct(next.progressPct), 250);
     return () => clearTimeout(t);
   }, [next.progressPct]);
 
+  // A level-up is a moment worth absorbing — especially for stroke patients who
+  // read slowly. Give it a long safety dwell so it effectively waits for an
+  // explicit tap, but never leave a true dead state. Routine completions keep
+  // the caller's shorter timer. The timer is armed once on mount.
+  const effectiveAutoAdvanceMs = leveledUp
+    ? Math.max(autoAdvanceMs, 30000)
+    : autoAdvanceMs;
+
   useEffect(() => {
     const t = setTimeout(() => {
       if (dismissedRef.current) return;
       dismissedRef.current = true;
-      onContinue();
-    }, autoAdvanceMs);
+      onContinueRef.current();
+    }, effectiveAutoAdvanceMs);
     return () => clearTimeout(t);
-  }, [autoAdvanceMs, onContinue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleContinue = () => {
     if (dismissedRef.current) return;
