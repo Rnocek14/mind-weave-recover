@@ -15,6 +15,8 @@ import { useCoachingMode } from "@/contexts/CoachingModeContext";
 import { getExercisePurpose } from "@/lib/exercisePurposeMap";
 import { getContinuityOpener } from "@/lib/coachingNarrative";
 import { MessageCircle } from "lucide-react";
+import { useUiProfile } from "@/hooks/useUiProfile";
+import { variantClass, isSimplified, isMinimal } from "@/lib/ui/variantClass";
 
 interface SessionPreviewCardProps {
   lesson: DailyLesson;
