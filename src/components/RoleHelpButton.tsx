@@ -151,4 +151,3 @@ export function RoleHelpButton({ role, className, withLabel, spotlight }: RoleHe
     </>
   );
 }
-}
