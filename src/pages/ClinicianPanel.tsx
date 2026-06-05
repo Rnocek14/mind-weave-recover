@@ -135,14 +135,16 @@ export default function ClinicianPanel() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
+      <DashboardTour role="clinician" ready={!isLoading} />
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div data-tour="cl-header" className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Clinician Dashboard</h1>
           <Badge variant="secondary" className="text-xs">{patients.length} patients</Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <RoleHelpButton role="clinician" spotlight className="h-7 w-7" />
           <Button
             variant="outline"
             size="sm"
