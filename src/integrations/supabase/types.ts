@@ -2249,6 +2249,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           laterality: string | null
+          onboarding_completed_at: string | null
           primary_territory: string | null
           profile_created_at: string | null
           profile_name: string
@@ -2279,6 +2280,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           laterality?: string | null
+          onboarding_completed_at?: string | null
           primary_territory?: string | null
           profile_created_at?: string | null
           profile_name: string
@@ -2309,6 +2311,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           laterality?: string | null
+          onboarding_completed_at?: string | null
           primary_territory?: string | null
           profile_created_at?: string | null
           profile_name?: string
@@ -4249,6 +4252,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           laterality: string | null
+          onboarding_completed_at: string | null
           primary_territory: string | null
           profile_created_at: string | null
           profile_name: string

@@ -16,7 +16,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
-  isOnboardingComplete,
+  fetchOnboardingComplete,
   onboardingRouteFor,
   type OnboardingRole,
 } from "@/lib/onboarding";
@@ -44,19 +44,29 @@ export function OnboardingGate() {
   useEffect(() => {
     if (authLoading || rolesLoading) return;
     if (!user) return;
-    if (isOnboardingComplete(user.id)) return;
 
     const path = location.pathname;
     if (ONBOARDING_ROUTES.has(path)) return;
     if (!LANDING_ROUTES.has(path)) return;
 
-    // Determine the primary role (highest authority wins).
-    let role: OnboardingRole = "patient";
-    if (isAdmin) role = "admin";
-    else if (isClinician) role = "clinician";
-    else if (isCaregiver) role = "caregiver";
+    let cancelled = false;
+    (async () => {
+      // Authoritative, cross-device completion check.
+      const done = await fetchOnboardingComplete(user.id);
+      if (cancelled || done) return;
 
-    navigate(onboardingRouteFor(role), { replace: true });
+      // Determine the primary role (highest authority wins).
+      let role: OnboardingRole = "patient";
+      if (isAdmin) role = "admin";
+      else if (isClinician) role = "clinician";
+      else if (isCaregiver) role = "caregiver";
+
+      navigate(onboardingRouteFor(role), { replace: true });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     authLoading,
     rolesLoading,
