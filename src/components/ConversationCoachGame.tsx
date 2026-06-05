@@ -869,6 +869,7 @@ export function ConversationCoachGame({
             <Button 
               variant="ghost" 
               size="icon" 
+              aria-label="Toggle helpers"
               onClick={() => setShowHelpers(!showHelpers)} 
               className="h-10 w-10 rounded-xl"
             >
@@ -876,7 +877,7 @@ export function ConversationCoachGame({
             </Button>
           )}
           {onExit && currentPhase !== 'complete' && (
-            <Button variant="ghost" size="icon" onClick={onExit} className="h-10 w-10 rounded-xl">
+            <Button variant="ghost" size="icon" aria-label="Exit session" onClick={onExit} className="h-10 w-10 rounded-xl">
               <X className="w-5 h-5" />
             </Button>
           )}

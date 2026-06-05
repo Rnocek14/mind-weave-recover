@@ -214,7 +214,7 @@ export function ScenarioOverlay({
               <span className="text-xs text-muted-foreground ml-2">with {scenario.partnerName}</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" aria-label="Close" className="h-8 w-8" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
         </div>

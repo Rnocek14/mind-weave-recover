@@ -335,6 +335,7 @@ export default function VoicePractice() {
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="Skip"
                 onClick={handleSkip}
                 className="h-12 w-12 rounded-full"
               >
@@ -352,6 +353,7 @@ export default function VoicePractice() {
               <Button
                 variant="outline"
                 size="icon"
+                aria-label="End session"
                 onClick={() => { endSession(); }}
                 className="h-12 w-12 rounded-full"
               >
@@ -385,7 +387,7 @@ export default function VoicePractice() {
 function VoiceHeader({ onBack, roundInfo }: { onBack: () => void; roundInfo?: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-      <Button variant="ghost" size="icon" onClick={onBack}>
+      <Button variant="ghost" size="icon" aria-label="Go back" onClick={onBack}>
         <ArrowLeft className="w-5 h-5" />
       </Button>
       <span className="text-sm font-medium text-muted-foreground truncate max-w-[200px]">

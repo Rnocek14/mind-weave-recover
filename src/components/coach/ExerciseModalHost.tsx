@@ -217,7 +217,7 @@ export function ExerciseModalHost({
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">{title} with Maya</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleCancel} className="h-8 w-8">
+        <Button variant="ghost" size="icon" aria-label="Close" onClick={handleCancel} className="h-8 w-8">
           <X className="w-4 h-4" />
         </Button>
       </div>
