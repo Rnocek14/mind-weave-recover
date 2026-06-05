@@ -34,6 +34,15 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Authorization: reads PHI via the service role — caller must be the patient
+    // or an admin.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== userId) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      if (!callerIsAdmin) return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
     // Fetch user's learning rates
     const { data: learningRates } = await supabase
       .from("learning_rates")
