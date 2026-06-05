@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Heart, ChevronDown, Camera, FileText, History } from "lucide-react";
+import { Heart, ChevronDown, Camera, FileText, History } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,17 +73,8 @@ export default function CaregiverPortal() {
     };
   }, [user, activeProfile?.id, profileLoading]);
 
-  // Only show the full-screen spinner during genuine identity load (once).
-  if (authLoading || (user && profileLoading && !activeProfile)) {
-    return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // No user (redirecting to /auth) — render nothing rather than crash on user!.id.
-  if (!user) return null;
+  // Redirect/auth/profile settling — keep this page from flashing a full-screen loader.
+  if (authLoading || !user || (profileLoading && !activeProfile)) return null;
 
   const patientName = activeProfile?.profile_name || "your loved one";
   const visibleConcerns = redFlags.filter(
