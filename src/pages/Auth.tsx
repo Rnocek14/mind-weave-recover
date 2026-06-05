@@ -97,24 +97,7 @@ const Auth = () => {
     }
   };
 
-  const handleAnonymous = async () => {
-    dismiss();
-    setSubmitting(true);
-    const { error } = await signInAnonymously();
-    
-    if (error) {
-      // Fallback to local, sessionless practice while anonymous auth is unavailable
-      localStorage.setItem("offlineMode", "true");
-      navigate(from, { replace: true });
-    } else {
-      toast({
-        title: "Starting session",
-        description: "You can create an account later to save your progress."
-      });
-      // Navigation will happen via useEffect when user state updates
-    }
-    setSubmitting(false);
-  };
+
 
 
   return (
