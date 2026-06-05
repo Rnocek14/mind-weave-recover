@@ -65,6 +65,7 @@ const Admin = () => {
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
+          <RoleHelpButton role="admin" withLabel />
         </div>
 
         <div className="mb-6">
