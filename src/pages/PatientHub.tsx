@@ -164,8 +164,9 @@ export default function PatientHub() {
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-6 pb-24 space-y-4 print:py-0">
+      <DashboardTour tourId="patient-hub" ready={!!activeProfile} />
       {/* Header */}
-      <div className="flex items-center justify-between print:hidden">
+      <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" aria-label="Back to dashboard" onClick={() => navigate("/clinician/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
@@ -179,7 +180,7 @@ export default function PatientHub() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <RoleHelpButton role="clinician" />
+          <RoleHelpButton role="clinician" spotlight spotlightTourId="patient-hub" />
           {isAdmin && (
             <Button
               variant="outline" size="sm"
