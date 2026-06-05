@@ -78,18 +78,50 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
     ? getSessionPurposeText(primaryDomain)
     : null;
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* Greeting */}
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl font-bold">
-            {greeting}, {name} 👋
-          </h1>
-          <p className="text-muted-foreground">Here's your session for today</p>
-        </div>
+  const startButton = (
+    <Button
+      size="lg"
+      className={variantClass(variant, {
+        base: "w-full",
+        base2: "",
+      } as any) + " w-full text-lg py-6"}
+      onClick={onStart}
+    >
+      {isNonFluent || minimal ? "Start" : "Let's begin"}
+    </Button>
+  );
 
-        {/* Continuity opener — Full coaching mode only */}
+  return (
+    <div
+      className={variantClass(variant, {
+        base: "min-h-screen bg-background flex items-center justify-center p-4",
+        neglect: "justify-end pr-8",
+      })}
+    >
+      <Card
+        className={variantClass(variant, {
+          base: "w-full max-w-md p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500",
+          minimal: "max-w-sm space-y-8",
+          neglect: "text-right",
+        })}
+      >
+        {/* Greeting — hidden in minimal, shortened for non-fluent */}
+        {!minimal && (
+          <div className={variantClass(variant, { base: "text-center space-y-1", neglect: "text-right" })}>
+            <h1 className="text-2xl font-bold">
+              {isNonFluent ? `Hi, ${name}` : `${greeting}, ${name}`}
+              {!simplified && " 👋"}
+            </h1>
+            {!simplified && (
+              <p className="text-muted-foreground">Here's your session for today</p>
+            )}
+          </div>
+        )}
+
+        {/* Minimal/non-fluent: lead with the Start CTA (single clear action) */}
+        {(minimal || isNonFluent) && startButton}
+
+        {/* Continuity opener — Full coaching, standard reading load only */}
         {continuityLine && (
           <div className="bg-primary/5 border border-primary/15 rounded-xl p-4">
             <div className="flex items-start gap-2.5">
@@ -101,14 +133,14 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
           </div>
         )}
 
-        {/* Focus areas — only in light/full coaching modes */}
-        {showPurpose && (
+        {/* Focus areas — coaching purpose on, hidden in minimal (decision cap) */}
+        {showPurpose && !minimal && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <Target className="w-4 h-4" />
               Today's focus
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className={variantClass(variant, { base: "flex flex-wrap gap-2", neglect: "justify-end" })}>
               {focusAreas.map((area) => (
                 <span
                   key={area}
@@ -118,7 +150,8 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
                 </span>
               ))}
             </div>
-            {sessionPurpose && (
+            {/* Session purpose paragraph dropped in simplified (reading-load cap) */}
+            {sessionPurpose && !simplified && (
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {sessionPurpose}
               </p>
@@ -126,48 +159,51 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
           </div>
         )}
 
-        {/* Session outline */}
-        <div className="space-y-2">
-          {outline.map((item, i) => (
-            <div key={i} className="py-2 px-3 rounded-lg bg-muted/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground font-medium w-16">
-                    {item.phase}
-                  </span>
-                  <span className="text-sm font-medium">{item.name}</span>
+        {/* Session outline — collapsed to a summary in minimal */}
+        {minimal ? (
+          <p className="text-center text-sm text-muted-foreground">
+            {outline.length} exercises · ~{lesson.totalDuration} min
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {outline.map((item, i) => (
+              <div key={i} className="py-2 px-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground font-medium w-16">
+                      {item.phase}
+                    </span>
+                    <span className="text-sm font-medium">{item.name}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{item.duration}m</span>
                 </div>
-                <span className="text-xs text-muted-foreground">{item.duration}m</span>
+                {/* Per-item purpose dropped in simplified/minimal (reading-load cap) */}
+                {item.purpose && !simplified && (
+                  <p className="text-xs text-muted-foreground mt-1 ml-[76px]">
+                    {item.purpose}
+                  </p>
+                )}
               </div>
-              {item.purpose && (
-                <p className="text-xs text-muted-foreground mt-1 ml-[76px]">
-                  {item.purpose}
-                </p>
-              )}
+            ))}
+          </div>
+        )}
+
+        {/* Session meta — hidden in minimal (already summarized above) */}
+        {!minimal && (
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              ~{lesson.totalDuration} min
             </div>
-          ))}
-        </div>
-
-        {/* Session meta */}
-        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
-            ~{lesson.totalDuration} min
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              {energyLabel}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            {energyLabel}
-          </div>
-        </div>
+        )}
 
-        {/* Start button */}
-        <Button
-          size="lg"
-          className="w-full text-lg py-6"
-          onClick={onStart}
-        >
-          Let's begin
-        </Button>
+        {/* Start button — bottom for standard/fluent (already shown on top for minimal/non-fluent) */}
+        {!minimal && !isNonFluent && startButton}
       </Card>
     </div>
   );
