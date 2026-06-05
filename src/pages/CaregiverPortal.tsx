@@ -34,6 +34,7 @@ import { ListenCard } from "@/components/caregiver/glance/ListenCard";
 import { ProgressCard } from "@/components/caregiver/glance/ProgressCard";
 import { LevelsCard } from "@/components/caregiver/glance/LevelsCard";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
+import { RoleHelpButton } from "@/components/RoleHelpButton";
 
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
@@ -86,7 +87,8 @@ export default function CaregiverPortal() {
         <header className="flex items-center gap-2 px-1">
           <Heart className="w-4 h-4 text-pink-500" />
           <h1 className="text-base font-semibold text-foreground">Caregiver Home</h1>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <RoleHelpButton role="caregiver" />
             <ProfileSwitcher />
           </div>
         </header>

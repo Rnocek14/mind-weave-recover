@@ -11,6 +11,7 @@ import PhotoLibraryAdmin from "@/components/admin/PhotoLibraryAdmin";
 import AdminTools from "@/components/admin/AdminTools";
 import { AdminNavHub } from "@/components/admin/AdminNavHub";
 import UserRoleManager from "@/components/admin/UserRoleManager";
+import { RoleHelpButton } from "@/components/RoleHelpButton";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -65,6 +66,7 @@ const Admin = () => {
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
+          <RoleHelpButton role="admin" withLabel />
         </div>
 
         <div className="mb-6">
