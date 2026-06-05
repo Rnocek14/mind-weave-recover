@@ -79,14 +79,7 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
     : null;
 
   const startButton = (
-    <Button
-      size="lg"
-      className={variantClass(variant, {
-        base: "w-full",
-        base2: "",
-      } as any) + " w-full text-lg py-6"}
-      onClick={onStart}
-    >
+    <Button size="lg" className="w-full text-lg py-6" onClick={onStart}>
       {isNonFluent || minimal ? "Start" : "Let's begin"}
     </Button>
   );
