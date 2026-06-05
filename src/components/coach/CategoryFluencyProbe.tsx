@@ -160,7 +160,7 @@ export function CategoryFluencyProbe({ timeLimitSec, onComplete }: CategoryFluen
           placeholder="Type a word..."
           autoFocus
         />
-        <Button size="icon" onClick={addWord} disabled={!currentInput.trim()}>
+        <Button size="icon" aria-label="Add word" onClick={addWord} disabled={!currentInput.trim()}>
           <Plus className="w-4 h-4" />
         </Button>
       </div>

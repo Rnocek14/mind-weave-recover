@@ -184,6 +184,7 @@ export function SequenceBuilderProbe({ totalTrials = 3, onComplete }: SequenceBu
               <div className="flex flex-col gap-0.5">
                 <Button
                   variant="ghost" size="icon"
+                  aria-label="Move up"
                   className="h-6 w-6"
                   onClick={() => moveItem(i, 'up')}
                   disabled={i === 0}
@@ -192,6 +193,7 @@ export function SequenceBuilderProbe({ totalTrials = 3, onComplete }: SequenceBu
                 </Button>
                 <Button
                   variant="ghost" size="icon"
+                  aria-label="Move down"
                   className="h-6 w-6"
                   onClick={() => moveItem(i, 'down')}
                   disabled={i === userOrder.length - 1}

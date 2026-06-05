@@ -112,6 +112,7 @@ export const AudioPlayback = ({ storagePath, className = '', listenForHint }: Au
       size="icon"
       onClick={togglePlayback}
       disabled={isLoading}
+      aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
       className={`h-8 w-8 ${className}`}
       title={isPlaying ? 'Pause audio' : 'Play audio'}
     >

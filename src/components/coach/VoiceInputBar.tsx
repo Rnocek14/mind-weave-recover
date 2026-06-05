@@ -364,6 +364,7 @@ export function VoiceInputBar({
             variant="ghost"
             size="icon"
             onClick={handleToggleAutoPlay}
+            aria-label={autoPlayVoice ? 'Turn voice off' : 'Turn voice on'}
             className={cn(
               'shrink-0 h-9 w-9',
               autoPlayVoice ? 'text-primary' : 'text-muted-foreground/50'
@@ -392,6 +393,7 @@ export function VoiceInputBar({
             size="icon"
             onClick={startListening}
             disabled={disabled}
+            aria-label="Speak your response"
             className="shrink-0 h-9 w-9"
             title="Speak your response"
           >
@@ -404,6 +406,7 @@ export function VoiceInputBar({
           size="icon"
           onClick={handleSendText}
           disabled={!inputText.trim() || disabled}
+          aria-label="Send response"
           className="shrink-0 h-9 w-9"
         >
           <Send className="w-4 h-4" />

@@ -114,7 +114,7 @@ export default function ConversationCoachExercise() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
-          <Button variant="ghost" size="icon" onClick={handleExit}>
+          <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Session Complete</h1>
@@ -182,7 +182,7 @@ export default function ConversationCoachExercise() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
-          <Button variant="ghost" size="icon" onClick={handleExit}>
+          <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Conversation Coach</h1>
@@ -239,7 +239,7 @@ export default function ConversationCoachExercise() {
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
       <header className="border-b">
         <div className="p-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={handleExit}>
+          <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-lg font-semibold">Conversation Coach</h1>

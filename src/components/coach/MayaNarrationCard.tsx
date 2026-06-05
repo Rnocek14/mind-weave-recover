@@ -187,6 +187,7 @@ export function MayaNarrationCard({
                 />
                 <Button
                   size="icon"
+                  aria-label="Submit response"
                   onClick={handleSubmit}
                   disabled={!inputText.trim() || isProcessing}
                   className={variantClass(variant, {

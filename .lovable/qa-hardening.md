@@ -136,3 +136,47 @@ Not started. See `.lovable/plan.md` / initiative plan for scope.
 - Root cause: `usePhotoNamingProgression` load effect did `if (!userId || !profileId) return;` WITHOUT setting `loaded=true`. When `activeProfile?.id` was unavailable (no active patient profile / reached from clinician context / profile not yet resolved), `progression.loaded` stayed false, so PhotoNamingExercise sat on the `ExerciseLoadGate` ("Loading your progress…") forever — blank/stuck screen.
 - Fix (`src/hooks/usePhotoNamingProgression.ts`): when ids are absent, set `state=null; setLoaded(true)` so the gate opens with the engine default floor; reset `loaded=false` then load real state once ids resolve (no wrong-floor persistence for real patients).
 - Verified other gate (`useCustomPhotoTrials`, RQ v5 `enabled:!!userId`) does NOT hang when disabled (isLoading=false). `loadProgressionState` is already error-safe (returns default). No other infinite-gate paths in this page.
+
+---
+
+## Phase 4 — Admin sweep (code audit) — PASS
+- Audited all `Admin*`, `ClusterAnalytics`, `CohortResearchAnalytics`, `ParserAnalytics`
+  pages for the dead-state pattern fixed in Phase 3 (`useState(true)` loading
+  with early `return` that never resets). Admin react-query pages all use
+  `data = []` defaults + `isLoading ?` branches (safe empty/loading states).
+  `Admin.tsx` / `ClusterAnalytics.tsx` manual loaders navigate away on no-user
+  (no dead state).
+- **Hardened** `src/pages/AdminTelemetryAnomalySession.tsx`: `if (!sessionId)
+  return;` now also `setLoading(false)` so a missing route param can't leave a
+  perpetual skeleton (route param is effectively always present, defensive).
+
+## Phase 5 — Cross-cutting hardening — PASS
+### Audit §6 restructure items (verified current state)
+- Item 1 (hide Domains tab from patient/caregiver) — **already done**, gated
+  `isClinician` in `Dashboard.tsx`.
+- Item 2 (gate clinician-only PlanTab components) — **already done**,
+  StrokeProfileSummary / BrainMap / StandardizedAssessments all `isClinician`.
+- Item 3 (recovery-progress reachable by patient) — **already done**, linked
+  from ProgressTab, PatientProgressCard, AppHeader (`/recovery-progress`).
+- Items 4–7 reference the **March IA** (PatientModeView, header "Insights"→
+  "Outcomes"). Patient IA has since been restructured to `/today` `/practice`
+  `/progress` (decision-based design) — stale items, not applied to avoid
+  conflicting with current memory rules.
+### Accessibility — icon-button labels
+- Added `aria-label` (dynamic where stateful) to **47** icon-only buttons that
+  had no accessible name, across shared, patient, coach/exercise, and
+  clinician/admin surfaces (ThemeToggle + shadcn sidebar already labeled).
+  Files: QuickActionFAB, UiModeToggle, AudioPlayback(+WithWaveform),
+  ExerciseCarousel, TodaysActivityCard, coach/VoiceInputBar, MayaNarrationCard,
+  CategoryFluencyGame, SynonymGeneratorGame, FixSentenceGame,
+  ConversationCoachGame, coach probes/overlays/modal host, SessionsTab,
+  SessionDetailPanel, SessionSidePanel, ClinicalReviewDashboard,
+  ClinicalDocuments, and back buttons on Practice/Progress/SpeechProfile/
+  PatientHub/ConversationCoachExercise/SentenceConstructionExercise/
+  VoicePractice/SmartCoach/ClinicianReport/CohortResearchAnalytics/
+  ProfileVersionHistory/WeeklyPatientReview.
+
+## Phase 6 — Wrap & verify
+- Full unit suite green: **1108 passing, 25 skipped, 74 files** after all
+  Phase 4/5 edits.
+- Engine remained frozen — only presentation/a11y + one defensive load-state fix.

@@ -800,6 +800,7 @@ export function FixSentenceGame({
           />
           <Button
             size="icon"
+            aria-label="Submit answer"
             onClick={handleTypedSubmit}
             disabled={!typedAnswer.trim() || isProcessing}
             className="min-h-[48px] min-w-[48px]"

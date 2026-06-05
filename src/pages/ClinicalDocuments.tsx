@@ -531,6 +531,7 @@ export default function ClinicalDocuments() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label="Delete note"
                               onClick={() => handleDeleteNote(note.id)}
                               className="text-destructive hover:text-destructive"
                             >

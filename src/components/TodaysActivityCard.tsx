@@ -71,6 +71,7 @@ export function TodaysActivityCard() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label={hasData ? "Edit today's activity" : "Add today's activity"}
               className="h-8 w-8"
               onClick={() => setShowEntry(true)}
             >

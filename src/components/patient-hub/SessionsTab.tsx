@@ -601,6 +601,7 @@ function SessionCard({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  aria-label="Play recording"
                                   className="h-5 w-5 shrink-0 ml-auto"
                                   onClick={() => playAudio(t.audio_storage_path!, t.attempt_id)}
                                 >
@@ -682,6 +683,7 @@ function AudioTrialRow({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Play recording"
         className="h-6 w-6 shrink-0"
         onClick={() => playAudio(trial.audio_storage_path!, trial.attempt_id)}
       >

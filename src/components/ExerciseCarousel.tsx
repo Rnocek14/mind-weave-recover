@@ -58,6 +58,7 @@ export const ExerciseCarousel = memo(function ExerciseCarousel({
       <Button
         variant="outline"
         size="icon"
+        aria-label="Previous exercises"
         className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 hidden md:flex shadow-lg"
         onClick={scrollPrev}
       >
@@ -66,6 +67,7 @@ export const ExerciseCarousel = memo(function ExerciseCarousel({
       <Button
         variant="outline"
         size="icon"
+        aria-label="Next exercises"
         className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 hidden md:flex shadow-lg"
         onClick={scrollNext}
       >

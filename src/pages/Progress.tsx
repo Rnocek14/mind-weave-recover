@@ -108,7 +108,7 @@ export default function Progress() {
   return (
     <div className="min-h-screen bg-background flex flex-col pb-20">
       <header className="p-4 flex items-center gap-3 border-b">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/today')}>
+        <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-semibold">Your Progress</h1>

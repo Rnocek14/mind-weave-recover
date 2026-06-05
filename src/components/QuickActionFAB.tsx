@@ -175,6 +175,7 @@ export const QuickActionFAB = ({
                   </span>
                   <Button
                     size="icon"
+                    aria-label={action.label}
                     className={cn(
                       "h-12 w-12 rounded-full shadow-lg hover:scale-110 transition-transform",
                       action.color
@@ -192,6 +193,8 @@ export const QuickActionFAB = ({
         {/* Main FAB */}
         <Button
           size="icon"
+          aria-label={isOpen ? "Close quick actions" : "Open quick actions"}
+          aria-expanded={isOpen}
           className={cn(
             "h-14 w-14 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110",
             "bg-primary text-primary-foreground",
