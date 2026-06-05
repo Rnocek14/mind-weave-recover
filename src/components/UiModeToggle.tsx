@@ -19,6 +19,7 @@ export function UiModeToggle() {
             variant="ghost"
             size="icon"
             onClick={toggleMode}
+            aria-label="Switch view mode"
             className="relative"
           >
             <Users className="h-5 w-5" />
