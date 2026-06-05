@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useEffect, useState } from "react";
+import { createContext, ReactNode, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -31,14 +31,19 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const requestIdRef = useRef(0);
 
   const fetchProfiles = async () => {
+    const requestId = ++requestIdRef.current;
+
     if (!user) {
       setActiveProfile(null);
       setAllProfiles([]);
       setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       const { data, error } = await supabase
@@ -49,13 +54,15 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
 
       if (error) throw error;
 
+      if (requestId !== requestIdRef.current) return;
+
       setAllProfiles(data || []);
       const active = data?.find(p => p.is_active) || data?.[0] || null;
       setActiveProfile(active);
     } catch (error) {
       console.error("Error fetching profiles:", error);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
