@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = 'admin' | 'moderator' | 'caregiver' | 'user';
+export type AppRole = 'admin' | 'moderator' | 'clinician' | 'caregiver' | 'user';
 
 interface UserPermissions {
   isAdmin: boolean;
   isModerator: boolean;
+  isClinician: boolean;
   isCaregiver: boolean;
   roles: AppRole[];
   isLoading: boolean;
@@ -71,7 +72,9 @@ export function useUserPermissions(userId: string | undefined): UserPermissions 
   return {
     isAdmin: !isLoading && roles.includes('admin'),
     isModerator: !isLoading && (roles.includes('moderator') || roles.includes('admin')),
-    isCaregiver: !isLoading && (roles.includes('caregiver') || roles.includes('moderator') || roles.includes('admin')),
+    // A clinician is anyone with the clinician role, or the broader moderator/admin roles.
+    isClinician: !isLoading && (roles.includes('clinician') || roles.includes('moderator') || roles.includes('admin')),
+    isCaregiver: !isLoading && (roles.includes('caregiver') || roles.includes('clinician') || roles.includes('moderator') || roles.includes('admin')),
     roles: isLoading ? [] : roles,
     isLoading,
   };
