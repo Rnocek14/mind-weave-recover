@@ -40,7 +40,7 @@ export function ViewModeSelector() {
   const { uiMode, setUiMode } = useUiMode();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin, isClinician, isCaregiver } = useUserPermissions(user?.id);
+  const { isAdmin, isClinician, isCaregiver, isLoading } = useUserPermissions(user?.id);
 
   // Only surface modes the user is actually entitled to (DB roles).
   // uiMode is presentation only; offering a mode the route guard will
@@ -55,10 +55,11 @@ export function ViewModeSelector() {
   // If the active uiMode is no longer permitted, fall back to the highest
   // mode the user can still use (defaults to patient).
   useEffect(() => {
+    if (isLoading) return;
     if (!availableModes.includes(uiMode)) {
       setUiMode(availableModes[availableModes.length - 1] ?? 'patient');
     }
-  }, [uiMode, availableModes, setUiMode]);
+  }, [uiMode, availableModes, isLoading, setUiMode]);
 
 
   return (

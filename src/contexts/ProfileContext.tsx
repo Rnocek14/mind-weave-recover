@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useEffect, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
@@ -28,15 +28,16 @@ interface ProfileProviderProps {
 
 export function ProfileProvider({ children }: ProfileProviderProps) {
   const { user } = useAuth();
+  const userId = user?.id;
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const requestIdRef = useRef(0);
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
     const requestId = ++requestIdRef.current;
 
-    if (!user) {
+    if (!userId) {
       setActiveProfile(null);
       setAllProfiles([]);
       setLoading(false);
@@ -49,7 +50,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("profile_created_at", { ascending: true });
 
       if (error) throw error;
@@ -64,10 +65,10 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  };
+  }, [userId]);
 
   const switchProfile = async (profileId: string) => {
-    if (!user) return;
+    if (!userId) return;
 
     try {
       const { error } = await supabase.rpc("switch_active_profile", {
@@ -90,11 +91,11 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     avatar_url?: string;
     profile_notes?: string;
   }) => {
-    if (!user) return;
+    if (!userId) return;
 
     try {
       const { error } = await supabase.from("profiles").insert({
-        user_id: user.id,
+        user_id: userId,
         profile_name: data.profile_name,
         birthdate: data.birthdate || null,
         stroke_date: data.stroke_date || null,
@@ -114,7 +115,7 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
 
   useEffect(() => {
     fetchProfiles();
-  }, [user]);
+  }, [fetchProfiles]);
 
   return (
     <ProfileContext.Provider
