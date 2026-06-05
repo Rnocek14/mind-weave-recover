@@ -35,6 +35,7 @@ import { ProgressCard } from "@/components/caregiver/glance/ProgressCard";
 import { LevelsCard } from "@/components/caregiver/glance/LevelsCard";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { RoleHelpButton } from "@/components/RoleHelpButton";
+import { DashboardTour } from "@/components/tour/DashboardTour";
 
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
