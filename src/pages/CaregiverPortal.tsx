@@ -82,6 +82,9 @@ export default function CaregiverPortal() {
     );
   }
 
+  // No user (redirecting to /auth) — render nothing rather than crash on user!.id.
+  if (!user) return null;
+
   const patientName = activeProfile?.profile_name || "your loved one";
   const visibleConcerns = redFlags.filter(
     (f) => f.severity === "red" || f.severity === "orange"
