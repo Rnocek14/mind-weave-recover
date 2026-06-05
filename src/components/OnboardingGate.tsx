@@ -16,7 +16,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
-  isOnboardingComplete,
+  fetchOnboardingComplete,
   onboardingRouteFor,
   type OnboardingRole,
 } from "@/lib/onboarding";
