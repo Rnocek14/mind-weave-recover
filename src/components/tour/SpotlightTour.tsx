@@ -16,6 +16,19 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * An action run before a step is shown, used to reveal targets that live inside
+ * collapsed drawers or inactive tabs. Each entry clicks `click` unless
+ * `skipIfVisible` already resolves to a visible element (prevents toggling an
+ * already-open collapsible shut).
+ */
+export interface SpotlightOpenStep {
+  /** CSS selector to click to reveal the target. */
+  click: string;
+  /** If this selector is already visible, the click is skipped. */
+  skipIfVisible?: string;
+}
+
 export interface SpotlightStep {
   /** Matches the `data-tour` attribute on the real element. */
   target: string;
@@ -26,6 +39,16 @@ export interface SpotlightStep {
   why: string;
   /** How to use / act on it. */
   how?: string;
+  /** Optional actions that reveal the target (open drawer, switch tab, etc.). */
+  openSteps?: SpotlightOpenStep[];
+}
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function isVisible(el: Element | null): boolean {
+  if (!el) return false;
+  const r = (el as HTMLElement).getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
 }
 
 interface SpotlightTourProps {
@@ -50,10 +73,14 @@ function getRect(el: Element): Rect {
 }
 
 export function SpotlightTour({ steps, open, onClose }: SpotlightTourProps) {
-  // Resolve only the steps whose target currently exists in the DOM.
+  // Resolve steps whose target exists OR that can reveal it via openSteps.
   const resolved = useMemo(() => {
     if (!open) return [];
-    return steps.filter((s) => document.querySelector(`[data-tour="${s.target}"]`));
+    return steps.filter(
+      (s) =>
+        document.querySelector(`[data-tour="${s.target}"]`) ||
+        (s.openSteps && s.openSteps.length > 0)
+    );
     // Re-resolve whenever the tour opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, steps]);
@@ -80,32 +107,54 @@ export function SpotlightTour({ steps, open, onClose }: SpotlightTourProps) {
     if (open && resolved.length === 0) close();
   }, [open, resolved.length, close]);
 
-  // Scroll the target into view, then measure it (and keep it measured).
+  // Reveal (if needed), scroll into view, then measure — keeping it measured.
   useLayoutEffect(() => {
     if (!open || !current) return;
-    const el = document.querySelector(`[data-tour="${current.target}"]`);
-    if (!el) return;
-
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-
+    let cancelled = false;
     let raf = 0;
-    const measure = () => setRect(getRect(el));
-    // Measure after the smooth scroll settles, then keep it fresh.
-    const t = setTimeout(() => {
+    let cleanupResize: (() => void) | null = null;
+
+    const run = async () => {
+      // Run any reveal actions (open drawers, switch tabs) for this step.
+      for (const step of current.openSteps ?? []) {
+        if (cancelled) return;
+        if (step.skipIfVisible && isVisible(document.querySelector(step.skipIfVisible))) continue;
+        document.querySelector<HTMLElement>(step.click)?.click();
+        await wait(280);
+      }
+      if (cancelled) return;
+
+      const el = document.querySelector(`[data-tour="${current.target}"]`);
+      if (!el) {
+        // Target never materialised — skip rather than trap the user.
+        if (isLast) close();
+        else setIndex((i) => Math.min(i + 1, resolved.length - 1));
+        return;
+      }
+
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const measure = () => {
+        if (!cancelled) setRect(getRect(el));
+      };
+      await wait(320);
+      if (cancelled) return;
       measure();
       raf = requestAnimationFrame(function loop() {
         measure();
         raf = requestAnimationFrame(loop);
       });
-    }, 320);
-
-    window.addEventListener("resize", measure);
-    return () => {
-      clearTimeout(t);
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", measure);
+      window.addEventListener("resize", measure);
+      cleanupResize = () => window.removeEventListener("resize", measure);
     };
-  }, [open, current]);
+
+    run();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      cleanupResize?.();
+    };
+  }, [open, current, resolved.length, isLast, close]);
+
 
   // Keyboard: Esc closes, arrows navigate.
   useEffect(() => {

@@ -129,14 +129,22 @@ const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
   },
 ];
 
+const SECTION_TOUR_IDS: Record<string, string> = {
+  "System Oversight": "ad-hub-oversight",
+  "Analytics & Research": "ad-hub-analytics",
+  "Engine & Pipeline": "ad-hub-engine",
+  "Content & Review": "ad-hub-content",
+};
+
 export function AdminNavHub() {
   return (
     <div className="space-y-8">
       {NAV_SECTIONS.map((section) => (
-        <div key={section.heading} className="space-y-3">
+        <div key={section.heading} data-tour={SECTION_TOUR_IDS[section.heading]} className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             {section.heading}
           </h2>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {section.items.map((item) => (
               <Link key={item.href} to={item.href}>

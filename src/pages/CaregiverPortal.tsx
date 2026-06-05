@@ -141,7 +141,7 @@ export default function CaregiverPortal() {
             <ChevronDown className="w-4 h-4" />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 pt-2">
-            <Card className="p-5">
+            <Card data-tour="cg-more-history" className="p-5">
               <SessionAdherenceTracker userId={user!.id} currentStreak={streak} />
             </Card>
 
@@ -152,7 +152,8 @@ export default function CaregiverPortal() {
               <SessionHistoryList userId={user!.id} profileId={activeProfile?.id ?? null} />
             </Card>
 
-            <Card className="p-4 space-y-3">
+            <Card data-tour="cg-more-actions" className="p-4 space-y-3">
+
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
                 Quick Actions
               </div>
