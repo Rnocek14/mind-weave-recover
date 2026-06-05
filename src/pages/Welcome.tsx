@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { markOnboardingComplete } from '@/lib/onboarding';
 import { cn } from '@/lib/utils';
 
 type WelcomeStep = 'greeting' | 'ready';
