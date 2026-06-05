@@ -24,6 +24,7 @@ import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { ROLE_STEPS, type NonPatientRole } from "@/lib/roleOnboardingSteps";
+import { replayDashboardTour } from "@/components/tour/DashboardTour";
 import { cn } from "@/lib/utils";
 
 interface RoleTourDialogProps {
