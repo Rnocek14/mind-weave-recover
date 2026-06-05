@@ -136,7 +136,7 @@ export default function CaregiverPortal() {
 
         {/* More detail — collapsed by default. Everything that isn't glance-able. */}
         <Collapsible>
-          <CollapsibleTrigger className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2">
+          <CollapsibleTrigger data-tour="cg-more" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2">
             <span>More detail</span>
             <ChevronDown className="w-4 h-4" />
           </CollapsibleTrigger>
