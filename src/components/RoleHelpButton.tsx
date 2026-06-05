@@ -117,13 +117,19 @@ interface RoleHelpButtonProps {
    * When false (default), it opens the centered modal walkthrough.
    */
   spotlight?: boolean;
+  /**
+   * Override which spotlight tour the button replays (defaults to the resolved
+   * role). Used where the page's tour differs from the viewer's role, e.g. the
+   * Patient Hub uses "patient-hub".
+   */
+  spotlightTourId?: TourId;
 }
 
 /**
  * Small "?" button that replays the role walkthrough. Self-contained: infers
  * the viewer's role and renders nothing for plain patients.
  */
-export function RoleHelpButton({ role, className, withLabel, spotlight }: RoleHelpButtonProps) {
+export function RoleHelpButton({ role, className, withLabel, spotlight, spotlightTourId }: RoleHelpButtonProps) {
   const { user } = useAuth();
   const { isAdmin, isClinician, isCaregiver } = useUserPermissions(user?.id);
   const [open, setOpen] = useState(false);
@@ -140,7 +146,7 @@ export function RoleHelpButton({ role, className, withLabel, spotlight }: RoleHe
         variant="ghost"
         size={withLabel ? "sm" : "icon"}
         className={cn("text-muted-foreground gap-1.5", className)}
-        onClick={() => (spotlight ? replayDashboardTour(resolved) : setOpen(true))}
+        onClick={() => (spotlight ? replayDashboardTour(spotlightTourId ?? resolved) : setOpen(true))}
         aria-label="Take the tour again"
         title="Take the tour again"
       >
