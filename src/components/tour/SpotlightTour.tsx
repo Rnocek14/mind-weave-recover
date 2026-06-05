@@ -16,6 +16,19 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * An action run before a step is shown, used to reveal targets that live inside
+ * collapsed drawers or inactive tabs. Each entry clicks `click` unless
+ * `skipIfVisible` already resolves to a visible element (prevents toggling an
+ * already-open collapsible shut).
+ */
+export interface SpotlightOpenStep {
+  /** CSS selector to click to reveal the target. */
+  click: string;
+  /** If this selector is already visible, the click is skipped. */
+  skipIfVisible?: string;
+}
+
 export interface SpotlightStep {
   /** Matches the `data-tour` attribute on the real element. */
   target: string;
@@ -26,6 +39,16 @@ export interface SpotlightStep {
   why: string;
   /** How to use / act on it. */
   how?: string;
+  /** Optional actions that reveal the target (open drawer, switch tab, etc.). */
+  openSteps?: SpotlightOpenStep[];
+}
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function isVisible(el: Element | null): boolean {
+  if (!el) return false;
+  const r = (el as HTMLElement).getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
 }
 
 interface SpotlightTourProps {
