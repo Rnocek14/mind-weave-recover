@@ -35,6 +35,16 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Authorization: require a valid session and ownership of the target user
+    // (or admin). Prevents anonymous mass recompute / data overwrite.
+    const caller = await getAuthedUser(req);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.id !== user_id) {
+      const callerIsAdmin = await userHasAnyRole(supabase, caller.id, ["admin"]);
+      if (!callerIsAdmin) return jsonResponse({ error: "Forbidden" }, 403);
+    }
+
+
     // Get profile_id - either provided or look up user's active profile
     let profile_id = providedProfileId;
     if (!profile_id) {
