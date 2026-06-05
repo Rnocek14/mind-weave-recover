@@ -121,6 +121,12 @@ export default function Welcome() {
               </Button>
             </div>
           )}
+
+          <div className="mt-6 text-center">
+            <Button variant="ghost" className="text-muted-foreground" onClick={skip}>
+              Skip for now
+            </Button>
+          </div>
         </div>
       </div>
     </div>
