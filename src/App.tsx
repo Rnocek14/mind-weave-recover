@@ -10,6 +10,8 @@ import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
 import About from "./pages/About";
 import Onboarding from "./pages/Onboarding";
+import RoleOnboarding from "./pages/RoleOnboarding";
+import { OnboardingGate } from "@/components/OnboardingGate";
 import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
 import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
@@ -127,6 +129,7 @@ const App = () => (
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
+                <OnboardingGate />
                 <VoiceBleedGuard />
                 <Toaster />
                 <Sonner />
@@ -142,6 +145,7 @@ const App = () => (
                   <Route path="/practice" element={<Practice />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/onboarding/role" element={<RoleOnboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
                   

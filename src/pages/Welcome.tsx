@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { markOnboardingComplete } from '@/lib/onboarding';
 import { cn } from '@/lib/utils';
 
 type WelcomeStep = 'greeting' | 'ready';
@@ -33,7 +34,13 @@ export default function Welcome() {
   };
 
   const launchSession = () => {
+    markOnboardingComplete(user?.id);
     navigate('/smart-coach');
+  };
+
+  const skip = () => {
+    markOnboardingComplete(user?.id);
+    navigate('/today', { replace: true });
   };
 
   if (authLoading) {
@@ -114,6 +121,12 @@ export default function Welcome() {
               </Button>
             </div>
           )}
+
+          <div className="mt-6 text-center">
+            <Button variant="ghost" className="text-muted-foreground" onClick={skip}>
+              Skip for now
+            </Button>
+          </div>
         </div>
       </div>
     </div>
