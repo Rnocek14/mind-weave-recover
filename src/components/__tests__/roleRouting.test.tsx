@@ -6,7 +6,9 @@
  * No runtime logic is modified.
  *
  * Access matrix:
- *   ClinicianProtectedRoute -> allow if (isAdmin || isModerator || uiMode>=clinician)
+ *   ClinicianProtectedRoute -> allow only if isClinician (DB role:
+ *                              clinician/moderator/admin). uiMode is NOT
+ *                              an authorization boundary and is ignored.
  *                              redirect to /auth if no user
  *                              redirect to /today (default) otherwise
  *   AdminProtectedRoute     -> allow only if isAdmin
@@ -26,13 +28,9 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/hooks/useUserPermissions', () => ({
   useUserPermissions: vi.fn(),
 }));
-vi.mock('@/hooks/useUiMode', () => ({
-  useUiMode: vi.fn(),
-}));
 
 import { useAuth } from '@/hooks/useAuth';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useUiMode } from '@/hooks/useUiMode';
 
 const Protected = () => <div>PROTECTED_CONTENT</div>;
 const Today = () => <div>TODAY_PAGE</div>;
@@ -79,16 +77,18 @@ function renderAdmin(startPath = '/admin') {
 
 const setAuth = (user: { id: string } | null, loading = false) =>
   (useAuth as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ user, loading });
-const setPerms = (opts: Partial<{ isAdmin: boolean; isModerator: boolean; isLoading: boolean }>) =>
+const setPerms = (
+  opts: Partial<{ isAdmin: boolean; isModerator: boolean; isClinician: boolean; isCaregiver: boolean; isLoading: boolean }>
+) =>
   (useUserPermissions as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
     isAdmin: false,
     isModerator: false,
+    isClinician: false,
+    isCaregiver: false,
     roles: [],
     isLoading: false,
     ...opts,
   });
-const setUiMode = (atLeast: (lvl: string) => boolean) =>
-  (useUiMode as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ isAtLeast: atLeast });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -98,48 +98,43 @@ describe('ClinicianProtectedRoute', () => {
   it('redirects unauthenticated user to /auth', () => {
     setAuth(null);
     setPerms({});
-    setUiMode(() => false);
     renderClinician();
     expect(screen.getByText('AUTH_PAGE')).toBeInTheDocument();
   });
 
-  it('redirects plain patient (no role, uiMode=patient) to /today', () => {
+  it('redirects plain patient (no role) to /today', () => {
     setAuth({ id: 'u1' });
     setPerms({});
-    setUiMode(() => false);
     renderClinician();
     expect(screen.getByText('TODAY_PAGE')).toBeInTheDocument();
     expect(screen.queryByText('PROTECTED_CONTENT')).toBeNull();
   });
 
-  it('allows admin via DB role even without uiMode', () => {
+  it('allows admin via DB role', () => {
     setAuth({ id: 'u1' });
-    setPerms({ isAdmin: true });
-    setUiMode(() => false);
+    setPerms({ isAdmin: true, isClinician: true });
     renderClinician();
     expect(screen.getByText('PROTECTED_CONTENT')).toBeInTheDocument();
   });
 
-  it('allows moderator via DB role', () => {
+  it('allows clinician via DB role', () => {
     setAuth({ id: 'u1' });
-    setPerms({ isModerator: true });
-    setUiMode(() => false);
+    setPerms({ isClinician: true });
     renderClinician();
     expect(screen.getByText('PROTECTED_CONTENT')).toBeInTheDocument();
   });
 
-  it('allows user with clinician uiMode even without DB role', () => {
+  it('blocks a user without a clinician DB role (uiMode cannot grant access)', () => {
     setAuth({ id: 'u1' });
-    setPerms({});
-    setUiMode((lvl) => lvl === 'clinician');
+    setPerms({ isClinician: false });
     renderClinician();
-    expect(screen.getByText('PROTECTED_CONTENT')).toBeInTheDocument();
+    expect(screen.getByText('TODAY_PAGE')).toBeInTheDocument();
+    expect(screen.queryByText('PROTECTED_CONTENT')).toBeNull();
   });
 
   it('shows loader while auth is loading', () => {
     setAuth(null, true);
     setPerms({});
-    setUiMode(() => false);
     renderClinician();
     expect(screen.getByText(/Checking permissions/i)).toBeInTheDocument();
   });
@@ -147,7 +142,6 @@ describe('ClinicianProtectedRoute', () => {
   it('shows loader while permissions are loading', () => {
     setAuth({ id: 'u1' });
     setPerms({ isLoading: true });
-    setUiMode(() => false);
     renderClinician();
     expect(screen.getByText(/Checking permissions/i)).toBeInTheDocument();
   });
@@ -177,7 +171,6 @@ describe('AdminProtectedRoute', () => {
   });
 
   it('ignores uiMode — admin requires DB role only', () => {
-    // Even with clinician uiMode, no DB admin role → blocked.
     setAuth({ id: 'u1' });
     setPerms({});
     renderAdmin();
