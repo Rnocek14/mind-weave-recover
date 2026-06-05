@@ -16,10 +16,10 @@ const Auth = () => {
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   
-  const { signUp, signIn, signInAnonymously, user, loading } = useAuth();
+  const { signUp, signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast, dismiss } = useToast();
+  const { toast } = useToast();
   const from = typeof location.state?.from === "string" ? location.state.from : "/today";
 
   // Redirect if already logged in (only after loading completes)
