@@ -34,7 +34,13 @@ export default function Welcome() {
   };
 
   const launchSession = () => {
+    markOnboardingComplete(user?.id);
     navigate('/smart-coach');
+  };
+
+  const skip = () => {
+    markOnboardingComplete(user?.id);
+    navigate('/today', { replace: true });
   };
 
   if (authLoading) {
