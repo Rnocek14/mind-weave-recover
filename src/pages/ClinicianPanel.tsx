@@ -216,7 +216,7 @@ export default function ClinicianPanel() {
 
       {/* Cohort Snapshot */}
       {!isLoading && patients.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div data-tour="cl-cohort" className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAccuracy != null ? `${cohortSnapshot.avgAccuracy}%` : "—"}</div>
