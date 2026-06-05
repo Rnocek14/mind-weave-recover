@@ -35,6 +35,7 @@ import { ProgressCard } from "@/components/caregiver/glance/ProgressCard";
 import { LevelsCard } from "@/components/caregiver/glance/LevelsCard";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
 import { RoleHelpButton } from "@/components/RoleHelpButton";
+import { DashboardTour } from "@/components/tour/DashboardTour";
 
 import { SessionAdherenceTracker } from "@/components/SessionAdherenceTracker";
 import { SessionHistoryList } from "@/components/patient/SessionHistoryList";
@@ -83,23 +84,34 @@ export default function CaregiverPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-calm">
+      <DashboardTour role="caregiver" ready={!!activeProfile} />
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-2xl space-y-4">
         {/* Header — small, doesn't compete with the cards */}
         <header className="flex items-center gap-2 px-1">
           <Heart className="w-4 h-4 text-pink-500" />
           <h1 className="text-base font-semibold text-foreground">Caregiver Home</h1>
           <div className="ml-auto flex items-center gap-1">
-            <RoleHelpButton role="caregiver" />
+            <RoleHelpButton role="caregiver" spotlight />
             <ProfileSwitcher />
           </div>
         </header>
 
         {/* The five Glance Cards */}
-        <StatusCard userId={user!.id} patientName={patientName} profileId={activeProfile?.id ?? null} />
-        <PracticeCard userId={user!.id} streak={streak} profileId={activeProfile?.id ?? null} />
-        <ListenCard userId={user!.id} profileId={activeProfile?.id ?? null} />
-        <ProgressCard userId={user!.id} profileId={activeProfile?.id ?? null} />
-        <LevelsCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        <div data-tour="cg-status">
+          <StatusCard userId={user!.id} patientName={patientName} profileId={activeProfile?.id ?? null} />
+        </div>
+        <div data-tour="cg-practice">
+          <PracticeCard userId={user!.id} streak={streak} profileId={activeProfile?.id ?? null} />
+        </div>
+        <div data-tour="cg-listen">
+          <ListenCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        </div>
+        <div data-tour="cg-progress">
+          <ProgressCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        </div>
+        <div data-tour="cg-levels">
+          <LevelsCard userId={user!.id} profileId={activeProfile?.id ?? null} />
+        </div>
 
         {/* Concerns — only when present, never above the cards */}
         {visibleConcerns.length > 0 && (
@@ -124,7 +136,7 @@ export default function CaregiverPortal() {
 
         {/* More detail — collapsed by default. Everything that isn't glance-able. */}
         <Collapsible>
-          <CollapsibleTrigger className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2">
+          <CollapsibleTrigger data-tour="cg-more" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2">
             <span>More detail</span>
             <ChevronDown className="w-4 h-4" />
           </CollapsibleTrigger>

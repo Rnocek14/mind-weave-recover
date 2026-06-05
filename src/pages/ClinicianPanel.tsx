@@ -11,6 +11,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RoleHelpButton } from "@/components/RoleHelpButton";
+import { DashboardTour } from "@/components/tour/DashboardTour";
 import {
   Select,
   SelectContent,
@@ -133,14 +135,16 @@ export default function ClinicianPanel() {
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
+      <DashboardTour role="clinician" ready={!isLoading} />
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div data-tour="cl-header" className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Clinician Dashboard</h1>
           <Badge variant="secondary" className="text-xs">{patients.length} patients</Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <RoleHelpButton role="clinician" spotlight className="h-7 w-7" />
           <Button
             variant="outline"
             size="sm"
@@ -169,7 +173,7 @@ export default function ClinicianPanel() {
 
       {/* Needs Attention Section — PRIMARY, visually dominant */}
       {!isLoading && needsAttention.length > 0 && (
-        <Card className="border-l-4 border-l-destructive/60 shadow-md">
+        <Card data-tour="cl-attention" className="border-l-4 border-l-destructive/60 shadow-md">
           <CardHeader className="pb-3 pt-4">
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -212,7 +216,7 @@ export default function ClinicianPanel() {
 
       {/* Cohort Snapshot */}
       {!isLoading && patients.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div data-tour="cl-cohort" className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAccuracy != null ? `${cohortSnapshot.avgAccuracy}%` : "—"}</div>
@@ -236,7 +240,7 @@ export default function ClinicianPanel() {
 
       {/* Filters — single surface (removed redundant triage chips) */}
       {!isLoading && patients.length > 0 && (
-        <div className="space-y-3">
+        <div data-tour="cl-filters" className="space-y-3">
           <CaseloadFilters
             search={search}
             onSearchChange={setSearch}

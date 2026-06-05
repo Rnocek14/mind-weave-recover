@@ -24,6 +24,7 @@ import { ArrowLeft, ArrowRight, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { ROLE_STEPS, type NonPatientRole } from "@/lib/roleOnboardingSteps";
+import { replayDashboardTour } from "@/components/tour/DashboardTour";
 import { cn } from "@/lib/utils";
 
 interface RoleTourDialogProps {
@@ -110,13 +111,19 @@ interface RoleHelpButtonProps {
   className?: string;
   /** Show a "Tour" text label next to the icon. */
   withLabel?: boolean;
+  /**
+   * When true, the button replays the in-place spotlight coachmark tour for
+   * the resolved role (requires a <DashboardTour> mounted on the page).
+   * When false (default), it opens the centered modal walkthrough.
+   */
+  spotlight?: boolean;
 }
 
 /**
  * Small "?" button that replays the role walkthrough. Self-contained: infers
  * the viewer's role and renders nothing for plain patients.
  */
-export function RoleHelpButton({ role, className, withLabel }: RoleHelpButtonProps) {
+export function RoleHelpButton({ role, className, withLabel, spotlight }: RoleHelpButtonProps) {
   const { user } = useAuth();
   const { isAdmin, isClinician, isCaregiver } = useUserPermissions(user?.id);
   const [open, setOpen] = useState(false);
@@ -133,14 +140,14 @@ export function RoleHelpButton({ role, className, withLabel }: RoleHelpButtonPro
         variant="ghost"
         size={withLabel ? "sm" : "icon"}
         className={cn("text-muted-foreground gap-1.5", className)}
-        onClick={() => setOpen(true)}
+        onClick={() => (spotlight ? replayDashboardTour(resolved) : setOpen(true))}
         aria-label="Take the tour again"
         title="Take the tour again"
       >
         <HelpCircle className="w-4 h-4" />
         {withLabel && <span>Tour</span>}
       </Button>
-      <RoleTourDialog role={resolved} open={open} onOpenChange={setOpen} />
+      {!spotlight && <RoleTourDialog role={resolved} open={open} onOpenChange={setOpen} />}
     </>
   );
 }
