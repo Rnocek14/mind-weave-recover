@@ -1,6 +1,8 @@
 // Score Discourse Turn — LLM-first clinical scoring with structured output
 // Returns a ClinicalSignal that drives discourse adaptation.
 // Used by ConversationPartner + ThoughtContinuation.
+import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
