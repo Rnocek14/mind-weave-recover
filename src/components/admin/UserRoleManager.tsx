@@ -337,7 +337,80 @@ export default function UserRoleManager() {
         </Card>
       </TabsContent>
 
-      {/* ASSIGNMENTS TAB */}
+      {/* INVITATIONS TAB */}
+      <TabsContent value="invitations" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Mail className="w-4 h-4" /> Pre-authorize a role by email
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              When someone signs up with an invited email, they're automatically granted that role and land in the matching onboarding. Everyone else stays a patient.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Input
+                className="sm:col-span-2"
+                type="email"
+                placeholder="person@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                aria-label="Invitation email"
+              />
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
+                <SelectTrigger aria-label="Invitation role"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ASSIGNABLE_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>{ROLE_META[role].label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={createInvitation} disabled={busy}>Invite</Button>
+            </div>
+            <Input
+              placeholder="Optional note (e.g. site, study arm)"
+              value={inviteNote}
+              onChange={(e) => setInviteNote(e.target.value)}
+              aria-label="Invitation note"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Invitations</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {invitations.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+            {invitations.map((inv) => (
+              <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{inv.email}</p>
+                  {inv.note && <p className="text-xs text-muted-foreground truncate">{inv.note}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{ROLE_META[inv.role as AppRole]?.label ?? inv.role}</Badge>
+                  {inv.used_at ? (
+                    <Badge variant="outline" className="text-muted-foreground">Used</Badge>
+                  ) : (
+                    <Badge variant="outline">Pending</Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => deleteInvitation(inv.id)}
+                    aria-label={`Remove invitation for ${inv.email}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+
       <TabsContent value="assignments" className="space-y-4">
         <Card>
           <CardHeader>
