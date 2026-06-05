@@ -146,15 +146,21 @@ export default function UserRoleManager() {
     const patient = profiles.find((p) => p.id === patientProfileId);
     if (!patient) return;
     setBusy(true);
-    const table = assignType === "clinician" ? "clinician_assignments" : "caregiver_assignments";
-    const providerKey = assignType === "clinician" ? "clinician_id" : "caregiver_id";
     const { data: auth } = await supabase.auth.getUser();
-    const { error } = await supabase.from(table).insert({
-      [providerKey]: providerUserId,
-      patient_user_id: patient.user_id,
-      profile_id: patient.id,
-      assigned_by: auth.user?.id ?? null,
-    });
+    const assignedBy = auth.user?.id ?? null;
+    const { error } = assignType === "clinician"
+      ? await supabase.from("clinician_assignments").insert({
+          clinician_id: providerUserId,
+          patient_user_id: patient.user_id,
+          profile_id: patient.id,
+          assigned_by: assignedBy,
+        })
+      : await supabase.from("caregiver_assignments").insert({
+          caregiver_id: providerUserId,
+          patient_user_id: patient.user_id,
+          profile_id: patient.id,
+          assigned_by: assignedBy,
+        });
     if (error && !error.message.includes("duplicate")) {
       toast({ title: "Could not create assignment", description: error.message, variant: "destructive" });
     } else {
