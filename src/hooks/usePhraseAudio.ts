@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 import { voiceController } from '@/lib/voiceController';
+import { applyPronunciationOverrides } from '@/lib/speech/pronunciationOverrides';
 
 interface AudioPlaybackOptions {
   voice?: string;
