@@ -266,15 +266,16 @@ export default function PatientHub() {
           <Card className="p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="overview" title="Triage — should I worry?">
+                <TabsTrigger value="overview" data-tour="ph-tab-overview" title="Triage — should I worry?">
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="review" title="Listen — what does it sound like?">
+                <TabsTrigger value="review" data-tour="ph-tab-review" title="Listen — what does it sound like?">
                   Review
                 </TabsTrigger>
-                <TabsTrigger value="plan" title="Decide — what do I do next?">
+                <TabsTrigger value="plan" data-tour="ph-tab-plan" title="Decide — what do I do next?">
                   Plan
                 </TabsTrigger>
+
               </TabsList>
 
               {/* === Overview — Triage === */}
