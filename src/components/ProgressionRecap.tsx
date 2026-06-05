@@ -74,7 +74,7 @@ export function ProgressionRecap({
   const handleContinue = () => {
     if (dismissedRef.current) return;
     dismissedRef.current = true;
-    onContinue();
+    onContinueRef.current();
   };
 
   const displayLevel = leveledUp ? next.level : prev.level;
