@@ -73,10 +73,14 @@ function getRect(el: Element): Rect {
 }
 
 export function SpotlightTour({ steps, open, onClose }: SpotlightTourProps) {
-  // Resolve only the steps whose target currently exists in the DOM.
+  // Resolve steps whose target exists OR that can reveal it via openSteps.
   const resolved = useMemo(() => {
     if (!open) return [];
-    return steps.filter((s) => document.querySelector(`[data-tour="${s.target}"]`));
+    return steps.filter(
+      (s) =>
+        document.querySelector(`[data-tour="${s.target}"]`) ||
+        (s.openSteps && s.openSteps.length > 0)
+    );
     // Re-resolve whenever the tour opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, steps]);
