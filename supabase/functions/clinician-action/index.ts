@@ -65,6 +65,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Authorization: caller must hold a clinician/admin role AND (unless admin)
+    // be the assigned clinician for the target patient's profile. This prevents
+    // any authenticated patient from self-assigning as clinician.
+    const isAdmin = await userHasAnyRole(admin, user.id, ["admin"]);
+    if (!isAdmin) {
+      const isClinician = await userHasAnyRole(admin, user.id, ["clinician", "moderator"]);
+      if (!isClinician) {
+        return new Response(JSON.stringify({ error: "Forbidden: clinician role required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const assigned = await isAssignedClinician(admin, user.id, profileId);
+      if (!assigned) {
+        return new Response(JSON.stringify({ error: "Forbidden: not assigned to this patient" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     let result: { success: boolean; message: string; overrideId?: string };
 
     switch (action) {
