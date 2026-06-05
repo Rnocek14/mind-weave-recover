@@ -54,19 +54,19 @@ export function ProgressionRecap({
   }, [next.progressPct]);
 
   // A level-up is a moment worth absorbing — especially for stroke patients who
-  // read slowly. Give it a long safety dwell so it effectively waits for an
-  // explicit tap, but never leave a true dead state. Routine completions keep
-  // the caller's shorter timer. The timer is armed once on mount.
-  const effectiveAutoAdvanceMs = leveledUp
-    ? Math.max(autoAdvanceMs, 30000)
-    : autoAdvanceMs;
-
+  // read slowly or may get distracted. This recap is fully self-contained (a
+  // card with a working Continue button and no mic/audio/load dependency), so
+  // there is NO dead state to escape from. We therefore NEVER auto-advance a
+  // level-up: it waits patiently for an explicit tap, however long that takes.
+  // Routine completions keep the caller's short safety fallback to preserve
+  // session momentum. The timer is armed once on mount.
   useEffect(() => {
+    if (leveledUp) return; // wait indefinitely for explicit Continue
     const t = setTimeout(() => {
       if (dismissedRef.current) return;
       dismissedRef.current = true;
       onContinueRef.current();
-    }, effectiveAutoAdvanceMs);
+    }, autoAdvanceMs);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
