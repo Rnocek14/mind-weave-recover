@@ -174,11 +174,11 @@ export default function UserRoleManager() {
 
   const revokeAssignment = async (type: "clinician" | "caregiver", id: string) => {
     setBusy(true);
-    const table = type === "clinician" ? "clinician_assignments" : "caregiver_assignments";
     const { data: auth } = await supabase.auth.getUser();
-    const { error } = await supabase.from(table)
-      .update({ revoked_at: new Date().toISOString(), revoked_by: auth.user?.id ?? null })
-      .eq("id", id);
+    const patch = { revoked_at: new Date().toISOString(), revoked_by: auth.user?.id ?? null };
+    const { error } = type === "clinician"
+      ? await supabase.from("clinician_assignments").update(patch).eq("id", id)
+      : await supabase.from("caregiver_assignments").update(patch).eq("id", id);
     if (error) {
       toast({ title: "Could not revoke assignment", description: error.message, variant: "destructive" });
     } else {
