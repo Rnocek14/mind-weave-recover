@@ -240,7 +240,7 @@ export default function ClinicianPanel() {
 
       {/* Filters — single surface (removed redundant triage chips) */}
       {!isLoading && patients.length > 0 && (
-        <div className="space-y-3">
+        <div data-tour="cl-filters" className="space-y-3">
           <CaseloadFilters
             search={search}
             onSearchChange={setSearch}
