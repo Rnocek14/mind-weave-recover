@@ -86,7 +86,8 @@ export default function CaregiverPortal() {
         <header className="flex items-center gap-2 px-1">
           <Heart className="w-4 h-4 text-pink-500" />
           <h1 className="text-base font-semibold text-foreground">Caregiver Home</h1>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <RoleHelpButton role="caregiver" />
             <ProfileSwitcher />
           </div>
         </header>
