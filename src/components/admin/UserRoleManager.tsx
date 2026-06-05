@@ -66,22 +66,74 @@ export default function UserRoleManager() {
   const [providerUserId, setProviderUserId] = useState<string>("");
   const [patientProfileId, setPatientProfileId] = useState<string>("");
 
+  // Invitation form state
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<AppRole>("clinician");
+  const [inviteNote, setInviteNote] = useState("");
+
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: p }, { data: r }, { data: ca }, { data: ga }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: ca }, { data: ga }, { data: inv }] = await Promise.all([
       supabase.from("profiles").select("id, user_id, display_name, profile_name").order("display_name", { ascending: true }),
       supabase.from("user_roles").select("id, user_id, role"),
       supabase.from("clinician_assignments").select("id, clinician_id, patient_user_id, profile_id").is("revoked_at", null),
       supabase.from("caregiver_assignments").select("id, caregiver_id, patient_user_id, profile_id").is("revoked_at", null),
+      supabase.from("role_invitations").select("id, email, role, note, used_at, created_at").order("created_at", { ascending: false }),
     ]);
     setProfiles(p ?? []);
     setRoles(r ?? []);
     setClinicianAssignments(ca ?? []);
     setCaregiverAssignments(ga ?? []);
+    setInvitations(inv ?? []);
     setLoading(false);
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const createInvitation = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      toast({ title: "Enter a valid email address", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    const { data: auth } = await supabase.auth.getUser();
+    const { error } = await supabase.from("role_invitations").insert({
+      email,
+      role: inviteRole,
+      note: inviteNote.trim() || null,
+      created_by: auth.user?.id ?? null,
+    });
+    if (error) {
+      toast({
+        title: "Could not create invitation",
+        description: error.message.includes("duplicate") || error.message.includes("unique")
+          ? "An invitation already exists for that email."
+          : error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `Invitation created for ${email}` });
+      setInviteEmail("");
+      setInviteNote("");
+      await loadAll();
+    }
+    setBusy(false);
+  };
+
+  const deleteInvitation = async (id: string) => {
+    setBusy(true);
+    const { error } = await supabase.from("role_invitations").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Could not remove invitation", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Invitation removed" });
+      await loadAll();
+    }
+    setBusy(false);
+  };
+
 
   const nameFor = (profile: Profile) =>
     profile.display_name || profile.profile_name || "Unnamed";
