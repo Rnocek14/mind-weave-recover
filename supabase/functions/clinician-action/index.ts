@@ -6,6 +6,7 @@
  * half-written state on the client.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { userHasAnyRole, isAssignedClinician } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
