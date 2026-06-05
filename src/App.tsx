@@ -129,6 +129,7 @@ const App = () => (
           <ProfileProvider>
             <AssessmentProviderWrapper>
               <BrowserRouter>
+                <OnboardingGate />
                 <VoiceBleedGuard />
                 <Toaster />
                 <Sonner />
