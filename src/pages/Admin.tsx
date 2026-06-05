@@ -11,6 +11,7 @@ import PhotoLibraryAdmin from "@/components/admin/PhotoLibraryAdmin";
 import AdminTools from "@/components/admin/AdminTools";
 import { AdminNavHub } from "@/components/admin/AdminNavHub";
 import UserRoleManager from "@/components/admin/UserRoleManager";
+import { RoleHelpButton } from "@/components/RoleHelpButton";
 
 const Admin = () => {
   const navigate = useNavigate();
