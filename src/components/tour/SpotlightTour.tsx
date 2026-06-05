@@ -10,7 +10,7 @@
  * Steps whose target isn't currently in the DOM are skipped automatically, so
  * conditional dashboard sections never break the flow.
  */
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
