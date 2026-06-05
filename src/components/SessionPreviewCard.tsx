@@ -45,10 +45,16 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
   const greeting = getSessionGreeting();
   const name = displayName || "there";
   const { showPurpose, showContinuity, mode } = useCoachingMode();
-  
-  // Continuity opener for Full mode
-  const [continuityLine] = useState(() => 
-    showContinuity ? getContinuityOpener(lesson.targetDomains?.[0]) : null
+  const { profile: uiProfile } = useUiProfile();
+  const variant = uiProfile.variant;
+  const simplified = isSimplified(variant);
+  const minimal = isMinimal(variant);
+  const isNonFluent = variant === "simplified-non-fluent";
+  const isNeglect = variant === "simplified-neglect";
+
+  // Continuity opener for Full mode — suppressed in simplified/minimal (reading-load cap)
+  const [continuityLine] = useState(() =>
+    showContinuity && !simplified ? getContinuityOpener(lesson.targetDomains?.[0]) : null
   );
 
   // Deduplicate target domains for display
