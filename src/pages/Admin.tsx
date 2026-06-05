@@ -80,7 +80,7 @@ const Admin = () => {
 
         <Tabs defaultValue={initialTab} className="space-y-6">
           <TabsList data-tour="ad-tabs" className="grid w-full grid-cols-5">
-            <TabsTrigger value="hub" className="flex items-center gap-2">
+            <TabsTrigger value="hub" data-tour="ad-tab-hub" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </TabsTrigger>
@@ -92,14 +92,15 @@ const Admin = () => {
               <ClipboardCheck className="w-4 h-4" />
               Clinical Review
             </TabsTrigger>
-            <TabsTrigger value="photos" className="flex items-center gap-2">
+            <TabsTrigger value="photos" data-tour="ad-photos" className="flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
               Photo Library
             </TabsTrigger>
-            <TabsTrigger value="tools" className="flex items-center gap-2">
+            <TabsTrigger value="tools" data-tour="ad-tools" className="flex items-center gap-2">
               <Brain className="w-4 h-4" />
               Tools
             </TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="hub">
