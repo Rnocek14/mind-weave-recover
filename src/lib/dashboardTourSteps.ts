@@ -10,11 +10,13 @@
  * auto-run keys off this so updated tours re-introduce themselves once.
  */
 import type { SpotlightStep } from "@/components/tour/SpotlightTour";
-import type { NonPatientRole } from "@/lib/roleOnboardingSteps";
 
 export const TOUR_VERSION = 1;
 
-export const DASHBOARD_TOUR_STEPS: Record<NonPatientRole, SpotlightStep[]> = {
+/** Tour identifiers — three non-patient role dashboards plus the patient hub. */
+export type TourId = "caregiver" | "clinician" | "admin" | "patient-hub";
+
+export const DASHBOARD_TOUR_STEPS: Record<TourId, SpotlightStep[]> = {
   caregiver: [
     {
       target: "cg-status",
