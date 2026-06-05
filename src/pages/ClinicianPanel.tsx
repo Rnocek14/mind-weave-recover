@@ -254,7 +254,8 @@ export default function ClinicianPanel() {
             filteredCount={filtered.length}
           />
           {/* Phenotype filters */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-tour="cl-phenotype" className="flex flex-wrap items-center gap-2">
+
             <Brain className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground uppercase tracking-wider">Phenotype:</span>
             {phenotypeOptions.aphasia.length > 1 && (
