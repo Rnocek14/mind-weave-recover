@@ -264,6 +264,7 @@ export default function UserRoleManager() {
     <Tabs defaultValue="roles" className="space-y-4">
       <TabsList>
         <TabsTrigger value="roles">Roles</TabsTrigger>
+        <TabsTrigger value="invitations">Invitations</TabsTrigger>
         <TabsTrigger value="assignments">Care Assignments</TabsTrigger>
       </TabsList>
 
