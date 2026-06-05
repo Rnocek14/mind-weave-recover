@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 import { voiceController } from '@/lib/voiceController';
+import { applyPronunciationOverrides } from '@/lib/speech/pronunciationOverrides';
 
 interface AudioPlaybackOptions {
   voice?: string;
@@ -83,6 +84,11 @@ export function usePhraseAudio() {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
       const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+      // Respell words ElevenLabs mispronounces (e.g. "vase") so stroke
+      // patients always hear the plain American pronunciation. The original
+      // `text` is unchanged for echo detection / scoring upstream.
+      const spokenText = applyPronunciationOverrides(text);
+
       const response = await fetch(
         `${SUPABASE_URL}/functions/v1/text-to-speech-stream`,
         {
@@ -93,7 +99,7 @@ export function usePhraseAudio() {
             'apikey': ANON_KEY,
           },
           // Always Maya — never a different voice id from this hook.
-          body: JSON.stringify({ text, voiceId: MAYA_VOICE_ID, mode: 'natural' }),
+          body: JSON.stringify({ text: spokenText, voiceId: MAYA_VOICE_ID, mode: 'natural' }),
         }
       );
 
