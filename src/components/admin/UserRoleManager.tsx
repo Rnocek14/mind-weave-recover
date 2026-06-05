@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, X, Shield, Stethoscope, HeartHandshake, UserPlus } from "lucide-react";
+import { Loader2, Plus, X, Shield, Stethoscope, HeartHandshake, UserPlus, Mail, Trash2 } from "lucide-react";
 
 type AppRole = "admin" | "clinician" | "caregiver";
 
@@ -32,6 +32,15 @@ interface Assignment {
   clinician_id?: string;
   patient_user_id: string;
   profile_id: string;
+}
+
+interface Invitation {
+  id: string;
+  email: string;
+  role: string;
+  note: string | null;
+  used_at: string | null;
+  created_at: string;
 }
 
 const ROLE_META: Record<AppRole, { label: string; icon: typeof Shield }> = {
