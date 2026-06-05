@@ -40,20 +40,26 @@ export function ViewModeSelector() {
   const { uiMode, setUiMode } = useUiMode();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin } = useUserPermissions(user?.id);
+  const { isAdmin, isClinician, isCaregiver } = useUserPermissions(user?.id);
 
-  // Filter available modes based on real permissions
-  // Admin mode only available to actual admins
-  const availableModes: UiMode[] = isAdmin 
-    ? ['patient', 'caregiver', 'clinician', 'admin']
-    : ['patient', 'caregiver', 'clinician'];
+  // Only surface modes the user is actually entitled to (DB roles).
+  // uiMode is presentation only; offering a mode the route guard will
+  // reject would dump the user into a redirect/dead-state.
+  const availableModes: UiMode[] = [
+    'patient',
+    ...(isCaregiver ? ['caregiver' as UiMode] : []),
+    ...(isClinician ? ['clinician' as UiMode] : []),
+    ...(isAdmin ? ['admin' as UiMode] : []),
+  ];
 
-  // If user is in admin mode but lost admin permission, reset to clinician
+  // If the active uiMode is no longer permitted, fall back to the highest
+  // mode the user can still use (defaults to patient).
   useEffect(() => {
-    if (uiMode === 'admin' && !isAdmin) {
-      setUiMode('clinician');
+    if (!availableModes.includes(uiMode)) {
+      setUiMode(availableModes[availableModes.length - 1] ?? 'patient');
     }
-  }, [uiMode, isAdmin, setUiMode]);
+  }, [uiMode, availableModes, setUiMode]);
+
 
   return (
     <Select value={uiMode} onValueChange={(value) => {
