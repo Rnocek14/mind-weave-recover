@@ -12,6 +12,7 @@ import AdminTools from "@/components/admin/AdminTools";
 import { AdminNavHub } from "@/components/admin/AdminNavHub";
 import UserRoleManager from "@/components/admin/UserRoleManager";
 import { RoleHelpButton } from "@/components/RoleHelpButton";
+import { DashboardTour } from "@/components/tour/DashboardTour";
 
 const Admin = () => {
   const navigate = useNavigate();
