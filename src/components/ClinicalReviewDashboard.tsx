@@ -405,7 +405,7 @@ const ClinicalReviewDashboard = () => {
                   {audioLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : audioUrl ? (
-                    <Button variant="outline" size="icon" onClick={togglePlayback}>
+                    <Button variant="outline" size="icon" aria-label={isPlaying ? "Pause audio" : "Play audio"} onClick={togglePlayback}>
                       {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </Button>
                   ) : (

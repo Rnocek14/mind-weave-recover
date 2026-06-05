@@ -135,6 +135,7 @@ export const AudioPlaybackWithWaveform = ({
       <Button
         variant="ghost"
         size="icon"
+        aria-label={isPlaying ? "Pause audio" : "Play audio"}
         onClick={togglePlayback}
         disabled={isLoading}
         className={`h-8 w-8 ${className}`}
@@ -162,6 +163,7 @@ export const AudioPlaybackWithWaveform = ({
     <Button
       variant="ghost"
       size="icon"
+      aria-label={isPlaying ? "Pause audio" : "Play audio"}
       onClick={togglePlayback}
       disabled={isLoading}
       className="h-8 w-8 shrink-0"
