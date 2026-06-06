@@ -216,8 +216,19 @@ export function AppHeader() {
                   </DropdownMenuItem>
                 </>
               }
+
+              {/* Log out — always available */}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
 
           {/* Global View Mode Selector */}
           <ViewModeSelector />
