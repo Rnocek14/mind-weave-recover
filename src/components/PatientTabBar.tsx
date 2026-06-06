@@ -4,8 +4,9 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Gamepad2, BarChart3, Moon, Sun } from 'lucide-react';
+import { Home, Gamepad2, BarChart3, Moon, Sun, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 const TABS = [
