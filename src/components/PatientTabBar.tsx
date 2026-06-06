@@ -19,6 +19,12 @@ export function PatientTabBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth', { replace: true });
+  };
 
   const currentTab = location.pathname === '/practice' ? 'practice'
     : location.pathname === '/progress' ? 'progress'
