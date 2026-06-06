@@ -34,6 +34,16 @@ export function PatientTabBar() {
 
   return (
     <>
+      {/* Floating logout — sits above the theme toggle */}
+      <button
+        type="button"
+        onClick={handleLogout}
+        aria-label="Log out"
+        className="fixed bottom-32 right-4 z-50 h-11 w-11 rounded-full bg-card border border-border shadow-card flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-accent/30 active:scale-95 transition-all"
+      >
+        <LogOut className="h-5 w-5" />
+      </button>
+
       {/* Floating theme toggle — sits above the tab bar */}
       <button
         type="button"
@@ -43,6 +53,7 @@ export function PatientTabBar() {
       >
         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>
+
 
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-40">
       <div className="flex justify-around max-w-lg mx-auto">
