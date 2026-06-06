@@ -53,10 +53,16 @@ const clinicianNavItems = [
 
 export function AppHeader() {
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast, uiMode } = useUiMode();
   const { helpMode, toggleHelpMode } = useHelpMode();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
 
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
