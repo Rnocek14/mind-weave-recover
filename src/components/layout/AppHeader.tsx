@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import {
   Brain,
   Stethoscope,
   CircleHelp,
+  LogOut,
   HeartPulse } from
 "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,10 +53,16 @@ const clinicianNavItems = [
 
 export function AppHeader() {
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast, uiMode } = useUiMode();
   const { helpMode, toggleHelpMode } = useHelpMode();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
 
   // Show caregiver toggle only for users with caregiver+ database role
   const canAccessCaregiverMode = isCaregiver;
@@ -209,8 +216,19 @@ export function AppHeader() {
                   </DropdownMenuItem>
                 </>
               }
+
+              {/* Log out — always available */}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
 
           {/* Global View Mode Selector */}
           <ViewModeSelector />
