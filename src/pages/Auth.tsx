@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
 import { supabase } from "@/integrations/supabase/client";
 import { Brain, Loader2 } from "lucide-react";
