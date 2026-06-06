@@ -20,6 +20,7 @@ import {
   Brain,
   Stethoscope,
   CircleHelp,
+  LogOut,
   HeartPulse } from
 "lucide-react";
 import { cn } from "@/lib/utils";
