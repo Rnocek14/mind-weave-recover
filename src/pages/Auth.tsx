@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
 import { supabase } from "@/integrations/supabase/client";
 import { Brain, Loader2 } from "lucide-react";
@@ -20,15 +21,45 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const from = typeof location.state?.from === "string" ? location.state.from : "/today";
+  const { isAdmin, isClinician, isCaregiver, isLoading: permsLoading } =
+    useUserPermissions(user?.id);
 
-  // Redirect if already logged in (only after loading completes)
+  // An explicit redirect target (e.g. a protected route that bounced the user
+  // here) always wins. Otherwise we send each role to its own home.
+  const explicitFrom =
+    typeof location.state?.from === "string" ? location.state.from : null;
+
+  // Redirect once we know who the user is AND what roles they hold.
   useEffect(() => {
-    if (!loading && user) {
-      localStorage.removeItem("offlineMode");
-      navigate(from, { replace: true });
+    if (loading || !user) return;
+    if (permsLoading) return; // wait for roles so we route to the right home
+
+    localStorage.removeItem("offlineMode");
+
+    if (explicitFrom) {
+      navigate(explicitFrom, { replace: true });
+      return;
     }
-  }, [user, loading, navigate, from]);
+
+    const home = isAdmin
+      ? "/admin"
+      : isClinician
+      ? "/clinician/review"
+      : isCaregiver
+      ? "/caregiver"
+      : "/today";
+    navigate(home, { replace: true });
+  }, [
+    user,
+    loading,
+    permsLoading,
+    isAdmin,
+    isClinician,
+    isCaregiver,
+    explicitFrom,
+    navigate,
+  ]);
+
 
   const [forgotMode, setForgotMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
