@@ -54,6 +54,10 @@ export async function fetchOnboardingComplete(
   userId: string | undefined | null
 ): Promise<boolean> {
   if (!userId) return true;
+  // Trust the optimistic local cache: once we've recorded completion we must
+  // never re-query and risk reading a not-yet-committed DB write, which would
+  // bounce the user back into onboarding a second time.
+  if (isOnboardingCompleteCached(userId)) return true;
   try {
     const { data, error } = await supabase
       .from("profiles")
