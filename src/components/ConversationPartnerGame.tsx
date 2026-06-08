@@ -253,6 +253,9 @@ export function ConversationPartnerGame({
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
 
+    // User exited mid-processing — don't resume speaking after unmount.
+    if (!mountedRef.current) return;
+
     if (currentTurn + 1 >= maxTurns) {
       setCurrentAIText(followupText);
       setPhase('ai_speaking');
