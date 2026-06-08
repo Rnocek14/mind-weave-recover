@@ -84,24 +84,49 @@ export default function UserRoleManager() {
   const [inviteRole, setInviteRole] = useState<AppRole>("clinician");
   const [inviteNote, setInviteNote] = useState("");
 
+  // Self-service role requests
+  const [requests, setRequests] = useState<RoleRequest[]>([]);
+
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: p }, { data: r }, { data: ca }, { data: ga }, { data: inv }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: ca }, { data: ga }, { data: inv }, { data: req }] = await Promise.all([
       supabase.from("profiles").select("id, user_id, display_name, profile_name").order("display_name", { ascending: true }),
       supabase.from("user_roles").select("id, user_id, role"),
       supabase.from("clinician_assignments").select("id, clinician_id, patient_user_id, profile_id").is("revoked_at", null),
       supabase.from("caregiver_assignments").select("id, caregiver_id, patient_user_id, profile_id").is("revoked_at", null),
       supabase.from("role_invitations").select("id, email, role, note, used_at, created_at").order("created_at", { ascending: false }),
+      supabase.from("role_requests").select("id, user_id, email, requested_role, status, note, created_at").order("created_at", { ascending: false }),
     ]);
     setProfiles(p ?? []);
     setRoles(r ?? []);
     setClinicianAssignments(ca ?? []);
     setCaregiverAssignments(ga ?? []);
     setInvitations(inv ?? []);
+    setRequests(req ?? []);
     setLoading(false);
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const reviewRequest = async (id: string, decision: "approved" | "rejected") => {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("review_role_request", {
+      p_request_id: id,
+      p_decision: decision,
+    });
+    setBusy(false);
+    if (error) {
+      toast({ title: "Could not update request", description: error.message, variant: "destructive" });
+      return;
+    }
+    const res = data as { success?: boolean; message?: string } | null;
+    toast({
+      title: res?.success ? (decision === "approved" ? "Request approved" : "Request rejected") : "No change",
+      description: res?.message,
+      variant: res?.success ? undefined : "destructive",
+    });
+    loadAll();
+  };
 
   const createInvitation = async () => {
     const email = inviteEmail.trim().toLowerCase();
@@ -110,6 +135,7 @@ export default function UserRoleManager() {
       return;
     }
     setBusy(true);
+
     const { data: auth } = await supabase.auth.getUser();
     const { error } = await supabase.from("role_invitations").insert({
       email,
