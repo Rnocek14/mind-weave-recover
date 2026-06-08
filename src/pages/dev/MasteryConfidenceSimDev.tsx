@@ -113,35 +113,63 @@ function TrajectoryCard({ trajectory }: { trajectory: MasteryTrajectory }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <ConfidenceStrip snapshots={trajectory.snapshots} />
+
+        {/* A.2 — promotion-decision telemetry: how often would mastery
+            change the outcome if a promotion were pending each session? */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">
+            If a promotion were pending each session, mastery would:
+          </span>
+          <Badge variant="outline" className={DECISION_COLOR.promote}>
+            approve {trajectory.promotionTelemetry.approved}
+          </Badge>
+          <Badge variant="outline" className={DECISION_COLOR.delay_reinforce}>
+            delay {trajectory.promotionTelemetry.delayed}
+          </Badge>
+          <Badge variant="outline" className={DECISION_COLOR.no_opinion}>
+            no opinion {trajectory.promotionTelemetry.noOpinion}
+          </Badge>
+          <span className="text-muted-foreground">
+            (delay rate among opinions:{' '}
+            {(trajectory.promotionTelemetry.delayRateAmongOpinions * 100).toFixed(0)}%)
+          </span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-left text-muted-foreground">
               <tr>
                 <th className="py-1">Session</th>
                 <th>Confidence</th>
+                <th>Recommendation</th>
                 <th>Mastery</th>
                 <th>Cue indep.</th>
                 <th>Accuracy</th>
                 <th>Trials (14d)</th>
-                <th>Plateau</th>
-                <th>Support trend</th>
+                <th>Why</th>
               </tr>
             </thead>
             <tbody>
               {trajectory.snapshots.map((s) => (
-                <tr key={s.sessionIndex} className="border-t">
+                <tr key={s.sessionIndex} className="border-t align-top">
                   <td className="py-1">{s.sessionIndex}</td>
                   <td>
                     <Badge variant="outline" className={CONFIDENCE_COLOR[s.confidence]}>
                       {s.confidence}
                     </Badge>
                   </td>
+                  <td>
+                    <Badge variant="outline" className={DECISION_COLOR[s.promotion.decision]}>
+                      {DECISION_LABEL[s.promotion.decision]}
+                    </Badge>
+                  </td>
                   <td>{(s.masteryScore * 100).toFixed(0)}%</td>
                   <td>{s.cueIndependence != null ? (s.cueIndependence * 100).toFixed(0) + '%' : '—'}</td>
                   <td>{s.accuracyRecent != null ? (s.accuracyRecent * 100).toFixed(0) + '%' : '—'}</td>
                   <td>{s.trialsTotal}</td>
-                  <td>{s.plateauFlag ? <Badge variant="destructive">plateau</Badge> : '—'}</td>
-                  <td>{s.supportTrend ?? '—'}</td>
+                  <td className="max-w-[22rem] text-muted-foreground">
+                    {s.confidenceExplanation.summary}
+                  </td>
                 </tr>
               ))}
             </tbody>
