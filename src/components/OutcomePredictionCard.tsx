@@ -53,7 +53,7 @@ export const OutcomePredictionCard = ({
               AI Outcome Prediction
             </CardTitle>
             <CardDescription>
-              ML-powered forecast of goal achievement and recovery trajectory
+              AI-estimated forecast of goal achievement — qualitative, not a measured outcome
             </CardDescription>
           </div>
           {!prediction && (
