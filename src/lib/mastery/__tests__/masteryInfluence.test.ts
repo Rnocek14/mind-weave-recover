@@ -131,3 +131,89 @@ describe('A.2 — promotion recommendation (recommendation, not gate)', () => {
     expect(t.delayRateAmongOpinions).toBeCloseTo(1 / 3, 5);
   });
 });
+
+describe('A.2 (tightened) — promotion requires evidence AND mastery quality', () => {
+  it('cue-dependent high accuracy must DELAY (enough data, not independent)', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'high',     // plenty of data
+      masteryScore: 0.4,
+      cueIndependence: 0.2,   // 80% of corrects leaned on cues
+    });
+    expect(r.decision).toBe('delay_reinforce');
+    expect(r.qualityLimiter).toBe('high_cue_dependency');
+    expect(r.reason).toMatch(/depend heavily on cues/i);
+  });
+
+  it('inconsistent performance must DELAY (independent but mastery too low)', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'medium',
+      masteryScore: 0.25,     // wobbling well below the floor
+      cueIndependence: 0.8,
+    });
+    expect(r.decision).toBe('delay_reinforce');
+    expect(r.qualityLimiter).toBe('low_mastery_score');
+  });
+
+  it('fatigue dip must DELAY even with decent independence', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'high',
+      masteryScore: 0.3,
+      cueIndependence: 0.74,
+    });
+    expect(r.decision).toBe('delay_reinforce');
+    expect(r.qualityLimiter).toBe('low_mastery_score');
+  });
+
+  it('active plateau/fatigue/regression flags DELAY regardless of scores', () => {
+    expect(
+      classifyMasteryPromotion({
+        confidence: 'high', masteryScore: 0.9, cueIndependence: 0.9, plateauFlag: true,
+      }).qualityLimiter,
+    ).toBe('plateau');
+    expect(
+      classifyMasteryPromotion({
+        confidence: 'high', masteryScore: 0.9, cueIndependence: 0.9, fatigueFlag: true,
+      }).qualityLimiter,
+    ).toBe('fatigue');
+    expect(
+      classifyMasteryPromotion({
+        confidence: 'high', masteryScore: 0.9, cueIndependence: 0.9, regressionFlag: true,
+      }).qualityLimiter,
+    ).toBe('regression');
+  });
+
+  it('overachiever PROMOTES (enough data + strong independent mastery)', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'high',
+      masteryScore: 0.9,
+      cueIndependence: 0.95,
+    });
+    expect(r.decision).toBe('promote');
+    expect(r.qualityLimiter).toBeNull();
+  });
+
+  it('recovered fatigue user can PROMOTE after rebound', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'high',
+      masteryScore: 0.85,
+      cueIndependence: 0.8,
+      fatigueFlag: false,
+    });
+    expect(r.decision).toBe('promote');
+  });
+
+  it('quality gate never produces a permanent block — delays stay reinforceable', () => {
+    const r = classifyMasteryPromotion({
+      confidence: 'high', masteryScore: 0.4, cueIndependence: 0.2,
+    });
+    expect(r.decision).toBe('delay_reinforce');
+    expect(r.reinforcementRecommended).toBe(true);
+    expect(r.plannerBoost).toBe(true);
+  });
+
+  it('still defers to evidence with no quality signals (legacy callers unchanged)', () => {
+    // No mastery/cue numbers → quality cannot disqualify; evidence governs.
+    expect(classifyMasteryPromotion({ confidence: 'high' }).decision).toBe('promote');
+    expect(classifyMasteryPromotion({ confidence: 'none' }).decision).toBe('no_opinion');
+  });
+});
