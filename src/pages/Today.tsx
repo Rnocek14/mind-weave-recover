@@ -254,6 +254,17 @@ export default function Today() {
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
+    sessionStorage.setItem('lessonFlowState', JSON.stringify({
+      phase: 'session-preview',
+      currentBlockIndex: 0,
+      sessionId: null,
+      blockCount: activeLesson.blocks.length,
+      firstExerciseId: activeLesson.blocks[0]?.exerciseId,
+      lesson: activeLesson,
+      clinicalProfile,
+      todayFocus,
+      savedAt: Date.now(),
+    }));
     setSavedSession(null);
     navigate('/lesson', {
       state: {
@@ -273,6 +284,17 @@ export default function Today() {
     if (!recLesson) return;
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
+    sessionStorage.setItem('lessonFlowState', JSON.stringify({
+      phase: 'session-preview',
+      currentBlockIndex: 0,
+      sessionId: null,
+      blockCount: recLesson.blocks.length,
+      firstExerciseId: recLesson.blocks[0]?.exerciseId,
+      lesson: recLesson,
+      clinicalProfile,
+      todayFocus: null,
+      savedAt: Date.now(),
+    }));
     setSavedSession(null);
     navigate('/lesson', {
       state: {
