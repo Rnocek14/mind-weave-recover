@@ -10,6 +10,7 @@ import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
+import { buildOnboardingClinicalProfile, canOnboardingOverwrite } from "@/lib/onboardingClinicalProfile";
 
 type ScreenerAnswers = {
   strokeTiming: string | null;
