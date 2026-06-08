@@ -22,6 +22,7 @@ import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
+import { flushVoiceSessionQueue } from '@/lib/voiceController';
 
 interface ConversationPartnerGameProps {
   userId: string;
@@ -53,6 +54,7 @@ export function ConversationPartnerGame({
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const turnCountRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const { speak, stop: stopTTS, isLoading: ttsLoading } = useTextToSpeech();
   
@@ -117,6 +119,21 @@ export function ConversationPartnerGame({
     patientMode: true,
     continuousListening: false
   });
+
+  // Hard-stop all voice + recognition when the user exits/unmounts so Maya
+  // never keeps talking after the session is left.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      try { stopTTS(); } catch { /* noop */ }
+      try { stopListening(); } catch { /* noop */ }
+      flushVoiceSessionQueue('conversation-partner unmount');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
   // Start conversation with opener
   const startConversation = useCallback(async () => {
@@ -235,6 +252,9 @@ export function ConversationPartnerGame({
 
     // Process turn and get follow-up
     const { followupText } = await processUserTurn(userTranscript, latencyMs);
+
+    // User exited mid-processing — don't resume speaking after unmount.
+    if (!mountedRef.current) return;
 
     if (currentTurn + 1 >= maxTurns) {
       setCurrentAIText(followupText);
