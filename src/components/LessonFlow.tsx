@@ -652,6 +652,21 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Pre-session preview
   if (phase === "session-preview") {
+    // Enforce the daily dose cap in the main guided lesson path (parity with
+    // standalone exercises). Block starting a new session once the cap is hit.
+    if (doseCap.enforceCaps && !doseCap.canStartSession) {
+      return (
+        <div className="container mx-auto max-w-xl px-4 py-10 space-y-4">
+          <DoseCapWarning
+            minutesPracticed={doseCap.todayMinutes}
+            dailyCapMinutes={doseCap.dailyCapMinutes}
+            sessionCapMinutes={doseCap.sessionCapMinutes}
+            type="limit"
+            onEndSession={() => navigate("/today")}
+          />
+        </div>
+      );
+    }
     return (
       <SessionPreviewCard
         lesson={lesson}
