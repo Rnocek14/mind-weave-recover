@@ -12,6 +12,7 @@ import Today from "./pages/Today";
 import About from "./pages/About";
 import Onboarding from "./pages/Onboarding";
 import RoleOnboarding from "./pages/RoleOnboarding";
+import PendingApproval from "./pages/PendingApproval";
 import { OnboardingGate } from "@/components/OnboardingGate";
 import Dashboard from "./pages/Dashboard";
 import Exercise from "./pages/Exercise";
@@ -147,6 +148,7 @@ const App = () => (
                   <Route path="/today" element={<Today />} />
                   <Route path="/practice" element={<Practice />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/pending-approval" element={<PendingApproval />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/onboarding/role" element={<RoleOnboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />

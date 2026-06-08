@@ -43,6 +43,18 @@ interface Invitation {
   created_at: string;
 }
 
+interface RoleRequest {
+  id: string;
+  user_id: string;
+  email: string;
+  requested_role: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
+
+
+
 const ROLE_META: Record<AppRole, { label: string; icon: typeof Shield }> = {
   admin: { label: "Admin", icon: Shield },
   clinician: { label: "Clinician", icon: Stethoscope },
@@ -72,24 +84,49 @@ export default function UserRoleManager() {
   const [inviteRole, setInviteRole] = useState<AppRole>("clinician");
   const [inviteNote, setInviteNote] = useState("");
 
+  // Self-service role requests
+  const [requests, setRequests] = useState<RoleRequest[]>([]);
+
   const loadAll = async () => {
     setLoading(true);
-    const [{ data: p }, { data: r }, { data: ca }, { data: ga }, { data: inv }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: ca }, { data: ga }, { data: inv }, { data: req }] = await Promise.all([
       supabase.from("profiles").select("id, user_id, display_name, profile_name").order("display_name", { ascending: true }),
       supabase.from("user_roles").select("id, user_id, role"),
       supabase.from("clinician_assignments").select("id, clinician_id, patient_user_id, profile_id").is("revoked_at", null),
       supabase.from("caregiver_assignments").select("id, caregiver_id, patient_user_id, profile_id").is("revoked_at", null),
       supabase.from("role_invitations").select("id, email, role, note, used_at, created_at").order("created_at", { ascending: false }),
+      supabase.from("role_requests").select("id, user_id, email, requested_role, status, note, created_at").order("created_at", { ascending: false }),
     ]);
     setProfiles(p ?? []);
     setRoles(r ?? []);
     setClinicianAssignments(ca ?? []);
     setCaregiverAssignments(ga ?? []);
     setInvitations(inv ?? []);
+    setRequests(req ?? []);
     setLoading(false);
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const reviewRequest = async (id: string, decision: "approved" | "rejected") => {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("review_role_request", {
+      p_request_id: id,
+      p_decision: decision,
+    });
+    setBusy(false);
+    if (error) {
+      toast({ title: "Could not update request", description: error.message, variant: "destructive" });
+      return;
+    }
+    const res = data as { success?: boolean; message?: string } | null;
+    toast({
+      title: res?.success ? (decision === "approved" ? "Request approved" : "Request rejected") : "No change",
+      description: res?.message,
+      variant: res?.success ? undefined : "destructive",
+    });
+    loadAll();
+  };
 
   const createInvitation = async () => {
     const email = inviteEmail.trim().toLowerCase();
@@ -98,6 +135,7 @@ export default function UserRoleManager() {
       return;
     }
     setBusy(true);
+
     const { data: auth } = await supabase.auth.getUser();
     const { error } = await supabase.from("role_invitations").insert({
       email,
@@ -264,9 +302,18 @@ export default function UserRoleManager() {
     <Tabs defaultValue="roles" className="space-y-4">
       <TabsList>
         <TabsTrigger value="roles">Roles</TabsTrigger>
+        <TabsTrigger value="requests">
+          Requests
+          {requests.filter((r) => r.status === "pending").length > 0 && (
+            <Badge variant="destructive" className="ml-2">
+              {requests.filter((r) => r.status === "pending").length}
+            </Badge>
+          )}
+        </TabsTrigger>
         <TabsTrigger value="invitations">Invitations</TabsTrigger>
         <TabsTrigger value="assignments">Care Assignments</TabsTrigger>
       </TabsList>
+
 
       {/* ROLES TAB */}
       <TabsContent value="roles" className="space-y-4">
@@ -336,6 +383,84 @@ export default function UserRoleManager() {
           </CardContent>
         </Card>
       </TabsContent>
+
+      {/* REQUESTS TAB */}
+      <TabsContent value="requests" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <UserPlus className="w-4 h-4" /> Access requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {requests.filter((r) => r.status === "pending").length === 0 && (
+              <p className="text-sm text-muted-foreground">No pending requests.</p>
+            )}
+            {requests
+              .filter((r) => r.status === "pending")
+              .map((r) => {
+                const profile = profiles.find((p) => p.user_id === r.user_id);
+                const name = profile?.display_name || profile?.profile_name || r.email;
+                const Icon = ROLE_META[r.requested_role as AppRole]?.icon ?? UserPlus;
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 rounded-md border p-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="font-medium truncate">{name}</span>
+                        <Badge variant="secondary">
+                          {ROLE_META[r.requested_role as AppRole]?.label ?? r.requested_role}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{r.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => reviewRequest(r.id, "approved")}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => reviewRequest(r.id, "rejected")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {requests.some((r) => r.status !== "pending") && (
+              <div className="pt-2">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Recently reviewed</p>
+                <div className="space-y-1">
+                  {requests
+                    .filter((r) => r.status !== "pending")
+                    .slice(0, 10)
+                    .map((r) => (
+                      <div key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{r.email}</span>
+                        <Badge variant={r.status === "approved" ? "default" : "secondary"}>
+                          {r.status}
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+
 
       {/* INVITATIONS TAB */}
       <TabsContent value="invitations" className="space-y-4">

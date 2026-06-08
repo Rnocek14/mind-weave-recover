@@ -8,13 +8,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Brain, Loader2 } from "lucide-react";
+
+type SignupRole = "patient" | "clinician" | "caregiver";
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [signupRole, setSignupRole] = useState<SignupRole>("patient");
   const [submitting, setSubmitting] = useState(false);
   
   const { signUp, signIn, user, loading } = useAuth();
@@ -41,14 +47,29 @@ const Auth = () => {
       return;
     }
 
-    const home = isAdmin
-      ? "/admin"
-      : isClinician
-      ? "/clinician/review"
-      : isCaregiver
-      ? "/caregiver"
-      : "/today";
-    navigate(home, { replace: true });
+    // Users with a granted role go to their home.
+    if (isAdmin || isClinician || isCaregiver) {
+      const home = isAdmin
+        ? "/admin"
+        : isClinician
+        ? "/clinician/review"
+        : "/caregiver";
+      navigate(home, { replace: true });
+      return;
+    }
+
+    // No role yet: if they have an open professional request, hold them on the
+    // pending screen instead of dropping them into the patient experience.
+    (async () => {
+      const { data } = await supabase
+        .from("role_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .limit(1)
+        .maybeSingle();
+      navigate(data ? "/pending-approval" : "/today", { replace: true });
+    })();
   }, [
     user,
     loading,
@@ -98,7 +119,17 @@ const Auth = () => {
         // Fetch current user safely
         const { data: authUser } = await supabase.auth.getUser();
         const uid = authUser.user?.id;
-        
+
+        // On professional sign-up, record a pending role request (unless an
+        // invite already granted the role). Granting itself is admin-only.
+        if (isSignUp && uid && signupRole !== "patient") {
+          await supabase.from("role_requests").insert({
+            user_id: uid,
+            email: email.trim(),
+            requested_role: signupRole,
+          });
+        }
+
         if (uid && hasLocalData()) {
           const migrated = await migrateLocalToSupabase(uid);
           if (migrated) {
@@ -110,9 +141,12 @@ const Auth = () => {
         } else {
           toast({
             title: isSignUp ? "Account created!" : "Welcome back!",
-            description: isSignUp 
-              ? "Please check your email to verify your account." 
-              : "Redirecting to dashboard..."
+            description:
+              isSignUp && signupRole !== "patient"
+                ? "Your access request was submitted for admin approval."
+                : isSignUp
+                ? "Please check your email to verify your account."
+                : "Redirecting…",
           });
         }
         // Navigation will happen via useEffect when user state updates
@@ -188,6 +222,31 @@ const Auth = () => {
               />
             </div>
           )}
+
+          {isSignUp && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">I'm signing up as</label>
+              <Select
+                value={signupRole}
+                onValueChange={(v) => setSignupRole(v as SignupRole)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="patient">Patient (someone recovering)</SelectItem>
+                  <SelectItem value="clinician">Clinician / Therapist</SelectItem>
+                  <SelectItem value="caregiver">Caregiver / Family</SelectItem>
+                </SelectContent>
+              </Select>
+              {signupRole !== "patient" && (
+                <p className="text-xs text-muted-foreground">
+                  Professional access requires admin approval after you sign up.
+                </p>
+              )}
+            </div>
+          )}
+
           
           <div className="space-y-2">
             <label className="text-sm font-medium">Email</label>

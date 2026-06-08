@@ -2741,6 +2741,45 @@ export type Database = {
         }
         Relationships: []
       }
+      role_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          note: string | null
+          requested_role: Database["public"]["Enums"]["app_role"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          note?: string | null
+          requested_role: Database["public"]["Enums"]["app_role"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          note?: string | null
+          requested_role?: Database["public"]["Enums"]["app_role"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           caregiver_notes: string | null
@@ -4445,6 +4484,10 @@ export type Database = {
       }
       refresh_cluster_assignments: { Args: never; Returns: undefined }
       release_stale_speech_locks: { Args: never; Returns: number }
+      review_role_request: {
+        Args: { p_decision: string; p_request_id: string }
+        Returns: Json
+      }
       setup_admin_user: { Args: { admin_email: string }; Returns: boolean }
       submit_speech_analysis_result: {
         Args: {
