@@ -53,10 +53,10 @@ export interface ProgressionPlanningSignals {
 }
 
 const BOOST = {
-  struggling: 3,
-  plateauing: 2,
-  lagging: 1,
-  advancing: -1,
+  struggling: 5,
+  plateauing: 4,
+  lagging: 3,
+  advancing: -3,
   steady: 0,
 } as const;
 
