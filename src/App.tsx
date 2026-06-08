@@ -85,6 +85,7 @@ import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
 import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
 import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
+import MasteryConfidenceSimDev from "./pages/dev/MasteryConfidenceSimDev";
 import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
 import QaRunbook from "./pages/dev/QaRunbook";
@@ -196,6 +197,7 @@ const App = () => (
                   <Route path="/dev/gate-harness" element={<AdminProtectedRoute><GateHarness /></AdminProtectedRoute>} />
                   <Route path="/dev/mastery-shadow" element={<AdminProtectedRoute><MasteryShadowDev /></AdminProtectedRoute>} />
                   <Route path="/dev/mastery-audit" element={<AdminProtectedRoute><MasteryAuditDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/mastery-confidence-sim" element={<AdminProtectedRoute><MasteryConfidenceSimDev /></AdminProtectedRoute>} />
                   <Route path="/dev/leveling-contract" element={<AdminProtectedRoute><LevelingContractDev /></AdminProtectedRoute>} />
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
                   <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
