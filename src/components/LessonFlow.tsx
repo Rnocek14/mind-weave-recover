@@ -38,6 +38,8 @@ import { getSessionFrame, getOrCreateSessionFrame } from "@/lib/sessionFrameTemp
 import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTemplates";
 import { useUiProfile } from "@/hooks/useUiProfile";
 import { variantClass, isMinimal, isSimplified } from "@/lib/ui/variantClass";
+import { useDoseCap } from "@/hooks/useDoseCap";
+import { DoseCapWarning } from "./DoseCapWarning";
 
 
 type FlowPhase = 
@@ -66,6 +68,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const { showPurpose, isVoiceLed } = useCoachingMode();
   const { profile: uiProfile } = useUiProfile();
   const variant = uiProfile.variant;
+  const { doseCap } = useDoseCap(user?.id);
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
 
   const skipDailyCheck = location.state?.skipDailyCheck ?? false;
@@ -649,6 +652,21 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
 
   // Pre-session preview
   if (phase === "session-preview") {
+    // Enforce the daily dose cap in the main guided lesson path (parity with
+    // standalone exercises). Block starting a new session once the cap is hit.
+    if (doseCap.enforceCaps && !doseCap.canStartSession) {
+      return (
+        <div className="container mx-auto max-w-xl px-4 py-10 space-y-4">
+          <DoseCapWarning
+            minutesPracticed={doseCap.todayMinutes}
+            dailyCapMinutes={doseCap.dailyCapMinutes}
+            sessionCapMinutes={doseCap.sessionCapMinutes}
+            type="limit"
+            onEndSession={() => navigate("/today")}
+          />
+        </div>
+      );
+    }
     return (
       <SessionPreviewCard
         lesson={lesson}

@@ -9,8 +9,6 @@ import {
   Brain, TrendingUp, Target, AlertCircle, 
   CheckCircle2, Clock, Sparkles, Loader2 
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
 interface OutcomePredictionCardProps {
   userId: string;
   clinicalProfile: any;
@@ -42,12 +40,8 @@ export const OutcomePredictionCard = ({
     return 'text-red-600';
   };
 
-  // Prepare trajectory chart data
-  const trajectoryData = prediction?.recoveryTrajectory.milestones.map((m) => ({
-    week: m.week,
-    status: m.week * 10, // Placeholder for visualization
-    label: `Week ${m.week}`,
-  })) || [];
+  // Qualitative milestones (no fabricated numeric scores)
+  const milestones = prediction?.recoveryTrajectory.milestones ?? [];
 
   return (
     <Card>
@@ -59,7 +53,7 @@ export const OutcomePredictionCard = ({
               AI Outcome Prediction
             </CardTitle>
             <CardDescription>
-              ML-powered forecast of goal achievement and recovery trajectory
+              AI-estimated forecast of goal achievement — qualitative, not a measured outcome
             </CardDescription>
           </div>
           {!prediction && (
@@ -198,49 +192,25 @@ export const OutcomePredictionCard = ({
               ))}
             </div>
 
-            {/* Recovery Timeline */}
-            {expanded && trajectoryData.length > 0 && (
+            {/* Recovery Timeline — qualitative milestones, no fabricated scores */}
+            {expanded && milestones.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-medium">Recovery Trajectory (6 months)</h4>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={trajectoryData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="label" 
-                      tick={{ fontSize: 12 }}
-                      className="text-muted-foreground"
-                    />
-                    <YAxis hide />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                      content={({ payload }) => {
-                        if (!payload?.[0]) return null;
-                        const milestone = prediction.recoveryTrajectory.milestones.find(
-                          m => m.week === payload[0].payload.week
-                        );
-                        return (
-                          <div className="p-2 text-xs">
-                            <p className="font-medium">{payload[0].payload.label}</p>
-                            <p className="text-muted-foreground">{milestone?.expectedStatus}</p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="status"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <h4 className="font-medium">Expected Recovery Milestones</h4>
+                <ol className="relative border-l border-border ml-2 space-y-4">
+                  {milestones.map((m, i) => (
+                    <li key={i} className="ml-4">
+                      <span className="absolute -left-1.5 w-3 h-3 rounded-full bg-primary" />
+                      <p className="text-xs font-medium text-muted-foreground">Week {m.week}</p>
+                      <p className="text-sm">{m.expectedStatus}</p>
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-xs text-muted-foreground">
+                  Qualitative AI estimate based on clinical profile and goals — not a measured outcome.
+                </p>
               </div>
             )}
+
 
             {/* Strengths & Risks */}
             {expanded && (
