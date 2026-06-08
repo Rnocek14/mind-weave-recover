@@ -369,6 +369,8 @@ export default function WeeklyPatientReview() {
         <GoalTrackingCard userId={user?.id || ""} profileId={profileId} />
         <OutcomePredictionCard userId={user?.id || ""} profileId={profileId} />
       </div>
+      <ProbeTrendCard userId={user?.id || ""} profileId={profileId} />
+
 
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
