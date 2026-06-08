@@ -64,6 +64,8 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const { uiMode } = useUiMode();
   const { showTransferOnSummary, mode, isVoiceLed } = useCoachingMode();
   const { speak, stop } = useTextToSpeech();
+  const { user } = useAuth();
+  const activeProfileId = useActiveProfileId();
   const { profile } = useUiProfile();
   const { variant } = profile;
   const isClinician = uiMode === "clinician" || uiMode === "admin";
