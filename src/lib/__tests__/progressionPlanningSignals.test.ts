@@ -70,13 +70,17 @@ describe('progression planning signals — classification', () => {
 describe('progression planning signals — plan divergence', () => {
   const accessible = ['photo-naming', 'fix-sentence', 'minimal-pairs'];
 
+  // Use polished slugs only — the engine filters to the polished allowlist before
+  // selection, so non-polished slugs (e.g. fix-sentence) never reach the plan.
+  const accessible = [...POLISHED_EXERCISES];
+
   function planFor(rows: ProgressionRow[]): string[] {
     const { byExercise } = buildProgressionPlanningSignals(rows);
     const lesson = generateDailyLesson(
-      { vision: 7, motor: 7, attention: 7, confidence: 0.6 },
+      { vision: 8, motor: 8, attention: 8, confidence: 0.7 },
       null,
       accessible,
-      NEUTRAL_SIGNALS,
+      { ...NEUTRAL_SIGNALS, engagementScore: 8 },
       [],
       'independent',
       null,
@@ -93,16 +97,16 @@ describe('progression planning signals — plan divergence', () => {
   }
 
   it('mirror-image progression profiles produce different prioritization', () => {
-    // Patient A: strong photo-naming, weak fix-sentence + minimal-pairs
+    // Patient A: strong photo-naming (advancing), weak category-fluency + minimal-pairs
     const planA = planFor([
       row('photo-naming', { current_level: 7, consecutive_success_sessions: 5 }),
-      row('fix-sentence', { current_level: 2, consecutive_struggle_sessions: 2 }),
+      row('category-fluency', { current_level: 2, consecutive_struggle_sessions: 2 }),
       row('minimal-pairs', { current_level: 1, consecutive_struggle_sessions: 2 }),
     ]);
-    // Patient B: strong fix-sentence + minimal-pairs, weak photo-naming
+    // Patient B: strong category-fluency + minimal-pairs, weak photo-naming (struggling)
     const planB = planFor([
       row('photo-naming', { current_level: 2, consecutive_struggle_sessions: 2 }),
-      row('fix-sentence', { current_level: 7, consecutive_success_sessions: 5 }),
+      row('category-fluency', { current_level: 7, consecutive_success_sessions: 5 }),
       row('minimal-pairs', { current_level: 7, consecutive_success_sessions: 5 }),
     ]);
 
@@ -114,6 +118,9 @@ describe('progression planning signals — plan divergence', () => {
     // (prioritized) — so it should rank earlier in B than in A.
     const idxA = planA.indexOf('photo-naming');
     const idxB = planB.indexOf('photo-naming');
-    expect(idxB).toBeLessThan(idxA);
+    const normA = idxA === -1 ? Number.MAX_SAFE_INTEGER : idxA;
+    const normB = idxB === -1 ? Number.MAX_SAFE_INTEGER : idxB;
+    expect(normB).toBeLessThan(normA);
   });
+});
 });
