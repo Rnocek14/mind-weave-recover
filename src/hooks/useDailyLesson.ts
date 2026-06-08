@@ -184,6 +184,20 @@ export const useDailyLesson = (
         } catch (e) {
           console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
         }
+
+        // Fetch longitudinal progression so the planner reflects per-game levels
+        // even when there are no trials in the last 7 days (returning users).
+        let progressionSignals: Map<string, ProgressionPlanningSignal> | null = null;
+        try {
+          const prog = await fetchProgressionPlanningSignals(userId, profileId);
+          if (prog.byExercise.size > 0) {
+            progressionSignals = prog.byExercise;
+            console.log('[useDailyLesson] Progression planning (no-recent path):',
+              Array.from(prog.byExercise.values()).map(s => `${s.exerciseSlug}: ${s.status} (${s.planningBoost >= 0 ? '+' : ''}${s.planningBoost})`));
+          }
+        } catch (e) {
+          console.warn('[useDailyLesson] Progression fetch failed (non-blocking):', e);
+        }
         
         const defaultLesson = generateDailyLesson(
           scores,
@@ -198,6 +212,9 @@ export const useDailyLesson = (
           recency,
           null,
           null,
+          null,
+          null,
+          progressionSignals,
         );
         setLesson(defaultLesson);
         setLoading(false);
