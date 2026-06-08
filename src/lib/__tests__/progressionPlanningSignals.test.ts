@@ -17,6 +17,7 @@ import {
   generateDailyLesson,
   type PerformanceSignals,
 } from '@/lib/dailyLessonEngine';
+import { POLISHED_EXERCISES } from '@/lib/polishedExercises';
 
 const NEUTRAL_SIGNALS: PerformanceSignals = {
   avgReactionTime: 2000,
