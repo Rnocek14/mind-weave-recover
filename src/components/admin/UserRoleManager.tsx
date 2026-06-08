@@ -384,6 +384,84 @@ export default function UserRoleManager() {
         </Card>
       </TabsContent>
 
+      {/* REQUESTS TAB */}
+      <TabsContent value="requests" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <UserPlus className="w-4 h-4" /> Access requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {requests.filter((r) => r.status === "pending").length === 0 && (
+              <p className="text-sm text-muted-foreground">No pending requests.</p>
+            )}
+            {requests
+              .filter((r) => r.status === "pending")
+              .map((r) => {
+                const profile = profiles.find((p) => p.user_id === r.user_id);
+                const name = profile?.display_name || profile?.profile_name || r.email;
+                const Icon = ROLE_META[r.requested_role as AppRole]?.icon ?? UserPlus;
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 rounded-md border p-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 shrink-0" />
+                        <span className="font-medium truncate">{name}</span>
+                        <Badge variant="secondary">
+                          {ROLE_META[r.requested_role as AppRole]?.label ?? r.requested_role}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{r.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => reviewRequest(r.id, "approved")}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => reviewRequest(r.id, "rejected")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {requests.some((r) => r.status !== "pending") && (
+              <div className="pt-2">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Recently reviewed</p>
+                <div className="space-y-1">
+                  {requests
+                    .filter((r) => r.status !== "pending")
+                    .slice(0, 10)
+                    .map((r) => (
+                      <div key={r.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{r.email}</span>
+                        <Badge variant={r.status === "approved" ? "default" : "secondary"}>
+                          {r.status}
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+
+
       {/* INVITATIONS TAB */}
       <TabsContent value="invitations" className="space-y-4">
         <Card>
