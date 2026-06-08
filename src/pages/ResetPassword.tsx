@@ -16,16 +16,35 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for recovery event
+    // Recovery event (older implicit flow)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         setReady(true);
       }
     });
-    // Also check hash for type=recovery
+
+    // Legacy hash-based recovery link
     if (window.location.hash.includes("type=recovery")) {
       setReady(true);
     }
+
+    // Newer PKCE flow: the /verify endpoint establishes a session and redirects
+    // here (sometimes with ?code=...). No PASSWORD_RECOVERY event fires, so we
+    // detect the active session directly and let the user set a new password.
+    (async () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) {
+          setReady(true);
+          return;
+        }
+      }
+      const { data } = await supabase.auth.getSession();
+      if (data.session) setReady(true);
+    })();
+
     return () => subscription.unsubscribe();
   }, []);
 
