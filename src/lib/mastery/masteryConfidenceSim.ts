@@ -278,6 +278,10 @@ export function runMasteryConfidenceSim(
       );
   }
 
+  const promotionTelemetry = tallyMasteryDecisions(
+    snapshots.map((s) => s.promotion.decision),
+  );
+
   return {
     archetype: def.id,
     label: def.label,
@@ -286,6 +290,7 @@ export function runMasteryConfidenceSim(
     final: snapshots[snapshots.length - 1],
     peakConfidence,
     lowestConfidenceAfterMedium,
+    promotionTelemetry,
   };
 }
 
