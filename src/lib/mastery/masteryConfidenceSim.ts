@@ -237,8 +237,16 @@ export function runMasteryConfidenceSim(
       plateauFlag: row.plateau_flag,
     });
 
-    // Recommendation only (A.2). Single-skill sim → drive from confidence.
-    const promotion = classifyMasteryPromotion({ confidence: row.confidence });
+    // Recommendation only (A.2). Single-skill sim → drive from confidence
+    // (evidence question) PLUS mastery quality (independence question), so
+    // cue-dependent / dipping learners are correctly delayed, not promoted.
+    const promotion = classifyMasteryPromotion({
+      confidence: row.confidence,
+      masteryScore: row.mastery_score,
+      cueIndependence: row.cue_independence,
+      plateauFlag: row.plateau_flag,
+      regressionFlag: row.support_dependency_trend === 'worsening',
+    });
 
     snapshots.push({
       sessionIndex: s + 1,
