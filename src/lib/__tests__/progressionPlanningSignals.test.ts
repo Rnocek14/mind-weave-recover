@@ -121,4 +121,3 @@ describe('progression planning signals — plan divergence', () => {
     expect(normB).toBeLessThan(normA);
   });
 });
-});
