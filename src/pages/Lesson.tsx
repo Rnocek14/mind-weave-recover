@@ -27,6 +27,10 @@ const Lesson = () => {
         lesson = parsed.lesson;
         clinicalProfile = parsed.clinicalProfile || null;
         todayFocus = parsed.todayFocus || null;
+        console.info('[Lesson] Restored lesson from sessionStorage', {
+          phase: parsed.phase,
+          blocks: lesson?.blocks?.length,
+        });
       } catch (e) {
         console.error('[Lesson] Failed to parse saved state:', e);
       }
