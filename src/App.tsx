@@ -85,6 +85,7 @@ import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
 import GateHarness from "./pages/dev/GateHarness";
 import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
 import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
+import MasteryConfidenceSimDev from "./pages/dev/MasteryConfidenceSimDev";
 import LevelingContractDev from "./pages/dev/LevelingContractDev";
 import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
 import QaRunbook from "./pages/dev/QaRunbook";
