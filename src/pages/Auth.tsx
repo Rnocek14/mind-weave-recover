@@ -119,7 +119,17 @@ const Auth = () => {
         // Fetch current user safely
         const { data: authUser } = await supabase.auth.getUser();
         const uid = authUser.user?.id;
-        
+
+        // On professional sign-up, record a pending role request (unless an
+        // invite already granted the role). Granting itself is admin-only.
+        if (isSignUp && uid && signupRole !== "patient") {
+          await supabase.from("role_requests").insert({
+            user_id: uid,
+            email: email.trim(),
+            requested_role: signupRole,
+          });
+        }
+
         if (uid && hasLocalData()) {
           const migrated = await migrateLocalToSupabase(uid);
           if (migrated) {
@@ -131,9 +141,12 @@ const Auth = () => {
         } else {
           toast({
             title: isSignUp ? "Account created!" : "Welcome back!",
-            description: isSignUp 
-              ? "Please check your email to verify your account." 
-              : "Redirecting to dashboard..."
+            description:
+              isSignUp && signupRole !== "patient"
+                ? "Your access request was submitted for admin approval."
+                : isSignUp
+                ? "Please check your email to verify your account."
+                : "Redirecting…",
           });
         }
         // Navigation will happen via useEffect when user state updates
