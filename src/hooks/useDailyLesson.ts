@@ -415,7 +415,20 @@ export const useDailyLesson = (
         console.warn('[useDailyLesson] Recency/struggle fetch failed (non-blocking):', e);
       }
 
-      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency + struggle
+      // Fetch longitudinal progression planning signals (cross-game levels → planning)
+      let progressionSignals: Map<string, ProgressionPlanningSignal> | null = null;
+      try {
+        const prog = await fetchProgressionPlanningSignals(userId, profileId);
+        if (prog.byExercise.size > 0) {
+          progressionSignals = prog.byExercise;
+          console.log('[useDailyLesson] Progression planning signals:',
+            Array.from(prog.byExercise.values()).map(s => `${s.exerciseSlug}: ${s.status} (${s.planningBoost >= 0 ? '+' : ''}${s.planningBoost})`));
+        }
+      } catch (e) {
+        console.warn('[useDailyLesson] Progression fetch failed (non-blocking):', e);
+      }
+
+      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency + struggle + progression
       const dailyLesson = generateDailyLesson(
         scores,
         clinicalProfile,
@@ -435,6 +448,7 @@ export const useDailyLesson = (
         speechProfileForSelection,
         struggleBoosts,
         struggleReEntryConfigs,
+        progressionSignals,
       );
 
       setLesson(dailyLesson);
