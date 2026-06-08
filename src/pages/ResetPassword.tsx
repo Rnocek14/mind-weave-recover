@@ -12,40 +12,122 @@ const ResetPassword = () => {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Recovery event (older implicit flow)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+    let cancelled = false;
+
+    const markReady = () => {
+      if (!cancelled) {
         setReady(true);
+        setVerificationError(null);
+      }
+    };
+
+    const markInvalid = (message: string) => {
+      if (!cancelled) {
+        setReady(false);
+        setVerificationError(message);
+      }
+    };
+
+    const getRecoveryParam = (key: string) => {
+      const url = new URL(window.location.href);
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+      return url.searchParams.get(key) ?? hashParams.get(key);
+    };
+
+    const cleanRecoveryUrl = () => {
+      const url = new URL(window.location.href);
+      ["code", "token", "token_hash", "type", "email", "error", "error_code", "error_description"].forEach((key) =>
+        url.searchParams.delete(key)
+      );
+      url.hash = "";
+      window.history.replaceState(window.history.state, document.title, url.toString());
+    };
+
+    // Recovery event from Supabase's built-in URL/session detection.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        markReady();
       }
     });
 
-    // Legacy hash-based recovery link
-    if (window.location.hash.includes("type=recovery")) {
-      setReady(true);
-    }
-
-    // Newer PKCE flow: the /verify endpoint establishes a session and redirects
-    // here (sometimes with ?code=...). No PASSWORD_RECOVERY event fires, so we
-    // detect the active session directly and let the user set a new password.
     (async () => {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
+      let lastError: string | null = null;
+      const urlError = getRecoveryParam("error_description") ?? getRecoveryParam("error");
+      if (urlError) {
+        markInvalid(decodeURIComponent(urlError.replace(/\+/g, " ")));
+        return;
+      }
+
+      const accessToken = getRecoveryParam("access_token");
+      const refreshToken = getRecoveryParam("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (!error) {
+          cleanRecoveryUrl();
+          markReady();
+          return;
+        }
+        lastError = error.message;
+      }
+
+      const tokenHash = getRecoveryParam("token_hash");
+      if (tokenHash) {
+        const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        if (!error && data.session) {
+          cleanRecoveryUrl();
+          markReady();
+          return;
+        }
+        lastError = error?.message ?? "This reset link could not be verified.";
+      }
+
+      const token = getRecoveryParam("token");
+      const email = getRecoveryParam("email");
+      if (token && email) {
+        const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "recovery" });
+        if (!error && data.session) {
+          cleanRecoveryUrl();
+          markReady();
+          return;
+        }
+        lastError = error?.message ?? "This reset link could not be verified.";
+      }
+
+      const code = getRecoveryParam("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (!error) {
-          setReady(true);
+          cleanRecoveryUrl();
+          markReady();
           return;
         }
+        lastError = error.message;
       }
-      const { data } = await supabase.auth.getSession();
-      if (data.session) setReady(true);
+
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          markReady();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+
+      markInvalid(lastError ?? "This reset link could not be verified. Please request a new password reset email.");
     })();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -76,9 +158,17 @@ const ResetPassword = () => {
           </div>
           <h1 className="text-2xl font-bold">Set New Password</h1>
           <p className="text-muted-foreground">
-            {ready ? "Enter your new password below." : "Verifying your reset link..."}
+            {ready
+              ? "Enter your new password below."
+              : verificationError ?? "Verifying your reset link..."}
           </p>
         </div>
+
+        {verificationError && !ready && (
+          <Button type="button" className="w-full" onClick={() => navigate("/auth")}>
+            Request a new reset link
+          </Button>
+        )}
 
         {ready && (
           <form onSubmit={handleReset} className="space-y-4">
