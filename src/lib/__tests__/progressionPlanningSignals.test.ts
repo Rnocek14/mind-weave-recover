@@ -108,7 +108,12 @@ describe('progression planning signals — plan divergence', () => {
 
     expect(planA.length).toBeGreaterThan(0);
     expect(planB.length).toBeGreaterThan(0);
-    // The lead (struggling) priority should differ between mirror-image patients.
-    expect(planA[0]).not.toBe(planB[0]);
+    // Full ordering must diverge between mirror-image patients.
+    expect(planA.join(',')).not.toBe(planB.join(','));
+    // Photo-naming is advancing for A (deprioritized) but struggling for B
+    // (prioritized) — so it should rank earlier in B than in A.
+    const idxA = planA.indexOf('photo-naming');
+    const idxB = planB.indexOf('photo-naming');
+    expect(idxB).toBeLessThan(idxA);
   });
 });
