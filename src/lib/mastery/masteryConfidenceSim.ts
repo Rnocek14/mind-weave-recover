@@ -22,6 +22,16 @@
 
 import { computeMastery, type MasteryRow, type MasteryTrial } from './computeMastery';
 import { mulberry32 } from '@/lib/simulation/userProfiles';
+import {
+  explainMasteryConfidence,
+  type MasteryConfidenceExplanation,
+} from './masteryConfidenceReasons';
+import {
+  classifyMasteryPromotion,
+  tallyMasteryDecisions,
+  type MasteryPromotionRecommendation,
+  type MasteryDecisionTelemetry,
+} from './masteryPromotionDecision';
 
 export type MasteryArchetypeId =
   | 'steady_improver'
@@ -40,6 +50,15 @@ export interface MasterySessionSnapshot {
   plateauFlag: boolean;
   velocityPerWeek: number | null;
   supportTrend: MasteryRow['support_dependency_trend'];
+  // ---- Phase A.2 additions ----
+  /** Distinct sessions in the 14d scoring window. */
+  sessionCount: number;
+  /** Calendar days spanned by the 14d scoring window. */
+  daySpanDays: number;
+  /** Clinician-facing explanation of WHY confidence is what it is. */
+  confidenceExplanation: MasteryConfidenceExplanation;
+  /** Mastery-informed promotion recommendation (A.2 — recommendation only). */
+  promotion: MasteryPromotionRecommendation;
 }
 
 export interface MasteryTrajectory {
@@ -53,6 +72,8 @@ export interface MasteryTrajectory {
   peakConfidence: MasteryRow['confidence'];
   /** Lowest confidence reached AFTER first reaching medium (bad-day survival). */
   lowestConfidenceAfterMedium: MasteryRow['confidence'] | null;
+  /** A.2 telemetry: how often would mastery approve/delay a promotion? */
+  promotionTelemetry: MasteryDecisionTelemetry;
 }
 
 interface SessionShape {
@@ -198,6 +219,27 @@ export function runMasteryConfidenceSim(
     const row = computeMastery(windowTrials, prev, new Date(sessionTimeMs + 60_000));
     prev = row;
 
+    // A.2 — distinct sessions + day span inside the scoring window.
+    const sessionCount = new Set(
+      windowTrials.map((tr) => tr.session_id).filter(Boolean),
+    ).size;
+    const times = windowTrials.map((tr) => new Date(tr.created_at).getTime());
+    const daySpanDays =
+      times.length > 1 ? (Math.max(...times) - Math.min(...times)) / DAY : 0;
+
+    const confidenceExplanation = explainMasteryConfidence({
+      confidence: row.confidence,
+      trialsTotal: row.trials_total,
+      sessionCount,
+      daySpanDays,
+      cueIndependence: row.cue_independence,
+      accuracyRecent: row.accuracy_recent,
+      plateauFlag: row.plateau_flag,
+    });
+
+    // Recommendation only (A.2). Single-skill sim → drive from confidence.
+    const promotion = classifyMasteryPromotion({ confidence: row.confidence });
+
     snapshots.push({
       sessionIndex: s + 1,
       dayOffset,
@@ -209,6 +251,10 @@ export function runMasteryConfidenceSim(
       plateauFlag: row.plateau_flag,
       velocityPerWeek: row.velocity_per_week,
       supportTrend: row.support_dependency_trend,
+      sessionCount,
+      daySpanDays,
+      confidenceExplanation,
+      promotion,
     });
   }
 
@@ -232,6 +278,10 @@ export function runMasteryConfidenceSim(
       );
   }
 
+  const promotionTelemetry = tallyMasteryDecisions(
+    snapshots.map((s) => s.promotion.decision),
+  );
+
   return {
     archetype: def.id,
     label: def.label,
@@ -240,6 +290,7 @@ export function runMasteryConfidenceSim(
     final: snapshots[snapshots.length - 1],
     peakConfidence,
     lowestConfidenceAfterMedium,
+    promotionTelemetry,
   };
 }
 
