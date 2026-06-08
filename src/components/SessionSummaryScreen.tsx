@@ -233,6 +233,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
         {/* Today's practice — Phase B recovery insights (renders nothing if empty) */}
         <TodaysPracticeInsights sessionId={sessionId} />
 
+        {/* Untrained-word generalization probe — real measured signal */}
+        <ProbeResultsCard userId={user?.id} profileId={activeProfileId} />
+
         {/* Quick stats — plain language */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-muted/50 rounded-xl p-4">
