@@ -22,6 +22,16 @@
 
 import { computeMastery, type MasteryRow, type MasteryTrial } from './computeMastery';
 import { mulberry32 } from '@/lib/simulation/userProfiles';
+import {
+  explainMasteryConfidence,
+  type MasteryConfidenceExplanation,
+} from './masteryConfidenceReasons';
+import {
+  classifyMasteryPromotion,
+  tallyMasteryDecisions,
+  type MasteryPromotionRecommendation,
+  type MasteryDecisionTelemetry,
+} from './masteryPromotionDecision';
 
 export type MasteryArchetypeId =
   | 'steady_improver'
