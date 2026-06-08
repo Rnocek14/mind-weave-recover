@@ -12,6 +12,7 @@
 import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
+import type { ProgressionPlanningSignal } from './progressionPlanningSignals';
 import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
 import { isPolishedExercise, filterToPolished, POLISHED_EXERCISES } from './polishedExercises';
 
@@ -666,6 +667,7 @@ export function generateDailyLesson(
   speechProfileSignals?: SpeechProfileSelectionSignals | null,
   struggleBoosts?: Map<string, number> | null,
   struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
+  progressionSignals?: Map<string, ProgressionPlanningSignal> | null,
 ): DailyLesson {
   // Polished allowlist gate: daily auto-selection only chooses from QA'd games.
   // Unpolished games remain available via manual picker / dev routes.
@@ -850,7 +852,18 @@ export function generateDailyLesson(
         struggleBoost = struggleBoosts.get(id) || 0;
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost;
+      // === PROGRESSION PLANNING BOOST ===
+      // Cross-game longitudinal progression feeds selection: invest more where the
+      // patient is struggling/plateauing/lagging, coast where they're advancing.
+      let progressionBoost = 0;
+      let progressionReason = '';
+      if (progressionSignals && progressionSignals.has(id)) {
+        const sig = progressionSignals.get(id)!;
+        progressionBoost = sig.planningBoost;
+        progressionReason = sig.reason;
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost + progressionBoost;
 
       selectionReasons.push({
         id,
@@ -863,6 +876,7 @@ export function generateDailyLesson(
         reason: [
           penaltyReason || 'no recency penalty',
           struggleBoost > 0 ? `struggle re-exposure: +${struggleBoost}` : '',
+          progressionReason ? `progression(${progressionBoost >= 0 ? '+' : ''}${progressionBoost}): ${progressionReason}` : '',
         ].filter(Boolean).join('; '),
       });
 

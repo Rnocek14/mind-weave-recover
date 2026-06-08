@@ -27,6 +27,7 @@ import {
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
 import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
+import { fetchProgressionPlanningSignals, type ProgressionPlanningSignal } from '@/lib/progressionPlanningSignals';
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
 interface UseDailyLessonResult {
@@ -183,6 +184,20 @@ export const useDailyLesson = (
         } catch (e) {
           console.warn('[useDailyLesson] Recency fetch failed (non-blocking):', e);
         }
+
+        // Fetch longitudinal progression so the planner reflects per-game levels
+        // even when there are no trials in the last 7 days (returning users).
+        let progressionSignals: Map<string, ProgressionPlanningSignal> | null = null;
+        try {
+          const prog = await fetchProgressionPlanningSignals(userId, profileId);
+          if (prog.byExercise.size > 0) {
+            progressionSignals = prog.byExercise;
+            console.log('[useDailyLesson] Progression planning (no-recent path):',
+              Array.from(prog.byExercise.values()).map(s => `${s.exerciseSlug}: ${s.status} (${s.planningBoost >= 0 ? '+' : ''}${s.planningBoost})`));
+          }
+        } catch (e) {
+          console.warn('[useDailyLesson] Progression fetch failed (non-blocking):', e);
+        }
         
         const defaultLesson = generateDailyLesson(
           scores,
@@ -197,6 +212,9 @@ export const useDailyLesson = (
           recency,
           null,
           null,
+          null,
+          null,
+          progressionSignals,
         );
         setLesson(defaultLesson);
         setLoading(false);
@@ -397,7 +415,20 @@ export const useDailyLesson = (
         console.warn('[useDailyLesson] Recency/struggle fetch failed (non-blocking):', e);
       }
 
-      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency + struggle
+      // Fetch longitudinal progression planning signals (cross-game levels → planning)
+      let progressionSignals: Map<string, ProgressionPlanningSignal> | null = null;
+      try {
+        const prog = await fetchProgressionPlanningSignals(userId, profileId);
+        if (prog.byExercise.size > 0) {
+          progressionSignals = prog.byExercise;
+          console.log('[useDailyLesson] Progression planning signals:',
+            Array.from(prog.byExercise.values()).map(s => `${s.exerciseSlug}: ${s.status} (${s.planningBoost >= 0 ? '+' : ''}${s.planningBoost})`));
+        }
+      } catch (e) {
+        console.warn('[useDailyLesson] Progression fetch failed (non-blocking):', e);
+      }
+
+      // Generate daily lesson WITH readiness + TodayFocus adaptations + recency + struggle + progression
       const dailyLesson = generateDailyLesson(
         scores,
         clinicalProfile,
@@ -417,6 +448,7 @@ export const useDailyLesson = (
         speechProfileForSelection,
         struggleBoosts,
         struggleReEntryConfigs,
+        progressionSignals,
       );
 
       setLesson(dailyLesson);
