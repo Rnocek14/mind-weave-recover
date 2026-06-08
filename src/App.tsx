@@ -148,6 +148,7 @@ const App = () => (
                   <Route path="/today" element={<Today />} />
                   <Route path="/practice" element={<Practice />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/pending-approval" element={<PendingApproval />} />
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/onboarding/role" element={<RoleOnboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
