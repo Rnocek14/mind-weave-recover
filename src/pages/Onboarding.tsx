@@ -78,6 +78,33 @@ const Onboarding = () => {
           .eq('user_id', user.id)
           .eq('is_active', true);
 
+        // === #5: Auto-create a provisional clinical profile from onboarding ===
+        // Conservative "therapy personalization profile" so new users no longer
+        // run on dark defaults. Clinician-authored profiles always win.
+        try {
+          const provisional = buildOnboardingClinicalProfile(screener, selectedGoals);
+          if (provisional) {
+            const { data: existing } = await supabase
+              .from('profiles')
+              .select('clinical_profile')
+              .eq('user_id', user.id)
+              .eq('is_active', true)
+              .maybeSingle();
+
+            if (canOnboardingOverwrite(existing?.clinical_profile)) {
+              // Version + activate via RPC (also updates profiles.clinical_profile).
+              await supabase.rpc('create_profile_version', {
+                p_user_id: user.id,
+                p_profile_data: provisional as any,
+                p_source_type: 'onboarding',
+                p_change_reason: 'Provisional profile auto-generated from onboarding screener',
+              });
+            }
+          }
+        } catch {
+          // Non-blocking — onboarding still completes without a provisional profile.
+        }
+
         // Merge screener into accessibility_prefs without overwriting other keys
         if (screener.strokeTiming || screener.mainDifficulty.length || screener.energyLevel) {
           await supabase.rpc('merge_profile_pref', {
