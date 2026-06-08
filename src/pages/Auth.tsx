@@ -222,6 +222,31 @@ const Auth = () => {
               />
             </div>
           )}
+
+          {isSignUp && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">I'm signing up as</label>
+              <Select
+                value={signupRole}
+                onValueChange={(v) => setSignupRole(v as SignupRole)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="patient">Patient (someone recovering)</SelectItem>
+                  <SelectItem value="clinician">Clinician / Therapist</SelectItem>
+                  <SelectItem value="caregiver">Caregiver / Family</SelectItem>
+                </SelectContent>
+              </Select>
+              {signupRole !== "patient" && (
+                <p className="text-xs text-muted-foreground">
+                  Professional access requires admin approval after you sign up.
+                </p>
+              )}
+            </div>
+          )}
+
           
           <div className="space-y-2">
             <label className="text-sm font-medium">Email</label>
