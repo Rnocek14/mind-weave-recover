@@ -295,10 +295,20 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           // Guard: if saved phase is 'exercise', the user exited mid-session.
           // Preserve the resumable state and send them back to Today so the
           // Continue session card can appear reliably.
+          //
+          // EXCEPTION: when the user explicitly started a fresh session
+          // (autoStart), a leftover 'exercise' state is just stale storage that
+          // didn't get cleared. Bouncing here causes the "flash the lesson plan
+          // then return to /today" bug. Clear the stale state and proceed.
           if (savedPhase === 'exercise') {
-            console.log('[LessonFlow] Detected interrupted exercise, preserving resume state and redirecting to /today');
-            navigate('/today', { replace: true });
-            return;
+            if (autoStart) {
+              console.log('[LessonFlow] Stale interrupted-exercise state on fresh start, clearing and continuing');
+              sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
+            } else {
+              console.log('[LessonFlow] Detected interrupted exercise, preserving resume state and redirecting to /today');
+              navigate('/today', { replace: true });
+              return;
+            }
           }
           
           console.log('[LessonFlow] Restoring state (non-resuming):', { savedPhase, savedIndex, savedSessionId });
