@@ -9,8 +9,6 @@ import {
   Brain, TrendingUp, Target, AlertCircle, 
   CheckCircle2, Clock, Sparkles, Loader2 
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
 interface OutcomePredictionCardProps {
   userId: string;
   clinicalProfile: any;
