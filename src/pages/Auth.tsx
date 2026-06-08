@@ -47,14 +47,29 @@ const Auth = () => {
       return;
     }
 
-    const home = isAdmin
-      ? "/admin"
-      : isClinician
-      ? "/clinician/review"
-      : isCaregiver
-      ? "/caregiver"
-      : "/today";
-    navigate(home, { replace: true });
+    // Users with a granted role go to their home.
+    if (isAdmin || isClinician || isCaregiver) {
+      const home = isAdmin
+        ? "/admin"
+        : isClinician
+        ? "/clinician/review"
+        : "/caregiver";
+      navigate(home, { replace: true });
+      return;
+    }
+
+    // No role yet: if they have an open professional request, hold them on the
+    // pending screen instead of dropping them into the patient experience.
+    (async () => {
+      const { data } = await supabase
+        .from("role_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .limit(1)
+        .maybeSingle();
+      navigate(data ? "/pending-approval" : "/today", { replace: true });
+    })();
   }, [
     user,
     loading,
