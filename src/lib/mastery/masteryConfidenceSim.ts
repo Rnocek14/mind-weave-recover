@@ -40,6 +40,15 @@ export interface MasterySessionSnapshot {
   plateauFlag: boolean;
   velocityPerWeek: number | null;
   supportTrend: MasteryRow['support_dependency_trend'];
+  // ---- Phase A.2 additions ----
+  /** Distinct sessions in the 14d scoring window. */
+  sessionCount: number;
+  /** Calendar days spanned by the 14d scoring window. */
+  daySpanDays: number;
+  /** Clinician-facing explanation of WHY confidence is what it is. */
+  confidenceExplanation: MasteryConfidenceExplanation;
+  /** Mastery-informed promotion recommendation (A.2 — recommendation only). */
+  promotion: MasteryPromotionRecommendation;
 }
 
 export interface MasteryTrajectory {
@@ -53,6 +62,8 @@ export interface MasteryTrajectory {
   peakConfidence: MasteryRow['confidence'];
   /** Lowest confidence reached AFTER first reaching medium (bad-day survival). */
   lowestConfidenceAfterMedium: MasteryRow['confidence'] | null;
+  /** A.2 telemetry: how often would mastery approve/delay a promotion? */
+  promotionTelemetry: MasteryDecisionTelemetry;
 }
 
 interface SessionShape {
