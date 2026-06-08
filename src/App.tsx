@@ -197,6 +197,7 @@ const App = () => (
                   <Route path="/dev/gate-harness" element={<AdminProtectedRoute><GateHarness /></AdminProtectedRoute>} />
                   <Route path="/dev/mastery-shadow" element={<AdminProtectedRoute><MasteryShadowDev /></AdminProtectedRoute>} />
                   <Route path="/dev/mastery-audit" element={<AdminProtectedRoute><MasteryAuditDev /></AdminProtectedRoute>} />
+                  <Route path="/dev/mastery-confidence-sim" element={<AdminProtectedRoute><MasteryConfidenceSimDev /></AdminProtectedRoute>} />
                   <Route path="/dev/leveling-contract" element={<AdminProtectedRoute><LevelingContractDev /></AdminProtectedRoute>} />
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
                   <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
