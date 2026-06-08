@@ -52,6 +52,7 @@ import { SuccessBandIndicator } from "@/components/clinician/SuccessBandIndicato
 import { ExerciseStruggleCard } from "@/components/clinician/ExerciseStruggleCard";
 import { GoalTrackingCard } from "@/components/clinician/GoalTrackingCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
+import { ProbeTrendCard } from "@/components/probe/ProbeTrendCard";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
