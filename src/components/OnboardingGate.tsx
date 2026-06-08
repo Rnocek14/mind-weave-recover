@@ -51,18 +51,18 @@ export function OnboardingGate() {
 
     let cancelled = false;
     (async () => {
-      // Authoritative, cross-device completion check.
+      // Only patients get a redirect-based first-run flow (/welcome).
+      // Clinician / caregiver / admin learn the UI via the in-dashboard
+      // spotlight tour, so they land straight on their dashboard.
+      if (isAdmin || isClinician || isCaregiver) return;
+
+      // Authoritative, cross-device completion check (patients only).
       const done = await fetchOnboardingComplete(user.id);
       if (cancelled || done) return;
 
-      // Determine the primary role (highest authority wins).
-      let role: OnboardingRole = "patient";
-      if (isAdmin) role = "admin";
-      else if (isClinician) role = "clinician";
-      else if (isCaregiver) role = "caregiver";
-
-      navigate(onboardingRouteFor(role), { replace: true });
+      navigate(onboardingRouteFor("patient"), { replace: true });
     })();
+
 
     return () => {
       cancelled = true;
