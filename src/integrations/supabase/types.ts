@@ -2161,6 +2161,48 @@ export type Database = {
           },
         ]
       }
+      probe_results: {
+        Row: {
+          correct: boolean
+          created_at: string
+          cues_needed: number
+          error_type: string | null
+          id: string
+          probe_word: string
+          profile_id: string | null
+          reaction_time_ms: number | null
+          session_id: string | null
+          target_difficulty: number
+          user_id: string
+        }
+        Insert: {
+          correct?: boolean
+          created_at?: string
+          cues_needed?: number
+          error_type?: string | null
+          id?: string
+          probe_word: string
+          profile_id?: string | null
+          reaction_time_ms?: number | null
+          session_id?: string | null
+          target_difficulty?: number
+          user_id: string
+        }
+        Update: {
+          correct?: boolean
+          created_at?: string
+          cues_needed?: number
+          error_type?: string | null
+          id?: string
+          probe_word?: string
+          profile_id?: string | null
+          reaction_time_ms?: number | null
+          session_id?: string | null
+          target_difficulty?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profile_merge_conflicts: {
         Row: {
           conflicts: Json
@@ -4104,6 +4146,25 @@ export type Database = {
           time_window_days: number | null
           total_trials: number | null
           user_count: number | null
+        }
+        Relationships: []
+      }
+      probe_analytics: {
+        Row: {
+          accuracy_pct: number | null
+          assessment_date: string | null
+          avg_cues_needed: number | null
+          avg_difficulty: number | null
+          avg_reaction_time_ms: number | null
+          correct_count: number | null
+          neologism_errors: number | null
+          no_response_count: number | null
+          phonemic_errors: number | null
+          profile_id: string | null
+          semantic_errors: number | null
+          total_probes: number | null
+          unrelated_errors: number | null
+          user_id: string | null
         }
         Relationships: []
       }

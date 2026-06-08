@@ -476,6 +476,7 @@ const Exercise = () => {
       try {
         const probeData = results.map(result => ({
           user_id: user.id,
+          profile_id: activeProfileId ?? null,
           session_id: sessionId,
           probe_word: result.word,
           target_difficulty: result.difficulty,

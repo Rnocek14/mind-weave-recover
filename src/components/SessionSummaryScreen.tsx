@@ -20,6 +20,9 @@ import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
+import { ProbeResultsCard } from "@/components/probe/ProbeResultsCard";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { useUiProfile } from "@/hooks/useUiProfile";
 import { variantClass } from "@/lib/ui/variantClass";
 
@@ -61,6 +64,8 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const { uiMode } = useUiMode();
   const { showTransferOnSummary, mode, isVoiceLed } = useCoachingMode();
   const { speak, stop } = useTextToSpeech();
+  const { user } = useAuth();
+  const activeProfileId = useActiveProfileId();
   const { profile } = useUiProfile();
   const { variant } = profile;
   const isClinician = uiMode === "clinician" || uiMode === "admin";
@@ -227,6 +232,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
         {/* Today's practice — Phase B recovery insights (renders nothing if empty) */}
         <TodaysPracticeInsights sessionId={sessionId} />
+
+        {/* Untrained-word generalization probe — real measured signal */}
+        <ProbeResultsCard userId={user?.id} profileId={activeProfileId} />
 
         {/* Quick stats — plain language */}
         <div className="grid grid-cols-2 gap-4">

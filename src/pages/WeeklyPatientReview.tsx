@@ -52,6 +52,7 @@ import { SuccessBandIndicator } from "@/components/clinician/SuccessBandIndicato
 import { ExerciseStruggleCard } from "@/components/clinician/ExerciseStruggleCard";
 import { GoalTrackingCard } from "@/components/clinician/GoalTrackingCard";
 import { OutcomePredictionCard } from "@/components/clinician/OutcomePredictionCard";
+import { ProbeTrendCard } from "@/components/probe/ProbeTrendCard";
 import { aggregateTrialsByDomain } from "@/lib/exerciseDomainMap";
 import { usePatientIntelligence } from "@/hooks/usePatientIntelligence";
 import { TherapyIntelligenceReport } from "@/components/clinician/TherapyIntelligenceReport";
@@ -368,6 +369,8 @@ export default function WeeklyPatientReview() {
         <GoalTrackingCard userId={user?.id || ""} profileId={profileId} />
         <OutcomePredictionCard userId={user?.id || ""} profileId={profileId} />
       </div>
+      <ProbeTrendCard userId={user?.id || ""} profileId={profileId} />
+
 
       {/* ─── 2. CLINICAL INTERPRETATION (THE narrative) ─── */}
       <ClinicalInterpretation
