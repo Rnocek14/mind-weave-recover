@@ -43,6 +43,18 @@ interface Invitation {
   created_at: string;
 }
 
+interface RoleRequest {
+  id: string;
+  user_id: string;
+  email: string;
+  requested_role: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
+
+
+
 const ROLE_META: Record<AppRole, { label: string; icon: typeof Shield }> = {
   admin: { label: "Admin", icon: Shield },
   clinician: { label: "Clinician", icon: Stethoscope },
