@@ -22,6 +22,7 @@ import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
+import { flushVoiceSessionQueue } from '@/lib/voiceController';
 
 interface ConversationPartnerGameProps {
   userId: string;
