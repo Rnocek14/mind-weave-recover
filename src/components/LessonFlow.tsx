@@ -324,6 +324,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     }
   }, [
     advanceAfterCompletedExercise,
+    autoStart,
     lesson.blocks.length,
     location.state?.directJump,
     location.state?.exerciseResult,
