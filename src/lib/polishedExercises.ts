@@ -21,6 +21,11 @@ export const POLISHED_EXERCISES = [
   'thought-continuation',
   // Step 9 — promoted (phonology coverage). Discrimination + optional 'Say it' echo.
   'minimal-pairs',
+  // Step 10 — promoted (anchor grammar game). Registered, playable, progression-
+  // wired, 90-item bank across 3 content tiers mapping engine L1–L10. L5–L8 special
+  // cohorts are still thin (tier-collapse covers them), so it is eligible for daily
+  // selection but should only surface when progression signals say it needs work.
+  'fix-sentence',
 ] as const;
 
 export type PolishedExerciseId = typeof POLISHED_EXERCISES[number];
