@@ -852,7 +852,18 @@ export function generateDailyLesson(
         struggleBoost = struggleBoosts.get(id) || 0;
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost;
+      // === PROGRESSION PLANNING BOOST ===
+      // Cross-game longitudinal progression feeds selection: invest more where the
+      // patient is struggling/plateauing/lagging, coast where they're advancing.
+      let progressionBoost = 0;
+      let progressionReason = '';
+      if (progressionSignals && progressionSignals.has(id)) {
+        const sig = progressionSignals.get(id)!;
+        progressionBoost = sig.planningBoost;
+        progressionReason = sig.reason;
+      }
+
+      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost + progressionBoost;
 
       selectionReasons.push({
         id,
@@ -865,6 +876,7 @@ export function generateDailyLesson(
         reason: [
           penaltyReason || 'no recency penalty',
           struggleBoost > 0 ? `struggle re-exposure: +${struggleBoost}` : '',
+          progressionReason ? `progression(${progressionBoost >= 0 ? '+' : ''}${progressionBoost}): ${progressionReason}` : '',
         ].filter(Boolean).join('; '),
       });
 
