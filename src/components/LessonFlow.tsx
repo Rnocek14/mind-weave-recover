@@ -304,11 +304,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
             if (autoStart) {
               console.log('[LessonFlow] Stale interrupted-exercise state on fresh start, clearing and continuing');
               sessionStorage.removeItem('lessonFlowState'); localStorage.removeItem('lessonFlowState_resume');
-            } else {
-              console.log('[LessonFlow] Detected interrupted exercise, preserving resume state and redirecting to /today');
-              navigate('/today', { replace: true });
+              // Don't restore the stale phase — let the fresh session-preview proceed.
               return;
             }
+            console.log('[LessonFlow] Detected interrupted exercise, preserving resume state and redirecting to /today');
+            navigate('/today', { replace: true });
+            return;
           }
           
           console.log('[LessonFlow] Restoring state (non-resuming):', { savedPhase, savedIndex, savedSessionId });
