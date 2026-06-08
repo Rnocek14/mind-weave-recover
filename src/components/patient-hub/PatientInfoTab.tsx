@@ -98,6 +98,13 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
         />
       )}
 
+      {/* Provisional onboarding profile — clinician confirm/edit/supersede */}
+      <ProvisionalProfileCard
+        userId={userId}
+        clinicalProfile={clinicalProfile}
+        goals={goals}
+      />
+
       {/* Clinical Profile */}
       <ProfileSummaryCard
         clinicalProfile={clinicalProfile}
