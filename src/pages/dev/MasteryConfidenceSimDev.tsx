@@ -28,6 +28,18 @@ const CONFIDENCE_COLOR: Record<string, string> = {
   high: 'bg-green-500/15 text-green-700 border-green-500/30',
 };
 
+const DECISION_COLOR: Record<string, string> = {
+  promote: 'bg-green-500/15 text-green-700 border-green-500/30',
+  delay_reinforce: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
+  no_opinion: 'bg-muted text-muted-foreground',
+};
+
+const DECISION_LABEL: Record<string, string> = {
+  promote: 'promote',
+  delay_reinforce: 'delay',
+  no_opinion: 'no opinion',
+};
+
 export default function MasteryConfidenceSimDev() {
   const [seed, setSeed] = useState(7);
   const [sessions, setSessions] = useState(30);
