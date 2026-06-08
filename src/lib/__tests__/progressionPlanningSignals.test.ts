@@ -68,8 +68,6 @@ describe('progression planning signals — classification', () => {
 });
 
 describe('progression planning signals — plan divergence', () => {
-  const accessible = ['photo-naming', 'fix-sentence', 'minimal-pairs'];
-
   // Use polished slugs only — the engine filters to the polished allowlist before
   // selection, so non-polished slugs (e.g. fix-sentence) never reach the plan.
   const accessible = [...POLISHED_EXERCISES];
