@@ -18,7 +18,6 @@ import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
   fetchOnboardingComplete,
   onboardingRouteFor,
-  type OnboardingRole,
 } from "@/lib/onboarding";
 
 // Routes where it's appropriate to bounce a first-time user into onboarding.
