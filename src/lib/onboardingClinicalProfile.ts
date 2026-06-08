@@ -80,7 +80,7 @@ export function buildOnboardingClinicalProfile(
   // === Provisional aphasia-type inference (conservative) ===
   // Both expressive + receptive difficulty → global-pattern aphasia.
   if (hasFindingWords && hasUnderstanding) {
-    speech.push('global aphasia (provisional — word-finding and comprehension difficulty reported)');
+    speech.push('global aphasia (provisional — naming and comprehension difficulty reported)');
     inferenceNotes.push({
       impairment: 'global aphasia',
       source: 'onboarding screener',
