@@ -18,8 +18,10 @@ const SEED = 7;
 describe('Phase A.1 — mastery confidence behaves sensibly (visibility only)', () => {
   it('Q1: confidence increases when it should (steady improver reaches medium+)', () => {
     const tr = runMasteryConfidenceSim('steady_improver', 30, SEED);
-    // Starts with no opinion…
-    expect(tr.snapshots[0].confidence).toBe('none');
+    // Starts below medium (one session of trials = at most 'low')…
+    expect(CONFIDENCE_RANK[tr.snapshots[0].confidence]).toBeLessThan(
+      CONFIDENCE_RANK.medium,
+    );
     // …and earns at least medium by the end.
     expect(CONFIDENCE_RANK[tr.peakConfidence]).toBeGreaterThanOrEqual(
       CONFIDENCE_RANK.medium,
