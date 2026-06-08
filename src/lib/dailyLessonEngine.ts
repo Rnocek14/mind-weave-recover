@@ -666,6 +666,7 @@ export function generateDailyLesson(
   speechProfileSignals?: SpeechProfileSelectionSignals | null,
   struggleBoosts?: Map<string, number> | null,
   struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
+  progressionSignals?: Map<string, ProgressionPlanningSignal> | null,
 ): DailyLesson {
   // Polished allowlist gate: daily auto-selection only chooses from QA'd games.
   // Unpolished games remain available via manual picker / dev routes.
