@@ -219,6 +219,27 @@ export function runMasteryConfidenceSim(
     const row = computeMastery(windowTrials, prev, new Date(sessionTimeMs + 60_000));
     prev = row;
 
+    // A.2 — distinct sessions + day span inside the scoring window.
+    const sessionCount = new Set(
+      windowTrials.map((tr) => tr.session_id).filter(Boolean),
+    ).size;
+    const times = windowTrials.map((tr) => new Date(tr.created_at).getTime());
+    const daySpanDays =
+      times.length > 1 ? (Math.max(...times) - Math.min(...times)) / DAY : 0;
+
+    const confidenceExplanation = explainMasteryConfidence({
+      confidence: row.confidence,
+      trialsTotal: row.trials_total,
+      sessionCount,
+      daySpanDays,
+      cueIndependence: row.cue_independence,
+      accuracyRecent: row.accuracy_recent,
+      plateauFlag: row.plateau_flag,
+    });
+
+    // Recommendation only (A.2). Single-skill sim → drive from confidence.
+    const promotion = classifyMasteryPromotion({ confidence: row.confidence });
+
     snapshots.push({
       sessionIndex: s + 1,
       dayOffset,
@@ -230,6 +251,10 @@ export function runMasteryConfidenceSim(
       plateauFlag: row.plateau_flag,
       velocityPerWeek: row.velocity_per_week,
       supportTrend: row.support_dependency_trend,
+      sessionCount,
+      daySpanDays,
+      confidenceExplanation,
+      promotion,
     });
   }
 
