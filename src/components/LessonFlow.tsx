@@ -39,7 +39,7 @@ import type { SessionFrameTemplate, BlockResult } from "@/lib/sessionFrameTempla
 import { useUiProfile } from "@/hooks/useUiProfile";
 import { variantClass, isMinimal, isSimplified } from "@/lib/ui/variantClass";
 import { useDoseCap } from "@/hooks/useDoseCap";
-import { DoseCapNotice } from "./DoseCapNotice";
+import { DoseCapWarning } from "./DoseCapWarning";
 
 
 type FlowPhase = 
