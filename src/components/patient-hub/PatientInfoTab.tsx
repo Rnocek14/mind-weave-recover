@@ -16,6 +16,7 @@ import { useRedFlagDetection } from "@/hooks/useRedFlagDetection";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
+import { ProvisionalProfileCard } from "@/components/clinician/ProvisionalProfileCard";
 import { UiVariantClinicianPicker } from "@/components/leveling/UiVariantClinicianPicker";
 import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
