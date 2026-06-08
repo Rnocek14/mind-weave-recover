@@ -120,6 +120,21 @@ export function ConversationPartnerGame({
     continuousListening: false
   });
 
+  // Hard-stop all voice + recognition when the user exits/unmounts so Maya
+  // never keeps talking after the session is left.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      try { stopTTS(); } catch { /* noop */ }
+      try { stopListening(); } catch { /* noop */ }
+      flushVoiceSessionQueue('conversation-partner unmount');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+
   // Start conversation with opener
   const startConversation = useCallback(async () => {
     const opener = getRandomOpener();
