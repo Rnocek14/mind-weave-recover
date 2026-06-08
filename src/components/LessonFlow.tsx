@@ -279,9 +279,10 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           console.error('[LessonFlow] Error processing resume:', error);
         }
       }
-    } else if (!location.state?.resuming) {
+    } else if (!location.state?.resuming && !hasProcessedResumeRef.current) {
+      hasProcessedResumeRef.current = true;
       const savedState = sessionStorage.getItem('lessonFlowState');
-      if (savedState && !hasProcessedResumeRef.current) {
+      if (savedState) {
         try {
           const { phase: savedPhase, currentBlockIndex: savedIndex, sessionId: savedSessionId } = JSON.parse(savedState);
           
