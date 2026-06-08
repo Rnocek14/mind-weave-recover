@@ -27,6 +27,7 @@ import {
 import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
 import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
+import { fetchProgressionPlanningSignals, type ProgressionPlanningSignal } from '@/lib/progressionPlanningSignals';
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
 
 interface UseDailyLessonResult {
