@@ -8,13 +8,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { migrateLocalToSupabase, hasLocalData } from "@/lib/accountUpgrade";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Brain, Loader2 } from "lucide-react";
+
+type SignupRole = "patient" | "clinician" | "caregiver";
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [signupRole, setSignupRole] = useState<SignupRole>("patient");
   const [submitting, setSubmitting] = useState(false);
   
   const { signUp, signIn, user, loading } = useAuth();
