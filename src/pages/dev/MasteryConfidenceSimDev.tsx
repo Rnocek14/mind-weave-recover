@@ -52,12 +52,13 @@ export default function MasteryConfidenceSimDev() {
   return (
     <div className="container max-w-6xl mx-auto p-6 space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold">Mastery Confidence — Visibility Harness</h1>
+        <h1 className="text-2xl font-bold">Mastery Confidence — Influence Harness (A.2)</h1>
         <p className="text-sm text-muted-foreground">
-          Phase A.1. Drives the real <code>computeMastery</code> scorer across
-          four longitudinal archetypes. No gating, no progression, no writes —
-          this only validates that confidence behaves sensibly before it is
-          allowed to influence promotion.
+          Phase A.2. Drives the real <code>computeMastery</code> scorer across
+          four longitudinal archetypes, then shows (a) WHY confidence is what it
+          is and (b) the mastery-informed promotion <em>recommendation</em>
+          {' '}(promote / delay+reinforce / no opinion). Recommendation only — no
+          live gating, no progression writes. <code>skip = open</code> for new users.
         </p>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setSeed((s) => s + 1)}>
