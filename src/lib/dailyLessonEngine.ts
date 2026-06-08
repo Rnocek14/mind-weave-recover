@@ -12,6 +12,7 @@
 import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
+import type { ProgressionPlanningSignal } from './progressionPlanningSignals';
 import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
 import { isPolishedExercise, filterToPolished, POLISHED_EXERCISES } from './polishedExercises';
 
