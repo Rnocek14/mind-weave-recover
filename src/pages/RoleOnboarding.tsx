@@ -48,8 +48,11 @@ export default function RoleOnboarding() {
     ? "caregiver"
     : "patient";
 
-  const finish = () => {
-    markOnboardingComplete(user?.id);
+  const [finishing, setFinishing] = useState(false);
+  const finish = async () => {
+    if (finishing) return;
+    setFinishing(true);
+    await markOnboardingComplete(user?.id);
     navigate(ROLE_HOME[homeForRole], { replace: true });
   };
 
