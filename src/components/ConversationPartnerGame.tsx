@@ -53,6 +53,7 @@ export function ConversationPartnerGame({
   const speechStartTimeRef = useRef<number | null>(null);
   const firstWordTimeRef = useRef<number | null>(null);
   const turnCountRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const { speak, stop: stopTTS, isLoading: ttsLoading } = useTextToSpeech();
   
