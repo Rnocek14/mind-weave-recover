@@ -76,9 +76,10 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create New Patient Profile</DialogTitle>
+          <DialogTitle>Who is recovering?</DialogTitle>
           <DialogDescription>
-            Add a new patient profile to track their therapy progress separately.
+            Add another person you're helping. Their practice and progress are
+            tracked separately.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -88,17 +89,18 @@ export function CreateProfileDialog({ open, onOpenChange }: CreateProfileDialogP
               name="profile_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Profile Name *</FormLabel>
+                  <FormLabel>Their name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Dad, John, Patient 1" {...field} />
+                    <Input placeholder="e.g., Bob, Mom, Dad" {...field} />
                   </FormControl>
                   <FormDescription>
-                    A name to identify this patient profile
+                    The name of the person who's recovering
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
 
             <FormField
               control={form.control}
