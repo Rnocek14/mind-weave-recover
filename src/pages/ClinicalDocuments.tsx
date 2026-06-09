@@ -16,6 +16,7 @@ import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
 import { useMergeConflicts } from '@/hooks/useMergeConflicts';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { setProfileProvenance } from '@/lib/profileProvenance';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
