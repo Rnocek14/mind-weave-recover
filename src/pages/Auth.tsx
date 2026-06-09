@@ -132,7 +132,7 @@ const Auth = () => {
 
     try {
       const { error } = isSignUp 
-        ? await signUp(email, password, displayName)
+        ? await signUp(email, password, displayName, signupRole)
         : await signIn(email, password);
 
       if (error) {
