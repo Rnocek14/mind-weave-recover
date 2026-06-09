@@ -244,9 +244,20 @@ serve(async (req) => {
     const enhancedProfile = await enhanceWithLLM(clinicalNote, mergedProfile);
     console.log('Enhanced profile:', JSON.stringify(enhancedProfile, null, 2));
 
+    // Per-field provenance confidence (A2): a field directly quoted from the
+    // source note is "high"; a field present only via LLM enhancement is
+    // "medium"; a field that exists only because it was inferred from lesion
+    // territory is "low". Absent fields are omitted.
+    const fieldConfidence = buildFieldConfidence(
+      enhancedProfile,
+      ruleBasedProfile,
+      inferredProfile
+    );
+
     // Add metadata
     const finalProfile = {
       ...enhancedProfile,
+      field_confidence: fieldConfidence,
       notes: clinicalNote,
       last_updated: new Date().toISOString()
     };
