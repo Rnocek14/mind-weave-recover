@@ -56,7 +56,8 @@ export function useDocumentConsent() {
       if (!user?.id) return false;
       setIsRecording(true);
       try {
-        const { error } = await supabase.from("consent_records").insert({
+        // Cast: generated types lag behind the new consent_type/user_id columns.
+        const { error } = await (supabase.from("consent_records") as any).insert({
           consent_type: "document_processing",
           user_id: user.id,
           consent_version: DOCUMENT_CONSENT_VERSION,
