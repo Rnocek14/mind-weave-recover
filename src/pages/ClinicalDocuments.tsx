@@ -114,7 +114,30 @@ export default function ClinicalDocuments() {
       return;
     }
 
+    // A3: documents are medical records — require explicit processing consent
+    // before storing/parsing anything.
+    if (!hasConsent) {
+      if (!consentChecked) {
+        toast({
+          title: 'Consent required',
+          description: 'Please confirm consent to process this clinical document.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const ok = await recordConsent();
+      if (!ok) {
+        toast({
+          title: 'Could not record consent',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setIsParsing(true);
+    
     
     try {
       // Step 1: Create the clinical note
