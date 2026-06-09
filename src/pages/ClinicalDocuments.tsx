@@ -432,6 +432,26 @@ export default function ClinicalDocuments() {
                   className="font-mono text-sm"
                 />
               </div>
+
+              {!hasConsent && (
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3">
+                  <Checkbox
+                    id="doc-consent"
+                    checked={consentChecked}
+                    onCheckedChange={(v) => setConsentChecked(v === true)}
+                    disabled={isParsing || isRecording}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="doc-consent"
+                    className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer"
+                  >
+                    {DOCUMENT_CONSENT_TEXT}
+                  </Label>
+                </div>
+              )}
+              
+
               
               <div className="flex justify-end gap-2">
                 <Button
