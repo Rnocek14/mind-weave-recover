@@ -69,6 +69,8 @@ export default function ClinicalDocuments() {
   const [documentDate, setDocumentDate] = useState(new Date().toISOString().split('T')[0]);
   const [documentTitle, setDocumentTitle] = useState('');
   const [rawText, setRawText] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
+
 
   useEffect(() => {
     loadNotes();
