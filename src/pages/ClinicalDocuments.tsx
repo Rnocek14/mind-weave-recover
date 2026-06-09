@@ -241,6 +241,10 @@ export default function ClinicalDocuments() {
             }
           );
 
+          // Provenance: initial profile derived from an uploaded document (plan A2).
+          await setProfileProvenance(user?.id, 'document', data.profile.field_confidence);
+
+
           toast({
             title: 'Initial profile created',
             description: 'Clinical profile has been created from uploaded document',
