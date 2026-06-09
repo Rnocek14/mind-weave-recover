@@ -778,8 +778,16 @@ export function generateDailyLesson(
 
   const selectionReasons: Array<{
     id: string; baseScore: number; recencyPenalty: number; componentPenalty: number;
-    primaryDomainBoost: number; speechProfileBoost: number; finalScore: number; reason: string;
+    primaryDomainBoost: number; speechProfileBoost: number;
+    struggleBoost: number; progressionBoost: number;
+    finalScore: number; reason: string;
   }> = [];
+
+  // Gentle-nudge guardrail: the combined ADDITIVE positive boost (everything on
+  // top of baseScore) is capped so adaptive signals can tip ties but never swamp
+  // clinical priority. baseScore for a high-priority domain is +5; we keep the
+  // total nudge at or below that so domain priority always leads.
+  const MAX_POSITIVE_BOOST = 5;
 
   const scoredExercises = polishedAccessible
     .map(id => {
