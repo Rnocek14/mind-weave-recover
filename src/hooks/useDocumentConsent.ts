@@ -31,8 +31,8 @@ export function useDocumentConsent() {
       return;
     }
     try {
-      const { data, error } = await supabase
-        .from("consent_records")
+      // Cast: generated types lag behind the new consent_type/user_id columns.
+      const { data, error } = await (supabase.from("consent_records") as any)
         .select("id, consent_version")
         .eq("consent_type", "document_processing")
         .eq("user_id", user.id)
