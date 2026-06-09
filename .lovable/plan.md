@@ -1,94 +1,69 @@
-# Launch Accessibility & Data-Quality Plan
+# Care Account Identity Model — Minimal Irreversible Slice
 
-Goal: make sure the *right* users (including moderate/severe aphasia) can reach therapy, and that the profiles we collect at launch are reconstructable later. This is all **plumbing and routing** — it does not touch the frozen therapy/adaptation engine.
+## The model (answers to the nine questions)
 
-Guiding principle: **Setup Actor ≠ Therapy Actor.** Buyer/caregiver/clinician do the heavy setup; the survivor sees one `START`.
+| Question | Answer |
+|---|---|
+| Who owns the account? | A **Care Account** (household container), not a person. |
+| Who owns the profile? | The Care Account. A profile *belongs to* an account; people are *members*. |
+| Who pays? | A **payer** attached to the account — a member (family/self-pay) or external clinic. One shape covers all three. |
+| Who can invite whom? | Account **owner** (and clinic admin) invites caregivers, clinicians, and the survivor. |
+| Who sees what? | Eventually derived from **membership + member role**. (Not active yet — see cautions.) |
+| How does a caregiver create a patient? | Caregiver creates a Care Account + profile inside it. Needs **no survivor login**. |
+| How does a patient log in later? | Survivor's new login **attaches as the `patient` member** — profile is never re-parented. |
+| How does a clinician connect? | Added as a `clinician` member — same operation as any member. |
+| How does billing work? | Subscription/entitlement keyed to the **Care Account** with a payer pointer. |
 
----
+## Safety scan result (the approval gate) — PASSED
 
-## Current state (verified)
+Read-only scan of `profiles.user_id` assumptions before relaxing nullability:
+- **No `user_id!` non-null assertions** in the codebase.
+- **Every profile insert explicitly sets `user_id`** (`ProfileContext.tsx`, `Onboarding.tsx`) → existing flows keep creating login-backed profiles.
+- **All ownership reads use `.eq('user_id', …)`**; **`profiles` RLS is `user_id = auth.uid()`**. A NULL `user_id` row cannot match these filters → cannot leak, cannot break a join.
+- **This slice creates ZERO NULL-`user_id` rows** (caregiver-create flow is deferred). Nullability is a *permissive* relaxation: no existing row or query changes. **Current behavior is identical; onboarding for all parties is unchanged.**
 
-- `parse-clinical-notes` already returns `profile_source: 'hybrid'` + an overall `confidence`, with `source_phrases` per field. There is **no per-field confidence** and **no provenance column on `profiles`**.
-- `clinical_notes` stores `raw_text` (pasted text) + `parsing_confidence`. There is **no file-storage bucket** — "upload" today means pasting text.
-- `consent_documents` / `consent_records` exist but are wired to clinical-trial `enrollment_id`. There is **no data-processing consent path for ad-hoc document upload**.
-- `profiles` has no `profile_source` / `field_confidence` columns.
-- `Welcome.tsx` is the patient first-run (2 steps → Start). `OnboardingGate` routes patient→`/welcome`. There is **no survivor self-start telemetry**.
+## What we build now (and only this)
 
----
+The single irreversible thing is **ownership shape**. UI, payments, invite flows, and RLS rewrites are reversible and deferred.
 
-## Workstream A — Must-do before charging money
+### New tables
+**`care_accounts`** — `name`, `created_by`, `account_type` (`family` | `self` | `clinic`), billing anchor (`subscription_status` default `none`, `payer_member_id` nullable, `payer_external_ref` nullable).
 
-### A1. Security cleanup (manual + verify)
-Per project memory, remaining pre-launch items:
-- Fully delete QA throwaway account `test123@gmail.com` in the Auth dashboard.
-- Enable Leaked Password Protection in Auth settings.
-- Re-run the security scanner; confirm no `error`-level findings remain.
-These are dashboard actions; I'll provide the links and re-run the scan to confirm.
+**`care_account_members`** — `care_account_id`, `user_id` (nullable — patient member can exist before a login), `member_role` (`owner` | `caregiver` | `patient` | `clinician`), `invited_email` (nullable), `status` (`active` | `pending` | `revoked`).
 
-### A2. Profile provenance (becomes impossible to reconstruct later)
-Add to `profiles`:
-- `profile_source text` — enum-style check: `'onboarding' | 'caregiver' | 'document' | 'clinician'`.
-- `field_confidence jsonb` — per-field `{ aphasia_type: 'high'|'medium'|'low', ... }` for the major clinical fields.
-Persist these everywhere a profile is created/updated:
-- onboarding screener → `onboarding`
-- document parse → `document` (carry per-field confidence derived from parser `source_phrases` presence + LLM confidence)
-- caregiver manual entry → `caregiver`
-- clinician override → `clinician`
-Also mirror `profile_source` onto each new `clinical_profile_versions` row (it already has `source_type`/`overall_confidence`; we add the per-field map into `profile_data`).
+### Profiles changes (the irreversible columns)
+- Add `profiles.care_account_id` (uuid, nullable now → backfilled → long-term owner key).
+- **Make `profiles.user_id` nullable** — the core enabler for optional survivor login. (Safe per scan above.)
 
-### A3. Consent flow for document upload
-Documents (discharge summaries, SLP evals) are medical records. Before any upload:
-- A lightweight **data-processing consent checkpoint** reusing `consent_documents` (a new non-trial document version) + a `consent_records` row not tied to a trial `enrollment_id` (relax that linkage / add nullable path).
-- A private storage bucket `clinical-documents` (RLS: owner + assigned clinician/admin only) if we move from paste-text to real file upload (see B1). Consent must be recorded *before* the file is stored.
+### Backfill (keeps all existing data working)
+For every existing profile: create one `care_account`, set `profiles.care_account_id`, add an `owner` member and a `patient` member pointing at current `profiles.user_id`.
+- `account_type` = **`self`** for an auth user with a single profile.
+- `account_type` = **`family`** where one auth user owns **multiple** profiles.
 
-### A4. Survivor self-start telemetry (first-class KPI)
-New table `survivor_self_start_events` (or reuse `shadow_events` with a typed event): records each time a survivor reaches `START` on the daily surface, with:
-- `caregiver_present` (derived/asked once), `day_index` since account creation,
-- joins to `profiles.aphasia_type` + severity for cohort breakdown.
-Report Day 1/3/7/14/30 independent-start rate, broken down by **severity, aphasia type, caregiver present/not**. No UI dashboard required for launch — just clean capture so the data exists.
+### RLS strategy for this slice
+- New tables get GRANTs → RLS → policies in correct order. Members read their own account; only owner/admin writes membership.
+- **Existing `profiles`/`sessions`/assignment RLS is left untouched.** The account graph is added *beside* the current `user_id`-based system.
+- **Explicit caution: `care_account_members` does NOT control access yet.** It future-proofs ownership only. Caregiver/clinician/remote access still flows through today's roles + assignment tables until a later, deliberate RLS migration.
 
----
+## Explicitly deferred (do NOT build now)
+- Caregiver "create patient" UI + survivor attach/onboarding flow.
+- Invite UI and email-attach automation (table shape ready; flow later).
+- Payment processing / Stripe-Paddle (anchor exists; charging later).
+- Rewriting profile/session/assignment RLS to be account-derived.
+- Folding `caregiver_assignments` / `clinician_assignments` into membership (they coexist for now).
 
-## Workstream B — High value (front-door accessibility)
-
-### B1. Move the note parser to the onboarding front door
-New caregiver setup funnel (setup actor, not survivor):
+## Why this supports the future remote/co-therapy plan
+It creates the exact graph that plan needs — one recovery record, many authorized people:
 ```text
-Create account
-   -> "Who are you setting this up for?"  (routing hint ONLY, not a role grant)
-   -> Upload / paste document  (optional, with A3 consent)  --AI parses-->
-   -> Plain-language profile review (B2)
-   -> Payment
-   -> Hand off: survivor device boots to START
+care_account
+  -> profile
+       -> members: patient / caregiver / clinician
 ```
-- The fork is a **presentation hint** over existing `uiMode`/`user_roles` — tapping "for someone else" must NOT confer caregiver data authority to a patient account.
-- "Skip for now → quick screener → provisional profile" stays a true equal path (no upload gate), with `clinical_profile_versions` logging supersession.
-
-### B2. Plain-language profile review
-Render the parsed draft in caregiver-legible language (not Broca's/territory codes up front). Show clinical codes underneath/expandable. Confirm → writes profile with `profile_source='document'` + per-field confidence.
-
-### B3. Derived coaching defaults (survivor surface = one START)
-- Coaching level is **derived** from the clinical profile/severity (default voice-led/Full Coaching for higher support needs) — never asked of the survivor.
-- Lesson-plan review becomes optional and caregiver/clinician-facing only.
-- Survivor daily surface: `TODAY'S PRACTICE / [ START ] / ~15 min / Ready when you are` — no settings, no coaching level, no plan review fork.
-
----
-
-## Explicitly kept frozen (no changes)
-A.3 mastery enforcement, soft regression, structured error taxonomy, intelligence layer, cohort recommendations. This plan only makes therapy *reachable* and the dataset *honest* — it does not make the engine smarter.
-
----
-
-## Suggested build order
-1. A2 provenance columns + persistence (cheapest, highest irreversibility cost).
-2. A4 self-start telemetry capture.
-3. A3 consent + private bucket.
-4. B1/B2/B3 onboarding front-door + survivor single-START surface.
-5. A1 security verification immediately before publish.
+Later additions (caregiver second-device remote, clinician live supervision, companion mode, prescribed protocols, family access, one payment per journey, optional patient login) attach **without re-parenting patient data**.
 
 ## Technical notes
-- Migrations: add `profile_source`, `field_confidence` to `profiles`; relax `consent_records.enrollment_id` to nullable + add a consent-type discriminator; create `survivor_self_start_events` with GRANTs + RLS (owner insert/select; clinician/admin select via existing assignment helpers); create `clinical-documents` private bucket + `storage.objects` policies.
-- Parser: extend `parse-clinical-notes` to emit a per-field confidence map alongside the existing overall confidence (derive from `source_phrases` coverage + LLM confidence).
-- No edits to adaptation/mastery/scoring code paths.
-
-Want me to scope this as one launch milestone, or split A (data-quality/security) and B (onboarding UX) into two separate build passes?
+- One migration: create the two tables (GRANTs → RLS → policies), add the two `profiles` columns, run the backfill in the same migration so no profile is ever account-less.
+- Add `care_account_member_role` and `account_type` enums.
+- Add a `has_care_account_role(_user, _account, _role)` security-definer helper (mirrors `has_role`) to keep future RLS recursion-free.
+- After approval, regenerate types. No app code change is required for this slice — verified by the scan (no path assumes a non-null `user_id`).
+- Record a core memory: "Care Account is the ownership/billing unit; profiles belong to accounts; survivor login is optional and attaches as a member; membership is not yet the active access model."

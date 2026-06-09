@@ -505,6 +505,83 @@ export type Database = {
           },
         ]
       }
+      care_account_members: {
+        Row: {
+          care_account_id: string
+          created_at: string
+          id: string
+          invited_email: string | null
+          member_role: Database["public"]["Enums"]["care_account_member_role"]
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          care_account_id: string
+          created_at?: string
+          id?: string
+          invited_email?: string | null
+          member_role: Database["public"]["Enums"]["care_account_member_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          care_account_id?: string
+          created_at?: string
+          id?: string
+          invited_email?: string | null
+          member_role?: Database["public"]["Enums"]["care_account_member_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_account_members_care_account_id_fkey"
+            columns: ["care_account_id"]
+            isOneToOne: false
+            referencedRelation: "care_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["care_account_type"]
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string | null
+          payer_external_ref: string | null
+          payer_member_id: string | null
+          subscription_status: string
+          updated_at: string
+        }
+        Insert: {
+          account_type?: Database["public"]["Enums"]["care_account_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          payer_external_ref?: string | null
+          payer_member_id?: string | null
+          subscription_status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["care_account_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string | null
+          payer_external_ref?: string | null
+          payer_member_id?: string | null
+          subscription_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       caregiver_assignments: {
         Row: {
           assigned_at: string
@@ -2283,6 +2360,7 @@ export type Database = {
           avatar_url: string | null
           birthdate: string | null
           capability_profile_id: string | null
+          care_account_id: string | null
           caregiver_mode_enabled: boolean | null
           chronicity_tag: string | null
           clinical_profile: Json | null
@@ -2308,7 +2386,7 @@ export type Database = {
           session_cap_minutes: number | null
           stroke_date: string | null
           stroke_mechanism_tag: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           accessibility_prefs?: Json | null
@@ -2316,6 +2394,7 @@ export type Database = {
           avatar_url?: string | null
           birthdate?: string | null
           capability_profile_id?: string | null
+          care_account_id?: string | null
           caregiver_mode_enabled?: boolean | null
           chronicity_tag?: string | null
           clinical_profile?: Json | null
@@ -2341,7 +2420,7 @@ export type Database = {
           session_cap_minutes?: number | null
           stroke_date?: string | null
           stroke_mechanism_tag?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           accessibility_prefs?: Json | null
@@ -2349,6 +2428,7 @@ export type Database = {
           avatar_url?: string | null
           birthdate?: string | null
           capability_profile_id?: string | null
+          care_account_id?: string | null
           caregiver_mode_enabled?: boolean | null
           chronicity_tag?: string | null
           clinical_profile?: Json | null
@@ -2374,7 +2454,7 @@ export type Database = {
           session_cap_minutes?: number | null
           stroke_date?: string | null
           stroke_mechanism_tag?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2382,6 +2462,13 @@ export type Database = {
             columns: ["capability_profile_id"]
             isOneToOne: false
             referencedRelation: "capability_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_care_account_id_fkey"
+            columns: ["care_account_id"]
+            isOneToOne: false
+            referencedRelation: "care_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -4422,6 +4509,7 @@ export type Database = {
           avatar_url: string | null
           birthdate: string | null
           capability_profile_id: string | null
+          care_account_id: string | null
           caregiver_mode_enabled: boolean | null
           chronicity_tag: string | null
           clinical_profile: Json | null
@@ -4447,7 +4535,7 @@ export type Database = {
           session_cap_minutes: number | null
           stroke_date: string | null
           stroke_mechanism_tag: string | null
-          user_id: string
+          user_id: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -4572,6 +4660,14 @@ export type Database = {
           valid_trials: number
         }[]
       }
+      has_care_account_role: {
+        Args: {
+          _account_id: string
+          _role: Database["public"]["Enums"]["care_account_member_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4581,6 +4677,10 @@ export type Database = {
       }
       is_assigned_clinician: {
         Args: { _clinician_id: string; _profile_id: string }
+        Returns: boolean
+      }
+      is_care_account_member: {
+        Args: { _account_id: string; _user_id: string }
         Returns: boolean
       }
       is_caregiver_for: {
@@ -4661,6 +4761,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "caregiver" | "clinician"
+      care_account_member_role: "owner" | "caregiver" | "patient" | "clinician"
+      care_account_type: "family" | "self" | "clinic"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4789,6 +4891,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user", "caregiver", "clinician"],
+      care_account_member_role: ["owner", "caregiver", "patient", "clinician"],
+      care_account_type: ["family", "self", "clinic"],
     },
   },
 } as const
