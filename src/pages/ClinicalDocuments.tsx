@@ -186,6 +186,10 @@ export default function ClinicalDocuments() {
                 }
               );
 
+              // Provenance: active profile now derives from an uploaded
+              // document; carry the parser's per-field confidence (plan A2).
+              await setProfileProvenance(user?.id, 'document', data.profile.field_confidence);
+
               toast({
                 title: '✓ Auto-merged successfully',
                 description: 'Conflicts were automatically resolved and merged into your profile',
