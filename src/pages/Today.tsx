@@ -93,6 +93,7 @@ export default function Today() {
   // All hooks at the top — never after conditionals
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { recordSelfStart } = useSurvivorSelfStart();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { mode, setMode } = useCoachingMode();
   const { isAtLeast } = useUiMode();
