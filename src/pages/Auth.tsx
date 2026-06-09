@@ -277,14 +277,19 @@ const Auth = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="patient">Patient (someone recovering)</SelectItem>
-                  <SelectItem value="clinician">Clinician / Therapist</SelectItem>
-                  <SelectItem value="caregiver">Caregiver / Family</SelectItem>
+                  <SelectItem value="patient">I'm recovering</SelectItem>
+                  <SelectItem value="caregiver">I'm helping someone</SelectItem>
+                  <SelectItem value="clinician">I'm a clinician</SelectItem>
                 </SelectContent>
               </Select>
-              {signupRole !== "patient" && (
+              {signupRole === "caregiver" && (
                 <p className="text-xs text-muted-foreground">
-                  Professional access requires admin approval after you sign up.
+                  You'll set up the person you're helping in the next step.
+                </p>
+              )}
+              {signupRole === "clinician" && (
+                <p className="text-xs text-muted-foreground">
+                  Clinician access requires admin approval after you sign up.
                 </p>
               )}
             </div>
