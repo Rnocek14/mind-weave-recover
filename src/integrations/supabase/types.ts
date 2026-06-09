@@ -1165,7 +1165,7 @@ export type Database = {
         Row: {
           capacity_confirmed_at: string | null
           capacity_confirmed_by: string | null
-          consent_document_id: string
+          consent_document_id: string | null
           consent_type: string
           consent_version: number
           created_at: string
@@ -1183,7 +1183,7 @@ export type Database = {
         Insert: {
           capacity_confirmed_at?: string | null
           capacity_confirmed_by?: string | null
-          consent_document_id: string
+          consent_document_id?: string | null
           consent_type?: string
           consent_version: number
           created_at?: string
@@ -1201,7 +1201,7 @@ export type Database = {
         Update: {
           capacity_confirmed_at?: string | null
           capacity_confirmed_by?: string | null
-          consent_document_id?: string
+          consent_document_id?: string | null
           consent_type?: string
           consent_version?: number
           created_at?: string
