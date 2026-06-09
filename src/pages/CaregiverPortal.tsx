@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, ChevronDown, Camera, FileText, History } from "lucide-react";
+import { Heart, ChevronDown, Camera, FileText, History, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,10 +77,42 @@ export default function CaregiverPortal() {
   // Redirect/auth/profile settling — keep this page from flashing a full-screen loader.
   if (authLoading || !user || (profileLoading && !activeProfile)) return null;
 
+  // No patient profile yet — guide the caregiver to set up the person they're
+  // helping rather than showing empty monitoring cards (no dead-end).
+  if (!activeProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 space-y-6 text-center">
+          <div className="flex justify-center">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Heart className="w-7 h-7 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">Let's get started</h1>
+            <p className="text-muted-foreground">
+              Add the person you're helping to set up their practice.
+            </p>
+          </div>
+          <Button size="lg" className="w-full gap-2" onClick={() => navigate("/caregiver/setup")}>
+            Who are you helping?
+            <Play className="w-4 h-4" />
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   const patientName = activeProfile?.profile_name || "your loved one";
   const visibleConcerns = redFlags.filter(
     (f) => f.severity === "red" || f.severity === "orange"
   );
+
+  const startPracticeForPatient = () => {
+    // The active profile is already the patient; /today is the canonical
+    // session entry and builds the lesson scoped to that profile.
+    navigate("/today");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-calm">
@@ -95,6 +127,17 @@ export default function CaregiverPortal() {
             <ProfileSwitcher />
           </div>
         </header>
+
+        {/* Primary action — start a real session for the person recovering */}
+        <Button
+          size="lg"
+          className="w-full gap-2 text-base h-14"
+          onClick={startPracticeForPatient}
+        >
+          <Play className="w-5 h-5" />
+          Start practice for {patientName}
+        </Button>
+
 
         {/* The five Glance Cards */}
         <div data-tour="cg-status">

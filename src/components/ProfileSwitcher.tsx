@@ -84,7 +84,7 @@ export function ProfileSwitcher() {
             className="flex items-center gap-2 cursor-pointer text-primary"
           >
             <Plus className="h-4 w-4" />
-            <span>Create New Profile</span>
+            <span>Add another person</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

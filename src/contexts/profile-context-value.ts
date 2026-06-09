@@ -14,7 +14,8 @@ export interface ProfileContextValue {
     stroke_date?: string;
     avatar_url?: string;
     profile_notes?: string;
-  }) => Promise<void>;
+    makeActive?: boolean;
+  }) => Promise<string | undefined>;
   refreshProfiles: () => Promise<void>;
 }
 

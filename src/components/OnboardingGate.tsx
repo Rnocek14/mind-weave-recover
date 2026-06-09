@@ -55,6 +55,14 @@ export function OnboardingGate() {
       // spotlight tour, so they land straight on their dashboard.
       if (isAdmin || isClinician || isCaregiver) return;
 
+      // Family caregivers have no DB role (they own the account, the patient is
+      // a separate profile). Identify them by signup intent so we never bounce
+      // them into the survivor /welcome flow.
+      const intent = String(
+        (user.user_metadata as Record<string, unknown> | null)?.account_intent ?? ""
+      ).toLowerCase();
+      if (intent === "caregiver") return;
+
       // Authoritative, cross-device completion check (patients only).
       const done = await fetchOnboardingComplete(user.id);
       if (cancelled || done) return;

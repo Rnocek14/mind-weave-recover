@@ -32,6 +32,7 @@ export const useAuth = () => {
     password: string,
     displayName?: string,
     requestedRole?: string,
+    accountIntent?: string,
   ) => {
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
@@ -39,15 +40,19 @@ export const useAuth = () => {
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        // requested_role is persisted in user metadata so it survives email
-        // confirmation. Auth.tsx reconciles it into role_requests on first
-        // authenticated load (the signUp-time insert can miss when there is
-        // no session yet because email confirmation is enabled).
+        // Metadata is persisted on the auth user so it survives email
+        // confirmation:
+        //  - requested_role (clinician): Auth.tsx reconciles it into
+        //    role_requests on first authenticated load and routes to approval.
+        //  - account_intent (caregiver): read by the handle_new_user trigger to
+        //    provision a family Care Account + caregiver membership WITHOUT a
+        //    patient profile, and by Auth.tsx to route into caregiver setup.
         data: {
           display_name: displayName,
           ...(requestedRole && requestedRole !== "patient"
             ? { requested_role: requestedRole }
             : {}),
+          ...(accountIntent ? { account_intent: accountIntent } : {}),
         },
       },
     });

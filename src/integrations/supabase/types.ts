@@ -2379,6 +2379,7 @@ export type Database = {
           onboarding_completed_at: string | null
           primary_territory: string | null
           profile_created_at: string | null
+          profile_kind: string
           profile_name: string
           profile_notes: string | null
           profile_source: string | null
@@ -2413,6 +2414,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           primary_territory?: string | null
           profile_created_at?: string | null
+          profile_kind?: string
           profile_name: string
           profile_notes?: string | null
           profile_source?: string | null
@@ -2447,6 +2449,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           primary_territory?: string | null
           profile_created_at?: string | null
+          profile_kind?: string
           profile_name?: string
           profile_notes?: string | null
           profile_source?: string | null
@@ -4528,6 +4531,7 @@ export type Database = {
           onboarding_completed_at: string | null
           primary_territory: string | null
           profile_created_at: string | null
+          profile_kind: string
           profile_name: string
           profile_notes: string | null
           profile_source: string | null

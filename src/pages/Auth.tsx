@@ -58,43 +58,57 @@ const Auth = () => {
       return;
     }
 
-    // No role yet: reconcile any pending professional request. The request may
-    // not exist yet if email confirmation delayed the session at sign-up time,
-    // so we recover it from the user's metadata before deciding where to route.
+    // No granted role. Three remaining lanes:
+    //  - clinician (professional): pending request / metadata -> approval wall.
+    //  - caregiver (family): self-serve -> setup if no patient yet, else home.
+    //  - survivor: straight into the patient flow.
     (async () => {
-      const metaRole = (user.user_metadata as Record<string, unknown> | null)
-        ?.requested_role;
+      const meta = (user.user_metadata as Record<string, unknown> | null) ?? null;
+      const metaRole = meta?.requested_role;
       const requestedRole =
-        metaRole === "clinician" || metaRole === "caregiver" ? metaRole : null;
+        metaRole === "clinician" ? "clinician" : null;
+      const isCaregiverIntent =
+        String(meta?.account_intent ?? "").toLowerCase() === "caregiver";
 
-      let { data } = await supabase
-        .from("role_requests")
-        .select("status")
-        .eq("user_id", user.id)
-        .eq("status", "pending")
-        .limit(1)
-        .maybeSingle();
-
-      // Backfill a missing request from metadata (idempotent on user_id+role).
-      if (!data && requestedRole) {
-        await supabase.from("role_requests").insert({
-          user_id: user.id,
-          email: user.email ?? "",
-          requested_role: requestedRole,
-        });
-        const recheck = await supabase
+      // Clinician approval reconciliation (unchanged).
+      if (requestedRole) {
+        let { data } = await supabase
           .from("role_requests")
           .select("status")
           .eq("user_id", user.id)
           .eq("status", "pending")
           .limit(1)
           .maybeSingle();
-        data = recheck.data;
+
+        if (!data) {
+          await supabase.from("role_requests").insert({
+            user_id: user.id,
+            email: user.email ?? "",
+            requested_role: requestedRole,
+          });
+        }
+        navigate("/pending-approval", { replace: true });
+        return;
       }
 
-      navigate(data || requestedRole ? "/pending-approval" : "/today", {
-        replace: true,
-      });
+      // Family caregiver: route to setup until they've added the person
+      // recovering (a profile_kind='patient' row owned by them).
+      if (isCaregiverIntent) {
+        const { data: patient } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("profile_kind", "patient")
+          .limit(1)
+          .maybeSingle();
+        navigate(patient ? "/caregiver" : "/caregiver/setup", {
+          replace: true,
+        });
+        return;
+      }
+
+      // Survivor.
+      navigate("/today", { replace: true });
     })();
   }, [
     user,
@@ -131,8 +145,11 @@ const Auth = () => {
     setSubmitting(true);
 
     try {
-      const { error } = isSignUp 
-        ? await signUp(email, password, displayName, signupRole)
+      const requestedRole = signupRole === "clinician" ? "clinician" : undefined;
+      const accountIntent = signupRole === "caregiver" ? "caregiver" : undefined;
+
+      const { error } = isSignUp
+        ? await signUp(email, password, displayName, requestedRole, accountIntent)
         : await signIn(email, password);
 
       if (error) {
@@ -146,13 +163,13 @@ const Auth = () => {
         const { data: authUser } = await supabase.auth.getUser();
         const uid = authUser.user?.id;
 
-        // On professional sign-up, record a pending role request (unless an
-        // invite already granted the role). Granting itself is admin-only.
-        if (isSignUp && uid && signupRole !== "patient") {
+        // Only clinicians (professionals reaching other people's data) need an
+        // approval request. Family caregivers are self-serve.
+        if (isSignUp && uid && signupRole === "clinician") {
           await supabase.from("role_requests").insert({
             user_id: uid,
             email: email.trim(),
-            requested_role: signupRole,
+            requested_role: "clinician",
           });
         }
 
@@ -168,7 +185,7 @@ const Auth = () => {
           toast({
             title: isSignUp ? "Account created!" : "Welcome back!",
             description:
-              isSignUp && signupRole !== "patient"
+              isSignUp && signupRole === "clinician"
                 ? "Your access request was submitted for admin approval."
                 : isSignUp
                 ? "Please check your email to verify your account."
@@ -260,14 +277,19 @@ const Auth = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="patient">Patient (someone recovering)</SelectItem>
-                  <SelectItem value="clinician">Clinician / Therapist</SelectItem>
-                  <SelectItem value="caregiver">Caregiver / Family</SelectItem>
+                  <SelectItem value="patient">I'm recovering</SelectItem>
+                  <SelectItem value="caregiver">I'm helping someone</SelectItem>
+                  <SelectItem value="clinician">I'm a clinician</SelectItem>
                 </SelectContent>
               </Select>
-              {signupRole !== "patient" && (
+              {signupRole === "caregiver" && (
                 <p className="text-xs text-muted-foreground">
-                  Professional access requires admin approval after you sign up.
+                  You'll set up the person you're helping in the next step.
+                </p>
+              )}
+              {signupRole === "clinician" && (
+                <p className="text-xs text-muted-foreground">
+                  Clinician access requires admin approval after you sign up.
                 </p>
               )}
             </div>
