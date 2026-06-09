@@ -37,6 +37,8 @@ export default function Welcome() {
 
   const launchSession = () => {
     markOnboardingComplete(user?.id);
+    // Launch KPI: survivor reached their first Start (plan A4). Non-blocking.
+    void recordSelfStart(undefined, 'welcome');
     navigate('/smart-coach');
   };
 
