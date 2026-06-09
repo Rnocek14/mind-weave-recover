@@ -75,23 +75,45 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     stroke_date?: string;
     avatar_url?: string;
     profile_notes?: string;
-  }) => {
+    makeActive?: boolean;
+  }): Promise<string | undefined> => {
     if (!userId) return;
 
     try {
-      const { error } = await supabase.from("profiles").insert({
-        user_id: userId,
-        profile_name: data.profile_name,
-        birthdate: data.birthdate || null,
-        stroke_date: data.stroke_date || null,
-        avatar_url: data.avatar_url || null,
-        profile_notes: data.profile_notes || null,
-        is_active: false,
-      });
+      // Patient profiles inherit the owner's Care Account so household
+      // ownership stays intact (caregiver-created or survivor self-created).
+      const { data: owned } = await supabase
+        .from("profiles")
+        .select("care_account_id")
+        .eq("user_id", userId)
+        .not("care_account_id", "is", null)
+        .limit(1)
+        .maybeSingle();
+
+      const { data: inserted, error } = await supabase
+        .from("profiles")
+        .insert({
+          user_id: userId,
+          profile_name: data.profile_name,
+          birthdate: data.birthdate || null,
+          stroke_date: data.stroke_date || null,
+          avatar_url: data.avatar_url || null,
+          profile_notes: data.profile_notes || null,
+          profile_kind: "patient",
+          care_account_id: owned?.care_account_id ?? null,
+          is_active: false,
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
 
+      if (data.makeActive && inserted?.id) {
+        await supabase.rpc("switch_active_profile", { p_profile_id: inserted.id });
+      }
+
       await fetchProfiles();
+      return inserted?.id;
     } catch (error) {
       console.error("Error creating profile:", error);
       throw error;
