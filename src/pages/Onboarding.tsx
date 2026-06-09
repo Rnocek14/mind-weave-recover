@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { buildOnboardingClinicalProfile, canOnboardingOverwrite } from "@/lib/onboardingClinicalProfile";
+import { setProfileProvenance } from "@/lib/profileProvenance";
 
 type ScreenerAnswers = {
   strokeTiming: string | null;
