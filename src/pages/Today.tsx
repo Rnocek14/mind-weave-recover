@@ -12,6 +12,7 @@ import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X, Mes
 import { Button } from '@/components/ui/button';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
+import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
