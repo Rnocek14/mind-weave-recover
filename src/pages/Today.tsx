@@ -253,6 +253,8 @@ export default function Today() {
   const handleStartSession = () => {
     console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
     if (!activeLesson) return;
+    // Launch KPI: survivor independently reached Start (plan A4). Non-blocking.
+    void recordSelfStart();
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
