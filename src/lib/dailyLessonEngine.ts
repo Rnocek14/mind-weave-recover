@@ -871,7 +871,44 @@ export function generateDailyLesson(
         progressionReason = sig.reason;
       }
 
-      const finalScore = baseScore + recencyPenalty + componentPenalty + primaryDomainBoost + speechProfileBoost + struggleBoost + progressionBoost;
+      // Recency guardrail: if this game was seen recently (it carries a recency
+      // penalty), suppress any POSITIVE progression nudge so a "struggling" game
+      // is not re-selected day after day. The negative (advancing) signal is
+      // kept — coasting a recently-seen strong game is fine.
+      let progressionApplied = progressionBoost;
+      if (recencyPenalty < 0 && progressionApplied > 0) {
+        progressionApplied = 0;
+        progressionReason = progressionReason
+          ? `${progressionReason} [suppressed: seen recently]`
+          : '';
+      }
+
+      // De-duplicate struggle: struggleBoost and a "struggling" progression
+      // signal describe the same thing. Take the MAX of the two POSITIVE nudges
+      // (don't sum them) while preserving a negative (advancing) progression.
+      const positiveNudge = Math.max(
+        Math.max(0, struggleBoost),
+        Math.max(0, progressionApplied),
+      );
+      const negativeNudge = Math.min(0, progressionApplied);
+
+      // Clamp the total ADDITIVE positive boost (domain + speech + nudge) so
+      // adaptive signals tip ties but never override clinical priority.
+      const rawPositive =
+        Math.max(0, primaryDomainBoost) +
+        Math.max(0, speechProfileBoost) +
+        positiveNudge;
+      const clampedPositive = Math.min(MAX_POSITIVE_BOOST, rawPositive);
+      const positiveScale = rawPositive > 0 ? clampedPositive / rawPositive : 1;
+
+      const finalScore =
+        baseScore +
+        recencyPenalty +
+        componentPenalty +
+        Math.min(0, primaryDomainBoost) +
+        Math.min(0, speechProfileBoost) +
+        negativeNudge +
+        rawPositive * positiveScale;
 
       selectionReasons.push({
         id,
@@ -880,11 +917,14 @@ export function generateDailyLesson(
         componentPenalty,
         primaryDomainBoost,
         speechProfileBoost,
+        struggleBoost,
+        progressionBoost: progressionApplied,
         finalScore,
         reason: [
           penaltyReason || 'no recency penalty',
           struggleBoost > 0 ? `struggle re-exposure: +${struggleBoost}` : '',
-          progressionReason ? `progression(${progressionBoost >= 0 ? '+' : ''}${progressionBoost}): ${progressionReason}` : '',
+          progressionReason ? `progression(${progressionApplied >= 0 ? '+' : ''}${progressionApplied}): ${progressionReason}` : '',
+          rawPositive > clampedPositive ? `positive boost capped at +${MAX_POSITIVE_BOOST}` : '',
         ].filter(Boolean).join('; '),
       });
 
