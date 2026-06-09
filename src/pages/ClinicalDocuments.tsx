@@ -55,6 +55,8 @@ export default function ClinicalDocuments() {
   const { createVersion, getActiveProfile } = useClinicalProfileVersions(user?.id);
   const { createConflictRecord } = useMergeConflicts(user?.id);
   const { generateSummary } = useRecoverySummary(user?.id);
+  const { hasConsent, isRecording, recordConsent } = useDocumentConsent();
+
   
   const [notes, setNotes] = useState<any[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
