@@ -145,8 +145,11 @@ const Auth = () => {
     setSubmitting(true);
 
     try {
-      const { error } = isSignUp 
-        ? await signUp(email, password, displayName, signupRole)
+      const requestedRole = signupRole === "clinician" ? "clinician" : undefined;
+      const accountIntent = signupRole === "caregiver" ? "caregiver" : undefined;
+
+      const { error } = isSignUp
+        ? await signUp(email, password, displayName, requestedRole, accountIntent)
         : await signIn(email, password);
 
       if (error) {
@@ -160,13 +163,13 @@ const Auth = () => {
         const { data: authUser } = await supabase.auth.getUser();
         const uid = authUser.user?.id;
 
-        // On professional sign-up, record a pending role request (unless an
-        // invite already granted the role). Granting itself is admin-only.
-        if (isSignUp && uid && signupRole !== "patient") {
+        // Only clinicians (professionals reaching other people's data) need an
+        // approval request. Family caregivers are self-serve.
+        if (isSignUp && uid && signupRole === "clinician") {
           await supabase.from("role_requests").insert({
             user_id: uid,
             email: email.trim(),
-            requested_role: signupRole,
+            requested_role: "clinician",
           });
         }
 
@@ -182,7 +185,7 @@ const Auth = () => {
           toast({
             title: isSignUp ? "Account created!" : "Welcome back!",
             description:
-              isSignUp && signupRole !== "patient"
+              isSignUp && signupRole === "clinician"
                 ? "Your access request was submitted for admin approval."
                 : isSignUp
                 ? "Please check your email to verify your account."
