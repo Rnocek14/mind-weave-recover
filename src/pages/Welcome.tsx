@@ -19,6 +19,7 @@ type WelcomeStep = 'greeting' | 'ready';
 export default function Welcome() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { recordSelfStart } = useSurvivorSelfStart();
   const [step, setStep] = useState<WelcomeStep>('greeting');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
