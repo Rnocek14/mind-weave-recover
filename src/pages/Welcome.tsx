@@ -11,6 +11,7 @@ import { ArrowRight, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { markOnboardingComplete } from '@/lib/onboarding';
+import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
 import { cn } from '@/lib/utils';
 
 type WelcomeStep = 'greeting' | 'ready';
@@ -18,6 +19,7 @@ type WelcomeStep = 'greeting' | 'ready';
 export default function Welcome() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { recordSelfStart } = useSurvivorSelfStart();
   const [step, setStep] = useState<WelcomeStep>('greeting');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -35,6 +37,8 @@ export default function Welcome() {
 
   const launchSession = () => {
     markOnboardingComplete(user?.id);
+    // Launch KPI: survivor reached their first Start (plan A4). Non-blocking.
+    void recordSelfStart(undefined, 'welcome');
     navigate('/smart-coach');
   };
 

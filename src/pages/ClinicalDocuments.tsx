@@ -16,6 +16,9 @@ import { useClinicalProfileVersions } from '@/hooks/useClinicalProfileVersions';
 import { useMergeConflicts } from '@/hooks/useMergeConflicts';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { setProfileProvenance } from '@/lib/profileProvenance';
+import { useDocumentConsent, DOCUMENT_CONSENT_TEXT } from '@/hooks/useDocumentConsent';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,6 +57,8 @@ export default function ClinicalDocuments() {
   const { createVersion, getActiveProfile } = useClinicalProfileVersions(user?.id);
   const { createConflictRecord } = useMergeConflicts(user?.id);
   const { generateSummary } = useRecoverySummary(user?.id);
+  const { hasConsent, isRecording, recordConsent } = useDocumentConsent();
+
   
   const [notes, setNotes] = useState<any[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -64,6 +69,8 @@ export default function ClinicalDocuments() {
   const [documentDate, setDocumentDate] = useState(new Date().toISOString().split('T')[0]);
   const [documentTitle, setDocumentTitle] = useState('');
   const [rawText, setRawText] = useState('');
+  const [consentChecked, setConsentChecked] = useState(false);
+
 
   useEffect(() => {
     loadNotes();
@@ -107,7 +114,30 @@ export default function ClinicalDocuments() {
       return;
     }
 
+    // A3: documents are medical records — require explicit processing consent
+    // before storing/parsing anything.
+    if (!hasConsent) {
+      if (!consentChecked) {
+        toast({
+          title: 'Consent required',
+          description: 'Please confirm consent to process this clinical document.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const ok = await recordConsent();
+      if (!ok) {
+        toast({
+          title: 'Could not record consent',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setIsParsing(true);
+    
     
     try {
       // Step 1: Create the clinical note
@@ -185,6 +215,10 @@ export default function ClinicalDocuments() {
                 }
               );
 
+              // Provenance: active profile now derives from an uploaded
+              // document; carry the parser's per-field confidence (plan A2).
+              await setProfileProvenance(user?.id, 'document', data.profile.field_confidence);
+
               toast({
                 title: '✓ Auto-merged successfully',
                 description: 'Conflicts were automatically resolved and merged into your profile',
@@ -212,6 +246,10 @@ export default function ClinicalDocuments() {
               }
             );
 
+            // Provenance: profile derived from an uploaded document (plan A2).
+            await setProfileProvenance(user?.id, 'document', data.profile.field_confidence);
+
+
             toast({
               title: 'Document uploaded and parsed',
               description: 'Clinical profile has been updated with new information',
@@ -231,6 +269,10 @@ export default function ClinicalDocuments() {
               confidence: confidence,
             }
           );
+
+          // Provenance: initial profile derived from an uploaded document (plan A2).
+          await setProfileProvenance(user?.id, 'document', data.profile.field_confidence);
+
 
           toast({
             title: 'Initial profile created',
@@ -390,6 +432,26 @@ export default function ClinicalDocuments() {
                   className="font-mono text-sm"
                 />
               </div>
+
+              {!hasConsent && (
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3">
+                  <Checkbox
+                    id="doc-consent"
+                    checked={consentChecked}
+                    onCheckedChange={(v) => setConsentChecked(v === true)}
+                    disabled={isParsing || isRecording}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="doc-consent"
+                    className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer"
+                  >
+                    {DOCUMENT_CONSENT_TEXT}
+                  </Label>
+                </div>
+              )}
+              
+
               
               <div className="flex justify-end gap-2">
                 <Button
@@ -401,7 +463,7 @@ export default function ClinicalDocuments() {
                 </Button>
                 <Button
                   onClick={handleUploadAndParse}
-                  disabled={isParsing || !rawText.trim()}
+                  disabled={isParsing || isRecording || !rawText.trim() || (!hasConsent && !consentChecked)}
                   className="gap-2"
                 >
                   {isParsing ? (

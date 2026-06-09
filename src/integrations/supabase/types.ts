@@ -1165,11 +1165,12 @@ export type Database = {
         Row: {
           capacity_confirmed_at: string | null
           capacity_confirmed_by: string | null
-          consent_document_id: string
+          consent_document_id: string | null
+          consent_type: string
           consent_version: number
           created_at: string
           document_text_snapshot: string
-          enrollment_id: string
+          enrollment_id: string | null
           id: string
           ip_hash: string | null
           signed_at: string
@@ -1177,15 +1178,17 @@ export type Database = {
           surrogate_relationship: string | null
           surrogate_signed_name: string | null
           user_agent: string | null
+          user_id: string | null
         }
         Insert: {
           capacity_confirmed_at?: string | null
           capacity_confirmed_by?: string | null
-          consent_document_id: string
+          consent_document_id?: string | null
+          consent_type?: string
           consent_version: number
           created_at?: string
           document_text_snapshot: string
-          enrollment_id: string
+          enrollment_id?: string | null
           id?: string
           ip_hash?: string | null
           signed_at?: string
@@ -1193,15 +1196,17 @@ export type Database = {
           surrogate_relationship?: string | null
           surrogate_signed_name?: string | null
           user_agent?: string | null
+          user_id?: string | null
         }
         Update: {
           capacity_confirmed_at?: string | null
           capacity_confirmed_by?: string | null
-          consent_document_id?: string
+          consent_document_id?: string | null
+          consent_type?: string
           consent_version?: number
           created_at?: string
           document_text_snapshot?: string
-          enrollment_id?: string
+          enrollment_id?: string | null
           id?: string
           ip_hash?: string | null
           signed_at?: string
@@ -1209,6 +1214,7 @@ export type Database = {
           surrogate_relationship?: string | null
           surrogate_signed_name?: string | null
           user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2286,6 +2292,7 @@ export type Database = {
           daily_goal_minutes: number | null
           display_name: string | null
           enforce_dose_caps: boolean | null
+          field_confidence: Json
           goals: string[] | null
           hand_bias: string | null
           id: string
@@ -2296,6 +2303,7 @@ export type Database = {
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
+          profile_source: string | null
           runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null
@@ -2317,6 +2325,7 @@ export type Database = {
           daily_goal_minutes?: number | null
           display_name?: string | null
           enforce_dose_caps?: boolean | null
+          field_confidence?: Json
           goals?: string[] | null
           hand_bias?: string | null
           id?: string
@@ -2327,6 +2336,7 @@ export type Database = {
           profile_created_at?: string | null
           profile_name: string
           profile_notes?: string | null
+          profile_source?: string | null
           runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
@@ -2348,6 +2358,7 @@ export type Database = {
           daily_goal_minutes?: number | null
           display_name?: string | null
           enforce_dose_caps?: boolean | null
+          field_confidence?: Json
           goals?: string[] | null
           hand_bias?: string | null
           id?: string
@@ -2358,6 +2369,7 @@ export type Database = {
           profile_created_at?: string | null
           profile_name?: string
           profile_notes?: string | null
+          profile_source?: string | null
           runtime_config?: Json | null
           session_cap_minutes?: number | null
           stroke_date?: string | null
@@ -3275,6 +3287,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      survivor_self_start_events: {
+        Row: {
+          aphasia_type: string | null
+          caregiver_present: boolean | null
+          created_at: string
+          day_index: number | null
+          id: string
+          profile_id: string | null
+          severity: string | null
+          started_at: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          aphasia_type?: string | null
+          caregiver_present?: boolean | null
+          created_at?: string
+          day_index?: number | null
+          id?: string
+          profile_id?: string | null
+          severity?: string | null
+          started_at?: string
+          surface?: string
+          user_id: string
+        }
+        Update: {
+          aphasia_type?: string | null
+          caregiver_present?: boolean | null
+          created_at?: string
+          day_index?: number | null
+          id?: string
+          profile_id?: string | null
+          severity?: string | null
+          started_at?: string
+          surface?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       thought_decision_logs: {
         Row: {
@@ -4380,6 +4431,7 @@ export type Database = {
           daily_goal_minutes: number | null
           display_name: string | null
           enforce_dose_caps: boolean | null
+          field_confidence: Json
           goals: string[] | null
           hand_bias: string | null
           id: string
@@ -4390,6 +4442,7 @@ export type Database = {
           profile_created_at: string | null
           profile_name: string
           profile_notes: string | null
+          profile_source: string | null
           runtime_config: Json | null
           session_cap_minutes: number | null
           stroke_date: string | null

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { buildOnboardingClinicalProfile, canOnboardingOverwrite } from "@/lib/onboardingClinicalProfile";
+import { setProfileProvenance } from "@/lib/profileProvenance";
 
 type ScreenerAnswers = {
   strokeTiming: string | null;
@@ -100,6 +101,8 @@ const Onboarding = () => {
                 p_source_type: 'onboarding',
                 p_change_reason: 'Provisional profile auto-generated from onboarding screener',
               });
+              // Provenance: this profile came from the self-serve screener (plan A2).
+              await setProfileProvenance(user.id, 'onboarding');
             }
           }
         } catch {

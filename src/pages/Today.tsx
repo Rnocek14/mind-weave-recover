@@ -12,6 +12,7 @@ import { ArrowRight, TrendingUp, Loader2, Zap, Flame, Award, Brain, Play, X, Mes
 import { Button } from '@/components/ui/button';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { useAuth } from '@/hooks/useAuth';
+import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
 import { loadLastSessionSummary } from '@/lib/smartCoach/progressNarrative';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoachingMode, type CoachingMode } from '@/contexts/CoachingModeContext';
@@ -93,6 +94,7 @@ export default function Today() {
   // All hooks at the top — never after conditionals
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { recordSelfStart } = useSurvivorSelfStart();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { mode, setMode } = useCoachingMode();
   const { isAtLeast } = useUiMode();
@@ -251,6 +253,8 @@ export default function Today() {
   const handleStartSession = () => {
     console.log('[Today] handleStartSession clicked', { hasLesson: !!activeLesson, blocks: activeLesson?.blocks?.length });
     if (!activeLesson) return;
+    // Launch KPI: survivor independently reached Start (plan A4). Non-blocking.
+    void recordSelfStart();
     // Clear any saved session when starting fresh
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
