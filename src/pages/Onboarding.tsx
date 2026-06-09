@@ -101,6 +101,8 @@ const Onboarding = () => {
                 p_source_type: 'onboarding',
                 p_change_reason: 'Provisional profile auto-generated from onboarding screener',
               });
+              // Provenance: this profile came from the self-serve screener (plan A2).
+              await setProfileProvenance(user.id, 'onboarding');
             }
           }
         } catch {
