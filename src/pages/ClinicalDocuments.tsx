@@ -17,6 +17,8 @@ import { useMergeConflicts } from '@/hooks/useMergeConflicts';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { setProfileProvenance } from '@/lib/profileProvenance';
+import { useDocumentConsent, DOCUMENT_CONSENT_TEXT } from '@/hooks/useDocumentConsent';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
