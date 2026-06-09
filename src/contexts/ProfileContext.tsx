@@ -28,10 +28,14 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
     setLoading(true);
 
     try {
+      // Only patient profiles belong in the switcher / active-profile list.
+      // A caregiver's own record is profile_kind='account_owner' and must
+      // never surface as a patient profile.
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", userId)
+        .eq("profile_kind", "patient")
         .order("profile_created_at", { ascending: true });
 
       if (error) throw error;
