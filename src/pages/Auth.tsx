@@ -58,17 +58,43 @@ const Auth = () => {
       return;
     }
 
-    // No role yet: if they have an open professional request, hold them on the
-    // pending screen instead of dropping them into the patient experience.
+    // No role yet: reconcile any pending professional request. The request may
+    // not exist yet if email confirmation delayed the session at sign-up time,
+    // so we recover it from the user's metadata before deciding where to route.
     (async () => {
-      const { data } = await supabase
+      const metaRole = (user.user_metadata as Record<string, unknown> | null)
+        ?.requested_role;
+      const requestedRole =
+        metaRole === "clinician" || metaRole === "caregiver" ? metaRole : null;
+
+      let { data } = await supabase
         .from("role_requests")
         .select("status")
         .eq("user_id", user.id)
         .eq("status", "pending")
         .limit(1)
         .maybeSingle();
-      navigate(data ? "/pending-approval" : "/today", { replace: true });
+
+      // Backfill a missing request from metadata (idempotent on user_id+role).
+      if (!data && requestedRole) {
+        await supabase.from("role_requests").insert({
+          user_id: user.id,
+          email: user.email ?? "",
+          requested_role: requestedRole,
+        });
+        const recheck = await supabase
+          .from("role_requests")
+          .select("status")
+          .eq("user_id", user.id)
+          .eq("status", "pending")
+          .limit(1)
+          .maybeSingle();
+        data = recheck.data;
+      }
+
+      navigate(data || requestedRole ? "/pending-approval" : "/today", {
+        replace: true,
+      });
     })();
   }, [
     user,
@@ -106,7 +132,7 @@ const Auth = () => {
 
     try {
       const { error } = isSignUp 
-        ? await signUp(email, password, displayName)
+        ? await signUp(email, password, displayName, signupRole)
         : await signIn(email, password);
 
       if (error) {

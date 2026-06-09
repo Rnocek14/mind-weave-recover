@@ -27,15 +27,29 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName?: string,
+    requestedRole?: string,
+  ) => {
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { 
+      options: {
         emailRedirectTo: redirectUrl,
-        data: { display_name: displayName }
-      }
+        // requested_role is persisted in user metadata so it survives email
+        // confirmation. Auth.tsx reconciles it into role_requests on first
+        // authenticated load (the signUp-time insert can miss when there is
+        // no session yet because email confirmation is enabled).
+        data: {
+          display_name: displayName,
+          ...(requestedRole && requestedRole !== "patient"
+            ? { requested_role: requestedRole }
+            : {}),
+        },
+      },
     });
     return { error };
   };

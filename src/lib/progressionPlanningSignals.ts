@@ -52,16 +52,20 @@ export interface ProgressionPlanningSignals {
   maxRelativeProgress: number;
 }
 
+// Gentle-nudge scaling: these MUST stay small relative to baseScore (high=+5)
+// and the recency penalty (-3) so progression tips ties without overriding
+// clinical priority or variety. A struggling game nudges up by +2 (never the
+// +5 that would re-select it through a -3 recency penalty day after day).
 const BOOST = {
-  struggling: 5,
-  plateauing: 4,
-  lagging: 3,
-  advancing: -3,
+  struggling: 2,
+  plateauing: 2,
+  lagging: 1,
+  advancing: -2,
   steady: 0,
 } as const;
 
 /** A game is "lagging" if it trails the lead game by this much (in levels). */
-const LAGGING_GAP_LEVELS = 2;
+const LAGGING_GAP_LEVELS = 3;
 
 /**
  * Fetch the latest progression state per exercise for a profile.
