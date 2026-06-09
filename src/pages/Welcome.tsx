@@ -11,6 +11,7 @@ import { ArrowRight, MessageCircle, Heart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { markOnboardingComplete } from '@/lib/onboarding';
+import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
 import { cn } from '@/lib/utils';
 
 type WelcomeStep = 'greeting' | 'ready';
