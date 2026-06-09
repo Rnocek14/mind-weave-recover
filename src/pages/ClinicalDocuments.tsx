@@ -463,7 +463,7 @@ export default function ClinicalDocuments() {
                 </Button>
                 <Button
                   onClick={handleUploadAndParse}
-                  disabled={isParsing || !rawText.trim()}
+                  disabled={isParsing || isRecording || !rawText.trim() || (!hasConsent && !consentChecked)}
                   className="gap-2"
                 >
                   {isParsing ? (
