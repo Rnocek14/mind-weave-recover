@@ -191,6 +191,75 @@ Only include impairments that are clearly present. Ignore negated findings (e.g.
   }
 }
 
+/**
+ * Derive a per-field confidence map describing HOW each clinical field was
+ * obtained. "high" = directly quoted from the note (rule-based source phrase),
+ * "medium" = present after LLM enhancement, "low" = only inferred from lesion
+ * territory. Fields with no value are omitted so we never claim confidence in
+ * something we didn't extract.
+ */
+function buildFieldConfidence(
+  finalProfile: any,
+  ruleBasedProfile: any,
+  inferredProfile: any
+): Record<string, 'high' | 'medium' | 'low'> {
+  const out: Record<string, 'high' | 'medium' | 'low'> = {};
+  const sp = ruleBasedProfile?.source_phrases || {};
+
+  const rate = (
+    hasValue: boolean,
+    quotedKey: string,
+    inferredHas: boolean
+  ): 'high' | 'medium' | 'low' | undefined => {
+    if (!hasValue) return undefined;
+    if (sp[quotedKey] && (Array.isArray(sp[quotedKey]) ? sp[quotedKey].length > 0 : true)) {
+      return 'high';
+    }
+    if (inferredHas) return 'low';
+    return 'medium';
+  };
+
+  const imp = finalProfile?.impairments || {};
+  for (const cat of ['motor', 'speech', 'cognitive', 'visual']) {
+    const c = rate(
+      Array.isArray(imp[cat]) && imp[cat].length > 0,
+      cat,
+      Array.isArray(inferredProfile?.impairments?.[cat]) &&
+        inferredProfile.impairments[cat].length > 0
+    );
+    if (c) out[`impairments.${cat}`] = c;
+  }
+
+  const sideC = rate(
+    !!finalProfile?.affected_side,
+    'affected_side',
+    !!inferredProfile?.affected_side
+  );
+  if (sideC) out.affected_side = sideC;
+
+  const locHas = Array.isArray(finalProfile?.stroke_location)
+    ? finalProfile.stroke_location.length > 0
+    : !!finalProfile?.stroke_location;
+  const locC = rate(
+    locHas,
+    'stroke_location',
+    Array.isArray(inferredProfile?.stroke_location) &&
+      inferredProfile.stroke_location.length > 0
+  );
+  if (locC) out.stroke_location = locC;
+
+  const focusC = rate(
+    Array.isArray(finalProfile?.therapy_focus) &&
+      finalProfile.therapy_focus.length > 0,
+    'therapy_focus',
+    Array.isArray(inferredProfile?.therapy_focus) &&
+      inferredProfile.therapy_focus.length > 0
+  );
+  if (focusC) out.therapy_focus = focusC;
+
+  return out;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
