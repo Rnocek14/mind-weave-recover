@@ -163,6 +163,21 @@ export function useAdaptationTrialLogger(opts: Options) {
     if (trialBuf.current.length === 0 && anomalyBuf.current.length === 0) return;
     const trials = trialBuf.current.splice(0, trialBuf.current.length);
     const anomalies = anomalyBuf.current.splice(0, anomalyBuf.current.length);
+    // Backfill profile_id for rows buffered before the profile finished loading.
+    // Guard: warn once if we still cannot resolve a profile while a session exists.
+    for (const t of trials) {
+      if (!t.profile_id && profileIdRef.current) {
+        t.profile_id = profileIdRef.current;
+      }
+      if (!t.profile_id && t.session_id && !nullProfileWarnedRef.current) {
+        nullProfileWarnedRef.current = true;
+        console.warn(
+          '[adaptation_trial_logs] profile_id is null while session_id is set — ' +
+            'active profile may not be loaded. Trial will be logged unattributed.',
+          { session_id: t.session_id, exercise_slug: t.exercise_slug },
+        );
+      }
+    }
     let hadFailure = false;
     try {
       if (trials.length > 0) {
