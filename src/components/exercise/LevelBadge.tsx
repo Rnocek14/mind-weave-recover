@@ -45,8 +45,15 @@ interface LevelBadgeProps {
   compact?: boolean;
   /** Rolling success rate (0..1). When provided, drives the flow-zone label. */
   successRate?: number | null;
-  /** Current support / cue state. When provided, renders a "Support" line. */
+  /** Current support / cue state. When provided, renders a support line. */
   support?: SupportInput;
+  /**
+   * Explicit, game-specific support wording shown verbatim (e.g.
+   * "Audio Support On", "Hint used"). When provided it overrides the
+   * generic cue-level text and is always rendered. Use this to describe
+   * support honestly per game.
+   */
+  supportLabel?: string;
 }
 
 const BAND_CLASSES: Record<LevelDescriptor['band'], string> = {
