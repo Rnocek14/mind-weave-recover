@@ -172,6 +172,7 @@ export default function MinimalPairsExercise() {
     audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
+    reactionTimeMs: number;
   }) => {
     const supportUsed = mapMinimalPairsSupport({
       audioReplayCount: trialData.audioReplayCount,
