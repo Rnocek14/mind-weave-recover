@@ -2641,7 +2641,7 @@ export const PhotoNamingGame = ({
               <span className="text-muted-foreground font-normal"> / {state.totalTrials}</span>
             </span>
           </div>
-          <LevelBadge descriptor={levelDescriptor} compact />
+          <LevelBadge descriptor={levelDescriptor} compact successRate={recentSuccessRate} support={cueLevel} />
         </div>
         <Progress
           value={(state.trialNumber / state.totalTrials) * 100}

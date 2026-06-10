@@ -133,6 +133,7 @@ export function FixSentenceGame({
     currentDifficulty,
     recordTrial: recordAdaptiveTrial,
     levelDescriptor,
+    recentSuccessRate: adaptiveSuccessRate,
     flushAutoLog,
   } = useInGameAdaptation({
     exerciseSlug: 'fix_sentence',
@@ -678,7 +679,7 @@ export function FixSentenceGame({
         <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
           <div className="flex items-center gap-2">
-            <LevelBadge descriptor={levelDescriptor} compact />
+            <LevelBadge descriptor={levelDescriptor} compact successRate={adaptiveSuccessRate ?? null} />
             <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
             <span>{game.correctCount} correct</span>
           </div>
