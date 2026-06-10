@@ -187,11 +187,12 @@ Deno.serve(async (req) => {
     // Log summary for monitoring
     const result = {
       success: true,
-      sweptCount: updateCount ?? staleCount,
+      sweptCount: updateCount,
+      updateFailures,
       sweepTime,
       thresholdMinutes,
       staleSessionIds: staleIds,
-      message: `Swept ${updateCount ?? staleCount} stale sessions`
+      message: `Swept ${updateCount} stale sessions`
     };
 
     console.log(`[SessionSweeper] Sweep complete:`, result);
