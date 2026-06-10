@@ -5,6 +5,7 @@ import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } from '@/lib/successBandController';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { tierToLevel, type LevelScale } from '@/lib/gameLevels';
 import {
