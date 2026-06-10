@@ -89,6 +89,7 @@ interface Options {
 
 interface PendingRow {
   user_id: string;
+  profile_id: string | null;
   session_id: string | null;
   exercise_slug: string;
   trial_index: number;
