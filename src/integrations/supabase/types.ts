@@ -285,6 +285,7 @@ export type Database = {
           graded_score: number | null
           id: string
           narration: string | null
+          profile_id: string | null
           reaction_time_ms: number | null
           recommended_action: string | null
           scaffold_level: number | null
@@ -317,6 +318,7 @@ export type Database = {
           graded_score?: number | null
           id?: string
           narration?: string | null
+          profile_id?: string | null
           reaction_time_ms?: number | null
           recommended_action?: string | null
           scaffold_level?: number | null
@@ -349,6 +351,7 @@ export type Database = {
           graded_score?: number | null
           id?: string
           narration?: string | null
+          profile_id?: string | null
           reaction_time_ms?: number | null
           recommended_action?: string | null
           scaffold_level?: number | null
@@ -2475,6 +2478,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      progression_events: {
+        Row: {
+          created_at: string
+          evidence_met: boolean | null
+          exercise_slug: string
+          id: string
+          leveled_up: boolean
+          mastery_verdict: string | null
+          metadata: Json
+          next_level: number | null
+          next_progress_pct: number | null
+          next_support_baseline: number | null
+          prev_level: number | null
+          prev_progress_pct: number | null
+          prev_support_baseline: number | null
+          profile_id: string
+          progress_delta: number | null
+          session_id: string | null
+          source: string
+          trial_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evidence_met?: boolean | null
+          exercise_slug: string
+          id?: string
+          leveled_up?: boolean
+          mastery_verdict?: string | null
+          metadata?: Json
+          next_level?: number | null
+          next_progress_pct?: number | null
+          next_support_baseline?: number | null
+          prev_level?: number | null
+          prev_progress_pct?: number | null
+          prev_support_baseline?: number | null
+          profile_id: string
+          progress_delta?: number | null
+          session_id?: string | null
+          source?: string
+          trial_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evidence_met?: boolean | null
+          exercise_slug?: string
+          id?: string
+          leveled_up?: boolean
+          mastery_verdict?: string | null
+          metadata?: Json
+          next_level?: number | null
+          next_progress_pct?: number | null
+          next_support_baseline?: number | null
+          prev_level?: number | null
+          prev_progress_pct?: number | null
+          prev_support_baseline?: number | null
+          profile_id?: string
+          progress_delta?: number | null
+          session_id?: string | null
+          source?: string
+          trial_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       qa_runs: {
         Row: {
