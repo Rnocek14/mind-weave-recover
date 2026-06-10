@@ -2911,6 +2911,26 @@ export const PhotoNamingGame = ({
               </div>
             ))}
           </div>
+
+          {/* Phase 1B — patient-facing manual confirm fallback.
+              Per-trial "I Said It" for severe aphasia / mic-ASR failure.
+              Available in speech mode whenever the trial is active so users
+              who can't be transcribed still get credit (participation +
+              practice accuracy; never ASR/independent accuracy). */}
+          {useVoice && !showFeedback && !timedOut && !selectedAnswer && (
+            <div className="mt-2 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleManualConfirm}
+                disabled={showFeedback}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                I Said It
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         // Caregiver assist mode controls
