@@ -255,6 +255,7 @@ export function useAdaptationTrialLogger(opts: Options) {
 
     const row: PendingRow = {
       user_id: opts.userId,
+      profile_id: opts.profileId ?? null,
       session_id: opts.sessionId ?? null,
       exercise_slug: canonicalSlug,
       trial_index: input.trialIndex,
