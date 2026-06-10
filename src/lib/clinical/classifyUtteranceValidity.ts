@@ -66,7 +66,17 @@ export interface ValidityResult {
   reason: string;
   /** 0..1 — how confident the gate is in its classification */
   confidence: number;
+  /**
+   * Counts toward ASR/clinically-verified accuracy (summary.accuracy /
+   * independent_accuracy). FALSE for manual_confirmed — that axis stays clean.
+   */
   countsTowardScore: boolean;
+  /** Phase 1B — counts toward session participation/engagement. */
+  countsTowardParticipation: boolean;
+  /** Phase 1B — counts toward coarse practice accuracy (may include manual). */
+  countsTowardPracticeAccuracy: boolean;
+  /** Who confirmed this trial ('asr' for verified attempts, null otherwise). */
+  confirmedBy: ConfirmedBy | null;
   signals: ValiditySignals;
 }
 
