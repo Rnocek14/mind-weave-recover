@@ -44,6 +44,11 @@ export default function PatternMatchExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
+  // Per-trial clinical telemetry (exercise_events). pattern-match was previously
+  // "dark" — its onTrialComplete only console.logged, so no per-trial rows were
+  // ever written. Wire the shared telemetry hook so each trial is persisted.
+  const { logTrial: logPatternTrial } = useExerciseTelemetry(sessionId, 'pattern-match');
+
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'pattern-match', domainSlug: 'executive_function', fromLesson });
   // Fetch clinical profile
   useEffect(() => {
