@@ -48,6 +48,8 @@ interface MinimalPairsGameProps {
     audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
+    /** Real measured response latency (ms) from trial display to answer. */
+    reactionTimeMs: number;
   }) => void;
 }
 
