@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     // Find and update stale sessions in one query
     const { data: staleSessions, error: selectError } = await supabase
       .from('sessions')
-      .select('id, user_id, profile_id, started_at, plan')
+      .select('id, user_id, profile_id, started_at, plan, summary')
       .is('ended_at', null)
       .lt('started_at', cutoffTime);
 
@@ -122,30 +122,67 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update all stale sessions
     const staleIds = staleSessions!.map(s => s.id);
-    
-    const { error: updateError, count: updateCount } = await supabase
-      .from('sessions')
-      .update({
-        ended_at: sweepTime,
-        ended_reason: 'timeout_sweep',
-        summary: { 
-          swept: true, 
-          swept_at: sweepTime,
-          stale_since: cutoffTime 
-        }
-      })
-      .in('id', staleIds)
-      .is('ended_at', null); // Double-check still not ended
 
-    if (updateError) {
-      console.error('[SessionSweeper] Error updating stale sessions:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update stale sessions', details: updateError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Pull all scored trials for these sessions so we can stamp the canonical
+    // accuracy summary (instead of overwriting with a bare swept marker).
+    const { data: events, error: eventsError } = await supabase
+      .from('exercise_events')
+      .select('session_id, score, cue_level, counts_toward_score, validity_label')
+      .in('session_id', staleIds);
+
+    if (eventsError) {
+      console.error('[SessionSweeper] Error fetching exercise_events:', eventsError);
     }
+
+    const eventsBySession = new Map<string, ScoredRow[]>();
+    for (const e of (events ?? []) as Array<ScoredRow & { session_id: string }>) {
+      const arr = eventsBySession.get(e.session_id) ?? [];
+      arr.push(e);
+      eventsBySession.set(e.session_id, arr);
+    }
+
+    // Update each stale session individually so we can merge its own summary
+    // (preserving summary.mode) and stamp its own accuracy fields.
+    let updateCount = 0;
+    let updateFailures = 0;
+    for (const s of staleSessions!) {
+      const existingSummary = (s.summary as Record<string, unknown> | null) ?? {};
+      const accFields = accuracySummaryFields(eventsBySession.get(s.id) ?? []);
+      const mergedSummary = {
+        ...existingSummary,
+        ...accFields,
+        swept: true,
+        swept_at: sweepTime,
+        stale_since: cutoffTime,
+      };
+
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({
+          ended_at: sweepTime,
+          ended_reason: 'timeout_sweep',
+          duration_sec: Math.max(
+            0,
+            Math.round((Date.parse(sweepTime) - Date.parse(s.started_at as string)) / 1000),
+          ),
+          summary: mergedSummary,
+        })
+        .eq('id', s.id)
+        .is('ended_at', null); // Double-check still not ended
+
+      if (updateError) {
+        updateFailures += 1;
+        console.error('[SessionSweeper] Error updating session', s.id, updateError.message);
+      } else {
+        updateCount += 1;
+      }
+    }
+
+    if (updateFailures > 0) {
+      console.warn(`[SessionSweeper] ${updateFailures} session updates failed`);
+    }
+
 
     // Log summary for monitoring
     const result = {
