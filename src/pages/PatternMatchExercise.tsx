@@ -211,6 +211,9 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
+            // UX1B presentation-only: mirror live difficulty + rolling success.
+            setCurrentChallenge(data.difficultyLevel);
+            setRecentResults((prev) => [...prev, data.correct].slice(-5));
             void logPatternTrial({
               correct: data.correct,
               reactionTimeMs: data.reactionTimeMs,
