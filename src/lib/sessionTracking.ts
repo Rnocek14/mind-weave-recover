@@ -238,8 +238,11 @@ export const awardAchievement = async (userId: string, type: string, value: numb
   const { error } = await supabase
     .from('achievements')
     .upsert(
+      // Conflict target must match the existing unique index
+      // achievements_profile_id_type_key (profile_id, type). The previous
+      // 'user_id,type' target had no matching constraint -> Postgres 42P10.
       { user_id: userId, profile_id: profile.id, type, value, awarded_at: new Date().toISOString() },
-      { onConflict: 'user_id,type', ignoreDuplicates: true }
+      { onConflict: 'profile_id,type', ignoreDuplicates: true }
     );
   
   if (error && !error.message.includes('duplicate')) {
