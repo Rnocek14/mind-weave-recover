@@ -299,6 +299,21 @@ export const useExerciseTelemetry = (
             validity_bucket: gate.bucket,
             counts_toward_score: gate.shouldScore,
           };
+          // Promote to dedicated top-level columns so analytics/research can
+          // distinguish no-response / unclear / ASR-failed / noise without
+          // digging through JSON. (Columns existed but were 100% null before.)
+          eventData.validity_label = gate.label;
+          eventData.validity_confidence =
+            typeof trial.validity.confidence === 'number' ? trial.validity.confidence : null;
+          eventData.validity_reason = gate.reason;
+          eventData.validity_signals = trial.validity.signals ?? null;
+          eventData.counts_toward_score = gate.shouldScore;
+        } else {
+          // No classifier verdict supplied (non-speech trial, or speech with no
+          // gate). A trial that was logged with a definite correct/incorrect
+          // outcome still counts toward score; leave validity_label null so it
+          // is distinguishable from a classified attempt.
+          eventData.counts_toward_score = true;
         }
 
         const { error } = await supabase.from('exercise_events').insert(eventData);
