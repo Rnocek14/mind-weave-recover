@@ -679,7 +679,7 @@ export function FixSentenceGame({
         <div className="flex justify-between items-center text-xs sm:text-sm text-muted-foreground">
           <span>{game.currentIndex + 1}/{game.totalTrials}</span>
           <div className="flex items-center gap-2">
-            <LevelBadge descriptor={levelDescriptor} compact successRate={game.recentSuccessRate ?? null} />
+            <LevelBadge descriptor={levelDescriptor} compact successRate={adaptiveSuccessRate ?? null} />
             <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
             <span>{game.correctCount} correct</span>
           </div>
