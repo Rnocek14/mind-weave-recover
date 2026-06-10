@@ -514,6 +514,13 @@ function PhotoNamingExerciseInner() {
         recordingDurationMs: result.recordingDurationMs ?? null,
         acousticMetrics: result.acousticMetrics ?? null,
         targetWord: trial.target,
+        // Phase 1B — manual confirmation metadata. When a human confirmed a
+        // correct response that ASR could not verify, this routes the trial to
+        // the manual_confirmed label (participation + practice accuracy only).
+        manualConfirmed: result.manualConfirmed ?? false,
+        confirmedBy: result.confirmedBy ?? null,
+        asrVerified: result.asrVerified ?? undefined,
+        confirmationMode: result.confirmationMode ?? null,
       });
       await submitTrial({
         profileId: activeProfile?.id,
