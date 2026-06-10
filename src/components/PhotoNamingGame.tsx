@@ -90,6 +90,12 @@ interface PhotoNamingGameProps {
     frustrationLevel?: string;
     recentSuccessRate?: number;
     trialCount?: number;
+    // Phase 1B — manual-confirmation metadata. Set when the trial outcome was
+    // confirmed by a human (caregiver/patient) rather than ASR-verified.
+    manualConfirmed?: boolean;
+    confirmedBy?: 'user' | 'caregiver';
+    confirmationMode?: 'asr' | 'manual' | 'caregiver';
+    asrVerified?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
