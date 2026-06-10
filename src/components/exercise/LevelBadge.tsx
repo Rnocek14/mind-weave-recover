@@ -1,12 +1,22 @@
 /**
- * LevelBadge — patient-facing 1–10 difficulty chip.
+ * LevelBadge — patient-facing "Today's Challenge" indicator.
  *
- * Source of truth: useInGameAdaptation.currentLevel + levelDescriptor.
- * Renders a small chip with a tooltip explaining what makes the level harder.
- * Animates briefly when the level changes (per visible-adaptation-cues memory).
+ * UX1: shows the in-session adaptive difficulty as a friendly star meter +
+ * flow-zone label ("Good challenge") instead of a raw "D5/10" number, with an
+ * optional Support line. This is the SHORT-TERM session challenge ONLY — it is
+ * deliberately separate from the long-term Recovery (Clinical) Level, which is
+ * never shown during gameplay.
+ *
+ * Source of truth: useInGameAdaptation.levelDescriptor (+ optional
+ * recentSuccessRate for the flow zone, and cue/support state).
+ *
+ * Backward compatible: only `descriptor` is required. Existing call sites that
+ * pass just `descriptor` (and `compact`) keep working — they simply show the
+ * stars + band label until `successRate` / `support` are wired in.
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -16,12 +26,27 @@ import {
 } from '@/components/ui/tooltip';
 import type { LevelDescriptor } from '@/lib/gameLevels';
 
+/** Normalized support state. Accepts a few shapes for convenience. */
+export type SupportInput =
+  | 'none'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | boolean
+  | number // cueLevel 0..3
+  | null
+  | undefined;
+
 interface LevelBadgeProps {
   descriptor: LevelDescriptor;
   /** Optional className for layout (e.g. align-self). */
   className?: string;
-  /** Compact variant hides the label text, keeps "L4 / 10". */
+  /** Compact variant keeps it tight; both variants now show stars + label. */
   compact?: boolean;
+  /** Rolling success rate (0..1). When provided, drives the flow-zone label. */
+  successRate?: number | null;
+  /** Current support / cue state. When provided, renders a "Support" line. */
+  support?: SupportInput;
 }
 
 const BAND_CLASSES: Record<LevelDescriptor['band'], string> = {
@@ -32,8 +57,55 @@ const BAND_CLASSES: Record<LevelDescriptor['band'], string> = {
   mastery: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300',
 };
 
-export function LevelBadge({ descriptor, className, compact = false }: LevelBadgeProps) {
+/** 1..10 difficulty → 1..5 filled stars. */
+function levelToStars(level: number): number {
+  return Math.max(1, Math.min(5, Math.round(level / 2)));
+}
+
+/** Friendly, non-punitive flow-zone label. */
+function flowLabel(
+  successRate: number | null | undefined,
+  fallback: string,
+): string {
+  if (successRate == null || !Number.isFinite(successRate)) return fallback;
+  if (successRate >= 0.9) return 'Going strong';
+  if (successRate >= 0.7) return 'Good challenge';
+  if (successRate >= 0.5) return 'Warming up';
+  return 'Taking it steady';
+}
+
+/** Normalize the various support shapes into none|low|medium|high. */
+function normalizeSupport(input: SupportInput): 'none' | 'low' | 'medium' | 'high' {
+  if (input == null || input === false) return 'none';
+  if (input === true) return 'low';
+  if (typeof input === 'number') {
+    if (input <= 0) return 'none';
+    if (input === 1) return 'low';
+    if (input === 2) return 'medium';
+    return 'high';
+  }
+  return input;
+}
+
+const SUPPORT_TEXT: Record<'none' | 'low' | 'medium' | 'high', string> = {
+  none: 'Independent',
+  low: 'Support: Low',
+  medium: 'Support: Medium',
+  high: 'Support: High',
+};
+
+export function LevelBadge({
+  descriptor,
+  className,
+  compact = false,
+  successRate,
+  support,
+}: LevelBadgeProps) {
   const { level, label, band, levers } = descriptor;
+  const stars = levelToStars(level);
+  const flow = flowLabel(successRate, label);
+  const supportState = normalizeSupport(support);
+
   const previousLevelRef = useRef(level);
   const [pulse, setPulse] = useState(false);
 
@@ -52,34 +124,60 @@ export function LevelBadge({ descriptor, className, compact = false }: LevelBadg
         <TooltipTrigger asChild>
           <div
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium select-none transition-all',
+              'inline-flex flex-col gap-0.5 rounded-lg border px-2.5 py-1 select-none transition-all',
               BAND_CLASSES[band],
-              pulse && 'ring-2 ring-current ring-offset-1 scale-105',
+              pulse && 'ring-2 ring-current ring-offset-1 scale-105 motion-reduce:scale-100 motion-reduce:ring-0',
               className,
             )}
-            aria-label={`Session Difficulty ${level} of 10, ${label}`}
+            aria-label={
+              `Today's Challenge ${flow}.` +
+              (supportState !== 'none' ? ` ${SUPPORT_TEXT[supportState]}.` : '')
+            }
             role="status"
+            aria-live="polite"
           >
-            <span className="font-semibold tabular-nums">D{level}</span>
-            <span className="opacity-70 tabular-nums">/ 10</span>
-            {!compact && (
-              <span className="hidden sm:inline opacity-90">· {label}</span>
+            <span className="inline-flex items-center gap-1.5">
+              {!compact && (
+                <span className="text-[11px] font-medium opacity-80">Today's Challenge</span>
+              )}
+              <span className="inline-flex items-center" aria-hidden>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn(
+                      'h-3 w-3',
+                      i < stars ? 'fill-current' : 'opacity-30',
+                    )}
+                  />
+                ))}
+              </span>
+              <span className="text-xs font-semibold">{flow}</span>
+            </span>
+            {supportState !== 'none' && (
+              <span className="text-[11px] font-medium opacity-90">
+                {SUPPORT_TEXT[supportState]}
+              </span>
             )}
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[240px] text-xs">
-          <div className="font-semibold mb-1">Session Difficulty {level} · {label}</div>
-          <div className="mb-1 opacity-75">
-            Temporary in-session difficulty. Separate from your persistent Clinical Level.
+          <div className="font-semibold mb-1">Today's Challenge</div>
+          <div className="mb-1 opacity-80">
+            This changes during practice to keep things at the right level. It is
+            separate from your long-term Recovery Level.
           </div>
-          {levers.length > 0 ? (
+          {supportState !== 'none' && (
+            <div className="mb-1 opacity-80">
+              {SUPPORT_TEXT[supportState]} — a little extra help right now. Getting
+              support is part of practice.
+            </div>
+          )}
+          {levers.length > 0 && (
             <ul className="list-disc pl-4 space-y-0.5 opacity-90">
               {levers.map((l) => (
                 <li key={l}>{l}</li>
               ))}
             </ul>
-          ) : (
-            <div className="opacity-80">Adapts to your performance.</div>
           )}
         </TooltipContent>
       </Tooltip>
