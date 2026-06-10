@@ -715,6 +715,30 @@ function PhotoNamingExerciseInner() {
       };
       if (!fromLesson) {
         updatePayload.ended_at = new Date().toISOString();
+
+        // Phase 1 data-integrity: standalone session-end must stamp the same
+        // canonical accuracy fields as the daily-session lifecycle so plateau /
+        // regression detectors and clinician analytics receive a value.
+        // (When part of a lesson, LessonFlow/useSessionLifecycle owns this.)
+        try {
+          const { computeSessionAccuracySummary } = await import('@/lib/sessionAccuracySummary');
+          const { data: existing } = await supabase
+            .from('sessions')
+            .select('summary')
+            .eq('id', sessionId)
+            .maybeSingle();
+          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
+          const acc = await computeSessionAccuracySummary(sessionId);
+          updatePayload.summary = {
+            ...existingSummary,
+            ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
+            independent_accuracy: acc.independent_accuracy,
+            cue_assisted_accuracy: acc.cue_assisted_accuracy,
+            scored_trials: acc.scored_trials,
+          };
+        } catch (err) {
+          console.warn('[PhotoNamingExercise] failed to stamp accuracy summary:', err);
+        }
       }
       await supabase
         .from('sessions')
