@@ -468,6 +468,11 @@ function PhotoNamingExerciseInner() {
     frustrationLevel?: string;
     recentSuccessRate?: number;
     trialCount?: number;
+    // Phase 1B — manual-confirmation metadata
+    manualConfirmed?: boolean;
+    confirmedBy?: 'user' | 'caregiver';
+    confirmationMode?: 'asr' | 'manual' | 'caregiver';
+    asrVerified?: boolean;
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
