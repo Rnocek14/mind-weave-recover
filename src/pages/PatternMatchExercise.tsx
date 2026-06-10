@@ -38,6 +38,16 @@ export default function PatternMatchExercise() {
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
 
+  // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
+  // difficulty emitted by PatternMatchGame and a rolling success rate derived
+  // from observed trial correctness. Does NOT feed adaptation/scoring/telemetry.
+  const [currentChallenge, setCurrentChallenge] = useState<number>(config?.startDifficulty || 3);
+  const [recentResults, setRecentResults] = useState<boolean[]>([]);
+  const challengeSuccessRate =
+    recentResults.length >= 2
+      ? recentResults.filter(Boolean).length / recentResults.length
+      : null;
+
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
     lessonAdaptations,
