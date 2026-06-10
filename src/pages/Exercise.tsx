@@ -890,17 +890,48 @@ const Exercise = () => {
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
+                // Phase 1B — classify validity (incl. manual-confirm) BEFORE
+                // scoring so the lesson/targeted-practice flow stamps the same
+                // top-level validity columns + scoring axes as standalone.
+                const validity = classifyUtteranceValidity({
+                  transcript: result.whisperTranscript,
+                  asrConfidence: result.whisperConfidence ?? null,
+                  recordingDurationMs: result.recordingDurationMs ?? null,
+                  acousticMetrics: result.acousticMetrics ?? null,
+                  targetWord: result.errorClassification ? undefined : undefined,
+                  manualConfirmed: result.manualConfirmed ?? false,
+                  confirmedBy: result.confirmedBy ?? null,
+                  asrVerified: result.asrVerified ?? undefined,
+                  confirmationMode: result.confirmationMode ?? null,
+                });
                 await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.cueLevel,
                   errorType: result.errorType,
                   errorClassification: result.errorClassification,
+                  whisperTranscript: result.whisperTranscript,
+                  whisperConfidence: result.whisperConfidence,
+                  browserTranscript: result.browserTranscript,
+                  attemptId: result.attemptId,
+                  trialIndex: result.trialIndex,
+                  acousticMetrics: result.acousticMetrics,
+                  audioStoragePath: result.audioStoragePath,
+                  audioMimeType: result.audioMimeType,
+                  recordingDurationMs: result.recordingDurationMs,
+                  validity,
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
+                    // Phase 1B — manual-confirmation provenance
+                    confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
+                    confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+                    manual_confirmed: result.manualConfirmed ?? false,
+                    asr_verified: result.asrVerified ?? false,
+                    is_targeted_practice: !!lessonFocusWords?.length,
+                    targeted_words: lessonFocusWords?.length ? lessonFocusWords : null,
                   },
                 });
                 
