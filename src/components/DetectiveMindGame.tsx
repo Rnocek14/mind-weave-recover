@@ -631,7 +631,7 @@ export function DetectiveMindGame({
           <span className="text-xs text-muted-foreground">· Rank</span>
         </div>
         <div className="flex items-center gap-2">
-          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact successRate={adaptation.recentSuccessRate ?? null} />
         </div>
         <div className="text-muted-foreground text-xs sm:text-sm">
           Case {currentIndex + 1} of {totalCases}
