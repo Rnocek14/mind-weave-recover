@@ -74,6 +74,8 @@ export interface TrialLogInput {
 
 interface Options {
   userId: string | undefined | null;
+  /** Active patient profile id — attributes telemetry per profile (multi-patient households). */
+  profileId?: string | undefined | null;
   sessionId: string | null | undefined;
   exerciseSlug: string;
   /** Default true in dev, false in prod. */
