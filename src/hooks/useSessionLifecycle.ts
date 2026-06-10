@@ -175,6 +175,7 @@ export const useSessionLifecycle = ({
             lastExerciseDurationSec: durationSec,
             lastExerciseSlug: exerciseSlug,
             lastExerciseEndedAt: new Date().toISOString(),
+            ...accFields,
           };
 
           const { error } = await supabase
