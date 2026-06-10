@@ -721,7 +721,7 @@ function PhotoNamingExerciseInner() {
         // regression detectors and clinician analytics receive a value.
         // (When part of a lesson, LessonFlow/useSessionLifecycle owns this.)
         try {
-          const { computeSessionAccuracySummary } = await import('@/lib/sessionAccuracySummary');
+          const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('@/lib/sessionAccuracySummary');
           const { data: existing } = await supabase
             .from('sessions')
             .select('summary')
@@ -731,10 +731,7 @@ function PhotoNamingExerciseInner() {
           const acc = await computeSessionAccuracySummary(sessionId);
           updatePayload.summary = {
             ...existingSummary,
-            ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
-            independent_accuracy: acc.independent_accuracy,
-            cue_assisted_accuracy: acc.cue_assisted_accuracy,
-            scored_trials: acc.scored_trials,
+            ...accuracySummaryToSummaryFields(acc),
           };
         } catch (err) {
           console.warn('[PhotoNamingExercise] failed to stamp accuracy summary:', err);
