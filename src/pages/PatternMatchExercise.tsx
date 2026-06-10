@@ -7,7 +7,8 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, SkipForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { DifficultyInfoBadge } from '@/components/DifficultyInfoBadge';
+import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { describeLevel } from '@/lib/gameLevels';
 import { useExerciseConfig } from '@/hooks/useExerciseConfig';
 import { useExerciseGating } from '@/hooks/useExerciseGating';
 import { ExerciseAdaptationBanner } from '@/components/ExerciseAdaptationBanner';
@@ -36,6 +37,16 @@ export default function PatternMatchExercise() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+
+  // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
+  // difficulty emitted by PatternMatchGame and a rolling success rate derived
+  // from observed trial correctness. Does NOT feed adaptation/scoring/telemetry.
+  const [currentChallenge, setCurrentChallenge] = useState<number>(3);
+  const [recentResults, setRecentResults] = useState<boolean[]>([]);
+  const challengeSuccessRate =
+    recentResults.length >= 2
+      ? recentResults.filter(Boolean).length / recentResults.length
+      : null;
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -77,6 +88,11 @@ export default function PatternMatchExercise() {
   );
   
   const { getAdaptations } = useExerciseGating(user?.id, activeProfile?.id);
+
+  // Seed the displayed challenge from config until the first trial reports live difficulty.
+  useEffect(() => {
+    if (config?.startDifficulty) setCurrentChallenge(config.startDifficulty);
+  }, [config?.startDifficulty]);
 
   const handleSkipExercise = async () => {
     if (user?.id) {
@@ -170,7 +186,7 @@ export default function PatternMatchExercise() {
                 <SkipForward className="w-3.5 h-3.5 mr-1" />Skip
               </Button>
             )}
-            <DifficultyInfoBadge level={config.startDifficulty || 3} floor={bounds.floor} ceiling={bounds.ceiling} />
+            <LevelBadge descriptor={describeLevel(currentChallenge)} compact successRate={challengeSuccessRate} />
           </div>
         </div>
         {fromLesson && <InlineSessionProgress />}
@@ -195,6 +211,9 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
+            // UX1B presentation-only: mirror live difficulty + rolling success.
+            setCurrentChallenge(data.difficultyLevel);
+            setRecentResults((prev) => [...prev, data.correct].slice(-5));
             void logPatternTrial({
               correct: data.correct,
               reactionTimeMs: data.reactionTimeMs,
