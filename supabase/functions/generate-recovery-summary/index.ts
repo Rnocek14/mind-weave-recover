@@ -208,22 +208,19 @@ Return as JSON:
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error('AI API error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'OpenAI API requires payment. Please check your OpenAI account.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
 
-      throw new Error(`OpenAI API error: ${aiResponse.status}`);
+      // Return 200 with a fallback signal so the client degrades gracefully
+      // instead of throwing and crashing into a blank screen.
+      const message = aiResponse.status === 429
+        ? 'Rate limit exceeded. Please try again later.'
+        : aiResponse.status === 402
+        ? 'AI service requires payment. Please check the account.'
+        : `AI service unavailable (${aiResponse.status}).`;
+
+      return new Response(
+        JSON.stringify({ success: false, error: message, fallback: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const aiData = await aiResponse.json();
