@@ -563,6 +563,12 @@ function PhotoNamingExerciseInner() {
           encouragement_score: result.encouragementScore,
           effortful_speech: result.effortfulSpeech,
 
+          // Phase 1B — manual-confirmation provenance (queryable on exercise_events).
+          confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
+          confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+          manual_confirmed: result.manualConfirmed ?? false,
+          asr_verified: result.asrVerified ?? false,
+
           // Targeted practice tracking (closed loop measurement)
           practice_source: practiceSource,     // 'error_pattern_dashboard' | null
           targeted_words: targetedWords.length > 0 ? targetedWords : null,
