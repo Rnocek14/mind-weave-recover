@@ -280,6 +280,15 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
           </div>
         )}
 
+        {/* UX1: explain the difference between session challenge and recovery level */}
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            The app changed difficulty during practice to keep the challenge at the
+            right level. This does not change your recovery level — that moves
+            slowly over time, based on your practice.
+          </p>
+        </div>
+
         {/* Expandable detail — for caregivers/clinicians or curious patients */}
         {exerciseScores.length > 0 && (
           <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
