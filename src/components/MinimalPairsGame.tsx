@@ -403,7 +403,7 @@ export function MinimalPairsGame({
           {trialIndex + 1} / {state.totalTrials}
         </span>
         <div className="flex items-center gap-2">
-          <LevelBadge descriptor={adaptation.levelDescriptor} compact successRate={adaptation.recentSuccessRate ?? null} />
+          <LevelBadge descriptor={adaptation.levelDescriptor} compact successRate={adaptation.recentSuccessRate ?? null} supportLabel="Audio support on" />
           <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Check className="w-3 h-3" /> {correctCount}

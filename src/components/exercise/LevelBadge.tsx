@@ -45,8 +45,15 @@ interface LevelBadgeProps {
   compact?: boolean;
   /** Rolling success rate (0..1). When provided, drives the flow-zone label. */
   successRate?: number | null;
-  /** Current support / cue state. When provided, renders a "Support" line. */
+  /** Current support / cue state. When provided, renders a support line. */
   support?: SupportInput;
+  /**
+   * Explicit, game-specific support wording shown verbatim (e.g.
+   * "Audio Support On", "Hint used"). When provided it overrides the
+   * generic cue-level text and is always rendered. Use this to describe
+   * support honestly per game.
+   */
+  supportLabel?: string;
 }
 
 const BAND_CLASSES: Record<LevelDescriptor['band'], string> = {
@@ -100,11 +107,18 @@ export function LevelBadge({
   compact = false,
   successRate,
   support,
+  supportLabel,
 }: LevelBadgeProps) {
   const { level, label, band, levers } = descriptor;
   const stars = levelToStars(level);
   const flow = flowLabel(successRate, label);
   const supportState = normalizeSupport(support);
+
+  // Show a support line whenever the game tells us something about support —
+  // either an explicit label, or any `support` prop (incl. cue level 0 →
+  // "Independent"). Games with no support concept simply pass nothing.
+  const hasSupportInfo = supportLabel != null || support !== undefined;
+  const supportText = supportLabel ?? SUPPORT_TEXT[supportState];
 
   const previousLevelRef = useRef(level);
   const [pulse, setPulse] = useState(false);
@@ -130,32 +144,38 @@ export function LevelBadge({
               className,
             )}
             aria-label={
-              `Today's Challenge ${flow}.` +
-              (supportState !== 'none' ? ` ${SUPPORT_TEXT[supportState]}.` : '')
+              `Today's Challenge: ${flow}.` +
+              (hasSupportInfo ? ` ${supportText}.` : '')
             }
             role="status"
             aria-live="polite"
           >
-            <span className="inline-flex items-center gap-1.5">
-              {!compact && (
-                <span className="text-[11px] font-medium opacity-80">Today's Challenge</span>
+            {/* Always-visible anchor label — never hidden behind hover. */}
+            <span
+              className={cn(
+                'font-semibold uppercase tracking-wide opacity-70',
+                compact ? 'text-[10px]' : 'text-[11px]',
               )}
+            >
+              Today's Challenge
+            </span>
+            <span className="inline-flex items-center gap-1.5">
               <span className="inline-flex items-center" aria-hidden>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      'h-3 w-3',
+                      'h-3.5 w-3.5',
                       i < stars ? 'fill-current' : 'opacity-30',
                     )}
                   />
                 ))}
               </span>
-              <span className="text-xs font-semibold">{flow}</span>
+              <span className="text-sm font-semibold">{flow}</span>
             </span>
-            {supportState !== 'none' && (
-              <span className="text-[11px] font-medium opacity-90">
-                {SUPPORT_TEXT[supportState]}
+            {hasSupportInfo && (
+              <span className="text-xs font-medium opacity-90">
+                {supportText}
               </span>
             )}
           </div>
@@ -166,10 +186,9 @@ export function LevelBadge({
             This changes during practice to keep things at the right level. It is
             separate from your long-term Recovery Level.
           </div>
-          {supportState !== 'none' && (
+          {hasSupportInfo && (
             <div className="mb-1 opacity-80">
-              {SUPPORT_TEXT[supportState]} — a little extra help right now. Getting
-              support is part of practice.
+              {supportText} — getting a little help is part of practice.
             </div>
           )}
           {levers.length > 0 && (
