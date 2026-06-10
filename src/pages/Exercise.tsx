@@ -25,6 +25,7 @@ import { GeneralizationProbe } from "@/components/GeneralizationProbe";
 import { ConfidenceBoost } from "@/components/ConfidenceBoost";
 import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
+import { classifyUtteranceValidity } from "@/lib/clinical/classifyUtteranceValidity";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
