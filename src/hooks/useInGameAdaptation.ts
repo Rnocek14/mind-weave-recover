@@ -183,8 +183,10 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   // also fires unless autoLog is false. PhotoNamingGame / TwoCluesGame pass
   // autoLog={false} to remain the single writer.
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { logTrial: autoLogTrial, flush: flushAutoLog } = useAdaptationTrialLogger({
     userId: user?.id,
+    profileId: activeProfile?.id ?? null,
     sessionId: sessionId ?? null,
     exerciseSlug: normalizeExerciseSlug(exerciseSlug),
     enabled: autoLog && !!user?.id,
