@@ -193,7 +193,7 @@ export default function MinimalPairsExercise() {
       // semantics consistent for mastery + anomaly consumers.
       cueLevel: 0,
       supportUsed,
-      latencyMs: 0,
+      latencyMs: Number.isFinite(trialData.reactionTimeMs) ? Math.max(0, trialData.reactionTimeMs) : null,
       trialMode: 'recognition',
       errorType: trialData.isCorrect ? undefined : 'phoneme_discrimination',
       taskParameters: {
