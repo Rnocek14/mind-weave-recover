@@ -119,16 +119,13 @@ export const endSession = async (
   // Stamp canonical top-level accuracy fields so plateau/regression detectors
   // (which read summary.accuracy) actually receive a value. Computed from the
   // raw exercise_events ground truth, split into independent vs cue-assisted.
-  const { computeSessionAccuracySummary } = await import('./sessionAccuracySummary');
+  const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('./sessionAccuracySummary');
   const acc = await computeSessionAccuracySummary(sessionId);
 
   const mergedSummary = {
     ...existingSummary,
     ...summary,
-    ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
-    independent_accuracy: acc.independent_accuracy,
-    cue_assisted_accuracy: acc.cue_assisted_accuracy,
-    scored_trials: acc.scored_trials,
+    ...accuracySummaryToSummaryFields(acc),
   };
 
   // Idempotent: only set ended_at + ended_reason if not already ended.

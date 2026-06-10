@@ -61,4 +61,42 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(r.accuracy).toBe(50);
     expect(r.scored_trials).toBe(2);
   });
+
+  // ── Phase 1B: manual_confirmed handling ──
+  it('excludes manual_confirmed from clean accuracy / independent / asr', () => {
+    const r = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      // manual-confirmed correct — must NOT touch clean accuracy
+      { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
+    ]);
+    expect(r.accuracy).toBe(50); // only the 2 ASR-verified trials
+    expect(r.asr_accuracy).toBe(50);
+    expect(r.independent_accuracy).toBe(50);
+    expect(r.scored_trials).toBe(2);
+  });
+
+  it('includes manual_confirmed in practice accuracy + participation', () => {
+    const r = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
+      { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
+    ]);
+    // practice = mean(100, 0, 100, 100) = 75
+    expect(r.practice_accuracy).toBe(75);
+    expect(r.manual_confirmed_trials).toBe(2);
+    expect(r.participation_trials).toBe(4); // 2 ASR + 2 manual
+  });
+
+  it('manual_confirmed only session: clean accuracy null, practice non-null', () => {
+    const r = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
+      { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
+    ]);
+    expect(r.accuracy).toBeNull();
+    expect(r.independent_accuracy).toBeNull();
+    expect(r.practice_accuracy).toBe(100);
+    expect(r.participation_trials).toBe(2);
+  });
 });

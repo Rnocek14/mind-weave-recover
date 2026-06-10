@@ -90,6 +90,12 @@ interface PhotoNamingGameProps {
     frustrationLevel?: string;
     recentSuccessRate?: number;
     trialCount?: number;
+    // Phase 1B — manual-confirmation metadata. Set when the trial outcome was
+    // confirmed by a human (caregiver/patient) rather than ASR-verified.
+    manualConfirmed?: boolean;
+    confirmedBy?: 'user' | 'caregiver';
+    confirmationMode?: 'asr' | 'manual' | 'caregiver';
+    asrVerified?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -2476,6 +2482,13 @@ export const PhotoNamingGame = ({
       frustrationLevel,
       recentSuccessRate,
       trialCount: state.trialNumber,
+      // Phase 1B — caregiver explicitly confirmed a correct response ("Said it")
+      // that ASR cannot verify (empty/unscorable transcript). Flag it so the
+      // validity gate labels it manual_confirmed instead of no_response.
+      manualConfirmed: responseType === 'said_roughly',
+      confirmedBy: 'caregiver',
+      confirmationMode: 'caregiver',
+      asrVerified: false,
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)

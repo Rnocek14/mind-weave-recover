@@ -289,6 +289,13 @@ export const useExerciseTelemetry = (
             bucket: gate.bucket,
             should_score: gate.shouldScore,
             should_feed_adaptation: gate.shouldFeedAdaptation,
+            // Phase 1B — separate scoring axes so manual-confirmed trials stay
+            // out of ASR/independent accuracy while still counting toward
+            // participation + practice accuracy.
+            counts_toward_participation: gate.shouldCountParticipation,
+            counts_toward_practice_accuracy: gate.shouldCountPracticeAccuracy,
+            counts_toward_asr_accuracy: gate.shouldCountAsrAccuracy,
+            confirmed_by: gate.confirmedBy,
             confidence: trial.validity.confidence,
             reason: gate.reason,
             signals: trial.validity.signals,
@@ -298,16 +305,21 @@ export const useExerciseTelemetry = (
             validity_label: gate.label,
             validity_bucket: gate.bucket,
             counts_toward_score: gate.shouldScore,
+            counts_toward_participation: gate.shouldCountParticipation,
+            counts_toward_practice_accuracy: gate.shouldCountPracticeAccuracy,
+            counts_toward_asr_accuracy: gate.shouldCountAsrAccuracy,
+            confirmed_by: gate.confirmedBy,
           };
           // Promote to dedicated top-level columns so analytics/research can
-          // distinguish no-response / unclear / ASR-failed / noise without
-          // digging through JSON. (Columns existed but were 100% null before.)
+          // distinguish no-response / unclear / ASR-failed / noise / manual
+          // without digging through JSON. (Columns existed but were 100% null before.)
           eventData.validity_label = gate.label;
           eventData.validity_confidence =
             typeof trial.validity.confidence === 'number' ? trial.validity.confidence : null;
           eventData.validity_reason = gate.reason;
           eventData.validity_signals = trial.validity.signals ?? null;
           eventData.counts_toward_score = gate.shouldScore;
+
         } else {
           // No classifier verdict supplied (non-speech trial, or speech with no
           // gate). A trial that was logged with a definite correct/incorrect

@@ -1,7 +1,31 @@
-# Phase 1B — Manual-Confirmed-Correct Trials Excluded From Scoring (BLOCKER, investigation-first)
+# Phase 1B — Manual-Confirmed-Correct Trials Excluded From Scoring (IMPLEMENTED)
 
-Status: OPEN — investigation complete, recommendation pending approval. Do NOT implement until user signs off.
+Status: IMPLEMENTED (2026-06-10). Approved taxonomy shipped; manual confirmation no longer mislabeled no_response.
 Owner: TBD
+
+## What shipped
+- `validity_label = 'manual_confirmed'` added to `classifyUtteranceValidity` (no DB enum constraint; additive).
+- New input metadata: `manualConfirmed`, `confirmedBy` ('user'|'caregiver'), `asrVerified`, `confirmationMode`.
+- `ValidityResult` now carries three scoring axes: `countsTowardScore` (ASR/independent — false for manual),
+  `countsTowardParticipation` (true for manual), `countsTowardPracticeAccuracy` (true for manual) + `confirmedBy`.
+- `applyValidityGate` exposes `shouldCountParticipation` / `shouldCountPracticeAccuracy` / `shouldCountAsrAccuracy`
+  + `confirmedBy`, bucket `'manual'`. `shouldFeedAdaptation` stays false for manual (no adaptation drift).
+- `useExerciseTelemetry` stamps the new axes into `engagement_flags` + `speech_validity`; `validity_label='manual_confirmed'`,
+  `counts_toward_score=false`.
+- `sessionAccuracySummary` reducer: `accuracy`/`asr_accuracy`/`independent_accuracy`/`cue_assisted_accuracy` stay ASR-clean;
+  added `practice_accuracy` (includes manual), `manual_confirmed_trials`, `participation_trials`. Shared
+  `accuracySummaryToSummaryFields()` used by all three session-end writers (sessionTracking, useSessionLifecycle, PhotoNamingExercise).
+- Plumbing: PhotoNaming caregiver "Said it" → `manualConfirmed:true, confirmedBy:'caregiver'`; exercise page forwards to classifier
+  + stores provenance in task_parameters (confirmation_mode/confirmed_by/manual_confirmed/asr_verified). profile_id plumbing unchanged (Fix 2).
+- UI: ExcludedClipsAudit labels manual_confirmed as "Manually confirmed" (muted, not a failure).
+- Tests: classifier (no_response vs manual_confirmed), gate axes, reducer (clean vs practice vs participation).
+
+Guardrails honored: no adaptation/progression threshold changes, no scoring-rule changes, additive only, no historical backfill.
+
+---
+
+## (Original investigation notes)
+
 Severity: High — affects severe aphasia and real-world mic/ASR failures.
 Relationship to Phase 1: Phase 1 logging-correctness fixes remain COMPLETE. This is a follow-up correctness gap, not a regression of Phase 1.
 

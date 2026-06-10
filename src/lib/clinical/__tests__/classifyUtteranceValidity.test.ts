@@ -109,4 +109,66 @@ describe('classifyUtteranceValidity', () => {
     expect(r.validity).not.toBe('other_speaker_suspected');
     expect(r.validity).toBe('valid_attempt');
   });
+
+  // ── Phase 1B: manual confirmation ──
+  describe('manual_confirmed (Phase 1B)', () => {
+    it('empty transcript + NO confirmation = no_response, excluded from score', () => {
+      const r = classifyUtteranceValidity({
+        transcript: '',
+        recordingDurationMs: 1500,
+      });
+      expect(r.validity).toBe('no_response');
+      expect(r.countsTowardScore).toBe(false);
+      expect(r.countsTowardParticipation).toBe(false);
+      expect(r.countsTowardPracticeAccuracy).toBe(false);
+    });
+
+    it('empty transcript + manual confirmation = manual_confirmed', () => {
+      const r = classifyUtteranceValidity({
+        transcript: '',
+        recordingDurationMs: 1500,
+        manualConfirmed: true,
+        confirmedBy: 'user',
+        asrVerified: false,
+      });
+      expect(r.validity).toBe('manual_confirmed');
+      expect(r.confirmedBy).toBe('user');
+    });
+
+    it('manual_confirmed counts toward participation + practice accuracy', () => {
+      const r = classifyUtteranceValidity({
+        transcript: '',
+        recordingDurationMs: 1500,
+        manualConfirmed: true,
+        confirmedBy: 'caregiver',
+      });
+      expect(r.countsTowardParticipation).toBe(true);
+      expect(r.countsTowardPracticeAccuracy).toBe(true);
+      expect(r.confirmedBy).toBe('caregiver');
+    });
+
+    it('manual_confirmed does NOT count toward ASR/independent accuracy', () => {
+      const r = classifyUtteranceValidity({
+        transcript: '',
+        recordingDurationMs: 1500,
+        manualConfirmed: true,
+        confirmedBy: 'caregiver',
+      });
+      // countsTowardScore is the ASR/independent gate — must stay false.
+      expect(r.countsTowardScore).toBe(false);
+    });
+
+    it('does NOT override a genuinely ASR-verified attempt', () => {
+      // Even if manualConfirmed is flagged, an ASR-verified transcript stays valid_attempt.
+      const r = classifyUtteranceValidity({
+        transcript: 'spoon',
+        recordingDurationMs: 900,
+        asrConfidence: 0.95,
+        manualConfirmed: true,
+        asrVerified: true,
+      });
+      expect(r.validity).toBe('valid_attempt');
+      expect(r.countsTowardScore).toBe(true);
+    });
+  });
 });

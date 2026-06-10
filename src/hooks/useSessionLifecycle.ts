@@ -5,7 +5,7 @@ import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefres
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
-import { computeSessionAccuracySummary } from '@/lib/sessionAccuracySummary';
+import { computeSessionAccuracySummary, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -146,12 +146,7 @@ export const useSessionLifecycle = ({
         // from the raw exercise_events for this session. Powers plateau /
         // regression detectors that read summary.accuracy.
         const acc = await computeSessionAccuracySummary(sid);
-        const accFields = {
-          ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
-          independent_accuracy: acc.independent_accuracy,
-          cue_assisted_accuracy: acc.cue_assisted_accuracy,
-          scored_trials: acc.scored_trials,
-        };
+        const accFields = accuracySummaryToSummaryFields(acc);
 
         if (isOwnedByParent) {
           // Parent flow (LessonFlow / SmartCoach) owns ended_at + ended_reason.

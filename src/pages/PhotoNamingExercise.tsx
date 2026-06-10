@@ -468,6 +468,11 @@ function PhotoNamingExerciseInner() {
     frustrationLevel?: string;
     recentSuccessRate?: number;
     trialCount?: number;
+    // Phase 1B — manual-confirmation metadata
+    manualConfirmed?: boolean;
+    confirmedBy?: 'user' | 'caregiver';
+    confirmationMode?: 'asr' | 'manual' | 'caregiver';
+    asrVerified?: boolean;
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
@@ -509,6 +514,13 @@ function PhotoNamingExerciseInner() {
         recordingDurationMs: result.recordingDurationMs ?? null,
         acousticMetrics: result.acousticMetrics ?? null,
         targetWord: trial.target,
+        // Phase 1B — manual confirmation metadata. When a human confirmed a
+        // correct response that ASR could not verify, this routes the trial to
+        // the manual_confirmed label (participation + practice accuracy only).
+        manualConfirmed: result.manualConfirmed ?? false,
+        confirmedBy: result.confirmedBy ?? null,
+        asrVerified: result.asrVerified ?? undefined,
+        confirmationMode: result.confirmationMode ?? null,
       });
       await submitTrial({
         profileId: activeProfile?.id,
@@ -550,6 +562,12 @@ function PhotoNamingExerciseInner() {
           target_word: trial.target,
           encouragement_score: result.encouragementScore,
           effortful_speech: result.effortfulSpeech,
+
+          // Phase 1B — manual-confirmation provenance (queryable on exercise_events).
+          confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
+          confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+          manual_confirmed: result.manualConfirmed ?? false,
+          asr_verified: result.asrVerified ?? false,
 
           // Targeted practice tracking (closed loop measurement)
           practice_source: practiceSource,     // 'error_pattern_dashboard' | null
@@ -721,7 +739,7 @@ function PhotoNamingExerciseInner() {
         // regression detectors and clinician analytics receive a value.
         // (When part of a lesson, LessonFlow/useSessionLifecycle owns this.)
         try {
-          const { computeSessionAccuracySummary } = await import('@/lib/sessionAccuracySummary');
+          const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('@/lib/sessionAccuracySummary');
           const { data: existing } = await supabase
             .from('sessions')
             .select('summary')
@@ -731,10 +749,7 @@ function PhotoNamingExerciseInner() {
           const acc = await computeSessionAccuracySummary(sessionId);
           updatePayload.summary = {
             ...existingSummary,
-            ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
-            independent_accuracy: acc.independent_accuracy,
-            cue_assisted_accuracy: acc.cue_assisted_accuracy,
-            scored_trials: acc.scored_trials,
+            ...accuracySummaryToSummaryFields(acc),
           };
         } catch (err) {
           console.warn('[PhotoNamingExercise] failed to stamp accuracy summary:', err);

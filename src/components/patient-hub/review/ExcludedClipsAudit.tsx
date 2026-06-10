@@ -26,6 +26,9 @@ const LABEL_META: Record<string, { title: string; tone: "muted" | "warn" }> = {
   no_response: { title: "Silent", tone: "muted" },
   background_noise: { title: "Noise", tone: "muted" },
   low_confidence: { title: "Flagged for review", tone: "warn" },
+  // Phase 1B — manually confirmed correct (mic/ASR couldn't verify). Counts
+  // toward participation + practice accuracy, but kept out of ASR accuracy.
+  manual_confirmed: { title: "Manually confirmed", tone: "muted" },
 };
 
 function isExcluded(t: TrialData): boolean {
