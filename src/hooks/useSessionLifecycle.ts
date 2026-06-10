@@ -201,6 +201,7 @@ export const useSessionLifecycle = ({
             durationSec,
             scores: { ...existingScores, [exerciseSlug]: stats.score },
             reps: stats.totalTrials,
+            ...accFields,
           };
 
           const { error } = await supabase
