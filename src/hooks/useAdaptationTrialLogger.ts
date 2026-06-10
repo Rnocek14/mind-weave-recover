@@ -149,6 +149,13 @@ export function useAdaptationTrialLogger(opts: Options) {
   const lastAdaptationTrialRef = useRef<number>(-1);
   const flushTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Latest known non-null profileId. Lets us stamp rows that were buffered
+  // before the active profile finished loading (timing race that produced
+  // null profile_id on early trials for Pattern Match / Photo Naming).
+  const profileIdRef = useRef<string | null>(opts.profileId ?? null);
+  if (opts.profileId) profileIdRef.current = opts.profileId;
+  const nullProfileWarnedRef = useRef(false);
+
   const consecutiveFailuresRef = useRef(0);
   const failureReportedRef = useRef(false);
 
