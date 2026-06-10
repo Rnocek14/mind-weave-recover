@@ -82,6 +82,7 @@ export function useTrialSubmission(opts: Options) {
   // double inserts we own a single "manual" logger per submitTrial pathway.
   const { logTrial: logAdaptationTrial, flush: flushAdaptation } = useAdaptationTrialLogger({
     userId: opts.userId,
+    profileId: opts.profileId,
     sessionId: opts.sessionId,
     exerciseSlug: canonicalSlug,
     enabled: false, // OFF by default — see comment block in submitTrial below.
