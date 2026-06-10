@@ -5,6 +5,7 @@ import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefres
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { computeSessionAccuracySummary } from '@/lib/sessionAccuracySummary';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
