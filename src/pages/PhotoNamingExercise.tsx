@@ -733,27 +733,32 @@ function PhotoNamingExerciseInner() {
       };
       if (!fromLesson) {
         updatePayload.ended_at = new Date().toISOString();
+        updatePayload.ended_reason = 'completed';
 
         // Phase 1 data-integrity: standalone session-end must stamp the same
         // canonical accuracy fields as the daily-session lifecycle so plateau /
         // regression detectors and clinician analytics receive a value.
         // (When part of a lesson, LessonFlow/useSessionLifecycle owns this.)
+        // computeSessionAccuracySummary never throws (returns EMPTY on error),
+        // so the accuracy fields are ALWAYS stamped even if the existing-summary
+        // read fails — preventing the "ended_at but no scored_trials" gap.
+        const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('@/lib/sessionAccuracySummary');
+        let existingSummary: Record<string, any> = {};
         try {
-          const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('@/lib/sessionAccuracySummary');
           const { data: existing } = await supabase
             .from('sessions')
             .select('summary')
             .eq('id', sessionId)
             .maybeSingle();
-          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
-          const acc = await computeSessionAccuracySummary(sessionId);
-          updatePayload.summary = {
-            ...existingSummary,
-            ...accuracySummaryToSummaryFields(acc),
-          };
+          existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
         } catch (err) {
-          console.warn('[PhotoNamingExercise] failed to stamp accuracy summary:', err);
+          console.warn('[PhotoNamingExercise] failed to read existing summary:', err);
         }
+        const acc = await computeSessionAccuracySummary(sessionId);
+        updatePayload.summary = {
+          ...existingSummary,
+          ...accuracySummaryToSummaryFields(acc),
+        };
       }
       await supabase
         .from('sessions')
@@ -761,6 +766,7 @@ function PhotoNamingExerciseInner() {
         .eq('id', sessionId)
         .is('ended_at', null);
     }
+
     
     // Show post-practice summary for targeted practice
     const isPhonemeTargeted = lessonFocusPhonemes && lessonFocusPhonemes.length > 0;
