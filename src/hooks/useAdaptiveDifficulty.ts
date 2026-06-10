@@ -87,9 +87,15 @@ export const useAdaptiveDifficulty = ({
 
   // Per-trial telemetry logger (Phase 4) — auto-wired so legacy games show up too
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const effectiveUserId = userId ?? user?.id;
+  // Always thread the active patient profile so adaptation_trial_logs.profile_id
+  // matches sessions.profile_id even when the caller (e.g. PatternMatchGame)
+  // doesn't pass profileId explicitly.
+  const effectiveProfileId = profileId ?? activeProfile?.id ?? null;
   const { logTrial: autoLogTrial } = useAdaptationTrialLogger({
     userId: effectiveUserId,
+    profileId: effectiveProfileId,
     sessionId: sessionId ?? null,
     exerciseSlug: normalizeExerciseSlug(exerciseSlug ?? 'unknown'),
     enabled: autoLog && !!effectiveUserId && !!exerciseSlug,
