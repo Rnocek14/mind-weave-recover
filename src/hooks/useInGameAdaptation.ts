@@ -3,6 +3,7 @@ import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
