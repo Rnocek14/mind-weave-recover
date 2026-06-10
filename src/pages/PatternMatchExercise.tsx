@@ -89,6 +89,11 @@ export default function PatternMatchExercise() {
   
   const { getAdaptations } = useExerciseGating(user?.id, activeProfile?.id);
 
+  // Seed the displayed challenge from config until the first trial reports live difficulty.
+  useEffect(() => {
+    if (config?.startDifficulty) setCurrentChallenge(config.startDifficulty);
+  }, [config?.startDifficulty]);
+
   const handleSkipExercise = async () => {
     if (user?.id) {
       try {
