@@ -195,7 +195,18 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
-            console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
+            void logPatternTrial({
+              correct: data.correct,
+              reactionTimeMs: data.reactionTimeMs,
+              cueLevel: 0,
+              errorType: data.correct ? undefined : 'pattern_mismatch',
+              taskParameters: {
+                difficulty_level: data.difficultyLevel,
+                pattern_size: data.patternSize,
+                trial_mode: 'recognition',
+                ...adaptationTelemetry,
+              },
+            });
           }}
           userId={user?.id}
           sessionId={sessionId}
