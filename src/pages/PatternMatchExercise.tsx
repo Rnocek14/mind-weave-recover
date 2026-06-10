@@ -186,7 +186,7 @@ export default function PatternMatchExercise() {
                 <SkipForward className="w-3.5 h-3.5 mr-1" />Skip
               </Button>
             )}
-            <LevelBadge descriptor={describeLevel(currentChallenge)} compact successRate={challengeSuccessRate} />>
+            <LevelBadge descriptor={describeLevel(currentChallenge)} compact successRate={challengeSuccessRate} />
           </div>
         </div>
         {fromLesson && <InlineSessionProgress />}
