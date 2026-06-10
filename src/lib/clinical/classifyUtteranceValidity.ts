@@ -19,7 +19,15 @@ export type ValidityLabel =
   | 'no_response'
   | 'background_noise'
   | 'other_speaker_suspected' // reserved for Phase 2; never emitted in Phase 1
-  | 'low_confidence';
+  | 'low_confidence'
+  // Phase 1B — user/caregiver explicitly confirmed a correct response that ASR
+  // could not verify (empty/unscorable transcript, mic/ASR failure, or
+  // hard-to-transcribe aphasic speech). Counts toward participation + practice
+  // accuracy, but NEVER toward ASR/independent accuracy.
+  | 'manual_confirmed';
+
+/** Who confirmed a manual_confirmed trial (or 'asr' for ASR-verified attempts). */
+export type ConfirmedBy = 'asr' | 'user' | 'caregiver';
 
 export interface ValidityInput {
   transcript?: string | null;
@@ -31,6 +39,15 @@ export interface ValidityInput {
     speechToPauseRatio?: number | null;
     totalDurationSec?: number | null;
   } | null;
+  // ── Phase 1B: manual-confirmation metadata ──
+  /** True when user/caregiver explicitly confirmed the response correct. */
+  manualConfirmed?: boolean | null;
+  /** Who confirmed it (drives the manual_confirmed branch + analytics). */
+  confirmedBy?: ConfirmedBy | null;
+  /** True only when ASR actually produced/verified a scorable transcript. */
+  asrVerified?: boolean | null;
+  /** Provenance of the transcript, when known. */
+  confirmationMode?: 'asr' | 'manual' | 'caregiver' | null;
   // Reserved (unused in Phase 1)
   targetWord?: string | null;
   targetPhrase?: string | null;
