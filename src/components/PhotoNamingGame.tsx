@@ -2530,6 +2530,84 @@ export const PhotoNamingGame = ({
     }, 2000);
   };
 
+  /**
+   * Phase 1B — patient-facing "I Said It" manual confirmation.
+   * Per-trial fallback for severe aphasia / mic-ASR failure: the user confirms
+   * they produced the target even though ASR could not verify it. Routes through
+   * the manual-confirm path (manualConfirmed=true, confirmedBy='user',
+   * confirmationMode='manual'). Counts toward participation + practice accuracy,
+   * NEVER toward ASR/independent accuracy, and does NOT feed adaptation.
+   */
+  const handleManualConfirm = async () => {
+    if (!state.currentTrial || showFeedback) return;
+
+    const reactionTime = Date.now() - trialStartTime;
+
+    // Stop any active capture so the mic doesn't keep listening after confirm.
+    try { stopListening(); } catch { /* noop */ }
+
+    let uploadedPath: string | undefined;
+    let duration: number | undefined;
+    let mimeType: string | undefined;
+    if (isRecording && user && activeSessionId) {
+      const recordingResult = await stopRecording();
+      if (recordingResult) {
+        duration = recordingResult.duration;
+        mimeType = recordingResult.mimeType;
+        const path = await uploadRecording(
+          recordingResult.audioBlob,
+          user.id,
+          activeSessionId,
+          state.trialNumber,
+          recordingResult.mimeType
+        );
+        if (path) uploadedPath = path;
+      }
+    }
+
+    setFeedbackData({ correct: true, errorType: undefined });
+    setShowFeedback(true);
+    playSuccess();
+
+    // NOTE: intentionally NOT calling recordTrial()/progression — manual
+    // confirmation must not feed adaptation or progression thresholds.
+
+    onTrialComplete?.({
+      correct: true,
+      reactionTimeMs: reactionTime,
+      difficultyLevel: currentDifficulty,
+      cueLevel,
+      effortfulSpeech: false,
+      browserTranscript: lastHeardText ?? undefined,
+      attemptId: currentAttemptId ?? undefined,
+      trialIndex: state.trialNumber,
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+      audioMimeType: mimeType,
+      trialCount: state.trialNumber,
+      // Phase 1B manual-confirm flags
+      manualConfirmed: true,
+      confirmedBy: 'user',
+      confirmationMode: 'manual',
+      asrVerified: false,
+    }, state.currentTrial);
+
+    logFinalAnalysis({
+      transcriptSource: 'manual',
+      isCorrect: true,
+      errorType: 'manual_confirmed',
+      audioStoragePath: uploadedPath,
+      recordingDurationMs: duration,
+    });
+
+    setTimeout(() => {
+      setShowFeedback(false);
+      setFeedbackData(null);
+      resetAttempt();
+      advanceTrial(currentDifficulty);
+    }, 2000);
+  };
+
   if (!state.currentTrial) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -2833,6 +2911,26 @@ export const PhotoNamingGame = ({
               </div>
             ))}
           </div>
+
+          {/* Phase 1B — patient-facing manual confirm fallback.
+              Per-trial "I Said It" for severe aphasia / mic-ASR failure.
+              Available in speech mode whenever the trial is active so users
+              who can't be transcribed still get credit (participation +
+              practice accuracy; never ASR/independent accuracy). */}
+          {useVoice && !showFeedback && !timedOut && !selectedAnswer && (
+            <div className="mt-2 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleManualConfirm}
+                disabled={showFeedback}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                I Said It
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         // Caregiver assist mode controls
