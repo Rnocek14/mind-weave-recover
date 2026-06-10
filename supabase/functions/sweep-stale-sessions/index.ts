@@ -17,7 +17,50 @@ const corsHeaders = {
  * - Only ends sessions older than the threshold (default 30 min)
  * - Sets ended_reason = 'timeout_sweep' for auditing
  * - Logs sweep results for monitoring
+ * - MERGES the canonical accuracy summary fields into the existing summary
+ *   (preserving summary.mode) rather than overwriting, so swept sessions get
+ *   the same accuracy stamping as client-ended sessions. accuracy stays null
+ *   when there are no scored trials (never faked to 0%).
  */
+
+// Canonical accuracy reducer — mirrors src/lib/sessionAccuracySummary.ts
+// (reduceAccuracy + accuracySummaryToSummaryFields). Kept in sync manually.
+interface ScoredRow {
+  score: number | null;
+  cue_level: number | null;
+  counts_toward_score: boolean | null;
+  validity_label?: string | null;
+}
+
+function accuracySummaryFields(rows: ScoredRow[]): Record<string, number | null> {
+  const mean = (xs: number[]) =>
+    xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
+  const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
+
+  const scored = rows.filter(
+    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r),
+  );
+  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r));
+
+  const all = scored.map((r) => r.score as number);
+  const independent = scored.filter((r) => (r.cue_level ?? 0) === 0).map((r) => r.score as number);
+  const cued = scored.filter((r) => (r.cue_level ?? 0) > 0).map((r) => r.score as number);
+  const practice = [...all, ...manual.map((r) => r.score as number)];
+
+  const accuracy = mean(all);
+
+  return {
+    ...(accuracy != null ? { accuracy } : {}),
+    independent_accuracy: mean(independent),
+    cue_assisted_accuracy: mean(cued),
+    asr_accuracy: accuracy,
+    practice_accuracy: mean(practice),
+    scored_trials: all.length,
+    manual_confirmed_trials: manual.length,
+    participation_trials: all.length + manual.length,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
