@@ -74,6 +74,8 @@ export interface TrialLogInput {
 
 interface Options {
   userId: string | undefined | null;
+  /** Active patient profile id — attributes telemetry per profile (multi-patient households). */
+  profileId?: string | undefined | null;
   sessionId: string | null | undefined;
   exerciseSlug: string;
   /** Default true in dev, false in prod. */
@@ -87,6 +89,7 @@ interface Options {
 
 interface PendingRow {
   user_id: string;
+  profile_id: string | null;
   session_id: string | null;
   exercise_slug: string;
   trial_index: number;
@@ -252,6 +255,7 @@ export function useAdaptationTrialLogger(opts: Options) {
 
     const row: PendingRow = {
       user_id: opts.userId,
+      profile_id: opts.profileId ?? null,
       session_id: opts.sessionId ?? null,
       exercise_slug: canonicalSlug,
       trial_index: input.trialIndex,

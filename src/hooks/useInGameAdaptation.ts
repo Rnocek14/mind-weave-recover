@@ -3,6 +3,7 @@ import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
@@ -182,8 +183,10 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   // also fires unless autoLog is false. PhotoNamingGame / TwoCluesGame pass
   // autoLog={false} to remain the single writer.
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
   const { logTrial: autoLogTrial, flush: flushAutoLog } = useAdaptationTrialLogger({
     userId: user?.id,
+    profileId: activeProfile?.id ?? null,
     sessionId: sessionId ?? null,
     exerciseSlug: normalizeExerciseSlug(exerciseSlug),
     enabled: autoLog && !!user?.id,

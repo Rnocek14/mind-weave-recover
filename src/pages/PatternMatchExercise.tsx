@@ -19,6 +19,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
@@ -42,6 +43,11 @@ export default function PatternMatchExercise() {
     defaultErrorType: 'no_response',
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
+
+  // Per-trial clinical telemetry (exercise_events). pattern-match was previously
+  // "dark" — its onTrialComplete only console.logged, so no per-trial rows were
+  // ever written. Wire the shared telemetry hook so each trial is persisted.
+  const { logTrial: logPatternTrial } = useExerciseTelemetry(sessionId, 'pattern-match');
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'pattern-match', domainSlug: 'executive_function', fromLesson });
   // Fetch clinical profile
@@ -189,7 +195,18 @@ export default function PatternMatchExercise() {
           slowMode={true}
           onGameComplete={handleGameComplete}
           onTrialComplete={(data) => {
-            console.log('Trial complete:', { ...data, adaptation: adaptationTelemetry });
+            void logPatternTrial({
+              correct: data.correct,
+              reactionTimeMs: data.reactionTimeMs,
+              cueLevel: 0,
+              errorType: data.correct ? undefined : 'pattern_mismatch',
+              taskParameters: {
+                difficulty_level: data.difficultyLevel,
+                pattern_size: data.patternSize,
+                trial_mode: 'recognition',
+                ...adaptationTelemetry,
+              },
+            });
           }}
           userId={user?.id}
           sessionId={sessionId}

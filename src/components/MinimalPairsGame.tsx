@@ -48,6 +48,8 @@ interface MinimalPairsGameProps {
     audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
+    /** Real measured response latency (ms) from trial display to answer. */
+    reactionTimeMs: number;
   }) => void;
 }
 
@@ -279,6 +281,7 @@ export function MinimalPairsGame({
       audioReplayCount: audioReplayCountRef.current,
       echoAttempted: echoStatus === 'heard',
       echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
+      reactionTimeMs: Math.max(0, Date.now() - trialStartRef.current),
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
 

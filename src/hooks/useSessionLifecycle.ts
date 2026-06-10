@@ -5,6 +5,7 @@ import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefres
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { computeSessionAccuracySummary } from '@/lib/sessionAccuracySummary';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -141,6 +142,17 @@ export const useSessionLifecycle = ({
 
         let updateError: { message?: string } | null = null;
 
+        // Canonical top-level accuracy (independent vs cue-assisted) computed
+        // from the raw exercise_events for this session. Powers plateau /
+        // regression detectors that read summary.accuracy.
+        const acc = await computeSessionAccuracySummary(sid);
+        const accFields = {
+          ...(acc.accuracy != null ? { accuracy: acc.accuracy } : {}),
+          independent_accuracy: acc.independent_accuracy,
+          cue_assisted_accuracy: acc.cue_assisted_accuracy,
+          scored_trials: acc.scored_trials,
+        };
+
         if (isOwnedByParent) {
           // Parent flow (LessonFlow / SmartCoach) owns ended_at + ended_reason.
           // We must NOT close the session here, otherwise the next exercise
@@ -163,6 +175,7 @@ export const useSessionLifecycle = ({
             lastExerciseDurationSec: durationSec,
             lastExerciseSlug: exerciseSlug,
             lastExerciseEndedAt: new Date().toISOString(),
+            ...accFields,
           };
 
           const { error } = await supabase
@@ -188,6 +201,7 @@ export const useSessionLifecycle = ({
             durationSec,
             scores: { ...existingScores, [exerciseSlug]: stats.score },
             reps: stats.totalTrials,
+            ...accFields,
           };
 
           const { error } = await supabase

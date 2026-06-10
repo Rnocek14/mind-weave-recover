@@ -386,10 +386,34 @@ export async function loadProgressionState(params: {
 
 /**
  * Upsert progression state at session end.
+ *
+ * Also appends an immutable row to `progression_events` capturing the
+ * prev→next transition (level, progress, support baseline, leveled-up).
+ * This is the single, centralized integration point so all 14 per-game
+ * progression hooks get an append-only audit trail without per-hook changes.
+ * The audit write is best-effort and never blocks state persistence.
  */
 export async function saveProgressionState(
   state: ClinicalProgressionState
 ): Promise<{ ok: boolean; error?: string }> {
+  // Read the previous row first so the audit event can record the transition.
+  let prevRow: {
+    current_level: number | null;
+    progress_pct: number | null;
+    support_baseline: number | null;
+  } | null = null;
+  try {
+    const { data } = await (supabase as any)
+      .from('clinical_progression_state')
+      .select('current_level, progress_pct, support_baseline')
+      .eq('profile_id', state.profileId)
+      .eq('exercise_slug', state.exerciseSlug)
+      .maybeSingle();
+    prevRow = data ?? null;
+  } catch {
+    prevRow = null;
+  }
+
   const row = {
     user_id: state.userId,
     profile_id: state.profileId,
@@ -412,5 +436,34 @@ export async function saveProgressionState(
     console.warn('[clinicalProgression] save failed:', error.message);
     return { ok: false, error: error.message };
   }
+
+  // Append-only audit event (best-effort; failures never break the session).
+  try {
+    const nextLevel = clampLevel(state.currentLevel);
+    const nextProgress = clampProgress(state.progressPct);
+    await (supabase as any).from('progression_events').insert({
+      user_id: state.userId,
+      profile_id: state.profileId,
+      exercise_slug: state.exerciseSlug,
+      session_id: state.lastSessionId ?? null,
+      prev_level: prevRow?.current_level ?? null,
+      next_level: nextLevel,
+      prev_progress_pct: prevRow?.progress_pct ?? null,
+      next_progress_pct: nextProgress,
+      prev_support_baseline: prevRow?.support_baseline ?? null,
+      next_support_baseline: state.supportBaseline,
+      leveled_up:
+        prevRow?.current_level != null
+          ? nextLevel > prevRow.current_level
+          : false,
+      source: 'session_flush',
+    });
+  } catch (e) {
+    if (import.meta.env?.DEV) {
+      console.warn('[clinicalProgression] progression_events append failed', e);
+    }
+  }
+
   return { ok: true };
 }
+
