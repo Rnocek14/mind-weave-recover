@@ -899,7 +899,6 @@ const Exercise = () => {
                   asrConfidence: result.whisperConfidence ?? null,
                   recordingDurationMs: result.recordingDurationMs ?? null,
                   acousticMetrics: result.acousticMetrics ?? null,
-                  targetWord: result.errorClassification ? undefined : undefined,
                   manualConfirmed: result.manualConfirmed ?? false,
                   confirmedBy: result.confirmedBy ?? null,
                   asrVerified: result.asrVerified ?? undefined,
