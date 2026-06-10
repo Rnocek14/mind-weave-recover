@@ -372,6 +372,7 @@ export const PhotoNamingGame = ({
   // Phase 4 — live per-trial logging for real-world adaptive validation.
   const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs } = useAdaptationTrialLogger({
     userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
     sessionId: activeSessionId,
     exerciseSlug: 'photo_naming',
   });
