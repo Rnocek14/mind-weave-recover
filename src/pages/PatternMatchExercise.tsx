@@ -41,7 +41,7 @@ export default function PatternMatchExercise() {
   // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
   // difficulty emitted by PatternMatchGame and a rolling success rate derived
   // from observed trial correctness. Does NOT feed adaptation/scoring/telemetry.
-  const [currentChallenge, setCurrentChallenge] = useState<number>(config?.startDifficulty || 3);
+  const [currentChallenge, setCurrentChallenge] = useState<number>(3);
   const [recentResults, setRecentResults] = useState<boolean[]>([]);
   const challengeSuccessRate =
     recentResults.length >= 2
