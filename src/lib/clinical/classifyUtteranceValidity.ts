@@ -121,6 +121,29 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     matchedFiller: false,
   };
 
+  const manualConfirmed = input.manualConfirmed === true;
+  const asrVerified = input.asrVerified === true;
+  const confirmedBy: ConfirmedBy | null = input.confirmedBy ?? null;
+
+  // 0. Manual-confirmation branch (Phase 1B).
+  // When the user/caregiver explicitly confirmed a correct response that ASR
+  // could NOT verify (empty/unscorable transcript, mic/ASR failure, or
+  // hard-to-transcribe aphasic speech), label it manual_confirmed instead of
+  // mislabeling it no_response. It counts toward participation + practice
+  // accuracy, but never toward ASR/independent accuracy.
+  if (manualConfirmed && !asrVerified) {
+    return {
+      validity: 'manual_confirmed',
+      reason: `Response manually confirmed correct by ${confirmedBy ?? 'user'}; not ASR-verifiable.`,
+      confidence: 0.7,
+      countsTowardScore: false, // keep ASR/independent accuracy clean
+      countsTowardParticipation: true,
+      countsTowardPracticeAccuracy: true,
+      confirmedBy: confirmedBy ?? 'user',
+      signals,
+    };
+  }
+
   // 1. No response — too short OR no transcript at all
   if (durationMs < MIN_VALID_DURATION_MS || transcriptRaw.length === 0) {
     // Distinguish: if duration is sufficient but transcript is empty AND
@@ -136,6 +159,9 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
         reason: 'No transcribed speech; audio appears to be background noise.',
         confidence: 0.7,
         countsTowardScore: false,
+        countsTowardParticipation: false,
+        countsTowardPracticeAccuracy: false,
+        confirmedBy: null,
         signals,
       };
     }
@@ -147,6 +173,9 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
           : 'Empty transcript — no speech detected.',
       confidence: 0.9,
       countsTowardScore: false,
+      countsTowardParticipation: false,
+      countsTowardPracticeAccuracy: false,
+      confirmedBy: null,
       signals,
     };
   }
@@ -159,6 +188,9 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
       reason: 'Transcript contains only filler sounds (um/uh/hmm). Not a language attempt.',
       confidence: 0.85,
       countsTowardScore: false,
+      countsTowardParticipation: false,
+      countsTowardPracticeAccuracy: false,
+      confirmedBy: null,
       signals,
     };
   }
@@ -174,6 +206,9 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
       reason: `ASR confidence ${asrConfidence.toFixed(2)} below ${LOW_CONFIDENCE_THRESHOLD} on a very short transcript. Flagged for clinician review.`,
       confidence: 0.6,
       countsTowardScore: false,
+      countsTowardParticipation: false,
+      countsTowardPracticeAccuracy: false,
+      confirmedBy: null,
       signals,
     };
   }
@@ -187,6 +222,9 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     reason: 'Patient produced a scorable speech attempt.',
     confidence: 0.9,
     countsTowardScore: true,
+    countsTowardParticipation: true,
+    countsTowardPracticeAccuracy: true,
+    confirmedBy: 'asr',
     signals,
   };
 }
