@@ -129,14 +129,25 @@ export default function PatternMatchExercise() {
 
   const handleGameStart = async () => {
     if (!user?.id) return;
-    
-    if (fromLesson && lessonSessionId) {
-      setSessionId(lessonSessionId);
-    } else {
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: 'pattern-match', duration: 8 }],
-      });
-      setSessionId(session.id);
+    // Idempotency guard: startSession is async, so the previous render-body
+    // call pattern could fire repeatedly before sessionId state settled,
+    // creating ~8 empty duplicate sessions in <1s. Latch on first invocation.
+    if (sessionStartedRef.current) return;
+    sessionStartedRef.current = true;
+
+    try {
+      if (fromLesson && lessonSessionId) {
+        setSessionId(lessonSessionId);
+      } else {
+        const session = await startSession(user.id, {
+          blocks: [{ exercise: 'pattern-match', duration: 8 }],
+        });
+        setSessionId(session.id);
+      }
+    } catch (error) {
+      // Allow a retry if session creation failed
+      sessionStartedRef.current = false;
+      console.error('Error starting pattern-match session:', error);
     }
   };
 
