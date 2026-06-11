@@ -79,20 +79,22 @@ export const useAdaptiveDifficulty = ({
   // Success-band controller for 70-85% optimal challenge zone
   const bandRef = useRef(new SuccessBandController(successBandConfig));
 
-  // Adaptation event logger - only active if userId provided
-  const { logDifficultyChange } = useAdaptationEventLogger({
-    userId,
-    profileId,
-  });
-
-  // Per-trial telemetry logger (Phase 4) — auto-wired so legacy games show up too
+  // Resolve the active patient profile up-front so BOTH the adaptation event
+  // logger and the per-trial telemetry logger can thread profile_id even when
+  // the caller (e.g. PatternMatchGame) doesn't pass profileId explicitly.
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const effectiveUserId = userId ?? user?.id;
-  // Always thread the active patient profile so adaptation_trial_logs.profile_id
-  // matches sessions.profile_id even when the caller (e.g. PatternMatchGame)
-  // doesn't pass profileId explicitly.
   const effectiveProfileId = profileId ?? activeProfile?.id ?? null;
+
+  // Adaptation event logger - only active if userId provided. Use the resolved
+  // profile id so adaptation_events.profile_id matches sessions.profile_id.
+  const { logDifficultyChange } = useAdaptationEventLogger({
+    userId: effectiveUserId,
+    profileId: effectiveProfileId ?? undefined,
+  });
+
+  // Per-trial telemetry logger (Phase 4) — auto-wired so legacy games show up too
   const { logTrial: autoLogTrial } = useAdaptationTrialLogger({
     userId: effectiveUserId,
     profileId: effectiveProfileId,
