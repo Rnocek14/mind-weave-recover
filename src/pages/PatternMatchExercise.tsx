@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PatternMatchGame } from '@/components/PatternMatchGame';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +37,8 @@ export default function PatternMatchExercise() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+  // Guards handleGameStart so exactly one session is created per play start.
+  const sessionStartedRef = useRef(false);
 
   // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
   // difficulty emitted by PatternMatchGame and a rolling success rate derived
@@ -129,14 +131,25 @@ export default function PatternMatchExercise() {
 
   const handleGameStart = async () => {
     if (!user?.id) return;
-    
-    if (fromLesson && lessonSessionId) {
-      setSessionId(lessonSessionId);
-    } else {
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: 'pattern-match', duration: 8 }],
-      });
-      setSessionId(session.id);
+    // Idempotency guard: startSession is async, so the previous render-body
+    // call pattern could fire repeatedly before sessionId state settled,
+    // creating ~8 empty duplicate sessions in <1s. Latch on first invocation.
+    if (sessionStartedRef.current) return;
+    sessionStartedRef.current = true;
+
+    try {
+      if (fromLesson && lessonSessionId) {
+        setSessionId(lessonSessionId);
+      } else {
+        const session = await startSession(user.id, {
+          blocks: [{ exercise: 'pattern-match', duration: 8 }],
+        });
+        setSessionId(session.id);
+      }
+    } catch (error) {
+      // Allow a retry if session creation failed
+      sessionStartedRef.current = false;
+      console.error('Error starting pattern-match session:', error);
     }
   };
 
@@ -166,10 +179,13 @@ export default function PatternMatchExercise() {
     }
   };
 
-  // Start session on mount
-  if (!sessionId && user?.id) {
-    handleGameStart();
-  }
+  // Start session on mount (guarded so only one session is ever created)
+  useEffect(() => {
+    if (!sessionId && user?.id) {
+      handleGameStart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
