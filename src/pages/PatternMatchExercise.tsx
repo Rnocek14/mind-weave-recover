@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PatternMatchGame } from '@/components/PatternMatchGame';
 import { useAuth } from '@/hooks/useAuth';
