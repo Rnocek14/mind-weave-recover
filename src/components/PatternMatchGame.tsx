@@ -253,7 +253,13 @@ export const PatternMatchGame = ({
 
       {/* Options — large touch targets */}
       {phase === 'matching' && (
-        <div className={cn("grid gap-3", options.length <= 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4")}>
+        <div
+          className="grid gap-3 mx-auto w-full"
+          style={{
+            gridTemplateColumns: `repeat(${Math.min(options.length, 4)}, minmax(0, 1fr))`,
+            maxWidth: options.length <= 2 ? '32rem' : undefined,
+          }}
+        >
           {options.map((option, optIdx) => (
             <button
               key={optIdx}
