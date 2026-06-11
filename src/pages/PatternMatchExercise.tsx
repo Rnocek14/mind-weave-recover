@@ -37,6 +37,8 @@ export default function PatternMatchExercise() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
+  // Guards handleGameStart so exactly one session is created per play start.
+  const sessionStartedRef = useRef(false);
 
   // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
   // difficulty emitted by PatternMatchGame and a rolling success rate derived
