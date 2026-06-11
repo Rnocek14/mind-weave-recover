@@ -179,10 +179,13 @@ export default function PatternMatchExercise() {
     }
   };
 
-  // Start session on mount
-  if (!sessionId && user?.id) {
-    handleGameStart();
-  }
+  // Start session on mount (guarded so only one session is ever created)
+  useEffect(() => {
+    if (!sessionId && user?.id) {
+      handleGameStart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <div className="h-dvh overflow-hidden bg-background flex flex-col">
