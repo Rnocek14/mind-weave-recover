@@ -30,17 +30,27 @@ interface ScoredRow {
   cue_level: number | null;
   counts_toward_score: boolean | null;
   validity_label?: string | null;
+  exercise_slug?: string | null;
 }
+
+// Keep in sync with ACCURACY_EXCLUDED_SLUGS in src/lib/sessionAccuracySummary.ts.
+const ACCURACY_EXCLUDED_SLUGS = new Set([
+  'conversation_partner',
+  'conversation_coach',
+  'conversation_turn',
+]);
 
 function accuracySummaryFields(rows: ScoredRow[]): Record<string, number | null> {
   const mean = (xs: number[]) =>
     xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
   const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
+  const isExcludedSlug = (r: ScoredRow) =>
+    typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
 
   const scored = rows.filter(
-    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r),
+    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r) && !isExcludedSlug(r),
   );
-  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r));
+  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));
 
   const all = scored.map((r) => r.score as number);
   const independent = scored.filter((r) => (r.cue_level ?? 0) === 0).map((r) => r.score as number);
@@ -155,7 +165,7 @@ Deno.serve(async (req) => {
     // accuracy summary (instead of overwriting with a bare swept marker).
     const { data: events, error: eventsError } = await supabase
       .from('exercise_events')
-      .select('session_id, score, cue_level, counts_toward_score, validity_label')
+      .select('session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug')
       .in('session_id', staleIds);
 
     if (eventsError) {

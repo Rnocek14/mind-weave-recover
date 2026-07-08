@@ -95,7 +95,11 @@ export function DetectiveMindGame({
     sessionId,
     initialDifficulty: difficultyLevel,
     bounds: { floor: 1, ceiling: 10, suggestedStart: difficultyLevel },
-    autoLog: false, // Wave 2: DetectiveMindExercise owns the unified submitTrial pathway.
+    // Single writer for adaptation_trial_logs / adaptation_events. The
+    // useTrialSubmission adaptation logger is a dead no-op, so autoLog:false
+    // previously meant Detective Mind wrote NO adaptation telemetry at all.
+    autoLog: true,
+    defaultTrialMode: 'recognition',
     enableDifficultyToasts: false, // we render AdaptationBadge instead
     enableAutoHints: true,
     // Hint usage = direct cue dependency signal for this comprehension task.

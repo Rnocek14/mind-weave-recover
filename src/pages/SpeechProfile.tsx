@@ -91,8 +91,11 @@ export default function SpeechProfile() {
   const focusPhonemes = useMemo(() => {
     const map = speechProfile?.phoneme_difficulty_map;
     if (!map) return [];
+    // phoneme_difficulty_map[].accuracy is stored on Azure's 0–100 scale by
+    // compute-speech-profile (Math.round(totalAccuracy/count)), NOT 0–1. Focus
+    // phonemes are those below 70% accuracy with enough trials.
     return Object.entries(map)
-      .filter(([_, v]) => v.accuracy < 0.7 && v.trials >= 3)
+      .filter(([_, v]) => v.accuracy < 70 && v.trials >= 3)
       .sort((a, b) => a[1].accuracy - b[1].accuracy)
       .map(([p]) => p);
   }, [speechProfile?.phoneme_difficulty_map]);
@@ -213,7 +216,7 @@ export default function SpeechProfile() {
                             <Badge key={p} variant="secondary" className="font-mono text-xs px-2 py-0.5">
                               /{p}/ {stats && showClinician && (
                                 <span className="ml-1 text-muted-foreground">
-                                  {Math.round(stats.accuracy * 100)}% ({stats.trials}t)
+                                  {Math.round(stats.accuracy)}% ({stats.trials}t)
                                 </span>
                               )}
                             </Badge>

@@ -507,9 +507,15 @@ function PhotoNamingExerciseInner() {
     });
     
     if (hasSession) {
-      // Speech Validity Gate — classify before scoring is recorded
+      // Speech Validity Gate — classify before scoring is recorded.
+      // Fall back to the browser (Web Speech) transcript when Azure STT returns
+      // empty (fast/brief namings, dual-mic contention, or an Azure rate-limit/
+      // outage). Without this, a genuinely-spoken answer that Azure couldn't
+      // transcribe is mislabeled no_response/background_noise and dropped from
+      // accuracy even though the browser recognizer already matched it correct.
+      const gateTranscript = result.whisperTranscript || result.browserTranscript || null;
       const validity = classifyUtteranceValidity({
-        transcript: result.whisperTranscript,
+        transcript: gateTranscript,
         asrConfidence: result.whisperConfidence ?? null,
         recordingDurationMs: result.recordingDurationMs ?? null,
         acousticMetrics: result.acousticMetrics ?? null,

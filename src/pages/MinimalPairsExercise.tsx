@@ -19,6 +19,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { startSession } from '@/lib/sessionTracking';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -48,6 +49,13 @@ export default function MinimalPairsExercise() {
   const [isStarted, setIsStarted] = useState(!!fromLesson);
   const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
   const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
+
+  // Session-summary stats for useSessionLifecycle (below). Previously this page
+  // never closed its standalone session, so no ended_at / accuracy summary /
+  // dose log was ever written and the plateau/regression detectors got no data.
+  const scoreRef = useRef(0);
+  const trialsRef = useRef(0);
+  const startTimeRef = useRef(Date.now());
   
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -93,6 +101,23 @@ export default function MinimalPairsExercise() {
     sessionId,
     exerciseSlug: 'minimal_pairs',
     progression,
+  });
+
+  // Close the session on completion / unmount / pagehide, stamping the canonical
+  // accuracy summary + dose log. For a lesson-owned session this only records the
+  // sub-exercise (the LessonFlow owns ended_at); for a standalone run it closes
+  // the session — matching PhotoNaming / FixSentence.
+  const getSessionStats = useCallback(() => ({
+    score: scoreRef.current,
+    totalTrials: trialsRef.current,
+    startTime: startTimeRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    exerciseSlug: 'minimal_pairs',
+    getSessionStats,
   });
   
   // Initialize session — gated on Clinical Progression load.
@@ -141,8 +166,16 @@ export default function MinimalPairsExercise() {
   }) => {
     console.log('Minimal pairs exercise complete:', results);
 
+    // Feed final stats to the session-summary writer before closing.
+    scoreRef.current = Math.round(results.accuracy ?? results.score ?? 0);
+    trialsRef.current = results.correctCount + results.incorrectCount;
+
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
     const commitResult = await commitSession();
+
+    // Close the session (standalone) or record the sub-exercise (lesson-owned)
+    // and stamp the accuracy summary + speech dose.
+    await completeSession();
 
     const finalize = () => {
       if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -162,7 +195,7 @@ export default function MinimalPairsExercise() {
     } else {
       finalize();
     }
-  }, [fromLesson, navigate, returnTo, commitSession]);
+  }, [fromLesson, navigate, returnTo, commitSession, completeSession]);
   
   const handleTrialComplete = useCallback((trialData: {
     targetWord: string;

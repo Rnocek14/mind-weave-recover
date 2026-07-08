@@ -259,7 +259,7 @@ async function logConversationTurn(
       session_id: sessionId,
       exercise_slug: normalizeExerciseSlug('conversation-partner'),
       round: 1,
-      score: isCorrect ? 1 : 0,
+      score: isCorrect ? 100 : 0, // 0–100 scale (canonical exercise_events.score)
       reaction_time_ms: userTurn.latencyMs,
       error_type: resolvedErrorType,
       inputs: {

@@ -2440,17 +2440,25 @@ export const PhotoNamingGame = ({
 
     // Caregiver-rated attempt = scaffolded production (proxy reporter).
     currentTrialModeRef.current = 'scaffolded';
-    // Clinical Progression v1: buffer this caregiver-rated trial. Treated as
-    // scaffolded production at minimum semantic_cue support.
-    progression.recordTrialOutcome({
-      correct,
-      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
-    });
-    // Update via in-game adaptation hook (handles difficulty adjustment)
-    const adaptationResult = recordTrial({ 
-      correct,
-      reactionTimeMs: reactionTime
-    });
+    // A "Said it" rating is manual_confirmed (ASR could not verify it), so — like
+    // the patient self-confirm path — it must NOT feed adaptation or progression
+    // thresholds. The other caregiver ratings (tried/looked/no_response) carry a
+    // real observed score and remain legitimate scaffolded evidence.
+    const isManualConfirmed = responseType === 'said_roughly';
+    let adaptationResult: ReturnType<typeof recordTrial> | undefined;
+    if (!isManualConfirmed) {
+      // Clinical Progression v1: buffer this caregiver-rated trial. Treated as
+      // scaffolded production at minimum semantic_cue support.
+      progression.recordTrialOutcome({
+        correct,
+        support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
+      });
+      // Update via in-game adaptation hook (handles difficulty adjustment)
+      adaptationResult = recordTrial({
+        correct,
+        reactionTimeMs: reactionTime
+      });
+    }
     engagement.recordTrial({
       correct,
       reactionTimeMs: reactionTime,

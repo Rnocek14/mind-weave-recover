@@ -122,6 +122,14 @@ export interface InGameAdaptationOptions {
   autoLog?: boolean;
 
   /**
+   * Trial mode stamped on the auto-logged `adaptation_trial_logs` rows (and used
+   * by the telemetry anomaly detector to route trials). Games that keep autoLog
+   * should declare their modality so the rows are not left untagged.
+   * Defaults to null (untagged).
+   */
+  defaultTrialMode?: 'production' | 'recognition' | 'exposure' | 'scaffolded' | 'mixed' | null;
+
+  /**
    * Game's internal tier scale (e.g. {min:1,max:3} or {min:1,max:10}).
    * Used to map `currentDifficulty` onto the canonical 1–10 GameLevel
    * exposed via `currentLevel`. Defaults to {min:1,max:10}.
@@ -175,6 +183,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     onEscalationBlocked,
     onTrialLogged,
     autoLog = true,
+    defaultTrialMode = null,
     levelScale = { min: 1, max: 10 },
   } = options;
 
@@ -197,6 +206,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   // whenever the controller actually moves a level. No per-game wiring needed.
   const { logDifficultyChange: autoLogDifficultyEvent } = useAdaptationEventLogger({
     userId: user?.id,
+    profileId: activeProfile?.id ?? null,
   });
 
   // ===========================================================================
@@ -460,6 +470,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
             trialsAtLevel: snapshot.trialsAtLevel,
             difficultyChange: snapshot.difficultyChange ?? null,
             escalationBlocked: snapshot.escalationBlocked ?? null,
+            trialMode: defaultTrialMode,
           });
         } catch (err) {
           if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);
@@ -533,6 +544,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     cueDependencyEscalationThreshold,
     minTrialsAtLevelForEscalation,
     autoLog,
+    defaultTrialMode,
     autoLogTrial,
     autoLogDifficultyEvent,
     sessionId,

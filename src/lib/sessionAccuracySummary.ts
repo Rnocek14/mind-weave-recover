@@ -52,7 +52,20 @@ interface ScoredRow {
   cue_level: number | null;
   counts_toward_score: boolean | null;
   validity_label?: string | null;
+  exercise_slug?: string | null;
 }
+
+/**
+ * Open-ended conversation/discourse exercises write a continuously-graded score
+ * (0–100 successScore) rather than a binary correct/incorrect. Mixing those into
+ * the binary trial-accuracy mean is not meaningful, so they are excluded from the
+ * canonical session accuracy (they are 'shadow' per docs/unified-trial-contract.md).
+ */
+const ACCURACY_EXCLUDED_SLUGS = new Set([
+  'conversation_partner',
+  'conversation_coach',
+  'conversation_turn',
+]);
 
 const EMPTY: SessionAccuracySummary = {
   accuracy: null,
@@ -73,15 +86,18 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
 
   const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
+  const isExcludedSlug = (r: ScoredRow) =>
+    typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
 
   // ASR/clinically-verified scored trials — the clean accuracy series.
-  // Excludes validity-filtered rows AND manual_confirmed (never ASR-verified).
+  // Excludes validity-filtered rows, manual_confirmed (never ASR-verified), and
+  // continuously-graded conversation/discourse rows.
   const scored = rows.filter(
-    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r)
+    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r) && !isExcludedSlug(r)
   );
 
   // Manual-confirmed correct trials (score present, explicitly tagged).
-  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r));
+  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));
 
   const all = scored.map((r) => r.score as number);
   const independent = scored
@@ -118,7 +134,7 @@ export async function computeSessionAccuracySummary(
   try {
     const { data, error } = await supabase
       .from('exercise_events')
-      .select('score, cue_level, counts_toward_score, validity_label')
+      .select('score, cue_level, counts_toward_score, validity_label, exercise_slug')
       .eq('session_id', sessionId);
     if (error || !data) return { ...EMPTY };
     return reduceAccuracy(data as ScoredRow[]);
