@@ -1,5 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
+import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,7 +65,36 @@ serve(async (req) => {
   }
 
   try {
-    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext, smartCoachPrompt } = await req.json();
+    // Require an authenticated caller — this endpoint spends the app's paid
+    // AI-gateway credits and processes patient speech. Without this, anyone
+    // with the public anon key could invoke it (cost abuse + prompt injection).
+    const caller = await getAuthedUser(req);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext } = await req.json();
+
+    // Safety gate — BEFORE the LLM. If the user expresses self-harm intent or an
+    // acute medical/stroke emergency, break the conversational loop and return a
+    // fixed safety message with emergency guidance instead of a cheerful
+    // follow-up question. Flagged so the client can halt the session.
+    const crisis = detectCrisis(userTranscript);
+    if (crisis.isCrisis && crisis.kind) {
+      return new Response(
+        JSON.stringify({
+          response: crisisSafetyMessage(crisis.kind),
+          followupType: 'crisis',
+          crisis: true,
+          crisisKind: crisis.kind,
+          endSession: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Use Lovable AI gateway
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -78,8 +109,10 @@ serve(async (req) => {
       );
     }
 
-    // Use Smart Coach prompt if provided, otherwise default system prompt
-    const systemPrompt = smartCoachPrompt || SYSTEM_PROMPT;
+    // System prompt is fixed server-side. It must NOT be caller-supplied —
+    // a client-provided prompt would let a caller override the therapy
+    // guardrails and turn this into an arbitrary LLM proxy.
+    const systemPrompt = SYSTEM_PROMPT;
 
     // Build conversation context
     const messages: { role: string; content: string }[] = [

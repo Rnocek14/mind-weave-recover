@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -8,6 +9,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_EMBED_CHARS = 2000;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -15,7 +18,23 @@ serve(async (req) => {
   }
 
   try {
+    // Require an authenticated caller — this spends the app's paid OpenAI key.
+    const caller = await getAuthedUser(req);
+    if (!caller) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { text } = await req.json();
+
+    if (typeof text === 'string' && text.length > MAX_EMBED_CHARS) {
+      return new Response(
+        JSON.stringify({ error: 'Text too long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!text || typeof text !== 'string') {
       return new Response(

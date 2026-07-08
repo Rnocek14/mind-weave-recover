@@ -1,9 +1,20 @@
 /**
- * clinician-action — Transactional edge function for clinician quick actions.
- * 
- * Wraps multi-step writes (profile + override + alert + audit log)
- * in a single server-side call so partial failures don't leave
- * half-written state on the client.
+ * clinician-action — authorize-then-dispatch for all clinician quick actions.
+ *
+ * The underlying `clinician_*` RPCs are SECURITY DEFINER (they bypass RLS) and
+ * are now revoked from anon/authenticated (see migration
+ * 20260710150000_lock_down_privileged_rpcs.sql). They can only be invoked with
+ * the service-role key, which lives here. This function:
+ *   1. authenticates the caller's JWT,
+ *   2. verifies the caller is an admin OR the assigned clinician for the target
+ *      profile,
+ *   3. derives the acting clinician id from the JWT (never the request body) and
+ *      looks up the patient's owning user_id server-side,
+ *   4. invokes the requested RPC with the service-role client.
+ *
+ * This closes the hole where any authenticated patient could call the RPCs
+ * directly with an attacker-chosen p_clinician_id and tamper with another
+ * patient's clinical settings while forging the audit trail.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { userHasAnyRole, isAssignedClinician } from "../_shared/auth.ts";
@@ -14,266 +25,112 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// action → { rpc, passthrough params, whether to inject the acting clinician id }
+const ACTIONS: Record<
+  string,
+  { rpc: string; params: string[]; injectClinician: boolean }
+> = {
+  reduce_dose:        { rpc: "clinician_reduce_dose",        params: ["p_domain_slug", "p_reduction_pct"], injectClinician: true },
+  adjust_difficulty:  { rpc: "clinician_adjust_difficulty",  params: ["p_direction", "p_exercise_slug"],    injectClinician: true },
+  reverse_override:   { rpc: "clinician_reverse_override",   params: ["p_override_id", "p_reason"],          injectClinician: true },
+  schedule_outreach:  { rpc: "clinician_schedule_outreach",  params: ["p_reason"],                           injectClinician: true },
+  assign_practice:    { rpc: "clinician_assign_practice",    params: ["p_notes"],                            injectClinician: true },
+  review_cueing:      { rpc: "clinician_review_cueing",      params: ["p_new_cue_level"],                    injectClinician: true },
+  approve_override:   { rpc: "clinician_approve_override",   params: ["p_override_id"],                      injectClinician: true },
+  reject_override:    { rpc: "clinician_reject_override",    params: ["p_override_id", "p_reason"],          injectClinician: true },
+  // Suggestion identifies the source via p_suggested_by (a label), not a clinician id.
+  suggest_override:   { rpc: "clinician_suggest_override",   params: ["p_suggested_by", "p_override_type", "p_target_slug", "p_value_after", "p_reason"], injectClinician: false },
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing auth" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Verify the caller via anon client
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
+    // Verify the caller via the anon client + their bearer token.
+    const anonClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: authError } = await anonClient.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401);
     }
 
-    // Use service role for transactional writes
+    const body = await req.json().catch(() => ({}));
+    const { action, profileId, params } = body ?? {};
+    const actionParams = (params && typeof params === "object") ? params : {};
+
+    const spec = action ? ACTIONS[action] : undefined;
+    if (!spec) {
+      return json({ error: `Unknown action: ${action}` }, 400);
+    }
+    if (!profileId) {
+      return json({ error: "Missing profileId" }, 400);
+    }
+
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const body = await req.json();
-    const { action, userId, profileId, clinicianId, params } = body;
-
-    if (!action || !userId || !profileId || !clinicianId) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify the clinician is the authenticated user
-    if (user.id !== clinicianId) {
-      return new Response(JSON.stringify({ error: "Clinician ID mismatch" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Authorization: caller must hold a clinician/admin role AND (unless admin)
-    // be the assigned clinician for the target patient's profile. This prevents
-    // any authenticated patient from self-assigning as clinician.
+    // Authorize: admin OR assigned clinician for THIS profile.
     const isAdmin = await userHasAnyRole(admin, user.id, ["admin"]);
     if (!isAdmin) {
       const isClinician = await userHasAnyRole(admin, user.id, ["clinician", "moderator"]);
       if (!isClinician) {
-        return new Response(JSON.stringify({ error: "Forbidden: clinician role required" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Forbidden: clinician role required" }, 403);
       }
       const assigned = await isAssignedClinician(admin, user.id, profileId);
       if (!assigned) {
-        return new Response(JSON.stringify({ error: "Forbidden: not assigned to this patient" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "Forbidden: not assigned to this patient" }, 403);
       }
     }
 
-    let result: { success: boolean; message: string; overrideId?: string };
-
-    switch (action) {
-      case "reduce_dose": {
-        const domainSlug = params?.domainSlug || "speech_therapy";
-        const reductionPct = params?.reductionPct || 20;
-
-        // 1. Get current target
-        const { data: targets } = await admin
-          .from("dose_targets")
-          .select("*")
-          .eq("profile_id", profileId)
-          .eq("domain_slug", domainSlug)
-          .is("effective_until", null)
-          .order("effective_from", { ascending: false })
-          .limit(1);
-
-        const current = targets?.[0];
-        if (!current) {
-          result = { success: false, message: `No active dose target for ${domainSlug}` };
-          break;
-        }
-
-        const oldValue = current.target_value;
-        const newValue = Math.max(5, Math.round(oldValue * (1 - reductionPct / 100)));
-
-        // 2. End old, create new, create override, log — all via service role
-        await admin.from("dose_targets").update({ effective_until: new Date().toISOString().split("T")[0] }).eq("id", current.id);
-        await admin.from("dose_targets").insert({ user_id: userId, profile_id: profileId, domain_slug: domainSlug, target_value: newValue, target_frequency: current.target_frequency, prescribed_by: clinicianId });
-
-        const { data: overrideData } = await admin.from("clinician_overrides").insert({
-          user_id: userId, profile_id: profileId, clinician_id: clinicianId,
-          override_type: "dose_reduction", target_slug: domainSlug,
-          value_before: { target_value: oldValue, domain_slug: domainSlug },
-          value_after: { target_value: newValue, domain_slug: domainSlug },
-          reason: `Reduced dose ${reductionPct}% via weekly review`, status: "active",
-        }).select("id").single();
-
-        await admin.from("adaptation_events").insert({
-          user_id: userId, profile_id: profileId, layer: "clinician_override",
-          adaptation_type: "reduce_dose", trigger_type: "clinician_action", confidence: "high",
-          evidence: { performed_by: clinicianId, domain_slug: domainSlug, reduction_pct: reductionPct, override_id: overrideData?.id },
-          value_before: { target_value: oldValue }, value_after: { target_value: newValue },
-        });
-
-        result = { success: true, message: `Dose reduced ${oldValue}→${newValue}min for ${domainSlug.replace(/_/g, " ")}`, overrideId: overrideData?.id };
-        break;
-      }
-
-      case "adjust_difficulty": {
-        const direction = params?.direction || "decrease";
-        const exerciseSlug = params?.exerciseSlug;
-
-        const { data: profile } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
-        const rc = (profile?.runtime_config as Record<string, any>) || {};
-        const currentOverrides = rc.difficulty_overrides || {};
-        const key = exerciseSlug || "_global";
-        const currentLevel = currentOverrides[key] || 0;
-        const newLevel = direction === "increase" ? currentLevel + 1 : currentLevel - 1;
-
-        const updatedRc = { ...rc, difficulty_overrides: { ...currentOverrides, [key]: newLevel } };
-        await admin.from("profiles").update({ runtime_config: updatedRc }).eq("id", profileId);
-
-        const { data: overrideData } = await admin.from("clinician_overrides").insert({
-          user_id: userId, profile_id: profileId, clinician_id: clinicianId,
-          override_type: "difficulty", target_slug: exerciseSlug || null,
-          value_before: { difficulty_level: currentLevel, target: key },
-          value_after: { difficulty_level: newLevel, target: key },
-          reason: `Clinician ${direction}d difficulty via weekly review`, status: "active",
-        }).select("id").single();
-
-        // Supersede prior active difficulty overrides for SAME target only
-        if (overrideData?.id) {
-          await admin.from("clinician_overrides")
-            .update({ status: "superseded" })
-            .eq("profile_id", profileId)
-            .eq("override_type", "difficulty")
-            .eq("status", "active")
-            .neq("id", overrideData.id)
-            .eq("target_slug", exerciseSlug || null);
-        }
-
-        await admin.from("adaptation_events").insert({
-          user_id: userId, profile_id: profileId, layer: "clinician_override",
-          adaptation_type: `${direction}_difficulty`, trigger_type: "clinician_action", confidence: "high",
-          evidence: { performed_by: clinicianId, direction, exercise_slug: exerciseSlug || "all", override_id: overrideData?.id },
-          value_before: { difficulty_level: currentLevel }, value_after: { difficulty_level: newLevel },
-        });
-
-        await admin.from("recovery_alerts").insert({
-          user_id: userId, profile_id: profileId, alert_type: "difficulty_adjustment", severity: "info",
-          title: `Difficulty ${direction === "increase" ? "Increased" : "Decreased"}`,
-          description: `Clinician ${direction}d difficulty${exerciseSlug ? ` for ${exerciseSlug.replace(/-/g, " ")}` : " globally"}.`,
-          trigger_data: { created_by: clinicianId, direction, override_id: overrideData?.id, source: "clinician_override" },
-        });
-
-        result = { success: true, message: `Difficulty ${direction}d (${currentLevel}→${newLevel})`, overrideId: overrideData?.id };
-        break;
-      }
-
-      case "reverse_override": {
-        const overrideId = params?.overrideId;
-        const reason = params?.reason || "Reversed via weekly review";
-
-        const { data: override } = await admin.from("clinician_overrides").select("*").eq("id", overrideId).single();
-        if (!override) { result = { success: false, message: "Override not found" }; break; }
-        if (override.status !== "active") { result = { success: false, message: "Override already reversed/superseded" }; break; }
-
-        await admin.from("clinician_overrides").update({
-          status: "reversed", reversed_at: new Date().toISOString(), reversed_by: clinicianId, reversal_reason: reason,
-        }).eq("id", overrideId);
-
-        const vb = override.value_before as Record<string, any> || {};
-
-        // Restore state based on type
-        if (override.override_type === "difficulty" && vb.difficulty_level !== undefined) {
-          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
-          const rc = (prof?.runtime_config as Record<string, any>) || {};
-          const ov = rc.difficulty_overrides || {};
-          ov[vb.target || "_global"] = vb.difficulty_level;
-          await admin.from("profiles").update({ runtime_config: { ...rc, difficulty_overrides: ov } }).eq("id", profileId);
-        }
-        if (override.override_type === "dose_reduction" && vb.target_value !== undefined) {
-          await admin.from("dose_targets").update({ effective_until: new Date().toISOString().split("T")[0] }).eq("profile_id", profileId).eq("domain_slug", vb.domain_slug).is("effective_until", null);
-          await admin.from("dose_targets").insert({ user_id: userId, profile_id: profileId, domain_slug: vb.domain_slug, target_value: vb.target_value, prescribed_by: clinicianId });
-        }
-        if (override.override_type === "cue_level") {
-          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
-          const rc = (prof?.runtime_config as Record<string, any>) || {};
-          await admin.from("profiles").update({ runtime_config: { ...rc, cue_level_override: vb.cue_level ?? null, cue_review_at: null, cue_reviewed_by: null } }).eq("id", profileId);
-        }
-        if (override.override_type === "practice_assignment") {
-          const { data: prof } = await admin.from("profiles").select("runtime_config").eq("id", profileId).single();
-          const rc = (prof?.runtime_config as Record<string, any>) || {};
-          const va = override.value_after as Record<string, any> || {};
-          const latestId = va.latest?.id;
-          const assignments = rc.practice_assignments || [];
-          const filtered = latestId ? assignments.filter((a: any) => a.id !== latestId) : assignments.slice(0, -1);
-          await admin.from("profiles").update({ runtime_config: { ...rc, practice_assignments: filtered } }).eq("id", profileId);
-        }
-        if (override.override_type === "outreach") {
-          await admin.from("recovery_alerts").update({ resolved_at: new Date().toISOString(), resolved_by: clinicianId, resolution_notes: `Reversed: ${reason}` }).eq("profile_id", profileId).eq("alert_type", "outreach_needed").is("resolved_at", null);
-        }
-
-        await admin.from("adaptation_events").insert({
-          user_id: userId, profile_id: profileId, layer: "clinician_override",
-          adaptation_type: "reverse_override", trigger_type: "clinician_action", confidence: "high",
-          evidence: { performed_by: clinicianId, override_id: overrideId, override_type: override.override_type, reason },
-          value_before: override.value_after, value_after: override.value_before,
-        });
-
-        result = { success: true, message: `Override reversed: ${override.override_type}` };
-        break;
-      }
-
-      default:
-        result = { success: false, message: `Unknown action: ${action}` };
+    // Resolve the patient's owning user_id server-side (never trust the body).
+    const { data: profileRow, error: profileErr } = await admin
+      .from("profiles")
+      .select("user_id")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (profileErr || !profileRow) {
+      return json({ error: "Profile not found" }, 404);
     }
 
-    return new Response(JSON.stringify(result), {
-      status: result.success ? 200 : 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err: any) {
-    // Log failure for audit visibility
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const admin = createClient(supabaseUrl, serviceKey);
-      const body = await req.clone().json().catch(() => ({}));
-      await admin.from("adaptation_events").insert({
-        user_id: body.userId || "00000000-0000-0000-0000-000000000000",
-        profile_id: body.profileId || null,
-        layer: "clinician_override",
-        adaptation_type: "action_failed",
-        trigger_type: "clinician_action",
-        confidence: "high",
-        evidence: {
-          action: body.action,
-          error: err.message,
-          timestamp: new Date().toISOString(),
-        },
-      });
-    } catch (_) { /* best effort */ }
+    // Build the RPC arguments: identity params are server-derived; the rest are
+    // the action-specific passthrough params from the client.
+    const rpcArgs: Record<string, unknown> = {
+      p_profile_id: profileId,
+      p_user_id: profileRow.user_id,
+    };
+    if (spec.injectClinician) {
+      rpcArgs.p_clinician_id = user.id; // acting clinician = the authenticated caller
+    }
+    for (const key of spec.params) {
+      if (key in actionParams) rpcArgs[key] = actionParams[key];
+    }
 
-    return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const { data: result, error: rpcError } = await admin.rpc(spec.rpc, rpcArgs);
+    if (rpcError) {
+      console.error(`[clinician-action] ${action} failed:`, rpcError.message);
+      return json({ success: false, message: rpcError.message }, 400);
+    }
+
+    return json(result ?? { success: true });
+  } catch (err) {
+    return json({ error: (err as Error).message || "Internal error" }, 500);
   }
 });

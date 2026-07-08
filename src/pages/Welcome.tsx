@@ -39,7 +39,11 @@ export default function Welcome() {
     markOnboardingComplete(user?.id);
     // Launch KPI: survivor reached their first Start (plan A4). Non-blocking.
     void recordSelfStart(undefined, 'welcome');
-    navigate('/smart-coach');
+    // Go to the real practice launcher. Previously navigated to /smart-coach,
+    // which is a retired route that redirects to /today — so this CTA dropped
+    // the user on the home screen after firing the KPI for a session that never
+    // began. /today is the actual start destination.
+    navigate('/today');
   };
 
   const skip = () => {

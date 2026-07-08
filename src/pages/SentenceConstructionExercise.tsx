@@ -12,7 +12,7 @@ import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
-import { startSession, endSession, trackRound } from "@/lib/sessionTracking";
+import { startSession, endSession } from "@/lib/sessionTracking";
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
@@ -189,22 +189,10 @@ const SentenceConstructionExercise = () => {
       });
     }
 
-    if (sessionId) {
-      await trackRound(
-        sessionId,
-        "sentence-construction",
-        trialIndexRef.current,
-        data.correct ? 1 : 0,
-        {
-          difficulty: data.difficulty,
-          grammarFocus: data.grammarFocus
-        },
-        {
-          errorType: data.errorType,
-          reactionTime: data.reactionTime
-        }
-      );
-    }
+    // NOTE: previously also called trackRound() here, which inserted a SECOND
+    // exercise_events row per trial on a 0/1 score scale — submitTrial below
+    // writes the canonical 0–100 row. That double-write doubled the rep count
+    // and corrupted session accuracy, so submitTrial is now the single writer.
 
     await submitTrial({
       profileId: activeProfile?.id,

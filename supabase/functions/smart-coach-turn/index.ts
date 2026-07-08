@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
+import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +61,25 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'messages array exceeds 30 entries', response: null }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Safety gate — BEFORE the LLM. Inspect the latest user message for self-harm
+    // or acute medical/stroke language and return fixed emergency guidance
+    // instead of coaching the user back onto the task.
+    const lastUser = [...messages].reverse().find(
+      (m: { role: string; content: string }) => m.role === 'user',
+    );
+    const crisis = detectCrisis(lastUser?.content);
+    if (crisis.isCrisis && crisis.kind) {
+      return new Response(
+        JSON.stringify({
+          response: crisisSafetyMessage(crisis.kind),
+          crisis: true,
+          crisisKind: crisis.kind,
+          endSession: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

@@ -34,7 +34,7 @@ export async function persistTransferCheck(event: TransferCheckEvent): Promise<b
       session_id: event.sessionId,
       exercise_slug: normalizeExerciseSlug(event.drillSlug),
       round: event.turnNumber,
-      score: passed ? 1 : 0, // Integer column — store as binary pass/fail
+      score: passed ? 100 : 0, // 0–100 scale (canonical exercise_events.score)
       error_type: resolvedErrorType,
       browser_transcript: event.userResponse,
       

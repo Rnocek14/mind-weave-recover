@@ -91,7 +91,7 @@ export function AppHeader() {
         {/* Logo/Brand */}
         <Link to={homeHref} className="flex items-center gap-2 font-semibold">
           <Brain className="h-5 w-5 text-primary" />
-          <span className="hidden sm:inline">NeuroSpark</span>
+          <span className="hidden sm:inline">NeuroRecover</span>
         </Link>
 
         {/* Primary Navigation */}
@@ -240,7 +240,7 @@ export function AppHeader() {
                 <Button
                   variant={helpMode ? "secondary" : "ghost"}
                   size="icon"
-                  className={cn("h-8 w-8", helpMode && "text-primary")}
+                  className={cn(helpMode && "text-primary")}
                   onClick={toggleHelpMode}
                   aria-label={helpMode ? "Turn off help tooltips" : "Turn on help tooltips"}
                 >

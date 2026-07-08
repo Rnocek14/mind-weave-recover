@@ -146,11 +146,12 @@ export default function Progress() {
           currentStreak={stats?.currentStreak ?? 0} 
         />
 
-        {/* CTA */}
-        <Button 
-          size="lg" 
-          className="w-full" 
-          onClick={() => navigate('/smart-coach')}
+        {/* CTA — /today is the real practice launcher (/smart-coach is a retired
+            redirect to /today). */}
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() => navigate('/today')}
         >
           Start a session
         </Button>

@@ -86,17 +86,25 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
     if (!sessionId) return;
 
     const fetchResults = async () => {
-      // Get exercise events for this session
+      // Get exercise events for this session. Use the SAME accuracy semantics as
+      // sessionAccuracySummary.reduceAccuracy / get_session_summary: exclude
+      // validity-filtered rows (counts_toward_score=false) and manual_confirmed
+      // trials, so the number shown here matches Insights/History and manual
+      // confirmations don't inflate it.
       const { data: events } = await supabase
         .from("exercise_events")
-        .select("exercise_slug, score")
+        .select("exercise_slug, score, counts_toward_score, validity_label")
         .eq("session_id", sessionId)
         .not("score", "is", null);
 
-      if (events && events.length > 0) {
+      const scorable = (events ?? []).filter(
+        (ev) => ev.counts_toward_score !== false && ev.validity_label !== "manual_confirmed",
+      );
+
+      if (scorable.length > 0) {
         // Group by exercise and compute averages
         const grouped = new Map<string, { total: number; count: number }>();
-        for (const ev of events) {
+        for (const ev of scorable) {
           const slug = ev.exercise_slug || "unknown";
           const entry = grouped.get(slug) || { total: 0, count: 0 };
           entry.total += (ev.score ?? 0);

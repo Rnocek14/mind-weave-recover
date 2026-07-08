@@ -13,12 +13,19 @@ import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfile
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useVoicePracticeSession, VoicePracticePhase } from '@/hooks/useVoicePracticeSession';
 import { cn } from '@/lib/utils';
 
 export default function VoicePractice() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { activeProfile } = useProfile();
+  // Create a real session so rounds actually persist (profile_id, session_id).
+  // Previously the hook was called without a sessionId, so every scored round
+  // was silently dropped.
+  const { activeSessionId } = useStandaloneSession(user?.id, undefined, 'voice_practice');
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
@@ -44,7 +51,7 @@ export default function VoicePractice() {
     skipRound,
     endSession,
     sessionTopic,
-  } = useVoicePracticeSession(6, 1);
+  } = useVoicePracticeSession(6, 1, activeSessionId ?? undefined, activeProfile?.id);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');

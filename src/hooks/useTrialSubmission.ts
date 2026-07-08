@@ -171,9 +171,12 @@ export function useTrialSubmission(opts: Options) {
             gradedScore: input.accuracyScore ?? null,
             validity: input.validity ? { label: input.validity.validity, reason: input.validity.reason } : null,
           });
+          // Only mark routed when this pathway actually logged. Games that
+          // auto-wire the logger via useInGameAdaptation own their own routing;
+          // marking true unconditionally previously masked games that wrote
+          // NOTHING to adaptation_trial_logs.
+          summary.routed.adaptationTrialLogs = true;
         }
-        // Mark routed in either path so dev console reflects reality.
-        summary.routed.adaptationTrialLogs = true;
       } catch (err) {
         console.warn('[submitTrial] adaptation_trial_logs queue failed', err);
       }

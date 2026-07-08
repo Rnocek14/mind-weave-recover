@@ -166,6 +166,12 @@ const Exercise = () => {
   };
 
   const exercise = exercises[exerciseId || ""] || exercises["photo-naming"];
+  // Only the four embedded activities have a real implementation on this generic
+  // route. Any other slug previously fell through to a placeholder ("What is this
+  // object? 🏠") whose auto-timer and "I Said It" button fabricated telemetry
+  // (random score, errorType 'mock_error', unconditional correct=true). Unknown
+  // slugs must NOT be playable and must NOT write data.
+  const isKnownExercise = !!exerciseId && Object.prototype.hasOwnProperty.call(exercises, exerciseId);
 
   // Fetch clinical profile and session count
   useEffect(() => {
@@ -239,7 +245,9 @@ const Exercise = () => {
   useEffect(() => {
     const usesEmbeddedRoundFlow = exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt' || exerciseId === 'photo-naming' || exerciseId === 'word-practice';
 
-    if (isPlaying && !usesEmbeddedRoundFlow) {
+    // Never run the placeholder auto-advance timer for an unknown slug — it used
+    // to fabricate a completed trial (random score) every few seconds.
+    if (isPlaying && !usesEmbeddedRoundFlow && isKnownExercise) {
       const timer = setInterval(() => {
         setProgress(prev => {
           if (prev >= 100) {
@@ -271,7 +279,7 @@ const Exercise = () => {
       correct: wasCorrect,
       reactionTimeMs: reactionTime,
       cueLevel: 0,
-      errorType: wasCorrect ? undefined : 'mock_error',
+      errorType: wasCorrect ? undefined : 'incorrect',
       taskParameters: {
         difficulty_level: level,
         round: currentRound,
@@ -280,7 +288,8 @@ const Exercise = () => {
       engagementFlags: getEngagementFlags()
     });
 
-    const roundScore = Math.floor(Math.random() * 20) + 80; // 80-100
+    // Deterministic score from the actual outcome — never a fabricated value.
+    const roundScore = wasCorrect ? 100 : 0;
     setScore(prev => prev + roundScore);
     
     // Engagement interventions disabled - were interrupting sessions
@@ -601,6 +610,25 @@ const Exercise = () => {
     window.dispatchEvent(new CustomEvent('exercise-complete'));
     navigate(returnTo, { state: { resuming: true } });
   };
+
+  // Unknown exercise slug — show a safe "not available" screen instead of the
+  // placeholder that fabricated telemetry. Real games are served by their own
+  // static routes (which shadow this generic one).
+  if (!isKnownExercise) {
+    return (
+      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+        <Card className="max-w-md w-full p-8 text-center space-y-4 shadow-card">
+          <h1 className="text-2xl font-bold">This activity isn't available</h1>
+          <p className="text-muted-foreground">
+            We couldn't find that exercise. Browse the full list to pick one to practice.
+          </p>
+          <Button size="lg" className="w-full" onClick={() => navigate('/games')}>
+            See all activities
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   // Show mood check-in first
   if (showMoodCheckIn) {

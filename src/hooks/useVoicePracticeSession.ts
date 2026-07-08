@@ -76,6 +76,7 @@ export function useVoicePracticeSession(
   roundCount: number = 6,
   difficulty: number = 1,
   sessionId?: string,
+  profileId?: string,
 ): UseVoicePracticeReturn {
   const { speak, isSpeaking, stop: stopTTS } = useTextToSpeech();
   
@@ -129,9 +130,11 @@ export function useVoicePracticeSession(
 
       await supabase.from('exercise_events').insert({
         session_id: sessionId,
+        profile_id: profileId ?? null,
         exercise_slug: 'voice_practice',
         round: roundIndex + 1,
-        score: Math.round(roundResult.score * 100) / 100,
+        // 0–100 scale (canonical exercise_events.score) — roundResult.score is 0–1.
+        score: Math.round(roundResult.score * 100),
         error_type: resolvedErrorType,
         inputs: {
           transcript: roundResult.transcript,
@@ -164,7 +167,7 @@ export function useVoicePracticeSession(
     } catch (err) {
       console.warn('[VoicePractice] Telemetry emit failed:', err);
     }
-  }, [sessionId, plan.topic.topic, difficulty]);
+  }, [sessionId, profileId, plan.topic.topic, difficulty]);
 
   const startSession = useCallback(async () => {
     if (isProcessingRef.current) return;

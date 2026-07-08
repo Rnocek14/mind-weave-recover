@@ -43,9 +43,17 @@ export default function CohortResearchAnalytics() {
     try {
       const rows = await generateExport();
       if (!rows.length) return;
-      const headers = ["Profile ID", "Name", "Aphasia Type", "Laterality", "Chronicity", "Stroke Mechanism", "Sessions", "Trials", "Avg Accuracy %", "Retention Rate %", "Adaptations", "Functional Score %"];
+      // De-identify: research exports must NOT carry patient names or the raw
+      // profile UUID (a stable, re-identifiable key). Emit a deterministic
+      // pseudonymous subject code instead.
+      const pseudonym = (id: string) => {
+        let h = 0;
+        for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+        return "S" + Math.abs(h).toString(36).toUpperCase().padStart(6, "0");
+      };
+      const headers = ["Subject", "Aphasia Type", "Laterality", "Chronicity", "Stroke Mechanism", "Sessions", "Trials", "Avg Accuracy %", "Retention Rate %", "Adaptations", "Functional Score %"];
       const csvRows = rows.map((r) =>
-        [r.profileId, r.profileName, r.aphasiaType || "", r.laterality || "", r.chronicity || "", r.strokeMechanism || "", r.sessionCount, r.trialCount, r.avgAccuracy ?? "", r.retentionRate ?? "", r.adaptationCount, r.latestFunctionalScore ?? ""].join(",")
+        [pseudonym(r.profileId), r.aphasiaType || "", r.laterality || "", r.chronicity || "", r.strokeMechanism || "", r.sessionCount, r.trialCount, r.avgAccuracy ?? "", r.retentionRate ?? "", r.adaptationCount, r.latestFunctionalScore ?? ""].join(",")
       );
       const csv = [headers.join(","), ...csvRows].join("\n");
       const blob = new Blob([csv], { type: "text/csv" });

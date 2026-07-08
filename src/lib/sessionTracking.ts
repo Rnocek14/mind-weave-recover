@@ -183,41 +183,35 @@ export const checkAchievements = async (userId: string) => {
   
   if (!sessions) return;
 
-  // First session
-  if (sessions.length === 1) {
-    await awardAchievement(userId, 'first-session', 1);
+  // Achievement types MUST match ACHIEVEMENT_DEFS in useAchievements.ts —
+  // AchievementBadges only renders defs whose type equals an earned row, so a
+  // mismatched taxonomy leaves the badge wall permanently empty. Award the
+  // session- and streak-milestone types the UI actually displays.
+  const sessionCount = sessions.length;
+  const SESSION_TIERS: Array<[number, string]> = [
+    [5, 'sessions_5'], [25, 'sessions_25'], [50, 'sessions_50'], [100, 'sessions_100'],
+  ];
+  for (const [threshold, type] of SESSION_TIERS) {
+    if (sessionCount >= threshold) await awardAchievement(userId, type, sessionCount);
   }
 
-  // Get total reps
-  const { data: events } = await supabase
-    .from('exercise_events')
-    .select('id')
-    .in('session_id', sessions.map(s => s.id));
-  
-  if (events && events.length >= 50) {
-    await awardAchievement(userId, '50-reps', events.length);
+  // Longest consecutive-day streak across all completed sessions.
+  const dates = sessions
+    .map(s => new Date(s.ended_at!).toDateString())
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort();
+  let maxStreak = dates.length > 0 ? 1 : 0;
+  let streak = maxStreak;
+  for (let i = 1; i < dates.length; i++) {
+    const diff = (new Date(dates[i]).getTime() - new Date(dates[i - 1]).getTime()) / (1000 * 60 * 60 * 24);
+    streak = diff === 1 ? streak + 1 : 1;
+    if (streak > maxStreak) maxStreak = streak;
   }
-
-  // Check for 3-day streak
-  if (sessions.length >= 3) {
-    const dates = sessions
-      .map(s => new Date(s.ended_at!).toDateString())
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .sort();
-    
-    let streak = 1;
-    for (let i = 1; i < dates.length; i++) {
-      const diff = (new Date(dates[i]).getTime() - new Date(dates[i-1]).getTime()) / (1000 * 60 * 60 * 24);
-      if (diff === 1) {
-        streak++;
-        if (streak >= 3) {
-          await awardAchievement(userId, '3-day-streak', streak);
-          break;
-        }
-      } else {
-        streak = 1;
-      }
-    }
+  const STREAK_TIERS: Array<[number, string]> = [
+    [3, 'streak_3'], [7, 'streak_7'], [14, 'streak_14'], [30, 'streak_30'],
+  ];
+  for (const [threshold, type] of STREAK_TIERS) {
+    if (maxStreak >= threshold) await awardAchievement(userId, type, maxStreak);
   }
 };
 
