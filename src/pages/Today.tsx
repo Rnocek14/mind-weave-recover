@@ -283,9 +283,18 @@ export default function Today() {
 
   const handleStartRecommended = (recommendation: SessionRecommendation) => {
     const presetId = recommendation.templateId as LessonPreset;
-    const recLesson = buildPresetLesson(presetId);
+    // buildPresetLesson returns null when a preset contains an exercise that is
+    // not on the polished allowlist (expression_focused / comprehension_focused /
+    // low_energy do). Previously that made the primary "Start" button a silent
+    // no-op. Fall back to a known-good lesson so the button ALWAYS starts a session.
+    const recLesson =
+      buildPresetLesson(presetId) ?? buildPresetLesson('core_communication') ?? activeLesson;
     console.log('[Today] handleStartRecommended', { presetId, hasRecLesson: !!recLesson });
-    if (!recLesson) return;
+    if (!recLesson) {
+      // Last-resort fallback: run the default daily lesson start path.
+      handleStartSession();
+      return;
+    }
     sessionStorage.removeItem('lessonFlowState');
     localStorage.removeItem('lessonFlowState_resume');
     sessionStorage.setItem('lessonFlowState', JSON.stringify({

@@ -14,7 +14,8 @@
  * Sticky documentation bar (Copy Note / EHR / Print) is preserved.
  */
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { RoleHelpButton } from "@/components/RoleHelpButton";
 import { DashboardTour } from "@/components/tour/DashboardTour";
@@ -62,11 +63,44 @@ type WindowSize = 7 | 14 | 30;
 
 export default function PatientHub() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { isAdmin } = useUserPermissions(user?.id);
   const { activeProfile } = useProfile();
-  const profileId = activeProfile?.id;
-  const patientUserId = activeProfile?.user_id || user?.id || "";
+
+  // A clinician opens a patient via /clinician/review?profile=<id>. When that
+  // param is present we render THAT patient (RLS + is_assigned_clinician gate
+  // which rows are readable), not the clinician's own active profile. Previously
+  // this page always read the viewer's own activeProfile, so "open patient"
+  // showed the clinician's own (empty) data because switch_active_profile cannot
+  // activate another account's profile.
+  const targetProfileId = searchParams.get("profile");
+  const [patientProfile, setPatientProfile] = useState<any | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!targetProfileId) {
+      setPatientProfile(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", targetProfileId)
+        .maybeSingle();
+      if (!cancelled) setPatientProfile(data ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetProfileId]);
+
+  // The subject of this hub: the opened patient (clinician view) or the viewer's
+  // own profile (self view).
+  const subject = targetProfileId ? patientProfile : activeProfile;
+  const profileId = subject?.id;
+  const patientUserId = subject?.user_id || (targetProfileId ? "" : user?.id) || "";
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
@@ -133,9 +167,9 @@ export default function PatientHub() {
       avgAccuracy: sessionStats.avgAccuracy,
       priorAvgAccuracy: sessionStats.priorAvgAccuracy,
       prescribedDays: null,
-      profileName: activeProfile?.profile_name || undefined,
+      profileName: subject?.profile_name || undefined,
     });
-  }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, isLoading, activeProfile]);
+  }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, isLoading, subject]);
 
   const handleCopyEHR = useCallback(() => {
     const s = formatEhrSummary({ timeline, flags: flags || [], alerts, lastActiveDate, engagement });
@@ -160,11 +194,11 @@ export default function PatientHub() {
     );
   }
 
-  const patientName = activeProfile?.profile_name || "Patient";
+  const patientName = subject?.profile_name || "Patient";
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-6 pb-24 space-y-4 print:py-0">
-      <DashboardTour tourId="patient-hub" ready={!!activeProfile} />
+      <DashboardTour tourId="patient-hub" ready={!!subject} />
       {/* Header */}
       <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3 min-w-0">
@@ -205,7 +239,7 @@ export default function PatientHub() {
       </div>
 
       <ProfileCompletenessBanner
-        profile={activeProfile}
+        profile={subject}
         onEditProfile={() => {
           setDetailOpen(true);
           setActiveTab("plan");

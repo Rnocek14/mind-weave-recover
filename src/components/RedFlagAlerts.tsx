@@ -5,14 +5,39 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, AlertTriangle, Info, Calendar, MessageCircle, Eye, X } from "lucide-react";
 import { RedFlag, RedFlagSeverity } from "@/lib/redFlagDetector";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface RedFlagAlertsProps {
   flags: RedFlag[];
   onDismiss?: (flag: RedFlag, notes?: string) => void;
+  /** Optional real escalation handler (e.g. open contact/scheduling). */
+  onEscalate?: (flag: RedFlag) => void;
 }
 
-export const RedFlagAlerts = ({ flags, onDismiss }: RedFlagAlertsProps) => {
+export const RedFlagAlerts = ({ flags, onDismiss, onEscalate }: RedFlagAlertsProps) => {
   const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  const handleEscalate = (flag: RedFlag) => {
+    if (onEscalate) {
+      onEscalate(flag);
+      return;
+    }
+    // No scheduling backend wired here — give real, actionable guidance and
+    // record that the user acted, rather than silently doing nothing.
+    const guidance =
+      flag.severity === 'red'
+        ? 'Please contact your care team or therapist about this. If this is a medical emergency, call your local emergency number.'
+        : flag.severity === 'orange'
+        ? 'Consider discussing this with your caregiver or care team at your next check-in.'
+        : 'Keep an eye on this over the coming week.';
+    toast({
+      title: getEscalationAction(flag.severity).label,
+      description: guidance,
+      duration: 8000,
+    });
+    onDismiss?.(flag, `Escalation acknowledged (${flag.severity})`);
+  };
 
   if (flags.length === 0) {
     return (
@@ -159,11 +184,7 @@ export const RedFlagAlerts = ({ flags, onDismiss }: RedFlagAlertsProps) => {
                     size="sm"
                     variant={flag.severity === 'red' ? 'default' : 'outline'}
                     className="gap-1.5"
-                    onClick={() => {
-                      // For now, just show a toast - in a full implementation this would
-                      // open a scheduling modal or contact form
-                      console.log('Escalation action:', escalation.label, flag);
-                    }}
+                    onClick={() => handleEscalate(flag)}
                   >
                     <EscalationIcon className="h-3.5 w-3.5" />
                     {escalation.label}

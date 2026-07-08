@@ -39,7 +39,12 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
   }
 
   const difficultyChange = summary.endDifficulty - summary.startDifficulty;
-  const accuracyPercent = Math.round(summary.accuracy * 100);
+  // accuracy can be null/NaN when the session had no ASR-verifiable trials.
+  // Rendering that as 0% + "Keep practicing!" is false discouragement — show a
+  // neutral "not enough data" state instead.
+  const hasAccuracy =
+    summary.accuracy != null && Number.isFinite(summary.accuracy as number);
+  const accuracyPercent = hasAccuracy ? Math.round((summary.accuracy as number) * 100) : null;
   const avgRtSeconds = (summary.avgRtMs / 1000).toFixed(1);
 
   return (
@@ -54,9 +59,9 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
         {/* Accuracy */}
         <div className="bg-muted/50 rounded-lg p-4 text-center">
           <div className="flex items-center justify-center mb-2">
-            <Target className={`w-5 h-5 ${accuracyPercent >= 80 ? 'text-success' : 'text-warning'}`} />
+            <Target className={`w-5 h-5 ${accuracyPercent == null ? 'text-muted-foreground' : accuracyPercent >= 80 ? 'text-success' : 'text-warning'}`} />
           </div>
-          <div className="text-2xl font-bold">{accuracyPercent}%</div>
+          <div className="text-2xl font-bold">{accuracyPercent == null ? '—' : `${accuracyPercent}%`}</div>
           <div className="text-xs text-muted-foreground mt-1">Accuracy</div>
         </div>
 
@@ -127,7 +132,7 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
         )}
 
         {/* Error Pattern Insight */}
-        {summary.errorBreakdown.semantic_related > summary.errorBreakdown.unrelated && summary.accuracy < 0.9 && (
+        {summary.errorBreakdown.semantic_related > summary.errorBreakdown.unrelated && hasAccuracy && (summary.accuracy as number) < 0.9 && (
           <div className="flex items-start gap-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
             <AlertCircle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
             <div>
@@ -156,8 +161,14 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
       {/* Clinical Note */}
       <div className="mt-4 pt-4 border-t">
         <p className="text-xs text-muted-foreground text-center">
-          Session completed: {summary.totalTrials} trials • 
-          {accuracyPercent >= 85 ? ' Excellent performance!' : accuracyPercent >= 70 ? ' Good progress!' : ' Keep practicing!'}
+          Session completed: {summary.totalTrials} trials
+          {accuracyPercent == null
+            ? ''
+            : accuracyPercent >= 85
+            ? ' • Excellent performance!'
+            : accuracyPercent >= 70
+            ? ' • Good progress!'
+            : ' • Keep practicing!'}
         </p>
       </div>
     </Card>

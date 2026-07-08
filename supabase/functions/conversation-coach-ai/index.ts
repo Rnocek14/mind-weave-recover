@@ -11,6 +11,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
+import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -417,6 +418,23 @@ serve(async (req) => {
         allowedEntities: string[];
       };
     };
+
+    // Safety gate — BEFORE the LLM. Break the coaching loop and return fixed
+    // emergency guidance if the user expresses self-harm intent or an acute
+    // medical/stroke emergency, instead of a cheerful coaching follow-up.
+    const crisis = detectCrisis(userTranscript);
+    if (crisis.isCrisis && crisis.kind) {
+      return new Response(
+        JSON.stringify({
+          response: crisisSafetyMessage(crisis.kind),
+          crisis: true,
+          crisisKind: crisis.kind,
+          endSession: true,
+          memoryUpdate: null,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {

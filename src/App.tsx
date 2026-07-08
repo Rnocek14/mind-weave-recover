@@ -202,7 +202,7 @@ const App = () => (
                   <Route path="/dev/leveling-contract" element={<AdminProtectedRoute><LevelingContractDev /></AdminProtectedRoute>} />
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
                   <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
-                  <Route path="/dev/ui-variants" element={<UiVariantPreview />} />
+                  <Route path="/dev/ui-variants" element={<AdminProtectedRoute><UiVariantPreview /></AdminProtectedRoute>} />
                   <Route path="/dev/onboarding-preview" element={<AdminProtectedRoute><OnboardingPreviewDev /></AdminProtectedRoute>} />
 
                   {/* Main app routes - with persistent header */}
@@ -222,9 +222,9 @@ const App = () => (
                   
                   {/* Clinician routes - with header */}
                   <Route path="/clinician" element={<Navigate to="/clinician/review" replace />} />
-                  <Route path="/clinician/caseload" element={<AppLayout><ClinicianPanel /></AppLayout>} />
-                  <Route path="/clinician/dashboard" element={<AppLayout><ClinicianPanel /></AppLayout>} />
-                  <Route path="/clinician/review" element={<AppLayout><PatientHub /></AppLayout>} />
+                  <Route path="/clinician/caseload" element={<AppLayout><ClinicianProtectedRoute><ClinicianPanel /></ClinicianProtectedRoute></AppLayout>} />
+                  <Route path="/clinician/dashboard" element={<AppLayout><ClinicianProtectedRoute><ClinicianPanel /></ClinicianProtectedRoute></AppLayout>} />
+                  <Route path="/clinician/review" element={<AppLayout><ClinicianProtectedRoute><PatientHub /></ClinicianProtectedRoute></AppLayout>} />
                   <Route path="/clinician/report" element={<Navigate to="/clinician/review" replace />} />
                   <Route path="/clinician/telemetry" element={<AppLayout><AdminProtectedRoute><ClinicianTelemetry /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/clinician/trial" element={<AppLayout><ClinicianProtectedRoute><ClinicianTrialDashboard /></ClinicianProtectedRoute></AppLayout>} />

@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser } from "../_shared/auth.ts";
+import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,6 +77,24 @@ serve(async (req) => {
     }
 
     const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext } = await req.json();
+
+    // Safety gate — BEFORE the LLM. If the user expresses self-harm intent or an
+    // acute medical/stroke emergency, break the conversational loop and return a
+    // fixed safety message with emergency guidance instead of a cheerful
+    // follow-up question. Flagged so the client can halt the session.
+    const crisis = detectCrisis(userTranscript);
+    if (crisis.isCrisis && crisis.kind) {
+      return new Response(
+        JSON.stringify({
+          response: crisisSafetyMessage(crisis.kind),
+          followupType: 'crisis',
+          crisis: true,
+          crisisKind: crisis.kind,
+          endSession: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Use Lovable AI gateway
     const apiKey = Deno.env.get('LOVABLE_API_KEY');

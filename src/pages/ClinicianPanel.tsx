@@ -25,13 +25,10 @@ import {
   Brain, ExternalLink, ClipboardList
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useProfile } from "@/hooks/useProfile";
-import { toast } from "sonner";
 import { localYYYYMMDD } from "@/lib/localDate";
 
 export default function ClinicianPanel() {
   const { patients, isLoading, error, lastUpdatedAt, refetch } = useClinicianCaseload();
-  const { switchProfile } = useProfile();
   const navigate = useNavigate();
 
   // Filter/sort state
@@ -120,15 +117,13 @@ export default function ClinicianPanel() {
     return { avgAccuracy, avgAdherence, topIssue: topIssue ? `${topIssue[0]} (${topIssue[1]})` : "None" };
   }, [patients]);
 
-  const handlePatientClick = useCallback(async (profileId: string) => {
-    try {
-      await switchProfile(profileId);
-      navigate("/clinician/review");
-    } catch (err) {
-      console.error("[ClinicianPanel] profile switch failed:", err);
-      toast.error("Could not switch to patient profile");
-    }
-  }, [switchProfile, navigate]);
+  const handlePatientClick = useCallback((profileId: string) => {
+    // Open the patient in the review hub by passing their profile id explicitly.
+    // Do NOT use switchProfile / switch_active_profile here: that RPC is scoped
+    // to auth.uid() and cannot activate a patient owned by a different account,
+    // so it would leave the clinician viewing their own (empty) data.
+    navigate(`/clinician/review?profile=${encodeURIComponent(profileId)}`);
+  }, [navigate]);
 
   const hasActiveFilters = riskFilter !== "all" || engagementFilter !== "all" || search.trim() ||
     aphasiaFilter !== "all" || lateralityFilter !== "all" || chronicityFilter !== "all";
