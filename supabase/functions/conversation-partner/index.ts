@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,7 +64,18 @@ serve(async (req) => {
   }
 
   try {
-    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext, smartCoachPrompt } = await req.json();
+    // Require an authenticated caller — this endpoint spends the app's paid
+    // AI-gateway credits and processes patient speech. Without this, anyone
+    // with the public anon key could invoke it (cost abuse + prompt injection).
+    const caller = await getAuthedUser(req);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { userTranscript, turnNumber, maxTurns, conversationHistory, cardContext } = await req.json();
 
     // Use Lovable AI gateway
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
@@ -78,8 +90,10 @@ serve(async (req) => {
       );
     }
 
-    // Use Smart Coach prompt if provided, otherwise default system prompt
-    const systemPrompt = smartCoachPrompt || SYSTEM_PROMPT;
+    // System prompt is fixed server-side. It must NOT be caller-supplied —
+    // a client-provided prompt would let a caller override the therapy
+    // guardrails and turn this into an arbitrary LLM proxy.
+    const systemPrompt = SYSTEM_PROMPT;
 
     // Build conversation context
     const messages: { role: string; content: string }[] = [

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,16 +94,18 @@ serve(async (req) => {
     });
   }
 
-  // Manual auth check - require Bearer token to prevent anonymous Azure API abuse
-  const auth = req.headers.get('authorization') || '';
-  if (!auth.startsWith('Bearer ')) {
+  // Validate the caller's Supabase JWT — a bare "Bearer " prefix check is not
+  // auth (any string passes). This endpoint spends the app's paid Azure Speech
+  // key, so it must require a real authenticated user.
+  const caller = await getAuthedUser(req);
+  if (!caller) {
     const response: ErrorResponse = {
       ok: false,
-      error: { stage: 'auth', message: 'Unauthorized - Bearer token required' }
+      error: { stage: 'auth', message: 'Unauthorized' }
     };
-    return new Response(JSON.stringify(response), { 
-      status: 401, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify(response), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 

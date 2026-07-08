@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { detectAllLesions } from './lesion-detector.ts';
 import { inferDeficitsFromLesions } from './deficit-mapper.ts';
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -266,8 +267,18 @@ serve(async (req) => {
   }
 
   try {
+    // Require an authenticated caller — this is a PHI-processing pipeline that
+    // forwards clinical notes to a third-party LLM on the app's paid key.
+    const caller = await getAuthedUser(req);
+    if (!caller) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { clinicalNote } = await req.json();
-    
+
     if (!clinicalNote || typeof clinicalNote !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Clinical note text is required' }),

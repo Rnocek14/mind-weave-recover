@@ -69,7 +69,34 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    // Authorize: this is a privileged, service-role, RLS-bypassing endpoint that
+    // mutates every user's sessions. It must only be callable by the cron job
+    // (service-role bearer) or an admin — never an anonymous caller.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.replace('Bearer ', '').trim();
+    let isAuthorized = false;
+    if (token && token === serviceRoleKey) {
+      isAuthorized = true;
+    } else if (token) {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: u } = await userClient.auth.getUser();
+      if (u?.user) {
+        const adminCheck = createClient(supabaseUrl, serviceRoleKey);
+        const { data: hasAdmin } = await adminCheck.rpc('has_role', { _user_id: u.user.id, _role: 'admin' });
+        isAuthorized = Boolean(hasAdmin);
+      }
+    }
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Use service role to bypass RLS
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -184,18 +211,18 @@ Deno.serve(async (req) => {
     }
 
 
-    // Log summary for monitoring
+    // Log summary for monitoring. Do NOT return raw session IDs to the caller —
+    // they are other users' identifiers.
     const result = {
       success: true,
       sweptCount: updateCount,
       updateFailures,
       sweepTime,
       thresholdMinutes,
-      staleSessionIds: staleIds,
       message: `Swept ${updateCount} stale sessions`
     };
 
-    console.log(`[SessionSweeper] Sweep complete:`, result);
+    console.log(`[SessionSweeper] Sweep complete:`, { ...result, staleSessionIds: staleIds });
 
     return new Response(
       JSON.stringify(result),

@@ -1,13 +1,16 @@
 /**
- * Clinician Quick Actions — ALL actions use atomic Postgres RPCs.
- * 
- * Every action executes in a single DB transaction:
+ * Clinician Quick Actions — routed through the `clinician-action` edge function.
+ *
+ * The underlying atomic Postgres RPCs are SECURITY DEFINER and are no longer
+ * callable directly by authenticated clients (revoked in migration
+ * 20260710150000). The edge function authenticates the caller, verifies they are
+ * an admin or the assigned clinician for the target profile, derives the acting
+ * clinician id from the JWT, and then invokes the RPC with the service-role key.
+ *
+ * Each action still executes atomically in a single DB transaction:
  * 1. Writes to the operational table (profiles.runtime_config, dose_targets, recovery_alerts)
  * 2. Creates a clinician_overrides record (reversible, auditable)
  * 3. Logs to adaptation_events for audit trail
- * 
- * Runtime config (difficulty, cueing, practice) lives in profiles.runtime_config,
- * separate from clinical_profile (impairments, goals, severity).
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,14 +26,20 @@ interface ActionContext {
   clinicianId: string;
 }
 
-/** Helper to call an RPC and parse the jsonb result */
-async function callClinicianRpc(
-  rpcName: string,
+/** Invoke the clinician-action edge function and parse the result. */
+async function callClinicianAction(
+  action: string,
+  profileId: string,
   params: Record<string, any>
 ): Promise<QuickActionResult> {
-  const { data, error } = await (supabase as any).rpc(rpcName, params);
+  const { data, error } = await supabase.functions.invoke("clinician-action", {
+    body: { action, profileId, params },
+  });
   if (error) throw error;
   const result = data as any;
+  if (!result || result.error) {
+    return { success: false, message: result?.error || "Action failed" };
+  }
   return {
     success: result.success,
     message: result.message,
@@ -47,10 +56,7 @@ export async function reduceDose(
   reductionPct: number = 20
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_reduce_dose", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("reduce_dose", ctx.profileId, {
       p_domain_slug: domainSlug,
       p_reduction_pct: reductionPct,
     });
@@ -69,10 +75,7 @@ export async function adjustDifficulty(
   exerciseSlug?: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_adjust_difficulty", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("adjust_difficulty", ctx.profileId, {
       p_direction: direction,
       p_exercise_slug: exerciseSlug || null,
     });
@@ -90,10 +93,7 @@ export async function reverseOverride(
   reason: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_reverse_override", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("reverse_override", ctx.profileId, {
       p_override_id: overrideId,
       p_reason: reason,
     });
@@ -110,10 +110,7 @@ export async function scheduleOutreach(
   reason: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_schedule_outreach", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("schedule_outreach", ctx.profileId, {
       p_reason: reason || "Clinician flagged patient for follow-up outreach.",
     });
   } catch (err: any) {
@@ -130,10 +127,7 @@ export async function assignPractice(
   notes?: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_assign_practice", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("assign_practice", ctx.profileId, {
       p_notes: notes || "Additional home practice exercises assigned.",
     });
   } catch (err: any) {
@@ -150,10 +144,7 @@ export async function reviewCueing(
   newCueLevel?: number
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_review_cueing", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("review_cueing", ctx.profileId, {
       p_new_cue_level: newCueLevel ?? null,
     });
   } catch (err: any) {
@@ -174,9 +165,7 @@ export async function suggestOverride(
   targetSlug?: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_suggest_override", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
+    return await callClinicianAction("suggest_override", ctx.profileId, {
       p_suggested_by: suggestedBy,
       p_override_type: overrideType,
       p_target_slug: targetSlug || null,
@@ -196,10 +185,7 @@ export async function approveOverride(
   overrideId: string
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_approve_override", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("approve_override", ctx.profileId, {
       p_override_id: overrideId,
     });
   } catch (err: any) {
@@ -216,10 +202,7 @@ export async function rejectOverride(
   reason: string = "Clinician declined suggestion"
 ): Promise<QuickActionResult> {
   try {
-    return await callClinicianRpc("clinician_reject_override", {
-      p_user_id: ctx.userId,
-      p_profile_id: ctx.profileId,
-      p_clinician_id: ctx.clinicianId,
+    return await callClinicianAction("reject_override", ctx.profileId, {
       p_override_id: overrideId,
       p_reason: reason,
     });
