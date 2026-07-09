@@ -75,7 +75,13 @@ export const useSessionLifecycle = ({
   exerciseSlug: rawExerciseSlug,
   getSessionStats,
   onSessionEnded,
-  visibilityTimeoutMs = 5 * 60 * 1000, // 5 minutes
+  // 30 minutes. Aphasia users are slow and effortful; pausing to rest, look
+  // away, or let the screen dim mid-practice is NORMAL, not abandonment. A
+  // 5-minute client cut-off ended sessions out from under people who were
+  // still working. This now matches the server stale-session sweeper (which
+  // stamps the same accuracy summary), so a genuinely-abandoned session is
+  // still closed — just not a resting one.
+  visibilityTimeoutMs = 30 * 60 * 1000,
   ownedByParentFlow,
 }: SessionLifecycleOptions) => {
   // Normalize once — guarantees summary.scores keys, lastExerciseSlug, and
@@ -298,11 +304,22 @@ export const useSessionLifecycle = ({
     endedRef.current = false;
     pendingEndPromiseRef.current = null;
     
-    // Handle pagehide (works reliably on iOS Safari)
-    // Note: This is best-effort. Server sweeper handles cases where this fails.
-    const handlePageHide = () => {
-      console.log('[SessionLifecycle] pagehide event');
-      // Fire and forget - browser may kill us before this completes
+    // Handle pagehide. On mobile this fires whenever the app is BACKGROUNDED —
+    // a notification, an app switch, or the screen locking — not only when the
+    // page is truly closed. Ending the session here cut practice short every
+    // time an aphasia user glanced away or got interrupted, and they cannot
+    // troubleshoot their way back. So we do NOT end on pagehide: the session
+    // stays open and resumable, and the server sweeper closes it (stamping the
+    // accuracy summary) if it turns out to be genuinely abandoned. If the page
+    // is actually being discarded (not going into the bfcache), we still fire a
+    // best-effort end as a last resort.
+    const handlePageHide = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        // Page is being cached and may be restored — keep the session open.
+        console.log('[SessionLifecycle] pagehide (persisted) — keeping session open for resume');
+        return;
+      }
+      console.log('[SessionLifecycle] pagehide (discarded) — best-effort end');
       endSessionWithReason('pagehide');
     };
     

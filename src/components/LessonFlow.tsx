@@ -7,6 +7,7 @@ import { ExerciseTransitionOverlay } from "./ExerciseTransitionOverlay";
 import { SessionArcBar, getAdaptivityMessage, shouldPivotToSupport } from "./SessionArcBar";
 import { SessionPreviewCard } from "./SessionPreviewCard";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { humanizeSlug } from "@/lib/performanceAwareFeedback";
 import type { DailyLesson } from "@/lib/dailyLessonEngine";
@@ -84,9 +85,29 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentPause, setCurrentPause] = useState<PauseDecision | null>(null);
+  // True once session creation has failed enough times that we should stop the
+  // silent spinner and show the user a way out (retry / back to Today).
+  const [sessionCreateFailed, setSessionCreateFailed] = useState(false);
   const [activeSupportPivot, setActiveSupportPivot] = useState(false);
   const [lastPivotWasSupport, setLastPivotWasSupport] = useState(false);
-  const [runtimeBlocks, setRuntimeBlocks] = useState(lesson.blocks);
+  const [runtimeBlocks, setRuntimeBlocks] = useState(() => {
+    // On resume, restore the runtime block list (which may include a support
+    // block injected by a mid-lesson pivot) so a returning user does not lose it.
+    try {
+      if (location.state?.resuming) {
+        const saved = sessionStorage.getItem('lessonFlowState');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.runtimeBlocks) && parsed.runtimeBlocks.length >= lesson.blocks.length) {
+            return parsed.runtimeBlocks;
+          }
+        }
+      }
+    } catch {
+      /* fall through to default */
+    }
+    return lesson.blocks;
+  });
   
   // Session frame template — always create one for Full Coaching, even without explicit ID
   const sessionFrame = getOrCreateSessionFrame(lesson.sessionFrameId, lesson.blocks);
@@ -176,8 +197,14 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     detail?: any;
   }) => {
     const { parsed, savedIndex, savedSessionId, isDirectJump = false, detail } = params;
+    // Use the RUNTIME block list length (may include a pivot-injected support
+    // block) so we don't declare the lesson finished one exercise early.
+    const effectiveBlockCount =
+      Array.isArray(parsed.runtimeBlocks) && parsed.runtimeBlocks.length >= lesson.blocks.length
+        ? parsed.runtimeBlocks.length
+        : lesson.blocks.length;
     const nextIndex = isDirectJump ? savedIndex : savedIndex + 1;
-    const isLast = nextIndex >= lesson.blocks.length;
+    const isLast = nextIndex >= effectiveBlockCount;
 
     if (typeof parsed.sessionStartTime === 'number') {
       sessionStartTimeRef.current = parsed.sessionStartTime;
@@ -212,7 +239,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     setCurrentBlockIndex(nextIndex);
 
     if (isLast && !isDirectJump) {
-      finishLessonSession(savedSessionId, lesson.blocks.length, 'completed');
+      finishLessonSession(savedSessionId, effectiveBlockCount, 'completed');
       return;
     }
 
@@ -255,19 +282,27 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
           const parsed = JSON.parse(savedState);
           const savedIndex = parsed.currentBlockIndex;
           const savedSessionId = parsed.sessionId;
-          
+          // Bound against the RUNTIME block count (may include a pivot-injected
+          // support block), not the original lesson length — otherwise the
+          // support block's index is wrongly rejected as invalid and the
+          // returning user is stranded with no way forward.
+          const resumeBlockCount =
+            Array.isArray(parsed.runtimeBlocks) && parsed.runtimeBlocks.length >= lesson.blocks.length
+              ? parsed.runtimeBlocks.length
+              : lesson.blocks.length;
+
           // Guard: don't process if index is out of bounds
-          if (typeof savedIndex !== 'number' || savedIndex < 0 || savedIndex >= lesson.blocks.length) {
+          if (typeof savedIndex !== 'number' || savedIndex < 0 || savedIndex >= resumeBlockCount) {
             console.warn('[LessonFlow] Invalid saved index:', savedIndex);
             return;
           }
-          
+
           const isDirectJump = location.state?.directJump !== undefined;
           const nextIndex = isDirectJump ? savedIndex : savedIndex + 1;
           console.log('[LessonFlow] Processing resume:', {
             savedIndex,
             nextIndex,
-            isLast: nextIndex >= lesson.blocks.length,
+            isLast: nextIndex >= resumeBlockCount,
             isDirectJump,
           });
 
@@ -359,8 +394,9 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     }
   }, [phase, currentBlock, sessionId, isOfflineMode]);
 
-  const createSession = async () => {
+  const createSession = async (attempt = 0) => {
     if (!user) return;
+    setSessionCreateFailed(false);
 
     const { data, error } = await supabase
       .from("sessions")
@@ -377,9 +413,17 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       .single();
 
     if (error) {
-      console.error("Failed to create session:", error);
-      toast.error("Failed to start session");
+      console.error(`Failed to create session (attempt ${attempt + 1}):`, error);
+      // A network blip at session start must not permanently strand the user on
+      // "Preparing session…". Retry a few times with backoff; if it still fails,
+      // surface a visible retry / escape instead of an infinite spinner.
+      if (attempt < 3) {
+        setTimeout(() => { void createSession(attempt + 1); }, [800, 1800, 4000][attempt] ?? 4000);
+        return;
+      }
+      toast.error("Couldn't start your session. Please check your connection.");
       isCreatingSessionRef.current = false;
+      setSessionCreateFailed(true);
       return;
     }
 
@@ -427,6 +471,12 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
       blockScores: blockScoresRef.current,
       blockCount: lesson.blocks.length,
       firstExerciseId: lesson.blocks[0]?.exerciseId,
+      // Persist the RUNTIME block list (which may include an injected support
+      // exercise from a mid-lesson pivot). Without this, the list resets to the
+      // original lesson.blocks on remount and the resume path measures progress
+      // against the wrong length — ending the lesson one exercise early ("session
+      // complete" halfway through).
+      runtimeBlocks,
       lesson,
       clinicalProfile,
       savedAt: Date.now(),
@@ -773,9 +823,35 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     );
   }
 
+  // Session creation failed after retries — never leave the user on an infinite
+  // "Preparing session…" spinner. Give a clear retry and an escape.
+  if (phase === "exercise" && !sessionId && sessionCreateFailed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 space-y-6 text-center">
+          <h2 className="text-2xl font-bold">We couldn't start your session</h2>
+          <p className="text-muted-foreground text-lg">
+            Please check your internet connection. Your progress is safe.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              size="lg"
+              onClick={() => { isCreatingSessionRef.current = true; void createSession(0); }}
+            >
+              Try again
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => navigate("/today")}>
+              Back to home
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   // Loading state when navigating to exercise
   if (phase === "exercise") {
-    const phaseLabel = currentBlock?.priority === 'warmup' ? 'warm-up' 
+    const phaseLabel = currentBlock?.priority === 'warmup' ? 'warm-up'
       : currentBlock?.priority === 'primary' ? 'core' 
       : currentBlock?.priority === 'support' ? 'support'
       : 'stretch';

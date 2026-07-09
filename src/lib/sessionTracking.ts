@@ -51,18 +51,31 @@ export const startSession = async (
     modality: opts.modality || plan.modality
   };
   
-  const { data, error } = await supabase
-    .from('sessions')
-    .insert({
-      user_id: userId,
-      profile_id: actualProfileId,
-      plan: planWithModality as any
-    })
-    .select()
-    .single();
-  
+  // Retry with backoff — a transient network blip at session start must not
+  // silently drop the whole session (which would leave the game running with
+  // no session id, so every trial goes unlogged).
+  let data: any = null;
+  let error: any = null;
+  const backoffMs = [0, 800, 1800, 4000];
+  for (let attempt = 0; attempt < backoffMs.length; attempt++) {
+    if (backoffMs[attempt] > 0) {
+      await new Promise((r) => setTimeout(r, backoffMs[attempt]));
+    }
+    ({ data, error } = await supabase
+      .from('sessions')
+      .insert({
+        user_id: userId,
+        profile_id: actualProfileId,
+        plan: planWithModality as any
+      })
+      .select()
+      .single());
+    if (!error) break;
+    console.warn(`⚠️ Session create failed (attempt ${attempt + 1}/${backoffMs.length}):`, error?.message);
+  }
+
   if (error) {
-    console.error('❌ Failed to create session:', error);
+    console.error('❌ Failed to create session after retries:', error);
     throw error;
   }
   

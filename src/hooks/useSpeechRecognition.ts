@@ -122,14 +122,21 @@ export const useSpeechRecognition = (
     };
 
     const scheduleRestartAttempt = (attempt = 0) => {
-      const restartDelays = [COOLDOWN_MS, 450, 700, 1000, 1400];
+      // Never permanently give up while the exercise still expects the mic.
+      // Aphasia users cannot perform a "tap Voice Off, then On" recovery, so
+      // instead of stopping after 5 tries we keep retrying with a backoff that
+      // caps at ~3s. A visibilitychange listener (below) also re-arms the mic
+      // when the page returns to the foreground (the common cause of failures:
+      // phone unlock, incoming-call audio, another tab grabbing the device).
+      const restartDelays = [COOLDOWN_MS, 450, 700, 1000, 1400, 2000, 3000];
+      const delay = restartDelays[Math.min(attempt, restartDelays.length - 1)];
 
-      if (attempt >= restartDelays.length) {
-        console.error('🎤 Failed to auto-restart after max attempts');
-        stateRef.current = 'IDLE';
-        setIsListening(false);
-        setError('Microphone paused. Please tap Voice Off, then On.');
-        return;
+      // After several failed attempts, surface a GENTLE, non-blocking status so a
+      // genuinely-broken mic isn't a silent infinite loop — but never the old
+      // "tap Voice Off, then On" instruction, which this population can't act on.
+      // We keep retrying regardless; the message just reassures.
+      if (attempt >= 6) {
+        setError('Still trying to hear you…');
       }
 
       clearRestartTimers();
@@ -143,13 +150,13 @@ export const useSpeechRecognition = (
         try {
           stateRef.current = 'STARTING';
           recognitionRef.current?.start();
-          console.log(`🎤 Restart attempt ${attempt + 1}/${restartDelays.length}`);
+          console.log(`🎤 Restart attempt ${attempt + 1}`);
         } catch (err) {
           console.error('🎤 Restart attempt failed:', err);
           stateRef.current = 'RESTARTING';
           scheduleRestartAttempt(attempt + 1);
         }
-      }, restartDelays[attempt]);
+      }, delay);
     };
 
     // Patient mode uses continuous recognition to avoid mic flickering
@@ -216,9 +223,21 @@ export const useSpeechRecognition = (
     recognition.onerror = (event: any) => {
       console.error('🎤 Speech recognition error:', event.error);
       
-      // Handle 'aborted' errors - don't auto-restart but allow manual restart
+      // Handle 'aborted' errors. These are frequently NOT user-initiated on
+      // mobile — a competing getUserMedia (the per-trial MediaRecorder), an OS
+      // audio interruption, or start() racing another recognition all abort the
+      // recognizer. Previously we went IDLE and left the mic dead, so the user
+      // kept talking into a dead mic with no way to recover. Now, unless WE
+      // stopped it, auto-restart so the mic comes back on its own.
       if (event.error === 'aborted') {
-        console.log('🎤 Recognition aborted - state reset (manual restart still allowed)');
+        if (!manuallyStoppedRef.current && (patientMode || optContinuous)) {
+          // Mirror the no-speech path: mark RESTARTING and let the guaranteed
+          // 'end' event drive the single restart (avoids double-starting).
+          console.log('🎤 Recognition aborted (not user-initiated) — will auto-restart on end');
+          stateRef.current = 'RESTARTING';
+          return;
+        }
+        console.log('🎤 Recognition aborted - state reset (manual restart allowed)');
         clearRestartTimers();
         stateRef.current = 'IDLE';
         setIsListening(false);
@@ -306,7 +325,40 @@ export const useSpeechRecognition = (
 
     recognitionRef.current = recognition;
 
+    // Auto-recover the mic when the page returns to the foreground. The most
+    // common way voice dies is the phone locking, an incoming call, or another
+    // app grabbing the microphone — all of which fire visibilitychange when the
+    // user comes back. Rather than leaving the mic dead (and asking an aphasia
+    // user to troubleshoot), we (a) clear a stale permission-denied flag if the
+    // OS now reports the mic as granted, and (b) fire one restart if the mic
+    // should be listening but went idle.
+    const handleVisibilityRecovery = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (manuallyStoppedRef.current) return;
+
+      if (permissionDeniedRef.current) {
+        try {
+          const status = await (navigator as any).permissions?.query({ name: 'microphone' as PermissionName });
+          if (status?.state === 'granted') {
+            permissionDeniedRef.current = false;
+            setError(null);
+          }
+        } catch {
+          /* permissions API unavailable — leave the flag as-is */
+        }
+      }
+
+      if (!permissionDeniedRef.current && (patientMode || optContinuous) && stateRef.current === 'IDLE') {
+        console.log('🎤 Page visible again — re-arming mic');
+        noSpeechCountRef.current = 0;
+        stateRef.current = 'RESTARTING';
+        scheduleRestartAttempt(0);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityRecovery);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityRecovery);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();

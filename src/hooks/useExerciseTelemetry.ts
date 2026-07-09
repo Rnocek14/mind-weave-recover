@@ -328,12 +328,26 @@ export const useExerciseTelemetry = (
           eventData.counts_toward_score = true;
         }
 
-        const { error } = await supabase.from('exercise_events').insert(eventData);
-
-        if (error) throw error;
-
-        // Trigger micro-encouragement after successful log
+        // Encouragement is part of the user experience, not the clinical write —
+        // fire it optimistically so a network blip never robs the patient of
+        // their positive feedback (it used to only run after a successful insert).
         trackEncouragement(trial.correct, trial.reactionTimeMs, trial.cueLevel);
+
+        // Retry the write on transient failure so a momentary network drop does
+        // not silently lose the trial from the clinical record.
+        let insertError: any = null;
+        const backoffMs = [0, 700, 2000];
+        for (let attempt = 0; attempt < backoffMs.length; attempt++) {
+          if (backoffMs[attempt] > 0) {
+            await new Promise((r) => setTimeout(r, backoffMs[attempt]));
+          }
+          ({ error: insertError } = await supabase.from('exercise_events').insert(eventData));
+          if (!insertError) break;
+          console.warn(`⚠️ Trial write failed (attempt ${attempt + 1}/${backoffMs.length}):`, insertError?.message);
+        }
+        if (insertError) {
+          console.error('Error logging trial after retries:', insertError);
+        }
       } catch (error) {
         console.error('Error logging trial:', error);
       }
