@@ -188,6 +188,9 @@ export const useExerciseTelemetry = (
           session_id: sessionId,
           exercise_slug: exerciseSlug,
           round: trialNumber,
+          // Voice Engine v2 rollout marker. Scoring is still v1 here; the flip
+          // to v2 verdicts happens in Phase 5 (docs/voice-engine-v2-spec.md §12).
+          engine_version: 'v1',
           score: trial.correct ? 100 : 0,
           reaction_time_ms: trial.reactionTimeMs,
           cue_level: trial.cueLevel ?? 0,

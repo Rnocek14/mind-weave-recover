@@ -27,6 +27,12 @@ const NOISE_PATTERNS = [
   /\s{2,}/g,            // Multiple spaces
 ];
 
+// Self-correction markers: "X no Y" / "X wait Y" — the speaker abandons an
+// attempt and produces a repaired one. Module-scoped so both the answer
+// extractor and the cleaning-events recorder (Voice Engine v2 Phase 1) share
+// one definition.
+const SELF_CORRECT_MARKERS = new Set(['no', 'wait', 'nope', 'scratch', 'mean']);
+
 /**
  * Normalize ASR transcript for matching
  * Removes fillers, breathing sounds, extra spaces
@@ -123,9 +129,8 @@ export const extractAnswerFromTranscript = (raw: string): string => {
 
   // Self-correction handling: if the user said "X no Y" or "X wait Y",
   // prefer the chunk AFTER the correction marker (their final answer).
-  const SELF_CORRECT = new Set(['no', 'wait', 'nope', 'scratch', 'mean']);
   for (let i = meaningful.length - 1; i >= 0; i--) {
-    if (SELF_CORRECT.has(meaningful[i])) {
+    if (SELF_CORRECT_MARKERS.has(meaningful[i])) {
       const after = meaningful.slice(i + 1);
       if (after.length > 0) {
         meaningful = after;
@@ -153,6 +158,96 @@ export const extractAnswerFromTranscript = (raw: string): string => {
 export const isMostlyFiller = (raw: string): boolean => {
   const answer = extractAnswerFromTranscript(raw);
   return answer.length < 2;
+};
+
+/**
+ * Structured record of what cleaning removed from a raw transcript.
+ * Voice Engine v2 Phase 1 (docs/voice-engine-v2-spec.md §5): the cleaning step
+ * has always discarded this signal. We now surface it so self-correction and
+ * filler behavior are auditable clinical evidence, not silent deletions.
+ */
+export interface CleaningEvents {
+  /** Filler tokens removed, in the order they appeared (e.g. ["um", "uh"]). */
+  fillers_removed: string[];
+  filler_count: number;
+  /** True if a "thinking aloud" carrier phrase ("I think it's…") was stripped. */
+  lead_in_used: boolean;
+  /** "knife, no, fork" → { first: "knife", marker: "no", final: "fork" }. */
+  self_correction: { first: string; marker: string; final: string } | null;
+}
+
+export interface CleaningResult {
+  /** The normalized transcript (identical to normalizeASROutput output). */
+  cleaned: string;
+  events: CleaningEvents;
+}
+
+/**
+ * Produce the cleaned transcript AND a structured record of what was removed.
+ *
+ * Pure and side-effect-free. Reuses the same FILLER_WORDS / LEAD_IN_PATTERNS /
+ * NOISE_PATTERNS / SELF_CORRECT_MARKERS the rest of the module uses, so the
+ * `cleaned` string is byte-identical to `normalizeASROutput(raw)` — this adds
+ * the *events*, it does not change cleaning behavior.
+ */
+export const buildCleaningEvents = (raw: string): CleaningResult => {
+  const events: CleaningEvents = {
+    fillers_removed: [],
+    filler_count: 0,
+    lead_in_used: false,
+    self_correction: null,
+  };
+
+  if (!raw || !raw.trim()) {
+    return { cleaned: '', events };
+  }
+
+  const lowered = raw.toLowerCase().trim();
+
+  // Lead-in detection (does not mutate what we report as removed fillers).
+  for (const pattern of LEAD_IN_PATTERNS) {
+    if (pattern.test(lowered)) {
+      events.lead_in_used = true;
+      break;
+    }
+  }
+
+  // Strip noise, then tokenize to see which tokens were fillers.
+  let noiseStripped = lowered;
+  for (const pattern of NOISE_PATTERNS) {
+    noiseStripped = noiseStripped.replace(pattern, ' ');
+  }
+  const tokens = noiseStripped.split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    const normalized = token.replace(/[.,!?;:]/g, '');
+    if (FILLER_WORDS.has(normalized)) {
+      events.fillers_removed.push(normalized);
+    }
+  }
+  events.filler_count = events.fillers_removed.length;
+
+  // Self-correction: a marker ("no"/"wait"/…) with meaningful content on BOTH
+  // sides — an abandoned attempt followed by a repair. Mirrors the heuristic in
+  // extractAnswerFromTranscript so the two never disagree.
+  const meaningful = tokens
+    .map((w) => w.replace(/[.,!?;:]/g, ''))
+    .filter((w) => w.length > 0 && !FILLER_WORDS.has(w));
+  for (let i = meaningful.length - 1; i >= 0; i--) {
+    if (SELF_CORRECT_MARKERS.has(meaningful[i])) {
+      const before = meaningful.slice(0, i).filter((w) => !SELF_CORRECT_MARKERS.has(w));
+      const after = meaningful.slice(i + 1).filter((w) => !SELF_CORRECT_MARKERS.has(w));
+      if (before.length > 0 && after.length > 0) {
+        events.self_correction = {
+          first: before[before.length - 1],
+          marker: meaningful[i],
+          final: after[after.length - 1],
+        };
+        break;
+      }
+    }
+  }
+
+  return { cleaned: normalizeASROutput(raw), events };
 };
 
 /**
