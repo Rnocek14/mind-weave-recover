@@ -7,6 +7,12 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
 import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
+import {
+  computeAttemptVerdict,
+  reconcileSignals,
+  shadowAgreesWithV1,
+} from '@/lib/voiceEngine/axisEngine';
+import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -329,6 +335,67 @@ export const useExerciseTelemetry = (
           // outcome still counts toward score; leave validity_label null so it
           // is distinguishable from a classified attempt.
           eventData.counts_toward_score = true;
+        }
+
+        // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──
+        // Re-express the evidence v1 already produced onto the v2 axis model and
+        // store it for comparison. This NEVER gates: the v1 outcome above stays
+        // authoritative, engine_version stays 'v1', and no surface reads these
+        // columns to score. Wrapped so shadow scoring can never break the write.
+        const shadowHasSpeechEvidence =
+          !!trial.errorClassification || !!trial.whisperTranscript || !!trial.browserTranscript;
+        if (shadowHasSpeechEvidence) {
+          try {
+            const shadowGate = applyValidityGate(trial.validity);
+            const shadowCleaning = buildCleaningEvents(
+              trial.whisperTranscript || trial.browserTranscript || '',
+            );
+            const reconciliation = reconcileSignals(
+              {
+                manualConfirmed: shadowGate.label === 'manual_confirmed',
+                azureTranscript: trial.whisperTranscript ?? null,
+                azureConfidence: trial.whisperConfidence ?? null,
+                browserTranscript: trial.browserTranscript ?? null,
+                browserConfidence: null, // browser confidence not captured on this path yet
+              },
+              normalizeASROutput,
+            );
+            const verdict = computeAttemptVerdict({
+              errorType: trial.errorClassification?.errorType,
+              v1Correct: trial.correct,
+              phonologicalSimilarity: trial.errorClassification?.phonological_similarity,
+              semanticSimilarity: trial.errorClassification?.semantic_similarity,
+              classificationConfidence: trial.errorClassification?.confidence,
+              cueLevel: trial.cueLevel,
+              cueKind: trial.cueTypeGiven,
+              manualConfirmed: shadowGate.label === 'manual_confirmed',
+              countsTowardScore: shadowGate.shouldScore,
+              validityLabel: shadowGate.label,
+              effortfulSpeech: trial.errorClassification?.fluencyMetrics?.effortfulSpeech,
+              selfCorrection: !!shadowCleaning.events.self_correction,
+              circumlocutionDetected: trial.errorClassification?.circumlocutionDetected,
+              reconciliation: {
+                chosenSource: reconciliation.chosenSource,
+                fusedConfidence: reconciliation.fusedConfidence,
+                sourcesAgreed: reconciliation.sourcesAgreed,
+              },
+              hasTranscript: !!(trial.whisperTranscript || trial.browserTranscript),
+            });
+            eventData.axis_scores = verdict.axes;
+            eventData.strategy_used = verdict.strategyUsed;
+            eventData.measurement_confidence = verdict.measurementConfidence;
+            eventData.verdict_primary = verdict.primary;
+            eventData.verdict_reason = verdict.reason;
+            eventData.shadow_v1_agreement = {
+              v1_correct: trial.correct,
+              v2_primary: verdict.primary,
+              agrees: shadowAgreesWithV1(trial.correct, verdict.primary),
+            };
+          } catch (shadowErr) {
+            // Shadow scoring is diagnostic only — it must never break the
+            // clinical trial write.
+            console.warn('⚠️ Shadow axis verdict failed (non-fatal):', shadowErr);
+          }
         }
 
         // Encouragement is part of the user experience, not the clinical write —
