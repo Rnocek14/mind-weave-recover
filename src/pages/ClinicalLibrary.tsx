@@ -93,8 +93,51 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
   );
   const showReadiness = entry.rows.some((r) => r.readiness);
   return (
-    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-left text-sm">
+    <>
+      {/* Mobile: stacked rows — a 6-column table cannot fit a phone without
+          clipping words, so below `sm` each level renders as its own block. */}
+      <ol className="mt-3 space-y-2 sm:hidden">
+        {entry.rows.map((row) => (
+          <li key={row.level} className="rounded-lg border border-border p-3">
+            <div className="flex items-start gap-2.5">
+              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary">
+                {row.level}
+              </span>
+              <div className="min-w-0">
+                <div className="text-sm text-foreground">{row.description}</div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+                  <Badge variant="secondary" className="text-[10px] font-normal">
+                    {formatSupport(row.targetSupport)}
+                  </Badge>
+                  {showMastery && row.minOnTargetAttempts !== undefined && (
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      ≥ {row.minOnTargetAttempts} attempts
+                    </Badge>
+                  )}
+                  {showMastery && row.minOnTargetAccuracy !== undefined && (
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      {Math.round(row.minOnTargetAccuracy * 100)}% accuracy
+                    </Badge>
+                  )}
+                  {showReadiness && row.readiness && (
+                    <Badge
+                      variant="outline"
+                      className={READINESS_BADGE[row.readiness].className}
+                    >
+                      {READINESS_BADGE[row.readiness].label}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      {/* ≥sm: the full table. min-w keeps columns readable — the wrapper
+          scrolls instead of squeezing words off the edge. */}
+      <div className="mt-3 hidden overflow-x-auto rounded-lg border border-border sm:block">
+      <table className="w-full min-w-[560px] text-left text-sm">
         <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">L</th>
@@ -143,7 +186,8 @@ function LadderTable({ entry }: { entry: ClinicalLadderEntry }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -226,12 +270,20 @@ function RecoveryRoadmap({
 function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const canonical = getCanonicalExercise(entry.slug);
   const title = canonical?.title ?? entry.slug;
-  // Review mode: surface the full L1–L8 table for any game that has rows,
-  // regardless of clinician-review status, so the team can audit every
-  // ladder side-by-side. Re-gate later if we ship this to patients.
-  const hasFullLadder = (entry.rows?.length ?? 0) > 0;
-  const hasRoadmap = false;
-  const [open, setOpen] = useState(hasFullLadder);
+  // Patient-shipped gating (this page is reachable from patient flows via
+  // "See all activities"): the full L1–L8 clinical table only for `full`
+  // entries; structural / design-only entries get the patient-safe
+  // RecoveryRoadmap instead. The earlier all-tables-open "review mode" was
+  // internal-audit scaffolding — its own comment said to re-gate before
+  // shipping to patients.
+  const hasFullLadder = entry.status === 'full' && (entry.rows?.length ?? 0) > 0;
+  const hasRoadmap =
+    !hasFullLadder &&
+    (entry.rows?.length ?? 0) > 0 &&
+    (entry.status === 'structural' || entry.status === 'design-only');
+  // Collapsed by default — with every ladder expanded this page was a
+  // ~42,000px scroll on a phone.
+  const [open, setOpen] = useState(false);
   const badge = STATUS_BADGE[entry.status];
   const trackBadge = TRACK_BADGE[entry.track];
 
@@ -345,12 +397,11 @@ export default function ClinicalLibrary() {
 
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Clinical Library
+          Activity Library
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Every exercise grouped by clinical axis, with the per-game evidence
-          basis and the maturity of its per-level ladder. Badges describe
-          runtime enforcement, not clinical merit.
+          Every activity, grouped by the skill it practices — with the evidence
+          behind it and how its difficulty levels work.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {totalFull > 0 && (

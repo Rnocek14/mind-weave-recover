@@ -38,19 +38,20 @@ const Index = () => {
         <div className="max-w-4xl mx-auto text-center space-y-8 animate-slide-up">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-glow rounded-full mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">AI-Powered Recovery</span>
+            <span className="text-sm font-medium text-primary">Speech practice for aphasia recovery</span>
           </div>
-          
+
           <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
             Your Journey to
             <span className="block bg-gradient-healing [-webkit-background-clip:text] [background-clip:text] [-webkit-text-fill-color:transparent] [color:transparent]">
               Recovery Starts Here
             </span>
           </h1>
-          
+
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Personalized stroke rehabilitation that adapts to you. Rebuild motor skills, 
-            speech, and confidence through engaging, AI-guided therapy—from the comfort of home.
+            Personalized speech and language practice for stroke survivors.
+            Rebuild word finding, conversation, and confidence through short,
+            guided daily sessions—from the comfort of home.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
@@ -80,9 +81,9 @@ const Index = () => {
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-healing flex items-center justify-center">
               <Activity className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold">Motor Recovery</h3>
+            <h3 className="text-xl font-semibold">Guided Daily Sessions</h3>
             <p className="text-muted-foreground">
-              Rebuild strength and coordination through adaptive exercises that track your progress
+              Short, structured practice that adapts to you — support fades as your skills return
             </p>
           </Card>
 
@@ -90,9 +91,9 @@ const Index = () => {
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-healing flex items-center justify-center">
               <Camera className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold">Speech Therapy</h3>
+            <h3 className="text-xl font-semibold">Speak-Aloud Practice</h3>
             <p className="text-muted-foreground">
-              Practice naming objects with personalized photos from your own life
+              Practice naming, sentences, and conversation out loud — including photos from your own life
             </p>
           </Card>
 
@@ -100,20 +101,22 @@ const Index = () => {
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-healing flex items-center justify-center">
               <Award className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-semibold">Track Progress</h3>
+            <h3 className="text-xl font-semibold">Progress You Can Share</h3>
             <p className="text-muted-foreground">
-              Celebrate every win with streaks, achievements, and detailed progress reports
+              Celebrate every win, and share evidence-based session reviews with your therapist or caregiver
             </p>
           </Card>
         </div>
 
         {/* Stats Section */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 max-w-4xl mx-auto">
+          {/* Honest, verifiable facts only — no fabricated efficacy claims on a
+              clinical product. */}
           {[
-            { value: "2x", label: "More Therapy Time" },
-            { value: "85%", label: "User Engagement" },
-            { value: "24/7", label: "Available Access" },
-            { value: "AI", label: "Adaptive Learning" },
+            { value: "20+", label: "Speech Activities" },
+            { value: "~8 min", label: "Daily Sessions" },
+            { value: "24/7", label: "Practice Anytime" },
+            { value: "1:1", label: "Adapts to You" },
           ].map((stat, i) => (
           <div key={i} className="text-center">
             <div className="text-4xl font-bold bg-gradient-healing [-webkit-background-clip:text] [background-clip:text] [-webkit-text-fill-color:transparent] [color:transparent]">
