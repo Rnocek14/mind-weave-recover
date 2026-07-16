@@ -1043,8 +1043,9 @@ export function NarrativeRetellGame({
               );
             })()}
 
-            {/* Replay buttons */}
-            <div className="flex gap-2">
+            {/* Replay buttons — stacked below `sm`: side-by-side they don't fit
+                390px and the Button's nowrap clips "Read story again" mid-word. */}
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
                 size="sm"
@@ -1075,6 +1076,7 @@ export function NarrativeRetellGame({
               <Button
                 variant="outline"
                 size="sm"
+                className="flex-1"
                 onClick={() => {
                   vg.interrupt();
                   vg.speakTask();
