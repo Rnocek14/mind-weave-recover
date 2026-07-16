@@ -36,8 +36,9 @@ export function MayaSessionFrame({
   const { isVoiceLed } = useCoachingMode();
   const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   
-  // Timing: voice-led waits for TTS + 1s pause; non-voice uses timer
-  const defaultDuration = type === 'intro' ? 6 : 4;
+  // Timing: voice-led waits for TTS + a beat; non-voice uses a timer.
+  // Bumped from 6/4s → 7/6s so between-exercise Maya screens don't flash by.
+  const defaultDuration = type === 'intro' ? 7 : 6;
   const totalDuration = duration ?? defaultDuration;
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [speechDone, setSpeechDone] = useState(false);
