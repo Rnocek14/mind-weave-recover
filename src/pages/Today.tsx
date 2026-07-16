@@ -355,7 +355,9 @@ export default function Today() {
 
   if (!user && !isOfflineMode) return null;
 
-  const displayName = user?.user_metadata?.display_name || 'there';
+  // No filler fallback: "Good afternoon, there" reads like a bug. When we
+  // don't know the name, greet without one.
+  const displayName: string | null = user?.user_metadata?.display_name || null;
   const greeting = getGreeting();
   const topicLabel = lastSession?.topic?.replace(/_/g, ' ') || '';
   const sessionNumber = (stats?.totalSessions ?? 0) + 1;
@@ -379,7 +381,9 @@ export default function Today() {
           {!minimal && (
             <div className="space-y-2">
               <h1 className="text-2xl font-bold">
-                {isNonFluent ? `Hi, ${displayName}` : `${greeting}, ${displayName}`}
+                {isNonFluent
+                  ? displayName ? `Hi, ${displayName}` : 'Hi'
+                  : displayName ? `${greeting}, ${displayName}` : greeting}
               </h1>
               {!simplified && (
                 <p className="text-muted-foreground">
