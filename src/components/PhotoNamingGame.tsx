@@ -20,6 +20,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { classifySpeechError, type ErrorClassificationResult } from '@/lib/errorClassifier';
 import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedbackGenerator';
+import { useKidsMode } from '@/contexts/KidsModeContext';
+import { getKidsPraise } from '@/data/kidsContent';
+import { KidsCelebration } from '@/components/KidsCelebration';
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
@@ -154,6 +157,7 @@ export const PhotoNamingGame = ({
   const { setLiveSnapshot } = useLiveAnalysis();
   const vg = useVoiceGuidance('photo-naming');
   const hasSpokenIntroRef = useRef(false);
+  const { kidsMode } = useKidsMode();
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -3011,11 +3015,14 @@ export const PhotoNamingGame = ({
 
       {/* Feedback - compact on mobile */}
       {showFeedback && feedbackData && (
-        <div className={`px-4 py-3 sm:px-5 sm:py-4 rounded-2xl text-center transition-all border ${
+        <div className={`relative px-4 py-3 sm:px-5 sm:py-4 rounded-2xl text-center transition-all border ${
           feedbackData.correct
             ? 'bg-success/10 border-success/30'
             : 'bg-accent/10 border-accent/30'
         }`}>
+          {kidsMode && feedbackData.correct && (
+            <KidsCelebration burstKey={state.trialNumber} />
+          )}
           <div className="flex items-center justify-center gap-3">
             {feedbackData.correct ? (
               <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-success shrink-0" />
@@ -3023,13 +3030,15 @@ export const PhotoNamingGame = ({
               <span className="text-2xl sm:text-3xl shrink-0" aria-hidden>💪</span>
             )}
             <p className="text-sm sm:text-base font-medium text-foreground text-left">
-              {state.currentTrial && generateGentleFeedback(
-                feedbackData.errorType as any,
-                state.currentTrial.target,
-                selectedAnswer || undefined,
-                feedbackData.semanticSimilarity,
-                feedbackData.phonemeAccuracy
-              )}
+              {kidsMode && feedbackData.correct
+                ? getKidsPraise()
+                : state.currentTrial && generateGentleFeedback(
+                    feedbackData.errorType as any,
+                    state.currentTrial.target,
+                    selectedAnswer || undefined,
+                    feedbackData.semanticSimilarity,
+                    feedbackData.phonemeAccuracy
+                  )}
             </p>
           </div>
         </div>

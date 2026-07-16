@@ -17,6 +17,8 @@ import {
   clinicalLevelToEngineFloor,
 } from '@/lib/progression/photoNamingDifficultyBridge';
 import { mapEngineLevelToPhotoTier, generateChoices, computePhotoTier } from '@/data/photoBank';
+import { getKidsPhotoTrials } from '@/data/kidsContent';
+import { useKidsMode } from '@/contexts/KidsModeContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -199,6 +201,7 @@ function PhotoNamingExerciseInner() {
   );
   const sessionId = activeSessionId;
 
+  const { kidsMode } = useKidsMode();
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const [customPhotoGateTimedOut, setCustomPhotoGateTimedOut] = useState(false);
   const customPhotosLoading = isLoading && !customPhotoGateTimedOut;
@@ -383,6 +386,19 @@ function PhotoNamingExerciseInner() {
       }
     }
 
+    // 👦 KIDS MODE: swap in the kid-vocabulary photo pack. Clinician-targeted
+    // practice (focus phonemes / focus words) always takes precedence.
+    if (kidsMode && !(lessonFocusPhonemes && lessonFocusPhonemes.length > 0) && targetedWords.length === 0) {
+      const kidsTrials = getKidsPhotoTrials(totalTrials);
+      if (kidsTrials.length > 0) {
+        selectedTrials = kidsTrials;
+        console.log('🧸 Kids Mode photo pack:', {
+          selectedCount: kidsTrials.length,
+          targets: kidsTrials.map((t) => t.target),
+        });
+      }
+    }
+
     // 🛡️ SAFETY FALLBACK: Ensure we always have valid photo trials
     const validPhotoTrials = selectedTrials.filter(t => !!t.imageUrl && !t.isAudioOnly);
     console.log('📸 Photo trial validation:', {
@@ -437,7 +453,7 @@ function PhotoNamingExerciseInner() {
     setTrials(selectedTrials);
     trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
-  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty]);
+  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;

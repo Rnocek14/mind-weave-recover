@@ -21,13 +21,16 @@ import {
   Stethoscope,
   CircleHelp,
   LogOut,
-  HeartPulse } from
+  HeartPulse,
+  Sparkles } from
 "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useHelpMode } from "@/contexts/HelpModeContext";
+import { useKidsMode } from "@/contexts/KidsModeContext";
+import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ViewModeSelector } from "@/components/ViewModeSelector";
 import {
@@ -58,6 +61,7 @@ export function AppHeader() {
   const { isAdmin, isCaregiver } = useUserPermissions(user?.id);
   const { isAtLeast, uiMode } = useUiMode();
   const { helpMode, toggleHelpMode } = useHelpMode();
+  const { kidsMode, toggleKidsMode } = useKidsMode();
 
   const handleLogout = async () => {
     await signOut();
@@ -134,6 +138,27 @@ export function AppHeader() {
                 </Link>
               </DropdownMenuItem>
               
+              {/* Kids Mode — playful theme + kid-friendly game content */}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault(); // keep menu open so the switch flip is visible
+                  toggleKidsMode();
+                }}
+                className="flex items-center justify-between gap-2 cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Kids Mode
+                </span>
+                <Switch
+                  checked={kidsMode}
+                  aria-label={kidsMode ? "Turn off Kids Mode" : "Turn on Kids Mode"}
+                  className="pointer-events-none"
+                  tabIndex={-1}
+                />
+              </DropdownMenuItem>
+
               {/* Photo Library and Clinical Docs for caregivers+ (reduces cognitive load for patients) */}
               {isAtLeast('caregiver') &&
               <>
