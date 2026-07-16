@@ -10,6 +10,8 @@ import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
 import About from "./pages/About";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import Onboarding from "./pages/Onboarding";
 import RoleOnboarding from "./pages/RoleOnboarding";
 import PendingApproval from "./pages/PendingApproval";
@@ -155,6 +157,8 @@ const App = () => (
                   <Route path="/onboarding/role" element={<RoleOnboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
                   
                   {/* Exercise routes - no header for immersive experience.
                       Guarded by RequireAuth so deep links can't reach a

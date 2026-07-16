@@ -126,6 +126,19 @@ const Index = () => {
           </div>
           ))}
         </div>
+
+        {/* Footer */}
+        <footer className="mt-16 pb-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
+          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/about")}>
+            About
+          </button>
+          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/privacy")}>
+            Privacy Policy
+          </button>
+          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/terms")}>
+            Terms of Service
+          </button>
+        </footer>
       </div>
     </div>
   );
