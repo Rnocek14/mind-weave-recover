@@ -96,12 +96,20 @@ async function buildProfileForUser(
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // Pull recent trials with errors + cue level + reaction time
+  // Pull recent trials with errors + cue level + reaction time.
+  // Adaptation must only learn from validity-gated clinical trials:
+  //  - counts_toward_score=false rows (validity-gated, and all new quarantined
+  //    Voice Practice rounds) are excluded;
+  //  - the voice_practice slug is excluded explicitly too, which also fences
+  //    legacy rows written before the quarantine flag existed
+  //    (docs/voice-engine-v2-spec.md §11).
   const { data: events, error: eventsErr } = await supabase
     .from('exercise_events')
     .select('error_type, cue_level, reaction_time_ms, score, created_at, session_id, sessions!inner(profile_id)')
     .gte('created_at', fourteenDaysAgo.toISOString())
     .eq('sessions.profile_id', profileId)
+    .eq('counts_toward_score', true)
+    .neq('exercise_slug', 'voice_practice')
     .order('created_at', { ascending: false })
     .limit(500);
 

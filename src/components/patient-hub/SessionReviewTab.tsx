@@ -27,6 +27,7 @@ import { CueResponsePanel } from "./review/CueResponsePanel";
 import { SessionNotesPanel } from "./review/SessionNotesPanel";
 import { AcrossTimeView } from "./review/AcrossTimeView";
 import { ExcludedClipsAudit } from "./review/ExcludedClipsAudit";
+import { AxisEvidencePanel } from "./review/AxisEvidencePanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Volume2, VolumeX } from "lucide-react";
 
@@ -264,6 +265,14 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
               selected={errorFilter}
               onSelect={setErrorFilter}
             />
+          </Section>
+
+          {/* 3b. Attempt-by-attempt axis evidence (Voice Engine v2 preview) */}
+          <Section
+            title="What happened on each attempt"
+            description="Plain-language verdicts with the evidence behind them — word retrieval, communication success, and independence per attempt."
+          >
+            <AxisEvidencePanel trials={trials} />
           </Section>
 
           {/* 4. Sounds to watch */}

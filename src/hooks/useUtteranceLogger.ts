@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 
 /**
  * Proper attempt-based logging for speech exercises.
@@ -273,6 +274,30 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     // Use Whisper transcript if available, fall back to browser transcript
     const finalTranscript = analysis.transcript || browserTranscriptRef.current;
 
+    // ── Voice Engine v2 Phase 1: pure capture (docs/voice-engine-v2-spec.md §4, §5) ──
+    // Persist both raw ASR sources, which one won, the cleaned transcript + the
+    // structured cleaning events, and the per-source confidences. This is
+    // capture ONLY — nothing below feeds is_correct / error_type / scoring.
+    const browserRaw = browserTranscriptRef.current ?? null;
+    // analysis.transcript is the Azure/Whisper string only when that source won.
+    const azureRaw = analysis.transcriptSource === 'whisper' ? (analysis.transcript ?? null) : null;
+    // Normalize the legacy 'whisper' source label to the spec's 'azure'.
+    const chosenTranscriptSource =
+      analysis.transcriptSource === 'whisper' ? 'azure' : analysis.transcriptSource;
+    const cleaning = buildCleaningEvents(finalTranscript ?? '');
+    // We only hold the chosen source's confidence here; record it honestly and
+    // leave the other source null rather than inventing a value.
+    const sourceConfidences: Record<string, number | null> = { azure: null, browser: null };
+    if (chosenTranscriptSource === 'azure' || chosenTranscriptSource === 'browser') {
+      sourceConfidences[chosenTranscriptSource] =
+        typeof analysis.asrConfidence === 'number' ? analysis.asrConfidence : null;
+    }
+    // Agreement is only defined when both sources produced content.
+    const sourcesAgreed =
+      browserRaw && azureRaw
+        ? normalizeASROutput(browserRaw) === normalizeASROutput(azureRaw)
+        : null;
+
     console.log('📊 [UtteranceLogger] Logging final analysis:', {
       attemptId: ctx.attemptId,
       target: ctx.targetWord,
@@ -326,6 +351,14 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         transcript: finalTranscript,
         transcript_source: analysis.transcriptSource,
         asr_confidence: analysis.asrConfidence,
+        // Voice Engine v2 Phase 1 capture (no scoring impact):
+        raw_transcript_browser: browserRaw,
+        raw_transcript_azure: azureRaw,
+        chosen_transcript_source: chosenTranscriptSource,
+        cleaned_transcript: cleaning.cleaned || null,
+        cleaning_events: finalTranscript ? cleaning.events : null,
+        source_confidences: sourceConfidences,
+        sources_agreed: sourcesAgreed,
         is_correct: analysis.isCorrect,
         error_type: analysis.errorType,
         phonological_similarity: analysis.phonologicalSimilarity,

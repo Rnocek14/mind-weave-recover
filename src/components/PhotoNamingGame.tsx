@@ -1086,7 +1086,11 @@ export const PhotoNamingGame = ({
   
   // Hard mode settings
   const isHardMode = currentDifficulty >= 8;
-  const timeLimit = 5; // seconds for hard mode
+  // Word-finding latency after stroke is long and effortful; a 5-second countdown
+  // that auto-scores a MISS is punishing and feeds the frustration monitor. Give
+  // a generous 30s backstop so the timer never cuts off genuine retrieval — it
+  // only catches a truly-abandoned trial.
+  const timeLimit = 30; // seconds for hard mode
   const allowManualHints = currentDifficulty >= 6;
 
   // Async speech analysis with Whisper (transcript + acoustic metrics)

@@ -128,14 +128,25 @@ export function useVoicePracticeSession(
         ? 'correct'
         : (roundResult.wordCount === 0 ? 'no_response' : 'low_match');
 
+      // ── Voice Engine v2 QUARANTINE (docs/voice-engine-v2-spec.md §11) ──
+      // scoreVoiceRound is a word-count/keyword heuristic, not clinical
+      // measurement. These rows are PARTICIPATION-ONLY: counts_toward_score is
+      // false so they never feed accuracy, progression, or adaptation. The raw
+      // heuristic number is preserved in outputs.heuristic_score for reference.
+      // Voice Practice is rebuilt on the CIU concept-coverage path in V2.2.
       await supabase.from('exercise_events').insert({
         session_id: sessionId,
         profile_id: profileId ?? null,
         exercise_slug: 'voice_practice',
         round: roundIndex + 1,
         // 0–100 scale (canonical exercise_events.score) — roundResult.score is 0–1.
+        // Kept for telemetry continuity, but quarantined from every scored
+        // aggregate by counts_toward_score:false + the slug exclusion in
+        // sessionAccuracySummary.
         score: Math.round(roundResult.score * 100),
+        counts_toward_score: false,
         error_type: resolvedErrorType,
+        engine_version: 'v1',
         inputs: {
           transcript: roundResult.transcript,
           word_count: roundResult.wordCount,
@@ -146,6 +157,8 @@ export function useVoicePracticeSession(
           feedback: roundResult.feedback,
           matched_count: roundResult.matchedCount,
           total_expected: roundResult.totalExpected,
+          heuristic_score: roundResult.score,
+          unscored_practice: true,
         },
         engagement_flags: {
           did_speak: roundResult.wordCount > 0,
@@ -154,6 +167,8 @@ export function useVoicePracticeSession(
           game_type: round.gameType,
           session_topic: plan.topic.topic,
           arc_phase: round.arcPhase,
+          unscored_practice: true,
+          counts_toward_score: false,
         },
         task_parameters: {
           event_subtype: 'voice_practice',
@@ -162,8 +177,11 @@ export function useVoicePracticeSession(
           arc_phase: round.arcPhase,
           difficulty,
           fluency_unavailable_reason: 'voice_practice_task',
+          unscored_practice: true,
+          quarantine_reason: 'voice_practice_heuristic_scoring_v2_spec_s11',
         },
-      });
+        // Cast: engine_version predates the next supabase type regen.
+      } as any);
     } catch (err) {
       console.warn('[VoicePractice] Telemetry emit failed:', err);
     }

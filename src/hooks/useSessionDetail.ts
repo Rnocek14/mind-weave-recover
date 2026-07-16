@@ -32,6 +32,22 @@ export interface TrialData {
   clinician_validity_override?: string | null;
   /** Which underlying table the row came from — needed for clinician overrides. */
   source_table?: 'utterance_analyses' | 'exercise_events';
+  // ── Voice Engine v2 shadow verdict (exercise_events, Phase 2) ──
+  // Merged in by attempt_id regardless of which table supplied the trial row.
+  // Non-authoritative: v1 still scores; these exist for the clinician evidence
+  // panel and the pre-flip shadow diff (docs/voice-engine-v2-spec.md §12).
+  axis_scores?: Record<string, { value: number; confidence: number; evidence: string[] }> | null;
+  strategy_used?: string | null;
+  measurement_confidence?: string | null;
+  verdict_primary?: string | null;
+  verdict_reason?: string | null;
+  shadow_v1_agreement?: { v1_correct: boolean; v2_primary: string; agrees: boolean | null } | null;
+  // ── Voice Engine v2 advisory-axis evidence (Phase 3) ──
+  // Raw persisted evidence the display-time advisory axes derive from
+  // (Azure PA gop_data, pause/effort metrics). Never feeds scoring.
+  gop_data?: any;
+  pause_count?: number | null;
+  effortful_speech?: boolean | null;
 }
 
 export function useSessionDetail() {
@@ -47,21 +63,22 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, gop_data, pause_count, effortful_speech"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
 
       if (uaError) throw uaError;
 
+      let rows: TrialData[];
       if (uaData && uaData.length > 0) {
-        setTrials(uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const })));
+        rows = uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const }));
       } else {
         // Fallback to exercise_events
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
-            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, acoustic_metrics"
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
@@ -84,7 +101,11 @@ export function useSessionDetail() {
           semantic_similarity: ev.semantic_similarity,
           phonological_similarity: ev.phonological_similarity,
           stuck_type: null,
-          speech_rate_wpm: null,
+          // Fluency evidence lives in acoustic_metrics on this table.
+          speech_rate_wpm: (ev as any).acoustic_metrics?.speechRateWpm ?? null,
+          pause_count: (ev as any).acoustic_metrics?.pauseCount ?? null,
+          effortful_speech: null,
+          gop_data: null,
           created_at: ev.created_at,
           taskParameters: ev.task_parameters,
           outputs: ev.outputs,
@@ -94,8 +115,46 @@ export function useSessionDetail() {
           clinician_validity_override: (ev as any).clinician_validity_override ?? null,
           source_table: 'exercise_events' as const,
         }));
-        setTrials(mapped);
+        rows = mapped;
       }
+
+      // ── Voice Engine v2: merge shadow verdicts (Phase 2 columns) ──
+      // The shadow verdict lives on exercise_events regardless of which table
+      // supplied the trial rows above, so fetch it separately and join on
+      // attempt_id. Best-effort: a failure here must never break Session Review.
+      try {
+        const { data: shadowRows } = await (supabase.from("exercise_events") as any)
+          .select(
+            "attempt_id, axis_scores, strategy_used, measurement_confidence, verdict_primary, verdict_reason, shadow_v1_agreement"
+          )
+          .eq("session_id", sessionId)
+          .not("verdict_primary", "is", null);
+        if (shadowRows && shadowRows.length > 0) {
+          const byAttempt = new Map<string, any>(
+            shadowRows
+              .filter((s: any) => s.attempt_id)
+              .map((s: any) => [s.attempt_id as string, s])
+          );
+          rows = rows.map((t) => {
+            const s = byAttempt.get(t.attempt_id);
+            return s
+              ? {
+                  ...t,
+                  axis_scores: s.axis_scores ?? null,
+                  strategy_used: s.strategy_used ?? null,
+                  measurement_confidence: s.measurement_confidence ?? null,
+                  verdict_primary: s.verdict_primary ?? null,
+                  verdict_reason: s.verdict_reason ?? null,
+                  shadow_v1_agreement: s.shadow_v1_agreement ?? null,
+                }
+              : t;
+          });
+        }
+      } catch (shadowErr) {
+        console.warn("Shadow verdict merge failed (non-fatal):", shadowErr);
+      }
+
+      setTrials(rows);
     } catch (err) {
       console.error("Error fetching session trials:", err);
     } finally {

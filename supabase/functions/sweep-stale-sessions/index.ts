@@ -110,30 +110,35 @@ Deno.serve(async (req) => {
     // Use service role to bypass RLS
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Parse request body for custom threshold (optional)
+    // Idle threshold: a session is only "stale" if it has had NO ACTIVITY for
+    // this long. Keying on last activity (not started_at) is critical for
+    // aphasia users — a slow patient can legitimately be 45+ minutes into a
+    // guided lesson and still actively practicing; keying on session AGE would
+    // sweep them mid-session. Default 30 min of inactivity.
     let thresholdMinutes = 30;
     try {
       const body = await req.json();
       if (body.thresholdMinutes && typeof body.thresholdMinutes === 'number') {
-        thresholdMinutes = Math.max(5, Math.min(1440, body.thresholdMinutes)); // 5 min to 24 hours
+        thresholdMinutes = Math.max(15, Math.min(1440, body.thresholdMinutes)); // 15 min to 24 hours
       }
     } catch {
       // No body or invalid JSON - use default
     }
 
     const sweepTime = new Date().toISOString();
-    const cutoffTime = new Date(Date.now() - thresholdMinutes * 60 * 1000).toISOString();
+    const idleCutoff = Date.now() - thresholdMinutes * 60 * 1000;
+    const idleCutoffTime = new Date(idleCutoff).toISOString();
 
     console.log(`[SessionSweeper] Starting sweep at ${sweepTime}`);
-    console.log(`[SessionSweeper] Threshold: ${thresholdMinutes} minutes`);
-    console.log(`[SessionSweeper] Cutoff time: ${cutoffTime}`);
+    console.log(`[SessionSweeper] Idle threshold: ${thresholdMinutes} minutes since last activity`);
 
-    // Find and update stale sessions in one query
+    // Candidate open sessions that STARTED before the idle cutoff (necessary but
+    // not sufficient — we then require no recent activity below).
     const { data: staleSessions, error: selectError } = await supabase
       .from('sessions')
       .select('id, user_id, profile_id, started_at, plan, summary')
       .is('ended_at', null)
-      .lt('started_at', cutoffTime);
+      .lt('started_at', idleCutoffTime);
 
     if (selectError) {
       console.error('[SessionSweeper] Error finding stale sessions:', selectError);
@@ -159,31 +164,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    const staleIds = staleSessions!.map(s => s.id);
+    const candidateIds = staleSessions!.map(s => s.id);
 
-    // Pull all scored trials for these sessions so we can stamp the canonical
-    // accuracy summary (instead of overwriting with a bare swept marker).
+    // Pull all trials for these sessions — used both for the accuracy summary
+    // AND to compute last-activity (so we never sweep a session that is still
+    // being actively worked on, however long it has been open).
     const { data: events, error: eventsError } = await supabase
       .from('exercise_events')
-      .select('session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug')
-      .in('session_id', staleIds);
+      .select('session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug, created_at')
+      .in('session_id', candidateIds);
 
     if (eventsError) {
       console.error('[SessionSweeper] Error fetching exercise_events:', eventsError);
     }
 
     const eventsBySession = new Map<string, ScoredRow[]>();
-    for (const e of (events ?? []) as Array<ScoredRow & { session_id: string }>) {
+    const lastActivityBySession = new Map<string, number>();
+    for (const e of (events ?? []) as Array<ScoredRow & { session_id: string; created_at?: string }>) {
       const arr = eventsBySession.get(e.session_id) ?? [];
       arr.push(e);
       eventsBySession.set(e.session_id, arr);
+      const t = e.created_at ? Date.parse(e.created_at) : 0;
+      if (t > (lastActivityBySession.get(e.session_id) ?? 0)) {
+        lastActivityBySession.set(e.session_id, t);
+      }
     }
 
-    // Update each stale session individually so we can merge its own summary
+    // Only sweep sessions whose LAST activity (most recent trial, or start time
+    // if no trials) is older than the idle cutoff. A session with a recent trial
+    // is still active and must never be swept.
+    const sessionsToSweep = staleSessions!.filter((s) => {
+      const lastActivity = lastActivityBySession.get(s.id) ?? Date.parse(s.started_at as string);
+      return lastActivity < idleCutoff;
+    });
+    const staleIds = sessionsToSweep.map((s) => s.id);
+    console.log(`[SessionSweeper] ${staleSessions!.length} candidates, ${sessionsToSweep.length} actually idle`);
+
+    // Update each idle session individually so we can merge its own summary
     // (preserving summary.mode) and stamp its own accuracy fields.
     let updateCount = 0;
     let updateFailures = 0;
-    for (const s of staleSessions!) {
+    for (const s of sessionsToSweep) {
       const existingSummary = (s.summary as Record<string, unknown> | null) ?? {};
       const accFields = accuracySummaryFields(eventsBySession.get(s.id) ?? []);
       const mergedSummary = {
@@ -191,7 +212,7 @@ Deno.serve(async (req) => {
         ...accFields,
         swept: true,
         swept_at: sweepTime,
-        stale_since: cutoffTime,
+        stale_since: idleCutoffTime,
       };
 
       const { error: updateError } = await supabase

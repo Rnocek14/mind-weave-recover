@@ -7,6 +7,12 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
 import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
+import {
+  computeAttemptVerdict,
+  reconcileSignals,
+  shadowAgreesWithV1,
+} from '@/lib/voiceEngine/axisEngine';
+import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -188,6 +194,9 @@ export const useExerciseTelemetry = (
           session_id: sessionId,
           exercise_slug: exerciseSlug,
           round: trialNumber,
+          // Voice Engine v2 rollout marker. Scoring is still v1 here; the flip
+          // to v2 verdicts happens in Phase 5 (docs/voice-engine-v2-spec.md §12).
+          engine_version: 'v1',
           score: trial.correct ? 100 : 0,
           reaction_time_ms: trial.reactionTimeMs,
           cue_level: trial.cueLevel ?? 0,
@@ -328,12 +337,94 @@ export const useExerciseTelemetry = (
           eventData.counts_toward_score = true;
         }
 
-        const { error } = await supabase.from('exercise_events').insert(eventData);
+        // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──
+        // Re-express the evidence v1 already produced onto the v2 axis model and
+        // store it for comparison. This NEVER gates: the v1 outcome above stays
+        // authoritative, engine_version stays 'v1', and no surface reads these
+        // columns to score. Wrapped so shadow scoring can never break the write.
+        const shadowHasSpeechEvidence =
+          !!trial.errorClassification || !!trial.whisperTranscript || !!trial.browserTranscript;
+        if (shadowHasSpeechEvidence) {
+          try {
+            const shadowGate = applyValidityGate(trial.validity);
+            const shadowCleaning = buildCleaningEvents(
+              trial.whisperTranscript || trial.browserTranscript || '',
+            );
+            const reconciliation = reconcileSignals(
+              {
+                manualConfirmed: shadowGate.label === 'manual_confirmed',
+                azureTranscript: trial.whisperTranscript ?? null,
+                azureConfidence: trial.whisperConfidence ?? null,
+                browserTranscript: trial.browserTranscript ?? null,
+                browserConfidence: null, // browser confidence not captured on this path yet
+              },
+              normalizeASROutput,
+            );
+            const verdict = computeAttemptVerdict({
+              // When no classifier ran but v1 scored the trial correct, that
+              // outcome IS evidence (choice-match) — mirror it so the shadow
+              // doesn't manufacture disagreement noise. An unclassified miss
+              // stays undefined → engine defaults to 'uncertain' → it abstains
+              // (no_score) rather than asserting a verdict without evidence.
+              errorType:
+                trial.errorClassification?.errorType ??
+                (trial.correct ? 'correct' : undefined),
+              v1Correct: trial.correct,
+              phonologicalSimilarity: trial.errorClassification?.phonological_similarity,
+              semanticSimilarity: trial.errorClassification?.semantic_similarity,
+              classificationConfidence: trial.errorClassification?.confidence,
+              cueLevel: trial.cueLevel,
+              cueKind: trial.cueTypeGiven,
+              manualConfirmed: shadowGate.label === 'manual_confirmed',
+              countsTowardScore: shadowGate.shouldScore,
+              validityLabel: shadowGate.label,
+              effortfulSpeech: trial.errorClassification?.fluencyMetrics?.effortfulSpeech,
+              selfCorrection: !!shadowCleaning.events.self_correction,
+              circumlocutionDetected: trial.errorClassification?.circumlocutionDetected,
+              reconciliation: {
+                chosenSource: reconciliation.chosenSource,
+                fusedConfidence: reconciliation.fusedConfidence,
+                sourcesAgreed: reconciliation.sourcesAgreed,
+              },
+              hasTranscript: !!(trial.whisperTranscript || trial.browserTranscript),
+            });
+            eventData.axis_scores = verdict.axes;
+            eventData.strategy_used = verdict.strategyUsed;
+            eventData.measurement_confidence = verdict.measurementConfidence;
+            eventData.verdict_primary = verdict.primary;
+            eventData.verdict_reason = verdict.reason;
+            eventData.shadow_v1_agreement = {
+              v1_correct: trial.correct,
+              v2_primary: verdict.primary,
+              agrees: shadowAgreesWithV1(trial.correct, verdict.primary),
+            };
+          } catch (shadowErr) {
+            // Shadow scoring is diagnostic only — it must never break the
+            // clinical trial write.
+            console.warn('⚠️ Shadow axis verdict failed (non-fatal):', shadowErr);
+          }
+        }
 
-        if (error) throw error;
-
-        // Trigger micro-encouragement after successful log
+        // Encouragement is part of the user experience, not the clinical write —
+        // fire it optimistically so a network blip never robs the patient of
+        // their positive feedback (it used to only run after a successful insert).
         trackEncouragement(trial.correct, trial.reactionTimeMs, trial.cueLevel);
+
+        // Retry the write on transient failure so a momentary network drop does
+        // not silently lose the trial from the clinical record.
+        let insertError: any = null;
+        const backoffMs = [0, 700, 2000];
+        for (let attempt = 0; attempt < backoffMs.length; attempt++) {
+          if (backoffMs[attempt] > 0) {
+            await new Promise((r) => setTimeout(r, backoffMs[attempt]));
+          }
+          ({ error: insertError } = await supabase.from('exercise_events').insert(eventData));
+          if (!insertError) break;
+          console.warn(`⚠️ Trial write failed (attempt ${attempt + 1}/${backoffMs.length}):`, insertError?.message);
+        }
+        if (insertError) {
+          console.error('Error logging trial after retries:', insertError);
+        }
       } catch (error) {
         console.error('Error logging trial:', error);
       }
