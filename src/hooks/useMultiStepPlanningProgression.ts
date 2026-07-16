@@ -57,7 +57,21 @@ export function useMultiStepPlanningProgression({
   const flushedRef = useRef(false);
 
   useEffect(() => {
-    if (!userId || !profileId) return;
+    // Ids missing (profile fetch failed/slow, or offline): fall back to the
+    // default Level 1 state immediately instead of leaving the exercise stuck
+    // on "Loading your progression…" forever — an aphasia patient cannot
+    // troubleshoot a frozen spinner. When the ids arrive this effect re-runs
+    // and loads the real persisted state (same pattern as Detective Mind /
+    // Photo Naming). Flush already no-ops without ids, so nothing mis-persists.
+    if (!userId || !profileId) {
+      setState(defaultProgressionState({
+        userId: userId ?? 'offline',
+        profileId: profileId ?? 'offline',
+        exerciseSlug: MULTI_STEP_PLANNING_SLUG,
+      }));
+      setLoaded(true);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       const loadedState = await loadProgressionState({

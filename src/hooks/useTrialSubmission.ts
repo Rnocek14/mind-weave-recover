@@ -23,6 +23,7 @@ import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import type {
   CommitSessionResult,
@@ -182,8 +183,16 @@ export function useTrialSubmission(opts: Options) {
       }
 
       // 3) clinical_progression_state — buffer only (flush on commit).
+      // Validity gate (spec §5.8): attempts the classifier ruled non-scorable
+      // (filler-only / no-response / background noise / ASR failure) must NOT
+      // feed clinical progression — a broken mic is not a struggle session.
+      // The row is still recorded to telemetry above for audit; it just
+      // doesn't move the ladder. Trials with no validity verdict (tap-based
+      // games, legacy callers) buffer as before.
+      const validityAllowsProgression =
+        !input.validity || applyValidityGate(input.validity).shouldFeedAdaptation;
       try {
-        if (opts.progression) {
+        if (opts.progression && validityAllowsProgression) {
           opts.progression.recordTrialOutcome({
             correct: input.isCorrect,
             support: input.supportUsed,

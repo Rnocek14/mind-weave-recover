@@ -276,6 +276,9 @@ export function NarrativeRetellGame({
         setStoryReadComplete(true);
       } catch (e) {
         console.warn('[NarrativeRetell] Story auto-read TTS failed:', e);
+        // The story is fully visible as text — a TTS failure must never gate
+        // progress. Mark reading complete so auto-advance still arms.
+        if (!cancelled) setStoryReadComplete(true);
       }
     };
     doAutoRead();
@@ -286,9 +289,14 @@ export function NarrativeRetellGame({
   const handleListenToStory = useCallback(async () => {
     if (!currentStory) return;
     const fullText = currentStory.scenes.map(s => s.text).join(' ');
-    await speakTTS(fullText);
-    voiceController.recordSpoken(fullText);
-    setStoryReadComplete(true);
+    try {
+      await speakTTS(fullText);
+      voiceController.recordSpoken(fullText);
+    } finally {
+      // Even if audio fails, the user has heard/read what they're going to —
+      // never leave the reading phase without its advance armed.
+      setStoryReadComplete(true);
+    }
   }, [currentStory, speakTTS]);
 
   // Reset on story change — also clear voiceController spoken history
@@ -843,10 +851,24 @@ export function NarrativeRetellGame({
             </div>
           )}
 
-          {/* Action area — story auto-advances into retell when audio ends.
-              No manual "Start" gate. We still expose Listen-again and a
-              fallback "Start now" link in case audio fails. */}
+          {/* Action area. Auto-advance only ever fires in Full Coaching (the
+              only mode that auto-reads) — Guided/Games-only users NEED a
+              visible primary action, and even Full Coaching needs one when
+              audio fails. The old design hid the advance behind a 12px link,
+              which an aphasia patient scanning for buttons will not find. */}
           <div className="space-y-2">
+            <Button
+              size="lg"
+              className="w-full text-lg py-6"
+              onClick={handleStartRetelling}
+            >
+              {useTyping ? (
+                <Keyboard className="h-5 w-5 mr-2" />
+              ) : (
+                <Mic className="h-5 w-5 mr-2" />
+              )}
+              Tell it back now
+            </Button>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -855,23 +877,15 @@ export function NarrativeRetellGame({
                 onClick={isTTSSpeaking ? stopTTS : handleListenToStory}
               >
                 <Volume2 className="h-4 w-4 mr-1" />
-                {isTTSSpeaking ? 'Stop' : 'Listen again'}
+                {isTTSSpeaking ? 'Stop' : storyReadComplete ? 'Listen again' : 'Listen to the story'}
               </Button>
             </div>
-            {!isTTSSpeaking && !storyReadComplete && (
-              <button
-                onClick={handleStartRetelling}
-                className="text-xs text-muted-foreground hover:text-foreground mx-auto block"
-              >
-                Skip ahead and start retelling →
-              </button>
-            )}
             {isSupported && (
               <button
                 onClick={() => { const next = !useTyping; setUseTyping(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5 mx-auto py-1.5 px-2"
               >
-                {useTyping ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
+                {useTyping ? <Mic className="w-4 h-4" /> : <Keyboard className="w-4 h-4" />}
                 {useTyping ? 'Switch to speech' : 'Switch to typing'}
               </button>
             )}
