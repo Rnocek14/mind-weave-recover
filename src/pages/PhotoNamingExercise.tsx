@@ -188,6 +188,13 @@ function PhotoNamingExerciseInner() {
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
   const sessionStartRef = useRef(Date.now());
   const trialsFrozenRef = useRef(false);
+  const { kidsMode } = useKidsMode();
+
+  // Toggling Kids Mode mid-page must rebuild the trial list, so unfreeze it.
+  // Declared BEFORE the trial-selection effect so the unfreeze runs first.
+  useEffect(() => {
+    trialsFrozenRef.current = false;
+  }, [kidsMode]);
 
 
 
@@ -201,7 +208,6 @@ function PhotoNamingExerciseInner() {
   );
   const sessionId = activeSessionId;
 
-  const { kidsMode } = useKidsMode();
   const { data: customPhotos = [], isLoading } = useCustomPhotoTrials(user?.id);
   const [customPhotoGateTimedOut, setCustomPhotoGateTimedOut] = useState(false);
   const customPhotosLoading = isLoading && !customPhotoGateTimedOut;
@@ -387,8 +393,14 @@ function PhotoNamingExerciseInner() {
     }
 
     // 👦 KIDS MODE: swap in the kid-vocabulary photo pack. Clinician-targeted
-    // practice (focus phonemes / focus words) always takes precedence.
-    if (kidsMode && !(lessonFocusPhonemes && lessonFocusPhonemes.length > 0) && targetedWords.length === 0) {
+    // practice (focus phonemes / focus words) and the user's explicit
+    // "My Photos Only" choice always take precedence.
+    if (
+      kidsMode &&
+      photoSource !== 'custom' &&
+      !(lessonFocusPhonemes && lessonFocusPhonemes.length > 0) &&
+      targetedWords.length === 0
+    ) {
       const kidsTrials = getKidsPhotoTrials(totalTrials);
       if (kidsTrials.length > 0) {
         selectedTrials = kidsTrials;

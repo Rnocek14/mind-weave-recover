@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, XCircle, Camera, TrendingUp, TrendingDown, Clock, Lightbulb, Mic, MicOff, Volume2, AlertCircle, Loader2, Zap } from 'lucide-react';
@@ -158,6 +158,9 @@ export const PhotoNamingGame = ({
   const vg = useVoiceGuidance('photo-naming');
   const hasSpokenIntroRef = useRef(false);
   const { kidsMode } = useKidsMode();
+  // Pick praise once per trial — calling getKidsPraise() in render would
+  // reroll the message on every re-render while feedback is visible.
+  const kidsPraise = useMemo(() => getKidsPraise(), [state.trialNumber]);
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -3031,7 +3034,7 @@ export const PhotoNamingGame = ({
             )}
             <p className="text-sm sm:text-base font-medium text-foreground text-left">
               {kidsMode && feedbackData.correct
-                ? getKidsPraise()
+                ? kidsPraise
                 : state.currentTrial && generateGentleFeedback(
                     feedbackData.errorType as any,
                     state.currentTrial.target,
