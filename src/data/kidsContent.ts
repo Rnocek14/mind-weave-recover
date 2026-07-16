@@ -306,8 +306,29 @@ export function getKidsMixedSentenceTrials(level: number, count: number = 10): S
   const atLevel = shuffle(KIDS_SENTENCE_TRIALS.filter((t) => t.difficulty === clamped));
   if (atLevel.length >= count) return atLevel.slice(0, count);
   const ids = new Set(atLevel.map((t) => t.id));
-  const padding = shuffle(KIDS_SENTENCE_TRIALS.filter((t) => !ids.has(t.id)));
+  // Pad from the CLOSEST kid levels first so a level-1 session leans on
+  // level-2 items before level-3 (stable sort preserves shuffle within ties).
+  const padding = shuffle(KIDS_SENTENCE_TRIALS.filter((t) => !ids.has(t.id))).sort(
+    (a, b) => Math.abs(a.difficulty - clamped) - Math.abs(b.difficulty - clamped),
+  );
   return [...atLevel, ...padding].slice(0, count);
+}
+
+// ─── Kid-friendly grammar labels ───────────────────────────────────────────
+// Replaces clinical jargon badges ("plural agreement") with kid words.
+
+const KIDS_GRAMMAR_LABELS: Record<string, string> = {
+  SVO: "Build the sentence",
+  prepositions: "Where words",
+  adjectives: "Describing words",
+  adverbs: "How words",
+  articles: "Little words",
+  subject_verb_agreement: "Match the action",
+  plural_agreement: "More than one",
+};
+
+export function getKidsGrammarLabel(focus: string): string {
+  return KIDS_GRAMMAR_LABELS[focus] ?? "Word fun";
 }
 
 // ─── Kid praise ────────────────────────────────────────────────────────────

@@ -261,10 +261,10 @@ button, a, [role="button"], input, select, textarea {
   --background: 48 100% 96%;
   --foreground: 260 40% 22%;
 
-  --card: 0 0% 100%;
+  --card: 262 100% 99%;
   --card-foreground: 260 40% 22%;
 
-  --popover: 0 0% 100%;
+  --popover: 262 100% 99%;
   --popover-foreground: 260 40% 22%;
 
   /* Cheerful purple primary */
@@ -285,8 +285,8 @@ button, a, [role="button"], input, select, textarea {
   --muted: 48 60% 92%;
   --muted-foreground: 260 20% 45%;
 
-  --border: 262 40% 85%;
-  --input: 262 40% 90%;
+  --border: 262 50% 76%;
+  --input: 262 40% 88%;
   --ring: 262 80% 56%;
 
   /* Extra-round corners */
@@ -317,6 +317,11 @@ button, a, [role="button"], input, select, textarea {
 .kids-mode body {
   font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Marker Felt",
     ui-rounded, system-ui, sans-serif;
+}
+
+/* Chunkier, friendlier interactive text for small readers */
+.kids-mode button {
+  font-weight: 600;
 }
 
 /* Gentle wobble for interactive elements kids will tap */

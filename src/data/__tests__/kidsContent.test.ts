@@ -5,6 +5,7 @@ import {
   KIDS_SENTENCE_TRIALS,
   getKidsMixedSentenceTrials,
   getKidsPraise,
+  getKidsGrammarLabel,
 } from "@/data/kidsContent";
 
 describe("kids photo pool", () => {
@@ -77,6 +78,22 @@ describe("kids sentence bank", () => {
     expect(getKidsMixedSentenceTrials(0, 5)).toHaveLength(5); // clamps to 1
     const padded = getKidsMixedSentenceTrials(2, 10); // level 2 has < 10 items
     expect(padded).toHaveLength(10);
+  });
+
+  it("pads from the nearest level first", () => {
+    // Level 1 has 8 items; asking for 10 must pad with level 2 (closest), not level 3.
+    const trials = getKidsMixedSentenceTrials(1, 10);
+    const padding = trials.slice(8);
+    for (const t of padding) expect(t.difficulty).toBe(2);
+  });
+});
+
+describe("kids grammar labels", () => {
+  it("covers every grammarFocus used in the kid sentence bank", () => {
+    for (const t of KIDS_SENTENCE_TRIALS) {
+      const label = getKidsGrammarLabel(t.grammarFocus);
+      expect(label).not.toBe("Word fun"); // fallback means a missing mapping
+    }
   });
 });
 
