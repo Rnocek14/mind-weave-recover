@@ -599,6 +599,16 @@ Ordering is by **measurement confidence** — build first what we can measure we
 today. The flashy layers (Recovery Signature, longitudinal model) are *consumers*
 of clean per-attempt data and are earned by the boring honest layer beneath them.
 
+> **Rollout status (Jul 2026):** Phases 1–4 are implemented and shipping.
+> Phase 1 capture, the Phase 2 shadow axis engine (`src/lib/voiceEngine/axisEngine.ts`),
+> the Phase 3 advisory axes (derived at display time — Azure PA completes after
+> the trial write, so pronunciation evidence is only available on read), and the
+> Phase 4 clinician evidence panel (`AxisEvidencePanel` in Session Review) +
+> Voice Practice quarantine are all live. **Phase 5 (the flip) is intentionally
+> NOT implemented:** it is gated on human review of the accumulated
+> `shadow_v1_agreement` diff, which requires real patient attempts. v1 remains
+> the authoritative scorer everywhere.
+
 ### V2.1 — axis framework, always-on axes (word-level), quarantine, schema, panel
 
 **Phase 1 — Schema & plumbing (no behavior change)**

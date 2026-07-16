@@ -80,4 +80,33 @@ describe('AxisEvidencePanel', () => {
     );
     expect(screen.getByText(/no axis-level evidence/i)).toBeTruthy();
   });
+
+  it('derives advisory axes from persisted evidence and tags them advisory (Phase 3)', async () => {
+    const withAdvisoryEvidence: TrialData = {
+      ...baseTrial,
+      gop_data: { pronunciationScore: 74, accuracyScore: 70, fluencyScore: 55 },
+      speech_rate_wpm: 42,
+      pause_count: 6,
+      effortful_speech: true,
+      semantic_similarity: 0.4,
+    };
+    const { container } = render(<AxisEvidencePanel trials={[withAdvisoryEvidence]} />);
+    fireEvent.click(container.querySelector('button') as HTMLButtonElement);
+
+    expect(await screen.findByText('Pronunciation')).toBeTruthy();
+    expect(screen.getByText('Fluency')).toBeTruthy();
+    expect(screen.getByText('Semantic content')).toBeTruthy();
+    // Every advisory row carries the never-gates tag.
+    expect(screen.getAllByText(/advisory — never gates/i).length).toBe(3);
+    // Always-on axes are still present and unpolluted.
+    expect(screen.getByText('Gist conveyed, detail missing')).toBeTruthy();
+  });
+
+  it('omits advisory rows entirely when their evidence is absent — never faked', async () => {
+    const { container } = render(<AxisEvidencePanel trials={[baseTrial]} />);
+    fireEvent.click(container.querySelector('button') as HTMLButtonElement);
+    await screen.findByText('Gist conveyed, detail missing');
+    expect(screen.queryByText('Pronunciation')).toBeNull();
+    expect(screen.queryByText('Fluency')).toBeNull();
+  });
 });

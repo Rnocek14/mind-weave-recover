@@ -361,7 +361,14 @@ export const useExerciseTelemetry = (
               normalizeASROutput,
             );
             const verdict = computeAttemptVerdict({
-              errorType: trial.errorClassification?.errorType,
+              // When no classifier ran but v1 scored the trial correct, that
+              // outcome IS evidence (choice-match) — mirror it so the shadow
+              // doesn't manufacture disagreement noise. An unclassified miss
+              // stays undefined → engine defaults to 'uncertain' → it abstains
+              // (no_score) rather than asserting a verdict without evidence.
+              errorType:
+                trial.errorClassification?.errorType ??
+                (trial.correct ? 'correct' : undefined),
               v1Correct: trial.correct,
               phonologicalSimilarity: trial.errorClassification?.phonological_similarity,
               semanticSimilarity: trial.errorClassification?.semantic_similarity,

@@ -3,6 +3,9 @@ import {
   computeAttemptVerdict,
   reconcileSignals,
   shadowAgreesWithV1,
+  computePronunciationAxis,
+  computeFluencyAxis,
+  computeSemanticContentAxis,
   type AxisEngineInput,
 } from '@/lib/voiceEngine/axisEngine';
 
@@ -240,6 +243,67 @@ describe('reconcileSignals', () => {
     const r = reconcileSignals({}, norm);
     expect(r.chosenSource).toBeNull();
     expect(r.fusedConfidence).toBeNull();
+  });
+});
+
+describe('advisory axes (Phase 3) — computed only from their own evidence, always advisory', () => {
+  it('pronunciation derives from Azure PA score and is flagged advisory', () => {
+    const axis = computePronunciationAxis({ pronunciationScore: 82, accuracyScore: 78 });
+    expect(axis).not.toBeNull();
+    expect(axis!.value).toBeCloseTo(0.82, 5);
+    expect(axis!.advisory).toBe(true);
+    expect(axis!.evidence.join(' ')).toMatch(/never lowers communication success/i);
+  });
+
+  it('pronunciation returns null with no GOP evidence — never faked', () => {
+    expect(computePronunciationAxis(null)).toBeNull();
+    expect(computePronunciationAxis({})).toBeNull();
+    expect(
+      computePronunciationAxis({ pronunciationScore: null, accuracyScore: null }),
+    ).toBeNull();
+  });
+
+  it('fluency prefers Azure fluencyScore, folds in pauses/effort, stays advisory', () => {
+    const axis = computeFluencyAxis({
+      azureFluencyScore: 60,
+      pauseCount: 6,
+      effortfulSpeech: true,
+    });
+    expect(axis).not.toBeNull();
+    // 0.6 base − 0.1 pauses − 0.1 effort
+    expect(axis!.value).toBeCloseTo(0.4, 5);
+    expect(axis!.advisory).toBe(true);
+    expect(axis!.evidence.join(' ')).toMatch(/often therapeutic/i);
+  });
+
+  it('fluency bands speech rate when Azure score is absent', () => {
+    expect(computeFluencyAxis({ speechRateWpm: 120 })!.value).toBe(0.9);
+    expect(computeFluencyAxis({ speechRateWpm: 45 })!.value).toBe(0.5);
+    expect(computeFluencyAxis({ speechRateWpm: 20 })!.value).toBe(0.3);
+  });
+
+  it('fluency returns null with no signal at all', () => {
+    expect(computeFluencyAxis(null)).toBeNull();
+    expect(computeFluencyAxis({})).toBeNull();
+  });
+
+  it('semantic content is exact for a correct production, similarity otherwise', () => {
+    expect(computeSemanticContentAxis(undefined, 'correct')!.value).toBe(1.0);
+    const axis = computeSemanticContentAxis(0.62, 'semantic_paraphasia');
+    expect(axis!.value).toBeCloseTo(0.62, 5);
+    expect(axis!.advisory).toBe(true);
+    expect(axis!.evidence.join(' ')).toMatch(/never awards communication success/i);
+    expect(computeSemanticContentAxis(null, 'unrelated')).toBeNull();
+  });
+
+  it('advisory axes have no pathway into the verdict: primary is unchanged with or without them', () => {
+    // computeAttemptVerdict does not accept pronunciation/fluency inputs at
+    // all — this locks in that the verdict for an effortful, badly-pronounced
+    // but correct attempt is identical to a fluent one.
+    const effortful = computeAttemptVerdict({ ...base, errorType: 'correct', effortfulSpeech: true });
+    const fluent = computeAttemptVerdict({ ...base, errorType: 'correct', effortfulSpeech: false });
+    expect(effortful.primary).toBe(fluent.primary);
+    expect(effortful.axes.communicationSuccess.value).toBe(fluent.axes.communicationSuccess.value);
   });
 });
 

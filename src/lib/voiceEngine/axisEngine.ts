@@ -493,3 +493,133 @@ export function shadowAgreesWithV1(v1Correct: boolean, primary: VerdictPrimary):
   if (primary === 'no_score') return null;
   return v1Correct === (primary === 'success');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Provisional (advisory) axes — V2.1 Phase 3 (spec §1.2).
+//
+// Computed at DISPLAY TIME from evidence already persisted per attempt, not at
+// the exercise_events write site — Azure Pronunciation Assessment completes
+// AFTER the trial row is written (the clinical write is never delayed to wait
+// for it), so the write site simply does not have the scores. Deriving these
+// on read also means they appear retroactively for attempts logged before
+// Phase 3 shipped, and makes the "never gates" guarantee structural: nothing
+// that gates ever sees these values because they are never stored beside the
+// always-on axes.
+//
+// Every helper returns null when its evidence is absent — an advisory axis
+// with no evidence is not shown, never faked.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Azure PA scores are 0–100; per-attempt fluency metrics from acoustic analysis. */
+export interface PronunciationEvidence {
+  pronunciationScore?: number | null;
+  accuracyScore?: number | null;
+}
+
+export interface FluencyEvidence {
+  speechRateWpm?: number | null;
+  pauseCount?: number | null;
+  effortfulSpeech?: boolean | null;
+  /** Azure PA fluencyScore, 0–100, when pronunciation assessment ran. */
+  azureFluencyScore?: number | null;
+}
+
+const isNum = (n: unknown): n is number => typeof n === 'number' && !Number.isNaN(n);
+
+/**
+ * Axis D — Pronunciation (advisory). How well they said what they were trying
+ * to say. GOP is noisy on disordered speech, so confidence is capped moderate
+ * and a low value must never read as "wrong word".
+ */
+export function computePronunciationAxis(
+  gop: PronunciationEvidence | null | undefined,
+): AxisScore | null {
+  if (!gop) return null;
+  const score = isNum(gop.pronunciationScore)
+    ? gop.pronunciationScore
+    : isNum(gop.accuracyScore)
+      ? gop.accuracyScore
+      : null;
+  if (score === null) return null;
+  const value = Math.max(0, Math.min(1, score / 100));
+  const evidence = [
+    `Azure pronunciation assessment: ${Math.round(score)}/100`,
+    'informational only — pronunciation never lowers communication success',
+  ];
+  if (isNum(gop.accuracyScore) && isNum(gop.pronunciationScore)) {
+    evidence.splice(1, 0, `phoneme accuracy: ${Math.round(gop.accuracyScore)}/100`);
+  }
+  return { value: round2(value), confidence: 0.6, evidence, advisory: true };
+}
+
+/**
+ * Axis F — Fluency (advisory). Effort and flow. Effortful speech is expected
+ * and often therapeutic in aphasia — a low value is clinical information, not
+ * a failure, and it never gates.
+ */
+export function computeFluencyAxis(f: FluencyEvidence | null | undefined): AxisScore | null {
+  if (!f) return null;
+  const hasAnySignal =
+    isNum(f.azureFluencyScore) || isNum(f.speechRateWpm) || isNum(f.pauseCount) ||
+    typeof f.effortfulSpeech === 'boolean';
+  if (!hasAnySignal) return null;
+
+  const evidence: string[] = [];
+  let value: number;
+
+  if (isNum(f.azureFluencyScore)) {
+    value = Math.max(0, Math.min(1, f.azureFluencyScore / 100));
+    evidence.push(`Azure fluency score: ${Math.round(f.azureFluencyScore)}/100`);
+  } else if (isNum(f.speechRateWpm)) {
+    // Coarse banding of speech rate; conversational speech is ~100–160 wpm and
+    // slow, effortful aphasic speech is expected to land well below that.
+    const wpm = f.speechRateWpm;
+    value = wpm >= 100 ? 0.9 : wpm >= 60 ? 0.7 : wpm >= 30 ? 0.5 : 0.3;
+    evidence.push(`speech rate: ${Math.round(wpm)} words/min`);
+  } else {
+    value = 0.5; // pause/effort signal only — start neutral
+  }
+
+  if (isNum(f.pauseCount) && f.pauseCount > 0) {
+    evidence.push(`${f.pauseCount} pause${f.pauseCount === 1 ? '' : 's'} during the attempt`);
+    if (f.pauseCount >= 5) value = Math.max(0.1, value - 0.1);
+  }
+  if (f.effortfulSpeech) {
+    evidence.push('effortful speech detected');
+    value = Math.max(0.1, value - 0.1);
+  }
+  evidence.push('informational only — effort is expected and often therapeutic; never gates');
+
+  return { value: round2(value), confidence: 0.5, evidence, advisory: true };
+}
+
+/**
+ * Axis E — Semantic Content (advisory, word-level role). Distance of the
+ * produced word from the target. Used to CLASSIFY the error (semantic
+ * paraphasia vs unrelated), never to award communication success. At sentence
+ * level this axis is replaced by CIU concept coverage (spec §7, V2.2).
+ */
+export function computeSemanticContentAxis(
+  semanticSimilarity: number | null | undefined,
+  errorType?: ErrorType,
+): AxisScore | null {
+  if (errorType === 'correct' || errorType === 'self_corrected') {
+    return {
+      value: 1.0,
+      confidence: 0.9,
+      evidence: ['target word produced — semantic content exact'],
+      advisory: true,
+    };
+  }
+  if (!isNum(semanticSimilarity)) return null;
+  const value = Math.max(0, Math.min(1, semanticSimilarity));
+  return {
+    value: round2(value),
+    confidence: 0.5,
+    evidence: [
+      `semantic distance from target: ${value.toFixed(2)}`,
+      'used to classify the error only — never awards communication success',
+    ],
+    advisory: true,
+  };
+}

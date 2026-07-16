@@ -21,6 +21,12 @@ import { ChevronDown, ChevronRight, CheckCircle2, AlertTriangle, Info, FlaskConi
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TrialData } from "@/hooks/useSessionDetail";
+import {
+  computePronunciationAxis,
+  computeFluencyAxis,
+  computeSemanticContentAxis,
+  type ErrorType,
+} from "@/lib/voiceEngine/axisEngine";
 
 interface AxisEvidencePanelProps {
   trials: TrialData[];
@@ -115,9 +121,40 @@ function AxisRow({
 
 function AttemptRow({ trial }: { trial: TrialData }) {
   const [open, setOpen] = useState(false);
-  const axes = trial.axis_scores as any;
   const primary = trial.verdict_primary ?? "no_score";
   const agreement = trial.shadow_v1_agreement;
+
+  // ── Advisory axes (Phase 3) — derived at display time from persisted
+  // evidence (spec §1.2). Structural "never gates" guarantee: these values are
+  // computed here in the read path and exist nowhere the scorer can see.
+  const storedAxes = trial.axis_scores as any;
+  const gop = trial.gop_data as any;
+  const axes = storedAxes
+    ? {
+        ...storedAxes,
+        pronunciation:
+          storedAxes.pronunciation ??
+          computePronunciationAxis(
+            gop
+              ? { pronunciationScore: gop.pronunciationScore, accuracyScore: gop.accuracyScore }
+              : null,
+          ),
+        semanticContent:
+          storedAxes.semanticContent ??
+          computeSemanticContentAxis(
+            trial.semantic_similarity,
+            (trial.error_type ?? undefined) as ErrorType | undefined,
+          ),
+        fluency:
+          storedAxes.fluency ??
+          computeFluencyAxis({
+            speechRateWpm: trial.speech_rate_wpm,
+            pauseCount: trial.pause_count,
+            effortfulSpeech: trial.effortful_speech,
+            azureFluencyScore: gop?.fluencyScore,
+          }),
+      }
+    : null;
 
   const commState = axes?.communicationSuccess
     ? commSuccessLabel(axes.communicationSuccess.value)

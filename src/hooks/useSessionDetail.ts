@@ -42,6 +42,12 @@ export interface TrialData {
   verdict_primary?: string | null;
   verdict_reason?: string | null;
   shadow_v1_agreement?: { v1_correct: boolean; v2_primary: string; agrees: boolean | null } | null;
+  // ── Voice Engine v2 advisory-axis evidence (Phase 3) ──
+  // Raw persisted evidence the display-time advisory axes derive from
+  // (Azure PA gop_data, pause/effort metrics). Never feeds scoring.
+  gop_data?: any;
+  pause_count?: number | null;
+  effortful_speech?: boolean | null;
 }
 
 export function useSessionDetail() {
@@ -57,7 +63,7 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, gop_data, pause_count, effortful_speech"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -72,7 +78,7 @@ export function useSessionDetail() {
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
-            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override"
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, acoustic_metrics"
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
@@ -95,7 +101,11 @@ export function useSessionDetail() {
           semantic_similarity: ev.semantic_similarity,
           phonological_similarity: ev.phonological_similarity,
           stuck_type: null,
-          speech_rate_wpm: null,
+          // Fluency evidence lives in acoustic_metrics on this table.
+          speech_rate_wpm: (ev as any).acoustic_metrics?.speechRateWpm ?? null,
+          pause_count: (ev as any).acoustic_metrics?.pauseCount ?? null,
+          effortful_speech: null,
+          gop_data: null,
           created_at: ev.created_at,
           taskParameters: ev.task_parameters,
           outputs: ev.outputs,
