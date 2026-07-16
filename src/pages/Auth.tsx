@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [signupRole, setSignupRole] = useState<SignupRole>("patient");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   const { signUp, signIn, user, loading } = useAuth();
@@ -142,6 +144,14 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Defense in depth alongside the disabled button: no signup without consent.
+    if (isSignUp && !agreedToTerms) {
+      toast({
+        title: "One more step",
+        description: "Please agree to the Terms and Privacy Policy to create your account.",
+      });
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -325,10 +335,35 @@ const Auth = () => {
             </button>
           )}
 
-          <Button 
-            type="submit" 
+          {/* Required consent — this app records practice audio of a medical
+              population; signup must not proceed without informed agreement. */}
+          {isSignUp && (
+            <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-3">
+              <Checkbox
+                id="terms-consent"
+                checked={agreedToTerms}
+                onCheckedChange={(v) => setAgreedToTerms(v === true)}
+                className="mt-0.5"
+              />
+              <label htmlFor="terms-consent" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+                I agree to the{" "}
+                <Link to="/terms" target="_blank" className="text-primary underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" target="_blank" className="text-primary underline">
+                  Privacy Policy
+                </Link>
+                , including recording my practice audio so it can be scored and
+                reviewed by my care team.
+              </label>
+            </div>
+          )}
+
+          <Button
+            type="submit"
             className="w-full bg-gradient-healing"
-            disabled={submitting || loading}
+            disabled={submitting || loading || (isSignUp && !agreedToTerms)}
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

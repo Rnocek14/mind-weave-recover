@@ -47,8 +47,11 @@ export const useAuth = () => {
         //  - account_intent (caregiver): read by the handle_new_user trigger to
         //    provision a family Care Account + caregiver membership WITHOUT a
         //    patient profile, and by Auth.tsx to route into caregiver setup.
+        //  - consented_terms_at: timestamp of the required Terms/Privacy
+        //    consent checkbox at signup (the form cannot submit without it).
         data: {
           display_name: displayName,
+          consented_terms_at: new Date().toISOString(),
           ...(requestedRole && requestedRole !== "patient"
             ? { requested_role: requestedRole }
             : {}),
