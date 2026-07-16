@@ -106,7 +106,7 @@ export default function Progress() {
       : "Complete your first session to start tracking progress.";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20">
+    <div className="min-h-screen bg-background flex flex-col pb-44">
       <header className="p-4 flex items-center gap-3 border-b">
         <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")}>
           <ArrowLeft className="w-5 h-5" />

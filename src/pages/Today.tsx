@@ -387,7 +387,9 @@ export default function Today() {
               </h1>
               {!simplified && (
                 <p className="text-muted-foreground">
-                  {lastSession
+                  {savedSession
+                    ? "You have a session waiting for you."
+                    : lastSession
                     ? "Ready to build on last time?"
                     : "Let's get started with your first session."}
                 </p>

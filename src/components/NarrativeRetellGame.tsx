@@ -1105,8 +1105,11 @@ export function NarrativeRetellGame({
               <Button onClick={handleDoneRetelling} className="flex-1" variant="secondary" disabled={useTyping && !typedText.trim()}>
                 {useTyping ? '✓' : <MicOff className="h-4 w-4 mr-2" />} I'm done
               </Button>
+              {/* Labeled escape — icon-only skips are invisible to users who
+                  scan for words. */}
               <Button variant="ghost" size="sm" onClick={handleSkip}>
-                <SkipForward className="h-4 w-4" />
+                Skip
+                <SkipForward className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>
