@@ -1725,13 +1725,24 @@ export const PhotoNamingGame = ({
     currentTrialModeRef.current = 'production';
     // Clinical Progression v1: buffer this trial's outcome so the final trial
     // is never lost from the progression flush window. A timeout is a failed
-    // independent production attempt.
-    progression.recordTrialOutcome({
-      correct: false,
-      support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
-    });
+    // independent production attempt — but ONLY when the mic actually worked.
+    // If speech recognition errored this trial (mic blocked / couldn't start),
+    // the patient may well have said the word and we simply couldn't hear it:
+    // that must not count as a failed attempt or feed struggle/adaptation
+    // (spec §5.8 — technical failures are excluded from progression).
+    const micWasBroken = !!micErrorMessage;
+    if (!micWasBroken) {
+      progression.recordTrialOutcome({
+        correct: false,
+        support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
+      });
+    } else {
+      console.warn('⏱️ Timeout with mic error — excluded from progression/adaptation:', micErrorMessage);
+    }
     // Track trial via in-game adaptation hook (handles consecutive errors + difficulty)
-    const adaptationResult = recordTrial({ correct: false, timedOut: true });
+    const adaptationResult = micWasBroken
+      ? undefined
+      : recordTrial({ correct: false, timedOut: true });
     engagement.recordTrial({
       correct: false,
       reactionTimeMs: 0,

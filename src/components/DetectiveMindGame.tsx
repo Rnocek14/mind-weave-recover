@@ -592,9 +592,13 @@ export function DetectiveMindGame({
   // Tapping "Next Case" or "Explain why" before timer fires cancels it.
   useEffect(() => {
     if (phase !== 'feedback' || !lastResult) return;
+    // Incorrect feedback carries the correct answer + a "why" explanation —
+    // post-stroke reading is slow, and 6s was not enough to absorb ~3 lines.
+    // 12s keeps session rhythm while giving a slow reader a real chance;
+    // tapping Next / Explain still advances immediately.
     const delay = lastResult.correct
       ? (explainPromptLevel === 'full' ? 9000 : 3500)
-      : 6000;
+      : 12000;
     const t = setTimeout(() => { handleSkipExplain(); }, delay);
     return () => clearTimeout(t);
   }, [phase, lastResult, handleSkipExplain, explainPromptLevel]);
@@ -629,10 +633,14 @@ export function DetectiveMindGame({
     <div className="max-w-lg mx-auto w-full my-auto space-y-2 sm:space-y-4">
       {/* Header bar */}
       <div className="flex items-center justify-between text-sm gap-2 flex-wrap">
+        {/* Session-scoped label: points (and thus this title) reset every
+            session. "Rank" implied persistence it doesn't have — a returning
+            patient reading "Rookie" after weeks of progress reads it as
+            regression. "today" makes the scope honest. */}
         <div className="flex items-center gap-2">
           {RANK_ICONS[rank]}
           <span className="font-medium">{rank}</span>
-          <span className="text-xs text-muted-foreground">· Rank</span>
+          <span className="text-xs text-muted-foreground">· today</span>
         </div>
         <div className="flex items-center gap-2">
           <LevelBadge descriptor={adaptation.levelDescriptor} compact successRate={adaptation.recentSuccessRate ?? null} supportLabel={usedHint ? 'Hint used' : 'Independent'} />
@@ -883,9 +891,12 @@ export function DetectiveMindGame({
             </CardContent>
           </Card>
 
-          {/* Explain-why: adaptive, progressively lighter */}
+          {/* Explain-why: adaptive, progressively lighter. After a WRONG
+              answer the primary action is Next — asking the patient who just
+              missed to "explain why (bonus points)" as the biggest button
+              reads as a demand; the explain path stays available secondary. */}
           <div className="flex gap-2">
-            {explainPromptLevel === 'full' && (
+            {explainPromptLevel === 'full' && lastResult?.correct && (
               <>
                 <Button onClick={handleProceedToExplain} className="flex-1" size="lg">
                   <MessageCircle className="h-4 w-4 mr-2" />
@@ -893,6 +904,17 @@ export function DetectiveMindGame({
                 </Button>
                 <Button onClick={handleSkipExplain} variant="outline" size="lg">
                   Next →
+                </Button>
+              </>
+            )}
+            {explainPromptLevel === 'full' && !lastResult?.correct && (
+              <>
+                <Button onClick={handleSkipExplain} className="flex-1" size="lg">
+                  Next →
+                </Button>
+                <Button onClick={handleProceedToExplain} variant="outline" size="lg">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Explain why
                 </Button>
               </>
             )}

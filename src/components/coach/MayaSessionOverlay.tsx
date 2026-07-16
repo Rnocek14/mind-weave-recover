@@ -86,8 +86,23 @@ export function MayaSessionOverlay() {
     });
   }, [exerciseSlug, hintLevel, toast]);
 
+  const bubbleVisible = mode !== 'off' && onExerciseRoute && !!exerciseSlug;
+
+  // While the floating bubble is shown, give the page bottom clearance so the
+  // last interactive element (answer choices, "I'm done") can always scroll
+  // clear of it. Without this the fixed bubble sits ON TOP of the bottom-most
+  // tap target on short screens — a mis-tap trap for motor-impaired users.
+  useEffect(() => {
+    if (!bubbleVisible) return;
+    const prev = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = '96px';
+    return () => {
+      document.body.style.paddingBottom = prev;
+    };
+  }, [bubbleVisible]);
+
   // Don't render if: Games Only mode, not on exercise route, or no active exercise
-  if (mode === 'off' || !onExerciseRoute || !exerciseSlug) {
+  if (!bubbleVisible) {
     return null;
   }
 

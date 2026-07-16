@@ -43,7 +43,9 @@ function getSessionGreeting(): string {
 
 export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPreviewCardProps) => {
   const greeting = getSessionGreeting();
-  const name = displayName || "there";
+  // No filler fallback ("Good afternoon, there") — when the profile hasn't
+  // loaded or has no name, greet without one. Matches the Today screen.
+  const name = displayName || null;
   const { showPurpose, showContinuity, mode } = useCoachingMode();
   const { profile: uiProfile } = useUiProfile();
   const variant = uiProfile.variant;
@@ -102,7 +104,9 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
         {!minimal && (
           <div className={variantClass(variant, { base: "text-center space-y-1", neglect: "text-right" })}>
             <h1 className="text-2xl font-bold">
-              {isNonFluent ? `Hi, ${name}` : `${greeting}, ${name}`}
+              {isNonFluent
+                ? name ? `Hi, ${name}` : "Hi"
+                : name ? `${greeting}, ${name}` : greeting}
               {!simplified && " 👋"}
             </h1>
             {!simplified && (

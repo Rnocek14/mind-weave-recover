@@ -369,19 +369,27 @@ export async function loadProgressionState(params: {
   profileId: string;
   exerciseSlug: string;
 }): Promise<ClinicalProgressionState> {
-  const { data, error } = await (supabase as any)
-    .from('clinical_progression_state')
-    .select('*')
-    .eq('profile_id', params.profileId)
-    .eq('exercise_slug', params.exerciseSlug)
-    .maybeSingle();
+  // Must NEVER throw: 13 exercise pages gate their render on this resolving.
+  // A thrown network error (as opposed to a returned query error) would leave
+  // the patient on an infinite "Loading your progression…" spinner.
+  try {
+    const { data, error } = await (supabase as any)
+      .from('clinical_progression_state')
+      .select('*')
+      .eq('profile_id', params.profileId)
+      .eq('exercise_slug', params.exerciseSlug)
+      .maybeSingle();
 
-  if (error) {
-    console.warn('[clinicalProgression] load failed:', error.message);
+    if (error) {
+      console.warn('[clinicalProgression] load failed:', error.message);
+      return defaultProgressionState(params);
+    }
+    if (!data) return defaultProgressionState(params);
+    return fromRow(data as DbRow);
+  } catch (e) {
+    console.warn('[clinicalProgression] load threw (network?):', e);
     return defaultProgressionState(params);
   }
-  if (!data) return defaultProgressionState(params);
-  return fromRow(data as DbRow);
 }
 
 /**
