@@ -112,7 +112,7 @@ export function MayaSessionFrame({
   useEffect(() => {
     if (!isVoiceLed) return;
     if (speechDone) {
-      const postSpeechDelay = type === 'intro' ? 1000 : 750;
+      const postSpeechDelay = type === 'intro' ? 1500 : 1400;
       const timer = setTimeout(() => {
         if (mountedRef.current) onContinue();
       }, postSpeechDelay);
