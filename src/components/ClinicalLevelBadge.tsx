@@ -17,6 +17,14 @@ import { getPhotoNamingLevelSpec } from '@/lib/progression/photoNamingLevels';
 interface ClinicalLevelBadgeProps {
   level: number | null;
   progressPct: number | null;
+  /**
+   * Clinical description of the level. REQUIRED for any game other than
+   * Photo Naming — without it the badge falls back to the Photo Naming level
+   * spec, which describes a different skill. (Latent-bug fix: this component
+   * used to hardcode getPhotoNamingLevelSpec unconditionally, so reusing it
+   * for another game would silently show naming descriptions.)
+   */
+  description?: string;
   /** Optional className for placement tweaks. */
   className?: string;
 }
@@ -24,10 +32,11 @@ interface ClinicalLevelBadgeProps {
 export function ClinicalLevelBadge({
   level,
   progressPct,
+  description,
   className,
 }: ClinicalLevelBadgeProps) {
   if (level == null) return null;
-  const spec = getPhotoNamingLevelSpec(level);
+  const resolvedDescription = description ?? getPhotoNamingLevelSpec(level).description;
   const pct = Math.max(0, Math.min(100, Math.round(progressPct ?? 0)));
 
   return (
@@ -36,7 +45,7 @@ export function ClinicalLevelBadge({
         'rounded-md border border-border bg-muted/40 px-3 py-2 text-left ' +
         (className ?? '')
       }
-      aria-label={`Clinical Level ${level}: ${spec.description}. Progress ${pct} percent.`}
+      aria-label={`Clinical Level ${level}: ${resolvedDescription}. Progress ${pct} percent.`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-foreground">
@@ -47,7 +56,7 @@ export function ClinicalLevelBadge({
         </span>
       </div>
       <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
-        {spec.description}
+        {resolvedDescription}
       </p>
       <Progress value={pct} className="mt-1.5 h-1" />
     </div>

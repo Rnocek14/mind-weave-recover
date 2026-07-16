@@ -78,6 +78,13 @@ export const useTextToSpeech = () => {
     return new Promise<void>((resolve) => {
       if (!ALLOW_BROWSER_TTS_FALLBACK) {
         console.warn('[TTS] Browser fallback disabled — skipping utterance:', text.slice(0, 60));
+        // Terminal no-audio outcome: the stream failed AND the fallback is
+        // off, so this utterance was silently skipped. Surface it via `error`
+        // so audio-DEPENDENT games (e.g. Minimal Pairs, where the word is the
+        // stimulus) can tell the patient instead of letting them guess in
+        // silence. Flow-style games ignore `error` and keep their existing
+        // never-block behavior.
+        setError('audio_unavailable');
         // Make sure no stale browser audio is still queued from a prior session.
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           try { window.speechSynthesis.cancel(); } catch {}

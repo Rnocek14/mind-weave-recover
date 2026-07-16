@@ -227,7 +227,10 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const [frustrationLevel, setFrustrationLevel] = useState<FrustrationLevel>('none');
   const [shouldShowIntervention, setShouldShowIntervention] = useState<InterventionType | null>(null);
   const [trialCount, setTrialCount] = useState(0);
-  const [recentSuccessRate, setRecentSuccessRate] = useState(0);
+  // null until the first trial — a fresh session has UNKNOWN flow, not 0%.
+  // Initializing to 0 made every game open with the struggling-band label
+  // ("Taking it steady") before the patient had answered anything.
+  const [recentSuccessRate, setRecentSuccessRate] = useState<number | null>(null);
   
   // Reaction time tracking for fatigue detection
   const reactionTimesRef = useRef<number[]>([]);

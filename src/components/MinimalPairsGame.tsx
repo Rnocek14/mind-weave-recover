@@ -67,7 +67,7 @@ export function MinimalPairsGame({
     focusPhonemes,
   });
 
-  const { speak, isLoading: isSpeaking } = useTextToSpeech();
+  const { speak, isLoading: isSpeaking, error: ttsError } = useTextToSpeech();
   const { buildReflection } = useMayaExerciseFrame({ exerciseSlug: 'minimal-pairs' });
   const vg = useVoiceGuidance('minimal-pairs');
 
@@ -434,6 +434,20 @@ export function MinimalPairsGame({
           <Volume2 className="w-5 h-5 text-primary" />
         </button>
       </div>
+
+      {/* Audio is the STIMULUS here — if it terminally failed, say so instead
+          of letting the patient guess in silence. */}
+      {ttsError && !isSpeaking && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-center">
+          <p className="text-base font-medium text-foreground">
+            🔇 The sound isn't working right now
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            This activity needs sound. Tap the speaker to try again, or come
+            back to it later.
+          </p>
+        </div>
+      )}
       
       {/* Side-by-side images — full-width, large touch targets */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
