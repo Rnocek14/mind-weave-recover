@@ -245,3 +245,129 @@ button, a, [role="button"], input, select, textarea {
 .h-dvh {
   overscroll-behavior: none;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Kids Mode theme — activated by the `kids-mode` class on <html>
+   (see src/contexts/KidsModeContext.tsx).
+
+   Overrides ONLY the design tokens defined in :root above, so every
+   component keeps its exact layout and the adult theme is untouched when
+   the class is absent. Wins over `.dark` because it is declared later at
+   equal specificity on the same element.
+   ══════════════════════════════════════════════════════════════════════════ */
+.kids-mode,
+.kids-mode.dark {
+  /* Bright, playful palette */
+  --background: 48 100% 96%;
+  --foreground: 260 40% 22%;
+
+  --card: 262 100% 99%;
+  --card-foreground: 260 40% 22%;
+
+  --popover: 262 100% 99%;
+  --popover-foreground: 260 40% 22%;
+
+  /* Cheerful purple primary */
+  --primary: 262 80% 56%;
+  --primary-foreground: 0 0% 100%;
+  --primary-light: 262 80% 72%;
+  --primary-glow: 262 80% 88%;
+
+  /* Bubblegum pink secondary */
+  --secondary: 330 85% 60%;
+  --secondary-foreground: 0 0% 100%;
+  --secondary-light: 330 85% 78%;
+
+  /* Sunny yellow accent */
+  --accent: 45 100% 55%;
+  --accent-foreground: 260 40% 22%;
+
+  --muted: 48 60% 92%;
+  --muted-foreground: 260 20% 45%;
+
+  --border: 262 50% 76%;
+  --input: 262 40% 88%;
+  --ring: 262 80% 56%;
+
+  /* Extra-round corners */
+  --radius: 1.5rem;
+
+  --success: 145 70% 42%;
+  --success-foreground: 0 0% 100%;
+  --success-light: 145 70% 88%;
+
+  --warning: 30 100% 55%;
+
+  /* Playful gradients */
+  --gradient-healing: linear-gradient(135deg, hsl(262 80% 56%), hsl(330 85% 60%));
+  --gradient-calm: linear-gradient(180deg, hsl(48 100% 96%), hsl(262 80% 94%));
+  --gradient-celebrate: linear-gradient(135deg, hsl(45 100% 55%), hsl(330 85% 60%));
+
+  /* Soft candy shadows */
+  --shadow-soft: 0 2px 8px hsl(262 80% 56% / 0.10);
+  --shadow-card: 0 4px 16px hsl(262 80% 56% / 0.15);
+  --shadow-glow: 0 0 24px hsl(330 85% 70% / 0.35);
+
+  /* Bouncier motion */
+  --transition-smooth: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bounce: all 0.45s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Rounded, friendly type without loading external fonts */
+.kids-mode body {
+  font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Marker Felt",
+    ui-rounded, system-ui, sans-serif;
+}
+
+/* Chunkier, friendlier interactive text for small readers */
+.kids-mode button {
+  font-weight: 600;
+}
+
+/* Gentle wobble for interactive elements kids will tap */
+.kids-mode button:active {
+  animation: kids-squish 0.25s ease-out;
+}
+
+@keyframes kids-squish {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.94); }
+  70% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+/* Celebration burst (used by KidsCelebration component) */
+.kids-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.kids-burst span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 1.5rem;
+  animation: kids-burst-fly 0.9s ease-out forwards;
+}
+
+@keyframes kids-burst-fly {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform:
+      translate(calc(-50% + var(--burst-x, 0px)), calc(-50% + var(--burst-y, -60px)))
+      scale(1.15) rotate(var(--burst-rot, 20deg));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kids-mode button:active,
+  .kids-burst span {
+    animation: none;
+  }
+}

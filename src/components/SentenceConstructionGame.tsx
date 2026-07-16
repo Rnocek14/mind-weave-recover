@@ -8,7 +8,7 @@
  * - Structured summary with grammar-type breakdown
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,9 @@ import { LevelBadge } from "@/components/exercise/LevelBadge";
 import { ExercisePurposeBanner } from "@/components/ExercisePurposeBanner";
 import { StructuredFeedbackSummary } from "@/components/StructuredFeedbackSummary";
 import { cn } from "@/lib/utils";
+import { useKidsMode } from "@/contexts/KidsModeContext";
+import { getKidsPraise, getKidsGrammarLabel } from "@/data/kidsContent";
+import { KidsCelebration } from "@/components/KidsCelebration";
 
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
@@ -191,7 +194,12 @@ export const SentenceConstructionGame = ({
 
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [hintUsed, setHintUsed] = useState(false);
-  const [showTiles, setShowTiles] = useState(false);
+  const { kidsMode } = useKidsMode();
+  // Kids default to tactile word tiles — voice-first assumes a mic-permission
+  // flow and reading of status text that young kids can't navigate alone.
+  const [showTiles, setShowTiles] = useState(kidsMode);
+  // Pick praise once per trial so it doesn't reroll on re-renders.
+  const kidsPraise = useMemo(() => getKidsPraise(), [currentTrial]);
   const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
   const hasProcessedSpeechRef = useRef(false);
   /** Guards against double-write of trial events (e.g. user taps Submit while
@@ -500,7 +508,7 @@ export const SentenceConstructionGame = ({
       {/* Task info + audio */}
       <div className="flex items-center justify-between">
         <Badge variant="outline" className="text-xs">
-          {getGrammarLabel(trial.grammarFocus)}
+          {kidsMode ? getKidsGrammarLabel(trial.grammarFocus) : getGrammarLabel(trial.grammarFocus)}
         </Badge>
         <Button
           variant="outline"
@@ -625,11 +633,14 @@ export const SentenceConstructionGame = ({
               </div>
 
               <div className={cn(
-                "p-3 rounded-lg border animate-in fade-in slide-in-from-bottom-2 space-y-2",
+                "relative p-3 rounded-lg border animate-in fade-in slide-in-from-bottom-2 space-y-2",
                 feedbackCorrect
                   ? "bg-primary/5 border-primary/20"
                   : "bg-destructive/5 border-destructive/20"
               )}>
+                {kidsMode && feedbackCorrect && (
+                  <KidsCelebration burstKey={currentTrial} />
+                )}
                 <div className="flex items-start gap-2">
                   {feedbackCorrect ? (
                     <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
@@ -638,7 +649,9 @@ export const SentenceConstructionGame = ({
                   )}
                   <div className="flex-1 space-y-1">
                     <p className="font-medium text-sm">
-                      {feedbackCorrect ? "Correct sentence!" : "Not quite right"}
+                      {feedbackCorrect
+                        ? (kidsMode ? kidsPraise : "Correct sentence!")
+                        : (kidsMode ? "Almost! Try it like this:" : "Not quite right")}
                     </p>
                     {!feedbackCorrect && (
                       <p className="text-sm">

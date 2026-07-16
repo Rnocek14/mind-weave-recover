@@ -99,6 +99,7 @@ import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
 import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
+import { KidsModeProvider } from "@/contexts/KidsModeContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ProfileContext } from "@/contexts/profile-context-value";
 import { AssessmentProvider } from "@/contexts/AssessmentContext";
@@ -132,6 +133,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <TooltipProvider>
         <UiModeProvider>
+        <KidsModeProvider>
         <HelpModeProvider>
           <CoachingModeProvider>
           <ProfileProvider>
@@ -274,6 +276,7 @@ const App = () => (
           </ProfileProvider>
           </CoachingModeProvider>
         </HelpModeProvider>
+        </KidsModeProvider>
         </UiModeProvider>
       </TooltipProvider>
     </ThemeProvider>

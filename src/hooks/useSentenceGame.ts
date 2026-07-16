@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   SentenceTrial,
   GrammarErrorType,
@@ -6,6 +6,8 @@ import {
   analyzeSentenceErrors
 } from "@/data/sentenceBank";
 import { getAdaptiveGradedTrials } from "@/lib/gradedSentenceAdapter";
+import { getKidsMixedSentenceTrials } from "@/data/kidsContent";
+import { useKidsMode } from "@/contexts/KidsModeContext";
 import { shuffleArray } from "@/lib/shuffle";
 import { filterRecentlyShown, markItemShown } from "@/lib/sessionHistory";
 
@@ -30,7 +32,16 @@ export const useSentenceGame = (
   focusPhonemes: string[] = []
 ) => {
   const shownTrialsRef = useRef<Set<string>>(new Set());
-  
+
+  // Kids Mode swaps the trial source for the kid sentence pack; everything
+  // else (dedup, scoring, difficulty shifts) behaves identically. Memoized
+  // so callback identities only change when the toggle actually flips.
+  const { kidsMode } = useKidsMode();
+  const pickMixedTrials = useMemo(
+    () => (kidsMode ? getKidsMixedSentenceTrials : getMixedTrials),
+    [kidsMode]
+  );
+
   const [gameState, setGameState] = useState<GameState>({
     currentTrial: 0,
     trials: [],
@@ -55,7 +66,7 @@ export const useSentenceGame = (
     
     // Fill remaining with standard sentence bank trials
     const standardCount = totalTrials - gradedTrials.length;
-    let standardTrials = getMixedTrials(difficultyLevel, standardCount * 2);
+    let standardTrials = pickMixedTrials(difficultyLevel, standardCount * 2);
     standardTrials = filterRecentlyShown(standardTrials, 'sentence_game', 2);
     const available = standardTrials.filter(t => !shownTrialsRef.current.has(t.id));
     const trialsToUse = available.length >= standardCount ? available : standardTrials;
@@ -84,7 +95,7 @@ export const useSentenceGame = (
       completed: false,
       currentAnswer: []
     }));
-  }, [totalTrials, focusPhonemes.join(',')]);
+  }, [totalTrials, focusPhonemes.join(','), kidsMode]);
 
   /**
    * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
@@ -95,7 +106,7 @@ export const useSentenceGame = (
       const upcomingNeeded = prev.trials.length - (prev.currentTrial + 1);
       if (upcomingNeeded <= 0) return prev;
       const playedIds = new Set(prev.trials.slice(0, prev.currentTrial + 1).map(t => t.id));
-      const fresh = getMixedTrials(newLevel, upcomingNeeded * 3)
+      const fresh = pickMixedTrials(newLevel, upcomingNeeded * 3)
         .filter(t => !playedIds.has(t.id) && !shownTrialsRef.current.has(t.id))
         .slice(0, upcomingNeeded);
       if (fresh.length === 0) return prev;
@@ -111,7 +122,7 @@ export const useSentenceGame = (
         trials: [...prev.trials.slice(0, prev.currentTrial + 1), ...padded],
       };
     });
-  }, []);
+  }, [pickMixedTrials]);
 
   const getCurrentTrial = (): SentenceTrial | null => {
     if (gameState.trials.length === 0) return null;
@@ -217,7 +228,7 @@ export const useSentenceGame = (
   };
 
   const reset = (newLevel: number = 1) => {
-    const trials = getMixedTrials(newLevel, totalTrials);
+    const trials = pickMixedTrials(newLevel, totalTrials);
     setGameState({
       currentTrial: 0,
       trials,
