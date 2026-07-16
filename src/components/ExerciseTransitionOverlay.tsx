@@ -76,11 +76,13 @@ export const ExerciseTransitionOverlay = ({
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
-  // Coaching-mode-aware duration: long enough to read, never a sub-second flash.
-  // Floor at 3s for plain encouragement, 3.5s when guidance copy is shown.
+  // Coaching-mode-aware duration: long enough to read, breathe, and orient
+  // to the next exercise. Previous 3–3.5s felt like a flash between games.
+  // New floors: 5.5s plain encouragement, 6.5s when guidance copy is shown,
+  // 8s for the breathing micro-pause. Users can always tap to skip.
   const hasGuidanceContent = !!(microGuidance || coachingBridge);
-  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 3.5 : 3;
-  const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 5 + jitter);
+  const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 6.5 : 5.5;
+  const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 8 + jitter);
   const durationRef = useRef(duration);
   durationRef.current = duration;
 
