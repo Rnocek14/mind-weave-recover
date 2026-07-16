@@ -32,6 +32,16 @@ export interface TrialData {
   clinician_validity_override?: string | null;
   /** Which underlying table the row came from — needed for clinician overrides. */
   source_table?: 'utterance_analyses' | 'exercise_events';
+  // ── Voice Engine v2 shadow verdict (exercise_events, Phase 2) ──
+  // Merged in by attempt_id regardless of which table supplied the trial row.
+  // Non-authoritative: v1 still scores; these exist for the clinician evidence
+  // panel and the pre-flip shadow diff (docs/voice-engine-v2-spec.md §12).
+  axis_scores?: Record<string, { value: number; confidence: number; evidence: string[] }> | null;
+  strategy_used?: string | null;
+  measurement_confidence?: string | null;
+  verdict_primary?: string | null;
+  verdict_reason?: string | null;
+  shadow_v1_agreement?: { v1_correct: boolean; v2_primary: string; agrees: boolean | null } | null;
 }
 
 export function useSessionDetail() {
@@ -54,8 +64,9 @@ export function useSessionDetail() {
 
       if (uaError) throw uaError;
 
+      let rows: TrialData[];
       if (uaData && uaData.length > 0) {
-        setTrials(uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const })));
+        rows = uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const }));
       } else {
         // Fallback to exercise_events
         const { data: eeData, error: eeError } = await supabase
@@ -94,8 +105,46 @@ export function useSessionDetail() {
           clinician_validity_override: (ev as any).clinician_validity_override ?? null,
           source_table: 'exercise_events' as const,
         }));
-        setTrials(mapped);
+        rows = mapped;
       }
+
+      // ── Voice Engine v2: merge shadow verdicts (Phase 2 columns) ──
+      // The shadow verdict lives on exercise_events regardless of which table
+      // supplied the trial rows above, so fetch it separately and join on
+      // attempt_id. Best-effort: a failure here must never break Session Review.
+      try {
+        const { data: shadowRows } = await (supabase.from("exercise_events") as any)
+          .select(
+            "attempt_id, axis_scores, strategy_used, measurement_confidence, verdict_primary, verdict_reason, shadow_v1_agreement"
+          )
+          .eq("session_id", sessionId)
+          .not("verdict_primary", "is", null);
+        if (shadowRows && shadowRows.length > 0) {
+          const byAttempt = new Map<string, any>(
+            shadowRows
+              .filter((s: any) => s.attempt_id)
+              .map((s: any) => [s.attempt_id as string, s])
+          );
+          rows = rows.map((t) => {
+            const s = byAttempt.get(t.attempt_id);
+            return s
+              ? {
+                  ...t,
+                  axis_scores: s.axis_scores ?? null,
+                  strategy_used: s.strategy_used ?? null,
+                  measurement_confidence: s.measurement_confidence ?? null,
+                  verdict_primary: s.verdict_primary ?? null,
+                  verdict_reason: s.verdict_reason ?? null,
+                  shadow_v1_agreement: s.shadow_v1_agreement ?? null,
+                }
+              : t;
+          });
+        }
+      } catch (shadowErr) {
+        console.warn("Shadow verdict merge failed (non-fatal):", shadowErr);
+      }
+
+      setTrials(rows);
     } catch (err) {
       console.error("Error fetching session trials:", err);
     } finally {

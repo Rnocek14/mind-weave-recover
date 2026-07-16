@@ -392,7 +392,17 @@ function generateRound(type: VoiceGameType, maxDiff: number, topic: SessionTopic
   return null;
 }
 
-/** Score a voice game round response */
+/**
+ * Score a voice game round response.
+ *
+ * ⚠️ QUARANTINED (docs/voice-engine-v2-spec.md §11): this is a word-count /
+ * keyword-substring heuristic, not clinical measurement — it is gameable by
+ * fillers and length. Its output may drive Maya's conversational feedback ONLY.
+ * It must never feed accuracy, progression, or adaptation: the telemetry write
+ * marks these rounds counts_toward_score:false and sessionAccuracySummary
+ * excludes the voice_practice slug. Do not tune this heuristic — sentence-level
+ * scoring is rebuilt on CIU concept coverage (spec §7) in V2.2.
+ */
 export function scoreVoiceRound(
   round: VoiceGameRound,
   transcript: string

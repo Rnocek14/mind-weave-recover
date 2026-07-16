@@ -60,11 +60,17 @@ interface ScoredRow {
  * (0–100 successScore) rather than a binary correct/incorrect. Mixing those into
  * the binary trial-accuracy mean is not meaningful, so they are excluded from the
  * canonical session accuracy (they are 'shadow' per docs/unified-trial-contract.md).
+ *
+ * voice_practice is QUARANTINED (docs/voice-engine-v2-spec.md §11): its score is
+ * a word-count/keyword heuristic, not clinical measurement. New rows also write
+ * counts_toward_score:false; listing the slug here additionally quarantines rows
+ * written before the fence existed. Participation-only until the V2.2 CIU rebuild.
  */
 const ACCURACY_EXCLUDED_SLUGS = new Set([
   'conversation_partner',
   'conversation_coach',
   'conversation_turn',
+  'voice_practice',
 ]);
 
 const EMPTY: SessionAccuracySummary = {

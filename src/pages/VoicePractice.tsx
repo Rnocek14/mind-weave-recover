@@ -42,7 +42,6 @@ export default function VoicePractice() {
     currentIndex,
     totalRounds,
     results,
-    avgScore,
     isMayaSpeaking,
     currentMayaText,
     startSession,
@@ -245,26 +244,27 @@ export default function VoicePractice() {
             <Volume2 className="w-10 h-10 text-primary" />
           </div>
           <div className="text-center space-y-2">
-            <h2 className="text-xl font-semibold">Session Complete!</h2>
+            <h2 className="text-xl font-semibold">Practice Complete!</h2>
             <p className="text-muted-foreground">
               {completed} of {results.length} exercises completed
             </p>
+            {/* Voice Practice is conversational practice, not a scored exercise
+                (Voice Engine v2 quarantine, spec §11). Showing a percentage here
+                implied clinical measurement the heuristic can't support. */}
             <p className="text-sm text-muted-foreground">
-              Average score: {Math.round(avgScore * 100)}%
+              Great conversational practice — every spoken answer counts.
             </p>
           </div>
-          {/* Round summary */}
+          {/* Round summary — participation, not scores */}
           <div className="w-full max-w-sm space-y-2">
             {results.map((r, i) => (
               <div key={i} className="flex items-center justify-between text-sm px-3 py-2 bg-muted/30 rounded-lg">
                 <span className="text-foreground">{r.label}</span>
                 <span className={cn(
                   "font-medium",
-                  r.score >= 0.7 ? "text-green-600 dark:text-green-400" : 
-                  r.score >= 0.3 ? "text-yellow-600 dark:text-yellow-400" : 
-                  "text-muted-foreground"
+                  r.score > 0 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
                 )}>
-                  {r.score > 0 ? `${Math.round(r.score * 100)}%` : 'Skipped'}
+                  {r.score > 0 ? 'Completed' : 'Skipped'}
                 </span>
               </div>
             ))}
