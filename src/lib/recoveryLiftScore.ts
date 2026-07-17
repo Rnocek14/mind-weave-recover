@@ -1,11 +1,21 @@
 /**
- * Recovery Lift Score — "Does Maya actually help?"
- * 
+ * Within-Session Lift — "Did speech metrics improve over THIS session?"
+ *
  * Compares baseline speech metrics (first N turns) vs end-of-session
- * metrics (last N turns) to measure within-session improvement.
- * 
- * A positive lift = the user improved during the session.
- * Tracked per session and longitudinally across sessions.
+ * metrics (last N turns). Positive = the user's turns got stronger as the
+ * session went on.
+ *
+ * NAMING/HONESTY NOTE: this was previously called "Recovery Lift Score",
+ * which overclaimed. A first-3 vs last-3 turn delta measures within-session
+ * change — which includes warm-up effects, fatigue, and topic difficulty —
+ * NOT durable recovery. A patient can post a positive lift every session
+ * with zero long-term change. Any surface that displays this metric must
+ * label it as within-session change, and it must never be aggregated or
+ * presented as a recovery/outcome measure. The component weights and
+ * normalization constants below are calibration defaults, not validated.
+ * (The persisted storage key `recovery_lift` is retained for backward
+ * compatibility with existing session rows; the payload now carries an
+ * explicit `measures` disclaimer field.)
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -128,6 +138,9 @@ export async function persistRecoveryLift(
       .update({
         summary: {
           recovery_lift: {
+            // Self-describing so downstream readers (clinician reports,
+            // research export) cannot mistake this for an outcome measure.
+            measures: 'within_session_change_first3_vs_last3_turns',
             score: lift.liftScore,
             fluency_lift: lift.fluencyLift,
             word_count_lift: lift.wordCountLift,

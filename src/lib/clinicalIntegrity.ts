@@ -115,7 +115,7 @@ export interface TierStatusResult {
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
   'photo-naming': {
-    8: 'L8 uses PROBE_WORDS as advanced retrieval review. The probe pool currently overlaps PHOTO_BANK 1:1, so this is NOT untrained-probe evidence. Tracked in pr4-probe-bank-cleanup.',
+    8: 'L8 uses PROBE_WORDS as advanced retrieval review. Probe targets are now reserved out of the photo-naming training pool, so probes are untrained for NEW profiles; profiles that practiced before the reservation carry historical exposure, so results stay labeled advanced review, not untrained-probe evidence. Cross-exercise exposure (e.g. minimal-pairs images) is not excluded. Tracked in pr4-probe-bank-cleanup.',
     7: 'Carrier-phrase mode ships, but the underlying frequency band cannot be enforced when bank metadata is missing.',
   },
 };

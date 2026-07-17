@@ -19,13 +19,16 @@
  *           changes from single-word retrieval to lexical retrieval inside
  *           a syntactic frame.
   *   L8      advanced retrieval review — sourced from PROBE_WORDS. NOTE:
- *           the current PROBE_WORDS pool overlaps PHOTO_BANK 1:1 by target,
- *           so this is NOT untrained-probe evidence. Trials are tagged
- *           `isAdvancedReviewTrial: true`; the legacy `isGeneralizationProbe`
- *           alias is kept for backward compatibility with consumers that
- *           segregate these trials from ordinary mastery stats. Once the
- *           probe bank is made disjoint from the training bank (see
- *           pr4-probe-bank-cleanup) the L8 tier can be relabeled as a true
+ *           probe targets are now RESERVED out of the training pool
+ *           (TRAINING_PHOTO_BANK, pr4-probe-bank-cleanup), so probes are
+ *           untrained going forward for new profiles. For profiles that
+ *           trained before the reservation, historical exposure means their
+ *           probe results remain advanced review, not clean generalization
+ *           evidence. Trials are tagged `isAdvancedReviewTrial: true`; the
+ *           legacy `isGeneralizationProbe` alias is kept for consumers that
+ *           segregate these trials from ordinary mastery stats. The L8 tier
+ *           can be relabeled per-profile once pre-reservation profiles age
+ *           out — until then it stays labeled as
  *           generalization probe and the alias removed.
  *
  * Honest fallbacks: if SUBTLEX-style frequency metadata is missing or the
@@ -38,7 +41,7 @@
  */
 
 import type { PhotoTrial } from '@/data/photoBank';
-import { PHOTO_BANK } from '@/data/photoBank';
+import { TRAINING_PHOTO_BANK } from '@/data/photoBank';
 import { PROBE_WORDS } from '@/data/probeWords';
 
 // ── Tunables (calibration defaults — see docs/clinical-evidence) ────────
@@ -140,7 +143,9 @@ export function selectPhotoNamingPool(
   clinicalLevel: number,
   opts: SelectOptions = {},
 ): SelectorResult {
-  const bank = opts.bank ?? PHOTO_BANK;
+  // Training tiers draw from the probe-reserved pool; L8 advanced review is
+  // the only tier allowed to touch PROBE_WORDS (segregated from mastery stats).
+  const bank = opts.bank ?? TRAINING_PHOTO_BANK;
   const probeBank = opts.probeBank ?? PROBE_WORDS;
   const tier = tierFor(clinicalLevel);
 
@@ -302,8 +307,10 @@ export function selectPhotoNamingPool(
   }
 
   // L8 → advanced retrieval review pool (PROBE_WORDS).
-  // The current probe bank overlaps PHOTO_BANK 1:1, so this is honest
-  // advanced review, NOT a true generalization probe. The flag pair
+  // Probe targets are reserved out of TRAINING_PHOTO_BANK, so these are
+  // untrained for new profiles; profiles that trained pre-reservation have
+  // historical exposure, so the conservative "advanced review" label stands
+  // until those age out. The flag pair
   // (isAdvancedReviewTrial + legacy isGeneralizationProbe alias) lets
   // downstream aggregators keep these trials out of mastery stats either way.
   if (probeBank.length < MIN_TIER_POOL_SIZE) {

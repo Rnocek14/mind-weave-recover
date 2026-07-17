@@ -948,6 +948,34 @@ export const PhotoNamingGame = ({
       setProcessingAnswer(true);
       handleAnswerSelect(matchedChoice, 'production');
     } else {
+      // ─── ASR-ALTERNATIVE RESCUE ─────────────────────────────────────────
+      // Disordered speech is frequently mis-transcribed by the top hypothesis
+      // while the actual target sits in a lower-ranked alternative. Before
+      // scoring "no match", check the engine's other hypotheses for the
+      // target (exact / alias / homophone only — never foils, so this cannot
+      // rescue a wrong answer).
+      const rec = getLastRecognition();
+      if (rec && rec.transcript === transcript.trim().toLowerCase()) {
+        const altHit = rec.alternatives.slice(1).find((a) => {
+          const w = a.transcript.replace(/[^a-z' ]/g, '').trim();
+          return (
+            w === targetWord ||
+            aliasList.includes(w) ||
+            areHomophones(targetWord, w) ||
+            aliasList.some((al) => areHomophones(al, w))
+          );
+        });
+        if (altHit) {
+          console.log('✅ ASR alternative matched target:', altHit.transcript, '→', targetWord);
+          const targetChoice =
+            state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
+          setUtteranceState('processing');
+          setProcessingAnswer(true);
+          handleAnswerSelect(targetChoice, 'production');
+          return;
+        }
+      }
+
       console.log('❌ No match for stable transcript:', transcript);
 
       // Real attempt that passed the gate but didn't match a choice — gentle retry
@@ -1026,13 +1054,14 @@ export const PhotoNamingGame = ({
   }, [showFeedback, selectedAnswer, timedOut, utteranceState, state.choices, state.currentTrial, logBrowserTranscript, processStableTranscript]);
   
   // Speech recognition hook - use patient mode like the other mobile exercises to avoid mic flicker
-  const { 
-    isListening, 
-    transcript, 
-    startListening, 
-    stopListening, 
+  const {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
     isSupported,
-    error: speechError 
+    error: speechError,
+    getLastRecognition,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     autoStart: false,
@@ -2219,11 +2248,15 @@ export const PhotoNamingGame = ({
           }
         }
         
-        // Advanced error classification with acoustic metrics
+        // Advanced error classification with acoustic metrics.
+        // Confidence: real ASR engine confidence when available (captured from
+        // the recognition result), else the speech-worker's whisper confidence,
+        // else the legacy 0.8 default — so the classifier's low-confidence
+        // retry gate finally receives a real signal instead of a constant.
         const errorClassification = await classifySpeechError(
           word,
           capturedTrial.target,
-          0.8,
+          getLastRecognition()?.confidence ?? whisperConfidence ?? 0.8,
           {
             trialNumber: capturedTrialNumber,
             previousErrors: capturedErrorHistory.map(e => e.errorType),

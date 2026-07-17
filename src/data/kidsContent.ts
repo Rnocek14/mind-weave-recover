@@ -16,7 +16,7 @@
  * these selectors are only called when Kids Mode is on.
  */
 
-import { PHOTO_BANK, PhotoTrial } from "@/data/photoBank";
+import { TRAINING_PHOTO_BANK, PhotoTrial } from "@/data/photoBank";
 import { SentenceTrial } from "@/data/sentenceBank";
 import { TwoCluesPuzzle } from "@/data/twoCluesBank";
 
@@ -36,10 +36,10 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/** The full kid-eligible photo pool (deduped by target word). */
+/** The full kid-eligible photo pool (deduped by target word, probe-reserved). */
 export function getKidsPhotoPool(): PhotoTrial[] {
   const seen = new Set<string>();
-  return PHOTO_BANK.filter((trial) => {
+  return TRAINING_PHOTO_BANK.filter((trial) => {
     if (trial.features.age_of_acquisition > KIDS_MAX_AOA) return false;
     if (trial.computed_difficulty > KIDS_MAX_DIFFICULTY) return false;
     const key = trial.target.trim().toLowerCase();

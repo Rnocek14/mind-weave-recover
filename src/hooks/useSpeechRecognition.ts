@@ -2,6 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING' | 'RESTARTING';
 
+export interface RecognitionDetail {
+  transcript: string;
+  /** Engine confidence for the top hypothesis (0..1), null when the engine omits it. */
+  confidence: number | null;
+  /** Alternate hypotheses (maxAlternatives=5), best-first, including the top one. */
+  alternatives: Array<{ transcript: string; confidence: number | null }>;
+}
+
 interface SpeechRecognitionHook {
   isListening: boolean;
   transcript: string;
@@ -13,6 +21,11 @@ interface SpeechRecognitionHook {
   stopListening: () => void;
   isSupported: boolean;
   error: string | null;
+  /**
+   * Confidence + alternate hypotheses for the most recent FINAL transcript.
+   * Ref-backed: safe to read synchronously inside the onResult callback.
+   */
+  getLastRecognition: () => RecognitionDetail | null;
 }
 
 interface UseSpeechRecognitionOptions {
@@ -73,6 +86,7 @@ export const useSpeechRecognition = (
   
   // Discourse accumulation
   const accumulatedTranscriptRef = useRef<string[]>([]);
+  const lastRecognitionRef = useRef<RecognitionDetail | null>(null);
   
   // Cooldown period after stop before allowing restart (prevents race)
   const COOLDOWN_MS = 300;
@@ -176,11 +190,37 @@ export const useSpeechRecognition = (
     recognition.onresult = (event: any) => {
       const results = event.results;
       const lastResult = results[results.length - 1];
-      
+
       if (lastResult.isFinal) {
         const finalTranscript = lastResult[0].transcript.trim().toLowerCase();
         console.log('🎤 Final transcript:', finalTranscript);
         setTranscript(finalTranscript);
+
+        // Capture engine confidence + the alternate hypotheses (we request
+        // maxAlternatives=5). For disordered speech the correct target often
+        // sits in an alternative even when the top hypothesis is wrong, and
+        // confidence feeds the error classifier's retry-instead-of-wrong gate.
+        // Stored on a ref so consumers reading synchronously in the onResult
+        // callback see the values for THIS transcript, not the previous one.
+        try {
+          const alternatives: Array<{ transcript: string; confidence: number | null }> = [];
+          for (let i = 0; i < lastResult.length; i++) {
+            const alt = lastResult[i];
+            if (alt?.transcript) {
+              alternatives.push({
+                transcript: alt.transcript.trim().toLowerCase(),
+                confidence: typeof alt.confidence === 'number' ? alt.confidence : null,
+              });
+            }
+          }
+          lastRecognitionRef.current = {
+            transcript: finalTranscript,
+            confidence: typeof lastResult[0].confidence === 'number' ? lastResult[0].confidence : null,
+            alternatives,
+          };
+        } catch {
+          lastRecognitionRef.current = { transcript: finalTranscript, confidence: null, alternatives: [] };
+        }
         
         // Reset no-speech counter on successful recognition
         noSpeechCountRef.current = 0;
@@ -503,6 +543,8 @@ export const useSpeechRecognition = (
     }
   }, [optAutoStart, isSupported, startListening]);
 
+  const getLastRecognition = useCallback(() => lastRecognitionRef.current, []);
+
   return {
     isListening,
     transcript,
@@ -512,5 +554,6 @@ export const useSpeechRecognition = (
     stopListening,
     isSupported,
     error,
+    getLastRecognition,
   };
 };
