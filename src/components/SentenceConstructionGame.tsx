@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getKidsPraise, getKidsGrammarLabel } from "@/data/kidsContent";
 import { KidsCelebration } from "@/components/KidsCelebration";
+import { KidsStarMeter } from "@/components/KidsStarMeter";
 
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
@@ -503,6 +504,7 @@ export const SentenceConstructionGame = ({
           </div>
         </div>
         <Progress value={progress} className="h-1.5" />
+        {kidsMode && <KidsStarMeter earned={score} total={trials.length} />}
       </div>
 
       {/* Task info + audio */}

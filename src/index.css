@@ -329,6 +329,18 @@ button, a, [role="button"], input, select, textarea {
   animation: kids-squish 0.25s ease-out;
 }
 
+/* Newest star pops into place on the Kids star meter */
+.kids-star-pop {
+  display: inline-block;
+  animation: kids-star-pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes kids-star-pop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.5) rotate(15deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
 @keyframes kids-squish {
   0% { transform: scale(1); }
   40% { transform: scale(0.94); }
@@ -367,7 +379,8 @@ button, a, [role="button"], input, select, textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .kids-mode button:active,
-  .kids-burst span {
+  .kids-burst span,
+  .kids-star-pop {
     animation: none;
   }
 }

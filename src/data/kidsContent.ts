@@ -18,6 +18,7 @@
 
 import { PHOTO_BANK, PhotoTrial } from "@/data/photoBank";
 import { SentenceTrial } from "@/data/sentenceBank";
+import { TwoCluesPuzzle } from "@/data/twoCluesBank";
 
 // ─── Kid photo pool ────────────────────────────────────────────────────────
 
@@ -312,6 +313,33 @@ export function getKidsMixedSentenceTrials(level: number, count: number = 10): S
     (a, b) => Math.abs(a.difficulty - clamped) - Math.abs(b.difficulty - clamped),
   );
   return [...atLevel, ...padding].slice(0, count);
+}
+
+// ─── Two Clues kid filter ──────────────────────────────────────────────────
+// Difficulty-1 puzzles in concrete kid-world categories. 'people' is excluded
+// (occupation riddles lean abstract for young kids).
+
+const KIDS_TWO_CLUES_CATEGORIES = new Set([
+  "animals", "kitchen", "weather", "home", "clothing",
+  "nature", "food", "transport", "body", "music", "sports",
+]);
+
+export function filterKidsTwoCluesPuzzles(puzzles: TwoCluesPuzzle[]): TwoCluesPuzzle[] {
+  const kid = puzzles.filter(
+    (p) => p.difficulty === 1 && KIDS_TWO_CLUES_CATEGORIES.has(p.category),
+  );
+  // Never return an empty session — fall back to the unfiltered set.
+  return kid.length > 0 ? kid : puzzles;
+}
+
+// ─── Minimal Pairs kid cap ─────────────────────────────────────────────────
+// Engine level 5 = tier 2, early sub-tier: initial-position contrasts on
+// simple words (cat/hat). Tier 3 finals are acoustically hard for kids.
+
+export const KIDS_MINIMAL_PAIRS_MAX_LEVEL = 5;
+
+export function clampKidsMinimalPairsLevel(level: number): number {
+  return Math.min(level, KIDS_MINIMAL_PAIRS_MAX_LEVEL);
 }
 
 // ─── Kid-friendly grammar labels ───────────────────────────────────────────

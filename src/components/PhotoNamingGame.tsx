@@ -23,6 +23,7 @@ import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedb
 import { useKidsMode } from '@/contexts/KidsModeContext';
 import { getKidsPraise } from '@/data/kidsContent';
 import { KidsCelebration } from '@/components/KidsCelebration';
+import { KidsStarMeter } from '@/components/KidsStarMeter';
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
@@ -2677,6 +2678,11 @@ export const PhotoNamingGame = ({
           value={(state.trialNumber / state.totalTrials) * 100}
           className="h-1 mt-1.5"
         />
+        {kidsMode && (
+          <div className="mt-1.5">
+            <KidsStarMeter earned={Math.floor(state.score / 100)} total={state.totalTrials} />
+          </div>
+        )}
       </div>
 
       {/* Difficulty change banner */}
@@ -2739,7 +2745,9 @@ export const PhotoNamingGame = ({
       {/* First-trial intro — single compact strip (no card stack) */}
       {state.trialNumber === 1 && !showFeedback && (
         <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-center text-xs sm:text-sm">
-          <span className="font-medium text-foreground">Say what you see</span>
+          <span className="font-medium text-foreground">
+            {kidsMode ? "What's in the picture?" : "Say what you see"}
+          </span>
           {progression.startingLevel != null && (
             <>
               <span className="text-muted-foreground/60">·</span>
@@ -2753,7 +2761,7 @@ export const PhotoNamingGame = ({
           )}
           <span className="text-muted-foreground/60">·</span>
           <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-intro" />
-          {useVoice && (
+          {useVoice && !kidsMode && (
             <span className="basis-full text-[11px] text-muted-foreground/80">
               🎧 Tip: headphones help us hear you clearly and stop the mic picking up Maya's voice.
             </span>
