@@ -106,6 +106,14 @@ export interface MasteryGateResult {
     string,
     { confidence: MasteryConfidenceLevel | 'missing'; trialsTotal: number }
   >;
+  /**
+   * Quality signals for the A.3 promotion classifier: the WEAKEST trained
+   * skill's longitudinal mastery score / cue independence (conservative —
+   * promotion quality is only as good as the weakest trained skill).
+   * Null when no skill row carries the value yet.
+   */
+  minMasteryScore: number | null;
+  minCueIndependence: number | null;
 }
 
 /**
@@ -123,7 +131,7 @@ export async function readMasteryGate(args: {
   const { profileId, exerciseSlug, difficulty } = args;
 
   if (isExcludedFromMastery(exerciseSlug)) {
-    return { verdict: 'skip', confidence: undefined, skills: [], bySkill: {} };
+    return { verdict: 'skip', confidence: undefined, skills: [], bySkill: {}, minMasteryScore: null, minCueIndependence: null };
   }
 
   const skills = mapTrialToSkills({
@@ -131,19 +139,19 @@ export async function readMasteryGate(args: {
     inputs: difficulty != null ? { difficulty } : null,
   });
   if (skills.length === 0) {
-    return { verdict: 'skip', confidence: undefined, skills: [], bySkill: {} };
+    return { verdict: 'skip', confidence: undefined, skills: [], bySkill: {}, minMasteryScore: null, minCueIndependence: null };
   }
 
   try {
     const { data, error } = await supabase
       .from('user_skill_mastery')
-      .select('skill_slug, confidence, trials_total')
+      .select('skill_slug, confidence, trials_total, mastery_score, cue_independence')
       .eq('profile_id', profileId)
       .in('skill_slug', skills);
 
     if (error) {
       console.warn('[masteryGate] read failed:', error.message);
-      return { verdict: 'skip', confidence: undefined, skills, bySkill: {} };
+      return { verdict: 'skip', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
     }
 
     const rowBySkill = new Map<
@@ -179,9 +187,20 @@ export async function readMasteryGate(args: {
         .map((s) => s.confidence),
     );
 
-    return { verdict, confidence, skills, bySkill };
+    // Weakest-skill quality signals for the promotion classifier. Only rows
+    // that actually carry the value participate (null ≠ zero).
+    const scores = (data ?? [])
+      .map((r) => r.mastery_score)
+      .filter((v): v is number => typeof v === 'number');
+    const independences = (data ?? [])
+      .map((r) => r.cue_independence)
+      .filter((v): v is number => typeof v === 'number');
+    const minMasteryScore = scores.length > 0 ? Math.min(...scores) : null;
+    const minCueIndependence = independences.length > 0 ? Math.min(...independences) : null;
+
+    return { verdict, confidence, skills, bySkill, minMasteryScore, minCueIndependence };
   } catch (err) {
     console.warn('[masteryGate] read threw:', err);
-    return { verdict: 'skip', confidence: undefined, skills, bySkill: {} };
+    return { verdict: 'skip', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
   }
 }

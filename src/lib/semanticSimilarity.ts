@@ -190,27 +190,42 @@ function getRuleBasedSemanticSimilarity(
  * Get semantic similarity between two words/phrases.
  * Returns a value in [0, 1] where 1 = identical and <0.45 = effectively unrelated.
  */
-export async function getSemanticSimilarity(
+/**
+ * Which scorer produced a semantic similarity value. The embedding scorer
+ * and the ~90-word rule-based fallback are NOT comparable — identical
+ * answers can score differently depending on edge-function availability —
+ * so every persisted/telemetered similarity should carry its source.
+ */
+export type SemanticScorerSource = 'exact' | 'embedding' | 'rule_based' | 'nonsense_gate';
+
+export interface SemanticSimilarityDetail {
+  score: number;
+  source: SemanticScorerSource;
+}
+
+export async function getSemanticSimilarityDetailed(
   spoken: string,
   target: string,
   category?: string
-): Promise<number> {
+): Promise<SemanticSimilarityDetail> {
   const ns = spoken.toLowerCase().trim();
   const nt = target.toLowerCase().trim();
 
-  if (ns === nt) return 1.0;
+  if (ns === nt) return { score: 1.0, source: 'exact' };
 
   // Nonsense / filler short-circuit
-  if (!isPlausibleAnswer(spoken)) return 0;
+  if (!isPlausibleAnswer(spoken)) return { score: 0, source: 'nonsense_gate' };
 
   // Compute raw embedding similarity (no rescale)
   let raw: number | null = null;
+  let source: SemanticScorerSource = 'rule_based';
   if (!embeddingDisabled) {
     try {
       const [se, te] = await Promise.all([getEmbedding(ns), getEmbedding(nt)]);
       if (se && te) {
         const cos = cosineSimilarity(se, te);
         raw = Math.max(0, Math.min(1, cos));
+        source = 'embedding';
       }
     } catch (error) {
       console.warn('Embeddings failed, using rule-based fallback:', error);
@@ -220,6 +235,7 @@ export async function getSemanticSimilarity(
   // Fallback to rule-based if embeddings unavailable
   if (raw === null) {
     raw = getRuleBasedSemanticSimilarity(ns, nt, category || '');
+    source = 'rule_based';
   }
 
   // Lexical guard: if there's no morphological/token overlap and the embedding
@@ -227,8 +243,16 @@ export async function getSemanticSimilarity(
   // English words from drifting into the partial-credit band.
   const overlap = hasLexicalOverlap(spoken, target);
   if (!overlap && raw < 0.78) {
-    return Math.min(raw, NONSENSE_CAP);
+    return { score: Math.min(raw, NONSENSE_CAP), source };
   }
 
-  return raw;
+  return { score: raw, source };
+}
+
+export async function getSemanticSimilarity(
+  spoken: string,
+  target: string,
+  category?: string
+): Promise<number> {
+  return (await getSemanticSimilarityDetailed(spoken, target, category)).score;
 }

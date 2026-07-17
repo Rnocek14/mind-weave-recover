@@ -197,6 +197,17 @@ export interface SessionRollupInput {
    */
   masteryVerdict?: 'pass' | 'block' | 'skip';
   /**
+   * A.3 enforcement of the A.2 promotion RECOMMENDATION
+   * (masteryPromotionDecision.classifyMasteryPromotion):
+   *   'delay_reinforce' → hold level-up this session even when progress,
+   *                       evidence, and the verdict gate all pass. Progress
+   *                       holds at 100%; the next flush re-evaluates fresh
+   *                       mastery data, so this can never become a permanent
+   *                       block (the classifier's documented contract).
+   *   'promote' / 'no_opinion' / undefined → no effect (legacy behavior).
+   */
+  masteryPromotion?: 'promote' | 'delay_reinforce' | 'no_opinion';
+  /**
    * Highest level whose contentSelector actually ships differentiated
    * content. When provided, level-up is clamped here so the patient never
    * advances into a planned tier and silently receives baseline-fallback
@@ -267,8 +278,11 @@ export function applySessionToState(
 
   if (nextProgress >= MAX_PROGRESS) {
     const masteryOk = masteryGateAllowsAdvance(input);
+    // A.3: the quality recommendation is enforced — a cue-dependent learner
+    // with high raw accuracy waits one confirming session instead of leveling.
+    const promotionOk = input.masteryPromotion !== 'delay_reinforce';
     const canAdvance = nextLevel < MAX_LEVEL && nextLevel < ceiling;
-    if (input.evidenceMet && masteryOk && canAdvance) {
+    if (input.evidenceMet && masteryOk && promotionOk && canAdvance) {
       nextLevel = clampLevel(nextLevel + 1);
       nextProgress = MIN_PROGRESS;
       nextSupport = 0;
