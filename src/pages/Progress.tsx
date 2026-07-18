@@ -11,6 +11,7 @@ import { PatientTabBar } from '@/components/PatientTabBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { SessionAdherenceTracker } from '@/components/SessionAdherenceTracker';
+import { TransferTrendCard } from '@/components/TransferTrendCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
 
@@ -115,6 +116,10 @@ export default function Progress() {
       </header>
 
       <div className="flex-1 p-6 max-w-md mx-auto w-full space-y-6">
+        {/* Transfer: practiced words surviving into conversation (renders
+            only when review-chat data exists — no empty pretend-charts) */}
+        <TransferTrendCard />
+
         {/* Stats cards */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-card border rounded-xl p-4 text-center space-y-1">

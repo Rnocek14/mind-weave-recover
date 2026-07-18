@@ -72,6 +72,8 @@ export const ALLOWED_HEDGED: readonly string[] = [
   // hedged phrasings below remain allowed so /docs and KNOWN_CAVEATS can
   // still describe the prior framing without tripping the scanner.
   'generalization probe',
+  // Hedged negation: device-local transfer metrics explicitly awaiting validation
+  'until the transfer metric is validated',
   'generalization probe attempt',
   'untrained probe',
   'untrained probe performance',

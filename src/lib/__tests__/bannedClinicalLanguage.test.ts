@@ -30,6 +30,15 @@ const SCAN_FILES = [
   'src/lib/progression/minimalPairsContentSelector.ts',
   'src/pages/ClinicalLibrary.tsx',
   'src/pages/GameAboutPage.tsx',
+  // Transfer/review layer — among the most patient-facing strings in the app
+  'src/pages/ReviewChatPage.tsx',
+  'src/lib/reviewConversation.ts',
+  'src/lib/transferLedger.ts',
+  'src/components/TransferTrendCard.tsx',
+  // Kids Mode reward surfaces
+  'src/components/KidsSessionReward.tsx',
+  'src/pages/FeedTheMonsterExercise.tsx',
+  'src/data/kidsContent.ts',
 ];
 
 function walk(dir: string, acc: string[] = []): string[] {

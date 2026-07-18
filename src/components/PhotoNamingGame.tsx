@@ -25,6 +25,7 @@ import { getKidsPraise } from '@/data/kidsContent';
 import { KidsCelebration } from '@/components/KidsCelebration';
 import { KidsStarMeter } from '@/components/KidsStarMeter';
 import { KidsSessionReward } from '@/components/KidsSessionReward';
+import { recordPracticedWord } from '@/lib/reviewQueue';
 import { useKidsSounds } from '@/hooks/useKidsSounds';
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
@@ -2107,6 +2108,10 @@ export const PhotoNamingGame = ({
     // INSTANT FEEDBACK: Determine correct/incorrect immediately
     // =====================================================================
     const isCorrectAnswer = word.toLowerCase() === state.currentTrial.target.toLowerCase();
+
+    // Feed the review-conversation queue (device-local): every practiced word
+    // becomes a candidate for the post-session transfer chat.
+    recordPracticedWord(state.currentTrial.target, state.currentTrial.category, !isCorrectAnswer);
 
     // Clinical Progression v1: buffer this trial's outcome for session-end flush.
     // Bug fix: a chip tap (inputMode='recognition') after an attempted spoken
