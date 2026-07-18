@@ -37,14 +37,30 @@ type Phase = "intro" | "playing" | "chomping" | "done";
 type FeedMethod = "spoken" | "grown_up" | "tapped";
 
 /** Child-friendly TTS, separate from Maya's voice pipeline. */
-function speakKid(text: string) {
+/**
+ * Echo-tail after TTS finishes before the mic scores again. Mirrors the
+ * adult games' mic-lock: without this, the device speaker saying the target
+ * word ("Can you say... apple?") is picked up by the mic and feeds the
+ * monster from the app's own voice.
+ */
+const TTS_ECHO_TAIL_MS = 900;
+
+function speakKid(text: string, echoLockRef?: { current: number }) {
+  const lock = (ms: number) => {
+    if (echoLockRef) echoLockRef.current = Math.max(echoLockRef.current, Date.now() + ms);
+  };
   try {
     const synth = window.speechSynthesis;
     if (!synth) return;
     synth.cancel();
+    // Pessimistic estimate up front (~90ms/char at our rate) in case the
+    // engine never fires onend (some mobile browsers drop it).
+    lock(Math.max(2000, text.length * 90) + TTS_ECHO_TAIL_MS);
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.9;
     u.pitch = 1.2;
+    u.onend = () => lock(TTS_ECHO_TAIL_MS);
+    u.onerror = () => lock(TTS_ECHO_TAIL_MS);
     synth.speak(u);
   } catch {
     /* no TTS — visuals carry the game */
@@ -81,6 +97,9 @@ export default function FeedTheMonsterExercise() {
   }, []);
   const currentTrial = trials[roundIndex] ?? null;
 
+  /** Timestamp until which the mic must ignore transcripts (TTS echo lock). */
+  const echoLockRef = useRef(0);
+
   const phaseRef = useRef<Phase>("intro");
   phaseRef.current = phase;
   const roundRef = useRef(0);
@@ -102,7 +121,7 @@ export default function FeedTheMonsterExercise() {
       setPraise(getKidsPraise());
       setFeeds((prev) => [...prev, method]);
       kidsSounds.playKidsSuccess();
-      speakKid(`Yum yum! ${trial.target}!`);
+      speakKid(`Yum yum! ${trial.target}!`, echoLockRef);
 
       window.setTimeout(() => {
         const nextIndex = roundRef.current + 1;
@@ -138,6 +157,7 @@ export default function FeedTheMonsterExercise() {
         result.leveledUp
           ? `Amazing! ${result.pet.name} grew into a ${result.stage.label}!`
           : `All done! ${result.pet.name} loved that!`,
+        echoLockRef,
       );
     },
     [kidsSounds],
@@ -147,6 +167,9 @@ export default function FeedTheMonsterExercise() {
   const handleSpeech = useCallback(
     (transcript: string) => {
       if (phaseRef.current !== "playing") return;
+      // Echo lock: while Momo is talking (and for a short tail after), the
+      // transcript is very likely the app's own voice — never score it.
+      if (Date.now() < echoLockRef.current) return;
       const trial = trials[roundRef.current];
       if (!trial) return;
 
@@ -212,11 +235,11 @@ export default function FeedTheMonsterExercise() {
     if (phase !== "playing" || !currentTrial) return;
     setShowHintWord(false);
     setShowTapHint(micBlocked); // no mic → tapping is the game, hint immediately
-    speakKid(`Momo is hungry! Can you say... ${currentTrial.target}?`);
+    speakKid(`Momo is hungry! Can you say... ${currentTrial.target}?`, echoLockRef);
 
     hintTimerRef.current = window.setTimeout(() => {
       setShowHintWord(true);
-      speakKid(`Say ${currentTrial.target}!`);
+      speakKid(`Say ${currentTrial.target}!`, echoLockRef);
     }, HINT_DELAY_MS);
     tapHintTimerRef.current = window.setTimeout(() => {
       setShowTapHint(true);
@@ -228,6 +251,21 @@ export default function FeedTheMonsterExercise() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, roundIndex, micBlocked]);
+
+  // Spoken intro for pre-readers: the screen must explain itself out loud,
+  // not just in text (same reason the adult games speak their instructions).
+  const introSpokenRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "intro" || introSpokenRef.current || !kidsMode) return;
+    introSpokenRef.current = true;
+    const t = window.setTimeout(() => {
+      speakKid(
+        "Momo is SO hungry! Say the words out loud to feed him. Tap the big button to start!",
+        echoLockRef,
+      );
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [phase, kidsMode]);
 
   // Cancel TTS when leaving
   useEffect(() => () => {
@@ -262,7 +300,7 @@ export default function FeedTheMonsterExercise() {
             className="text-xl font-bold rounded-3xl px-10 py-7"
             onClick={() => {
               setPhase("playing");
-              speakKid("Let's feed Momo!");
+              speakKid("Let's feed Momo!", echoLockRef);
             }}
           >
             Let&apos;s Play! 🍽️
