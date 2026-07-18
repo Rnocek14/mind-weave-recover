@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { clearSensitiveDeviceData } from '@/lib/deviceStore';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -69,6 +70,9 @@ export const useAuth = () => {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
+    // Shared/public computers: the next user must not inherit this patient's
+    // device-local practice data (practiced words, struggle flags, ledger).
+    clearSensitiveDeviceData();
     return { error };
   };
 

@@ -48,7 +48,14 @@ export function PetDisplay({ pet, celebrate = false, compact = false }: PetDispl
       {/* Growth toward next evolution */}
       {next ? (
         <div className="w-full max-w-[220px] space-y-1">
-          <div className="h-3 rounded-full bg-muted overflow-hidden border border-border">
+          <div
+            className="h-3 rounded-full bg-muted overflow-hidden border border-border"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            aria-label={`Growth toward ${next.label}`}
+          >
             <div
               className="h-full rounded-full bg-gradient-healing transition-all duration-700"
               style={{ width: `${Math.round(progress * 100)}%` }}

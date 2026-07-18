@@ -171,13 +171,15 @@ export function selectCarryoverPriorities(
 
 // ─── Storage (thin, guarded, versioned) ────────────────────────────────────
 
+import { scopedKey } from "./deviceStore";
+
 const LEDGER_KEY = "transferLedger_v1";
 const MAX_WORDS = 200;
 const MAX_EVENTS_PER_WORD = 60;
 
 function loadAll(): WordLedger[] {
   try {
-    const raw = localStorage.getItem(LEDGER_KEY);
+    const raw = localStorage.getItem(scopedKey(LEDGER_KEY));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed)
@@ -194,7 +196,7 @@ function saveAll(ledgers: WordLedger[]): void {
       ...l,
       events: l.events.slice(-MAX_EVENTS_PER_WORD),
     }));
-    localStorage.setItem(LEDGER_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(scopedKey(LEDGER_KEY), JSON.stringify(trimmed));
   } catch {
     /* storage unavailable */
   }
@@ -214,7 +216,15 @@ export function recordTransferEvent(
     ledger = { word: w, category, events: [] };
     ledgers.push(ledger);
   }
-  ledger.events.push({ day: dayString(now), tier });
+  const day = dayString(now);
+  // Practice events are deduped per day: drilling a word 20 times in one
+  // session must not push its CONVERSATIONAL history out of the event cap
+  // (which would silently corrupt the carryover status of the most-drilled
+  // words). One practice event per word per day carries the same signal.
+  if (tier === "practice" && ledger.events.some((e) => e.day === day && e.tier === "practice")) {
+    return;
+  }
+  ledger.events.push({ day, tier });
   saveAll(ledgers);
 }
 

@@ -14,6 +14,7 @@ import {
   onSkipTopic,
   onFinishRequest,
   onSilence,
+  onCuedProduction,
   summarize,
   type ReviewState,
   type ReviewEvent,
@@ -86,6 +87,10 @@ export default function ReviewChatPage() {
 
   const applyTurn = useCallback(
     (turn: { state: ReviewState; mayaLine: string; events: ReviewEvent[] }) => {
+      // No-op turns (noise, duplicate ASR finals, inert input) must not
+      // re-render state — a re-render re-arms the silence timer, and ambient
+      // noise would otherwise keep the conversation from ever moving forward.
+      if (!turn.mayaLine && turn.events.length === 0) return;
       setEngineState({ ...turn.state });
       if (turn.mayaLine) {
         setMayaLine(turn.mayaLine);
@@ -165,12 +170,28 @@ export default function ReviewChatPage() {
   }, [engineState, micBlocked, isListening, startListening, stopListening]);
 
   // ── Silence handling (engine-driven forward motion) ──────────────────────
+  // The patient's silence window must not start until Maya has FINISHED
+  // speaking: slow responders who politely wait for her to finish must get
+  // the full window. On fire, if the echo lock was still recently active,
+  // re-arm for the remaining time instead of stealing the turn.
   useEffect(() => {
     if (!engineState || engineState.phase === "done" || micBlocked) return;
-    silenceTimerRef.current = window.setTimeout(() => {
-      const s = stateRef.current;
-      if (s && s.phase !== "done") applyTurn(onSilence(s));
-    }, SILENCE_TIMEOUT_MS);
+
+    const arm = (delay: number) => {
+      silenceTimerRef.current = window.setTimeout(() => {
+        const s = stateRef.current;
+        if (!s || s.phase === "done") return;
+        const sinceLockLifted = Date.now() - echoLockRef.current;
+        if (sinceLockLifted < SILENCE_TIMEOUT_MS) {
+          arm(SILENCE_TIMEOUT_MS - Math.max(0, sinceLockLifted));
+          return;
+        }
+        applyTurn(onSilence(s));
+      }, delay);
+    };
+
+    const untilLockLifts = Math.max(0, echoLockRef.current - Date.now());
+    arm(untilLockLifts + SILENCE_TIMEOUT_MS);
     return () => {
       if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
     };
@@ -246,7 +267,7 @@ export default function ReviewChatPage() {
           <div className={`text-6xl ${celebrating ? "kids-pet-evolve" : "kids-pet-idle"}`} aria-hidden>
             {celebrating ? "🤩" : "🙂"}
           </div>
-          <Card className="w-full p-5 rounded-3xl">
+          <Card className="w-full p-5 rounded-3xl" aria-live="polite">
             <p className="text-lg sm:text-xl font-medium text-foreground text-center leading-relaxed">
               {mayaLine}
             </p>
@@ -273,11 +294,24 @@ export default function ReviewChatPage() {
             </div>
           )}
 
+          {/* Mic-blocked participation: say it aloud, then self-report. The
+              production is real speech we couldn't verify — scored as cued
+              (same honest tier as any modeled/unverified production). */}
+          {micBlocked && !inRepair && engineState.activeItem >= 0 && (
+            <Button
+              size="lg"
+              className="rounded-2xl text-lg font-bold gap-2 px-8"
+              onClick={() => stateRef.current && applyTurn(onCuedProduction(stateRef.current))}
+            >
+              🗣️ I said “{engineState.items[engineState.activeItem]?.word}”
+            </Button>
+          )}
+
           {/* Mic + heard feedback */}
           <div className="flex flex-col items-center gap-1.5">
             {micBlocked ? (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <MicOff className="w-4 h-4" /> Mic unavailable — use the buttons below
+                <MicOff className="w-4 h-4" /> Mic unavailable — say the words out loud, then tap
               </p>
             ) : (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -285,7 +319,7 @@ export default function ReviewChatPage() {
                 {isListening ? "Maya is listening..." : "Warming up the mic..."}
               </p>
             )}
-            {heard && <p className="text-xs text-muted-foreground/70">Heard: “{heard}”</p>}
+            {heard && <p className="text-xs text-muted-foreground/70" aria-live="polite">Heard: “{heard}”</p>}
           </div>
 
           {/* Escape hatch: change topic */}
@@ -312,7 +346,7 @@ export default function ReviewChatPage() {
               <p className="font-semibold text-secondary">
                 ⭐ {(summary ?? summarize(engineState)).spontaneous} word
                 {(summary ?? summarize(engineState)).spontaneous === 1 ? "" : "s"} used all on your own
-                — that&apos;s the words coming back for real.
+                — you found them without any help.
               </p>
             )}
             {(summary ?? summarize(engineState)).elicited > 0 && (

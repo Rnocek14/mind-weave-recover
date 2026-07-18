@@ -154,7 +154,7 @@ const CUE_TEMPLATES = [
 
 const CELEBRATE_SPONTANEOUS = [
   "You just used that word all on your own — wonderful!",
-  "You said it before I even asked — that's real progress!",
+  "You said it before I even asked — wonderful!",
   "That word came right out on its own. Excellent!",
 ];
 

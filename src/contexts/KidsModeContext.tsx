@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { scopedKey } from "@/lib/deviceStore";
 
 /**
  * Kids Mode — an opt-in presentation layer for pediatric users.
@@ -30,7 +31,7 @@ const KIDS_MODE_KEY = "therapyPlatform_kidsMode";
 const getInitialKidsMode = (): boolean => {
   if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(KIDS_MODE_KEY) === "1";
+    return localStorage.getItem(scopedKey(KIDS_MODE_KEY)) === "1";
   } catch {
     return false;
   }
@@ -39,9 +40,17 @@ const getInitialKidsMode = (): boolean => {
 export function KidsModeProvider({ children }: { children: ReactNode }) {
   const [kidsMode, setKidsModeState] = useState<boolean>(getInitialKidsMode);
 
+  // Profile-scoped: switching between a pediatric and an adult profile on the
+  // same account must flip the mode to THAT profile's setting.
+  useEffect(() => {
+    const reload = () => setKidsModeState(getInitialKidsMode());
+    window.addEventListener("device-scope-changed", reload);
+    return () => window.removeEventListener("device-scope-changed", reload);
+  }, []);
+
   useEffect(() => {
     try {
-      localStorage.setItem(KIDS_MODE_KEY, kidsMode ? "1" : "0");
+      localStorage.setItem(scopedKey(KIDS_MODE_KEY), kidsMode ? "1" : "0");
     } catch {
       /* storage unavailable — mode still works for this tab */
     }

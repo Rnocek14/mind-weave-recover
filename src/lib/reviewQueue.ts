@@ -1,7 +1,8 @@
 /**
  * Review queue — device-local record of TODAY's practiced words, feeding the
- * post-practice review conversation. Games call recordPracticedWord() as
- * trials complete; the review page drains the queue.
+ * post-practice review conversation. Currently ONLY photo-naming calls
+ * recordPracticedWord() (instrumenting the other word-target games is a
+ * known gap); the review page drains the queue.
  *
  * localStorage-only by design (no DB writes): the review conversation is a
  * practice surface, not a clinical record — its transfer telemetry can be
@@ -16,6 +17,8 @@ export interface PracticedWord {
   day: string;
 }
 
+import { scopedKey } from "./deviceStore";
+
 const QUEUE_KEY = "reviewQueue_practicedWords";
 const MAX_QUEUE = 30;
 
@@ -26,7 +29,7 @@ function today(): string {
 
 function load(): PracticedWord[] {
   try {
-    const raw = localStorage.getItem(QUEUE_KEY);
+    const raw = localStorage.getItem(scopedKey(QUEUE_KEY));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((p) => p && typeof p.word === "string") : [];
@@ -37,7 +40,7 @@ function load(): PracticedWord[] {
 
 function save(queue: PracticedWord[]): void {
   try {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE)));
+    localStorage.setItem(scopedKey(QUEUE_KEY), JSON.stringify(queue.slice(-MAX_QUEUE)));
   } catch {
     /* storage unavailable */
   }

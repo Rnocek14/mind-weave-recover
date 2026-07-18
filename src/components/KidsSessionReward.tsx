@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useKidsSounds } from '@/hooks/useKidsSounds';
-import { awardPetXp, type KidsPetState } from '@/lib/kidsPet';
+import { awardPetXp, loadPet, type KidsPetState } from '@/lib/kidsPet';
 import { PetDisplay } from '@/components/kids/PetDisplay';
 
 /**
@@ -11,11 +11,13 @@ import { PetDisplay } from '@/components/kids/PetDisplay';
  * of the normal completion flow; dismissing reveals the standard recap.
  */
 
+import { scopedKey } from '@/lib/deviceStore';
+
 const TOTAL_STARS_KEY = 'kidsMode_totalStars';
 
 function readTotalStars(): number {
   try {
-    const v = parseInt(localStorage.getItem(TOTAL_STARS_KEY) ?? '0', 10);
+    const v = parseInt(localStorage.getItem(scopedKey(TOTAL_STARS_KEY)) ?? '0', 10);
     return Number.isFinite(v) && v >= 0 ? v : 0;
   } catch {
     return 0;
@@ -48,16 +50,21 @@ export function KidsSessionReward({ starsEarned, totalTrials, onContinue }: Kids
     bankedRef.current = true;
     const total = readTotalStars() + starsEarned;
     try {
-      localStorage.setItem(TOTAL_STARS_KEY, String(total));
+      localStorage.setItem(scopedKey(TOTAL_STARS_KEY), String(total));
     } catch {
       /* storage unavailable — still show this session's stars */
     }
     setAllTimeStars(total);
-    // Every Kids Mode session also feeds the practice pet — the long-horizon
-    // progression that keeps kids coming back after per-trial rewards fade.
-    const petResult = awardPetXp(starsEarned);
-    setPet(petResult.pet);
-    setPetLeveled(petResult.leveledUp);
+    // Every Kids Mode session with at least one star feeds the practice pet.
+    // Zero-star sessions still show the pet but don't advance the streak —
+    // the streak must keep meaning "practiced meaningfully".
+    if (starsEarned > 0) {
+      const petResult = awardPetXp(starsEarned);
+      setPet(petResult.pet);
+      setPetLeveled(petResult.leveledUp);
+    } else {
+      setPet(loadPet());
+    }
     playKidsFanfare();
   }, [starsEarned, playKidsFanfare]);
 
@@ -67,6 +74,7 @@ export function KidsSessionReward({ starsEarned, totalTrials, onContinue }: Kids
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm p-4"
       role="dialog"
+      aria-modal="true"
       aria-label="Session complete"
     >
       <div className="w-full max-w-sm rounded-3xl border-2 border-primary/30 bg-card shadow-glow p-6 text-center space-y-4">

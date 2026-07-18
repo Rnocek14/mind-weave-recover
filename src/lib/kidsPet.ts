@@ -100,6 +100,8 @@ export function localDayString(now: Date = new Date()): string {
 
 // ─── Storage (thin, guarded) ───────────────────────────────────────────────
 
+import { scopedKey } from "./deviceStore";
+
 const PET_KEY = "kidsMode_pet";
 
 export const DEFAULT_PET: KidsPetState = {
@@ -111,7 +113,7 @@ export const DEFAULT_PET: KidsPetState = {
 
 export function loadPet(): KidsPetState {
   try {
-    const raw = localStorage.getItem(PET_KEY);
+    const raw = localStorage.getItem(scopedKey(PET_KEY));
     if (!raw) return { ...DEFAULT_PET };
     const parsed = JSON.parse(raw);
     return {
@@ -127,7 +129,7 @@ export function loadPet(): KidsPetState {
 
 export function savePet(pet: KidsPetState): void {
   try {
-    localStorage.setItem(PET_KEY, JSON.stringify(pet));
+    localStorage.setItem(scopedKey(PET_KEY), JSON.stringify(pet));
   } catch {
     /* storage unavailable — pet lives for the tab only */
   }

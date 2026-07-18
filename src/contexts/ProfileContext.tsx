@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ProfileContext, type Profile } from "@/contexts/profile-context-value";
+import { setDeviceScope } from "@/lib/deviceStore";
 
 interface ProfileProviderProps {
   children: ReactNode;
@@ -14,6 +15,14 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const requestIdRef = useRef(0);
+
+  // Keep device-local stores (transfer ledger, review queue, kids pet, kids
+  // mode flag) isolated per patient profile: switching profiles re-scopes
+  // every scopedKey() read/write. Without this, two patients on one account
+  // silently share (and corrupt) each other's practice history.
+  useEffect(() => {
+    setDeviceScope(activeProfile?.id ?? null);
+  }, [activeProfile?.id]);
 
   const fetchProfiles = useCallback(async () => {
     const requestId = ++requestIdRef.current;

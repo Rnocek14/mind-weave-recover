@@ -24,7 +24,18 @@ const STATUS_META: Record<WordCarryover["status"], { label: string; className: s
 
 export function TransferTrendCard() {
   const trend = useMemo(() => getTransferTrend(), []);
-  const report = useMemo(() => getCarryoverReport(), []);
+  // Chips use the SAME 14-day window as the totals above them — an all-time
+  // "strong" chip above a zero total visibly contradicts itself.
+  const report = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 14);
+    const cutoffDay = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+    return getCarryoverReport().filter(
+      (r) =>
+        (r.lastConversationalUseDay && r.lastConversationalUseDay >= cutoffDay) ||
+        (r.lastPracticeDay && r.lastPracticeDay >= cutoffDay),
+    );
+  }, []);
 
   const conversational = report.filter((r) => r.lastConversationalUseDay !== null || r.status !== "new");
   if (trend.length === 0 && conversational.length === 0) return null;
@@ -79,7 +90,8 @@ export function TransferTrendCard() {
       )}
 
       <p className="text-[10px] text-muted-foreground">
-        Based on your review chats. Words getting quiet come back in your next chat automatically.
+        Based on your review chats with Maya — an early practice signal, not a clinical measure.
+        Words getting quiet come back in your next chat automatically.
       </p>
     </Card>
   );

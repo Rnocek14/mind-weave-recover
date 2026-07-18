@@ -87,6 +87,7 @@ export default function FeedTheMonsterExercise() {
   // Momo happily munches food, objects, and clothing (monsters eating shoes
   // is classic kid comedy) — but never animals or body parts, which reads as
   // scary rather than silly to young kids.
+  const [trialNonce, setTrialNonce] = useState(0);
   const trials = useMemo<PhotoTrial[]>(() => {
     const NOT_MONSTER_FOOD = new Set([
       "animals", "farm_animal", "wild_animal", "domestic_animal", "insect", "bird",
@@ -94,7 +95,8 @@ export default function FeedTheMonsterExercise() {
     ]);
     const pool = getKidsPhotoTrials(60).filter((t) => !NOT_MONSTER_FOOD.has(t.category));
     return pool.slice(0, ROUND_COUNT);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trialNonce]);
   const currentTrial = trials[roundIndex] ?? null;
 
   /** Timestamp until which the mic must ignore transcripts (TTS echo lock). */
@@ -411,8 +413,13 @@ export default function FeedTheMonsterExercise() {
               size="lg"
               className="text-lg font-bold rounded-3xl"
               onClick={() => {
-                // Fresh trials for a new burst
-                window.location.reload();
+                // Fresh burst without a full SPA reload (no white flash)
+                setFeeds([]);
+                setRoundIndex(0);
+                setMonsterReaction(null);
+                setPetCelebrate(false);
+                setTrialNonce((n) => n + 1);
+                setPhase("intro");
               }}
             >
               Play Again! 🔁
