@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { usePatientIntelligence } from '@/hooks/usePatientIntelligence';
+import { useKidsMode } from '@/contexts/KidsModeContext';
+import { loadPet, getPetStage } from '@/lib/kidsPet';
 
 type GameDifficulty = 'easy' | 'medium' | 'challenge';
 type GameCategory = 'motor' | 'speech' | 'thinking';
@@ -132,6 +134,7 @@ export default function Practice() {
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
   const { profile: intelligence, isLoading: intellLoading } = usePatientIntelligence(user?.id, activeProfile?.id);
+  const { kidsMode } = useKidsMode();
 
   const suggestions = useMemo(() => getSmartSuggestions(intelligence), [intelligence]);
 
@@ -175,6 +178,23 @@ export default function Practice() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 max-w-lg mx-auto w-full">
+        {/* Kids Mode: Feed the Monster entry — invisible in adult mode */}
+        {kidsMode && (
+          <button
+            onClick={() => navigate('/exercise/feed-the-monster')}
+            className="w-full rounded-3xl border-2 border-secondary/40 bg-gradient-celebrate/10 shadow-card p-4 flex items-center gap-4 text-left transition-transform hover:scale-[1.01]"
+          >
+            <span className="text-5xl kids-monster-idle" aria-hidden>👾</span>
+            <span className="flex-1">
+              <span className="block text-lg font-bold text-foreground">Feed the Monster!</span>
+              <span className="block text-sm text-muted-foreground">
+                Say the words to feed Momo — your pet {getPetStage(loadPet().xp).emoji} grows too!
+              </span>
+            </span>
+            <span className="text-2xl" aria-hidden>→</span>
+          </button>
+        )}
+
         {/* Smart suggestions */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">

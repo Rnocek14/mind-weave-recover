@@ -36,6 +36,7 @@ import ResearchExport from "./pages/ResearchExport";
 import ClusterAnalytics from "./pages/ClusterAnalytics";
 import PhotoLibrary from "./pages/PhotoLibrary";
 import PhotoNamingExercise from "./pages/PhotoNamingExercise";
+import FeedTheMonsterExercise from "./pages/FeedTheMonsterExercise";
 import ClinicalDocuments from "./pages/ClinicalDocuments";
 import ProfileVersionHistory from "./pages/ProfileVersionHistory";
 import Lesson from "./pages/Lesson";
@@ -171,6 +172,8 @@ const App = () => (
                     <Route path="/exercise/phonological-awareness" element={<PhonologicalExercise />} />
                     <Route path="/exercise/sentence-construction" element={<SentenceConstructionExercise />} />
                     <Route path="/exercise/photo-naming" element={<PhotoNamingExercise />} />
+                    {/* Kids Mode only — the page redirects to /practice in adult mode */}
+                    <Route path="/exercise/feed-the-monster" element={<FeedTheMonsterExercise />} />
                     <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
                     <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
                     <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
