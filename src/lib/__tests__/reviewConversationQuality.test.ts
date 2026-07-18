@@ -340,6 +340,72 @@ describe("PERSONAS: realistic users get a non-stupid conversation", () => {
   });
 });
 
+describe("GUARDED USER: short, untrusting replies get a winnable conversation", () => {
+  it("a bare 'yes' to a frame gets a forced-choice bridge, NEVER a letter cue", () => {
+    const t1 = startReview(WORDS);
+    const t2 = onUserUtterance(t1.state, "yes", [], 0.9);
+    const line = t2.mayaLine.toLowerCase();
+    expect(line).not.toMatch(/it starts with/); // the test-like cue is banned here
+    expect(line).toContain(" or "); // a choice was offered
+    expect(line).toContain(t1.state.items[t1.state.activeItem].word); // containing the target
+  });
+
+  it("the guarded user's one-word choice answer credits the word (as cued — honest accounting)", () => {
+    const t1 = startReview(WORDS);
+    const active = t1.state.items[t1.state.activeItem];
+    const t2 = onUserUtterance(t1.state, "no", [], 0.9); // guarded reply → bridge
+    const t3 = onUserUtterance(t2.state, active.word, [], 0.9); // minimal answer = the word
+    expect(t3.state.items.find((i) => i.word === active.word)?.status).toBe("cued");
+  });
+
+  it("two bare acknowledgments switch the WHOLE session to low-demand forced choices", () => {
+    const t1 = startReview(WORDS);
+    const t2 = onUserUtterance(t1.state, "yes", [], 0.9); // ack 1 → bridge
+    const t3 = onUserUtterance(t2.state, "fine", [], 0.9); // ack 2 → low-demand mode
+    expect(t3.state.lowDemandMode).toBe(true);
+    // Every subsequent frame opens as a forced choice
+    let turn = t3;
+    let guard = 0;
+    while (turn.state.phase !== "done" && guard < 15) {
+      const active = turn.state.items[turn.state.activeItem];
+      if (turn.state.phase === "frame" && active && turn.mayaLine) {
+        // low-demand frames contain the choice word " or "
+        if (turn.mayaLine.toLowerCase().includes(active.word)) {
+          expect(turn.mayaLine.toLowerCase()).toContain(" or ");
+        }
+      }
+      turn = onUserUtterance(turn.state, active ? active.word : `mm ${guard}`, [], 0.9);
+      guard++;
+    }
+    expect(turn.state.phase).toBe("done");
+  });
+
+  it("full guarded persona: answers only 'yes'/'fine'/choice-words — every word still credited, chat stays short", () => {
+    const log = playPersona((state, lastLine) => {
+      const active = state.items[state.activeItem];
+      if (state.phase === "repair") return onRepairAnswer(state, true);
+      // Answers a forced choice with the minimal word; everything else gets "yes"/"fine"
+      if (active && lastLine.toLowerCase().includes(" or ") && lastLine.toLowerCase().includes(active.word)) {
+        return onUserUtterance(state, active.word, [], 0.9);
+      }
+      return onUserUtterance(state, Math.random() < 0.5 ? "yes" : "fine", [], 0.9);
+    });
+    assertNotStupid(log);
+    const final = log.turns[log.turns.length - 1].state;
+    // The guarded user still produced every word (as cued) — nothing released
+    expect(final.items.every((i) => i.status === "cued")).toBe(true);
+    // And nobody lectured them: the whole thing stayed inside the budget comfortably
+    expect(final.mayaTurns).toBeLessThanOrEqual(11);
+  });
+
+  it("acknowledgments never count as productions and never trigger repair", () => {
+    const t1 = startReview(WORDS);
+    const t2 = onUserUtterance(t1.state, "yes", [], 0.3); // low-confidence ack
+    expect(t2.state.phase).not.toBe("repair");
+    expect(t2.state.items.every((i) => i.status === "pending")).toBe(true);
+  });
+});
+
 describe("TRANSCRIPT READABILITY: a full cooperative session reads like a real conversation", () => {
   it("produces a coherent transcript (printed for human review on failure)", () => {
     let turn = startReview(WORDS.slice(0, 3));

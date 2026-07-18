@@ -54,6 +54,14 @@ export interface ReviewState {
   cueGivenForActive: boolean;
   /** Last non-empty user transcript — duplicate ASR finals are ignored. */
   lastTranscript: string | null;
+  /** Consecutive bare acknowledgments ("yes", "fine") — the guarded-user signal. */
+  ackStreak: number;
+  /**
+   * Guarded/minimal-replier mode: after 2 consecutive bare acknowledgments,
+   * remaining frames open as forced choices, where a ONE-WORD answer is the
+   * therapeutic production. Short repliers get a short, winnable chat.
+   */
+  lowDemandMode: boolean;
 }
 
 export interface AsrHypothesis {
@@ -167,6 +175,48 @@ const REPAIR_TEMPLATES = [
   "I think I heard {word} — is that right?",
 ];
 
+/**
+ * Forced-choice bridges for minimal repliers. A bare "yes"/"no"/"fine" to a
+ * frame is ENGAGEMENT, not failure — the bridge makes the target word the
+ * easiest possible next reply. (Saying the word here counts as cued: Maya
+ * modeled it inside the choice.)
+ */
+const BRIDGE_TEMPLATES = [
+  "That's okay. Which do you like better — {word} or {other}?",
+  "Fair enough! Quick one: {word} or {other}?",
+  "Got it. Which one is more you — {word} or {other}?",
+];
+
+/** Per-category distractors for forced choices (never a practiced word). */
+const CHOICE_DISTRACTORS: Record<string, string[]> = {
+  food: ["tea", "toast", "soup"],
+  nature: ["the beach", "the mountains"],
+  household: ["a fork", "a cup"],
+  clothing: ["a hat", "shoes"],
+  animals: ["a cat", "a bird"],
+  transportation: ["the bus", "walking"],
+  generic: ["something else", "another one"],
+};
+
+/** Bare acknowledgments — the guarded-user reply set. */
+const ACKNOWLEDGMENT_RE =
+  /^(yes|yeah|yep|no|nope|ok|okay|fine|sure|maybe|i guess|dunno|i don't know|i don't remember|not really|uh huh|mhm|mm|hmm)[.!]?$/i;
+
+export function isBareAcknowledgment(text: string): boolean {
+  return ACKNOWLEDGMENT_RE.test(text.trim());
+}
+
+function pickDistractor(category: string, avoid: Set<string>): string {
+  const pool = CHOICE_DISTRACTORS[category] ?? CHOICE_DISTRACTORS.generic;
+  return pool.find((d) => !avoid.has(d.toLowerCase())) ?? CHOICE_DISTRACTORS.generic[0];
+}
+
+/** Low-demand frame openers (guarded users): forced choice from the start. */
+const LOW_DEMAND_FRAME_TEMPLATES = [
+  "Here's an easy one: {word} or {other} — which do you like?",
+  "Quick pick — {word} or {other}?",
+];
+
 const WRAPUP_LINES = [
   "That was a lovely chat. See you next time!",
   "Great talking with you. Well done today!",
@@ -197,6 +247,8 @@ export const __ALL_LINE_POOLS: string[][] = [
   CELEBRATE_ELICITED,
   MOVE_ON_LINES,
   REPAIR_TEMPLATES,
+  BRIDGE_TEMPLATES,
+  LOW_DEMAND_FRAME_TEMPLATES,
   WRAPUP_LINES,
 ];
 
@@ -269,6 +321,8 @@ export function startReview(
     repairItem: -1,
     cueGivenForActive: false,
     lastTranscript: null,
+    ackStreak: 0,
+    lowDemandMode: false,
   };
 
   const greeting = pickLine(GREET_LINES, state.usedLines);
@@ -294,12 +348,25 @@ function advanceToNextFrame(state: ReviewState, prefix: string, events: ReviewEv
 
   state.activeItem = nextIdx;
   state.phase = "frame";
-  state.cueGivenForActive = false;
   const item = state.items[nextIdx];
   // A re-frame after a detour is attempt-free: attempts counts the item's
   // OWN chances (first frame + one cue), never conversation-flow overhead.
   item.attempts = Math.max(item.attempts, 1);
-  const frame = pickLine(framesFor(item.category), state.usedLines, { word: item.word });
+
+  let frame: string;
+  if (state.lowDemandMode) {
+    // Guarded user: open with the forced choice directly — a one-word reply
+    // is the win. Word is modeled in the choice → production scores as cued.
+    state.cueGivenForActive = true;
+    const avoid = new Set(state.items.map((i) => i.word.toLowerCase()));
+    frame = pickLine(LOW_DEMAND_FRAME_TEMPLATES, state.usedLines, {
+      word: item.word,
+      other: pickDistractor(item.category, avoid),
+    });
+  } else {
+    state.cueGivenForActive = false;
+    frame = pickLine(framesFor(item.category), state.usedLines, { word: item.word });
+  }
   state.mayaTurns += 1;
   return { state, mayaLine: joinLines(prefix, frame), events };
 }
@@ -380,11 +447,22 @@ export function onUserUtterance(
     return { state, mayaLine: "", events: [] };
   }
 
+  if (!detection && state.phase === "frame" && isBareAcknowledgment(trimmed)) {
+    // "Yes." / "Fine." / "Dunno." — the guarded user. This is ENGAGEMENT in
+    // minimal mode, not a failed attempt: never answer it with a letter cue
+    // (that reads as a test). Bridge with a forced choice where the shortest
+    // possible reply IS the target word.
+    state.ackStreak += 1;
+    if (state.ackStreak >= 2) state.lowDemandMode = true;
+    return bridgeActiveItem(state);
+  }
+
   if (!detection) {
-    // Nothing matched. The conversation still moves FORWARD: if the active
-    // item has attempts left, give its single cue; otherwise release and go on.
+    state.ackStreak = 0; // a real (if missed) attempt breaks the guarded streak
     return progressActiveItem(state);
   }
+
+  state.ackStreak = 0;
 
   const item = state.items[detection.itemIndex];
 
@@ -413,6 +491,35 @@ export function onUserUtterance(
   ];
   const praise = pickLine(spontaneous ? CELEBRATE_SPONTANEOUS : CELEBRATE_ELICITED, state.usedLines);
   return advanceToNextFrame(state, praise, events);
+}
+
+/**
+ * Guarded-user bridge: consume the item's second chance with a forced choice
+ * instead of a letter cue. Maya models the word inside the choice, so a
+ * following production scores as cued (honest support accounting).
+ */
+function bridgeActiveItem(state: ReviewState): EngineTurn {
+  const idx = state.activeItem;
+  if (idx < 0 || state.items[idx].status !== "pending") {
+    return advanceToNextFrame(state, "", []);
+  }
+  const item = state.items[idx];
+
+  if (item.attempts < MAX_ATTEMPTS_PER_ITEM) {
+    item.attempts += 1;
+    state.cueGivenForActive = true; // the word is modeled in the choice
+    const avoid = new Set(state.items.map((i) => i.word.toLowerCase()));
+    const bridge = pickLine(BRIDGE_TEMPLATES, state.usedLines, {
+      word: item.word,
+      other: pickDistractor(item.category, avoid),
+    });
+    state.mayaTurns += 1;
+    return { state, mayaLine: bridge, events: [] };
+  }
+
+  item.status = "released";
+  const moveOn = pickLine(MOVE_ON_LINES, state.usedLines);
+  return advanceToNextFrame(state, moveOn, [{ type: "item_released", word: item.word }]);
 }
 
 /** No match: cue once, then release. Guarantees per-item forward motion. */
