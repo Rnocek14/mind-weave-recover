@@ -316,8 +316,11 @@ export function ExplainWhyPrompt({
                   </Button>
                 </div>
               )}
+              {/* Labeled escape — an icon-only skip is invisible to users who
+                  scan for words, and the primary action here is voice-first. */}
               <Button variant="ghost" size="sm" onClick={handleSkip} className="text-muted-foreground">
-                <SkipForward className="h-4 w-4" />
+                Skip
+                <SkipForward className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>
@@ -356,8 +359,11 @@ export function ExplainWhyPrompt({
                 <MicOff className="h-4 w-4 mr-2" />
                 I'm done
               </Button>
+              {/* Labeled escape — an icon-only skip is invisible to users who
+                  scan for words, and the primary action here is voice-first. */}
               <Button variant="ghost" size="sm" onClick={handleSkip} className="text-muted-foreground">
-                <SkipForward className="h-4 w-4" />
+                Skip
+                <SkipForward className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>

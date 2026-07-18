@@ -370,7 +370,7 @@ export function MultiStepPlanningGame({
                 <Keyboard className="h-4 w-4 mr-2" /> Type your plan
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleSkip}><SkipForward className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="sm" onClick={handleSkip}>Skip<SkipForward className="h-4 w-4 ml-1" /></Button>
           </div>
           {isSupported && (
             <Button
@@ -418,7 +418,7 @@ export function MultiStepPlanningGame({
               {!useTyping && (
                 <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
               )}
-              <Button variant="ghost" size="sm" onClick={handleSkip}><SkipForward className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={handleSkip}>Skip<SkipForward className="h-4 w-4 ml-1" /></Button>
             </div>
           </CardContent>
         </Card>

@@ -162,7 +162,7 @@ export default function Practice() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-20">
+    <div className="min-h-screen bg-background flex flex-col pb-44">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")} className="shrink-0">
