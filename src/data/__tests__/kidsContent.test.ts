@@ -6,7 +6,11 @@ import {
   getKidsMixedSentenceTrials,
   getKidsPraise,
   getKidsGrammarLabel,
+  filterKidsTwoCluesPuzzles,
+  clampKidsMinimalPairsLevel,
 } from "@/data/kidsContent";
+import { TWO_CLUES_PUZZLES } from "@/data/twoCluesBank";
+import { mapEngineLevelToMinimalPairsTier } from "@/data/minimalPairsBank";
 
 describe("kids photo pool", () => {
   it("only contains early-acquired, easy-tier words", () => {
@@ -93,6 +97,32 @@ describe("kids grammar labels", () => {
     for (const t of KIDS_SENTENCE_TRIALS) {
       const label = getKidsGrammarLabel(t.grammarFocus);
       expect(label).not.toBe("Word fun"); // fallback means a missing mapping
+    }
+  });
+});
+
+describe("kids Two Clues filter", () => {
+  it("keeps only easy puzzles in kid categories, with enough for a session", () => {
+    const kid = filterKidsTwoCluesPuzzles(TWO_CLUES_PUZZLES);
+    expect(kid.length).toBeGreaterThanOrEqual(10);
+    for (const p of kid) {
+      expect(p.difficulty).toBe(1);
+      expect(p.category).not.toBe("people");
+    }
+  });
+
+  it("falls back to the input set rather than returning empty", () => {
+    const hardOnly = TWO_CLUES_PUZZLES.filter((p) => p.difficulty === 3);
+    expect(filterKidsTwoCluesPuzzles(hardOnly)).toEqual(hardOnly);
+  });
+});
+
+describe("kids Minimal Pairs cap", () => {
+  it("never exceeds tier 2 and leaves easy levels alone", () => {
+    for (let level = 1; level <= 10; level++) {
+      const capped = clampKidsMinimalPairsLevel(level);
+      expect(mapEngineLevelToMinimalPairsTier(capped)).toBeLessThanOrEqual(2);
+      if (level <= 5) expect(capped).toBe(level);
     }
   });
 });

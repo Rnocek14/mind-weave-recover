@@ -33,7 +33,12 @@ export interface ClinicianReport {
   fluency: { 
     avgWpm: number | null;
     effortfulRate: number;
-    availableRate: number; 
+    /**
+     * Fraction of trials that carried fluency telemetry, or null when the
+     * pipeline does not report it. Never fabricate this: a report row that
+     * looks measured but is a constant is worse than an honest null.
+     */
+    availableRate: number | null;
     unavailableReasons: { reason: string; n: number }[]; 
     notes: string[] 
   };
@@ -305,7 +310,11 @@ export function buildClinicianReport(
     fluency: {
       avgWpm: fluency?.avgSpeechRateWpm || null,
       effortfulRate: fluency?.effortfulSpeechRate || 0,
-      availableRate: 0.8, // TODO: calculate from actual data
+      // Honest null — the analytics input does not report how many trials
+      // carried fluency data, and shipping a hardcoded 0.8 in a clinical
+      // report fabricates a measurement. Compute from real per-trial
+      // telemetry counts before ever setting a number here.
+      availableRate: null,
       unavailableReasons: [],
       notes: fluencyNotes,
     },

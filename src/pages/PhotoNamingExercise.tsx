@@ -907,7 +907,11 @@ function PhotoNamingExerciseInner() {
             )}
           </div>
           
-          {/* Controls - hidden on mobile, visible on sm+ */}
+          {/* Controls - hidden on mobile, visible on sm+. Hidden entirely in
+              Kids Mode: photo-source/assist selectors and library links are
+              caregiver chrome that only distracts a child (the kid photo pack
+              overrides the source anyway). */}
+          {!kidsMode && (
           <div className="hidden sm:flex items-center gap-2">
             <Select value={photoSource} onValueChange={(v: PhotoSource) => setPhotoSource(v)} disabled={trials.length > 0}>
               <SelectTrigger className="w-[140px] md:w-[180px]">
@@ -939,6 +943,7 @@ function PhotoNamingExerciseInner() {
               </Link>
             )}
           </div>
+          )}
         </div>
 
         {/* Active adaptations debug badges - hidden in lesson mode */}

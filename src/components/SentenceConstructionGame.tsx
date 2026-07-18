@@ -41,6 +41,9 @@ import { cn } from "@/lib/utils";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getKidsPraise, getKidsGrammarLabel } from "@/data/kidsContent";
 import { KidsCelebration } from "@/components/KidsCelebration";
+import { KidsStarMeter } from "@/components/KidsStarMeter";
+import { KidsSessionReward } from "@/components/KidsSessionReward";
+import { useKidsSounds } from "@/hooks/useKidsSounds";
 
 interface SentenceConstructionGameProps {
   config: ExerciseConfig;
@@ -200,6 +203,22 @@ export const SentenceConstructionGame = ({
   const [showTiles, setShowTiles] = useState(kidsMode);
   // Pick praise once per trial so it doesn't reroll on re-renders.
   const kidsPraise = useMemo(() => getKidsPraise(), [currentTrial]);
+  const kidsSounds = useKidsSounds();
+  // Kids Mode consecutive-correct streak + reward overlay (adult mode: inert).
+  const kidsStreakRef = useRef(0);
+  const [kidsStreak, setKidsStreak] = useState(0);
+  const [kidsRewardDismissed, setKidsRewardDismissed] = useState(false);
+
+  /** Kids-only sounds + streak; this game has no adult sounds to preserve. */
+  const handleKidsResult = useCallback((correct: boolean) => {
+    if (!kidsMode) return;
+    const next = correct ? kidsStreakRef.current + 1 : 0;
+    kidsStreakRef.current = next;
+    setKidsStreak(next);
+    if (!correct) kidsSounds.playKidsOops();
+    else if (next >= 3) kidsSounds.playKidsStreak();
+    else kidsSounds.playKidsSuccess();
+  }, [kidsMode, kidsSounds]);
   const [spokenSentence, setSpokenSentence] = useState<string | null>(null);
   const hasProcessedSpeechRef = useRef(false);
   /** Guards against double-write of trial events (e.g. user taps Submit while
@@ -310,6 +329,7 @@ export const SentenceConstructionGame = ({
       if (!result) return;
       const reactionTime = Date.now() - trialStartTime;
       if (trial?.modelAudio) speak(trial.modelAudio);
+      handleKidsResult(result.correct);
       recordGrammarResult(result.trial.grammarFocus, result.correct);
       setShowPurpose(false);
       // Feed the adaptive engine — drives mid-session level shifts + telemetry.
@@ -350,6 +370,7 @@ export const SentenceConstructionGame = ({
     if (!result) return;
     const reactionTime = Date.now() - trialStartTime;
     if (trial?.modelAudio) speak(trial.modelAudio);
+    handleKidsResult(result.correct);
     recordGrammarResult(result.trial.grammarFocus, result.correct);
     setShowPurpose(false);
     // Feed the adaptive engine — drives mid-session level shifts + telemetry.
@@ -429,6 +450,13 @@ export const SentenceConstructionGame = ({
 
     return (
       <div className="space-y-4 max-w-lg mx-auto">
+        {kidsMode && !kidsRewardDismissed && (
+          <KidsSessionReward
+            starsEarned={score}
+            totalTrials={trials.length}
+            onContinue={() => setKidsRewardDismissed(true)}
+          />
+        )}
         <div className="text-center space-y-2">
           <div className="text-4xl">📝</div>
           <h2 className="text-xl font-bold">Session Complete</h2>
@@ -503,6 +531,7 @@ export const SentenceConstructionGame = ({
           </div>
         </div>
         <Progress value={progress} className="h-1.5" />
+        {kidsMode && <KidsStarMeter earned={score} total={trials.length} />}
       </div>
 
       {/* Task info + audio */}
@@ -639,7 +668,12 @@ export const SentenceConstructionGame = ({
                   : "bg-destructive/5 border-destructive/20"
               )}>
                 {kidsMode && feedbackCorrect && (
-                  <KidsCelebration burstKey={currentTrial} />
+                  <KidsCelebration burstKey={currentTrial} intense={kidsStreak >= 3} />
+                )}
+                {kidsMode && feedbackCorrect && kidsStreak >= 3 && (
+                  <p className="text-sm font-bold text-secondary">
+                    🔥 {kidsStreak} in a row — you're on fire!
+                  </p>
                 )}
                 <div className="flex items-start gap-2">
                   {feedbackCorrect ? (

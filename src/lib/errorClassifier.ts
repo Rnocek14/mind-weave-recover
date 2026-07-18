@@ -10,7 +10,7 @@
 
 import type { LinguisticFeatures } from '@/data/photoBank';
 import { getPhonemeAccuracy } from '@/lib/phonemeUtils';
-import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
+import { getSemanticSimilarity, getSemanticSimilarityDetailed, type SemanticScorerSource } from '@/lib/semanticSimilarity';
 
 export interface ErrorClassificationResult {
   errorType: 'correct' | 'semantic_paraphasia' | 'phonemic_paraphasia' | 
@@ -22,6 +22,12 @@ export interface ErrorClassificationResult {
   phonological_similarity?: number; // 0-1
   phonemeAccuracy?: number;        // 0-1, pseudo-phoneme sequence accuracy
   semantic_similarity?: number;     // 0-1
+  /**
+   * Which scorer produced semantic_similarity. 'embedding' scores are not
+   * comparable with 'rule_based' fallback scores (~90-word list) — telemetry
+   * consumers must not aggregate across sources.
+   */
+  semantic_scorer?: SemanticScorerSource;
   // Enhanced analysis fields
   fluencyMetrics?: {
     speechRateWpm?: number;
@@ -70,12 +76,12 @@ export const classifySpeechError = async (
   
   if (circumlocutionCheck.detected) {
     // Get semantic similarity even for circumlocution (for analytics completeness)
-    const semantic_sim = await getSemanticSimilarity(
+    const semanticDetail = await getSemanticSimilarityDetailed(
       spokenWord.toLowerCase().trim(),
       targetWord.toLowerCase().trim(),
       context.category
     );
-    
+
     return {
       errorType: 'circumlocution',
       confidence: 0.8,
@@ -83,7 +89,8 @@ export const classifySpeechError = async (
       needs_review: false,
       circumlocutionDetected: true,
       meaningAccuracy: 0.9,
-      semantic_similarity: semantic_sim, // FIX: Always populate
+      semantic_similarity: semanticDetail.score, // FIX: Always populate
+      semantic_scorer: semanticDetail.source,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
         effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
@@ -167,11 +174,13 @@ export const classifySpeechError = async (
   const phonemeAccuracy = getPhonemeAccuracy(normalized_spoken, normalized_target);
   
   // Step 5: Calculate semantic similarity using embeddings
-  const semantic_sim = await getSemanticSimilarity(
+  const semanticDetail = await getSemanticSimilarityDetailed(
     normalized_spoken,
     normalized_target,
     context.category
   );
+  const semantic_sim = semanticDetail.score;
+  const semantic_scorer = semanticDetail.source;
   
   // Step 6: Classify based on similarities and thresholds (MORE FORGIVING for stroke survivors)
   
@@ -186,6 +195,7 @@ export const classifySpeechError = async (
       phonological_similarity: phonological_sim,
       phonemeAccuracy,
       semantic_similarity: semantic_sim, // FIX: Always populate
+      semantic_scorer,
       meaningAccuracy: 0.7,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -205,6 +215,7 @@ export const classifySpeechError = async (
       phonological_similarity: phonological_sim,
       phonemeAccuracy,
       semantic_similarity: semantic_sim,
+      semantic_scorer,
       meaningAccuracy: 0.66,
       fluencyMetrics: acousticMetrics ? {
         ...acousticMetrics,
@@ -222,6 +233,7 @@ export const classifySpeechError = async (
       reasoning: `Semantically related (${semantic_sim.toFixed(2)}), close attempt`,
       needs_review: semantic_sim > 0.4 && semantic_sim < 0.5,
       semantic_similarity: semantic_sim,
+      semantic_scorer,
       phonemeAccuracy,
       meaningAccuracy: 0.6,
       fluencyMetrics: acousticMetrics ? {
@@ -242,7 +254,8 @@ export const classifySpeechError = async (
         needs_review: true,
         phonological_similarity: phonological_sim,
         phonemeAccuracy,
-        semantic_similarity: semantic_sim // FIX: Always populate
+        semantic_similarity: semantic_sim, // FIX: Always populate
+        semantic_scorer
       };
     }
   }
@@ -260,6 +273,7 @@ export const classifySpeechError = async (
       retryReason: "I'm not sure I heard that correctly. Could you try again?",
       phonological_similarity: phonological_sim,
       semantic_similarity: semantic_sim,
+      semantic_scorer,
       phonemeAccuracy
     };
   }
@@ -273,6 +287,7 @@ export const classifySpeechError = async (
     isUncertain: false,
     phonological_similarity: phonological_sim,
     semantic_similarity: semantic_sim,
+      semantic_scorer,
     phonemeAccuracy
   };
 };

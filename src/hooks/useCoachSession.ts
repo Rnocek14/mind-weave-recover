@@ -460,6 +460,7 @@ export function useCoachSession({
         photo.trial.target,
         photo.trial.semanticFoils,
         photo.trial.category,
+        photo.trial.phonologicalFoils ?? [],
       );
       
       const latencyFromPhoto = Date.now() - photo.startTime;

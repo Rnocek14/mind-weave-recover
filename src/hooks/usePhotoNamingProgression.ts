@@ -35,6 +35,7 @@ import {
   highestImplementedPhotoNamingLevel,
 } from '@/lib/progression/photoNamingLevels';
 import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
+import { classifyMasteryPromotion } from '@/lib/mastery/masteryPromotionDecision';
 
 const PHOTO_NAMING_SLUG = 'photo-naming';
 const PROGRESSION_LOAD_TIMEOUT_MS = 5000;
@@ -214,6 +215,19 @@ export function usePhotoNamingProgression({
         difficulty: prev.currentLevel,
       });
 
+      // A.3: enforce the promotion-quality recommendation for photo-naming
+      // (the adopted flagship — mirrors the staged rollout discipline used by
+      // the mastery routing and shadow-gate adoption sets). A cue-dependent
+      // learner with high raw accuracy now waits one confirming session.
+      const promotion = classifyMasteryPromotion({
+        verdict: gate.verdict,
+        masteryScore: gate.minMasteryScore,
+        cueIndependence: gate.minCueIndependence,
+      });
+      if (import.meta.env.DEV && promotion.decision === 'delay_reinforce') {
+        console.log('[PhotoNamingProgression] promotion delayed by mastery quality:', promotion.reason);
+      }
+
       const next = applySessionToState(
         { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
         {
@@ -221,6 +235,7 @@ export function usePhotoNamingProgression({
           evidenceMet,
           progressDelta,
           masteryVerdict: gate.verdict,
+          masteryPromotion: promotion.decision,
           maxImplementedLevel: highestImplementedPhotoNamingLevel(),
         }
       );

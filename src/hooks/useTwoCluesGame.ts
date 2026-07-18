@@ -7,6 +7,8 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { TwoCluesPuzzle, shufflePuzzles, getPuzzles } from '@/data/twoCluesBank';
+import { filterKidsTwoCluesPuzzles } from '@/data/kidsContent';
+import { useKidsMode } from '@/contexts/KidsModeContext';
 import { scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
 import { useGameSounds } from '@/hooks/useGameSounds';
 
@@ -59,6 +61,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   } = options;
 
   const { playSuccess, playError } = useGameSounds();
+  const { kidsMode } = useKidsMode();
   const roundStartTimeRef = useRef<number | null>(null);
 
   // Initialize puzzles with phoneme targeting
@@ -68,9 +71,14 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       difficulty,
       focusPhonemes,
     });
+    // Kids Mode narrows to easy, kid-world puzzles — but never overrides an
+    // explicit clinician-configured category or difficulty.
+    if (kidsMode && !category && !difficulty) {
+      puzzles = filterKidsTwoCluesPuzzles(puzzles);
+    }
     puzzles = shufflePuzzles(puzzles).slice(0, roundCount);
     return puzzles;
-  }, [category, difficulty, roundCount, focusPhonemes?.join(',')]);
+  }, [category, difficulty, roundCount, focusPhonemes?.join(','), kidsMode]);
 
   const [state, setState] = useState<TwoCluesGameState>(() => ({
     puzzles: initialPuzzles,

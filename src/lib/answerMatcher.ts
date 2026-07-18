@@ -170,10 +170,21 @@ export function matchAnswer(
   target: string,
   semanticFoils: string[] = [],
   category?: string,
+  phonologicalFoils: string[] = [],
 ): MatchResult {
   const cleaned = cleanTranscript(transcript);
   const targetLower = target.toLowerCase();
   const targetStem = stem(targetLower);
+
+  // Every known-wrong answer for this trial. A word that IS a foil must never
+  // be fuzzy-promoted to correct: "cap" for target "cat" passes the ≤4-char
+  // Levenshtein threshold (0.67 ≥ 0.6), which silently defeats minimal-pair
+  // and phonological-foil trials. Foils are checked by exact/stem identity
+  // BEFORE any similarity-based promotion below.
+  const allFoilStems = new Set(
+    [...semanticFoils, ...phonologicalFoils].map((f) => stem(f.toLowerCase())),
+  );
+  const isKnownFoilWord = (w: string): boolean => allFoilStems.has(stem(w));
   
   // Empty or very short
   if (cleaned.length === 0) {
@@ -209,8 +220,10 @@ export function matchAnswer(
   }
   
   // 3. PHONETIC SIMILARITY (for aphasia speech errors)
-  // Check each word the user said against the target
+  // Check each word the user said against the target. A word that is a known
+  // foil is excluded — saying the foil is a scoreable ERROR, not a near-miss.
   for (const word of words) {
+    if (isKnownFoilWord(word)) continue;
     const sim = similarity(word, targetLower);
     // High similarity threshold: "dat" vs "cat" = 0.67, "doy" vs "dog" = 0.67
     // For short words (≤4 chars), allow 1 edit; for longer words, proportional
@@ -219,15 +232,15 @@ export function matchAnswer(
       return { isMatch: true, matchType: 'phonetic_close', confidence: sim, inferredWord: target, countsAsCorrect: true, isWordFindingAttempt: true };
     }
   }
-  
+
   // 4. PARTIAL FRAGMENT — user started the word but didn't finish
   // "ele" for "elephant", "umb" for "umbrella"
-  if (cleaned.length >= 3 && targetLower.startsWith(cleaned)) {
+  if (cleaned.length >= 3 && targetLower.startsWith(cleaned) && !isKnownFoilWord(cleaned)) {
     return { isMatch: true, matchType: 'partial_fragment', confidence: 0.7, inferredWord: target, countsAsCorrect: true, isWordFindingAttempt: true };
   }
   // User said first 3+ correct chars among their words
   for (const word of words) {
-    if (word.length >= 3 && targetLower.startsWith(word)) {
+    if (word.length >= 3 && targetLower.startsWith(word) && !isKnownFoilWord(word)) {
       return { isMatch: true, matchType: 'partial_fragment', confidence: 0.65, inferredWord: target, countsAsCorrect: true, isWordFindingAttempt: true };
     }
   }
@@ -235,10 +248,8 @@ export function matchAnswer(
   // 5. CIRCUMLOCUTION — user is describing the thing
   // Heuristic: 3+ words that aren't a foil match → likely describing
    if (words.length >= 3) {
-    // Make sure they're not saying a foil word
-    const isFoil = semanticFoils.some(foil => 
-      words.some(w => w === foil.toLowerCase() || stem(w) === stem(foil.toLowerCase()))
-    );
+    // Make sure they're not saying a foil word (semantic OR phonological)
+    const isFoil = words.some(isKnownFoilWord);
     if (!isFoil) {
       // FIX: Circumlocution is a PARTIAL SUCCESS — the user demonstrated word knowledge
       // Scoring it as failure corrupts intelligence reports and difficulty adaptation
@@ -247,7 +258,7 @@ export function matchAnswer(
   }
   
   // 6. CHECK FOIL MATCH — user said a related but wrong word
-  for (const foil of semanticFoils) {
+  for (const foil of [...semanticFoils, ...phonologicalFoils]) {
     const foilLower = foil.toLowerCase();
     if (cleaned === foilLower || words.some(w => w === foilLower || stem(w) === stem(foilLower))) {
       return { isMatch: false, matchType: 'no_match', confidence: 0.3, inferredWord: foil, countsAsCorrect: false, isWordFindingAttempt: false };

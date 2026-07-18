@@ -7,6 +7,8 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { MinimalPairTrial, getMinimalPairTrialsForLevel } from '@/data/minimalPairsBank';
+import { clampKidsMinimalPairsLevel } from '@/data/kidsContent';
+import { useKidsMode } from '@/contexts/KidsModeContext';
 import {
   selectMinimalPairsPool,
   writeMinimalPairsSelectorDiagnostics,
@@ -41,7 +43,19 @@ export interface MinimalPairsGameOptions {
 }
 
 export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
-  const { totalTrials = 10, difficultyLevel = 1, focusPhonemes, clinicalLevel = null } = options;
+  const {
+    totalTrials = 10,
+    difficultyLevel: rawDifficultyLevel = 1,
+    focusPhonemes,
+    clinicalLevel: rawClinicalLevel = null,
+  } = options;
+  const { kidsMode } = useKidsMode();
+  // Kids Mode caps discrimination difficulty at tier-2 initial contrasts
+  // (cat/hat) — tier-3 final-position contrasts are acoustically too hard.
+  const difficultyLevel = kidsMode ? clampKidsMinimalPairsLevel(rawDifficultyLevel) : rawDifficultyLevel;
+  const clinicalLevel = kidsMode && rawClinicalLevel != null
+    ? clampKidsMinimalPairsLevel(rawClinicalLevel)
+    : rawClinicalLevel;
 
   // Generate trials based on difficulty.
   const initialTrials = useMemo(() => {
@@ -144,10 +158,11 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
    * Past + current trial preserved; remaining trials swapped to new pool.
    */
   const setActiveDifficulty = useCallback((newDifficulty: number) => {
+    const cappedDifficulty = kidsMode ? clampKidsMinimalPairsLevel(newDifficulty) : newDifficulty;
     setState(prev => {
       const upcomingNeeded = prev.totalTrials - prev.trialIndex - 1;
       if (upcomingNeeded <= 0) return prev;
-      const fresh = getMinimalPairTrialsForLevel(newDifficulty, upcomingNeeded, { focusPhonemes })
+      const fresh = getMinimalPairTrialsForLevel(cappedDifficulty, upcomingNeeded, { focusPhonemes })
         .map(trial => {
           const targetIndex = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
           return {
@@ -162,12 +177,13 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
         trials: [...past, ...fresh],
       };
     });
-  }, [focusPhonemes]);
+  }, [focusPhonemes, kidsMode]);
 
   
   // Reset game
   const reset = useCallback((newDifficulty?: number) => {
-    const difficulty = newDifficulty ?? difficultyLevel;
+    const requested = newDifficulty ?? difficultyLevel;
+    const difficulty = kidsMode ? clampKidsMinimalPairsLevel(requested) : requested;
     const newTrials = getMinimalPairTrialsForLevel(difficulty, totalTrials)
       .map(trial => ({
         ...trial,
@@ -192,7 +208,7 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
       showFeedback: false,
       trials: newTrials,
     });
-  }, [difficultyLevel, totalTrials]);
+  }, [difficultyLevel, totalTrials, kidsMode]);
   
   return {
     state,

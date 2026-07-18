@@ -1,7 +1,11 @@
 /**
- * Untrained probe words for testing generalization
- * These words should NEVER appear in therapy trials
- * Used to measure true learning vs. item-specific memorization
+ * Untrained probe words for testing generalization.
+ * These words must NEVER appear in photo-naming therapy trials — enforced by
+ * RESERVED_PROBE_TARGETS in photoBank.ts, which excludes every probe target
+ * from TRAINING_PHOTO_BANK and all training selectors (a clinician's explicit
+ * focusWords targeting is the one deliberate override).
+ * Used to measure true learning vs. item-specific memorization. Profiles that
+ * practiced before the reservation carry historical exposure to these words.
  */
 
 import type { PhotoTrial, LinguisticFeatures } from './photoBank';

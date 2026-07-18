@@ -4443,6 +4443,26 @@ export const isStretchPhoto = (trial: PhotoTrial): boolean => {
  * Falls back to the legacy 3-tier mapping when the intensity registry has
  * no entry (safety net — registry is loaded eagerly so this is rare).
  */
+/**
+ * Targets reserved for generalization probes (see src/data/probeWords.ts).
+ * Excluded from every photo-naming TRAINING selection path so probe trials
+ * measure transfer to untrained items rather than practice-item memory.
+ * (pr4-probe-bank-cleanup: previously these words trained AND probed, which
+ * made probe results advanced review, not generalization evidence.)
+ *
+ * Note: cross-exercise exposure (e.g. minimal-pairs images) is not excluded
+ * here — this reservation covers the photo-naming training pathway that the
+ * probe directly measures.
+ */
+export const RESERVED_PROBE_TARGETS: ReadonlySet<string> = new Set([
+  'tree', 'book', 'ball', 'door', 'shoe', 'watch', 'flower', 'spoon', 'key', 'nose',
+]);
+
+/** PHOTO_BANK minus the reserved probe targets — the trainable pool. */
+export const TRAINING_PHOTO_BANK: PhotoTrial[] = PHOTO_BANK.filter(
+  (t) => !RESERVED_PROBE_TARGETS.has(t.target.toLowerCase()),
+);
+
 export const getTrialsForLevel = (
   level: number,
   count: number,
@@ -4465,6 +4485,14 @@ export const getTrialsForLevel = (
   // Universal filter applied to any cohort.
   const applyCommonFilters = (trial: PhotoTrial): boolean => {
     if (excludeSet.has(trial.target)) return false;
+    // Probe reservation: never train on probe targets, unless a clinician has
+    // explicitly targeted the word (focusWords is a deliberate override).
+    if (
+      RESERVED_PROBE_TARGETS.has(trial.target.toLowerCase()) &&
+      !focusWordsSet.has(trial.target.toLowerCase())
+    ) {
+      return false;
+    }
     if (filterOptions?.categories &&
         !filterOptions.categories.includes(trial.features.semantic_category)) {
       return false;
@@ -4556,8 +4584,8 @@ export const getTrialsForLevel = (
 };
 
 export const getRandomTrials = (count: number): PhotoTrial[] => {
-  const shuffled = [...PHOTO_BANK].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(count, PHOTO_BANK.length));
+  const shuffled = [...TRAINING_PHOTO_BANK].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, TRAINING_PHOTO_BANK.length));
 };
 
 export const generateChoices = (trial: PhotoTrial, level: number): string[] => {

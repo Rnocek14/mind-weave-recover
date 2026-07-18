@@ -23,6 +23,9 @@ import { generateGentleFeedback, calculateEncouragementScore } from '@/lib/feedb
 import { useKidsMode } from '@/contexts/KidsModeContext';
 import { getKidsPraise } from '@/data/kidsContent';
 import { KidsCelebration } from '@/components/KidsCelebration';
+import { KidsStarMeter } from '@/components/KidsStarMeter';
+import { KidsSessionReward } from '@/components/KidsSessionReward';
+import { useKidsSounds } from '@/hooks/useKidsSounds';
 import { toUtteranceAnalysis, buildShadowEvent, type UtteranceAnalysis, type ExtendedErrorType } from '@/types/utteranceAnalysis';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeASROutput, areHomophones } from '@/lib/speechNormalizer';
@@ -161,6 +164,21 @@ export const PhotoNamingGame = ({
   // Pick praise once per trial — calling getKidsPraise() in render would
   // reroll the message on every re-render while feedback is visible.
   const kidsPraise = useMemo(() => getKidsPraise(), [state.trialNumber]);
+  const kidsSounds = useKidsSounds();
+  // Consecutive-correct streak for Kids Mode fireworks (ref = authoritative,
+  // state = display). Adult mode never touches this.
+  const kidsStreakRef = useRef(0);
+  const [kidsStreak, setKidsStreak] = useState(0);
+  const [kidsRewardDismissed, setKidsRewardDismissed] = useState(false);
+
+  // New round after a completed one: re-arm the reward overlay and streak.
+  useEffect(() => {
+    if (!state.isComplete) {
+      setKidsRewardDismissed(false);
+      kidsStreakRef.current = 0;
+      setKidsStreak(0);
+    }
+  }, [state.isComplete]);
   const [feedbackData, setFeedbackData] = useState<{
     correct: boolean;
     errorType?: string;
@@ -279,6 +297,24 @@ export const PhotoNamingGame = ({
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
+
+  /**
+   * Single result-sound entry point. Adult mode keeps the original sounds
+   * verbatim; Kids Mode swaps in the friendlier set and drives the streak
+   * counter (3+ in a row escalates to the streak sparkle).
+   */
+  const playResultSound = useCallback((correct: boolean) => {
+    if (!kidsMode) {
+      if (correct) playSuccess(); else playError();
+      return;
+    }
+    const next = correct ? kidsStreakRef.current + 1 : 0;
+    kidsStreakRef.current = next;
+    setKidsStreak(next);
+    if (!correct) kidsSounds.playKidsOops();
+    else if (next >= 3) kidsSounds.playKidsStreak();
+    else kidsSounds.playKidsSuccess();
+  }, [kidsMode, playSuccess, playError, kidsSounds]);
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const { playPhrase, isPlaying: isAudioPlaying } = usePhraseAudio();
@@ -912,6 +948,34 @@ export const PhotoNamingGame = ({
       setProcessingAnswer(true);
       handleAnswerSelect(matchedChoice, 'production');
     } else {
+      // ─── ASR-ALTERNATIVE RESCUE ─────────────────────────────────────────
+      // Disordered speech is frequently mis-transcribed by the top hypothesis
+      // while the actual target sits in a lower-ranked alternative. Before
+      // scoring "no match", check the engine's other hypotheses for the
+      // target (exact / alias / homophone only — never foils, so this cannot
+      // rescue a wrong answer).
+      const rec = getLastRecognition();
+      if (rec && rec.transcript === transcript.trim().toLowerCase()) {
+        const altHit = rec.alternatives.slice(1).find((a) => {
+          const w = a.transcript.replace(/[^a-z' ]/g, '').trim();
+          return (
+            w === targetWord ||
+            aliasList.includes(w) ||
+            areHomophones(targetWord, w) ||
+            aliasList.some((al) => areHomophones(al, w))
+          );
+        });
+        if (altHit) {
+          console.log('✅ ASR alternative matched target:', altHit.transcript, '→', targetWord);
+          const targetChoice =
+            state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
+          setUtteranceState('processing');
+          setProcessingAnswer(true);
+          handleAnswerSelect(targetChoice, 'production');
+          return;
+        }
+      }
+
       console.log('❌ No match for stable transcript:', transcript);
 
       // Real attempt that passed the gate but didn't match a choice — gentle retry
@@ -990,13 +1054,14 @@ export const PhotoNamingGame = ({
   }, [showFeedback, selectedAnswer, timedOut, utteranceState, state.choices, state.currentTrial, logBrowserTranscript, processStableTranscript]);
   
   // Speech recognition hook - use patient mode like the other mobile exercises to avoid mic flicker
-  const { 
-    isListening, 
-    transcript, 
-    startListening, 
-    stopListening, 
+  const {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
     isSupported,
-    error: speechError 
+    error: speechError,
+    getLastRecognition,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     autoStart: false,
@@ -1625,6 +1690,14 @@ export const PhotoNamingGame = ({
         onGameComplete(state.score);
       };
 
+      // Kids Mode: hold navigation behind the star-reward overlay (same
+      // deferred-finalize pattern as the recap below). The overlay's
+      // "Keep Going!" button runs finalize.
+      if (kidsMode) {
+        finalizeCompleteRef.current = finalize;
+        return;
+      }
+
       // Show patient-facing progression recap when we have real movement data.
       // If snapshot is missing (no buffered trials, persist failed, or already
       // flushed), skip the overlay and finalize immediately to avoid dead state.
@@ -1639,7 +1712,7 @@ export const PhotoNamingGame = ({
         finalize();
       }
     })();
-  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs]);
+  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs, kidsMode]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
@@ -1725,7 +1798,12 @@ export const PhotoNamingGame = ({
     setShowFeedback(true);
     
     // Play timeout sound
-    playTimeout();
+    // Kids get the soft boop (and a streak reset) instead of the sawtooth warning.
+    if (kidsMode) {
+      playResultSound(false);
+    } else {
+      playTimeout();
+    }
     
     
     // Timeout = failed production attempt (mic was open, no/late response).
@@ -2061,11 +2139,7 @@ export const PhotoNamingGame = ({
     setRetryPrompt(null);
     
     // Play sound IMMEDIATELY
-    if (isCorrectAnswer) {
-      playSuccess();
-    } else {
-      playError();
-    }
+    playResultSound(isCorrectAnswer);
     
     // Update via in-game adaptation hook (handles consecutive errors + difficulty)
     const adaptationResult = recordTrial({ 
@@ -2174,11 +2248,15 @@ export const PhotoNamingGame = ({
           }
         }
         
-        // Advanced error classification with acoustic metrics
+        // Advanced error classification with acoustic metrics.
+        // Confidence: real ASR engine confidence when available (captured from
+        // the recognition result), else the speech-worker's whisper confidence,
+        // else the legacy 0.8 default — so the classifier's low-confidence
+        // retry gate finally receives a real signal instead of a constant.
         const errorClassification = await classifySpeechError(
           word,
           capturedTrial.target,
-          0.8,
+          getLastRecognition()?.confidence ?? whisperConfidence ?? 0.8,
           {
             trialNumber: capturedTrialNumber,
             previousErrors: capturedErrorHistory.map(e => e.errorType),
@@ -2454,11 +2532,7 @@ export const PhotoNamingGame = ({
     setShowFeedback(true);
     
     // Play sound based on result
-    if (correct) {
-      playSuccess();
-    } else {
-      playError();
-    }
+    playResultSound(correct);
 
     // Caregiver-rated attempt = scaffolded production (proxy reporter).
     currentTrialModeRef.current = 'scaffolded';
@@ -2597,7 +2671,7 @@ export const PhotoNamingGame = ({
 
     setFeedbackData({ correct: true, errorType: undefined });
     setShowFeedback(true);
-    playSuccess();
+    playResultSound(true);
 
     // NOTE: intentionally NOT calling recordTrial()/progression — manual
     // confirmation must not feed adaptation or progression thresholds.
@@ -2648,6 +2722,19 @@ export const PhotoNamingGame = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2 h-full">
+      {/* Kids Mode session reward — holds navigation until "Keep Going!" */}
+      {kidsMode && state.isComplete && !kidsRewardDismissed && (
+        <KidsSessionReward
+          starsEarned={Math.floor(state.score / 100)}
+          totalTrials={state.totalTrials}
+          onContinue={() => {
+            setKidsRewardDismissed(true);
+            const fn = finalizeCompleteRef.current;
+            finalizeCompleteRef.current = null;
+            fn?.();
+          }}
+        />
+      )}
       {recap && (
         <PhotoNamingProgressionRecap
           prev={recap.prev}
@@ -2677,6 +2764,11 @@ export const PhotoNamingGame = ({
           value={(state.trialNumber / state.totalTrials) * 100}
           className="h-1 mt-1.5"
         />
+        {kidsMode && (
+          <div className="mt-1.5">
+            <KidsStarMeter earned={Math.floor(state.score / 100)} total={state.totalTrials} />
+          </div>
+        )}
       </div>
 
       {/* Difficulty change banner */}
@@ -2739,7 +2831,9 @@ export const PhotoNamingGame = ({
       {/* First-trial intro — single compact strip (no card stack) */}
       {state.trialNumber === 1 && !showFeedback && (
         <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-center text-xs sm:text-sm">
-          <span className="font-medium text-foreground">Say what you see</span>
+          <span className="font-medium text-foreground">
+            {kidsMode ? "What's in the picture?" : "Say what you see"}
+          </span>
           {progression.startingLevel != null && (
             <>
               <span className="text-muted-foreground/60">·</span>
@@ -2753,7 +2847,7 @@ export const PhotoNamingGame = ({
           )}
           <span className="text-muted-foreground/60">·</span>
           <AboutGameLink slug="photo-naming" variant="inline" label="Why?" source="photo-naming-intro" />
-          {useVoice && (
+          {useVoice && !kidsMode && (
             <span className="basis-full text-[11px] text-muted-foreground/80">
               🎧 Tip: headphones help us hear you clearly and stop the mic picking up Maya's voice.
             </span>
@@ -3024,7 +3118,12 @@ export const PhotoNamingGame = ({
             : 'bg-accent/10 border-accent/30'
         }`}>
           {kidsMode && feedbackData.correct && (
-            <KidsCelebration burstKey={state.trialNumber} />
+            <KidsCelebration burstKey={state.trialNumber} intense={kidsStreak >= 3} />
+          )}
+          {kidsMode && feedbackData.correct && kidsStreak >= 3 && (
+            <p className="text-sm font-bold text-secondary mb-1">
+              🔥 {kidsStreak} in a row — you're on fire!
+            </p>
           )}
           <div className="flex items-center justify-center gap-3">
             {feedbackData.correct ? (

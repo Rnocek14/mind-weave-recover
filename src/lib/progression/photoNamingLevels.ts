@@ -172,7 +172,7 @@ export const PHOTO_NAMING_LEVELS: Record<number, PhotoNamingLevelSpec> = {
     contentSelector: {
       tierKey: 'advanced_review',
       description:
-        'Advanced retrieval review (PROBE_WORDS). The current probe pool overlaps PHOTO_BANK, so this is honest advanced review, not untrained-probe evidence. Trials are segregated from ordinary mastery stats via isAdvancedReviewTrial.',
+        'Advanced retrieval review (PROBE_WORDS). Probe targets are reserved out of the training pool (untrained for new profiles); pre-reservation profiles carry historical exposure, so this stays labeled advanced review, not untrained-probe evidence. Trials are segregated from ordinary mastery stats via isAdvancedReviewTrial.',
     },
   },
 };

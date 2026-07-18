@@ -85,8 +85,15 @@ const DEFICIT_RATIONALE_MAP: Record<string, { domains: string[]; reason: string 
   semantic_paraphasia: { domains: ["semantic_depth", "lexical_retrieval"], reason: "semantic retrieval errors are elevated" },
   phonemic_paraphasia: { domains: ["phonology"], reason: "phonological production errors are present" },
   agrammatism: { domains: ["syntax"], reason: "grammatical formulation is impaired" },
-  dysarthria: { domains: ["phonology"], reason: "motor speech production needs targeted practice" },
-  apraxia: { domains: ["phonology"], reason: "speech motor planning is impaired" },
+  // HONESTY NOTE: dysarthria and apraxia of speech are MOTOR-SPEECH deficits.
+  // This app has no motor-speech content (no articulation drills, repetition
+  // hierarchies, rate/prosody work), so the best available routing is the
+  // phonology domain — which targets phonological *selection*, not motor
+  // execution. The rationale strings are deliberately hedged: they must not
+  // imply the routed exercises treat the motor deficit itself. Tracked gap:
+  // add true motor-speech exercises before presenting these as targeted.
+  dysarthria: { domains: ["phonology"], reason: "closest available practice (sound-discrimination work); this app does not yet include motor-speech drills for dysarthria" },
+  apraxia: { domains: ["phonology"], reason: "closest available practice (phonological selection work); this app does not yet include motor-planning drills for apraxia of speech" },
   executive_dysfunction: { domains: ["executive_function"], reason: "executive planning and sequencing are impaired" },
   attention_deficit: { domains: ["executive_function"], reason: "sustained attention is reduced" },
   left_neglect: { domains: ["executive_function"], reason: "leftward scanning is inconsistent" },
