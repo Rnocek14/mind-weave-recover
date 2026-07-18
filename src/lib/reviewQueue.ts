@@ -43,10 +43,14 @@ function save(queue: PracticedWord[]): void {
   }
 }
 
+import { recordTransferEvent } from "@/lib/transferLedger";
+
 /** Record one practiced word. Struggles overwrite successes for the same word. */
 export function recordPracticedWord(word: string, category: string, struggled: boolean): void {
   const w = word.trim().toLowerCase();
   if (!w) return;
+  // Longitudinal ledger: practice events anchor each word's carryover curve.
+  recordTransferEvent(w, category, "practice");
   const queue = load().filter((p) => p.day === today());
   const existing = queue.find((p) => p.word === w);
   if (existing) {

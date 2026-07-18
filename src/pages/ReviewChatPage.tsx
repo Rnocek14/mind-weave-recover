@@ -6,6 +6,7 @@ import { ArrowLeft, Mic, MicOff, ThumbsUp, ThumbsDown, SkipForward, CheckCircle2
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getTodaysPracticedWords, clearReviewedWords } from "@/lib/reviewQueue";
+import { recordTransferEvent, getCarryoverPriorityWords } from "@/lib/transferLedger";
 import {
   startReview,
   onUserUtterance,
@@ -60,7 +61,18 @@ export default function ReviewChatPage() {
   const navigate = useNavigate();
   const { kidsMode } = useKidsMode();
 
-  const practiced = useMemo(() => getTodaysPracticedWords(), []);
+  // CLOSED LOOP: today's practiced words + up to 2 carryover-priority words
+  // (fading/lost per the transfer ledger) that need conversational retrieval
+  // even though they weren't practiced today. The re-practice signal is
+  // real-world usage decay, not quiz scores.
+  const practiced = useMemo(() => {
+    const todays = getTodaysPracticedWords();
+    const todaysSet = new Set(todays.map((p) => p.word));
+    const carryover = getCarryoverPriorityWords(2)
+      .filter((c) => !todaysSet.has(c.word))
+      .map((c) => ({ word: c.word, category: c.category, struggled: c.status === "lost", day: "" }));
+    return [...todays, ...carryover];
+  }, []);
   const [engineState, setEngineState] = useState<ReviewState | null>(null);
   const [mayaLine, setMayaLine] = useState("");
   const [heard, setHeard] = useState<string | null>(null);
@@ -78,6 +90,24 @@ export default function ReviewChatPage() {
       if (turn.mayaLine) {
         setMayaLine(turn.mayaLine);
         speakLine(turn.mayaLine, echoLockRef, kidsMode);
+      }
+      // Feed the transfer ledger: every conversational outcome becomes a
+      // point on that word's carryover curve.
+      for (const e of turn.events) {
+        if (
+          e.type === "spontaneous_use" ||
+          e.type === "elicited_use" ||
+          e.type === "cued_use" ||
+          e.type === "item_released"
+        ) {
+          const item = turn.state.items.find((i) => i.word === e.word);
+          const tier =
+            e.type === "spontaneous_use" ? "spontaneous"
+            : e.type === "elicited_use" ? "elicited"
+            : e.type === "cued_use" ? "cued"
+            : "released";
+          recordTransferEvent(e.word, item?.category ?? "generic", tier);
+        }
       }
       const complete = turn.events.find((e) => e.type === "review_complete");
       if (complete && complete.type === "review_complete") {
