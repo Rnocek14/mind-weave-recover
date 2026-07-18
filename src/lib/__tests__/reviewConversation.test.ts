@@ -147,7 +147,7 @@ describe("anti-loop guarantees", () => {
     let turn = fresh();
     let guard = 0;
     while (turn.state.phase !== "done" && guard < 50) {
-      turn = onUserUtterance(turn.state, "hmm not sure about that", [], 0.9);
+      turn = onUserUtterance(turn.state, `hmm not sure about that ${guard}`, [], 0.9);
       guard++;
     }
     expect(turn.state.phase).toBe("done");
@@ -160,7 +160,7 @@ describe("anti-loop guarantees", () => {
     const lines: string[] = [turn.mayaLine];
     let guard = 0;
     while (turn.state.phase !== "done" && guard < 30) {
-      turn = onUserUtterance(turn.state, "hmm", [], 0.9);
+      turn = onUserUtterance(turn.state, `hmm ${guard}`, [], 0.9);
       if (turn.mayaLine) lines.push(turn.mayaLine);
       guard++;
     }

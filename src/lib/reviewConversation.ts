@@ -52,6 +52,8 @@ export interface ReviewState {
   repairItem: number;
   /** True when the active item's cue has been given (next hit scores as cued). */
   cueGivenForActive: boolean;
+  /** Last non-empty user transcript — duplicate ASR finals are ignored. */
+  lastTranscript: string | null;
 }
 
 export interface AsrHypothesis {
@@ -266,6 +268,7 @@ export function startReview(
     repairWord: null,
     repairItem: -1,
     cueGivenForActive: false,
+    lastTranscript: null,
   };
 
   const greeting = pickLine(GREET_LINES, state.usedLines);
@@ -279,7 +282,11 @@ function framesFor(category: string): string[] {
 
 /** Find the next pending item and open its topic frame; else wrap up. */
 function advanceToNextFrame(state: ReviewState, prefix: string, events: ReviewEvent[]): EngineTurn {
-  const nextIdx = state.items.findIndex((it) => it.status === "pending");
+  // Fairness: every word gets its FIRST frame before any word is re-framed
+  // after a spontaneous detour. (Fuzz seed 78 caught the earlier version
+  // flogging the first item's attempts on every detour.)
+  const unframed = state.items.findIndex((it) => it.status === "pending" && it.attempts === 0);
+  const nextIdx = unframed !== -1 ? unframed : state.items.findIndex((it) => it.status === "pending");
 
   if (nextIdx === -1 || state.mayaTurns >= MAX_MAYA_TURNS) {
     return wrapup(state, prefix, events, nextIdx !== -1);
@@ -288,8 +295,10 @@ function advanceToNextFrame(state: ReviewState, prefix: string, events: ReviewEv
   state.activeItem = nextIdx;
   state.phase = "frame";
   state.cueGivenForActive = false;
-  state.items[nextIdx].attempts += 1;
   const item = state.items[nextIdx];
+  // A re-frame after a detour is attempt-free: attempts counts the item's
+  // OWN chances (first frame + one cue), never conversation-flow overhead.
+  item.attempts = Math.max(item.attempts, 1);
   const frame = pickLine(framesFor(item.category), state.usedLines, { word: item.word });
   state.mayaTurns += 1;
   return { state, mayaLine: joinLines(prefix, frame), events };
@@ -340,13 +349,36 @@ export function onUserUtterance(
   confidence: number | null = null,
 ): EngineTurn {
   if (state.phase === "done") return { state, mayaLine: "", events: [] };
+
+  // Noise guard: an empty/whitespace transcript (breath, mic blip) must never
+  // consume the item's cue or advance anything. Say nothing, wait.
+  const trimmed = transcript.trim();
+  if (!trimmed || !/[a-z]/i.test(trimmed)) return { state, mayaLine: "", events: [] };
+
+  // Duplicate-final guard: ASR sometimes re-finalizes the same text. Only a
+  // NON-MATCHING duplicate is ignored (repeating the target on purpose is
+  // fine — it matches and is handled below).
+  const isDuplicate = state.lastTranscript === trimmed.toLowerCase();
+  state.lastTranscript = trimmed.toLowerCase();
+
   if (state.phase === "repair") {
-    // During repair we only accept yes/no via onRepairAnswer; treat any other
-    // speech as "didn't hear a clear yes" and gently re-ask ONCE, then move on.
-    return onRepairAnswer(state, /^(yes|yeah|yep|right|correct)\b/i.test(transcript.trim()));
+    // Three honest readings of speech during repair:
+    //  1. an explicit yes/no,
+    //  2. the patient saying the repair word AGAIN (very common in aphasia —
+    //     repetition IS their confirmation),
+    //  3. anything else = not confirmed.
+    const saidYes = /^(yes|yeah|yep|right|correct|uh huh|mhm)\b/i.test(trimmed);
+    const repeatedWord =
+      state.repairWord !== null && utteranceContainsWord(trimmed, state.repairWord);
+    return onRepairAnswer(state, saidYes || repeatedWord);
   }
 
-  const detection = detectPendingWord(state, transcript, alternatives, confidence);
+  const detection = detectPendingWord(state, trimmed, alternatives, confidence);
+
+  if (!detection && isDuplicate) {
+    // Same non-matching text twice — don't burn a cue on an ASR hiccup.
+    return { state, mayaLine: "", events: [] };
+  }
 
   if (!detection) {
     // Nothing matched. The conversation still moves FORWARD: if the active
