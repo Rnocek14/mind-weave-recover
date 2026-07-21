@@ -147,6 +147,38 @@ export const QA_SCENARIOS: QaScenario[] = [
     ],
   })),
 
+  // === Between-game / session pacing (post-UX1.1 timing bumps) ===
+  {
+    id: 'pacing-between-trials',
+    title: 'Between-trial and between-game pacing feels calm',
+    role: 'patient',
+    area: 'game',
+    steps: [
+      { id: 'auto-advance', action: 'Complete a correct trial and watch the gap before the next trial', expect: 'Roughly 3s auto-advance; not abrupt, not sluggish.' },
+      { id: 'encouragement', action: 'Trigger an encouragement overlay between blocks', expect: 'Overlay is on-screen ~5.5s (6.5s with coaching); user has time to read it.' },
+      { id: 'breathing', action: 'Observe the between-block breathing pause', expect: '~8s micro-pause; no jarring jump into the next block.' },
+      { id: 'maya-tail', action: 'In Guided/Full Coaching, wait after Maya finishes speaking', expect: '~1.4s tail before mic opens or next action; not clipped.' },
+      { id: 'stops-short', action: 'Note any game that ends before 10 trials without a session-end reason', expect: 'All wired games run 10 trials unless dose cap, ended_reason, or user exit \u2014 flag counterexamples.' },
+    ],
+  },
+
+  // === Signup network diagnostics (published-site blocker) ===
+  {
+    id: 'auth-signup-network',
+    title: 'Signup "Failed to fetch" triage',
+    role: 'shared',
+    area: 'auth',
+    steps: [
+      { id: 'devtools', action: 'Open DevTools > Network before clicking Sign Up', expect: 'A POST to /auth/v1/signup should appear.' },
+      { id: 'no-request', action: 'If NO request is fired', expect: 'Browser extension / adblock is blocking supabase.co; try incognito with extensions off.' },
+      { id: 'blocked', action: 'If request shows (blocked) or net::ERR_*', expect: 'Environmental: DNS, VPN, corporate proxy, or Brave shields. Not a code bug.' },
+      { id: 'cors', action: 'If request shows CORS error', expect: 'Managed Supabase auth allows all origins; a CORS failure usually means the request was intercepted by an extension.' },
+      { id: 'server-500', action: 'If request returns 500', expect: 'Check Supabase Auth logs; likely handle_new_user trigger error \u2014 escalate to agent.' },
+    ],
+  },
+
+
+
   // === Maya ===
   {
     id: 'maya-coaching-modes',
