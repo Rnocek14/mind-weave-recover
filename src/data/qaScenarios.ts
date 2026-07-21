@@ -74,6 +74,41 @@ export const QA_SCENARIOS: QaScenario[] = [
       { id: 'valid', action: 'Submit valid credentials', expect: 'Redirects to /today (patient) or role landing.' },
     ],
   },
+  {
+    id: 'auth-signup-patient',
+    title: 'New patient account creation',
+    role: 'patient',
+    area: 'auth',
+    steps: [
+      { id: 'open', action: 'Open /auth and switch to Sign Up (role = patient)', expect: 'Form shows email, password, display name, Terms checkbox.' },
+      { id: 'terms-gate', action: 'Try to submit without checking Terms', expect: 'Toast asks you to accept Terms; no request sent.' },
+      { id: 'submit', action: 'Fill valid email + password, accept Terms, submit', expect: 'Toast "Account created!"; no "Failed to fetch"; POST /auth/v1/signup returns 200 in Network tab.' },
+      { id: 'network-fail', action: 'If you see "Failed to fetch": check DevTools Network for the /auth/v1/signup request', expect: 'If request is blocked/CORS/net::ERR_*, cause is browser-side (extension, adblock, corporate proxy, DNS). Server-side is healthy when curl to the same endpoint returns 200.', safety: 'Do NOT patch signup code when the network request never reaches the server \u2014 the bug is environmental.' },
+      { id: 'route', action: 'After signup, wait for auth state', expect: 'Routes to /onboarding (or /today if onboarding_completed_at set).' },
+    ],
+  },
+  {
+    id: 'auth-signup-caregiver',
+    title: 'Caregiver self-serve signup',
+    role: 'caregiver',
+    area: 'auth',
+    steps: [
+      { id: 'signup', action: 'Sign up with role = caregiver', expect: 'account_intent=caregiver in user metadata; no clinician approval wall.' },
+      { id: 'setup', action: 'Land at /caregiver/setup', expect: 'Prompt: "Who is recovering?"; creating patient makes an active profile.' },
+      { id: 'practice', action: 'Click "Start practice for [name]"', expect: 'Routes to /today with active patient profile.' },
+    ],
+  },
+  {
+    id: 'auth-signup-clinician',
+    title: 'Clinician signup routes through approval',
+    role: 'clinician',
+    area: 'auth',
+    steps: [
+      { id: 'signup', action: 'Sign up with role = clinician', expect: 'role_requests row inserted; toast confirms request submitted.' },
+      { id: 'pending', action: 'Land at /pending-approval', expect: 'Clear waiting state; no access to clinician tools yet.' },
+    ],
+  },
+
 
   // === Onboarding ===
   {
