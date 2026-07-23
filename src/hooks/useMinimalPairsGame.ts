@@ -199,16 +199,21 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
   const reset = useCallback((newDifficulty?: number) => {
     const requested = newDifficulty ?? difficultyLevel;
     const difficulty = kidsMode ? clampKidsMinimalPairsLevel(requested) : requested;
+    // Alternation guard: cap runs of same-side targets at 2 in a row.
+    let lastSide: 0 | 1 | null = null;
+    let sameRun = 0;
     const newTrials = getMinimalPairTrialsForLevel(difficulty, totalTrials)
-      .map(trial => ({
-        ...trial,
-        targetIndex: (Math.random() < 0.5 ? 0 : 1) as 0 | 1,
-        targetWord: '',
-      }))
-      .map(trial => ({
-        ...trial,
-        targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
-      }));
+      .map(trial => {
+        let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+        if (lastSide !== null && side === lastSide && sameRun >= 2) side = (1 - side) as 0 | 1;
+        sameRun = side === lastSide ? sameRun + 1 : 1;
+        lastSide = side;
+        return {
+          ...trial,
+          targetIndex: side,
+          targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
+        };
+      });
     
     setState({
       currentTrial: newTrials[0] || null,
