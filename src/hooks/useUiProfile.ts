@@ -29,8 +29,11 @@ export interface UiProfile {
   source: 'system' | 'clinician' | 'user';
 }
 
+// New patients default to `simplified-fluent` — the safe floor for aphasia:
+// reduced chrome and larger type, but nothing looks broken. Patient/caregiver
+// can flip via the View toggle; clinicians can override in onboarding.
 const DEFAULT_PROFILE: UiProfile = {
-  variant: 'standard',
+  variant: 'simplified-fluent',
   density: 'comfortable',
   readingLoadCap: 40,
   decisionCap: 4,
