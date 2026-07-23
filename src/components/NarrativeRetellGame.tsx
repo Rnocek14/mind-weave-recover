@@ -241,7 +241,9 @@ export function NarrativeRetellGame({
   const autoReadForIndexRef = useRef<number | null>(null);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory) return;
-    if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
+    // Auto-read the story aloud in every coaching mode — patients told us
+    // they were confused when the story sat silent until they hunted for a
+    // "Listen" button.
     // Guard by index — survives unrelated re-renders (vg identity changes)
     // and is naturally invalidated when the story changes.
     if (autoReadForIndexRef.current === currentIndex) return;
@@ -731,6 +733,29 @@ export function NarrativeRetellGame({
     nextStory();
   }, [nextStory]);
 
+  // "Try this story again" — reset scored state and let the patient re-read
+  // and re-retell the SAME story instead of being pushed to the next one
+  // after a silent/low-coverage attempt.
+  const handleTryAgain = useCallback(() => {
+    try { stopTTS(); } catch {}
+    try { interruptVoiceGuidance(); } catch {}
+    setPhase('reading');
+    setLastResult(null);
+    setCollectedTranscript('');
+    setTypedText('');
+    setStallPromptIndex(-1);
+    setMicFailed(false);
+    hasProcessedRef.current = false;
+    latestTranscriptRef.current = '';
+    transcriptPrefixRef.current = '';
+    lastSpokenStallRef.current = -1;
+    setStoryReadComplete(false);
+    autoReadForIndexRef.current = null; // allow auto-read to fire again
+    autoStartedForIndexRef.current = null;
+    voiceController.clearSpokenHistory();
+  }, [stopTTS]);
+
+
   // Game complete screen
   if (!currentStory || isComplete) {
     const avgCoverage = results.length > 0
@@ -1199,20 +1224,29 @@ export function NarrativeRetellGame({
 
         // Pause auto-advance while user is replaying / typing
         const paused = isTTSSpeaking || vg.isSpeaking;
+        // Silent or near-silent attempt → let the patient try again instead
+        // of being pushed to the next story after 10s.
+        const attemptWasEmpty =
+          !lastResult.transcript?.trim() || lastResult.eventCoverage === 0;
 
         return (
           <div className="space-y-3">
-            {paused ? (
+            {paused || attemptWasEmpty ? (
               <>
                 {ScoredCard}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="lg" onClick={stopTTS}>
-                    Stop reading
+                  <Button variant="outline" size="lg" onClick={handleTryAgain}>
+                    Try this story again
                   </Button>
                   <Button onClick={handleContinue} size="lg">
                     {currentIndex + 1 < totalStories ? 'Next Story' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
+                {paused && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={stopTTS}>
+                    Stop reading
+                  </Button>
+                )}
               </>
             ) : (
               <RoundDoneAutoAdvance
@@ -1221,14 +1255,22 @@ export function NarrativeRetellGame({
                 delayMs={10000}
               >
                 {ScoredCard}
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleListenToStory}
-                >
-                  🔊 Read story again
-                </Button>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleTryAgain}
+                  >
+                    Try again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleListenToStory}
+                  >
+                    🔊 Read story
+                  </Button>
+                </div>
               </RoundDoneAutoAdvance>
             )}
           </div>

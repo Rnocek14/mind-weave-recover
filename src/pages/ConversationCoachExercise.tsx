@@ -236,7 +236,7 @@ export default function ConversationCoachExercise() {
 
   // Active game
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <header className="border-b">
         <div className="p-4 flex items-center gap-3">
           <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>

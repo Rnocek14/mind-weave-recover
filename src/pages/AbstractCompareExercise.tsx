@@ -154,7 +154,7 @@ export default function AbstractCompareExercise() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>
@@ -163,7 +163,7 @@ export default function AbstractCompareExercise() {
         </div>
         {fromLesson && <InlineSessionProgress />}
       </header>
-      <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>

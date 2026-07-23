@@ -86,15 +86,24 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     } else {
       trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, { focusPhonemes });
     }
-    // Regenerate target indices for variety.
-    return trials.map(trial => ({
-      ...trial,
-      targetIndex: (Math.random() < 0.5 ? 0 : 1) as 0 | 1,
-      targetWord: Math.random() < 0.5 ? trial.pair.word1 : trial.pair.word2,
-    })).map(trial => ({
-      ...trial,
-      targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
-    }));
+    // Regenerate target sides with enforced alternation — pure Math.random
+    // was producing long "always on the right" streaks that patients read as
+    // a bias. Cap runs of same-side targets at 2 in a row.
+    let lastSide: 0 | 1 | null = null;
+    let sameRun = 0;
+    return trials.map((trial) => {
+      let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+      if (lastSide !== null && side === lastSide && sameRun >= 2) {
+        side = (1 - side) as 0 | 1;
+      }
+      sameRun = side === lastSide ? sameRun + 1 : 1;
+      lastSide = side;
+      return {
+        ...trial,
+        targetIndex: side,
+        targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
+      };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficultyLevel, totalTrials, focusPhonemes?.join(','), clinicalLevel]);
   
@@ -162,13 +171,19 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     setState(prev => {
       const upcomingNeeded = prev.totalTrials - prev.trialIndex - 1;
       if (upcomingNeeded <= 0) return prev;
+      // Alternation guard: cap runs of same-side targets at 2 in a row.
+      let lastSide: 0 | 1 | null = null;
+      let sameRun = 0;
       const fresh = getMinimalPairTrialsForLevel(cappedDifficulty, upcomingNeeded, { focusPhonemes })
         .map(trial => {
-          const targetIndex = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+          let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+          if (lastSide !== null && side === lastSide && sameRun >= 2) side = (1 - side) as 0 | 1;
+          sameRun = side === lastSide ? sameRun + 1 : 1;
+          lastSide = side;
           return {
             ...trial,
-            targetIndex,
-            targetWord: targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
+            targetIndex: side,
+            targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
           };
         });
       const past = prev.trials.slice(0, prev.trialIndex + 1);
@@ -184,16 +199,21 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
   const reset = useCallback((newDifficulty?: number) => {
     const requested = newDifficulty ?? difficultyLevel;
     const difficulty = kidsMode ? clampKidsMinimalPairsLevel(requested) : requested;
+    // Alternation guard: cap runs of same-side targets at 2 in a row.
+    let lastSide: 0 | 1 | null = null;
+    let sameRun = 0;
     const newTrials = getMinimalPairTrialsForLevel(difficulty, totalTrials)
-      .map(trial => ({
-        ...trial,
-        targetIndex: (Math.random() < 0.5 ? 0 : 1) as 0 | 1,
-        targetWord: '',
-      }))
-      .map(trial => ({
-        ...trial,
-        targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
-      }));
+      .map(trial => {
+        let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+        if (lastSide !== null && side === lastSide && sameRun >= 2) side = (1 - side) as 0 | 1;
+        sameRun = side === lastSide ? sameRun + 1 : 1;
+        lastSide = side;
+        return {
+          ...trial,
+          targetIndex: side,
+          targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
+        };
+      });
     
     setState({
       currentTrial: newTrials[0] || null,

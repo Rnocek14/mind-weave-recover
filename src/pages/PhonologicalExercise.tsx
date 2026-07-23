@@ -260,7 +260,7 @@ export default function PhonologicalExercise() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       {fromLesson && <SessionSidePanel />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
@@ -280,7 +280,7 @@ export default function PhonologicalExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
         <div className="max-w-6xl mx-auto space-y-4">
           {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
             <div className="hidden sm:flex flex-wrap gap-1.5 mb-2">
