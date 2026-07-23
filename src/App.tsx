@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useContext } from "react";
 import { UiVariantPicker } from "@/components/dev/UiVariantPicker";
+import { ViewToggle } from "@/components/ViewToggle";
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
@@ -149,6 +150,7 @@ const App = () => (
                 <SessionPauseControl />
                 <VoiceGateHud />
                 <UiVariantPicker />
+                <ViewToggle />
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />

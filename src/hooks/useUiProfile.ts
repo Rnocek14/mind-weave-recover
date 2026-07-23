@@ -29,8 +29,11 @@ export interface UiProfile {
   source: 'system' | 'clinician' | 'user';
 }
 
+// New patients default to `simplified-fluent` — the safe floor for aphasia:
+// reduced chrome and larger type, but nothing looks broken. Patient/caregiver
+// can flip via the View toggle; clinicians can override in onboarding.
 const DEFAULT_PROFILE: UiProfile = {
-  variant: 'standard',
+  variant: 'simplified-fluent',
   density: 'comfortable',
   readingLoadCap: 40,
   decisionCap: 4,
@@ -56,17 +59,24 @@ const STORAGE_KEY = 'uiProfileOverride';
 
 function readUrlOverride(): UiVariant | null {
   if (typeof window === 'undefined') return null;
-  if (!import.meta.env.DEV && !isPreviewHost()) return null;
   try {
-    const params = new URLSearchParams(window.location.search);
-    const v = params.get('uiProfile');
-    if (v && (VALID_VARIANTS as string[]).includes(v)) {
-      sessionStorage.setItem(STORAGE_KEY, v);
-      return v as UiVariant;
+    // URL param (dev/preview) writes to sessionStorage for stickiness
+    if (import.meta.env.DEV || isPreviewHost()) {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('uiProfile');
+      if (v && (VALID_VARIANTS as string[]).includes(v)) {
+        sessionStorage.setItem(STORAGE_KEY, v);
+        return v as UiVariant;
+      }
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      if (stored && (VALID_VARIANTS as string[]).includes(stored)) {
+        return stored as UiVariant;
+      }
     }
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (stored && (VALID_VARIANTS as string[]).includes(stored)) {
-      return stored as UiVariant;
+    // Patient/caregiver-facing ViewToggle persists to localStorage (all hosts).
+    const local = window.localStorage.getItem(STORAGE_KEY);
+    if (local && (VALID_VARIANTS as string[]).includes(local)) {
+      return local as UiVariant;
     }
   } catch {
     /* ignore */
