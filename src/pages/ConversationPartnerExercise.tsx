@@ -264,7 +264,7 @@ export default function ConversationPartnerExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="flex-1 p-4 min-h-0 overflow-hidden flex flex-col">
+      <main className="flex-1 p-4 flex flex-col overflow-y-auto pb-16">
         <div className="max-w-md mx-auto">
           <ConversationPartnerGame
             userId={user.id}

@@ -1058,7 +1058,7 @@ function PhotoNamingExerciseInner() {
         )}
 
         {/* Game area - fills remaining space */}
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto pb-16">
         {trials.length > 0 ? (
           <PhotoNamingGame
             key={gameKey}

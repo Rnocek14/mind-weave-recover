@@ -719,7 +719,7 @@ const Exercise = () => {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-gradient-calm flex flex-col">
+    <div className="min-h-dvh bg-gradient-calm flex flex-col">
       {/* Intervention Modals */}
       <ConfidenceBoost
         open={showConfidenceBoost}
