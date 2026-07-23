@@ -241,7 +241,9 @@ export function NarrativeRetellGame({
   const autoReadForIndexRef = useRef<number | null>(null);
   useEffect(() => {
     if (phase !== 'reading' || !currentStory) return;
-    if (!vg.shouldAutoReadContent) return; // Only auto-read in Full Coaching
+    // Auto-read the story aloud in every coaching mode — patients told us
+    // they were confused when the story sat silent until they hunted for a
+    // "Listen" button.
     // Guard by index — survives unrelated re-renders (vg identity changes)
     // and is naturally invalidated when the story changes.
     if (autoReadForIndexRef.current === currentIndex) return;
