@@ -86,15 +86,24 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     } else {
       trials = getMinimalPairTrialsForLevel(difficultyLevel, totalTrials, { focusPhonemes });
     }
-    // Regenerate target indices for variety.
-    return trials.map(trial => ({
-      ...trial,
-      targetIndex: (Math.random() < 0.5 ? 0 : 1) as 0 | 1,
-      targetWord: Math.random() < 0.5 ? trial.pair.word1 : trial.pair.word2,
-    })).map(trial => ({
-      ...trial,
-      targetWord: trial.targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
-    }));
+    // Regenerate target sides with enforced alternation — pure Math.random
+    // was producing long "always on the right" streaks that patients read as
+    // a bias. Cap runs of same-side targets at 2 in a row.
+    let lastSide: 0 | 1 | null = null;
+    let sameRun = 0;
+    return trials.map((trial) => {
+      let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+      if (lastSide !== null && side === lastSide && sameRun >= 2) {
+        side = (1 - side) as 0 | 1;
+      }
+      sameRun = side === lastSide ? sameRun + 1 : 1;
+      lastSide = side;
+      return {
+        ...trial,
+        targetIndex: side,
+        targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
+      };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficultyLevel, totalTrials, focusPhonemes?.join(','), clinicalLevel]);
   
