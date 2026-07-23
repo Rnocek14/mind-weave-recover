@@ -85,9 +85,9 @@ async function loadAdherenceStats(userId: string, profileId?: string | null): Pr
 }
 
 const MODE_OPTIONS: { value: CoachingMode; label: string; desc: string }[] = [
-  { value: 'off', label: 'Games only', desc: 'Pure practice, no guidance' },
-  { value: 'light', label: 'Guided', desc: 'Purpose + light feedback' },
-  { value: 'full', label: 'Full coaching', desc: 'Continuity + reflections' },
+  { value: 'off', label: 'Games only', desc: 'Just the exercises. Maya stays quiet.' },
+  { value: 'light', label: 'Guided', desc: 'Shows the purpose of each game and light feedback between rounds.' },
+  { value: 'full', label: 'Full coaching', desc: 'Maya reads stories and questions aloud and gives fuller reflections.' },
 ];
 
 export default function Today() {
