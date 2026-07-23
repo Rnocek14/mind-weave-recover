@@ -406,13 +406,20 @@ export function DetectiveMindGame({
     isDirectSpeakingRef.current = isDirectSpeaking;
   }, [isDirectSpeaking]);
 
-  const processStableSpeechAnswer = useCallback((text: string) => {
+  // If ANY chunk of the pending transcript arrived while Maya was speaking
+  // (or within the post-TTS tail-lock), the whole utterance is tainted —
+  // it's almost certainly Maya's own voice bleeding through the mic
+  // ("say A, B, C, or D") rather than the patient answering.
+  const pendingTranscriptTaintedRef = useRef(false);
+
+  const processStableSpeechAnswer = useCallback((text: string, tainted: boolean) => {
     if (phase !== 'answering' || selectedOption !== null) return;
     // Guard: ignore anything captured while Maya is still speaking, or
     // within the post-speech tail-lock — that's TTS bleed, not the user.
     if (voiceController.isMicLocked) return;
     if (isDirectSpeakingRef.current) return;
-    if (Date.now() - ttsEndedAtRef.current < 800) return;
+    if (Date.now() - ttsEndedAtRef.current < 1500) return;
+    if (tainted) return;
 
     const idx = selectFromTranscript(text);
     if (idx != null) {
@@ -428,6 +435,14 @@ export function DetectiveMindGame({
     if (phase !== 'answering' || selectedOption !== null) return;
     if (!text.trim()) return;
 
+    // Taint the pending utterance if this chunk landed during/just after TTS.
+    if (
+      isDirectSpeakingRef.current ||
+      Date.now() - ttsEndedAtRef.current < 1500
+    ) {
+      pendingTranscriptTaintedRef.current = true;
+    }
+
     setLastHeardText(text);
     setVoiceMissMsg(null);
     pendingTranscriptRef.current = text;
@@ -438,9 +453,11 @@ export function DetectiveMindGame({
 
     transcriptDebounceRef.current = setTimeout(() => {
       const stableTranscript = pendingTranscriptRef.current;
+      const tainted = pendingTranscriptTaintedRef.current;
       transcriptDebounceRef.current = null;
       pendingTranscriptRef.current = null;
-      if (stableTranscript) processStableSpeechAnswer(stableTranscript);
+      pendingTranscriptTaintedRef.current = false;
+      if (stableTranscript) processStableSpeechAnswer(stableTranscript, tainted);
     }, TRANSCRIPT_STABLE_DELAY_MS);
   }, [phase, selectedOption, processStableSpeechAnswer]);
 

@@ -285,22 +285,21 @@ export function MinimalPairsGame({
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
 
-  // Auto-advance after selection.
-  // Incorrect: 2.4s (time to read contrast info), no say-it step.
-  // Correct: wait for the optional "Say it" echo to resolve (heard/skipped)
-  // so the production step is never cut off; once resolved, brief 1.2s beat.
+  // Auto-advance after selection — aphasia-friendly pacing.
+  // Incorrect: 5s so the patient can actually read the contrast info.
+  // Correct: wait for the optional "Say it" echo to resolve, then 3.5s beat.
   useEffect(() => {
     if (!showFeedback || isComplete) return;
     if (state.isCorrect) {
       if (echoStatus === 'heard' || echoStatus === 'skipped') {
-        const t = setTimeout(() => { nextTrial(); }, 1200);
+        const t = setTimeout(() => { nextTrial(); }, 3500);
         return () => clearTimeout(t);
       }
       // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
-      const fallback = setTimeout(() => { nextTrial(); }, 9000);
+      const fallback = setTimeout(() => { nextTrial(); }, 12000);
       return () => clearTimeout(fallback);
     }
-    const t = setTimeout(() => { nextTrial(); }, 2400);
+    const t = setTimeout(() => { nextTrial(); }, 5000);
     return () => clearTimeout(t);
   }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
 
