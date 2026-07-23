@@ -266,16 +266,34 @@ export const ExerciseTransitionOverlay = ({
         </div>
 
         {/* Auto-advance bar */}
-        <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">
-          <div 
-            className="h-full bg-primary transition-all duration-1000 ease-linear"
-            style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
-          />
-        </div>
+        {!isPaused && (
+          <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-1000 ease-linear"
+              style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
+            />
+          </div>
+        )}
+        {isPaused && (
+          <p className="text-sm text-muted-foreground">Take as long as you need</p>
+        )}
 
-        <button onClick={handleSkipContinue} className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-          Tap to skip
-        </button>
+        <div className="flex flex-col gap-2">
+          <Button size="lg" className="w-full min-h-[48px]" onClick={handleSkipContinue}>
+            Continue
+          </Button>
+          {!isPaused && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground mx-auto"
+              onClick={handleNeedMoreTime}
+            >
+              <Clock className="w-4 h-4 mr-1.5" />
+              Need more time
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
