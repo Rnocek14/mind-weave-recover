@@ -7,6 +7,7 @@ import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } fr
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { getTransitionCoaching } from '@/lib/coachingNarrative';
 import { getExerciseMicroGuidance } from '@/lib/exerciseMicroGuidance';
+import { useUiProfile } from '@/hooks/useUiProfile';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
@@ -39,11 +40,13 @@ export const ExerciseTransitionOverlay = ({
   onEnd,
 }: ExerciseTransitionOverlayProps) => {
   const { mode } = useCoachingMode();
+  const { profile } = useUiProfile();
+  const variant = profile?.variant ?? 'standard';
   // Jitter for organic rhythm
   const jitter = (Math.random() - 0.5) * 0.6;
   const [timeLeft, setTimeLeft] = useState(() => {
     // Will be re-set in effect below once duration is stable
-    return durationOverride ?? (type === 'encouragement' ? 3.5 : 5);
+    return durationOverride ?? (type === 'encouragement' ? 6 : 8);
   });
   const [isPaused, setIsPaused] = useState(false);
   const startTimeRef = useRef(Date.now());
@@ -76,13 +79,22 @@ export const ExerciseTransitionOverlay = ({
     mode !== 'off' ? getExerciseMicroGuidance(nextExerciseId || '', lastScore) : null
   );
 
-  // Coaching-mode-aware duration: long enough to read, breathe, and orient
-  // to the next exercise. Previous 3–3.5s felt like a flash between games.
-  // New floors: 5.5s plain encouragement, 6.5s when guidance copy is shown,
-  // 8s for the breathing micro-pause. Users can always tap to skip.
+  // Coaching-mode-aware + variant-aware duration. Aphasia-friendly floors so
+  // patients can actually read the screen before we move on.
+  //   minimal          → faster (already stripped of copy)
+  //   standard         → previous floors
+  //   simplified-fluent → longest (default for new patients)
   const hasGuidanceContent = !!(microGuidance || coachingBridge);
+  const variantMultiplier =
+    variant === 'minimal' ? 0.75 :
+    variant === 'simplified-fluent' ? 1.35 :
+    1;
   const encouragementBase = (mode !== 'off' && hasGuidanceContent) ? 6.5 : 5.5;
-  const duration = durationOverride ?? (type === 'encouragement' ? encouragementBase + jitter : 8 + jitter);
+  const microPauseBase = 8;
+  const rawDuration = type === 'encouragement'
+    ? encouragementBase * variantMultiplier + jitter
+    : microPauseBase * variantMultiplier + jitter;
+  const duration = durationOverride ?? Math.max(3, rawDuration);
   const durationRef = useRef(duration);
   durationRef.current = duration;
 
@@ -254,16 +266,34 @@ export const ExerciseTransitionOverlay = ({
         </div>
 
         {/* Auto-advance bar */}
-        <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">
-          <div 
-            className="h-full bg-primary transition-all duration-1000 ease-linear"
-            style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
-          />
-        </div>
+        {!isPaused && (
+          <div className="w-24 mx-auto bg-muted rounded-full h-1 overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-1000 ease-linear"
+              style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
+            />
+          </div>
+        )}
+        {isPaused && (
+          <p className="text-sm text-muted-foreground">Take as long as you need</p>
+        )}
 
-        <button onClick={handleSkipContinue} className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
-          Tap to skip
-        </button>
+        <div className="flex flex-col gap-2">
+          <Button size="lg" className="w-full min-h-[48px]" onClick={handleSkipContinue}>
+            Continue
+          </Button>
+          {!isPaused && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground mx-auto"
+              onClick={handleNeedMoreTime}
+            >
+              <Clock className="w-4 h-4 mr-1.5" />
+              Need more time
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
