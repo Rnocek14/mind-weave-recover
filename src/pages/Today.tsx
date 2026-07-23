@@ -58,10 +58,14 @@ async function loadAdherenceStats(userId: string, profileId?: string | null): Pr
     return { totalSessions: 0, currentStreak: 0 };
   }
 
-  // Filter to lesson flows: plan.blocks length > 1
+  // Count any completed session with a plan. Historically we filtered
+  // `blocks.length > 1` to exclude standalone one-off exercise pages, but
+  // Today's Practice legitimately ships single-block sessions, so that filter
+  // dropped every real completion and the greeting stuck on "your first session."
+  // `ended_reason='completed'` already excludes timeout_sweep / unmount rows.
   const lessonFlows = data.filter((row: any) => {
     const blocks = row?.plan?.blocks;
-    return Array.isArray(blocks) && blocks.length > 1;
+    return Array.isArray(blocks) && blocks.length >= 1;
   });
 
   const totalSessions = lessonFlows.length;
