@@ -733,6 +733,29 @@ export function NarrativeRetellGame({
     nextStory();
   }, [nextStory]);
 
+  // "Try this story again" — reset scored state and let the patient re-read
+  // and re-retell the SAME story instead of being pushed to the next one
+  // after a silent/low-coverage attempt.
+  const handleTryAgain = useCallback(() => {
+    try { stopTTS(); } catch {}
+    try { interruptVoiceGuidance(); } catch {}
+    setPhase('reading');
+    setLastResult(null);
+    setCollectedTranscript('');
+    setTypedText('');
+    setStallPromptIndex(-1);
+    setMicFailed(false);
+    hasProcessedRef.current = false;
+    latestTranscriptRef.current = '';
+    transcriptPrefixRef.current = '';
+    lastSpokenStallRef.current = -1;
+    setStoryReadComplete(false);
+    autoReadForIndexRef.current = null; // allow auto-read to fire again
+    autoStartedForIndexRef.current = null;
+    voiceController.clearSpokenHistory();
+  }, [stopTTS]);
+
+
   // Game complete screen
   if (!currentStory || isComplete) {
     const avgCoverage = results.length > 0
