@@ -442,26 +442,31 @@ export default function Today() {
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <Brain className="w-3.5 h-3.5" />
-                <span>Coaching level</span>
+                <span>How much should Maya talk?</span>
               </div>
-              <div className="flex rounded-lg border bg-muted/30 p-0.5">
-                {MODE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setMode(opt.value)}
-                    className={cn(
-                      'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
-                      mode === opt.value
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                    title={opt.desc}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex rounded-lg border-2 bg-muted/30 p-1 gap-1">
+                {MODE_OPTIONS.map((opt) => {
+                  const selected = mode === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setMode(opt.value)}
+                      aria-pressed={selected}
+                      className={cn(
+                        'flex-1 py-2 px-2 rounded-md text-xs font-semibold transition-all',
+                        selected
+                          ? 'bg-primary text-primary-foreground shadow ring-2 ring-primary/40'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+                      )}
+                      title={opt.desc}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-foreground/80 bg-muted/40 rounded-md px-3 py-2 text-left">
+                <span className="font-semibold">{MODE_OPTIONS.find(o => o.value === mode)?.label}:</span>{' '}
                 {MODE_OPTIONS.find(o => o.value === mode)?.desc}
               </p>
             </div>
