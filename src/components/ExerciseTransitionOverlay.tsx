@@ -7,6 +7,7 @@ import { getPerformanceTransition, getAdaptationMessage, shouldShowFeedback } fr
 import { useCoachingMode } from '@/contexts/CoachingModeContext';
 import { getTransitionCoaching } from '@/lib/coachingNarrative';
 import { getExerciseMicroGuidance } from '@/lib/exerciseMicroGuidance';
+import { useUiProfile } from '@/hooks/useUiProfile';
 
 interface ExerciseTransitionOverlayProps {
   type: 'encouragement' | 'micro-pause';
