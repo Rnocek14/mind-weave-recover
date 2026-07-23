@@ -252,7 +252,7 @@ export default function ConversationPartnerExercise() {
 
   // Game screen
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <header className="border-b shrink-0">
         <div className="flex items-center justify-between px-4 h-14">
            <Button variant="ghost" size="sm" onClick={handleExit}>

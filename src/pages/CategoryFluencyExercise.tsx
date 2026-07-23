@@ -259,7 +259,7 @@ export default function CategoryFluencyExercise() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -274,7 +274,7 @@ export default function CategoryFluencyExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 min-h-0 overflow-hidden flex flex-col">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
           <CategoryFluencyGame
             difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}
