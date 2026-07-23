@@ -171,13 +171,19 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     setState(prev => {
       const upcomingNeeded = prev.totalTrials - prev.trialIndex - 1;
       if (upcomingNeeded <= 0) return prev;
+      // Alternation guard: cap runs of same-side targets at 2 in a row.
+      let lastSide: 0 | 1 | null = null;
+      let sameRun = 0;
       const fresh = getMinimalPairTrialsForLevel(cappedDifficulty, upcomingNeeded, { focusPhonemes })
         .map(trial => {
-          const targetIndex = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+          let side = (Math.random() < 0.5 ? 0 : 1) as 0 | 1;
+          if (lastSide !== null && side === lastSide && sameRun >= 2) side = (1 - side) as 0 | 1;
+          sameRun = side === lastSide ? sameRun + 1 : 1;
+          lastSide = side;
           return {
             ...trial,
-            targetIndex,
-            targetWord: targetIndex === 0 ? trial.pair.word1 : trial.pair.word2,
+            targetIndex: side,
+            targetWord: side === 0 ? trial.pair.word1 : trial.pair.word2,
           };
         });
       const past = prev.trials.slice(0, prev.trialIndex + 1);
