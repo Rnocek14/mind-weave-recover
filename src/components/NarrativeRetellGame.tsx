@@ -1224,20 +1224,29 @@ export function NarrativeRetellGame({
 
         // Pause auto-advance while user is replaying / typing
         const paused = isTTSSpeaking || vg.isSpeaking;
+        // Silent or near-silent attempt → let the patient try again instead
+        // of being pushed to the next story after 10s.
+        const attemptWasEmpty =
+          !lastResult.transcript?.trim() || lastResult.eventCoverage === 0;
 
         return (
           <div className="space-y-3">
-            {paused ? (
+            {paused || attemptWasEmpty ? (
               <>
                 {ScoredCard}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="lg" onClick={stopTTS}>
-                    Stop reading
+                  <Button variant="outline" size="lg" onClick={handleTryAgain}>
+                    Try this story again
                   </Button>
                   <Button onClick={handleContinue} size="lg">
                     {currentIndex + 1 < totalStories ? 'Next Story' : 'Finish'} <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
+                {paused && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={stopTTS}>
+                    Stop reading
+                  </Button>
+                )}
               </>
             ) : (
               <RoundDoneAutoAdvance
@@ -1246,14 +1255,22 @@ export function NarrativeRetellGame({
                 delayMs={10000}
               >
                 {ScoredCard}
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleListenToStory}
-                >
-                  🔊 Read story again
-                </Button>
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleTryAgain}
+                  >
+                    Try again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleListenToStory}
+                  >
+                    🔊 Read story
+                  </Button>
+                </div>
               </RoundDoneAutoAdvance>
             )}
           </div>
