@@ -64,9 +64,9 @@ const Admin = () => {
       <DashboardTour role="admin" />
       <div className="container mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+          <Button variant="ghost" onClick={() => navigate("/clinician/review")}>
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Back to Clinician Dashboard
           </Button>
           <RoleHelpButton role="admin" withLabel spotlight />
         </div>
