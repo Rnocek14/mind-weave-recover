@@ -13,7 +13,7 @@ import {
   Equal, Sparkles, Clock 
 } from 'lucide-react';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
-import { useLearningRate } from '@/hooks/useLearningRate';
+import { useLearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 
 interface RecoveryMotivationCardsProps {
   userId: string;
@@ -38,7 +38,7 @@ export const RecoveryMotivationCards = memo(({ userId }: RecoveryMotivationCards
 
   const fluency = analytics?.fluencyMetrics;
   const cues = analytics?.cueEfficacy || [];
-  const namingRate = learningRates.find(r => r.domain === 'naming');
+  const namingRate = findSpeechLearningRate(learningRates);
 
   // Build motivation cards from data
   const cards: MotivationCard[] = [];

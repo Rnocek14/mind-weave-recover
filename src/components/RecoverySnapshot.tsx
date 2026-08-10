@@ -37,7 +37,7 @@ import {
   Play
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useLearningRate } from '@/hooks/useLearningRate';
+import { useLearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 import { useWeeklyTrends } from '@/hooks/useWeeklyTrends';
 import { useErrorPatternAnalytics } from '@/hooks/useErrorPatternAnalytics';
 import { useCapabilitySpeechCorrelation } from '@/hooks/useCapabilitySpeechCorrelation';
@@ -152,7 +152,7 @@ export const RecoverySnapshot = memo(({ userId }: RecoverySnapshotProps) => {
   recoveryEvidencePoints.push(`${totalTrials} trials across ${totalSessions} practice days`);
   
   if (learningRates.length > 0) {
-    const namingRate = learningRates.find(r => r.domain === 'naming');
+    const namingRate = findSpeechLearningRate(learningRates);
     if (namingRate?.accuracySlope) {
       recoveryEvidencePoints.push(`Naming trend: ${namingRate.accuracySlope > 0 ? '+' : ''}${(namingRate.accuracySlope * 100).toFixed(1)}%/week (${namingRate.trialCount} samples)`);
     }

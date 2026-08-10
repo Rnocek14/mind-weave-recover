@@ -10,7 +10,7 @@
  * 5. Is anything wrong?
  */
 
-import { LearningRate } from '@/hooks/useLearningRate';
+import { LearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 import { DailyTrend } from '@/hooks/useWeeklyTrends';
 import { getCueLabel } from '@/lib/insightLanguageMap';
 
@@ -75,7 +75,7 @@ export function narrateRecoveryTrend(
   const accuracyChange = recentAccuracy - earlierAccuracy;
 
   // Check learning rates for speech domain specifically
-  const speechRate = learningRates.find(r => r.domain === 'naming' || r.domain === 'speech');
+  const speechRate = findSpeechLearningRate(learningRates);
   const speechTrend = speechRate?.trend || 'plateau';
 
   // Determine verdict

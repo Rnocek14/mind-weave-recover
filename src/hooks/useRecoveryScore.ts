@@ -18,7 +18,8 @@ import { useCueIndependence } from './useCueIndependence';
 import { useErrorQualityScore } from './useErrorQualityScore';
 import { useWordMastery } from './useWordMastery';
 import { useSessionEndurance } from './useSessionEndurance';
-import { useLearningRate } from './useLearningRate';
+import { useLearningRate, findSpeechLearningRate } from './useLearningRate';
+import { localYYYYMMDD } from '@/lib/localDate';
 
 const SCORE_VERSION = 'v1';
 
@@ -128,7 +129,7 @@ export function useRecoveryScore(
   const { score, breakdown, confidence } = useMemo(() => {
     if (loading || !userId) return { score: null, breakdown: null, confidence: 'insufficient' as const };
 
-    const speechRate = learningRates?.find(r => r.domain === 'naming' || r.domain === 'speech_therapy');
+    const speechRate = findSpeechLearningRate(learningRates);
 
     const accuracyComponent = normalizeAccuracy(
       speechRate?.endAccuracy ?? null,
@@ -188,11 +189,13 @@ export function useRecoveryScore(
   const persistSnapshotFn = useCallback(async () => {
     if (!userId || !profileId || score == null || !persistSnapshot || snapshotPersisted || confidence === 'insufficient') return;
 
-    const today = new Date().toISOString().slice(0, 10);
-    
+    // Local calendar day — a UTC date rolls the snapshot into "tomorrow"
+    // for evening sessions west of UTC.
+    const today = localYYYYMMDD();
+
     try {
-      const speechRate = learningRates?.find(r => r.domain === 'naming' || r.domain === 'speech_therapy');
-      
+      const speechRate = findSpeechLearningRate(learningRates);
+
       await supabase
         .from('recovery_score_snapshots')
         .upsert({
