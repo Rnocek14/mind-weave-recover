@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +7,12 @@ const corsHeaders = {
 };
 
 const MAYA_DEFAULT_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX'; // Matilda
+
+// Longest legitimate utterance is a narrative story read-aloud (< 1k chars).
+// The cap bounds per-request ElevenLabs spend; voiceId is interpolated into
+// the upstream URL so it must stay a plain token.
+const MAX_TEXT_LENGTH = 2000;
+const VOICE_ID_PATTERN = /^[A-Za-z0-9]{8,40}$/;
 
 // Mirror of src/lib/constants/voice.ts — keep in sync.
 const VOICE_SETTINGS = {
@@ -34,6 +41,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Validate the caller's Supabase JWT in code — verify_jwt alone accepts the
+  // anon key shipped in every browser bundle, which left this paid ElevenLabs
+  // endpoint open to anyone. Mirrors analyze-pronunciation.
+  const caller = await getAuthedUser(req);
+  if (!caller) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const body = await req.json();
     const text: string | undefined = body?.text;
@@ -45,6 +63,20 @@ serve(async (req) => {
     if (!text) {
       return new Response(
         JSON.stringify({ error: 'No text provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Text exceeds ${MAX_TEXT_LENGTH} character limit` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!VOICE_ID_PATTERN.test(voiceId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid voiceId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
