@@ -78,15 +78,18 @@ export function useTrialSubmission(opts: Options) {
   const { logTrial: logExerciseEvent, startTrial, calculateReactionTime } =
     useExerciseTelemetry(opts.sessionId, canonicalSlug);
 
-  // Layer 2 — per-trial adaptation telemetry. Disabled here when the caller
-  // already auto-wires it via useInGameAdaptation (autoLog:true). To avoid
-  // double inserts we own a single "manual" logger per submitTrial pathway.
+  // Layer 2 — per-trial adaptation telemetry. This logger only fires for
+  // trials that carry taskParameters.unified_route_adaptation_log === true
+  // (see gate in submitTrial below), which games set when their in-game
+  // adaptation hook is autoLog:false and the page owns the writer. Games
+  // that auto-wire via useInGameAdaptation (autoLog:true) never pass the
+  // flag, so there is no double insert.
   const { logTrial: logAdaptationTrial, flush: flushAdaptation } = useAdaptationTrialLogger({
     userId: opts.userId,
     profileId: opts.profileId,
     sessionId: opts.sessionId,
     exerciseSlug: canonicalSlug,
-    enabled: false, // OFF by default — see comment block in submitTrial below.
+    enabled: true,
   });
 
   const trialCountRef = useRef(0);
@@ -151,13 +154,12 @@ export function useTrialSubmission(opts: Options) {
       }
 
       // 2) adaptation_trial_logs.
-      // IMPORTANT: most adaptive games already auto-wire this via
-      // useInGameAdaptation (autoLog:true). Calling logAdaptationTrial here
-      // would double-insert. The local logger above is `enabled: false` so
-      // this is a no-op until a future migration explicitly opts a game
-      // OUT of the auto-logger and passes its trials through here.
-      // We still mark it routed when the underlying auto-logger handled it
-      // (signalled by the caller via taskParameters.adaptation_logged === true).
+      // IMPORTANT: games that auto-wire this via useInGameAdaptation
+      // (autoLog:true) or a hand-wired useAdaptationTrialLogger (PhotoNaming,
+      // TwoClues) must NOT also pass the flag below — that would double-insert.
+      // Games whose adaptation hook is autoLog:false opt in by setting
+      // taskParameters.unified_route_adaptation_log = true, making this
+      // pathway their single adaptation writer.
       try {
         if (input.taskParameters?.unified_route_adaptation_log === true) {
           logAdaptationTrial({

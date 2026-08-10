@@ -176,6 +176,8 @@ export default function DualLoadNamingExercise() {
       trialMode: 'production',
       errorType,
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         set_id: result.setId,
         naming_accuracy: result.namingAccuracy,
         recall_accuracy: result.recallAccuracy,

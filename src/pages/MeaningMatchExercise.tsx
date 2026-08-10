@@ -180,6 +180,8 @@ export default function MeaningMatchExercise() {
       trialMode: 'recognition',
       errorType: result.correct ? undefined : 'semantic_confusion',
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         item_id: result.itemId,
         tier: result.tier,
         type: result.type,

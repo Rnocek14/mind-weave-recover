@@ -231,6 +231,8 @@ export default function SemanticFeatureExercise() {
       trialMode: 'production',
       errorType: isCorrect ? undefined : 'semantic_error',
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         word: data?.word,
         difficulty: data?.difficulty,
         features_correct: data?.featuresCorrect,
