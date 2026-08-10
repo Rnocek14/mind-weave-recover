@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Flame, Award, MessageCircle, Loader2, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Flame, Award, Clock, Loader2, TrendingUp } from 'lucide-react';
 import { PatientTabBar } from '@/components/PatientTabBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,60 +14,45 @@ import { SessionAdherenceTracker } from '@/components/SessionAdherenceTracker';
 import { TransferTrendCard } from '@/components/TransferTrendCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfile } from '@/hooks/useProfile';
+import { calculateStreak } from '@/hooks/useStreakCalculation';
 
 interface ProgressStats {
   totalSessions: number;
   currentStreak: number;
-  totalWords: number;
+  totalMinutes: number;
 }
 
 async function loadProgressStats(userId: string, profileId?: string | null): Promise<ProgressStats> {
-  // Source-of-truth = `sessions` table; count completed lesson flows (multi-block).
+  // Source-of-truth = `sessions` table. Every finished session counts —
+  // standalone single-exercise practice included (the old multi-block filter
+  // zeroed this page for users who only practice via /practice).
   // MUST be scoped to the active profile to avoid cross-profile leakage.
   let query = supabase
     .from('sessions')
-    .select('ended_at, plan, summary')
+    .select('ended_at, duration_sec')
     .eq('user_id', userId)
     .eq('ended_reason', 'completed')
     .not('ended_at', 'is', null)
     .order('ended_at', { ascending: false })
     .limit(1000);
   if (profileId) query = query.eq('profile_id', profileId);
-  const { data, error } = await query;
+  const [{ data, error }, currentStreak] = await Promise.all([
+    query,
+    // Shared streak definition — the same one Dashboard, PatientHub, and the
+    // caregiver views use, bucketed on local calendar days.
+    calculateStreak(userId, profileId),
+  ]);
 
   if (error || !data || data.length === 0) {
-    return { totalSessions: 0, currentStreak: 0, totalWords: 0 };
+    return { totalSessions: 0, currentStreak, totalMinutes: 0 };
   }
 
-  const lessonFlows = data.filter((row: any) => {
-    const blocks = row?.plan?.blocks;
-    return Array.isArray(blocks) && blocks.length > 1;
-  });
+  const totalSessions = data.length;
+  const totalMinutes = Math.round(
+    data.reduce((sum, r) => sum + (r.duration_sec || 0), 0) / 60
+  );
 
-  const totalSessions = lessonFlows.length;
-
-  // Streak
-  const toDay = (ts: string) => Math.floor(Date.parse(ts) / 86400000);
-  const uniqueDays = [...new Set(lessonFlows.map((r: any) => toDay(r.ended_at)))].sort((a, b) => b - a);
-  const today = toDay(new Date().toISOString());
-
-  let currentStreak = 0;
-  if (uniqueDays[0] === today || uniqueDays[0] === today - 1) {
-    currentStreak = 1;
-    for (let i = 1; i < uniqueDays.length; i++) {
-      if (uniqueDays[i - 1] - uniqueDays[i] === 1) {
-        currentStreak++;
-      } else break;
-    }
-  }
-
-  // Total words — sum any wordsProduced/score totals from summary if present.
-  const totalWords = lessonFlows.reduce((sum, r: any) => {
-    const s = r?.summary;
-    return sum + (s?.wordsProduced || s?.scores?.wordsProduced || 0);
-  }, 0);
-
-  return { totalSessions, currentStreak, totalWords };
+  return { totalSessions, currentStreak, totalMinutes };
 }
 
 export default function Progress() {
@@ -133,9 +118,9 @@ export default function Progress() {
             <p className="text-xs text-muted-foreground">Sessions</p>
           </div>
           <div className="bg-card border rounded-xl p-4 text-center space-y-1">
-            <MessageCircle className="w-5 h-5 text-primary mx-auto" />
-            <p className="text-2xl font-bold">{stats?.totalWords ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Words</p>
+            <Clock className="w-5 h-5 text-primary mx-auto" />
+            <p className="text-2xl font-bold">{stats?.totalMinutes ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Minutes</p>
           </div>
         </div>
 
