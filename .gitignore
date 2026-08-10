@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# The tracked .env holds ONLY public values (Supabase URL + anon key — also
+# hardcoded in src/integrations/supabase/client.ts) and is read by CI and the
+# deploy build. Real secrets belong in local env files, which stay ignored:
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
