@@ -13,6 +13,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   children: ReactNode;
@@ -23,6 +24,10 @@ interface State {
 }
 
 const LAST_CRASH_KEY = "last_render_crash_v1";
+
+// Cap reports per page load so a crash loop can't flood the table.
+let reportsThisLoad = 0;
+const MAX_REPORTS_PER_LOAD = 10;
 
 function recordCrash(source: string, message: string, detail?: string) {
   console.error(`[AppErrorBoundary] ${source}:`, message, detail ?? "");
@@ -40,6 +45,27 @@ function recordCrash(source: string, message: string, detail?: string) {
   } catch {
     // Storage unavailable — console is the best we can do.
   }
+
+  // Field visibility: persist to client_errors (RLS: insert-own, admin read).
+  // Fire-and-forget — error reporting must never throw into the crash path.
+  if (reportsThisLoad >= MAX_REPORTS_PER_LOAD) return;
+  reportsThisLoad += 1;
+  void (async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from("client_errors" as never).insert({
+        user_id: user.id,
+        source,
+        message: message.slice(0, 1000),
+        detail: detail?.slice(0, 8000) ?? null,
+        url: window.location.pathname,
+        user_agent: navigator.userAgent.slice(0, 300),
+      } as never);
+    } catch {
+      /* reporting is best-effort */
+    }
+  })();
 }
 
 /** Global handlers for errors that never reach the React tree. */

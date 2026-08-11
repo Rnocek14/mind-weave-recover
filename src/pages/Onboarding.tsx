@@ -13,6 +13,7 @@ import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { buildOnboardingClinicalProfile, canOnboardingOverwrite } from "@/lib/onboardingClinicalProfile";
 import { setProfileProvenance } from "@/lib/profileProvenance";
 import { markOnboardingComplete } from "@/lib/onboarding";
+import { trackEvent, FUNNEL_EVENTS } from "@/lib/appEvents";
 
 type ScreenerAnswers = {
   strokeTiming: string | null;
@@ -141,6 +142,11 @@ const Onboarding = () => {
     // Completing the screener IS completing onboarding — without this the
     // OnboardingGate bounced finishers straight back into /welcome.
     await markOnboardingComplete(user?.id);
+
+    trackEvent(FUNNEL_EVENTS.SCREENER_COMPLETED, {
+      goals: selectedGoals,
+      difficulties: screener.mainDifficulty.length,
+    });
 
     toast({
       title: "Welcome to your recovery journey! 🎉",

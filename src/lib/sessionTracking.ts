@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ExerciseModality, normalizeExerciseSlug } from './exerciseSlugNormalizer';
+import { trackEvent, FUNNEL_EVENTS } from './appEvents';
 
 export interface SessionPlan {
   blocks: Array<{
@@ -80,6 +81,14 @@ export const startSession = async (
   }
   
   console.log('✅ Session created:', data.id, 'profile:', actualProfileId, 'modality:', opts.modality);
+  // Funnel: every session start flows through here or useStandaloneSession
+  // (which also calls this). One chokepoint = one consistent event.
+  trackEvent(FUNNEL_EVENTS.SESSION_STARTED, {
+    session_id: data.id,
+    block_count: Array.isArray((planWithModality as any)?.blocks)
+      ? (planWithModality as any).blocks.length
+      : null,
+  });
   return data;
 };
 
@@ -155,7 +164,14 @@ export const endSession = async (
     .is('ended_at', null);
   
   if (error) throw error;
-  
+
+  if (reason === 'completed') {
+    trackEvent(FUNNEL_EVENTS.SESSION_COMPLETED, {
+      session_id: sessionId,
+      duration_sec: summary.durationSec ?? null,
+    });
+  }
+
   // Get user_id for post-session tasks
   const { data: session } = await supabase
     .from('sessions')

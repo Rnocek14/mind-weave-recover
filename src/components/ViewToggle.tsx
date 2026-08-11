@@ -12,6 +12,12 @@
 import { useState } from 'react';
 import { Eye, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  TEXT_SCALES,
+  getStoredTextScale,
+  setTextScale,
+  type TextScale,
+} from '@/lib/textScale';
 
 type SimpleView = 'simplified-fluent' | 'standard' | 'minimal';
 
@@ -35,6 +41,12 @@ function readCurrent(): SimpleView {
 export function ViewToggle() {
   const [expanded, setExpanded] = useState(false);
   const current = readCurrent();
+  const [textScale, setTextScaleState] = useState<TextScale>(getStoredTextScale);
+
+  const changeTextScale = (scale: TextScale) => {
+    setTextScale(scale); // persists + applies to the document root immediately
+    setTextScaleState(scale);
+  };
 
   const set = (v: SimpleView) => {
     try {
@@ -95,6 +107,42 @@ export function ViewToggle() {
             </button>
           );
         })}
+      </div>
+
+      {/* Text size — applies instantly across the whole app (rem-scaled). */}
+      <div className="mt-3 border-t border-border pt-2.5">
+        <span className="text-sm font-semibold">Text size</span>
+        <div className="mt-1.5 flex gap-1.5" role="group" aria-label="Text size">
+          {(Object.keys(TEXT_SCALES) as TextScale[]).map((scale) => {
+            const isActive = textScale === scale;
+            return (
+              <button
+                key={scale}
+                type="button"
+                onClick={() => changeTextScale(scale)}
+                aria-pressed={isActive}
+                className={cn(
+                  'flex-1 rounded-lg border px-2 py-2 text-center transition-colors',
+                  isActive
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'font-semibold leading-none',
+                    scale === 'normal' ? 'text-sm' : scale === 'large' ? 'text-base' : 'text-lg'
+                  )}
+                >
+                  Aa
+                </span>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {TEXT_SCALES[scale].label}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
