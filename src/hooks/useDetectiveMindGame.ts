@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { DETECTIVE_CASES, DetectiveCase, levelToTier } from '@/data/detectiveMindCases';
 import { shuffleArray } from '@/lib/shuffle';
+import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 
 export type DetectiveRank = 'Rookie' | 'Junior Detective' | 'Investigator' | 'Senior Detective' | 'Chief Detective';
 
@@ -45,8 +46,13 @@ function buildCasePool(tier: number, roundCount: number, seen: Set<string>): Det
   const adjacent = DETECTIVE_CASES.filter(c => Math.abs(c.tier - tier) === 1);
   const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
   const unique = pool.filter(c => !seen.has(c.id));
-  const finalPool = unique.length >= roundCount ? unique : shuffleArray(pool);
-  return finalPool.slice(0, roundCount);
+  const base = unique.length >= roundCount ? unique : shuffleArray(pool);
+  // Cross-session recency on top of the in-session `seen` filter — ~20
+  // cases/tier with 10-round sessions repeats by day two otherwise. Soft:
+  // stale cases fall to the back, never below roundCount.
+  const picked = orderFreshFirst('detective_mind', base, { tier }).slice(0, roundCount);
+  markManyUsed('detective_mind', picked.map(c => c.id), { tier });
+  return picked;
 }
 
 export function useDetectiveMindGame(roundCount: number = 10, difficultyLevel: number = 1) {

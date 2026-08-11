@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { TwoCluesPuzzle, shufflePuzzles, getPuzzles } from '@/data/twoCluesBank';
+import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 import { filterKidsTwoCluesPuzzles } from '@/data/kidsContent';
 import { useKidsMode } from '@/contexts/KidsModeContext';
 import { scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
@@ -76,8 +77,15 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     if (kidsMode && !category && !difficulty) {
       puzzles = filterKidsTwoCluesPuzzles(puzzles);
     }
-    puzzles = shufflePuzzles(puzzles).slice(0, roundCount);
-    return puzzles;
+    // Cross-session recency: prefer puzzles not seen in the last ~2 sessions
+    // (T2/T3 pools are ~20 items with 10-round sessions — naive shuffle
+    // repeats within two days). Soft: never yields fewer than roundCount.
+    const ordered = orderFreshFirst('two_clues', shufflePuzzles(puzzles), {
+      tier: difficulty ?? '*',
+    });
+    const picked = ordered.slice(0, roundCount);
+    markManyUsed('two_clues', picked.map((p) => p.id), { tier: difficulty ?? '*' });
+    return picked;
   }, [category, difficulty, roundCount, focusPhonemes?.join(','), kidsMode]);
 
   const [state, setState] = useState<TwoCluesGameState>(() => ({
