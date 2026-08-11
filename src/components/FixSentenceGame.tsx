@@ -55,6 +55,10 @@ interface FixSentenceGameProps {
   /** Clinical-progression engine floor (1–10). Raises the initial difficulty
    *  but does NOT cap session adaptation (engine can still escalate above). */
   initialDifficultyFloor?: number;
+  /** Persistent Clinical Level (1–8). Routes the content selector: L4 serves
+   *  the common-verb cohort, L5 the two-error bank, L6 the morphology bank.
+   *  Without it the hook only uses difficulty-banded baseline content. */
+  clinicalLevel?: number;
   /** Page-level callback to register a force-flush for adaptation_trial_logs.
    *  The page awaits this on completion to avoid the final-trial flush race. */
   registerFlush?: (fn: () => Promise<void>) => void;
@@ -69,6 +73,7 @@ export function FixSentenceGame({
   userId,
   profileId,
   initialDifficultyFloor,
+  clinicalLevel,
   registerFlush,
 }: FixSentenceGameProps) {
   const [isListening, setIsListening] = useState(false);
@@ -198,6 +203,7 @@ export function FixSentenceGame({
     trialCount,
     difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))) as 1 | 2 | 3,
     focusPhonemes,
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   });
