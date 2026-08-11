@@ -15,6 +15,7 @@ import type { RecencyPenalties } from './exerciseRecency';
 import type { ProgressionPlanningSignal } from './progressionPlanningSignals';
 import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
 import { isPolishedExercise, filterToPolished, POLISHED_EXERCISES } from './polishedExercises';
+import { filterForSeverity } from './exerciseGating';
 
 /** Speech profile signals used for exercise SELECTION scoring (not in-game adaptation) */
 export interface SpeechProfileSelectionSignals {
@@ -669,20 +670,32 @@ export function generateDailyLesson(
   struggleReEntryConfigs?: Map<string, { difficulty: number; cueLevel: number }> | null,
   progressionSignals?: Map<string, ProgressionPlanningSignal> | null,
 ): DailyLesson {
+  // Severity gate: a severe/global aphasia profile is auto-routed to the
+  // tap-based, audio-supported subset. Capability gating alone never did
+  // this — it checks vision/motor/attention, so a globally aphasic patient
+  // with intact vision was served sentence-production tasks.
+  const severityFiltered = filterForSeverity(accessibleExercises, clinicalProfile);
+  if (severityFiltered.length < accessibleExercises.length) {
+    console.log('[DailyLessonEngine] Severe-aphasia gate filtered candidates:',
+      `${accessibleExercises.length} accessible → ${severityFiltered.length} severity-appropriate`);
+  }
+
   // Polished allowlist gate: daily auto-selection only chooses from QA'd games.
   // Unpolished games remain available via manual picker / dev routes.
-  const polishedAccessible = filterToPolished(accessibleExercises);
-  if (polishedAccessible.length < accessibleExercises.length) {
+  const polishedAccessible = filterToPolished(severityFiltered);
+  if (polishedAccessible.length < severityFiltered.length) {
     console.log('[DailyLessonEngine] Polished allowlist filtered candidates:',
-      `${accessibleExercises.length} accessible → ${polishedAccessible.length} polished`,
+      `${severityFiltered.length} accessible → ${polishedAccessible.length} polished`,
       'allowlist:', POLISHED_EXERCISES);
   }
 
-  // If a preset is requested and all its exercises are accessible, return it directly
+  // If a preset is requested and all its exercises are accessible, return it
+  // directly. Presets must also clear the severity gate — a severe-aphasia
+  // profile shouldn't receive a preset full of speech-production tasks.
   if (preset && PRESET_LESSONS[preset]) {
     const presetDef = PRESET_LESSONS[preset];
     const allPolished = presetDef.blocks.every(b => isPolishedExercise(b.exerciseId));
-    const allAccessible = presetDef.blocks.every(b => accessibleExercises.includes(b.exerciseId));
+    const allAccessible = presetDef.blocks.every(b => severityFiltered.includes(b.exerciseId));
     if (allPolished && allAccessible) {
       const defaultAdaptations: ExerciseBlock['adaptations'] = {
         startDifficulty: todayFocusAdaptations?.startDifficulty ?? 1,

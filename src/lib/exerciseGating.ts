@@ -52,6 +52,47 @@ export const EXERCISE_GATING_RULES: ExerciseGatingRule[] = CANONICAL_EXERCISES
   }));
 
 /**
+ * Exercises usable without spoken production or sentence-level reading —
+ * the subset a severe/global aphasia profile is routed to for daily
+ * auto-selection. Photo Naming qualifies because its choice chips give a
+ * tap-only recognition path; Minimal Pairs is audio-delivered two-photo
+ * tap (the strongest severe-aphasia activity in the catalog). Manual
+ * choice in the Practice picker is deliberately NOT restricted.
+ */
+export const SEVERE_APHASIA_FRIENDLY_EXERCISES: readonly string[] = [
+  'photo-naming',
+  'minimal-pairs',
+  'pattern-match',
+  'reach-tap',
+  'left-side-hunt',
+];
+
+/**
+ * True when the active clinical profile carries the severe-aphasia flag.
+ * Set by the onboarding screener (broad impairment + high fatigue) or by
+ * a clinician-authored profile; stored in extraction_metadata.
+ */
+export function isSevereAphasiaProfile(
+  clinicalProfile: { extraction_metadata?: Record<string, unknown> | null } | null | undefined
+): boolean {
+  return clinicalProfile?.extraction_metadata?.severe_aphasia_mode === true;
+}
+
+/**
+ * Restrict auto-selection candidates for severe-aphasia profiles.
+ * Safety valve: never filters to an empty list — if nothing in the
+ * friendly set is accessible, the original list is returned unchanged.
+ */
+export function filterForSeverity(
+  slugs: string[],
+  clinicalProfile: { extraction_metadata?: Record<string, unknown> | null } | null | undefined
+): string[] {
+  if (!isSevereAphasiaProfile(clinicalProfile)) return slugs;
+  const filtered = slugs.filter(s => SEVERE_APHASIA_FRIENDLY_EXERCISES.includes(s));
+  return filtered.length > 0 ? filtered : slugs;
+}
+
+/**
  * Check if an exercise is accessible based on capability scores
  */
 export function isExerciseAccessible(
