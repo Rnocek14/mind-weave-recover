@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { StrokeProfileWidget } from "@/components/StrokeProfileWidget";
 import { buildOnboardingClinicalProfile, canOnboardingOverwrite } from "@/lib/onboardingClinicalProfile";
 import { setProfileProvenance } from "@/lib/profileProvenance";
+import { markOnboardingComplete } from "@/lib/onboarding";
 
 type ScreenerAnswers = {
   strokeTiming: string | null;
@@ -137,6 +138,10 @@ const Onboarding = () => {
       }
     }
     
+    // Completing the screener IS completing onboarding — without this the
+    // OnboardingGate bounced finishers straight back into /welcome.
+    await markOnboardingComplete(user?.id);
+
     toast({
       title: "Welcome to your recovery journey! 🎉",
       description: "Let's get started with your first session",
