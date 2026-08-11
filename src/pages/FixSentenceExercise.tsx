@@ -32,6 +32,7 @@ import { resolveEffectiveFixSentenceInitialDifficulty } from '@/lib/progression/
 import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { getFixSentenceLevelSpec } from '@/lib/progression/fixSentenceLevels';
 import type { CommitSessionResult } from '@/lib/trial/types';
+import { buildFixSentenceTaskParameters } from '@/lib/telemetry/fixSentenceTaskParams';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
@@ -153,21 +154,11 @@ export default function FixSentenceExercise() {
       trialMode: 'production',
       validity,
       errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
-      taskParameters: {
-        trial_id: result.trialId,
-        sentence: result.sentence,
-        wrong_word: result.wrongWord,
-        spoken_word: result.spokenWord,
-        matched_fix: result.matchedFix,
-        self_corrected: result.selfCorrected,
-        semantic_similarity: result.semanticSimilarity,
-        difficulty: result.difficulty,
-        trial_source: 'fix_sentence_bank',
+      taskParameters: buildFixSentenceTaskParameters(result, {
         phoneme_matched: phonemeMatched,
         phoneme_targets: result.phonemeTargets,
-        close_miss: !result.isCorrect && result.isPartialCredit,
         ...adaptationTelemetry,
-      },
+      }),
     });
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
@@ -300,6 +291,7 @@ export default function FixSentenceExercise() {
               userId={user?.id}
               profileId={activeProfile?.id}
               initialDifficultyFloor={bridge.clinicalFloor}
+              clinicalLevel={progression.startingLevel}
               registerFlush={(fn) => { flushAdaptationLogsRef.current = fn; }}
             />
           </>

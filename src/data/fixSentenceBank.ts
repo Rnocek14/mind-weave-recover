@@ -61,13 +61,13 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ══════════════ DIFFICULTY 1: Obvious category violations ══════════════
   {
     id: 'fs_1', sentence: 'I washed my hands with a pillow.', wrongWord: 'pillow', wrongWordIndex: 7,
-    acceptedFixes: ['soap', 'towel'], fixAliases: { soap: ['so', 'soaps'], towel: ['towels', 'tal'] },
+    acceptedFixes: ['soap', 'towel', 'water', 'washcloth'], fixAliases: { soap: ['so', 'soaps'], towel: ['towels', 'tal'] },
     category: 'bathroom', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/s/', '/p/', '/t/'],
   },
   {
     id: 'fs_2', sentence: 'I brushed my teeth with a hammer.', wrongWord: 'hammer', wrongWordIndex: 7,
-    acceptedFixes: ['toothbrush', 'brush'], fixAliases: { toothbrush: ['tooth brush', 'toothbrushes'], brush: ['brushes'] },
+    acceptedFixes: ['toothbrush', 'brush', 'toothpaste'], fixAliases: { toothbrush: ['tooth brush', 'toothbrushes'], brush: ['brushes'] },
     category: 'bathroom', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/b/', '/r/', '/ʃ/'],
   },
@@ -109,13 +109,13 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_9', sentence: 'I read a chair before sleeping.', wrongWord: 'chair', wrongWordIndex: 3,
-    acceptedFixes: ['book', 'story', 'magazine'], fixAliases: { book: ['books'], story: ['stories'] },
+    acceptedFixes: ['book', 'story', 'magazine', 'newspaper', 'novel'], fixAliases: { book: ['books'], story: ['stories'] },
     category: 'home', difficulty: 1, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/b/', '/ʊ/', '/k/'],
   },
   {
     id: 'fs_10', sentence: 'The baby was crying in the tree.', wrongWord: 'tree', wrongWordIndex: 7,
-    acceptedFixes: ['crib', 'bed', 'stroller', 'room'], fixAliases: { crib: ['cribs', 'cred'], bed: ['beds'] },
+    acceptedFixes: ['crib', 'bed', 'stroller', 'room', 'nursery'], fixAliases: { crib: ['cribs', 'cred'], bed: ['beds'] },
     category: 'home', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/k/', '/r/', '/b/'],
   },
@@ -129,19 +129,24 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_12', sentence: 'I drank my water from a plate.', wrongWord: 'plate', wrongWordIndex: 7,
-    acceptedFixes: ['glass', 'cup', 'bottle'], fixAliases: { glass: ['glasses'], cup: ['cups'], bottle: ['bottles'] },
+    acceptedFixes: ['glass', 'cup', 'bottle', 'mug'], fixAliases: { glass: ['glasses'], cup: ['cups'], bottle: ['bottles'] },
     category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/g/', '/l/', '/k/', '/b/'],
   },
   {
-    id: 'fs_13', sentence: 'She put on her gloves and scarf and boots.', wrongWord: 'boots', wrongWordIndex: 9,
-    acceptedFixes: ['hat', 'coat', 'jacket'], fixAliases: { hat: ['hats'], coat: ['coats'], jacket: ['jackets'] },
+    // QA fix (wave 13): the original sentence ("…gloves and scarf and
+    // boots") contained NO error — every item is cold-weather clothing —
+    // so patients were asked to repair a correct sentence. Now the third
+    // item is a genuine category violation, and "boots" itself joins the
+    // valid repairs.
+    id: 'fs_13', sentence: 'She put on her gloves and scarf and spoons.', wrongWord: 'spoons', wrongWordIndex: 9,
+    acceptedFixes: ['hat', 'coat', 'jacket', 'boots', 'shoes'], fixAliases: { hat: ['hats'], coat: ['coats'], jacket: ['jackets'], boots: ['boot'], shoes: ['shoe'] },
     category: 'clothing', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/h/', '/æ/', '/t/', '/k/'],
   },
   {
     id: 'fs_14', sentence: 'The cat chased the bird across the ceiling.', wrongWord: 'ceiling', wrongWordIndex: 8,
-    acceptedFixes: ['yard', 'garden', 'lawn', 'floor', 'room'], fixAliases: { yard: ['yards'], garden: ['gardens'] },
+    acceptedFixes: ['yard', 'garden', 'lawn', 'floor', 'room', 'grass'], fixAliases: { yard: ['yards'], garden: ['gardens'] },
     category: 'home', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/j/', '/ɑː/', '/d/', '/g/'],
   },
@@ -153,13 +158,16 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_16', sentence: 'He sat on the table and watched TV.', wrongWord: 'table', wrongWordIndex: 4,
-    acceptedFixes: ['couch', 'sofa', 'chair'], fixAliases: { couch: ['couches'], sofa: ['sofas'], chair: ['chairs'] },
+    acceptedFixes: ['couch', 'sofa', 'chair', 'armchair', 'recliner', 'bench'], fixAliases: { couch: ['couches'], sofa: ['sofas'], chair: ['chairs'] },
     category: 'furniture', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/k/', '/aʊ/', '/tʃ/', '/s/'],
   },
   {
-    id: 'fs_17', sentence: 'I wrote a letter with a pencil and envelope.', wrongWord: 'pencil', wrongWordIndex: 7,
-    acceptedFixes: ['pen'], fixAliases: { pen: ['pens', 'pin'] },
+    // QA fix (wave 13): the error was previously marked as "pencil"→pen,
+    // but writing a letter with a pencil is perfectly normal — the real
+    // anomaly is writing WITH an envelope. Target the envelope instead.
+    id: 'fs_17', sentence: 'I wrote a letter with a pencil and envelope.', wrongWord: 'envelope', wrongWordIndex: 9,
+    acceptedFixes: ['paper', 'notepad', 'stationery', 'eraser'], fixAliases: { paper: ['papers'], notepad: ['note pad', 'notebook'], eraser: ['erasers'] },
     category: 'office', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/p/', '/ɛ/', '/n/'],
   },
@@ -171,7 +179,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_19', sentence: 'The children played in the kitchen at recess.', wrongWord: 'kitchen', wrongWordIndex: 5,
-    acceptedFixes: ['playground', 'yard', 'park', 'field'], fixAliases: { playground: ['play ground'], yard: ['yards'] },
+    acceptedFixes: ['playground', 'yard', 'park', 'field', 'gym', 'schoolyard'], fixAliases: { playground: ['play ground'], yard: ['yards'] },
     category: 'school', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/p/', '/l/', '/j/', '/ɑː/'],
   },
@@ -197,7 +205,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_23', sentence: 'He hammered the nail with a screwdriver.', wrongWord: 'screwdriver', wrongWordIndex: 7,
-    acceptedFixes: ['hammer'], fixAliases: { hammer: ['hammers'] },
+    acceptedFixes: ['hammer', 'mallet'], fixAliases: { hammer: ['hammers'] },
     category: 'tools', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/h/', '/æ/', '/m/'],
   },
@@ -209,7 +217,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_25', sentence: 'She measured the fabric with a pen.', wrongWord: 'pen', wrongWordIndex: 7,
-    acceptedFixes: ['ruler', 'tape measure', 'measuring tape'], fixAliases: { ruler: ['rulers', 'rule her'], 'tape measure': ['tape'], 'measuring tape': ['measure'] },
+    acceptedFixes: ['ruler', 'tape measure', 'measuring tape', 'yardstick'], fixAliases: { ruler: ['rulers', 'rule her'], 'tape measure': ['tape'], 'measuring tape': ['measure'] },
     category: 'craft', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/r/', '/uː/', '/l/'],
   },
@@ -253,7 +261,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_32', sentence: 'I sat down on a sandwich.', wrongWord: 'sandwich', wrongWordIndex: 5,
-    acceptedFixes: ['chair', 'couch', 'sofa', 'bench'], fixAliases: { chair: ['chairs'], couch: ['couches'], sofa: ['sofas'] },
+    acceptedFixes: ['chair', 'couch', 'sofa', 'bench', 'seat', 'stool'], fixAliases: { chair: ['chairs'], couch: ['couches'], sofa: ['sofas'] },
     category: 'furniture', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/tʃ/', '/ɛ/', '/r/'],
   },
@@ -265,7 +273,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_34', sentence: 'The fish swam in the sky.', wrongWord: 'sky', wrongWordIndex: 5,
-    acceptedFixes: ['water', 'pond', 'lake', 'ocean', 'sea'], fixAliases: { water: ['waters'], pond: ['ponds'], ocean: ['oceans'] },
+    acceptedFixes: ['water', 'pond', 'lake', 'ocean', 'sea', 'river', 'stream', 'aquarium', 'tank'], fixAliases: { water: ['waters'], pond: ['ponds'], ocean: ['oceans'] },
     category: 'nature', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/w/', '/ɔː/', '/t/', '/r/'],
   },
@@ -277,19 +285,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_36', sentence: 'She drank a glass of bread.', wrongWord: 'bread', wrongWordIndex: 5,
-    acceptedFixes: ['water', 'milk', 'juice', 'wine'], fixAliases: { water: ['waters'], milk: ['milks'], juice: ['juices'] },
+    acceptedFixes: ['water', 'milk', 'juice', 'wine', 'soda', 'tea'], fixAliases: { water: ['waters'], milk: ['milks'], juice: ['juices'] },
     category: 'food', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/w/', '/m/', '/dʒ/'],
   },
   {
     id: 'fs_37', sentence: 'The car drove down the river.', wrongWord: 'river', wrongWordIndex: 5,
-    acceptedFixes: ['road', 'street', 'highway', 'lane'], fixAliases: { road: ['roads'], street: ['streets'], highway: ['highways'] },
+    acceptedFixes: ['road', 'street', 'highway', 'lane', 'avenue', 'freeway'], fixAliases: { road: ['roads'], street: ['streets'], highway: ['highways'] },
     category: 'driving', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/r/', '/oʊ/', '/d/', '/s/'],
   },
   {
     id: 'fs_38', sentence: 'I cooked the eggs in a hat.', wrongWord: 'hat', wrongWordIndex: 7,
-    acceptedFixes: ['pan', 'skillet', 'pot'], fixAliases: { pan: ['pans'], skillet: ['skillets'], pot: ['pots'] },
+    acceptedFixes: ['pan', 'skillet', 'pot', 'frying pan'], fixAliases: { pan: ['pans'], skillet: ['skillets'], pot: ['pots'] },
     category: 'kitchen', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/p/', '/æ/', '/n/'],
   },
@@ -309,19 +317,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ══════════════ TIER 2 EXPANSION (engine L4–L7): same-category swaps, longer sentences ══════════════
   {
     id: 'fs_41', sentence: 'I sliced the bread with a spoon from the drawer.', wrongWord: 'spoon', wrongWordIndex: 6,
-    acceptedFixes: ['knife'], fixAliases: { knife: ['knives', 'nife'] },
+    acceptedFixes: ['knife', 'bread knife'], fixAliases: { knife: ['knives', 'nife'] },
     category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/n/', '/aɪ/', '/f/'],
   },
   {
     id: 'fs_42', sentence: 'After dinner she rinsed the plates and dried each cup with a fork.', wrongWord: 'fork', wrongWordIndex: 12,
-    acceptedFixes: ['towel', 'cloth', 'rag'], fixAliases: { towel: ['towels'], cloth: ['cloths'], rag: ['rags'] },
+    acceptedFixes: ['towel', 'cloth', 'rag', 'dish towel', 'dishcloth'], fixAliases: { towel: ['towels'], cloth: ['cloths'], rag: ['rags'] },
     category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/t/', '/aʊ/', '/əl/'],
   },
   {
     id: 'fs_43', sentence: 'He grabbed his keys, his wallet, and his shirt before driving to work.', wrongWord: 'shirt', wrongWordIndex: 8,
-    acceptedFixes: ['phone', 'jacket', 'coat', 'glasses'], fixAliases: { phone: ['phones'], jacket: ['jackets'] },
+    acceptedFixes: ['phone', 'jacket', 'coat', 'glasses', 'briefcase', 'bag', 'shoes'], fixAliases: { phone: ['phones'], jacket: ['jackets'] },
     category: 'daily', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/f/', '/oʊ/', '/n/'],
   },
@@ -339,7 +347,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_46', sentence: 'I packed the suitcase with shirts, pants, socks, and dishes for my trip.', wrongWord: 'dishes', wrongWordIndex: 10,
-    acceptedFixes: ['shoes', 'underwear', 'sweaters', 'jackets'], fixAliases: { shoes: ['shoe'], sweaters: ['sweater'] },
+    acceptedFixes: ['shoes', 'underwear', 'sweaters', 'jackets', 'pajamas', 'shorts'], fixAliases: { shoes: ['shoe'], sweaters: ['sweater'] },
     category: 'travel', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/ʃ/', '/uː/', '/z/'],
   },
@@ -357,7 +365,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_49', sentence: 'She put the laundry in the refrigerator and turned the dial to start.', wrongWord: 'refrigerator', wrongWordIndex: 6,
-    acceptedFixes: ['washer', 'washing machine', 'dryer'], fixAliases: { washer: ['washers'], 'washing machine': ['washing'] },
+    acceptedFixes: ['washer', 'washing machine', 'dryer', 'machine'], fixAliases: { washer: ['washers'], 'washing machine': ['washing'] },
     category: 'home', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/w/', '/ɑː/', '/ʃ/', '/r/'],
   },
@@ -401,19 +409,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_56', sentence: 'The nurse cleaned the wound, applied antiseptic, and wrapped it tightly with a rope.', wrongWord: 'rope', wrongWordIndex: 13,
-    acceptedFixes: ['bandage', 'gauze', 'wrap'], fixAliases: { bandage: ['bandages', 'band aid', 'bandaid'], gauze: ['gauzes'] },
+    acceptedFixes: ['bandage', 'gauze', 'wrap', 'dressing', 'cloth'], fixAliases: { bandage: ['bandages', 'band aid', 'bandaid'], gauze: ['gauzes'] },
     category: 'health', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/b/', '/æ/', '/n/', '/d/', '/ɪ/', '/dʒ/'],
   },
   {
     id: 'fs_57', sentence: 'After raking the leaves into a large pile she scooped them into the freezer to take out back.', wrongWord: 'freezer', wrongWordIndex: 14,
-    acceptedFixes: ['bag', 'wheelbarrow', 'bin', 'trash bag', 'cart'], fixAliases: { bag: ['bags'], bin: ['bins'], wheelbarrow: ['wheel barrow'] },
+    acceptedFixes: ['bag', 'wheelbarrow', 'bin', 'trash bag', 'cart', 'trash can', 'basket'], fixAliases: { bag: ['bags'], bin: ['bins'], wheelbarrow: ['wheel barrow'] },
     category: 'garden', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/b/', '/æ/', '/g/'],
   },
   {
     id: 'fs_58', sentence: 'She poured the dry pasta into a pot of boiling milk and stirred it with a spoon.', wrongWord: 'milk', wrongWordIndex: 9,
-    acceptedFixes: ['water'], fixAliases: { water: ['waters'] },
+    acceptedFixes: ['water', 'broth'], fixAliases: { water: ['waters'] },
     category: 'kitchen', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/w/', '/ɔː/', '/t/', '/r/'],
   },
@@ -425,7 +433,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_60', sentence: 'Before the guests arrived she vacuumed the rugs, wiped the counters, and watered the carpet.', wrongWord: 'carpet', wrongWordIndex: 13,
-    acceptedFixes: ['plants', 'flowers', 'garden'], fixAliases: { plants: ['plant'], flowers: ['flower'], garden: ['gardens'] },
+    acceptedFixes: ['plants', 'flowers', 'garden', 'lawn', 'grass'], fixAliases: { plants: ['plant'], flowers: ['flower'], garden: ['gardens'] },
     category: 'home', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/p/', '/l/', '/æ/', '/n/', '/t/'],
   },
@@ -437,25 +445,25 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ── T1/semantic_swap (was 1, +7 → 8) ─────────────────────────────────
   {
     id: 'fs_61', sentence: 'I cut the bread with a fork.', wrongWord: 'fork', wrongWordIndex: 6,
-    acceptedFixes: ['knife'], fixAliases: { knife: ['knives', 'nife'] },
+    acceptedFixes: ['knife', 'bread knife'], fixAliases: { knife: ['knives', 'nife'] },
     category: 'kitchen', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/n/', '/aɪ/', '/f/'],
   },
   {
     id: 'fs_62', sentence: 'I drank milk from a bowl.', wrongWord: 'bowl', wrongWordIndex: 5,
-    acceptedFixes: ['glass', 'cup'], fixAliases: { glass: ['glasses'], cup: ['cups'] },
+    acceptedFixes: ['glass', 'cup', 'mug'], fixAliases: { glass: ['glasses'], cup: ['cups'] },
     category: 'kitchen', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/g/', '/l/', '/k/'],
   },
   {
     id: 'fs_63', sentence: 'I sat in the bed to eat dinner.', wrongWord: 'bed', wrongWordIndex: 4,
-    acceptedFixes: ['chair', 'seat'], fixAliases: { chair: ['chairs'], seat: ['seats'] },
+    acceptedFixes: ['chair', 'seat', 'couch', 'sofa'], fixAliases: { chair: ['chairs'], seat: ['seats'] },
     category: 'furniture', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/tʃ/', '/eə/', '/s/'],
   },
   {
     id: 'fs_64', sentence: 'She wore a skirt on her head.', wrongWord: 'skirt', wrongWordIndex: 3,
-    acceptedFixes: ['hat', 'scarf'], fixAliases: { hat: ['hats'], scarf: ['scarves'] },
+    acceptedFixes: ['hat', 'scarf', 'cap'], fixAliases: { hat: ['hats'], scarf: ['scarves'] },
     category: 'clothing', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/h/', '/æ/', '/t/'],
   },
@@ -467,7 +475,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_66', sentence: 'I wrote my name with a spoon.', wrongWord: 'spoon', wrongWordIndex: 6,
-    acceptedFixes: ['pen', 'pencil'], fixAliases: { pen: ['pens'], pencil: ['pencils'] },
+    acceptedFixes: ['pen', 'pencil', 'marker', 'crayon'], fixAliases: { pen: ['pens'], pencil: ['pencils'] },
     category: 'office', difficulty: 1, errorType: 'semantic_swap',
     phonemeTargets: ['/p/', '/ɛ/', '/n/'],
   },
@@ -487,19 +495,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ── T1/multiple_valid_repairs (was 3, +5 → 8) ────────────────────────
   {
     id: 'fs_68', sentence: 'I put butter on my plate.', wrongWord: 'plate', wrongWordIndex: 5,
-    acceptedFixes: ['bread', 'toast', 'sandwich'], fixAliases: { bread: ['breads'], toast: ['toasts'], sandwich: ['sandwiches'] },
+    acceptedFixes: ['bread', 'toast', 'sandwich', 'roll', 'bagel'], fixAliases: { bread: ['breads'], toast: ['toasts'], sandwich: ['sandwiches'] },
     category: 'food', difficulty: 1, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/b/', '/r/', '/ɛ/'],
   },
   {
     id: 'fs_69', sentence: 'She washed the dishes with a sponge and table.', wrongWord: 'table', wrongWordIndex: 8,
-    acceptedFixes: ['soap', 'water', 'brush'], fixAliases: { soap: ['soaps'], water: ['waters'], brush: ['brushes'] },
+    acceptedFixes: ['soap', 'water', 'brush', 'detergent', 'dish soap'], fixAliases: { soap: ['soaps'], water: ['waters'], brush: ['brushes'] },
     category: 'kitchen', difficulty: 1, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/s/', '/oʊ/', '/p/'],
   },
   {
     id: 'fs_70', sentence: 'He opened the door and walked into the ceiling.', wrongWord: 'ceiling', wrongWordIndex: 8,
-    acceptedFixes: ['room', 'house', 'kitchen', 'hallway'], fixAliases: { room: ['rooms'], house: ['houses'], hallway: ['hallways'] },
+    acceptedFixes: ['room', 'house', 'kitchen', 'hallway', 'hall', 'bedroom'], fixAliases: { room: ['rooms'], house: ['houses'], hallway: ['hallways'] },
     category: 'home', difficulty: 1, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/r/', '/uː/', '/m/'],
   },
@@ -511,7 +519,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_72', sentence: 'She added sugar and milk to her soup.', wrongWord: 'soup', wrongWordIndex: 7,
-    acceptedFixes: ['coffee', 'tea'], fixAliases: { coffee: ['coffees'], tea: ['teas'] },
+    acceptedFixes: ['coffee', 'tea', 'cereal', 'oatmeal', 'cocoa'], fixAliases: { coffee: ['coffees'], tea: ['teas'] },
     category: 'kitchen', difficulty: 1, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/k/', '/ɔː/', '/f/'],
   },
@@ -519,19 +527,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ── T1/category_error (was 17, +3 → 20) ─────────────────────────────
   {
     id: 'fs_73', sentence: 'I dried my hands on a window.', wrongWord: 'window', wrongWordIndex: 6,
-    acceptedFixes: ['towel', 'napkin'], fixAliases: { towel: ['towels'], napkin: ['napkins'] },
+    acceptedFixes: ['towel', 'napkin', 'paper towel', 'cloth'], fixAliases: { towel: ['towels'], napkin: ['napkins'] },
     category: 'bathroom', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/t/', '/aʊ/', '/l/'],
   },
   {
     id: 'fs_74', sentence: 'The baby drank from her shoe.', wrongWord: 'shoe', wrongWordIndex: 5,
-    acceptedFixes: ['bottle', 'cup'], fixAliases: { bottle: ['bottles'], cup: ['cups'] },
+    acceptedFixes: ['bottle', 'cup', 'sippy cup'], fixAliases: { bottle: ['bottles'], cup: ['cups'] },
     category: 'home', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/b/', '/ɒ/', '/t/'],
   },
   {
     id: 'fs_75', sentence: 'He combed his hair with a banana.', wrongWord: 'banana', wrongWordIndex: 6,
-    acceptedFixes: ['comb', 'brush'], fixAliases: { comb: ['combs'], brush: ['brushes'] },
+    acceptedFixes: ['comb', 'brush', 'hairbrush'], fixAliases: { comb: ['combs'], brush: ['brushes'] },
     category: 'bathroom', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/k/', '/oʊ/', '/m/'],
   },
@@ -539,31 +547,31 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ── T2/multiple_valid_repairs (was 3, +5 → 8) ────────────────────────
   {
     id: 'fs_76', sentence: 'She bought milk, eggs, and a chair at the store.', wrongWord: 'chair', wrongWordIndex: 6,
-    acceptedFixes: ['bread', 'butter', 'cheese', 'apple'], fixAliases: { bread: ['breads'], butter: ['butters'], cheese: ['cheeses'] },
+    acceptedFixes: ['bread', 'butter', 'cheese', 'apple', 'juice', 'cereal'], fixAliases: { bread: ['breads'], butter: ['butters'], cheese: ['cheeses'] },
     category: 'food', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/b/', '/r/', '/ɛ/'],
   },
   {
     id: 'fs_77', sentence: 'He packed his shirt, pants, and a stove for the trip.', wrongWord: 'stove', wrongWordIndex: 7,
-    acceptedFixes: ['jacket', 'suitcase', 'toothbrush', 'towel'], fixAliases: { jacket: ['jackets'], suitcase: ['suitcases'], towel: ['towels'] },
+    acceptedFixes: ['jacket', 'suitcase', 'toothbrush', 'towel', 'hat', 'book', 'camera'], fixAliases: { jacket: ['jackets'], suitcase: ['suitcases'], towel: ['towels'] },
     category: 'travel', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/dʒ/', '/æ/', '/k/'],
   },
   {
     id: 'fs_78', sentence: 'For breakfast I had toast, eggs, and a soap.', wrongWord: 'soap', wrongWordIndex: 8,
-    acceptedFixes: ['coffee', 'juice', 'banana'], fixAliases: { coffee: ['coffees'], juice: ['juices'], banana: ['bananas'] },
+    acceptedFixes: ['coffee', 'juice', 'banana', 'bacon', 'milk', 'tea'], fixAliases: { coffee: ['coffees'], juice: ['juices'], banana: ['bananas'] },
     category: 'food', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/k/', '/ɔː/', '/f/'],
   },
   {
     id: 'fs_79', sentence: 'She decorated the table with plates, glasses, and a hammer.', wrongWord: 'hammer', wrongWordIndex: 9,
-    acceptedFixes: ['napkins', 'flowers', 'candles', 'forks'], fixAliases: { napkins: ['napkin'], flowers: ['flower'], candles: ['candle'] },
+    acceptedFixes: ['napkins', 'flowers', 'candles', 'forks', 'silverware', 'spoons', 'knives'], fixAliases: { napkins: ['napkin'], flowers: ['flower'], candles: ['candle'] },
     category: 'home', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/n/', '/æ/', '/p/'],
   },
   {
     id: 'fs_80', sentence: 'The teacher asked us to bring pencils, paper, and a pillow.', wrongWord: 'pillow', wrongWordIndex: 10,
-    acceptedFixes: ['notebook', 'ruler', 'eraser', 'book'], fixAliases: { notebook: ['note book'], ruler: ['rulers'], book: ['books'] },
+    acceptedFixes: ['notebook', 'ruler', 'eraser', 'book', 'folder', 'scissors', 'crayons'], fixAliases: { notebook: ['note book'], ruler: ['rulers'], book: ['books'] },
     category: 'school', difficulty: 2, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/n/', '/oʊ/', '/t/'],
   },
@@ -577,7 +585,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_82', sentence: 'Before serving the soup he warmed the bowls in the freezer.', wrongWord: 'freezer', wrongWordIndex: 10,
-    acceptedFixes: ['oven', 'microwave'], fixAliases: { oven: ['ovens'], microwave: ['microwaves', 'micro wave'] },
+    acceptedFixes: ['oven', 'microwave', 'stove'], fixAliases: { oven: ['ovens'], microwave: ['microwaves', 'micro wave'] },
     category: 'kitchen', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/ʌ/', '/v/', '/ə/', '/n/'],
   },
@@ -585,25 +593,25 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // ── T3/multiple_valid_repairs (was 2, +6 → 8) ───────────────────────
   {
     id: 'fs_83', sentence: 'After the long hike he was thirsty so he opened a sandwich.', wrongWord: 'sandwich', wrongWordIndex: 11,
-    acceptedFixes: ['bottle', 'drink', 'water', 'soda'], fixAliases: { bottle: ['bottles'], drink: ['drinks'], water: ['waters'] },
+    acceptedFixes: ['bottle', 'drink', 'water', 'soda', 'juice'], fixAliases: { bottle: ['bottles'], drink: ['drinks'], water: ['waters'] },
     category: 'outdoor', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/b/', '/ɒ/', '/t/'],
   },
   {
     id: 'fs_84', sentence: 'When the rain started she grabbed her bag, keys, and a sandwich before leaving.', wrongWord: 'sandwich', wrongWordIndex: 11,
-    acceptedFixes: ['umbrella', 'jacket', 'raincoat', 'hat'], fixAliases: { umbrella: ['umbrellas'], jacket: ['jackets'], raincoat: ['rain coat'] },
+    acceptedFixes: ['umbrella', 'jacket', 'raincoat', 'hat', 'coat'], fixAliases: { umbrella: ['umbrellas'], jacket: ['jackets'], raincoat: ['rain coat'] },
     category: 'weather', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/ʌ/', '/m/', '/b/'],
   },
   {
     id: 'fs_85', sentence: "He couldn't sleep so he made himself a cup of cereal and sat by the window.", wrongWord: 'cereal', wrongWordIndex: 10,
-    acceptedFixes: ['tea', 'milk', 'cocoa', 'coffee'], fixAliases: { tea: ['teas'], milk: ['milks'], coffee: ['coffees'] },
+    acceptedFixes: ['tea', 'milk', 'cocoa', 'coffee', 'hot chocolate'], fixAliases: { tea: ['teas'], milk: ['milks'], coffee: ['coffees'] },
     category: 'kitchen', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/t/', '/iː/'],
   },
   {
     id: 'fs_86', sentence: 'Before painting the walls she covered the floor with old furniture to keep it clean.', wrongWord: 'furniture', wrongWordIndex: 10,
-    acceptedFixes: ['sheets', 'newspapers', 'tarps', 'towels'], fixAliases: { sheets: ['sheet'], newspapers: ['news papers'], towels: ['towel'] },
+    acceptedFixes: ['sheets', 'newspapers', 'tarps', 'towels', 'drop cloths', 'plastic'], fixAliases: { sheets: ['sheet'], newspapers: ['news papers'], towels: ['towel'] },
     category: 'home', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/ʃ/', '/iː/', '/t/'],
   },
@@ -630,7 +638,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   // --- T2 semantic swaps ---
   {
     id: 'fs_exp_1', sentence: 'She poured the cereal into a fork.', wrongWord: 'fork', wrongWordIndex: 7,
-    acceptedFixes: ['bowl'], fixAliases: { bowl: ['bowls', 'bull', 'ball'] },
+    acceptedFixes: ['bowl', 'cup'], fixAliases: { bowl: ['bowls', 'bull', 'ball'] },
     category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
     phonemeTargets: ['/b/', '/oʊ/', '/l/'],
   },
@@ -662,7 +670,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_exp_6', sentence: 'She swept the porch with a paintbrush.', wrongWord: 'paintbrush', wrongWordIndex: 7,
-    acceptedFixes: ['broom'], fixAliases: { broom: ['brooms', 'brum'] },
+    acceptedFixes: ['broom', 'brush'], fixAliases: { broom: ['brooms', 'brum'] },
     category: 'home', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/b/', '/r/', '/uː/'],
   },
@@ -676,19 +684,19 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_exp_8', sentence: 'She wrote the grocery list with a straw.', wrongWord: 'straw', wrongWordIndex: 8,
-    acceptedFixes: ['pen', 'pencil'], fixAliases: { pen: ['pens', 'pin'], pencil: ['pencils'] },
+    acceptedFixes: ['pen', 'pencil', 'marker'], fixAliases: { pen: ['pens', 'pin'], pencil: ['pencils'] },
     category: 'home', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/p/', '/ɛ/', '/n/'],
   },
   {
     id: 'fs_exp_9', sentence: 'He drained the pasta with a plate.', wrongWord: 'plate', wrongWordIndex: 7,
-    acceptedFixes: ['colander', 'strainer'], fixAliases: { colander: ['colanders', 'cull under'], strainer: ['strainers', 'strain her'] },
+    acceptedFixes: ['colander', 'strainer', 'sieve'], fixAliases: { colander: ['colanders', 'cull under'], strainer: ['strainers', 'strain her'] },
     category: 'kitchen', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/s/', '/t/', '/r/'],
   },
   {
     id: 'fs_exp_10', sentence: 'She raised the flag with a ladder.', wrongWord: 'ladder', wrongWordIndex: 7,
-    acceptedFixes: ['rope', 'pulley'], fixAliases: { rope: ['ropes', 'robe'], pulley: ['pulleys', 'pully'] },
+    acceptedFixes: ['rope', 'pulley', 'cord'], fixAliases: { rope: ['ropes', 'robe'], pulley: ['pulleys', 'pully'] },
     category: 'outdoor', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/r/', '/oʊ/', '/p/'],
   },
@@ -721,7 +729,7 @@ export const FIX_SENTENCE_TWO_ERROR_BANK: FixSentenceTrial[] = [
     acceptedFixes: ['shampoo', 'soap'], fixAliases: { shampoo: ['shampoos', 'sham poo'], soap: ['soaps'] },
     secondError: {
       wrongWord: 'pillow', wrongWordIndex: 12,
-      acceptedFixes: ['towel', 'hair dryer'], fixAliases: { towel: ['towels'], 'hair dryer': ['hairdryer', 'dryer'] },
+      acceptedFixes: ['towel', 'hair dryer', 'blow dryer'], fixAliases: { towel: ['towels'], 'hair dryer': ['hairdryer', 'dryer'] },
     },
     category: 'bathroom', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/ʃ/', '/t/', '/l/'],
@@ -743,7 +751,7 @@ export const FIX_SENTENCE_TWO_ERROR_BANK: FixSentenceTrial[] = [
     acceptedFixes: ['latch', 'lock', 'key'], fixAliases: { latch: ['latches'], lock: ['locks'], key: ['keys'] },
     secondError: {
       wrongWord: 'ear', wrongWordIndex: 14,
-      acceptedFixes: ['hand', 'foot'], fixAliases: { hand: ['hands'], foot: ['feet'] },
+      acceptedFixes: ['hand', 'foot', 'elbow'], fixAliases: { hand: ['hands'], foot: ['feet'] },
     },
     category: 'home', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/l/', '/h/', '/æ/'],
