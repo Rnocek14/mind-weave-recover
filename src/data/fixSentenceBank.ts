@@ -25,6 +25,19 @@ export interface FixSentenceTrial {
   errorType: 'semantic_swap' | 'category_error' | 'function_error' | 'multiple_valid_repairs';
   /** Phoneme targets for adaptive phoneme-aware selection */
   phonemeTargets: string[];
+  /**
+   * L5 two-error cohort (clinical ladder). When present the sentence
+   * contains a SECOND independent error; the primary fields above describe
+   * error 1. Legacy single-error consumers ignore this field safely — the
+   * L5 selector only serves these trials once the game repair loop
+   * implements two-phase scoring (see docs/fix-sentence-two-error-spec.md).
+   */
+  secondError?: {
+    wrongWord: string;
+    wrongWordIndex: number;
+    acceptedFixes: string[];
+    fixAliases: Record<string, string[]>;
+  };
 }
 
 export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
@@ -258,7 +271,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     phonemeTargets: ['/r/', '/oʊ/', '/d/', '/s/'],
   },
   {
-    id: 'fs_38', sentence: 'I cooked the eggs in a hat.', wrongWord: 'hat', wrongWordIndex: 6,
+    id: 'fs_38', sentence: 'I cooked the eggs in a hat.', wrongWord: 'hat', wrongWordIndex: 7,
     acceptedFixes: ['pan', 'skillet', 'pot'], fixAliases: { pan: ['pans'], skillet: ['skillets'], pot: ['pots'] },
     category: 'kitchen', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/p/', '/æ/', '/n/'],
@@ -661,6 +674,106 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     acceptedFixes: ['rope', 'pulley'], fixAliases: { rope: ['ropes', 'robe'], pulley: ['pulleys', 'pully'] },
     category: 'outdoor', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/r/', '/oʊ/', '/p/'],
+  },
+];
+
+/**
+ * L5 two-error cohort — DELIBERATELY a separate bank so no existing
+ * single-error selection path (getFixSentenceTrials, the L1–L4 selector
+ * pools, intensity slices) can ever serve a two-error sentence to the
+ * single-error repair loop. The L5 selector adopts this bank only when the
+ * game implements two-phase repair (docs/fix-sentence-two-error-spec.md).
+ * Both wrongWordIndex values are 1-based word positions, verified per item.
+ * Flagged for SLP review like all bank content.
+ */
+export const FIX_SENTENCE_TWO_ERROR_BANK: FixSentenceTrial[] = [
+  {
+    id: 'fs2_1', sentence: 'He poured the coffee into a hat and stirred it with a comb.',
+    wrongWord: 'hat', wrongWordIndex: 7,
+    acceptedFixes: ['cup', 'mug'], fixAliases: { cup: ['cups'], mug: ['mugs'] },
+    secondError: {
+      wrongWord: 'comb', wrongWordIndex: 13,
+      acceptedFixes: ['spoon'], fixAliases: { spoon: ['spoons'] },
+    },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/k/', '/s/', '/p/'],
+  },
+  {
+    id: 'fs2_2', sentence: 'She washed her hair with ketchup and dried it with a pillow.',
+    wrongWord: 'ketchup', wrongWordIndex: 6,
+    acceptedFixes: ['shampoo', 'soap'], fixAliases: { shampoo: ['shampoos', 'sham poo'], soap: ['soaps'] },
+    secondError: {
+      wrongWord: 'pillow', wrongWordIndex: 12,
+      acceptedFixes: ['towel', 'hair dryer'], fixAliases: { towel: ['towels'], 'hair dryer': ['hairdryer', 'dryer'] },
+    },
+    category: 'bathroom', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/ʃ/', '/t/', '/l/'],
+  },
+  {
+    id: 'fs2_3', sentence: 'He cut the bread with a pencil and spread butter with a fork.',
+    wrongWord: 'pencil', wrongWordIndex: 7,
+    acceptedFixes: ['knife', 'bread knife'], fixAliases: { knife: ['knives'], 'bread knife': ['breadknife'] },
+    secondError: {
+      wrongWord: 'fork', wrongWordIndex: 13,
+      acceptedFixes: ['knife', 'butter knife'], fixAliases: { knife: ['knives'], 'butter knife': ['butterknife'] },
+    },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/n/', '/aɪ/', '/f/'],
+  },
+  {
+    id: 'fs2_4', sentence: 'She locked the window with a spoon and closed the door with her ear.',
+    wrongWord: 'spoon', wrongWordIndex: 7,
+    acceptedFixes: ['latch', 'lock', 'key'], fixAliases: { latch: ['latches'], lock: ['locks'], key: ['keys'] },
+    secondError: {
+      wrongWord: 'ear', wrongWordIndex: 14,
+      acceptedFixes: ['hand', 'foot'], fixAliases: { hand: ['hands'], foot: ['feet'] },
+    },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/l/', '/h/', '/æ/'],
+  },
+  {
+    id: 'fs2_5', sentence: 'The gardener watered the mailbox and pulled the clouds from the soil.',
+    wrongWord: 'mailbox', wrongWordIndex: 5,
+    acceptedFixes: ['plants', 'flowers', 'garden'], fixAliases: { plants: ['plant'], flowers: ['flower'], garden: ['gardens'] },
+    secondError: {
+      wrongWord: 'clouds', wrongWordIndex: 9,
+      acceptedFixes: ['weeds'], fixAliases: { weeds: ['weed'] },
+    },
+    category: 'garden', difficulty: 3, errorType: 'semantic_swap',
+    phonemeTargets: ['/p/', '/w/', '/d/'],
+  },
+  {
+    id: 'fs2_6', sentence: 'He wrote the letter with a spoon and sealed the envelope with a hammer.',
+    wrongWord: 'spoon', wrongWordIndex: 7,
+    acceptedFixes: ['pen', 'pencil'], fixAliases: { pen: ['pens'], pencil: ['pencils'] },
+    secondError: {
+      wrongWord: 'hammer', wrongWordIndex: 14,
+      acceptedFixes: ['glue', 'tape', 'stamp'], fixAliases: { glue: ['glues'], tape: ['tapes'], stamp: ['stamps'] },
+    },
+    category: 'office', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/p/', '/g/', '/l/'],
+  },
+  {
+    id: 'fs2_7', sentence: 'She swept the ceiling with a towel and mopped the walls with a rake.',
+    wrongWord: 'ceiling', wrongWordIndex: 4,
+    acceptedFixes: ['floor'], fixAliases: { floor: ['floors'] },
+    secondError: {
+      wrongWord: 'rake', wrongWordIndex: 14,
+      acceptedFixes: ['mop'], fixAliases: { mop: ['mops'] },
+    },
+    category: 'home', difficulty: 3, errorType: 'semantic_swap',
+    phonemeTargets: ['/f/', '/m/', '/ɒ/'],
+  },
+  {
+    id: 'fs2_8', sentence: 'The waiter carried the soup in his pocket and served it with a ruler.',
+    wrongWord: 'pocket', wrongWordIndex: 8,
+    acceptedFixes: ['bowl', 'tray'], fixAliases: { bowl: ['bowls'], tray: ['trays'] },
+    secondError: {
+      wrongWord: 'ruler', wrongWordIndex: 14,
+      acceptedFixes: ['ladle', 'spoon'], fixAliases: { ladle: ['ladles'], spoon: ['spoons'] },
+    },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/b/', '/l/', '/eɪ/'],
   },
 ];
 
