@@ -66,6 +66,28 @@ Clinical targets:
 - `src/pages/FunctionalScenesExercise.tsx` — route glue + funnel events.
 - Severity gating: slug added to `SEVERE_APHASIA_FRIENDLY_EXERCISES`.
 
+## 4b. Severe-aphasia additions (wave-15 QA walk-through)
+
+Playing the scenes as a global-aphasia user surfaced four gaps, all now
+implemented:
+
+1. **Icons on every command button.** Global aphasia frequently includes
+   alexia — text-only buttons were unusable for the exact cohort the
+   severity gate routes here. Every command now carries a pictographic
+   icon (sun/moon, zoom in/out, arrows, play/stop, plus/minus, flame/wind);
+   the word stays the accessible name.
+2. **Spoken scene prompt on entry** — non-readers hear what to do.
+3. **"Show me" demonstration button** — speaks the first command and
+   performs it, tagged `inputMode: 'demo'` in telemetry so demonstrations
+   never read as patient productions.
+4. **Spoken confirmation of SPEECH successes** ("The lamp is brighter")
+   — comprehension support; tap keeps word-modeling only so the two
+   utterances don't cut each other off.
+
+Also from the browser pass: scene switches remount the photo (no
+cross-scene transform morphing) and the cup's fill overlay is bounded to
+the photo, not the card.
+
 ## 5. SLP review questions
 
 1. Are the six scene vocabularies the right starter set for core-word work?
