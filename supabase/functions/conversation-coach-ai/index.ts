@@ -11,6 +11,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 const corsHeaders = {
@@ -351,6 +352,10 @@ serve(async (req) => {
     // Require a valid Supabase session — prevents anonymous AI-credit abuse.
     const caller = await getAuthedUser(req);
     if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    // Paid Gemini calls (up to 3 per turn) — bound per-user throughput.
+    const rate = await checkRateLimit(caller.id, "llm_turn", 300);
+    if (!rate.allowed) return jsonResponse({ error: "RATE_LIMITED" }, 429);
 
     const {
       userTranscript,

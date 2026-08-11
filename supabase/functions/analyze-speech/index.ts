@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser } from "../_shared/auth.ts";
+import { checkRateLimit, rateLimitedResponse } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +29,10 @@ serve(async (req) => {
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  // Paid Azure STT call per trial — bound per-user throughput.
+  const rate = await checkRateLimit(caller.id, 'speech_analysis', 600);
+  if (!rate.allowed) return rateLimitedResponse(corsHeaders);
 
   try {
     const { audioBlob, mimeType } = await req.json();
