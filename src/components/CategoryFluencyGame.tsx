@@ -45,6 +45,9 @@ const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
     { category: 'animals', label: 'Animals' },
     { category: 'foods', label: 'Foods' },
     { category: 'colors', label: 'Colors' },
+    { category: 'body', label: 'Body Parts' },
+    { category: 'furniture', label: 'Furniture' },
+    { category: 'drinks', label: 'Drinks' },
   ],
   // Tier 2 (Medium) — concrete but narrower
   [
@@ -52,12 +55,18 @@ const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
     { category: 'kitchen', label: 'Kitchen Items' },
     { category: 'tools', label: 'Tools' },
     { category: 'vehicles', label: 'Vehicles' },
+    { category: 'instruments', label: 'Musical Instruments' },
+    { category: 'places', label: 'Places in Town' },
+    { category: 'weather', label: 'Weather Words' },
   ],
   // Tier 3 (Hard) — abstract or narrow
   [
     { category: 'professions', label: 'Jobs' },
     { category: 'emotions', label: 'Emotions' },
     { category: 'sports', label: 'Sports' },
+    { category: 'countries', label: 'Countries' },
+    { category: 'plants', label: 'Flowers & Trees' },
+    { category: 'hobbies', label: 'Hobbies' },
   ],
 ];
 

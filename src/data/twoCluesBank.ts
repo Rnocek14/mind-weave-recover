@@ -1100,7 +1100,148 @@ const midPuzzles: TwoCluesPuzzle[] = [
 // ============================================
 // EXPORT ALL PUZZLES
 // ============================================
+// ============================================
+// EXPANSION PACK (launch content wave)
+// T2/T3 pools were 20 each — repeats within two sessions. Same answer-graph
+// conventions as the packs above. Flagged for SLP review like all content.
+// ============================================
+const expansionPuzzles: TwoCluesPuzzle[] = [
+  {
+    id: 'tc-exp-1', clues: ['sticky', 'bees'], category: 'food', difficulty: 2,
+    anchors: ['honey'], anchorAliases: { 'honey': ['hunny'] },
+    cluster: ['hive', 'beehive', 'nectar', 'honeycomb', 'sweet', 'syrup'],
+    nearMisses: ['sugar', 'glue', 'jam'],
+    coachHints: {
+      'sugar': "Sugar is sweet! What do bees make?",
+      'glue': "Glue is sticky! What sticky thing comes from bees?",
+      'jam': "Jam is sweet and sticky! What do bees make?"
+    }
+  },
+  {
+    id: 'tc-exp-2', clues: ['locks', 'pocket'], category: 'home', difficulty: 2,
+    anchors: ['key'], anchorAliases: { 'key': ['keys'] },
+    cluster: ['keychain', 'keyring', 'lock', 'door key', 'house key'],
+    nearMisses: ['wallet', 'phone', 'coin'],
+    coachHints: {
+      'wallet': "Wallets go in pockets! What opens locks?",
+      'phone': "Phones fit in pockets! What works with locks?",
+      'coin': "Coins live in pockets! What opens a lock?"
+    }
+  },
+  {
+    id: 'tc-exp-3', clues: ['melts', 'cone'], category: 'food', difficulty: 2,
+    anchors: ['ice cream'], anchorAliases: { 'ice cream': ['icecream', 'ice creams'] },
+    cluster: ['scoop', 'gelato', 'soft serve', 'sundae', 'vanilla', 'chocolate'],
+    nearMisses: ['snow', 'ice', 'candle'],
+    coachHints: {
+      'snow': "Snow melts! What melts on a cone?",
+      'ice': "Ice melts! What sweet treat comes on a cone?",
+      'candle': "Candles melt! What food melts on a cone?"
+    }
+  },
+  {
+    id: 'tc-exp-4', clues: ['rings', 'tower'], category: 'home', difficulty: 2,
+    anchors: ['bell'], anchorAliases: { 'bell': ['bells'] },
+    cluster: ['church bell', 'chime', 'clock tower', 'steeple', 'gong'],
+    nearMisses: ['phone', 'alarm', 'castle'],
+    coachHints: {
+      'phone': "Phones ring! What rings in a tower?",
+      'alarm': "Alarms ring! What big thing rings in a tower?",
+      'castle': "Castles have towers! What rings inside one?"
+    }
+  },
+  {
+    id: 'tc-exp-5', clues: ['bounces', 'hoop'], category: 'sports', difficulty: 2,
+    anchors: ['basketball'], anchorAliases: { 'basketball': ['basket ball', 'basketballs'] },
+    cluster: ['ball', 'dribble', 'court', 'net', 'rim', 'backboard'],
+    nearMisses: ['tennis ball', 'trampoline', 'ring'],
+    coachHints: {
+      'tennis ball': "Tennis balls bounce! What goes through a hoop?",
+      'trampoline': "You bounce on those! What ball uses a hoop?",
+      'ring': "A hoop is like a ring! What ball goes through it?"
+    }
+  },
+  {
+    id: 'tc-exp-6', clues: ['glows', 'night'], category: 'nature', difficulty: 2,
+    anchors: ['moon', 'firefly', 'star'], anchorAliases: { 'star': ['stars'], 'firefly': ['fireflies', 'lightning bug'] },
+    cluster: ['moonlight', 'starlight', 'lantern', 'glow worm', 'candle'],
+    nearMisses: ['sun', 'lamp', 'flashlight'],
+    coachHints: {
+      'sun': "The sun glows by day! What glows at night?",
+      'lamp': "Lamps glow indoors! What glows in the night sky?",
+      'flashlight': "Good practical answer! What glows in nature at night?"
+    }
+  },
+  {
+    id: 'tc-exp-7', clues: ['balances', 'justice'], category: 'abstract', difficulty: 3,
+    anchors: ['scale', 'judge'], anchorAliases: { 'scale': ['scales'], 'judge': ['judges'] },
+    cluster: ['court', 'law', 'fairness', 'verdict', 'weighing'],
+    nearMisses: ['police', 'jail', 'lawyer'],
+    coachHints: {
+      'police': "Police enforce law. What symbol balances justice?",
+      'jail': "Jail comes after. What weighs both sides?",
+      'lawyer': "Close! Lawyers argue. What weighs the sides?"
+    }
+  },
+  {
+    id: 'tc-exp-8', clues: ['borrowed', 'returned'], category: 'abstract', difficulty: 3,
+    anchors: ['book', 'library book', 'loan'], anchorAliases: { 'book': ['books'], 'loan': ['loans'] },
+    cluster: ['library', 'rental', 'money', 'favor', 'tool'],
+    nearMisses: ['gift', 'store', 'friend'],
+    coachHints: {
+      'gift': "Gifts are kept! What gets returned?",
+      'store': "Stores sell things! Where do you borrow and return?",
+      'friend': "Friends lend things! What do they lend?"
+    }
+  },
+  {
+    id: 'tc-exp-9', clues: ['rises', 'dough'], category: 'kitchen', difficulty: 3,
+    anchors: ['bread', 'yeast'], anchorAliases: { 'bread': ['breads'], 'yeast': ['yeasts'] },
+    cluster: ['baking', 'oven', 'flour', 'loaf', 'pizza dough', 'rolls'],
+    nearMisses: ['sun', 'balloon', 'cake'],
+    coachHints: {
+      'sun': "The sun rises! What rises in the kitchen?",
+      'balloon': "Balloons rise! What rises before baking?",
+      'cake': "So close! Cakes rise too — what makes dough rise?"
+    }
+  },
+  {
+    id: 'tc-exp-10', clues: ['keeps', 'secrets'], category: 'abstract', difficulty: 3,
+    anchors: ['diary', 'friend', 'safe'], anchorAliases: { 'diary': ['diaries', 'journal'], 'safe': ['safes'] },
+    cluster: ['vault', 'confidant', 'lockbox', 'trust', 'whisper'],
+    nearMisses: ['spy', 'password', 'box'],
+    coachHints: {
+      'spy': "Spies steal secrets! What keeps them safe?",
+      'password': "Passwords protect! What holds written secrets?",
+      'box': "Getting close! What special box or book keeps secrets?"
+    }
+  },
+  {
+    id: 'tc-exp-11', clues: ['stretches', 'horizon'], category: 'nature', difficulty: 3,
+    anchors: ['ocean', 'sky', 'road'], anchorAliases: { 'ocean': ['oceans', 'sea'], 'sky': ['skies'] },
+    cluster: ['sunset', 'view', 'desert', 'plain', 'landscape', 'highway'],
+    nearMisses: ['rubber band', 'yoga', 'line'],
+    coachHints: {
+      'rubber band': "Those stretch! What stretches to the horizon?",
+      'yoga': "Good stretch! What view stretches far away?",
+      'line': "The horizon is a line! What stretches toward it?"
+    }
+  },
+  {
+    id: 'tc-exp-12', clues: ['fades', 'photograph'], category: 'abstract', difficulty: 3,
+    anchors: ['memory', 'color', 'ink'], anchorAliases: { 'memory': ['memories'], 'color': ['colors', 'colour'] },
+    cluster: ['picture', 'image', 'past', 'album', 'moment'],
+    nearMisses: ['camera', 'frame', 'paper'],
+    coachHints: {
+      'camera': "Cameras take photos! What fades in an old one?",
+      'frame': "Frames hold photos! What fades inside them?",
+      'paper': "Photos are on paper! What fades over time?"
+    }
+  },
+];
+
 export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
+  ...expansionPuzzles,
   ...animalsPuzzles,
   ...kitchenPuzzles,
   ...weatherPuzzles,

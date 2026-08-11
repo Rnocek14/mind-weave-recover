@@ -589,6 +589,265 @@ const PROMPT_TEMPLATES: PromptTemplate[] = [
     ],
     difficultyTier: 3,
   },
+
+  // ==========================================================================
+  // EXPANSION SET (launch content wave) — appended so existing index-based
+  // prompt IDs stay stable. Same formula: time anchor + scale limiter +
+  // intent; never asks for a specific word. Flagged for SLP review.
+  // ==========================================================================
+
+  // --- Tier 1 additions ---
+  {
+    intentType: 'recall_recent',
+    theme: 'daily_routine',
+    promptText: "Talk about the last thing you drank.",
+    narrowingSteps: [
+      { level: 1, text: "Was it hot or cold?" },
+      { level: 2, text: "Did you have it with food?" },
+    ],
+    difficultyTier: 1,
+    timeAnchor: 'last',
+  },
+  {
+    intentType: 'recall_recent',
+    theme: 'home',
+    promptText: "Talk about the last room you were in before this one.",
+    narrowingSteps: [
+      { level: 1, text: "Was it big or small?" },
+      { level: 2, text: "What were you doing there?" },
+    ],
+    difficultyTier: 1,
+    timeAnchor: 'last',
+  },
+  {
+    intentType: 'describe_event',
+    theme: 'daily_routine',
+    promptText: "Talk about what you watched or listened to today.",
+    narrowingSteps: [
+      { level: 1, text: "Was it on TV, radio, or a phone?" },
+      { level: 2, text: "Was it something you've seen before?" },
+    ],
+    difficultyTier: 1,
+    timeAnchor: 'today',
+  },
+  {
+    intentType: 'express_opinion',
+    theme: 'food',
+    promptText: "Talk about a food you would eat every day.",
+    narrowingSteps: [
+      { level: 1, text: "Is it sweet or savory?" },
+      { level: 2, text: "When did you last have it?" },
+    ],
+    difficultyTier: 1,
+  },
+  {
+    intentType: 'recall_recent',
+    theme: 'family',
+    promptText: "Talk about the last person you talked to.",
+    narrowingSteps: [
+      { level: 1, text: "Was it in person or on the phone?" },
+      { level: 2, text: "Was it a short chat or a long one?" },
+    ],
+    difficultyTier: 1,
+    timeAnchor: 'last',
+  },
+  {
+    intentType: 'describe_feeling',
+    theme: 'weather',
+    promptText: "Talk about how today's weather makes you feel.",
+    narrowingSteps: [
+      { level: 1, text: "Do you like this kind of day?" },
+      { level: 2, text: "Does it change what you do?" },
+    ],
+    difficultyTier: 1,
+    timeAnchor: 'today',
+  },
+
+  // --- Tier 2 additions ---
+  {
+    intentType: 'explain_reason',
+    theme: 'preferences',
+    promptText: "Talk about why you like your favorite chair or spot at home.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about comfort or the view?" },
+      { level: 2, text: "When do you sit there most?" },
+    ],
+    difficultyTier: 2,
+  },
+  {
+    intentType: 'describe_event',
+    theme: 'health',
+    promptText: "Talk about something you did this week that felt good.",
+    narrowingSteps: [
+      { level: 1, text: "Was it moving your body, or resting?" },
+      { level: 2, text: "Would you do it again tomorrow?" },
+    ],
+    difficultyTier: 2,
+    timeAnchor: 'this_week',
+  },
+  {
+    intentType: 'solve_problem',
+    theme: 'home',
+    promptText: "Talk about what you would do if the power went out tonight.",
+    narrowingSteps: [
+      { level: 1, text: "What would you reach for first?" },
+      { level: 2, text: "Who would you want with you?" },
+    ],
+    difficultyTier: 2,
+  },
+  {
+    intentType: 'express_opinion',
+    theme: 'preferences',
+    promptText: "Talk about a sound you love and a sound you can't stand.",
+    narrowingSteps: [
+      { level: 1, text: "Start with the one you love." },
+      { level: 2, text: "Where do you usually hear it?" },
+    ],
+    difficultyTier: 2,
+  },
+  {
+    intentType: 'describe_event',
+    theme: 'hobbies',
+    promptText: "Talk about something you made with your hands.",
+    narrowingSteps: [
+      { level: 1, text: "Was it food, a repair, or a craft?" },
+      { level: 2, text: "Did you keep it or give it away?" },
+    ],
+    difficultyTier: 2,
+  },
+  {
+    intentType: 'explain_reason',
+    theme: 'daily_routine',
+    promptText: "Talk about why mornings or evenings suit you better.",
+    narrowingSteps: [
+      { level: 1, text: "Which one is yours?" },
+      { level: 2, text: "What do you do best at that time?" },
+    ],
+    difficultyTier: 2,
+  },
+  {
+    intentType: 'describe_feeling',
+    theme: 'family',
+    promptText: "Talk about a time someone helped you this week.",
+    narrowingSteps: [
+      { level: 1, text: "Was it a big favor or a small one?" },
+      { level: 2, text: "How did you thank them?" },
+    ],
+    difficultyTier: 2,
+    timeAnchor: 'this_week',
+  },
+  {
+    intentType: 'solve_problem',
+    theme: 'food',
+    promptText: "Talk about what you'd cook for a guest coming tonight.",
+    narrowingSteps: [
+      { level: 1, text: "Something simple or something special?" },
+      { level: 2, text: "What would you serve with it?" },
+    ],
+    difficultyTier: 2,
+  },
+
+  // --- Tier 3 additions ---
+  {
+    intentType: 'compare_contrast',
+    theme: 'memories',
+    promptText: "Talk about how your neighborhood has changed over the years.",
+    narrowingSteps: [
+      { level: 1, text: "What's one thing that's different?" },
+      { level: 2, text: "Is the change good or bad, in your view?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'describe_event',
+    theme: 'memories',
+    promptText: "Talk about a piece of advice you never forgot.",
+    narrowingSteps: [
+      { level: 1, text: "Who gave it to you?" },
+      { level: 2, text: "Have you passed it on to anyone?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'express_opinion',
+    theme: 'preferences',
+    promptText: "Talk about something people worry about too much.",
+    narrowingSteps: [
+      { level: 1, text: "Is it about money, time, or appearances?" },
+      { level: 2, text: "What would you tell them instead?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'explain_reason',
+    theme: 'hobbies',
+    promptText: "Talk about why a hobby you had faded away.",
+    narrowingSteps: [
+      { level: 1, text: "Did life get busy, or did it stop being fun?" },
+      { level: 2, text: "Would you pick it up again?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'describe_feeling',
+    theme: 'memories',
+    promptText: "Talk about a moment you felt proud of someone else.",
+    narrowingSteps: [
+      { level: 1, text: "Was it family, a friend, or a stranger?" },
+      { level: 2, text: "Did you tell them how you felt?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'compare_contrast',
+    theme: 'daily_routine',
+    promptText: "Talk about the difference between a good day and a bad day for you.",
+    narrowingSteps: [
+      { level: 1, text: "How does a good day start?" },
+      { level: 2, text: "What tips a day the wrong way?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'solve_problem',
+    theme: 'family',
+    promptText: "Talk about how you would cheer up someone having a hard week.",
+    narrowingSteps: [
+      { level: 1, text: "Would you visit, call, or send something?" },
+      { level: 2, text: "What usually works with this person?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'describe_event',
+    theme: 'travel',
+    promptText: "Talk about a place you'd take a visitor who'd never been here.",
+    narrowingSteps: [
+      { level: 1, text: "Is it in town or a drive away?" },
+      { level: 2, text: "What would you show them first?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'express_opinion',
+    theme: 'memories',
+    promptText: "Talk about an invention that changed your life the most.",
+    narrowingSteps: [
+      { level: 1, text: "Is it in your kitchen, pocket, or garage?" },
+      { level: 2, text: "What did people do before it?" },
+    ],
+    difficultyTier: 3,
+  },
+  {
+    intentType: 'compare_contrast',
+    theme: 'food',
+    promptText: "Talk about how cooking at home compares to eating out.",
+    narrowingSteps: [
+      { level: 1, text: "Which do you enjoy more?" },
+      { level: 2, text: "When is the other one worth it?" },
+    ],
+    difficultyTier: 3,
+  },
 ];
 
 // =============================================================================
