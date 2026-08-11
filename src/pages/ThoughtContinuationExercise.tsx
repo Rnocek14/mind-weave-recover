@@ -16,6 +16,7 @@ import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lu
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -37,6 +38,23 @@ export default function ThoughtContinuationExercise() {
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  // Close the session we open (was only ever ended by the stale-session
+  // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
+  const sessionStartRef = useRef(Date.now());
+  const promptsRef = useRef(0);
+  const getSessionStats = useCallback(() => ({
+    score: 0, // open-ended discourse task — prompts spoken are the dose signal
+    totalTrials: promptsRef.current,
+    startTime: sessionStartRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    exerciseSlug: EXERCISE_SLUG,
+    getSessionStats,
+  });
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -68,7 +86,9 @@ export default function ThoughtContinuationExercise() {
   }) => {
     setSessionSummary(summary);
     setGameStarted(false);
-    
+    promptsRef.current = summary.promptsSpoken;
+    void completeSession();
+
     // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
