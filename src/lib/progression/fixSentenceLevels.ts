@@ -148,15 +148,16 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   },
   6: {
     level: 6,
-    description: 'Mixed morphology (NOT implemented — selector skips honestly)',
+    description: 'Mixed morphology — repair grammatical-inflection errors',
     targetSupport: 'open_response',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.8,
     trialWeight: 1.7,
     contentSelector: {
       tierKey: 'mixed_morphology',
-      description: 'Requires morphology/inflection tags on bank + morpheme-aware scorer — NOT yet implemented; selector skips honestly.',
-      implemented: false,
+      description:
+        'FIX_SENTENCE_MORPHOLOGY_BANK cohort (tense/agreement/plural/irregular-past/comparative); exact-match scoring only — semantic fallback disabled for tagged trials (docs/fix-sentence-morphology-spec.md).',
+      implemented: true,
     },
   },
   7: {

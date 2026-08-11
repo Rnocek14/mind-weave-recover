@@ -14,7 +14,7 @@ not a mirror; when they disagree, the spec files win.
 
 | Game | Planned rungs | tierKey | Blocked on |
 |---|---|---|---|
-| fix_sentence | L6 | `mixed_morphology` | bank tags + morpheme-aware scoring — **spec ready** (`docs/fix-sentence-morphology-spec.md`) |
+| fix_sentence | ~~L6~~ | `mixed_morphology` | **implemented** (`docs/fix-sentence-morphology-spec.md`) |
 | fix_sentence | L7 | `embedded_clauses` | syntactic-structure tags on bank |
 | fix_sentence | L8 | `open_ended_repair` | LLM-graded judge (server) |
 | minimal_pairs | L7 | `degraded_signal` | WebAudio degradation chain — **spec ready** (`docs/minimal-pairs-l7-l8-spec.md`) |
@@ -59,9 +59,8 @@ unpolished game inverts the quality order.
 
 ## 3. Recommended order
 
-1. ~~semantic_features L8 content unlock~~ — **done this wave**.
-2. Fix Sentence L6 morphology (spec ready; pure client, mirrors the shipped
-   L5 pattern).
+1. ~~semantic_features L8 content unlock~~ — **done (wave 11)**.
+2. ~~Fix Sentence L6 morphology~~ — **done (wave 12)**.
 3. Audio degradation chain → minimal_pairs L7, then phonological_awareness
    L8 (spec ready).
 4. minimal_pairs L8 triplet/RT (depends on nothing above, but sequenced

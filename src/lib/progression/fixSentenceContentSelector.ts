@@ -10,13 +10,12 @@
  *   L4      single-error sentences with common action verbs — drawn from the
  *           bank's `function_error` cohort (action→object mismatch on a
  *           common transitive verb is exactly what the cohort encodes).
- *   L5      two-error sentences — NOT IMPLEMENTED. The bank carries one
- *           `wrongWord` per item; multi-error scoring and detection UI do
- *           not exist. Selector returns a fallback and refuses to silently
- *           downgrade.
- *   L6      mixed morphology — NOT IMPLEMENTED. The bank has no
- *           morphology / inflection tags; the scorer cannot distinguish a
- *           morphological repair from a lexical one. Skipped honestly.
+ *   L5      two-error sentences — LIVE. Served from
+ *           FIX_SENTENCE_TWO_ERROR_BANK behind TWO_ERROR_GAME_READY;
+ *           the game scores two repair phases per sentence.
+ *   L6      mixed morphology — LIVE. Served from
+ *           FIX_SENTENCE_MORPHOLOGY_BANK behind MORPHOLOGY_GAME_READY;
+ *           scoring disables the semantic fallback for tagged trials.
  *   L7      embedded clauses — NOT IMPLEMENTED. A small number of items
  *           are multi-clause *coordinated*, but no items are marked as
  *           true embedded (relative / complement) clauses, and there is
@@ -35,7 +34,11 @@
  */
 
 import type { FixSentenceTrial } from '@/data/fixSentenceBank';
-import { FIX_SENTENCE_BANK, FIX_SENTENCE_TWO_ERROR_BANK } from '@/data/fixSentenceBank';
+import {
+  FIX_SENTENCE_BANK,
+  FIX_SENTENCE_TWO_ERROR_BANK,
+  FIX_SENTENCE_MORPHOLOGY_BANK,
+} from '@/data/fixSentenceBank';
 
 // ── Tunables ───────────────────────────────────────────────────────────
 export const MIN_TIER_POOL_SIZE = 6;
@@ -51,6 +54,20 @@ export const TWO_ERROR_GAME_READY = true;
 /** The L5 candidate pool — exported so tests pin the cohort's integrity. */
 export function selectTwoErrorCandidates(): FixSentenceTrial[] {
   return FIX_SENTENCE_TWO_ERROR_BANK.filter((t) => t.secondError != null);
+}
+
+/**
+ * L6 readiness gate. Flipped in the same change that added the morphology
+ * cohort + the no-semantic-fallback scoring guard for morphology trials
+ * (docs/fix-sentence-morphology-spec.md). The game loop itself plays
+ * these trials unchanged — a morphology repair is still one wrong word
+ * with a closed fix set.
+ */
+export const MORPHOLOGY_GAME_READY = true;
+
+/** The L6 candidate pool — exported so tests pin the cohort's integrity. */
+export function selectMorphologyCandidates(): FixSentenceTrial[] {
+  return FIX_SENTENCE_MORPHOLOGY_BANK.filter((t) => t.morphology != null);
 }
 
 /**
@@ -221,12 +238,29 @@ export function selectFixSentencePool(
     });
   }
 
-  // L6 — mixed morphology. NOT IMPLEMENTED.
+  // L6 — mixed morphology. Separate tagged cohort; the scoring guard
+  // disables the semantic fallback for these trials.
   if (tier === 'L6') {
+    if (MORPHOLOGY_GAME_READY) {
+      const candidates = selectMorphologyCandidates();
+      if (candidates.length >= MIN_TIER_POOL_SIZE) {
+        return {
+          tier,
+          pool: candidates.map((t) => ({ ...t, __selectorTier: tier })),
+          reason: 'mixed_morphology',
+          fallback: null,
+          diagnostics: {
+            totalCandidates: candidates.length,
+            poolSize: candidates.length,
+            errorTypeCounts: countErrorTypes(candidates),
+          },
+        };
+      }
+    }
     return baselineResult(tier, bank, {
       reason: 'morphology_tier_not_implemented',
       detail:
-        'No morphology/inflection tags on the bank; scorer cannot distinguish morphological repair from lexical. Selector skips honestly.',
+        'Morphology cohort below minimum pool or gate off. Selector skips honestly — do NOT claim morphology tier.',
       skipped: true,
     });
   }

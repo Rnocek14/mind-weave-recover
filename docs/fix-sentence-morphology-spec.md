@@ -1,9 +1,8 @@
 # Fix Sentence — Mixed Morphology (L6) Implementation Spec
 
-**Status:** PROPOSED — no code. Follows the change process that shipped L5
-(spec → review → bank + gated selector → game/scoring → gate flip).
-**Gate (to be added):** `MORPHOLOGY_GAME_READY` in
-`src/lib/progression/fixSentenceContentSelector.ts` — starts `false`.
+**Status:** IMPLEMENTED — `FIX_SENTENCE_MORPHOLOGY_BANK` (12 trials,
+5 error classes) + no-semantic-fallback scoring guard live;
+`MORPHOLOGY_GAME_READY` flipped; L6 spec marked implemented (ceiling L6).
 
 ## 1. What already exists
 

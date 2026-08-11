@@ -6,7 +6,8 @@
  *   - L4 narrows to function_error + common-verb sentences
  *   - L4 falls back honestly when the candidate pool is too small
  *   - L5 serves the two-error cohort (two-phase repair loop shipped)
- *   - L6 / L7 / L8 are flagged NOT IMPLEMENTED — selector returns a
+ *   - L6 serves the morphology cohort (tagged bank + scoring guard shipped)
+ *   - L7 / L8 are flagged NOT IMPLEMENTED — selector returns a
  *     `skipped: true` fallback rather than silently downgrading
  *   - level spec contentSelector.implemented mirrors the selector behaviour
  */
@@ -88,8 +89,18 @@ describe('selectFixSentencePool', () => {
     }
   });
 
+  it('L6 serves the morphology cohort (tagged bank shipped)', () => {
+    const r = selectFixSentencePool(6);
+    expect(r.tier).toBe('L6');
+    expect(r.fallback).toBeNull();
+    expect(r.reason).toBe('mixed_morphology');
+    expect(r.pool.length).toBeGreaterThanOrEqual(MIN_TIER_POOL_SIZE);
+    for (const t of r.pool) {
+      expect(t.morphology).toBeDefined();
+    }
+  });
+
   it.each([
-    [6, 'morphology_tier_not_implemented'],
     [7, 'embedded_clause_tier_not_implemented'],
     [8, 'open_ended_repair_not_implemented'],
   ] as const)('L%i is flagged NOT implemented and skips honestly', (lvl, reason) => {
@@ -107,10 +118,10 @@ describe('selectFixSentencePool', () => {
       const r = selectFixSentencePool(lvl);
       const specImplemented = spec.contentSelector?.implemented ?? true;
       const runtimeImplemented = !(r.fallback?.skipped ?? false);
-      // L1–L5 implemented (L4/L5 when their pools suffice); L6–L8 planned-only.
+      // L1–L6 implemented (L4–L6 when their pools suffice); L7–L8 planned-only.
       if (runtimeImplemented) {
         expect(specImplemented).toBe(true);
-      } else if (lvl >= 6) {
+      } else if (lvl >= 7) {
         expect(specImplemented).toBe(false);
       }
     }

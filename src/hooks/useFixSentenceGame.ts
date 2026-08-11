@@ -339,7 +339,30 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       return result;
     }
 
-    // 2) Semantic similarity fallback — compare to each acceptedFix
+    // 2) Morphology trials (L6): NO semantic fallback. ASR and embeddings
+    // both treat base and inflected forms as equivalent — the exact
+    // contrast under treatment — so anything short of an exact/alias
+    // match is wrong (docs/fix-sentence-morphology-spec.md §3.3).
+    if (currentTrial.morphology) {
+      playError();
+      return {
+        trialId: currentTrial.id,
+        sentence: currentTrial.sentence,
+        wrongWord: currentTrial.wrongWord,
+        spokenWord: spoken,
+        matchedFix: null,
+        isCorrect: false,
+        isPartialCredit: false,
+        selfCorrected,
+        semanticSimilarity: null,
+        reactionTimeMs,
+        attemptNumber: currentAttempt,
+        difficulty: currentTrial.difficulty,
+        phonemeTargets: currentTrial.phonemeTargets,
+      };
+    }
+
+    // 3) Semantic similarity fallback — compare to each acceptedFix
     let bestSim = 0;
     let bestFix: string | null = null;
     for (const fix of currentTrial.acceptedFixes) {
