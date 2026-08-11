@@ -1118,14 +1118,16 @@ const expansionPuzzles: TwoCluesPuzzle[] = [
     }
   },
   {
-    id: 'tc-exp-2', clues: ['locks', 'pocket'], category: 'home', difficulty: 2,
-    anchors: ['key'], anchorAliases: { 'key': ['keys'] },
-    cluster: ['keychain', 'keyring', 'lock', 'door key', 'house key'],
-    nearMisses: ['wallet', 'phone', 'coin'],
+    // (Replaced an earlier 'locks/pocket → key' draft that near-duplicated
+    // tc-mid-3 'locks/opens → key'. Same-anchor overlap is fake depth.)
+    id: 'tc-exp-2', clues: ['whistles', 'steam'], category: 'kitchen', difficulty: 2,
+    anchors: ['kettle', 'teapot'], anchorAliases: { 'kettle': ['kettles', 'tea kettle', 'teakettle'], 'teapot': ['teapots', 'tea pot'] },
+    cluster: ['tea', 'stove', 'boiling', 'pot', 'hot water'],
+    nearMisses: ['train', 'referee', 'iron'],
     coachHints: {
-      'wallet': "Wallets go in pockets! What opens locks?",
-      'phone': "Phones fit in pockets! What works with locks?",
-      'coin': "Coins live in pockets! What opens a lock?"
+      'train': "Old trains whistle and steam! What's in the kitchen?",
+      'referee': "Referees whistle! What whistles when water boils?",
+      'iron': "Irons steam! What whistles when it's ready?"
     }
   },
   {
