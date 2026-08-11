@@ -82,7 +82,7 @@ export default function ConversationPartnerExercise() {
 
   if (authLoading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     );
@@ -138,7 +138,7 @@ export default function ConversationPartnerExercise() {
   // Summary screen
   if (sessionSummary) {
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="min-h-dvh bg-background p-4">
         <div className="max-w-md mx-auto space-y-6 pt-8">
           <Button
             variant="ghost"
@@ -211,7 +211,7 @@ export default function ConversationPartnerExercise() {
   // Start screen
   if (!gameStarted) {
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="min-h-dvh bg-background p-4">
         <div className="max-w-md mx-auto space-y-6 pt-8">
           <Button
             variant="ghost"

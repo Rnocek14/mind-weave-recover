@@ -77,7 +77,7 @@ export default function Progress() {
 
   if (authLoading || !loaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -92,7 +92,7 @@ export default function Progress() {
       : "Complete your first session to start tracking progress.";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-44">
+    <div className="min-h-dvh bg-background flex flex-col pb-44">
       <header className="p-4 flex items-center gap-3 border-b">
         <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")}>
           <ArrowLeft className="w-5 h-5" />

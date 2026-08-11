@@ -706,7 +706,7 @@ export default function SmartCoach() {
 
   if (authLoading || phase === 'loading') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto" />
           <p className="text-sm text-muted-foreground">
@@ -726,7 +726,7 @@ export default function SmartCoach() {
 
   if (phase === 'plan') {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-5 h-5" />
@@ -830,7 +830,7 @@ export default function SmartCoach() {
     })();
 
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate('/today')}>
             <ArrowLeft className="w-5 h-5" />
@@ -998,7 +998,7 @@ export default function SmartCoach() {
     // Game 1 Playing (shouldn't render — we navigated away)
     if (phase === 'game1_playing') {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="min-h-dvh bg-background flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       );
@@ -1025,7 +1025,7 @@ export default function SmartCoach() {
     // Game 2 Playing
     if (phase === 'game2_playing') {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="min-h-dvh bg-background flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
       );

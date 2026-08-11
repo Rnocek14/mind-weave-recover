@@ -89,7 +89,7 @@ export default function ClinicianReport() {
   // Require clinician+ mode
   if (!isAtLeast('clinician')) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -108,7 +108,7 @@ export default function ClinicianReport() {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="min-h-dvh bg-background p-4 md:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-64 w-full" />
@@ -139,7 +139,7 @@ export default function ClinicianReport() {
   };
   
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Header - hidden in print */}
       <header className="border-b bg-card print:hidden">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">

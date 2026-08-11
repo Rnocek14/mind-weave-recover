@@ -357,7 +357,7 @@ const Onboarding = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-12 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-12 px-4">
       <div className="container mx-auto max-w-6xl">
         {/* Progress Bar */}
         <div className="mb-12">

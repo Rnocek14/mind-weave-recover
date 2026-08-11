@@ -58,7 +58,7 @@ export default function RoleOnboarding() {
 
   if (authLoading || rolesLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -76,7 +76,7 @@ export default function RoleOnboarding() {
   const isFirst = stepIndex === 0;
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col">
+    <div className="min-h-dvh bg-gradient-calm flex flex-col">
       <div className="p-6 flex justify-center gap-2">
         {steps.map((_, i) => (
           <div

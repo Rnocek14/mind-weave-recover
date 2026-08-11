@@ -81,7 +81,7 @@ export default function CaregiverPortal() {
   // helping rather than showing empty monitoring cards (no dead-end).
   if (!activeProfile) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 space-y-6 text-center">
           <div className="flex justify-center">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
@@ -115,7 +115,7 @@ export default function CaregiverPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-calm">
+    <div className="min-h-dvh bg-gradient-calm">
       <DashboardTour role="caregiver" ready={!!activeProfile} />
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-2xl space-y-4">
         {/* Header — small, doesn't compete with the cards */}

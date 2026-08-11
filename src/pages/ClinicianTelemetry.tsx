@@ -781,7 +781,7 @@ LIMIT 50;
   const isFetching = eventsQuery.isFetching || adaptQuery.isFetching || prevQuery.isFetching;
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-6xl space-y-6">
         <div className="flex items-center gap-3 flex-wrap">
           <Button variant="ghost" size="sm" onClick={() => navigate("/clinician/dashboard")}>

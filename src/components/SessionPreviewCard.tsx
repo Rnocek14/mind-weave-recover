@@ -89,7 +89,7 @@ export const SessionPreviewCard = ({ lesson, displayName, onStart }: SessionPrev
   return (
     <div
       className={variantClass(variant, {
-        base: "min-h-screen bg-background flex items-center justify-center p-4",
+        base: "min-h-dvh bg-background flex items-center justify-center p-4",
         neglect: "justify-end pr-8",
       })}
     >

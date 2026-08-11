@@ -827,7 +827,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
   // "Preparing session…" spinner. Give a clear retry and an escape.
   if (phase === "exercise" && !sessionId && sessionCreateFailed) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 space-y-6 text-center">
           <h2 className="text-2xl font-bold">We couldn't start your session</h2>
           <p className="text-muted-foreground text-lg">
@@ -858,7 +858,7 @@ export const LessonFlow = ({ lesson, clinicalProfile, todayFocus, focusWords }: 
     const adaptMsg = getAdaptivityMessage(recentScoresRef.current, phaseLabel);
     return (
       <div className={variantClass(variant, {
-        base: "min-h-screen bg-background flex items-center justify-center p-4",
+        base: "min-h-dvh bg-background flex items-center justify-center p-4",
         simplified: "p-6",
       })}>
         <Card className={variantClass(variant, {

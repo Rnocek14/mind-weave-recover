@@ -21,7 +21,7 @@ export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {
   const shouldHideHeader = hideHeader || (uiMode === 'patient' && !roleRoute);
   
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       {!shouldHideHeader && <AppHeader />}
       <main className="flex-1">{children}</main>
     </div>

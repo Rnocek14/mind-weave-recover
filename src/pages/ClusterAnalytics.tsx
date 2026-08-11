@@ -44,7 +44,7 @@ const ClusterAnalytics = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm p-6">
+      <div className="min-h-dvh bg-gradient-calm p-6">
         <div className="container mx-auto max-w-6xl">
           <Skeleton className="h-12 w-64 mb-6" />
           <div className="space-y-6">
@@ -60,7 +60,7 @@ const ClusterAnalytics = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-6xl">
         <Button
           variant="ghost"

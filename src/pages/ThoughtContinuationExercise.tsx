@@ -129,7 +129,7 @@ export default function ThoughtContinuationExercise() {
   // Not logged in
   if (!user?.id || !activeProfile?.id) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">Please log in to continue.</p>
@@ -149,7 +149,7 @@ export default function ThoughtContinuationExercise() {
       : 0;
     
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="min-h-dvh bg-background p-4">
         <div className="max-w-md mx-auto pt-12">
           <Card className="border-2 border-primary/20">
             <CardHeader className="text-center pb-2">
@@ -238,7 +238,7 @@ export default function ThoughtContinuationExercise() {
 
   // Start screen
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-dvh bg-background p-4">
       <div className="max-w-md mx-auto pt-8">
         <Button 
           variant="ghost" 

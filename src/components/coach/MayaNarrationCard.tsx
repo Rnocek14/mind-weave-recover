@@ -89,7 +89,7 @@ export function MayaNarrationCard({
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       {/* Progress dots */}
       {totalPhases != null && phaseIndex != null && (
         <div className="px-6 pt-6 pb-2">

@@ -94,7 +94,7 @@ function LoadingCardPreview({ variant }: { variant: UiVariant }) {
 
 export default function UiVariantPreview() {
   return (
-    <div className="min-h-screen bg-muted/30 p-6">
+    <div className="min-h-dvh bg-muted/30 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="space-y-2">
           <h1 className="text-3xl font-bold">UI Variant Preview — Chrome Surfaces</h1>

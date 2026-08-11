@@ -216,7 +216,7 @@ export default function ReviewChatPage() {
   // ── Empty queue: friendly redirect, never a dead screen ──────────────────
   if (practiced.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="min-h-dvh bg-gradient-calm flex flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="text-5xl" aria-hidden>💬</div>
         <h1 className="text-xl font-bold">Nothing to review yet</h1>
         <p className="text-muted-foreground max-w-xs">
@@ -228,7 +228,7 @@ export default function ReviewChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col items-center px-4 py-6">
+    <div className="min-h-dvh bg-gradient-calm flex flex-col items-center px-4 py-6">
       {/* Header with the always-visible exit */}
       <div className="w-full max-w-md flex items-center justify-between mb-4">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>

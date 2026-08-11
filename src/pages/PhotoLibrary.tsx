@@ -122,7 +122,7 @@ export default function PhotoLibrary() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="container mx-auto p-4 max-w-6xl">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">

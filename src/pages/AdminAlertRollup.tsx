@@ -44,7 +44,7 @@ export default function AdminAlertRollup() {
   }, [alerts]);
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-5xl space-y-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}>

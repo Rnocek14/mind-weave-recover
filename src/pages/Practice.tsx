@@ -159,14 +159,14 @@ export default function Practice() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-44">
+    <div className="min-h-dvh bg-background flex flex-col pb-44">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <Button variant="ghost" size="icon" aria-label="Back to home" onClick={() => navigate("/today")} className="shrink-0">

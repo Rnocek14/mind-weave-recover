@@ -55,7 +55,7 @@ export default function Welcome() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -66,7 +66,7 @@ export default function Welcome() {
   const displayName = user.user_metadata?.display_name || 'there';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       {/* Progress dots */}
       <div className="p-6 flex justify-center gap-2">
         {(['greeting', 'ready'] as WelcomeStep[]).map((s, i) => (

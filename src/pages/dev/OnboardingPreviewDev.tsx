@@ -19,7 +19,7 @@ const LABELS: Record<NonPatientRole, string> = {
 
 export default function OnboardingPreviewDev() {
   return (
-    <div className="min-h-screen bg-gradient-calm p-6">
+    <div className="min-h-dvh bg-gradient-calm p-6">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-bold">Role Onboarding Preview</h1>
