@@ -205,6 +205,112 @@ const SPORTS = new Set([
 ]);
 
 /** Map category slugs to their word sets */
+// ── Expansion set (launch content wave) ─────────────────────────────────
+// Same conventions as above: lowercase, singular (stemming handles plurals),
+// intentionally generous. Flagged for SLP review like all bank content.
+
+const BODY_PARTS = new Set([
+  'head', 'hair', 'face', 'eye', 'eyebrow', 'eyelash', 'ear', 'nose', 'nostril',
+  'mouth', 'lip', 'tooth', 'teeth', 'tongue', 'chin', 'cheek', 'jaw', 'forehead',
+  'neck', 'throat', 'shoulder', 'arm', 'elbow', 'wrist', 'hand', 'palm', 'finger',
+  'thumb', 'fingernail', 'nail', 'chest', 'back', 'spine', 'stomach', 'belly',
+  'waist', 'hip', 'leg', 'thigh', 'knee', 'shin', 'calf', 'ankle', 'foot', 'feet',
+  'toe', 'heel', 'skin', 'muscle', 'bone', 'heart', 'lung', 'brain', 'liver',
+  'kidney', 'rib', 'skull', 'knuckle', 'armpit', 'scalp', 'vein', 'blood',
+]);
+
+const FURNITURE = new Set([
+  'chair', 'table', 'sofa', 'couch', 'bed', 'desk', 'dresser', 'wardrobe',
+  'closet', 'bookshelf', 'shelf', 'bookcase', 'cabinet', 'cupboard', 'stool',
+  'bench', 'armchair', 'recliner', 'rocking chair', 'ottoman', 'futon',
+  'nightstand', 'headboard', 'mattress', 'crib', 'bunk bed', 'coffee table',
+  'end table', 'dining table', 'sideboard', 'buffet', 'hutch', 'vanity',
+  'mirror', 'lamp', 'chandelier', 'rug', 'carpet', 'curtain', 'drape',
+  'loveseat', 'sectional', 'filing cabinet', 'drawer', 'chest', 'trunk',
+  'hammock', 'highchair', 'barstool', 'footstool',
+]);
+
+const DRINKS = new Set([
+  'water', 'milk', 'juice', 'coffee', 'tea', 'soda', 'pop', 'cola', 'lemonade',
+  'smoothie', 'milkshake', 'shake', 'cocoa', 'hot chocolate', 'cider', 'punch',
+  'iced tea', 'espresso', 'latte', 'cappuccino', 'mocha', 'beer', 'wine',
+  'champagne', 'whiskey', 'vodka', 'rum', 'gin', 'cocktail', 'margarita',
+  'orange juice', 'apple juice', 'grape juice', 'cranberry juice', 'root beer',
+  'ginger ale', 'sports drink', 'gatorade', 'kool aid', 'seltzer',
+  'sparkling water', 'tonic', 'eggnog', 'kombucha', 'slushie',
+]);
+
+const INSTRUMENTS = new Set([
+  'piano', 'guitar', 'drum', 'violin', 'flute', 'trumpet', 'trombone', 'tuba',
+  'saxophone', 'sax', 'clarinet', 'oboe', 'bassoon', 'cello', 'bass', 'harp',
+  'banjo', 'ukulele', 'mandolin', 'accordion', 'harmonica', 'organ', 'keyboard',
+  'synthesizer', 'xylophone', 'marimba', 'tambourine', 'triangle', 'cymbal',
+  'maracas', 'bongo', 'conga', 'bagpipe', 'fiddle', 'viola', 'piccolo',
+  'recorder', 'french horn', 'horn', 'bell', 'chime', 'gong', 'kazoo',
+  'castanets', 'cowbell', 'sitar', 'didgeridoo',
+]);
+
+const PLACES_IN_TOWN = new Set([
+  'store', 'shop', 'school', 'church', 'library', 'hospital', 'clinic',
+  'pharmacy', 'drugstore', 'bank', 'post office', 'restaurant', 'cafe',
+  'diner', 'bakery', 'grocery store', 'supermarket', 'market', 'mall',
+  'park', 'playground', 'gym', 'pool', 'museum', 'theater', 'cinema',
+  'movie theater', 'gas station', 'garage', 'barbershop', 'salon',
+  'fire station', 'police station', 'courthouse', 'city hall', 'hotel',
+  'motel', 'airport', 'train station', 'bus stop', 'zoo', 'stadium',
+  'arena', 'bar', 'pub', 'laundromat', 'dentist', 'office', 'factory',
+  'warehouse', 'farm', 'beach', 'pier', 'harbor', 'bridge',
+]);
+
+const WEATHER = new Set([
+  'rain', 'snow', 'sun', 'sunshine', 'wind', 'cloud', 'storm', 'thunder',
+  'lightning', 'hail', 'sleet', 'fog', 'mist', 'drizzle', 'shower',
+  'hurricane', 'tornado', 'blizzard', 'frost', 'ice', 'heat', 'cold',
+  'humidity', 'breeze', 'gust', 'rainbow', 'dew', 'flood', 'drought',
+  'heatwave', 'cold front', 'overcast', 'sunny', 'cloudy', 'rainy',
+  'snowy', 'windy', 'stormy', 'foggy', 'freezing', 'hot', 'warm', 'cool',
+  'chilly', 'muggy', 'thunderstorm', 'downpour', 'flurry',
+]);
+
+const COUNTRIES = new Set([
+  'america', 'united states', 'usa', 'canada', 'mexico', 'brazil', 'argentina',
+  'chile', 'peru', 'colombia', 'cuba', 'jamaica', 'england', 'britain',
+  'united kingdom', 'ireland', 'scotland', 'wales', 'france', 'spain',
+  'portugal', 'italy', 'germany', 'austria', 'switzerland', 'netherlands',
+  'holland', 'belgium', 'denmark', 'norway', 'sweden', 'finland', 'iceland',
+  'poland', 'russia', 'ukraine', 'greece', 'turkey', 'egypt', 'morocco',
+  'nigeria', 'kenya', 'ethiopia', 'south africa', 'ghana', 'israel',
+  'saudi arabia', 'iran', 'iraq', 'india', 'pakistan', 'china', 'japan',
+  'korea', 'south korea', 'north korea', 'vietnam', 'thailand', 'philippines',
+  'indonesia', 'malaysia', 'singapore', 'australia', 'new zealand', 'fiji',
+  'hungary', 'romania', 'czech republic', 'croatia', 'cambodia', 'laos',
+]);
+
+const PLANTS = new Set([
+  'rose', 'tulip', 'daisy', 'sunflower', 'lily', 'orchid', 'daffodil',
+  'carnation', 'violet', 'pansy', 'petunia', 'marigold', 'iris', 'poppy',
+  'lavender', 'jasmine', 'hibiscus', 'peony', 'chrysanthemum', 'mum',
+  'dandelion', 'buttercup', 'bluebell', 'lilac', 'magnolia', 'azalea',
+  'oak', 'maple', 'pine', 'birch', 'willow', 'elm', 'cedar', 'spruce',
+  'palm', 'fir', 'redwood', 'sequoia', 'aspen', 'poplar', 'sycamore',
+  'chestnut', 'walnut', 'apple tree', 'cherry tree', 'dogwood', 'evergreen',
+  'fern', 'moss', 'ivy', 'cactus', 'bamboo', 'grass', 'shrub', 'bush',
+  'vine', 'clover', 'holly', 'mistletoe', 'aloe', 'succulent',
+]);
+
+const HOBBIES = new Set([
+  'reading', 'writing', 'painting', 'drawing', 'cooking', 'baking',
+  'gardening', 'fishing', 'hunting', 'hiking', 'camping', 'knitting',
+  'sewing', 'crocheting', 'quilting', 'woodworking', 'photography',
+  'dancing', 'singing', 'traveling', 'birdwatching', 'collecting',
+  'chess', 'checkers', 'puzzles', 'crossword', 'sudoku', 'cards',
+  'poker', 'bridge', 'bingo', 'bowling', 'golfing', 'golf', 'swimming',
+  'biking', 'cycling', 'running', 'jogging', 'walking', 'yoga',
+  'exercising', 'scrapbooking', 'pottery', 'ceramics', 'crafts',
+  'gaming', 'video games', 'movies', 'music', 'piano', 'guitar',
+  'stamp collecting', 'coin collecting', 'antiquing', 'volunteering',
+]);
+
 const CATEGORY_WORD_MAP: Record<string, Set<string>> = {
   animals: ANIMALS,
   foods: FOODS,
@@ -216,6 +322,15 @@ const CATEGORY_WORD_MAP: Record<string, Set<string>> = {
   professions: JOBS,
   emotions: EMOTIONS,
   sports: SPORTS,
+  body: BODY_PARTS,
+  furniture: FURNITURE,
+  drinks: DRINKS,
+  instruments: INSTRUMENTS,
+  places: PLACES_IN_TOWN,
+  weather: WEATHER,
+  countries: COUNTRIES,
+  plants: PLANTS,
+  hobbies: HOBBIES,
 };
 
 // Common filler / stop words to silently ignore (not show as rejected)
