@@ -56,6 +56,7 @@ const ALL_GAMES: GameInfo[] = [
   { id: 'narrative-retell', emoji: '📖', name: 'Story Retell', desc: 'Listen and retell a story', difficulty: 'challenge', category: 'speech', domain: 'Conversation' },
   { id: 'conversation-partner', emoji: '🎙️', name: 'Free Talk', desc: 'Have a short conversation', difficulty: 'easy', category: 'speech', domain: 'Conversation' },
   { id: 'conversation-coach', emoji: '✨', name: 'Smart Coach', desc: 'Chat with helpful exercises', difficulty: 'easy', category: 'speech', domain: 'Conversation' },
+  { id: 'functional-scenes', emoji: '💡', name: 'Command Scenes', desc: 'Say a word and watch the scene respond', difficulty: 'easy', category: 'speech', domain: 'Word Finding' },
   { id: 'reach-tap', emoji: '🎯', name: 'Tap Targets', desc: 'Tap circles as they appear', difficulty: 'easy', category: 'motor', domain: 'Motor' },
   { id: 'left-side-hunt', emoji: '⭐', name: 'Star Hunt', desc: 'Find stars on the left side', difficulty: 'medium', category: 'motor', domain: 'Motor' },
   { id: 'pattern-match', emoji: '🧩', name: 'Match Patterns', desc: 'Remember and match shapes', difficulty: 'challenge', category: 'thinking', domain: 'Motor' },
@@ -64,6 +65,7 @@ const ALL_GAMES: GameInfo[] = [
 
 const EXERCISE_ROUTES: Record<string, string> = {
   'photo-naming': '/exercise/photo-naming',
+  'functional-scenes': '/exercise/functional-scenes',
   'reach-tap': '/exercise/reach-tap',
   'left-side-hunt': '/exercise/left-side-hunt',
   'pattern-match': '/exercise/pattern-match',
