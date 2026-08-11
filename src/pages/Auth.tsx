@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Brain, Loader2 } from "lucide-react";
+import { trackEvent, FUNNEL_EVENTS } from "@/lib/appEvents";
 
 type SignupRole = "patient" | "clinician" | "caregiver";
 
@@ -172,6 +173,10 @@ const Auth = () => {
         // Fetch current user safely
         const { data: authUser } = await supabase.auth.getUser();
         const uid = authUser.user?.id;
+
+        if (isSignUp && uid) {
+          trackEvent(FUNNEL_EVENTS.SIGNUP_COMPLETED, { role: signupRole });
+        }
 
         // Only clinicians (professionals reaching other people's data) need an
         // approval request. Family caregivers are self-serve.

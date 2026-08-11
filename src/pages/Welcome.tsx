@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { markOnboardingComplete } from '@/lib/onboarding';
 import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
+import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { cn } from '@/lib/utils';
 
 type WelcomeStep = 'greeting' | 'ready';
@@ -36,6 +37,7 @@ export default function Welcome() {
   };
 
   const launchSession = () => {
+    trackEvent(FUNNEL_EVENTS.WELCOME_COMPLETED, {}, { oncePerLoad: true });
     // Launch KPI: survivor reached their first Start (plan A4). Non-blocking.
     void recordSelfStart(undefined, 'welcome');
     // Continue to the 3-question screener, which builds the provisional
@@ -46,6 +48,7 @@ export default function Welcome() {
   };
 
   const skip = () => {
+    trackEvent(FUNNEL_EVENTS.ONBOARDING_SKIPPED, {}, { oncePerLoad: true });
     markOnboardingComplete(user?.id);
     navigate('/today', { replace: true });
   };

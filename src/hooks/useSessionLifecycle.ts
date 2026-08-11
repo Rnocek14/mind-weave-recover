@@ -4,6 +4,7 @@ import { localYYYYMMDD } from '@/lib/localDate';
 import { triggerPostSessionProfileRefresh } from '@/lib/postSessionProfileRefresh';
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
+import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { computeSessionAccuracySummary, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
 
@@ -287,7 +288,18 @@ export const useSessionLifecycle = ({
    */
   const completeSession = useCallback(async () => {
     await endSessionWithReason('completed');
-  }, [endSessionWithReason]);
+    // Funnel event for standalone-exercise completions (lesson/coach flows
+    // report via sessionTracking.endSession). Parent-owned sessions skip —
+    // the parent flow owns the completion event too. Mirror the ownership
+    // resolution endSessionWithReason uses (explicit option ?? auto-detect).
+    const isOwnedByParent = ownedByParentFlow ?? detectParentOwnership(sessionRef.current);
+    if (!isOwnedByParent && sessionRef.current) {
+      trackEvent(FUNNEL_EVENTS.SESSION_COMPLETED, {
+        session_id: sessionRef.current,
+        exercise_slug: exerciseSlug,
+      });
+    }
+  }, [endSessionWithReason, exerciseSlug, ownedByParentFlow]);
   
   /**
    * Manually end session (e.g., user clicks "Exit")
