@@ -472,6 +472,10 @@ export function scoreExercise(
 export type LessonPreset = 'comprehension_session' | 'core_communication' | 'expression_focused' | 'comprehension_focused' | 'low_energy' | 'depth_battery_onboarding' | 'depth_battery_weekly';
 
 const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<ExerciseBlock, 'exerciseId' | 'duration' | 'priority' | 'reasoning' | 'trialLimit'> & { adaptations?: Partial<ExerciseBlock['adaptations']> }> }> = {
+  // NOTE: presets may only contain POLISHED exercises — buildPresetLesson
+  // rejects any preset with an unpolished block, which previously left 6 of
+  // 7 presets (including Light Session) as dead code. Compositions below are
+  // recomposed from the polished set with equivalent clinical intent.
   comprehension_session: {
     title: 'Comprehension Session',
     blocks: [
@@ -483,11 +487,11 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
         reasoning: 'Inference comprehension (5 trials)',
       },
       {
-        exerciseId: 'meaning-match',
+        exerciseId: 'minimal-pairs',
         duration: 3,
         trialLimit: 5,
         priority: 'primary',
-        reasoning: 'Semantic mapping comprehension (5 trials)',
+        reasoning: 'Auditory discrimination comprehension (5 pairs)',
       },
     ],
   },
@@ -513,36 +517,36 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
   depth_battery_onboarding: {
     title: 'Depth Battery (Baseline)',
     blocks: [
-      { exerciseId: 'abstract-compare', duration: 3, trialLimit: 3, priority: 'primary', reasoning: 'Semantic depth baseline (3 pairs)' },
-      { exerciseId: 'multi-step-plan', duration: 3, trialLimit: 2, priority: 'primary', reasoning: 'Executive sequencing baseline (2 goals)' },
+      { exerciseId: 'describe-guess', duration: 3, trialLimit: 3, priority: 'primary', reasoning: 'Semantic depth via circumlocution baseline (3 items)' },
+      { exerciseId: 'thought-continuation', duration: 3, trialLimit: 2, priority: 'primary', reasoning: 'Open-ended elaboration baseline (2 prompts)' },
       { exerciseId: 'narrative-retell', duration: 4, trialLimit: 2, priority: 'primary', reasoning: 'Discourse organization baseline (2 stories)' },
-      { exerciseId: 'dual-load-naming', duration: 3, trialLimit: 1, priority: 'secondary', reasoning: 'Executive load tolerance baseline (1 set)' },
+      { exerciseId: 'two-clues', duration: 3, trialLimit: 3, priority: 'secondary', reasoning: 'Convergent retrieval baseline (3 items)' },
     ],
   },
   depth_battery_weekly: {
     title: 'Weekly Depth Check',
     blocks: [
-      { exerciseId: 'abstract-compare', duration: 2, trialLimit: 2, priority: 'primary', reasoning: 'Semantic depth check (2 pairs)' },
+      { exerciseId: 'describe-guess', duration: 2, trialLimit: 2, priority: 'primary', reasoning: 'Semantic depth check (2 items)' },
       { exerciseId: 'narrative-retell', duration: 3, trialLimit: 1, priority: 'primary', reasoning: 'Discourse check (1 story)' },
-      { exerciseId: 'dual-load-naming', duration: 2, trialLimit: 1, priority: 'secondary', reasoning: 'Load tolerance check (1 set)' },
+      { exerciseId: 'category-fluency', duration: 2, trialLimit: 1, priority: 'secondary', reasoning: 'Retrieval speed check (1 category)' },
     ],
   },
   expression_focused: {
     title: 'Expression Focus',
     blocks: [
       {
-        exerciseId: 'semantic-features',
+        exerciseId: 'two-clues',
         duration: 4,
         trialLimit: 3,
         priority: 'primary',
-        reasoning: 'Feature analysis for word retrieval (3 words)',
+        reasoning: 'Convergent word retrieval (3 items)',
       },
       {
-        exerciseId: 'synonym-generator',
+        exerciseId: 'describe-guess',
         duration: 3,
-        trialLimit: 5,
+        trialLimit: 3,
         priority: 'primary',
-        reasoning: 'Semantic network activation (5 words)',
+        reasoning: 'Circumlocution and semantic expression (3 items)',
       },
       {
         exerciseId: 'category-fluency',
@@ -564,11 +568,11 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
         reasoning: 'Inference and literal comprehension (4 cases)',
       },
       {
-        exerciseId: 'meaning-match',
+        exerciseId: 'minimal-pairs',
         duration: 3,
         trialLimit: 5,
         priority: 'primary',
-        reasoning: 'Semantic relationship mapping (5 pairs)',
+        reasoning: 'Auditory discrimination (5 pairs)',
       },
       {
         exerciseId: 'narrative-retell',
@@ -583,11 +587,11 @@ const PRESET_LESSONS: Record<LessonPreset, { title: string; blocks: Array<Pick<E
     title: 'Light Session',
     blocks: [
       {
-        exerciseId: 'meaning-match',
+        exerciseId: 'minimal-pairs',
         duration: 3,
         trialLimit: 5,
         priority: 'warmup',
-        reasoning: 'Low-effort semantic matching (5 pairs)',
+        reasoning: 'Low-effort listening warmup (5 pairs)',
       },
       {
         exerciseId: 'photo-naming',
