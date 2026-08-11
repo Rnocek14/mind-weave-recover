@@ -134,7 +134,8 @@ export const SEMANTIC_FEATURES_LEVELS: Record<number, SemanticFeaturesLevelSpec>
     trialWeight: 1.7,
     contentSelector: {
       tierKey: 'associative',
-      description: 'Associative features at bank difficulty 4 — only 4 trials in bank; rotation honest but shallow.',
+      description:
+        'Bridge holds the floor at bank difficulty 3 (associative-rich). Difficulty 4 now holds 20 trials — raising the L6 floor to 4 is viable but is a patient-facing difficulty change; flagged in docs/unimplemented-tiers-roadmap.md.',
       implemented: true,
     },
   },
@@ -148,22 +149,23 @@ export const SEMANTIC_FEATURES_LEVELS: Record<number, SemanticFeaturesLevelSpec>
     trialWeight: 2.0,
     contentSelector: {
       tierKey: 'mixed_abstract',
-      description: 'Bank difficulty 4 with abstract features mixed in; thin bank, rotation only.',
+      description: 'Bank difficulty 4 with abstract features mixed in; pool now 20 trials.',
       implemented: true,
     },
   },
   8: {
     level: 8,
-    description: 'Abstract / low-frequency targets — design-of-record',
+    description: 'Abstract / low-frequency targets',
     targetSupport: 'independent',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
-    readiness: 'aspirational',
+    readiness: 'thin',
     trialWeight: 2.5,
     contentSelector: {
       tierKey: 'abstract_sparse',
-      description: 'Bank difficulty 5 holds only 2 trials — insufficient for live promotion; ceiling clamp blocks advancement until bank is expanded.',
-      implemented: false,
+      description:
+        'Bank difficulty 5 expanded to 20 trials (low-frequency nouns, ≥2 abstractness-5 features each); bridge maps L8 → bank floor 5. New tier — readiness "thin" until field data + SLP review.',
+      implemented: true,
     },
   },
 };

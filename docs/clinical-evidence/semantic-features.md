@@ -33,16 +33,17 @@ multi-modal variants and are not emitted by the current game.
 | 5 | 3 (categorical) | independent | Broader semantic spread | ready |
 | 6 | 3–4 | independent | Associative / cross-domain features | thin |
 | 7 | 4 | independent | Mixed-abstractness under pressure | thin |
-| 8 | 5 | independent | Abstract / low-frequency targets | aspirational |
+| 8 | 5 | independent | Abstract / low-frequency targets | thin |
 
 ## Honest scope notes
-- **Bank thinness at L6–L7.** `semanticFeatureBank` ships 4 trials at
-  difficulty 4 and 2 trials at difficulty 5. L6–L7 are usable for short
-  rotation but not for sustained mastery work; the `readiness: 'thin'`
-  flag and ceiling clamp keep this transparent.
-- **L8 is aspirational.** `contentSelector.implemented: false` marks L8
-  as design-of-record only. The shared `computeImplementedCeiling`
-  helper blocks live promotion past L7 until the bank is expanded.
+- **Bank depth.** `semanticFeatureBank` now ships 20 trials at every
+  difficulty (d=5 expanded 9 → 20 to open L8). The d=5 register is
+  pinned by `semanticFeatureBankIntegrity.test.ts`: low-frequency nouns
+  with ≥2 abstractness-5 correct features (house/hand grandfathered).
+- **L8 is live but new.** `readiness: 'thin'` until field data and SLP
+  review of the AI-authored d=5 additions; the ceiling clamp now allows
+  promotion to L8. The L6 bridge floor (bank difficulty 3) is a flagged
+  decision in `docs/unimplemented-tiers-roadmap.md`.
 - **No untrained-probe tier.** Unlike Photo Naming L8, SFA does not
   ship a separate probe bank. All trials sit inside the training
   distribution.
