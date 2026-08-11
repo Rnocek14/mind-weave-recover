@@ -78,11 +78,31 @@ const PendingApproval = () => {
     };
   }, [user]);
 
+  const metadataRole: string | null =
+    (user?.user_metadata?.requested_role as string | undefined) ?? null;
+
   const roleLabel = useMemo(() => {
-    if (requestedRole === "clinician") return "Clinician";
-    if (requestedRole === "caregiver") return "Caregiver";
+    const role = requestedRole ?? metadataRole;
+    if (role === "clinician") return "Clinician";
+    if (role === "caregiver") return "Caregiver";
     return "professional";
-  }, [requestedRole]);
+  }, [requestedRole, metadataRole]);
+
+  const [resubmitting, setResubmitting] = useState(false);
+  const handleResubmit = async () => {
+    if (!user) return;
+    setResubmitting(true);
+    try {
+      await supabase.from("role_requests").insert({
+        user_id: user.id,
+        email: user.email ?? "",
+        requested_role: metadataRole ?? "clinician",
+      });
+      setStatus("pending");
+    } finally {
+      setResubmitting(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -98,6 +118,7 @@ const PendingApproval = () => {
   }
 
   const rejected = status === "rejected";
+  const noRequest = status === "none";
 
   return (
     <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
@@ -119,6 +140,24 @@ const PendingApproval = () => {
               Your request for {roleLabel} access was not approved. If you
               believe this is a mistake, please contact your administrator.
             </p>
+          </>
+        ) : noRequest ? (
+          <>
+            {/* Previously this state fell through to "Awaiting approval" —
+                someone whose request insert failed waited forever on a screen
+                that was polling for a row that didn't exist. */}
+            <h1 className="text-2xl font-bold">No request on file</h1>
+            <p className="text-muted-foreground">
+              We couldn't find your {roleLabel} access request — it may not
+              have been submitted. You can send it again below.
+            </p>
+            <Button className="w-full" onClick={handleResubmit} disabled={resubmitting}>
+              {resubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                `Request ${roleLabel} access`
+              )}
+            </Button>
           </>
         ) : (
           <>

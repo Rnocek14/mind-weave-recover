@@ -203,8 +203,22 @@ export default function Today() {
   const offlineLesson = isOfflineMode ? buildPresetLesson('core_communication') : null;
   const activeLesson = lesson ?? offlineLesson;
 
-  const currentTab = location.pathname === '/practice' ? 'practice' 
-    : location.pathname === '/progress' ? 'progress' 
+  // Escape hatch: if the lesson never builds (profile failed to load, RLS
+  // denial, engine error), the start CTA used to sit on "Preparing session…"
+  // disabled forever with no way out. After 12s we surface Practice as the
+  // alternative path instead of a permanently dead button.
+  const [prepTimedOut, setPrepTimedOut] = useState(false);
+  useEffect(() => {
+    if (activeLesson) {
+      setPrepTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => setPrepTimedOut(true), 12000);
+    return () => clearTimeout(t);
+  }, [activeLesson]);
+
+  const currentTab = location.pathname === '/practice' ? 'practice'
+    : location.pathname === '/progress' ? 'progress'
     : 'home';
 
   useEffect(() => {
@@ -563,6 +577,30 @@ export default function Today() {
                     </>
                   )}
                 </Button>
+
+                {!lessonReady && prepTimedOut && (
+                  <div className="mt-3 space-y-2 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      This is taking longer than usual.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => window.location.reload()}
+                      >
+                        Try again
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => navigate('/practice')}
+                      >
+                        Pick an exercise
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
