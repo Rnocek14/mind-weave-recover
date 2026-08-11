@@ -208,7 +208,7 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
   return (
     <div className={variantClass(variant, {
-      base: "min-h-screen bg-background flex items-center justify-center p-4",
+      base: "min-h-dvh bg-background flex items-center justify-center p-4",
       simplified: "p-6",
     })}>
       <Card className={variantClass(variant, {

@@ -55,7 +55,7 @@ export default function CaregiverStatus() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -66,7 +66,7 @@ export default function CaregiverStatus() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gradient-calm">
+    <div className="min-h-dvh bg-gradient-calm">
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl space-y-6">
         {/* Header */}
         <div>

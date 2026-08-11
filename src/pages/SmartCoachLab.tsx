@@ -174,7 +174,7 @@ export default function SmartCoachLab() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-dvh bg-background p-4">
       <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center gap-3 mb-4">
           <h1 className="text-xl font-bold text-foreground">Smart Coach Lab</h1>

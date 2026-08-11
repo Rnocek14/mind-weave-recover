@@ -20,7 +20,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function TermsOfService() {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10 space-y-6">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
           <ArrowLeft className="mr-1 h-4 w-4" /> Back

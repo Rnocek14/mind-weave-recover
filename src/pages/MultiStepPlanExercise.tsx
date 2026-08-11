@@ -199,7 +199,7 @@ export default function MultiStepPlanExercise() {
   if (isCreatingSession || !activeSessionId) {
     if (loadTimedOut) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="min-h-dvh flex items-center justify-center bg-background p-6">
           <div className="max-w-md text-center space-y-4">
             <h2 className="text-lg font-semibold">We couldn't start this exercise</h2>
             <p className="text-sm text-muted-foreground">

@@ -243,7 +243,7 @@ export default function MinimalPairsExercise() {
   
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="min-h-dvh bg-background p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <Button variant="ghost" onClick={handleBack} className="gap-2">
             <ArrowLeft className="w-4 h-4" />

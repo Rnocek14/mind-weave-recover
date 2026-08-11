@@ -142,14 +142,14 @@ export default function History() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <div className="text-lg">Loading history...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-4xl">
         <div className="mb-6 flex items-center gap-3">
           <BackButton />

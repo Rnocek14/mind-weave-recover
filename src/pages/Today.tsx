@@ -365,7 +365,7 @@ export default function Today() {
 
   if (authLoading || !loaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -383,7 +383,7 @@ export default function Today() {
 
   return (
     <div className={variantClass(variant, {
-      base: 'min-h-screen bg-background flex flex-col',
+      base: 'min-h-dvh bg-background flex flex-col',
       neglect: 'pr-2',
     })}>
       <div className={variantClass(variant, {

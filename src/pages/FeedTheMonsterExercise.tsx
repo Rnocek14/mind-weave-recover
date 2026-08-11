@@ -287,7 +287,7 @@ export default function FeedTheMonsterExercise() {
   const spokenCount = feeds.filter((m) => m === "spoken" || m === "grown_up").length;
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex flex-col items-center px-4 py-6">
+    <div className="min-h-dvh bg-gradient-calm flex flex-col items-center px-4 py-6">
       {/* ── Intro ── */}
       {phase === "intro" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center max-w-sm">

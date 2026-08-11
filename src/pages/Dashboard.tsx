@@ -236,7 +236,7 @@ const Dashboard = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -278,7 +278,7 @@ const Dashboard = () => {
   const handBias = activeProfile?.hand_bias;
 
   return (
-    <div className="min-h-screen bg-gradient-calm">
+    <div className="min-h-dvh bg-gradient-calm">
       <DashboardQuickTour open={showQuickTour} onOpenChange={setShowQuickTour} />
 
       {isMobile && (

@@ -145,7 +145,7 @@ const SessionHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-dvh bg-background">
         <div className="container max-w-6xl mx-auto p-4 md:p-8">
           <Skeleton className="h-10 w-48 mb-6" />
           <Skeleton className="h-64 w-full" />
@@ -155,7 +155,7 @@ const SessionHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="container max-w-6xl mx-auto p-4 md:p-8">
         {/* Header */}
         <Button

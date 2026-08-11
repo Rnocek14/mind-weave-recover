@@ -70,7 +70,7 @@ export default function CohortResearchAnalytics() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background py-8 px-4">
+      <div className="min-h-dvh bg-background py-8 px-4">
         <div className="container mx-auto max-w-6xl space-y-4">
           <Skeleton className="h-10 w-64" />
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-64 w-full" />)}
@@ -80,7 +80,7 @@ export default function CohortResearchAnalytics() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
+    <div className="min-h-dvh bg-background py-8 px-4">
       <div className="container mx-auto max-w-6xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

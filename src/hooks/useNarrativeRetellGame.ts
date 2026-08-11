@@ -10,6 +10,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { NARRATIVE_STORIES, NarrativeStory } from '@/data/narrativeRetellStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 
 /** Build a queue of stories at a given tier, avoiding ones already seen.
  *  Uses a sliding ±1 window so the pool actually scales with tier:
@@ -27,7 +28,11 @@ function buildStories(tier: number, count: number, excludeIds: Set<string>): Nar
     (s) => s.tier !== t && s.tier >= lo && s.tier <= hi && !excludeIds.has(s.id),
   );
   const pool = [...shuffleArray(exact), ...shuffleArray(adjacent)];
-  return pool.slice(0, count);
+  // Cross-session recency: 11-15 stories/tier at 3/session repeats within
+  // the week otherwise. Soft: stale stories fall to the back of the order.
+  const picked = orderFreshFirst('narrative_retell', pool, { tier: t }).slice(0, count);
+  markManyUsed('narrative_retell', picked.map(s => s.id), { tier: t, lookback: 8 });
+  return picked;
 }
 import { scoreExplanation } from '@/lib/explanationScorer';
 

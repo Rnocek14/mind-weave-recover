@@ -51,7 +51,7 @@ const Admin = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -60,7 +60,7 @@ const Admin = () => {
   if (!isAdmin) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <DashboardTour role="admin" />
       <div className="container mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-6">

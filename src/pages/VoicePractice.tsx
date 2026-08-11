@@ -212,7 +212,7 @@ export default function VoicePractice() {
   // ─── Ready Screen ───
   if (phase === 'ready') {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <VoiceHeader onBack={() => navigate(-1)} />
         <div className="flex-1 flex flex-col items-center justify-center gap-8 p-6">
           <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
@@ -237,7 +237,7 @@ export default function VoicePractice() {
   if (phase === 'complete') {
     const completed = results.filter(r => r.score > 0).length;
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <VoiceHeader onBack={() => navigate(-1)} />
         <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
           <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
@@ -284,7 +284,7 @@ export default function VoicePractice() {
 
   // ─── Active Session ───
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       <VoiceHeader 
         onBack={() => { endSession(); navigate(-1); }}
         roundInfo={`${currentIndex + 1} / ${totalRounds}`}

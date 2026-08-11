@@ -111,7 +111,7 @@ const PendingApproval = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -121,7 +121,7 @@ const PendingApproval = () => {
   const noRequest = status === "none";
 
   return (
-    <div className="min-h-screen bg-gradient-calm flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-gradient-calm flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 space-y-6 text-center">
         <div className="flex justify-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">

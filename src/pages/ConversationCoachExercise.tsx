@@ -77,7 +77,7 @@ export default function ConversationCoachExercise() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -134,7 +134,7 @@ export default function ConversationCoachExercise() {
   // Summary screen
   if (sessionSummary && !gameStarted) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />
@@ -202,7 +202,7 @@ export default function ConversationCoachExercise() {
   // Start screen
   if (!gameStarted) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-dvh bg-background flex flex-col">
         <header className="p-4 flex items-center gap-3 border-b">
           <Button variant="ghost" size="icon" aria-label="Exit" onClick={handleExit}>
             <ArrowLeft className="w-5 h-5" />

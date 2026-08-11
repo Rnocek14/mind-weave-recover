@@ -400,7 +400,7 @@ function SimulationPanel({ profileKey }: { profileKey: string }) {
 export default function AdminEngineSimulation() {
   return (
     <AdminProtectedRoute>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-dvh bg-background">
         <div className="container max-w-6xl py-6 space-y-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Engine Simulation QA</h1>

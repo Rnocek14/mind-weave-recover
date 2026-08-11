@@ -182,14 +182,14 @@ export default function PrivacySettings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center">
         <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-calm py-8 px-4">
+    <div className="min-h-dvh bg-gradient-calm py-8 px-4">
       <div className="container mx-auto max-w-2xl">
         <BackButton className="mb-6" />
 

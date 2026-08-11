@@ -23,7 +23,7 @@ export function ExerciseLoading() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-dvh flex items-center justify-center bg-background">
       <div className="animate-pulse text-muted-foreground">Loading exercise...</div>
     </div>
   );

@@ -616,7 +616,7 @@ const Exercise = () => {
   // static routes (which shadow this generic one).
   if (!isKnownExercise) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center px-4 py-8">
         <Card className="max-w-md w-full p-8 text-center space-y-4 shadow-card">
           <h1 className="text-2xl font-bold">This activity isn't available</h1>
           <p className="text-muted-foreground">
@@ -633,7 +633,7 @@ const Exercise = () => {
   // Show mood check-in first
   if (showMoodCheckIn) {
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center px-4 py-8">
         <MoodCheckIn 
           type="pre" 
           onMoodSelect={handleMoodSelect}
@@ -672,7 +672,7 @@ const Exercise = () => {
     }
     
     return (
-      <div className="min-h-screen bg-gradient-calm flex items-center justify-center px-4 py-8">
+      <div className="min-h-dvh bg-gradient-calm flex items-center justify-center px-4 py-8">
         <div className="max-w-2xl w-full space-y-6 animate-slide-up">
           <Card className="p-8 shadow-glow text-center">
             <div className="w-24 h-24 mx-auto rounded-full bg-gradient-celebrate flex items-center justify-center mb-6 animate-celebrate">
