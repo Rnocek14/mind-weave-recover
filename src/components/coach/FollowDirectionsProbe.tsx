@@ -9,8 +9,9 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { ThumbsUp } from 'lucide-react';
+import { ThumbsUp, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 // Shape + color items for the board
 type ShapeColor = { shape: 'circle' | 'square' | 'triangle' | 'star'; color: string; label: string };
@@ -104,6 +105,7 @@ export function FollowDirectionsProbe({ totalTrials = 5, difficultyLevel = 2, on
   const [stepsCompleted, setStepsCompleted] = useState(0);
   const [stepsTotal, setStepsTotal] = useState(0);
   const trialStartRef = useRef(Date.now());
+  const { speak } = useTextToSpeech();
 
   // Shuffled board items for display
   const boardItems = useMemo(() => [...ITEMS].sort(() => Math.random() - 0.5), [currentIndex]);
@@ -113,6 +115,17 @@ export function FollowDirectionsProbe({ totalTrials = 5, difficultyLevel = 2, on
     setCurrentStepIndex(0);
     setTrialCorrectSoFar(true);
   }, [currentIndex]);
+
+  // This is an AUDITORY comprehension probe — the direction must be heard,
+  // not just read (text-only rendering silently turned it into a reading
+  // task, passing text-readers and failing alexic patients for the wrong
+  // reason). Auto-speak each new direction; the speaker button replays it.
+  useEffect(() => {
+    if (completed) return;
+    const trial = trials[currentIndex];
+    if (trial) void speak(trial.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- speak identity churns; re-run only per trial
+  }, [currentIndex, completed]);
 
   const handleTap = useCallback((item: ShapeColor) => {
     if (feedback || completed) return;
@@ -183,14 +196,22 @@ export function FollowDirectionsProbe({ totalTrials = 5, difficultyLevel = 2, on
         {currentIndex + 1} / {trials.length}
       </div>
 
-      {/* Instruction */}
+      {/* Instruction — spoken aloud; text stays as support */}
       <div className={cn(
-        "text-center p-4 rounded-xl min-h-[60px] flex items-center justify-center w-full",
+        "text-center p-4 rounded-xl min-h-[60px] flex items-center justify-center gap-3 w-full",
       feedback === 'correct' ? 'bg-primary/10' :
       feedback === 'incorrect' ? 'bg-destructive/10' :
       'bg-muted/30'
       )}>
         <p className="text-base font-medium">{trial.text}</p>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Hear the direction again"
+          onClick={() => void speak(trial.text)}
+        >
+          <Volume2 className="w-5 h-5 text-primary" />
+        </Button>
       </div>
 
       {/* Step indicator for multi-step */}
