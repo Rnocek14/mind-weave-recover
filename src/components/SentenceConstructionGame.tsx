@@ -52,6 +52,10 @@ interface SentenceConstructionGameProps {
   focusPhonemes?: string[];
   adaptations?: ExerciseAdaptation | null;
   sessionId?: string | null;
+  /** Persistent Clinical Level (1–8). L1–L2 default to word tiles —
+   *  the ladder's highlight_plus_choice/choice_based entry scaffold —
+   *  with the voice toggle still available. */
+  clinicalLevel?: number | null;
   onTrialComplete?: (data: {
     correct: boolean;
     reactionTime: number;
@@ -121,6 +125,7 @@ export const SentenceConstructionGame = ({
   focusPhonemes = [],
   adaptations,
   sessionId,
+  clinicalLevel,
   onTrialComplete,
   onGameComplete
 }: SentenceConstructionGameProps) => {
@@ -200,7 +205,12 @@ export const SentenceConstructionGame = ({
   const { kidsMode } = useKidsMode();
   // Kids default to tactile word tiles — voice-first assumes a mic-permission
   // flow and reading of status text that young kids can't navigate alone.
-  const [showTiles, setShowTiles] = useState(kidsMode);
+  // Clinical L1–L2 ALSO default to tiles: the ladder's entry rungs promise
+  // a choice scaffold (highlight_plus_choice / choice_based), and unscaffolded
+  // voice-first entry was the "starts too hard" gap the wave-16 audit found.
+  const [showTiles, setShowTiles] = useState(
+    kidsMode || (clinicalLevel != null && clinicalLevel <= 2),
+  );
   // Pick praise once per trial so it doesn't reroll on re-renders.
   const kidsPraise = useMemo(() => getKidsPraise(), [currentTrial]);
   const kidsSounds = useKidsSounds();

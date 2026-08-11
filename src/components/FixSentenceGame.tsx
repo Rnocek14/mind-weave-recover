@@ -28,6 +28,7 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { buildFixSentenceChoices } from '@/lib/fixSentenceChoices';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
@@ -226,6 +227,51 @@ export function FixSentenceGame({
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
 
+  // L1/L2 scaffolded response mode (ladder targetSupport). L1 keeps the
+  // wrong-word highlight (highlight_plus_choice); L2 drops it
+  // (choice_based). L3+ is open response — the existing speech/typed UI.
+  const choiceMode = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
+  const showHighlight = !choiceMode || clinicalLevel === 1;
+  const choiceTiles = React.useMemo(
+    () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
+    [choiceMode, game.currentTrial],
+  );
+
+  // Choice-tile tap: speak the word (model), score locally, submit through
+  // the same result pipeline as speech/typed — support level rides on the
+  // result so ladder evidence sees the true (scaffolded) task.
+  const handleChoiceTap = useCallback((word: string) => {
+    if (processingRef.current || showFeedback || !game.currentTrial) return;
+    processingRef.current = true;
+    setIsProcessing(true);
+    try {
+      void speak(word);
+      const result = game.scoreChoice(word);
+      if (!result) return;
+      setDisplayTranscript(word);
+      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 1, timestamp: Date.now() });
+      game.submitResult(result);
+      setShowFeedback(true);
+      if (result.isCorrect) {
+        setTimeout(() => {
+          game.nextTrial();
+          setShowFeedback(false);
+          setDisplayTranscript('');
+        }, AUTO_ADVANCE_DELAY_MS);
+      } else {
+        // Gentle retry: same tiles (deterministic), no mic involved.
+        setTimeout(() => {
+          setShowFeedback(false);
+          setDisplayTranscript('');
+        }, WRONG_ANSWER_DISPLAY_MS);
+      }
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+    }
+  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement]);
+
   // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
   const handleTypedSubmit = useCallback(async () => {
     const text = typedAnswer.trim();
@@ -402,7 +448,7 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        if (sessionId && userId && !showTextInput) {
+        if (sessionId && userId && !showTextInput && !choiceMode) {
           startListening();
           setIsListening(true);
           if (isRecordingSupported) startRecording();
@@ -667,7 +713,7 @@ export function FixSentenceGame({
             <span key={i}>
               {i > 0 && ' '}
               <span className={cn(
-                isWrong && 'bg-destructive/20 text-destructive font-bold px-1 py-0.5 rounded underline decoration-wavy decoration-destructive'
+                isWrong && showHighlight && 'bg-destructive/20 text-destructive font-bold px-1 py-0.5 rounded underline decoration-wavy decoration-destructive'
               )}>
                 {cleanWord}
               </span>
@@ -715,12 +761,12 @@ export function FixSentenceGame({
     // Sync-Wait: wait until Maya's feedback finishes before re-opening the mic,
     // so the retry doesn't immediately capture her voice as the answer.
     void voiceController.awaitMicSafe().then(() => {
-      if (showTextInput) return;
+      if (showTextInput || choiceMode) return;
       startListening();
       setIsListening(true);
       if (isRecordingSupported) startRecording();
     });
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, showTextInput]);
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, showTextInput, choiceMode]);
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
@@ -874,8 +920,27 @@ export function FixSentenceGame({
         </Card>
       )}
 
+      {/* L1/L2 choice tiles — the ladder's scaffolded response mode.
+          Tap speaks the word (model) and answers; no mic, no typing. */}
+      {choiceMode && choiceTiles && !showFeedback && (
+        <div className="grid grid-cols-2 gap-3" data-testid="choice-tiles">
+          {choiceTiles.map((word) => (
+            <Button
+              key={word}
+              variant="secondary"
+              size="lg"
+              className="h-16 text-lg capitalize"
+              disabled={isProcessing}
+              onClick={() => handleChoiceTap(word)}
+            >
+              {word}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {/* Typing fallback input */}
-      {showTextInput && !showFeedback && (
+      {!choiceMode && showTextInput && !showFeedback && (
         <div className="flex gap-2">
           <Input
             value={typedAnswer}
@@ -909,7 +974,7 @@ export function FixSentenceGame({
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Checking...
           </Badge>
-        ) : !showTextInput ? (
+        ) : choiceMode ? null : !showTextInput ? (
           <div className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
@@ -919,7 +984,7 @@ export function FixSentenceGame({
           </div>
         ) : null}
 
-        <button
+        {!choiceMode && <button
           type="button"
           onClick={() => {
             const next = !showTextInput;
@@ -945,7 +1010,7 @@ export function FixSentenceGame({
         >
           {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
           {showTextInput ? 'Switch to speech' : 'Switch to typing'}
-        </button>
+        </button>}
 
         <Button variant="ghost" size="sm" onClick={handleSkip}>
           <SkipForward className="h-4 w-4 mr-1" /> Skip

@@ -204,6 +204,50 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     expect(result.phase2Fix).toBe(trial.secondError!.acceptedFixes[0]);
   });
 
+  it("L1 (choice mode): tiles render, correct tap completes with highlight_plus_choice support", async () => {
+    const onTrialComplete = vi.fn();
+    render(<FixSentenceGame trialCount={3} clinicalLevel={1} onTrialComplete={onTrialComplete} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+    // Open-response inputs are gone in choice mode.
+    expect(screen.queryByPlaceholderText(/type the replacement word/i)).toBeNull();
+    expect(screen.queryByText(/switch to typing/i)).toBeNull();
+
+    const trial = findTrialOnScreen();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${trial.acceptedFixes[0]}$`, "i") }));
+    });
+    await waitFor(() => expect(onTrialComplete).toHaveBeenCalledTimes(1));
+    const result = onTrialComplete.mock.calls[0][0];
+    expect(result.isCorrect).toBe(true);
+    expect(result.support).toBe("highlight_plus_choice");
+  });
+
+  it("L2 (choice mode): the wrong-word highlight is dropped and support is choice_based", async () => {
+    const onTrialComplete = vi.fn();
+    render(<FixSentenceGame trialCount={3} clinicalLevel={2} onTrialComplete={onTrialComplete} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+
+    const trial = findTrialOnScreen();
+    // No element carries the highlight styling at L2.
+    const highlighted = document.querySelector(".decoration-wavy");
+    expect(highlighted).toBeNull();
+
+    // A wrong tile scores incorrect without partial credit, then the
+    // correct tile completes the trial.
+    const wrongTile = Array.from(
+      screen.getByTestId("choice-tiles").querySelectorAll("button"),
+    ).find((b) => !trial.acceptedFixes.some((f) => f.toLowerCase() === b.textContent!.trim().toLowerCase()))!;
+    await act(async () => {
+      fireEvent.click(wrongTile);
+    });
+    await waitFor(() => expect(onTrialComplete).toHaveBeenCalledTimes(1));
+    expect(onTrialComplete.mock.calls[0][0]).toMatchObject({
+      isCorrect: false,
+      isPartialCredit: false,
+      support: "choice_based",
+    });
+  });
+
   it("morphology trial: the inflected form wins, the bare base form fails plainly", async () => {
     const onTrialComplete = vi.fn();
     render(<FixSentenceGame trialCount={3} clinicalLevel={6} onTrialComplete={onTrialComplete} />);

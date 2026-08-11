@@ -39,6 +39,14 @@ export interface FixSentenceTrialResult {
   phaseAdvance?: boolean;
   phase1Fix?: string | null;
   phase2Fix?: string | null;
+  /**
+   * The clinical support level the response was produced under.
+   * L1 choice tiles + highlight → 'highlight_plus_choice';
+   * L2 choice tiles, no highlight → 'choice_based';
+   * spoken/typed open production (default) → 'open_response'.
+   * Feeds submitTrial.supportUsed so ladder evidence sees the true task.
+   */
+  support?: 'highlight_plus_choice' | 'choice_based' | 'open_response';
 }
 
 interface UseFixSentenceGameOptions {
@@ -406,6 +414,37 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   }, [currentTrial, currentAttempt, localMatch, matchFixSet, repairPhase, playSuccess, playError]);
 
   /**
+   * Score a CHOICE-TILE selection — the L1/L2 scaffolded response mode
+   * (ladder targetSupport highlight_plus_choice / choice_based). Purely
+   * local: the tile either is an accepted fix or it isn't; no semantic
+   * fallback, no partial credit. The result carries the true support
+   * level so ladder evidence sees the scaffolded task, not open response.
+   */
+  const scoreChoice = useCallback((selected: string): FixSentenceTrialResult | null => {
+    if (!currentTrial) return null;
+    const reactionTimeMs = Date.now() - roundStartTimeRef.current;
+    const matched = localMatch(selected, currentTrial);
+    const isCorrect = matched != null;
+    if (isCorrect) playSuccess(); else playError();
+    return {
+      trialId: currentTrial.id,
+      sentence: currentTrial.sentence,
+      wrongWord: currentTrial.wrongWord,
+      spokenWord: selected,
+      matchedFix: matched,
+      isCorrect,
+      isPartialCredit: false,
+      selfCorrected: false,
+      semanticSimilarity: isCorrect ? 1.0 : null,
+      reactionTimeMs,
+      attemptNumber: currentAttempt,
+      difficulty: currentTrial.difficulty,
+      phonemeTargets: currentTrial.phonemeTargets,
+      support: clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based',
+    };
+  }, [currentTrial, currentAttempt, localMatch, clinicalLevel, playSuccess, playError]);
+
+  /**
    * Submit a scored result
    */
   const submitResult = useCallback((result: FixSentenceTrialResult) => {
@@ -505,6 +544,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     correctCount,
     partialCount,
     scoreAnswer,
+    scoreChoice,
     submitResult,
     nextTrial,
     startRound,

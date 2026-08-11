@@ -58,6 +58,7 @@ export function buildFixSentenceTaskParameters(
     two_error_trial: trial?.secondError != null,
     phase1_fix: result.phase1Fix ?? null,
     phase2_fix: result.phase2Fix ?? null,
+    support_used: result.support ?? 'open_response',
     phase2_abandoned: result.phase1Fix != null && result.phase2Fix === null && result.isPartialCredit,
     ...extra,
   };

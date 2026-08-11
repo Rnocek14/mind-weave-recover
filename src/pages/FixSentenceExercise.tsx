@@ -148,8 +148,11 @@ export default function FixSentenceExercise() {
       userResponse: result.spokenWord,
       isCorrect: result.isCorrect,
       accuracyScore: result.semanticSimilarity ?? null,
+      // cue_level stays 0: choice tiles are a RESPONSE-FORMAT support
+      // (supportUsed), not an issued cue — per the locked cross-game
+      // cue_level contract (docs/unified-trial-contract.md).
       cueLevel: 0,
-      supportUsed: 'open_response',
+      supportUsed: result.support ?? 'open_response',
       latencyMs: result.reactionTimeMs ?? null,
       trialMode: 'production',
       validity,
