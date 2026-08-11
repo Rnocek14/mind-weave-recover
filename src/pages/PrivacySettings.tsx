@@ -143,39 +143,38 @@ export default function PrivacySettings() {
 
   const deleteAllData = async () => {
     if (!user) return;
-    
+
     const confirmed = window.confirm(
-      "Are you sure you want to delete all your data? This cannot be undone."
+      "Delete your account and all your data? This cannot be undone."
     );
-    
+
     if (!confirmed) return;
 
     try {
-      // Delete photos from storage and database
-      const { data: photos } = await supabase
-        .from("photos")
-        .select("storage_path")
-        .eq("user_id", user.id);
-
-      if (photos) {
-        for (const photo of photos) {
-          await supabase.storage.from("photos").remove([photo.storage_path]);
-        }
-      }
-
-      // Delete all user data (cascade will handle related records)
-      await supabase.from("profiles").delete().eq("user_id", user.id);
-
-      toast({
-        title: "Data deleted",
-        description: "All your data has been removed.",
+      // Server-side deletion: removes storage objects, then the auth account
+      // itself — every user-keyed table cascades. (The old client-side
+      // version deleted profile rows but left the account and most telemetry
+      // behind, which broke the Privacy Policy's deletion promise.)
+      const { data, error } = await supabase.functions.invoke("delete-account", {
+        body: { confirm: "DELETE" },
       });
 
-      navigate("/auth");
-    } catch (error) {
+      if (error || !data?.ok) {
+        throw new Error(error?.message ?? "Deletion failed");
+      }
+
+      toast({
+        title: "Account deleted",
+        description: "Your account and all your data have been removed.",
+      });
+
+      // The account no longer exists — clear the dead local session.
+      await supabase.auth.signOut();
+      navigate("/");
+    } catch {
       toast({
         title: "Error",
-        description: "Failed to delete data. Please try again.",
+        description: "Failed to delete your account. Please try again or contact support.",
         variant: "destructive",
       });
     }

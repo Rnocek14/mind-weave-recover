@@ -3,6 +3,9 @@ project_id = "wjedbpjaiqdxhmjzkcxo"
 [functions.parse-clinical-notes]
 verify_jwt = false
 
+[functions.delete-account]
+verify_jwt = false
+
 [functions.text-to-speech-stream]
 verify_jwt = true
 

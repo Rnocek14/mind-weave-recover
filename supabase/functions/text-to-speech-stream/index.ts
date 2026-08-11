@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser } from "../_shared/auth.ts";
+import { checkRateLimit, rateLimitedResponse } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +52,11 @@ serve(async (req) => {
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
+
+  // Paid ElevenLabs call per utterance — bound per-user throughput. The
+  // client falls back to browser speech synthesis on non-audio responses.
+  const rate = await checkRateLimit(caller.id, 'tts', 600);
+  if (!rate.allowed) return rateLimitedResponse(corsHeaders);
 
   try {
     const body = await req.json();

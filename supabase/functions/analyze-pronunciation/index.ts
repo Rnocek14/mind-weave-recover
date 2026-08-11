@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAuthedUser } from "../_shared/auth.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,6 +108,15 @@ serve(async (req) => {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
+  }
+
+  // Paid Azure PA call per trial — bound per-user throughput.
+  const rate = await checkRateLimit(caller.id, 'speech_analysis', 600);
+  if (!rate.allowed) {
+    return new Response(
+      JSON.stringify({ ok: false, error: { stage: 'rate_limit', message: 'RATE_LIMITED' } }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   // Extract correlation ID for logging
