@@ -35,10 +35,24 @@
  */
 
 import type { FixSentenceTrial } from '@/data/fixSentenceBank';
-import { FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
+import { FIX_SENTENCE_BANK, FIX_SENTENCE_TWO_ERROR_BANK } from '@/data/fixSentenceBank';
 
 // ── Tunables ───────────────────────────────────────────────────────────
 export const MIN_TIER_POOL_SIZE = 6;
+
+/**
+ * L5 readiness gate. The two-error CONTENT and this selector's cohort are
+ * ready (FIX_SENTENCE_TWO_ERROR_BANK); what's missing is the game repair
+ * loop's two-phase scoring (see docs/fix-sentence-two-error-spec.md).
+ * Flip to true ONLY in the same change that implements that loop —
+ * flipping it alone would serve two-error sentences to a single-error UI.
+ */
+export const TWO_ERROR_GAME_READY = false;
+
+/** The L5 candidate pool — exported so tests pin the cohort's integrity. */
+export function selectTwoErrorCandidates(): FixSentenceTrial[] {
+  return FIX_SENTENCE_TWO_ERROR_BANK.filter((t) => t.secondError != null);
+}
 
 /**
  * Common transitive action verbs used by the L4 filter. Calibration default
@@ -180,12 +194,30 @@ export function selectFixSentencePool(
     };
   }
 
-  // L5 — two-error sentences. NOT IMPLEMENTED.
+  // L5 — two-error sentences. Content + cohort are staged
+  // (FIX_SENTENCE_TWO_ERROR_BANK); serving waits on the game's two-phase
+  // repair loop. Until TWO_ERROR_GAME_READY flips, skip honestly.
   if (tier === 'L5') {
+    if (TWO_ERROR_GAME_READY) {
+      const candidates = selectTwoErrorCandidates();
+      if (candidates.length >= MIN_TIER_POOL_SIZE) {
+        return {
+          tier,
+          pool: candidates.map((t) => ({ ...t, __selectorTier: tier })),
+          reason: 'two_error',
+          fallback: null,
+          diagnostics: {
+            totalCandidates: candidates.length,
+            poolSize: candidates.length,
+            errorTypeCounts: countErrorTypes(candidates),
+          },
+        };
+      }
+    }
     return baselineResult(tier, bank, {
       reason: 'two_error_mode_not_implemented',
       detail:
-        'Bank carries one wrongWord per trial; multi-error detection and scoring do not exist. Selector skips honestly — do NOT claim two-error tier.',
+        'Two-error content and selector cohort are staged (FIX_SENTENCE_TWO_ERROR_BANK); the game repair loop does not yet score two phases. Selector skips honestly — do NOT claim two-error tier.',
       skipped: true,
     });
   }
