@@ -7,10 +7,31 @@
  * TTS before applying the effect (errorless practice). All effects are
  * physical (brightness, scale, position, fill, motion) on real photos.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, MicOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Moon,
+  ZoomIn,
+  ZoomOut,
+  ArrowUp,
+  ArrowDown,
+  Play,
+  Square,
+  FastForward,
+  Rewind,
+  Plus,
+  Minus,
+  Flame,
+  Wind,
+  Eye,
+  type LucideIcon,
+} from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { FUNCTIONAL_SCENES } from '@/data/functionalSceneBank';
@@ -28,10 +49,32 @@ export interface SceneCommandEvent {
   sceneId: string;
   command: string;
   formUsed: string;
-  inputMode: 'speech' | 'tap';
+  inputMode: 'speech' | 'tap' | 'demo';
   changed: boolean;
   atLimit: boolean;
 }
+
+/**
+ * Severe-aphasia support: every command word gets a pictographic icon so
+ * the buttons work for non-readers (global aphasia frequently includes
+ * alexia). Icons are decorative — the word remains the accessible name.
+ */
+const COMMAND_ICONS: Record<string, LucideIcon> = {
+  brighter: Sun,
+  darker: Moon,
+  bigger: ZoomIn,
+  smaller: ZoomOut,
+  up: ArrowUp,
+  down: ArrowDown,
+  go: Play,
+  stop: Square,
+  faster: FastForward,
+  slower: Rewind,
+  more: Plus,
+  less: Minus,
+  light: Flame,
+  out: Wind,
+};
 
 interface FunctionalScenePlayerProps {
   onCommandApplied?: (e: SceneCommandEvent) => void;
@@ -97,14 +140,19 @@ export function FunctionalScenePlayer({ onCommandApplied, onSceneChange }: Funct
   const state = states[scene.id];
 
   const applyUtterance = useCallback(
-    (utterance: string, inputMode: 'speech' | 'tap') => {
+    (utterance: string, inputMode: 'speech' | 'tap' | 'demo') => {
       const app: CommandApplication = applyCommandUtterance(scene, states[scene.id], utterance);
       if (!app.matched) {
         if (inputMode === 'speech') setFeedback(UNMATCHED_HINT);
         return;
       }
       setStates((prev) => ({ ...prev, [scene.id]: app.next }));
-      setFeedback(feedbackFor(scene, app));
+      const line = feedbackFor(scene, app);
+      setFeedback(line);
+      // Spoken confirmation on SPEECH successes — comprehension support for
+      // users who can't read the feedback line. (Tap already spoke the
+      // word as its model; a second utterance would cut the first off.)
+      if (inputMode === 'speech' && line) void speak(line);
       onCommandApplied?.({
         sceneId: scene.id,
         command: app.matched.word,
@@ -114,8 +162,22 @@ export function FunctionalScenePlayer({ onCommandApplied, onSceneChange }: Funct
         atLimit: app.atLimit,
       });
     },
-    [scene, states, onCommandApplied],
+    [scene, states, onCommandApplied, speak],
   );
+
+  // Speak the scene prompt on entry — non-readers hear what to do.
+  useEffect(() => {
+    void speak(scene.prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id]);
+
+  // "Show me": errorless demonstration — model the first command aloud and
+  // perform it, tagged 'demo' in telemetry so it never reads as the patient.
+  const showMe = useCallback(() => {
+    const first = scene.commands[0];
+    void speak(first.word);
+    applyUtterance(first.word, 'demo');
+  }, [scene, speak, applyUtterance]);
 
   const { startListening, stopListening, isSupported } = useSpeechRecognition({
     onResult: (text: string) => {
@@ -162,44 +224,60 @@ export function FunctionalScenePlayer({ onCommandApplied, onSceneChange }: Funct
       <style>{`@keyframes scene-car-drift { from { transform: translateX(-16px); } to { transform: translateX(16px); } }`}</style>
 
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" aria-label="Previous scene" onClick={() => goToScene(sceneIndex - 1)}>
-          <ChevronLeft className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Previous scene"
+          className="h-12 w-12"
+          onClick={() => goToScene(sceneIndex - 1)}
+        >
+          <ChevronLeft className="h-8 w-8" />
         </Button>
         <div className="text-center">
           <h2 className="text-xl font-semibold">{scene.title}</h2>
           <p className="text-sm text-muted-foreground">{scene.prompt}</p>
         </div>
-        <Button variant="ghost" size="icon" aria-label="Next scene" onClick={() => goToScene(sceneIndex + 1)}>
-          <ChevronRight className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Next scene"
+          className="h-12 w-12"
+          onClick={() => goToScene(sceneIndex + 1)}
+        >
+          <ChevronRight className="h-8 w-8" />
         </Button>
       </div>
 
       <Card>
         <CardContent className="p-4">
           <div className="relative mx-auto flex h-64 w-full items-center justify-center overflow-hidden rounded-lg bg-muted">
-            <img
-              src={scene.photo}
-              alt={scene.title}
-              data-testid="scene-photo"
-              className="max-h-56 max-w-full object-contain"
-              style={scenePhotoStyle(scene, state, reduced)}
-            />
-            {fillLevel != null && (
-              <div
-                data-testid="cup-fill"
-                aria-hidden
-                className="pointer-events-none absolute inset-x-8 bottom-2 overflow-hidden rounded-md"
-                style={{ height: '40%' }}
-              >
+            {/* key by scene id: remount on scene change so the previous
+                scene's transform never morphs into the next photo */}
+            <div key={scene.id} className="relative inline-flex">
+              <img
+                src={scene.photo}
+                alt={scene.title}
+                data-testid="scene-photo"
+                className="max-h-56 max-w-full object-contain"
+                style={scenePhotoStyle(scene, state, reduced)}
+              />
+              {fillLevel != null && (
                 <div
-                  className="absolute inset-x-0 bottom-0 rounded-md bg-primary/30"
-                  style={{
-                    height: `${fillLevel * 25}%`,
-                    transition: reduced ? 'none' : 'height 400ms ease',
-                  }}
-                />
-              </div>
-            )}
+                  data-testid="cup-fill"
+                  aria-hidden
+                  className="pointer-events-none absolute overflow-hidden rounded-sm"
+                  style={{ left: '32%', right: '32%', bottom: '14%', height: '42%' }}
+                >
+                  <div
+                    className="absolute inset-x-0 bottom-0 rounded-sm bg-primary/40"
+                    style={{
+                      height: `${fillLevel * 25}%`,
+                      transition: reduced ? 'none' : 'height 400ms ease',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div role="status" aria-live="polite" className="mt-3 min-h-6 text-center text-base font-medium">
@@ -209,21 +287,29 @@ export function FunctionalScenePlayer({ onCommandApplied, onSceneChange }: Funct
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
-        {scene.commands.map((c) => (
-          <Button
-            key={c.word}
-            variant="secondary"
-            size="lg"
-            className="h-14 text-lg capitalize"
-            onClick={() => handleTap(c.word)}
-          >
-            {c.word}
-          </Button>
-        ))}
+        {scene.commands.map((c) => {
+          const Icon = COMMAND_ICONS[c.word];
+          return (
+            <Button
+              key={c.word}
+              variant="secondary"
+              size="lg"
+              className="h-16 gap-2 text-lg capitalize"
+              onClick={() => handleTap(c.word)}
+            >
+              {Icon && <Icon aria-hidden className="h-6 w-6" />}
+              {c.word}
+            </Button>
+          );
+        })}
       </div>
 
-      {isSupported && (
-        <div className="flex justify-center">
+      <div className="flex items-center justify-center gap-3">
+        <Button variant="outline" onClick={showMe} className="gap-2">
+          <Eye aria-hidden className="h-4 w-4" />
+          Show me
+        </Button>
+        {isSupported && (
           <Button
             variant={micOn ? 'default' : 'outline'}
             onClick={toggleMic}
@@ -233,8 +319,8 @@ export function FunctionalScenePlayer({ onCommandApplied, onSceneChange }: Funct
             {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
             {micOn ? 'Listening — say a word' : 'Use my voice'}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

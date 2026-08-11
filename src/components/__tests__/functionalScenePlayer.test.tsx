@@ -33,6 +33,30 @@ describe("FunctionalScenePlayer — tap playthrough", () => {
     expect(screen.getByRole("button", { name: /darker/i })).toBeInTheDocument();
   });
 
+  it("speaks the scene prompt on entry (non-readers hear what to do)", () => {
+    render(<FunctionalScenePlayer />);
+    expect(speakMock).toHaveBeenCalledWith("Tell the lamp what to do.");
+  });
+
+  it("every command button carries a pictographic icon (alexia support)", () => {
+    render(<FunctionalScenePlayer />);
+    for (const name of [/brighter/i, /darker/i]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.querySelector("svg"), String(name)).not.toBeNull();
+    }
+  });
+
+  it("'Show me' demonstrates the first command, tagged as demo in telemetry", () => {
+    const onCommandApplied = vi.fn();
+    render(<FunctionalScenePlayer onCommandApplied={onCommandApplied} />);
+    fireEvent.click(screen.getByRole("button", { name: /show me/i }));
+    expect(speakMock).toHaveBeenCalledWith("brighter");
+    expect(onCommandApplied).toHaveBeenCalledWith(
+      expect.objectContaining({ command: "brighter", inputMode: "demo" }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("The lamp is brighter.");
+  });
+
   it("tapping a command models the word via TTS, changes the photo, announces the result", () => {
     const onCommandApplied = vi.fn();
     render(<FunctionalScenePlayer onCommandApplied={onCommandApplied} />);
