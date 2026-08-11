@@ -329,6 +329,7 @@ const SentenceConstructionExercise = () => {
               focusPhonemes={adaptation.focusPhonemes}
               adaptations={getAdaptations('sentence-construction')}
               sessionId={sessionId}
+              clinicalLevel={progression.startingLevel}
               onTrialComplete={handleTrialComplete}
               onGameComplete={handleGameComplete}
             />
@@ -394,6 +395,7 @@ const SentenceConstructionExercise = () => {
             focusPhonemes={adaptation.focusPhonemes}
             adaptations={getAdaptations('sentence-construction')}
             sessionId={sessionId}
+            clinicalLevel={progression.startingLevel}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
           />

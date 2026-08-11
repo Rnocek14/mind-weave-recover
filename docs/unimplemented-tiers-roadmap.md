@@ -71,6 +71,30 @@ unpolished game inverts the quality order.
 7. LLM-judge cluster.
 8. Dark-game ladders — only as each game is polished into the allowlist.
 
+## 3b. Bottom-rung support audit (wave 16 — "does entry start easy enough?")
+
+Every ladder's L1 `targetSupport` checked against what the game UI
+actually renders on a patient's first trial:
+
+| Game | L1 promise | UI reality | Verdict |
+|---|---|---|---|
+| photo_naming | recognition_only | choice chips | ✅ honored |
+| minimal_pairs | after_replay | 2-AFC tap + replay | ✅ honored |
+| semantic_features | semantic_cue | feature chips visible | ✅ honored |
+| meaning_match | semantic_cue | choice-based game | ✅ honored |
+| detective_mind | semantic_cue | option tiles | ✅ honored |
+| two_clues | semantic_cue | auto + manual cue ladder (semantic → phonemic → reveal) | ✅ honored |
+| category_fluency | semantic_cue | rotating example chips, swap counted as cue | ✅ honored |
+| phonological_awareness | recognition_only | tap-based game | ✅ honored |
+| synonym_generator / dual_load_naming / multi_step_planning | open_response | open response | ✅ honest by design (SLP may still want cues) |
+| fix_sentence | highlight_plus_choice | **was open production only** | ✅ **fixed wave 16** — choice tiles at L1 (with highlight) / L2 (without) |
+| sentence_construction | highlight_plus_choice | tiles existed but adults defaulted to voice-first | ✅ **fixed wave 16** — L1–L2 default to word tiles, voice toggle kept |
+
+Evidence integrity note: Fix Sentence choice trials now carry their true
+support level into `submitTrial.supportUsed`, so ladder evidence and
+`SUPPORT_CREDIT` weighting finally see the scaffolded task instead of
+everything reading as open response.
+
 ## 4. Flagged decisions (need a human call, not code)
 
 - **semantic_features L6 floor.** The difficulty bridge holds L6 at bank
