@@ -4,102 +4,114 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { useContext } from "react";
+import { Suspense, lazy, useContext } from "react";
+import { Loader2 } from "lucide-react";
 import { UiVariantPicker } from "@/components/dev/UiVariantPicker";
 import { ViewToggle } from "@/components/ViewToggle";
+import { OnboardingGate } from "@/components/OnboardingGate";
+import { VoiceGateHud } from "./components/dev/VoiceGateHud";
+
+// Eager: the screens on the critical first-paint paths (landing, auth,
+// first-run, patient home). Everything else is route-split — before this,
+// every admin dashboard and dev harness shipped in one ~5MB chunk to every
+// patient on a tablet connection.
 import Index from "./pages/Index";
 import Welcome from "./pages/Welcome";
 import Today from "./pages/Today";
-import About from "./pages/About";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfService from "./pages/TermsOfService";
-import Onboarding from "./pages/Onboarding";
-import RoleOnboarding from "./pages/RoleOnboarding";
-import PendingApproval from "./pages/PendingApproval";
-import { OnboardingGate } from "@/components/OnboardingGate";
-import Dashboard from "./pages/Dashboard";
-import Exercise from "./pages/Exercise";
-import SemanticFeatureExercise from "./pages/SemanticFeatureExercise";
-import PhonologicalExercise from "./pages/PhonologicalExercise";
-import SentenceConstructionExercise from "./pages/SentenceConstructionExercise";
-import SessionHistory from "./pages/SessionHistory";
-import CaregiverPortal from "./pages/CaregiverPortal";
-import CaregiverSetup from "./pages/CaregiverSetup";
-import CaregiverStatus from "./pages/CaregiverStatus";
 import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import Admin from "./pages/Admin";
-import AdminPipeline from "./pages/AdminPipeline";
-import ParserAnalytics from "./pages/ParserAnalytics";
-import PrivacySettings from "./pages/PrivacySettings";
-import History from "./pages/History";
-import ResearchExport from "./pages/ResearchExport";
-import ClusterAnalytics from "./pages/ClusterAnalytics";
-import PhotoLibrary from "./pages/PhotoLibrary";
-import PhotoNamingExercise from "./pages/PhotoNamingExercise";
-import FeedTheMonsterExercise from "./pages/FeedTheMonsterExercise";
-import ReviewChatPage from "./pages/ReviewChatPage";
-import ClinicalDocuments from "./pages/ClinicalDocuments";
-import ProfileVersionHistory from "./pages/ProfileVersionHistory";
-import Lesson from "./pages/Lesson";
-import PatternMatchExercise from "./pages/PatternMatchExercise";
-import Insights from "./pages/Insights";
-import ClinicianReport from "./pages/ClinicianReport";
-import MinimalPairsExercise from "./pages/MinimalPairsExercise";
-import ClinicianPanel from "./pages/ClinicianPanel";
-import PatientHub from "./pages/PatientHub";
-import OutcomesValidation from "./pages/OutcomesValidation";
-import RecoveryProgress from "./pages/RecoveryProgress";
-import Progress from "./pages/Progress";
-import AdminEngineSimulation from "./pages/AdminEngineSimulation";
-import AdminAlertRollup from "./pages/AdminAlertRollup";
-import AdminOverrideAudit from "./pages/AdminOverrideAudit";
-import AdminAdaptationStream from "./pages/AdminAdaptationStream";
-import AdminSuccessBand from "./pages/AdminSuccessBand";
-import AdminVoiceAnalytics from "./pages/AdminVoiceAnalytics";
-import AdminTelemetryAnomalies from "./pages/AdminTelemetryAnomalies";
-import AdminTelemetryAnomalySession from "./pages/AdminTelemetryAnomalySession";
-import RecoveryScoreDetail from "./pages/RecoveryScoreDetail";
-import SmartCoachLab from "./pages/SmartCoachLab";
-import CohortResearchAnalytics from "./pages/CohortResearchAnalytics";
-import SmartCoach from "./pages/SmartCoach";
-import Practice from "./pages/Practice";
-import ConversationPartnerExercise from "./pages/ConversationPartnerExercise";
-import ConversationCoachExercise from "./pages/ConversationCoachExercise";
-import TwoCluesExercise from "./pages/TwoCluesExercise";
-import ThoughtContinuationExercise from "./pages/ThoughtContinuationExercise";
-import FixSentenceExercise from "./pages/FixSentenceExercise";
-import DescribeGuessExercise from "./pages/DescribeGuessExercise";
-import DetectiveMindExercise from "./pages/DetectiveMindExercise";
-import MeaningMatchExercise from "./pages/MeaningMatchExercise";
-import NarrativeRetellExercise from "./pages/NarrativeRetellExercise";
-import AbstractCompareExercise from "./pages/AbstractCompareExercise";
-import MultiStepPlanExercise from "./pages/MultiStepPlanExercise";
-import DualLoadNamingExercise from "./pages/DualLoadNamingExercise";
-import CategoryFluencyExercise from "./pages/CategoryFluencyExercise";
-import SynonymGeneratorExercise from "./pages/SynonymGeneratorExercise";
-import VoicePractice from "./pages/VoicePractice";
-import SpeechProfile from "./pages/SpeechProfile";
-import ShadowAnalytics from "./pages/ShadowAnalytics";
-import ClinicianTelemetry from "./pages/ClinicianTelemetry";
 import NotFound from "./pages/NotFound";
-import AdaptationSimDev from "./pages/dev/AdaptationSimDev";
-import GameAboutPage from "./pages/GameAboutPage";
-import ClinicalLibrary from "./pages/ClinicalLibrary";
-import SessionReplayDev from "./pages/dev/SessionReplayDev";
-import AdaptationSignalHarness from "./pages/dev/AdaptationSignalHarness";
-import GateHarness from "./pages/dev/GateHarness";
-import MasteryShadowDev from "./pages/dev/MasteryShadowDev";
-import MasteryAuditDev from "./pages/dev/MasteryAuditDev";
-import MasteryConfidenceSimDev from "./pages/dev/MasteryConfidenceSimDev";
-import LevelingContractDev from "./pages/dev/LevelingContractDev";
-import ProgressionStateDev from "./pages/dev/ProgressionStateDev";
-import QaRunbook from "./pages/dev/QaRunbook";
-import UiVariantPreview from "./pages/dev/UiVariantPreview";
-import OnboardingPreviewDev from "./pages/dev/OnboardingPreviewDev";
-import { VoiceGateHud } from "./components/dev/VoiceGateHud";
-import ClinicianTrialDashboard from "./pages/clinician/ClinicianTrialDashboard";
-import ClinicianTrialEnroll from "./pages/clinician/ClinicianTrialEnroll";
+
+const About = lazy(() => import("./pages/About"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const RoleOnboarding = lazy(() => import("./pages/RoleOnboarding"));
+const PendingApproval = lazy(() => import("./pages/PendingApproval"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Exercise = lazy(() => import("./pages/Exercise"));
+const SemanticFeatureExercise = lazy(() => import("./pages/SemanticFeatureExercise"));
+const PhonologicalExercise = lazy(() => import("./pages/PhonologicalExercise"));
+const SentenceConstructionExercise = lazy(() => import("./pages/SentenceConstructionExercise"));
+const CaregiverPortal = lazy(() => import("./pages/CaregiverPortal"));
+const CaregiverSetup = lazy(() => import("./pages/CaregiverSetup"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Admin = lazy(() => import("./pages/Admin"));
+const AdminPipeline = lazy(() => import("./pages/AdminPipeline"));
+const ParserAnalytics = lazy(() => import("./pages/ParserAnalytics"));
+const PrivacySettings = lazy(() => import("./pages/PrivacySettings"));
+const History = lazy(() => import("./pages/History"));
+const ResearchExport = lazy(() => import("./pages/ResearchExport"));
+const ClusterAnalytics = lazy(() => import("./pages/ClusterAnalytics"));
+const PhotoLibrary = lazy(() => import("./pages/PhotoLibrary"));
+const PhotoNamingExercise = lazy(() => import("./pages/PhotoNamingExercise"));
+const FeedTheMonsterExercise = lazy(() => import("./pages/FeedTheMonsterExercise"));
+const ReviewChatPage = lazy(() => import("./pages/ReviewChatPage"));
+const ClinicalDocuments = lazy(() => import("./pages/ClinicalDocuments"));
+const ProfileVersionHistory = lazy(() => import("./pages/ProfileVersionHistory"));
+const Lesson = lazy(() => import("./pages/Lesson"));
+const PatternMatchExercise = lazy(() => import("./pages/PatternMatchExercise"));
+const Insights = lazy(() => import("./pages/Insights"));
+const MinimalPairsExercise = lazy(() => import("./pages/MinimalPairsExercise"));
+const ClinicianPanel = lazy(() => import("./pages/ClinicianPanel"));
+const PatientHub = lazy(() => import("./pages/PatientHub"));
+const OutcomesValidation = lazy(() => import("./pages/OutcomesValidation"));
+const RecoveryProgress = lazy(() => import("./pages/RecoveryProgress"));
+const Progress = lazy(() => import("./pages/Progress"));
+const AdminEngineSimulation = lazy(() => import("./pages/AdminEngineSimulation"));
+const AdminAlertRollup = lazy(() => import("./pages/AdminAlertRollup"));
+const AdminOverrideAudit = lazy(() => import("./pages/AdminOverrideAudit"));
+const AdminAdaptationStream = lazy(() => import("./pages/AdminAdaptationStream"));
+const AdminSuccessBand = lazy(() => import("./pages/AdminSuccessBand"));
+const AdminVoiceAnalytics = lazy(() => import("./pages/AdminVoiceAnalytics"));
+const AdminTelemetryAnomalies = lazy(() => import("./pages/AdminTelemetryAnomalies"));
+const AdminTelemetryAnomalySession = lazy(() => import("./pages/AdminTelemetryAnomalySession"));
+const RecoveryScoreDetail = lazy(() => import("./pages/RecoveryScoreDetail"));
+const SmartCoachLab = lazy(() => import("./pages/SmartCoachLab"));
+const CohortResearchAnalytics = lazy(() => import("./pages/CohortResearchAnalytics"));
+const Practice = lazy(() => import("./pages/Practice"));
+const ConversationPartnerExercise = lazy(() => import("./pages/ConversationPartnerExercise"));
+const ConversationCoachExercise = lazy(() => import("./pages/ConversationCoachExercise"));
+const TwoCluesExercise = lazy(() => import("./pages/TwoCluesExercise"));
+const ThoughtContinuationExercise = lazy(() => import("./pages/ThoughtContinuationExercise"));
+const FixSentenceExercise = lazy(() => import("./pages/FixSentenceExercise"));
+const DescribeGuessExercise = lazy(() => import("./pages/DescribeGuessExercise"));
+const DetectiveMindExercise = lazy(() => import("./pages/DetectiveMindExercise"));
+const MeaningMatchExercise = lazy(() => import("./pages/MeaningMatchExercise"));
+const NarrativeRetellExercise = lazy(() => import("./pages/NarrativeRetellExercise"));
+const AbstractCompareExercise = lazy(() => import("./pages/AbstractCompareExercise"));
+const MultiStepPlanExercise = lazy(() => import("./pages/MultiStepPlanExercise"));
+const DualLoadNamingExercise = lazy(() => import("./pages/DualLoadNamingExercise"));
+const CategoryFluencyExercise = lazy(() => import("./pages/CategoryFluencyExercise"));
+const SynonymGeneratorExercise = lazy(() => import("./pages/SynonymGeneratorExercise"));
+const VoicePractice = lazy(() => import("./pages/VoicePractice"));
+const SpeechProfile = lazy(() => import("./pages/SpeechProfile"));
+const ShadowAnalytics = lazy(() => import("./pages/ShadowAnalytics"));
+const ClinicianTelemetry = lazy(() => import("./pages/ClinicianTelemetry"));
+const AdaptationSimDev = lazy(() => import("./pages/dev/AdaptationSimDev"));
+const GameAboutPage = lazy(() => import("./pages/GameAboutPage"));
+const ClinicalLibrary = lazy(() => import("./pages/ClinicalLibrary"));
+const SessionReplayDev = lazy(() => import("./pages/dev/SessionReplayDev"));
+const AdaptationSignalHarness = lazy(() => import("./pages/dev/AdaptationSignalHarness"));
+const GateHarness = lazy(() => import("./pages/dev/GateHarness"));
+const MasteryShadowDev = lazy(() => import("./pages/dev/MasteryShadowDev"));
+const MasteryAuditDev = lazy(() => import("./pages/dev/MasteryAuditDev"));
+const MasteryConfidenceSimDev = lazy(() => import("./pages/dev/MasteryConfidenceSimDev"));
+const LevelingContractDev = lazy(() => import("./pages/dev/LevelingContractDev"));
+const ProgressionStateDev = lazy(() => import("./pages/dev/ProgressionStateDev"));
+const QaRunbook = lazy(() => import("./pages/dev/QaRunbook"));
+const UiVariantPreview = lazy(() => import("./pages/dev/UiVariantPreview"));
+const OnboardingPreviewDev = lazy(() => import("./pages/dev/OnboardingPreviewDev"));
+const ClinicianTrialDashboard = lazy(() => import("./pages/clinician/ClinicianTrialDashboard"));
+const ClinicianTrialEnroll = lazy(() => import("./pages/clinician/ClinicianTrialEnroll"));
+
+/** Quiet, aphasia-friendly loading state while a route chunk downloads. */
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" aria-label="Loading" />
+    </div>
+  );
+}
 import { UiModeProvider } from "@/contexts/UiModeContext";
 import { HelpModeProvider } from "@/contexts/HelpModeContext";
 import { KidsModeProvider } from "@/contexts/KidsModeContext";
@@ -151,6 +163,7 @@ const App = () => (
                 <VoiceGateHud />
                 <UiVariantPicker />
                 <ViewToggle />
+                <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   {/* Public routes - no header */}
                   <Route path="/" element={<Index />} />
@@ -279,6 +292,7 @@ const App = () => (
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </Suspense>
               </BrowserRouter>
             </AssessmentProviderWrapper>
           </ProfileProvider>
