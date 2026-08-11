@@ -15,7 +15,7 @@
  *   Clinical L5 → bank diff 3   (categorical mixed)
  *   Clinical L6 → bank diff 3   (associative — thin bank, hold engine at 3)
  *   Clinical L7 → bank diff 4   (mixed abstract — thin)
- *   Clinical L8 → bank diff 5   (aspirational; ceiling clamp normally blocks)
+ *   Clinical L8 → bank diff 5   (live — d5 pool expanded to 20 trials)
  *
  * Pure module — no I/O, no React.
  */
