@@ -1,6 +1,7 @@
 # Fix Sentence — Two-Error Repair (L5) Implementation Spec
 
-**Status:** content + selector staged; game loop NOT implemented.
+**Status:** IMPLEMENTED — two-phase repair loop live in `useFixSentenceGame` /
+`FixSentenceGame`; `TWO_ERROR_GAME_READY` flipped; L5 spec marked implemented.
 **Gate:** `TWO_ERROR_GAME_READY` in `src/lib/progression/fixSentenceContentSelector.ts`
 — flip it ONLY in the same change that implements §3 below.
 

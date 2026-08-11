@@ -134,15 +134,16 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   },
   5: {
     level: 5,
-    description: 'Two-error sentences (NOT implemented — selector skips honestly)',
+    description: 'Two-error sentences — find and repair both mistakes',
     targetSupport: 'open_response',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     trialWeight: 1.25,
     contentSelector: {
       tierKey: 'two_error',
-      description: 'Requires multi-error trial schema + multi-target scoring — NOT yet implemented; selector skips honestly.',
-      implemented: false,
+      description:
+        'FIX_SENTENCE_TWO_ERROR_BANK cohort; two-phase repair loop scores each error, order-agnostic, aggregate partial credit (docs/fix-sentence-two-error-spec.md).',
+      implemented: true,
     },
   },
   6: {

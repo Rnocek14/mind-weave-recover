@@ -5,7 +5,8 @@
  *   - L1–L3 baseline returns the full bank, no fallback
  *   - L4 narrows to function_error + common-verb sentences
  *   - L4 falls back honestly when the candidate pool is too small
- *   - L5 / L6 / L7 / L8 are flagged NOT IMPLEMENTED — selector returns a
+ *   - L5 serves the two-error cohort (two-phase repair loop shipped)
+ *   - L6 / L7 / L8 are flagged NOT IMPLEMENTED — selector returns a
  *     `skipped: true` fallback rather than silently downgrading
  *   - level spec contentSelector.implemented mirrors the selector behaviour
  */
@@ -76,8 +77,18 @@ describe('selectFixSentencePool', () => {
     expect(r.fallback?.skipped).toBe(true);
   });
 
+  it('L5 serves the two-error cohort (game loop shipped)', () => {
+    const r = selectFixSentencePool(5);
+    expect(r.tier).toBe('L5');
+    expect(r.fallback).toBeNull();
+    expect(r.reason).toBe('two_error');
+    expect(r.pool.length).toBeGreaterThanOrEqual(MIN_TIER_POOL_SIZE);
+    for (const t of r.pool) {
+      expect(t.secondError).toBeDefined();
+    }
+  });
+
   it.each([
-    [5, 'two_error_mode_not_implemented'],
     [6, 'morphology_tier_not_implemented'],
     [7, 'embedded_clause_tier_not_implemented'],
     [8, 'open_ended_repair_not_implemented'],
@@ -96,10 +107,10 @@ describe('selectFixSentencePool', () => {
       const r = selectFixSentencePool(lvl);
       const specImplemented = spec.contentSelector?.implemented ?? true;
       const runtimeImplemented = !(r.fallback?.skipped ?? false);
-      // L1–L3 baseline + L4 (when bank suffices) implemented; L5–L8 skipped.
-      if (lvl <= 4 && runtimeImplemented) {
+      // L1–L5 implemented (L4/L5 when their pools suffice); L6–L8 planned-only.
+      if (runtimeImplemented) {
         expect(specImplemented).toBe(true);
-      } else if (lvl >= 5) {
+      } else if (lvl >= 6) {
         expect(specImplemented).toBe(false);
       }
     }

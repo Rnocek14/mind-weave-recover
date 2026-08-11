@@ -30,6 +30,15 @@ export interface FixSentenceTrialResult {
   attemptNumber: number;
   difficulty: number;
   phonemeTargets: string[];
+  /**
+   * L5 two-error trials. `phaseAdvance: true` marks the INTERIM result
+   * returned when the first of two errors is repaired — the component must
+   * NOT submit it; it prompts for the remaining error and re-listens.
+   * Aggregate (submittable) results carry the per-phase fixes instead.
+   */
+  phaseAdvance?: boolean;
+  phase1Fix?: string | null;
+  phase2Fix?: string | null;
 }
 
 interface UseFixSentenceGameOptions {
@@ -149,17 +158,42 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   const [lastResult, setLastResult] = useState<FixSentenceTrialResult | null>(null);
   const [currentAttempt, setCurrentAttempt] = useState(1);
 
+  // L5 two-error repair phase (spec: docs/fix-sentence-two-error-spec.md).
+  // Phase 1 accepts a fix for EITHER error (order-agnostic); phase 2 targets
+  // the remaining one. phase1RepairRef is the pending half of the aggregate.
+  const [repairPhase, setRepairPhase] = useState<1 | 2>(1);
+  const phase1RepairRef = useRef<{
+    errorNum: 1 | 2;
+    fix: string;
+    spoken: string;
+    selfCorrected: boolean;
+  } | null>(null);
+
   const currentTrial = trials[currentIndex] ?? null;
 
+  // Accepted fixes for the REMAINING error during phase 2 (attempt
+  // telemetry + hints). phase1RepairRef is a ref, but repairPhase state
+  // changes force the re-render that makes this read fresh.
+  const phase2TargetFixes = useMemo(() => {
+    if (repairPhase !== 2 || !currentTrial?.secondError) return null;
+    return phase1RepairRef.current?.errorNum === 1
+      ? currentTrial.secondError.acceptedFixes
+      : currentTrial.acceptedFixes;
+  }, [repairPhase, currentTrial]);
+
   /**
-   * Local match against acceptedFixes + fixAliases
+   * Match a spoken answer against one accepted-fix set (+ aliases).
    */
-  const localMatch = useCallback((spoken: string, trial: FixSentenceTrial): string | null => {
+  const matchFixSet = useCallback((
+    spoken: string,
+    acceptedFixes: string[],
+    fixAliases: Record<string, string[]>,
+  ): string | null => {
     const normalized = spoken.toLowerCase().trim().replace(/[^a-z\s]/g, '');
     if (!normalized || normalized.length < 2) return null;
 
     // Check direct matches
-    for (const fix of trial.acceptedFixes) {
+    for (const fix of acceptedFixes) {
       const f = fix.toLowerCase();
       if (normalized === f || normalized === f + 's' || normalized + 's' === f) return fix;
       // Check "a knife" → "knife"
@@ -168,7 +202,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     }
 
     // Check aliases
-    for (const [canonical, aliases] of Object.entries(trial.fixAliases)) {
+    for (const [canonical, aliases] of Object.entries(fixAliases)) {
       for (const alias of aliases) {
         const a = alias.toLowerCase();
         if (normalized === a || normalized === a + 's' || normalized + 's' === a) return canonical;
@@ -177,6 +211,13 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
 
     return null;
   }, []);
+
+  /**
+   * Local match against a trial's primary error (single-error path).
+   */
+  const localMatch = useCallback((spoken: string, trial: FixSentenceTrial): string | null => {
+    return matchFixSet(spoken, trial.acceptedFixes, trial.fixAliases);
+  }, [matchFixSet]);
 
   /**
    * Score a spoken answer — local match first, semantic fallback
@@ -189,6 +230,92 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
 
     const reactionTimeMs = Date.now() - roundStartTimeRef.current;
     const normalized = spoken.toLowerCase().trim();
+
+    // ── L5 two-error trials: two-phase repair ──────────────────────────
+    const second = currentTrial.secondError;
+    if (second) {
+      const baseResult = {
+        trialId: currentTrial.id,
+        sentence: currentTrial.sentence,
+        wrongWord: currentTrial.wrongWord,
+        spokenWord: spoken,
+        selfCorrected,
+        reactionTimeMs, // roundStart is NOT reset at phase change → total across phases
+        attemptNumber: currentAttempt,
+        difficulty: currentTrial.difficulty,
+        phonemeTargets: currentTrial.phonemeTargets,
+      };
+
+      if (repairPhase === 1) {
+        // Order-agnostic: primary error's list is checked first, which is
+        // also the spec's ambiguity rule (a fix accepted by both errors
+        // credits the one that ranks it first).
+        const m1 = matchFixSet(normalized, currentTrial.acceptedFixes, currentTrial.fixAliases);
+        const m2 = m1 ? null : matchFixSet(normalized, second.acceptedFixes, second.fixAliases);
+        const matchedErr: 1 | 2 | null = m1 ? 1 : m2 ? 2 : null;
+        const matchedFix = m1 ?? m2;
+
+        if (matchedErr && matchedFix) {
+          playSuccess();
+          phase1RepairRef.current = { errorNum: matchedErr, fix: matchedFix, spoken, selfCorrected };
+          setRepairPhase(2);
+          // INTERIM — component must not submit this; it prompts for the
+          // remaining error and re-listens.
+          return {
+            ...baseResult,
+            matchedFix,
+            isCorrect: false,
+            isPartialCredit: false,
+            semanticSimilarity: 1.0,
+            phaseAdvance: true,
+            phase1Fix: matchedFix,
+          };
+        }
+
+        // No local hit on either error → plain wrong attempt (component
+        // drives the usual retry). No semantic fallback in phase 1: with
+        // two targets live, embedding noise against the union is too
+        // permissive to credit a detection.
+        playError();
+        return {
+          ...baseResult,
+          matchedFix: null,
+          isCorrect: false,
+          isPartialCredit: false,
+          semanticSimilarity: null,
+        };
+      }
+
+      // Phase 2 — the remaining error is the sole target.
+      const p1 = phase1RepairRef.current;
+      const target = p1?.errorNum === 1
+        ? second
+        : { acceptedFixes: currentTrial.acceptedFixes, fixAliases: currentTrial.fixAliases };
+      const m = matchFixSet(normalized, target.acceptedFixes, target.fixAliases);
+      if (m && p1) {
+        playSuccess();
+        phase1RepairRef.current = null; // aggregate owns the pair now
+        return {
+          ...baseResult,
+          matchedFix: m,
+          isCorrect: true,
+          isPartialCredit: false,
+          semanticSimilarity: 1.0,
+          phase1Fix: p1.fix,
+          phase2Fix: m,
+          selfCorrected: selfCorrected || p1.selfCorrected,
+        };
+      }
+      playError();
+      return {
+        ...baseResult,
+        matchedFix: null,
+        isCorrect: false,
+        isPartialCredit: false,
+        semanticSimilarity: null,
+        phase1Fix: p1?.fix ?? null,
+      };
+    }
 
     // 1) Local match
     const matched = localMatch(normalized, currentTrial);
@@ -253,7 +380,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       difficulty: currentTrial.difficulty,
       phonemeTargets: currentTrial.phonemeTargets,
     };
-  }, [currentTrial, currentAttempt, localMatch, playSuccess, playError]);
+  }, [currentTrial, currentAttempt, localMatch, matchFixSet, repairPhase, playSuccess, playError]);
 
   /**
    * Submit a scored result
@@ -277,6 +404,39 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    * Advance to next trial
    */
   const nextTrial = useCallback(() => {
+    // Two-error abandonment safety (spec §3.5): leaving a trial after a
+    // phase-1 repair but before phase 2 completes must still submit the
+    // aggregate as PARTIAL — never leave a sentence half-submitted. This
+    // covers skip buttons and retry-exhaustion advances.
+    const abandoning = trials[currentIndex];
+    const pendingP1 = phase1RepairRef.current;
+    let finalResults = results;
+    if (abandoning?.secondError && pendingP1) {
+      phase1RepairRef.current = null;
+      const partial: FixSentenceTrialResult = {
+        trialId: abandoning.id,
+        sentence: abandoning.sentence,
+        wrongWord: abandoning.wrongWord,
+        spokenWord: pendingP1.spoken,
+        matchedFix: pendingP1.fix,
+        isCorrect: false,
+        isPartialCredit: true,
+        selfCorrected: pendingP1.selfCorrected,
+        semanticSimilarity: 1.0,
+        reactionTimeMs: Date.now() - roundStartTimeRef.current,
+        attemptNumber: currentAttempt,
+        difficulty: abandoning.difficulty,
+        phonemeTargets: abandoning.phonemeTargets,
+        phase1Fix: pendingP1.fix,
+        phase2Fix: null,
+      };
+      setResults(prev => [...prev, partial]);
+      setLastResult(partial);
+      finalResults = [...results, partial]; // completion below must see it
+      onTrialComplete?.(partial);
+    }
+    setRepairPhase(1);
+
     // Mark the just-completed trial as used (per its own tier) BEFORE advancing.
     const completed = trials[currentIndex];
     if (completed) {
@@ -290,14 +450,14 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     const nextIdx = currentIndex + 1;
     if (nextIdx >= trials.length) {
       setIsComplete(true);
-      onGameComplete?.(results);
+      onGameComplete?.(finalResults);
       return;
     }
     setCurrentIndex(nextIdx);
     setLastResult(null);
     setCurrentAttempt(1);
     roundStartTimeRef.current = Date.now();
-  }, [currentIndex, trials, results, onGameComplete, recency]);
+  }, [currentIndex, trials, results, currentAttempt, onGameComplete, onTrialComplete, recency]);
 
   /**
    * Start round timer
@@ -326,5 +486,9 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     nextTrial,
     startRound,
     setActiveDifficulty,
+    /** L5 two-error trials: which repair phase is active (1 or 2). */
+    repairPhase,
+    /** Accepted fixes for the remaining error while repairPhase === 2. */
+    phase2TargetFixes,
   };
 }

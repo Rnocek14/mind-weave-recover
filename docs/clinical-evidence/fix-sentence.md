@@ -40,7 +40,8 @@ ranking.
 | L1–L4 accuracy bar | 70% | Heuristic; not a proven aphasia mastery threshold. |
 | L5–L8 accuracy bar | 75–85% | Approximates 80%-criterion convention in sentence-treatment single-subject designs. |
 | `trialWeight` per level | 0.4 → 2.5 | Calibration default. Not derived from the literature. |
-| L5–L8 content tiers | Tier stubs only (see PR4 in `.lovable/plan.md`) | Bank work deferred; cards will mark these "pending" until stimuli land. |
+| L5 two-error tier | Live (`FIX_SENTENCE_TWO_ERROR_BANK` + two-phase repair loop) | See `docs/fix-sentence-two-error-spec.md`; stimuli pending SLP review. |
+| L6–L8 content tiers | Tier stubs only (see PR4 in `.lovable/plan.md`) | Bank work deferred; cards will mark these "pending" until stimuli land. |
 
 ## What we deliberately do not claim
 
