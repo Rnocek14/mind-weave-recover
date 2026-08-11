@@ -65,6 +65,10 @@ export const SEVERE_APHASIA_FRIENDLY_EXERCISES: readonly string[] = [
   'pattern-match',
   'reach-tap',
   'left-side-hunt',
+  // Command Scenes: every command is a large tap target that models the
+  // word via TTS — the gentlest speech onramp in the catalog
+  // (docs/functional-command-scenes-spec.md).
+  'functional-scenes',
 ];
 
 /**

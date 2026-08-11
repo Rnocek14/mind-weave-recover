@@ -24,6 +24,9 @@ export const FUNNEL_EVENTS = {
   SESSION_STARTED: 'session_started',
   SESSION_COMPLETED: 'session_completed',
   EXERCISE_STARTED: 'exercise_started',
+  // Functional Command Scenes (practice surface — outside mastery).
+  SCENE_PRACTICE_STARTED: 'scene_practice_started',
+  SCENE_COMMAND: 'scene_command',
 } as const;
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[keyof typeof FUNNEL_EVENTS];

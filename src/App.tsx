@@ -50,6 +50,7 @@ const ClinicalDocuments = lazy(() => import("./pages/ClinicalDocuments"));
 const ProfileVersionHistory = lazy(() => import("./pages/ProfileVersionHistory"));
 const Lesson = lazy(() => import("./pages/Lesson"));
 const PatternMatchExercise = lazy(() => import("./pages/PatternMatchExercise"));
+const FunctionalScenesExercise = lazy(() => import("./pages/FunctionalScenesExercise"));
 const Insights = lazy(() => import("./pages/Insights"));
 const MinimalPairsExercise = lazy(() => import("./pages/MinimalPairsExercise"));
 const ClinicianPanel = lazy(() => import("./pages/ClinicianPanel"));
@@ -193,6 +194,7 @@ const App = () => (
                     {/* Post-practice transfer conversation (adult + kids) */}
                     <Route path="/review-chat" element={<ReviewChatPage />} />
                     <Route path="/exercise/pattern-match" element={<PatternMatchExercise />} />
+                    <Route path="/exercise/functional-scenes" element={<FunctionalScenesExercise />} />
                     <Route path="/exercise/minimal-pairs" element={<MinimalPairsExercise />} />
                     <Route path="/exercise/conversation-partner" element={<ConversationPartnerExercise />} />
                     <Route path="/exercise/conversation-coach" element={<ConversationCoachExercise />} />
