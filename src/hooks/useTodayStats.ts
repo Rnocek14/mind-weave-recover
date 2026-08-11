@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveProfileId } from '@/hooks/useActiveProfileId';
+import { localDayStart } from '@/lib/localDate';
 
 export interface TodayStats {
   correct: number;
@@ -26,7 +27,8 @@ export const useTodayStats = (userId: string | null) => {
       if (!userId) return;
 
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const dayStart = localDayStart();
+        const dayEnd = new Date(dayStart.getTime() + 86400000);
         const lastWeek = new Date();
         lastWeek.setDate(lastWeek.getDate() - 7);
         const twoWeeksAgo = new Date();
@@ -52,8 +54,8 @@ export const useTodayStats = (userId: string | null) => {
           return q;
         };
 
-        // Today
-        const { data: todaySessions } = await buildSessionsQuery(`${today}T00:00:00`, `${today}T23:59:59`);
+        // Today = the user's local calendar day, as real instants.
+        const { data: todaySessions } = await buildSessionsQuery(dayStart.toISOString(), dayEnd.toISOString());
         const sessionIds = todaySessions?.map(s => s.id) || [];
 
         let todayCorrect = 0;

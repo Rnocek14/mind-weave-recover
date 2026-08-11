@@ -6,7 +6,7 @@
  */
 
 import { DailyTrend } from '@/hooks/useWeeklyTrends';
-import { LearningRate } from '@/hooks/useLearningRate';
+import { LearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 
 // Report types
 export interface ClinicianReport {
@@ -169,7 +169,7 @@ export function buildClinicianReport(
     `${totalTrials} trials across ${practiceDays} practice days`,
   ];
   
-  const namingRate = learningRates.find(r => r.domain === 'naming');
+  const namingRate = findSpeechLearningRate(learningRates);
   if (namingRate?.accuracySlope) {
     recoveryEvidence.push(
       `Learning rate: ${namingRate.accuracySlope > 0 ? '+' : ''}${(namingRate.accuracySlope * 100).toFixed(1)}%/week (n=${namingRate.trialCount})`

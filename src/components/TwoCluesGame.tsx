@@ -233,6 +233,10 @@ export function TwoCluesGame({
     },
     onTrialLogged: (snap) => {
       logAdaptationTrial({
+        // two_clues is on the adopted trial-mode allowlist expecting
+        // 'production' (spoken/typed word retrieval); untagged rows are
+        // dropped from mastery as skipped_unknown.
+        trialMode: 'production',
         trialIndex: snap.trialIndex,
         difficulty: snap.difficulty,
         cueLevel,

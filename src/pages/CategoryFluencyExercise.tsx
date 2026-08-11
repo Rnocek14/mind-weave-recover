@@ -167,6 +167,8 @@ export default function CategoryFluencyExercise() {
       trialMode: 'production',
       errorType,
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         category: result.category,
         unique_words: result.uniqueWordCount,
         words_per_second: Math.round(result.wordsPerSecond * 100) / 100,

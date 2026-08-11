@@ -133,10 +133,30 @@ export async function persistRecoveryLift(
   lift: RecoveryLiftResult
 ): Promise<boolean> {
   try {
+    // sessions.summary is shared with the accuracy/duration/reps writers
+    // (sessionTracking, useSessionLifecycle, sessionAccuracySummary), so this
+    // must merge into the existing JSON — a bare update wipes their fields.
+    const { data: existing, error: readError } = await supabase
+      .from('sessions')
+      .select('summary')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (readError) {
+      console.warn('[RecoveryLift] Failed to read existing summary:', readError.message);
+      return false;
+    }
+
+    const existingSummary =
+      existing?.summary && typeof existing.summary === 'object' && !Array.isArray(existing.summary)
+        ? (existing.summary as Record<string, unknown>)
+        : {};
+
     const { error } = await supabase
       .from('sessions')
       .update({
         summary: {
+          ...existingSummary,
           recovery_lift: {
             // Self-describing so downstream readers (clinician reports,
             // research export) cannot mistake this for an outcome measure.

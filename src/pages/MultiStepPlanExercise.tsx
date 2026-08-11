@@ -150,6 +150,8 @@ export default function MultiStepPlanExercise() {
       trialMode: 'production',
       errorType,
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         item_id: result.itemId,
         goal: result.goal,
         steps_found: result.stepsFound,

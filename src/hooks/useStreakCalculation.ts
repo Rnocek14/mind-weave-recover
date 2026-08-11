@@ -1,9 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-
-// Convert timestamp to UTC day (days since epoch)
-const toUtcDay = (timestamp: string): number => {
-  return Math.floor(Date.parse(timestamp) / 86400000);
-};
+import { localDayNumber, localDayStart } from '@/lib/localDate';
 
 export const calculateStreak = async (userId: string, profileId?: string | null): Promise<number> => {
   let query = supabase
@@ -18,12 +14,12 @@ export const calculateStreak = async (userId: string, profileId?: string | null)
     return 0;
   }
 
-  // Get unique UTC days
-  const uniqueDays = [...new Set(sessions.map(s => toUtcDay(s.started_at)))].sort((a, b) => b - a);
+  // Bucket by the user's local calendar day, not UTC.
+  const uniqueDays = [...new Set(sessions.map(s => localDayNumber(s.started_at)))].sort((a, b) => b - a);
 
   if (uniqueDays.length === 0) return 0;
 
-  const today = toUtcDay(new Date().toISOString());
+  const today = localDayNumber(new Date());
   
   // Streak must include today or yesterday
   if (uniqueDays[0] !== today && uniqueDays[0] !== today - 1) {
@@ -55,14 +51,17 @@ export const getTotalReps = async (userId: string, profileId?: string | null): P
 };
 
 export const getTodayProgress = async (userId: string, dailyGoalMinutes: number = 20, profileId?: string | null): Promise<number> => {
-  const today = new Date().toISOString().split('T')[0];
-  
+  // "Today" = the user's local calendar day, sent as real instants so the
+  // DB compares actual timestamps instead of a timezone-less string.
+  const dayStart = localDayStart();
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+
   let query = supabase
     .from('sessions')
     .select('duration_sec')
     .eq('user_id', userId)
-    .gte('started_at', `${today}T00:00:00`)
-    .lte('started_at', `${today}T23:59:59`);
+    .gte('started_at', dayStart.toISOString())
+    .lt('started_at', dayEnd.toISOString());
   if (profileId) query = query.eq('profile_id', profileId);
   const { data, error } = await query;
 

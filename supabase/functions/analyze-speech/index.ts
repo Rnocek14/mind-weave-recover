@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,9 +9,24 @@ const corsHeaders = {
 // Azure ticks are 100-nanosecond units. 10,000,000 ticks = 1 second.
 const TICKS_PER_SECOND = 10_000_000;
 
+// A speech trial is seconds of audio; 10MB of base64 (~7.5MB binary) is far
+// beyond any legitimate recording and bounds per-request Azure spend.
+const MAX_AUDIO_BASE64_LENGTH = 10_000_000;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate the caller's Supabase JWT in code — verify_jwt alone accepts the
+  // anon key shipped in every browser bundle, which left this paid Azure STT
+  // endpoint open to anyone. Mirrors analyze-pronunciation.
+  const caller = await getAuthedUser(req);
+  if (!caller) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -18,6 +34,13 @@ serve(async (req) => {
 
     if (!audioBlob) {
       throw new Error('No audio data provided');
+    }
+
+    if (typeof audioBlob !== 'string' || audioBlob.length > MAX_AUDIO_BASE64_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: 'Audio payload too large' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const AZURE_SPEECH_KEY = Deno.env.get('AZURE_SPEECH_KEY');

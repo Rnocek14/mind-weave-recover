@@ -210,6 +210,8 @@ const SentenceConstructionExercise = () => {
       trialMode: 'production',
       errorType: data.correct ? undefined : (data.errorType ?? 'grammar_error'),
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         difficulty: data.difficulty,
         grammarFocus: data.grammarFocus,
         trial_source: data.trialSource,

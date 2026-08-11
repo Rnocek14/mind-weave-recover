@@ -133,6 +133,45 @@ interface AnomalyRow {
 const FLUSH_INTERVAL_MS = 2500;
 const MAX_BUFFER = 25;
 
+// Offline/retry outbox — unflushed rows survive network failures and page
+// closes via localStorage, keyed per user so RLS can accept them on replay.
+const OUTBOX_CAP = 200;
+const outboxKey = (userId: string) => `adaptation_trial_outbox_v1:${userId}`;
+
+function readOutbox(userId: string): PendingRow[] {
+  try {
+    const raw = localStorage.getItem(outboxKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(r => r && r.user_id === userId) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeOutbox(userId: string, rows: PendingRow[]) {
+  try {
+    if (rows.length === 0) {
+      localStorage.removeItem(outboxKey(userId));
+      return;
+    }
+    // Merge with whatever another logger instance already saved, newest last.
+    const existing = readOutbox(userId);
+    const merged = [...existing, ...rows].slice(-OUTBOX_CAP);
+    localStorage.setItem(outboxKey(userId), JSON.stringify(merged));
+  } catch {
+    // Storage unavailable (private mode/quota) — nothing more we can do.
+  }
+}
+
+function takeOutbox(userId: string): PendingRow[] {
+  const rows = readOutbox(userId);
+  try {
+    localStorage.removeItem(outboxKey(userId));
+  } catch { /* ignore */ }
+  return rows;
+}
+
 export function useAdaptationTrialLogger(opts: Options) {
   const enabled = opts.enabled ?? true;
   const cueThreshold = opts.cueDependencyThreshold ?? 0.5;
@@ -179,11 +218,13 @@ export function useAdaptationTrialLogger(opts: Options) {
       }
     }
     let hadFailure = false;
+    let trialsFailed = false;
     try {
       if (trials.length > 0) {
         const { error } = await supabase.from('adaptation_trial_logs' as any).insert(trials as any);
         if (error) {
           hadFailure = true;
+          trialsFailed = true;
           // Phase 2: was dev-only. Promoted to error in all envs so prod
           // failures (RLS, schema drift) are visible.
           console.error('[adaptation_trial_logs] insert failed', { error: error.message, count: trials.length });
@@ -198,7 +239,15 @@ export function useAdaptationTrialLogger(opts: Options) {
       }
     } catch (err) {
       hadFailure = true;
+      trialsFailed = trials.length > 0;
       console.error('[adaptationLogger] flush threw', err);
+    }
+    if (trialsFailed) {
+      // Failed inserts go BACK into the buffer (front, preserving order) so
+      // the next interval retries them. Page-death persistence is handled by
+      // the pagehide handler below, which moves the buffer to a localStorage
+      // outbox replayed on the next mount.
+      trialBuf.current.unshift(...trials.slice(-OUTBOX_CAP));
     }
     if (hadFailure) {
       consecutiveFailuresRef.current += 1;
@@ -227,6 +276,39 @@ export function useAdaptationTrialLogger(opts: Options) {
       void flush();
     };
   }, [enabled, flush]);
+
+  // Replay rows a previous page load failed to deliver (takeOutbox clears the
+  // key synchronously, so concurrent logger instances can't double-restore).
+  useEffect(() => {
+    if (!enabled || !opts.userId) return;
+    const orphaned = takeOutbox(opts.userId);
+    if (orphaned.length > 0) {
+      trialBuf.current.unshift(...orphaned);
+      void flush();
+    }
+  }, [enabled, opts.userId, flush]);
+
+  // Real page death (close/navigate away): the async insert may never finish,
+  // so move undelivered rows to the outbox for replay on the next visit.
+  // SPA unmounts don't fire pagehide — the cleanup `void flush()` covers those.
+  useEffect(() => {
+    if (!enabled || !opts.userId) return;
+    const userId = opts.userId;
+    const persistPending = () => {
+      if (trialBuf.current.length === 0) return;
+      const rows = trialBuf.current.splice(0, trialBuf.current.length);
+      writeOutbox(userId, rows);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') void flush();
+    };
+    window.addEventListener('pagehide', persistPending);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', persistPending);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [enabled, opts.userId, flush]);
 
   const logTrial = useCallback((input: TrialLogInput) => {
     if (!enabled || !opts.userId) return;

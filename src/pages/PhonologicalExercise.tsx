@@ -219,6 +219,8 @@ export default function PhonologicalExercise() {
       trialMode: 'recognition',
       errorType: detail.correct ? undefined : 'phonological_error',
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         difficulty: detail.difficulty,
         word1: detail.trial?.word1,
         word2: detail.trial?.word2,

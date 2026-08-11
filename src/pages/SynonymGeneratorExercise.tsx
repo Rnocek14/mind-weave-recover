@@ -164,6 +164,8 @@ export default function SynonymGeneratorExercise() {
       trialMode: 'production',
       errorType,
       taskParameters: {
+        // This page owns the adaptation_trial_logs writer (game is autoLog:false).
+        unified_route_adaptation_log: true,
         target_word: result.targetWord,
         matched_synonyms: result.matchedSynonyms,
         unmatched_entries: result.unmatchedEntries,

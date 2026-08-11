@@ -8,3 +8,22 @@ export function localYYYYMMDD(date: Date = new Date()): string {
   const dd = String(date.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
+
+/**
+ * Days-since-epoch in the user's LOCAL timezone. Two timestamps map to the
+ * same number iff they fall on the same local calendar day — the correct
+ * bucketing for streaks and daily stats. UTC bucketing merges an evening
+ * session with the next morning's for anyone west of UTC, undercounting
+ * streaks.
+ */
+export function localDayNumber(input: string | Date): number {
+  const d = typeof input === "string" ? new Date(input) : input;
+  return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 86400000);
+}
+
+/** Start of the local calendar day containing `date` (defaults to today). */
+export function localDayStart(date: Date = new Date()): Date {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}

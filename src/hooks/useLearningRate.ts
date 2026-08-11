@@ -14,6 +14,21 @@ export interface LearningRate {
   endAccuracy: number;
 }
 
+/**
+ * The calculate-learning-rates edge function only writes these domains:
+ * phonological, semantic, grammar, motor, visuospatial, speech, language.
+ * 'speech' is computed from photo_naming trials, so it is the canonical
+ * source for naming/speech-production trend lookups ('language' = phrase
+ * practice is the fallback). Rows arrive ordered by calculated_at desc,
+ * so find() returns the freshest window.
+ */
+export function findSpeechLearningRate<T extends { domain: string }>(
+  rates: T[] | null | undefined
+): T | undefined {
+  if (!rates) return undefined;
+  return rates.find(r => r.domain === 'speech') ?? rates.find(r => r.domain === 'language');
+}
+
 export interface ClusterComparison {
   domain: string;
   window: number;

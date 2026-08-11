@@ -13,7 +13,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { BackButton } from '@/components/layout/BackButton';
 import { RecoveryFocusSummary } from '@/components/RecoveryFocusSummary';
-import { useLearningRate } from '@/hooks/useLearningRate';
+import { useLearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 import { useCueIndependence } from '@/hooks/useCueIndependence';
 import { useWordMastery } from '@/hooks/useWordMastery';
 import { useErrorQualityScore } from '@/hooks/useErrorQualityScore';
@@ -143,7 +143,7 @@ export default function RecoveryProgress() {
   const strokeDate = activeProfile?.stroke_date;
   const daysInProgram = strokeDate ? differenceInDays(new Date(), new Date(strokeDate)) : null;
 
-  const speechRate = learningRates?.find(r => r.domain === 'naming' || r.domain === 'speech_therapy');
+  const speechRate = findSpeechLearningRate(learningRates);
   const accuracyTrend: Trend =
     !speechRate ? 'insufficient'
     : (speechRate.accuracySlope ?? 0) > THRESHOLDS.accuracy.strongSlope ? 'improving'
