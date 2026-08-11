@@ -22,9 +22,26 @@ export interface FixSentenceTrial {
   fixAliases: Record<string, string[]>;
   category: string;
   difficulty: 1 | 2 | 3;
-  errorType: 'semantic_swap' | 'category_error' | 'function_error' | 'multiple_valid_repairs';
+  errorType: 'semantic_swap' | 'category_error' | 'function_error' | 'multiple_valid_repairs' | 'morphology_error';
   /** Phoneme targets for adaptive phoneme-aware selection */
   phonemeTargets: string[];
+  /**
+   * L6 mixed-morphology cohort (clinical ladder). When present the wrong
+   * word is a grammatical-inflection error, not a lexical substitution.
+   * Scoring MUST NOT apply the semantic-similarity fallback to these
+   * trials — embeddings treat base and inflected forms as equivalent,
+   * which is exactly the contrast under treatment
+   * (docs/fix-sentence-morphology-spec.md §3.3).
+   */
+  morphology?: {
+    errorClass: 'tense' | 'agreement' | 'plural' | 'irregular_past' | 'comparative';
+    /** Lemma, e.g. 'walk'. Never an accepted fix. */
+    baseForm: string;
+    /** Must equal `wrongWord`. */
+    erroneousForm: string;
+    /** The repair target; must be included in `acceptedFixes`. */
+    requiredForm: string;
+  };
   /**
    * L5 two-error cohort (clinical ladder). When present the sentence
    * contains a SECOND independent error; the primary fields above describe
@@ -774,6 +791,119 @@ export const FIX_SENTENCE_TWO_ERROR_BANK: FixSentenceTrial[] = [
     },
     category: 'kitchen', difficulty: 3, errorType: 'function_error',
     phonemeTargets: ['/b/', '/l/', '/eɪ/'],
+  },
+];
+
+/**
+ * L6 mixed-morphology cohort — deliberately a SEPARATE bank so the
+ * single-error difficulty bands can never serve inflection-error trials
+ * to lower tiers (mirrors FIX_SENTENCE_TWO_ERROR_BANK). Served only by
+ * the L6 selector branch behind MORPHOLOGY_GAME_READY.
+ *
+ * Authoring rules (docs/fix-sentence-morphology-spec.md §3.2, pinned by
+ * morphologyBankIntegrity.test.ts):
+ *   - exactly one grammatical repair site, forced by a temporal/number
+ *     anchor ("Yesterday…", "three…") or a nonword inflection ("goed")
+ *   - repair is a single closed-set token (plus optional phrase variants)
+ *   - the bare base form is never an accepted fix or alias
+ *   - cohort spans ≥3 errorClass values so "mixed" is honest
+ */
+export const FIX_SENTENCE_MORPHOLOGY_BANK: FixSentenceTrial[] = [
+  {
+    id: 'fsm_1', sentence: 'Yesterday she walk to the store with her sister.',
+    wrongWord: 'walk', wrongWordIndex: 3,
+    acceptedFixes: ['walked'], fixAliases: {},
+    category: 'daily_routine', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/w/', '/k/', '/t/'],
+    morphology: { errorClass: 'tense', baseForm: 'walk', erroneousForm: 'walk', requiredForm: 'walked' },
+  },
+  {
+    id: 'fsm_2', sentence: 'He are very happy about his new job.',
+    wrongWord: 'are', wrongWordIndex: 2,
+    acceptedFixes: ['is'], fixAliases: {},
+    category: 'feelings', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/ɪ/', '/z/'],
+    morphology: { errorClass: 'agreement', baseForm: 'be', erroneousForm: 'are', requiredForm: 'is' },
+  },
+  {
+    id: 'fsm_3', sentence: 'She bought three apple at the market this morning.',
+    wrongWord: 'apple', wrongWordIndex: 4,
+    acceptedFixes: ['apples'], fixAliases: {},
+    category: 'shopping', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/æ/', '/p/', '/z/'],
+    morphology: { errorClass: 'plural', baseForm: 'apple', erroneousForm: 'apple', requiredForm: 'apples' },
+  },
+  {
+    id: 'fsm_4', sentence: 'Last night he goed to bed very early.',
+    wrongWord: 'goed', wrongWordIndex: 4,
+    acceptedFixes: ['went'], fixAliases: {},
+    category: 'daily_routine', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/w/', '/ɛ/', '/t/'],
+    morphology: { errorClass: 'irregular_past', baseForm: 'go', erroneousForm: 'goed', requiredForm: 'went' },
+  },
+  {
+    id: 'fsm_5', sentence: 'This cake tastes gooder than the last one.',
+    wrongWord: 'gooder', wrongWordIndex: 4,
+    acceptedFixes: ['better'], fixAliases: {},
+    category: 'food', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/b/', '/t/', '/ər/'],
+    morphology: { errorClass: 'comparative', baseForm: 'good', erroneousForm: 'gooder', requiredForm: 'better' },
+  },
+  {
+    id: 'fsm_6', sentence: 'Right now the baby sleep in her crib.',
+    wrongWord: 'sleep', wrongWordIndex: 5,
+    acceptedFixes: ['sleeps', 'is sleeping'], fixAliases: {},
+    category: 'family', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/s/', '/l/', '/p/'],
+    morphology: { errorClass: 'agreement', baseForm: 'sleep', erroneousForm: 'sleep', requiredForm: 'sleeps' },
+  },
+  {
+    id: 'fsm_7', sentence: 'There are two dog playing in the yard.',
+    wrongWord: 'dog', wrongWordIndex: 4,
+    acceptedFixes: ['dogs'], fixAliases: {},
+    category: 'animals', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/d/', '/ɡ/', '/z/'],
+    morphology: { errorClass: 'plural', baseForm: 'dog', erroneousForm: 'dog', requiredForm: 'dogs' },
+  },
+  {
+    id: 'fsm_8', sentence: 'She teached her son to ride a bike.',
+    wrongWord: 'teached', wrongWordIndex: 2,
+    acceptedFixes: ['taught'], fixAliases: {},
+    category: 'family', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/t/', '/ɔː/'],
+    morphology: { errorClass: 'irregular_past', baseForm: 'teach', erroneousForm: 'teached', requiredForm: 'taught' },
+  },
+  {
+    id: 'fsm_9', sentence: 'Last week they play cards at the community center.',
+    wrongWord: 'play', wrongWordIndex: 4,
+    acceptedFixes: ['played'], fixAliases: {},
+    category: 'leisure', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/p/', '/l/', '/d/'],
+    morphology: { errorClass: 'tense', baseForm: 'play', erroneousForm: 'play', requiredForm: 'played' },
+  },
+  {
+    id: 'fsm_10', sentence: 'The children was playing outside after lunch today.',
+    wrongWord: 'was', wrongWordIndex: 3,
+    acceptedFixes: ['were'], fixAliases: {},
+    category: 'family', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/w/', '/ər/'],
+    morphology: { errorClass: 'agreement', baseForm: 'be', erroneousForm: 'was', requiredForm: 'were' },
+  },
+  {
+    id: 'fsm_11', sentence: 'He saw three mouses in the garage yesterday.',
+    wrongWord: 'mouses', wrongWordIndex: 4,
+    acceptedFixes: ['mice'], fixAliases: {},
+    category: 'animals', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/m/', '/aɪ/', '/s/'],
+    morphology: { errorClass: 'plural', baseForm: 'mouse', erroneousForm: 'mouses', requiredForm: 'mice' },
+  },
+  {
+    id: 'fsm_12', sentence: 'His cold got badder during the long night.',
+    wrongWord: 'badder', wrongWordIndex: 4,
+    acceptedFixes: ['worse'], fixAliases: {},
+    category: 'health', difficulty: 3, errorType: 'morphology_error',
+    phonemeTargets: ['/w/', '/ɜː/', '/s/'],
+    morphology: { errorClass: 'comparative', baseForm: 'bad', erroneousForm: 'badder', requiredForm: 'worse' },
   },
 ];
 
