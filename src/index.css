@@ -445,4 +445,18 @@ button, a, [role="button"], input, select, textarea {
   .kids-mic-live {
     animation: none;
   }
+
+  /* Adult-facing animations. Stroke survivors frequently have vestibular
+     or attention sensitivity — infinite pulse/breathe loops and celebration
+     bursts must respect the OS setting, not just the kids set. The broad
+     rule collapses every animation/transition to a single frame; spinners
+     (animate-spin) are exempted because a frozen spinner reads as a hang. */
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
