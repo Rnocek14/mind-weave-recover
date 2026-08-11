@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Sparkles, Loader2, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 
 const EXERCISE_SLUG = 'conversation_coach';
 
@@ -34,7 +35,26 @@ export default function ConversationCoachExercise() {
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
-  
+
+  // Close the session we open. Without this, standalone conversation sessions
+  // were only ever ended by the stale-session sweeper (ended_reason
+  // 'timeout_sweep', wall-clock duration) — invisible to every dashboard.
+  // Parent-owned (lesson) sessions are auto-detected and left alone.
+  const startTimeRef = useRef(Date.now());
+  const turnsRef = useRef(0);
+  const getSessionStats = useCallback(() => ({
+    score: 0, // conversation_coach is accuracy-excluded; turns are the dose signal
+    totalTrials: turnsRef.current,
+    startTime: startTimeRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    exerciseSlug: EXERCISE_SLUG,
+    getSessionStats,
+  });
+
   // Shared adaptation contract — conversation coach is cue-sensitive + profile-aware
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,
@@ -74,7 +94,9 @@ export default function ConversationCoachExercise() {
 
   const handleComplete = (metrics: SessionSummary) => {
     setSessionSummary(metrics);
-    
+    turnsRef.current = metrics.turnsCompleted;
+    void completeSession();
+
     // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;

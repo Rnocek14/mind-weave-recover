@@ -31,7 +31,7 @@ const LANDING_ROUTES = new Set<string>([
 ]);
 
 // Never redirect away from the onboarding flows themselves.
-const ONBOARDING_ROUTES = new Set<string>(["/welcome", "/onboarding/role"]);
+const ONBOARDING_ROUTES = new Set<string>(["/welcome", "/onboarding", "/onboarding/role"]);
 
 export function OnboardingGate() {
   const navigate = useNavigate();

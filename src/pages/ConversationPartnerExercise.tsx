@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
@@ -43,6 +44,23 @@ export default function ConversationPartnerExercise() {
     providedSessionId,
     'conversation-partner'
   );
+
+  // Close the session we open (was only ever ended by the stale-session
+  // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
+  const sessionStartRef = useRef(Date.now());
+  const turnsRef = useRef(0);
+  const getSessionStats = useCallback(() => ({
+    score: 0, // conversation_partner is accuracy-excluded; turns are the dose signal
+    totalTrials: turnsRef.current,
+    startTime: sessionStartRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId: activeSessionId,
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    exerciseSlug: 'conversation-partner',
+    getSessionStats,
+  });
 
   // Shared adaptation contract
   const adaptation = useSessionAdaptation({
@@ -81,7 +99,9 @@ export default function ConversationPartnerExercise() {
 
   const handleComplete = (summary: SessionSummary) => {
     setSessionSummary(summary);
-    
+    turnsRef.current = summary.turnsCompleted;
+    void completeSession();
+
     // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;

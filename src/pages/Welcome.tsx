@@ -36,14 +36,13 @@ export default function Welcome() {
   };
 
   const launchSession = () => {
-    markOnboardingComplete(user?.id);
     // Launch KPI: survivor reached their first Start (plan A4). Non-blocking.
     void recordSelfStart(undefined, 'welcome');
-    // Go to the real practice launcher. Previously navigated to /smart-coach,
-    // which is a retired route that redirects to /today — so this CTA dropped
-    // the user on the home screen after firing the KPI for a session that never
-    // began. /today is the actual start destination.
-    navigate('/today');
+    // Continue to the 3-question screener, which builds the provisional
+    // clinical profile (so new users stop running on dark defaults) and is
+    // the step that marks onboarding complete. Abandoning it replays
+    // /welcome on next login — resumable, never a trap.
+    navigate('/onboarding');
   };
 
   const skip = () => {
@@ -124,7 +123,7 @@ export default function Welcome() {
                 </p>
               </div>
               <Button size="lg" className="w-full gap-2 text-base" onClick={launchSession}>
-                Start my first practice
+                Continue
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>

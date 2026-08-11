@@ -7,8 +7,9 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Check, X, ThumbsUp } from 'lucide-react';
+import { Check, X, ThumbsUp, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface Trial {
   question: string;
@@ -53,9 +54,20 @@ export function YesNoComprehensionProbe({ totalTrials = 5, onComplete }: YesNoCo
     return shuffled.slice(0, Math.min(totalTrials, TRIALS.length));
   });
 
+  const { speak } = useTextToSpeech();
+
   useEffect(() => {
     trialStartRef.current = Date.now();
   }, [currentIndex]);
+
+  // This is an AUDITORY comprehension probe — speak each question so it
+  // measures listening, not reading. Text stays visible as support.
+  useEffect(() => {
+    if (completed) return;
+    const trial = trials[currentIndex];
+    if (trial) void speak(trial.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- speak identity churns; re-run only per trial
+  }, [currentIndex, completed]);
 
   const handleAnswer = useCallback((userAnswer: boolean) => {
     if (feedback) return;
@@ -107,8 +119,16 @@ export function YesNoComprehensionProbe({ totalTrials = 5, onComplete }: YesNoCo
         {currentIndex + 1} / {trials.length}
       </div>
       
-      <div className="text-center p-6 bg-muted/30 rounded-xl min-h-[80px] flex items-center justify-center">
+      <div className="text-center p-6 bg-muted/30 rounded-xl min-h-[80px] flex items-center justify-center gap-3">
         <p className="text-lg font-medium">{trial.question}</p>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Hear the question again"
+          onClick={() => void speak(trial.question)}
+        >
+          <Volume2 className="w-5 h-5 text-primary" />
+        </Button>
       </div>
 
       <div className="flex gap-4 w-full max-w-xs">
