@@ -40,6 +40,10 @@ const SCORING_DEBOUNCE_MS = 2500; // Wait for user to finish speaking before sco
 const AUTO_ADVANCE_DELAY_MS = 2500;
 const WRONG_ANSWER_DISPLAY_MS = 6000; // Show "not quite" feedback before auto-retry
 
+// L5 two-error trials: acknowledgement shown between the two repairs.
+const TWO_ERROR_PROMPT_TEXT = "Good — there's one more mistake in this sentence.";
+const PHASE_PROMPT_MS = 2600;
+
 interface FixSentenceGameProps {
   onTrialComplete?: (result: FixSentenceTrialResult) => void;
   onGameComplete?: (results: FixSentenceTrialResult[]) => void;
@@ -69,6 +73,8 @@ export function FixSentenceGame({
 }: FixSentenceGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  // L5: visible "one more mistake" acknowledgement between the two repairs.
+  const [twoErrorPrompt, setTwoErrorPrompt] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [validationHint, setValidationHint] = useState<string | null>(null);
@@ -233,6 +239,42 @@ export function FixSentenceGame({
         setIsProcessing(false);
         return;
       }
+
+      // L5 interim: first of two errors repaired. NOT submitted — prompt
+      // for the remaining error and let them type again.
+      if (result.phaseAdvance) {
+        if (sessionId && userId) {
+          try {
+            await logFinalAnalysis({
+              transcript: text,
+              transcriptSource: 'typed' as any,
+              isCorrect: true,
+              errorType: 'correct',
+              semanticSimilarity: result.semanticSimilarity,
+            });
+          } catch { /* parity log only */ }
+        }
+        setTwoErrorPrompt(true);
+        void speak(TWO_ERROR_PROMPT_TEXT);
+        setTypedAnswer('');
+        lastScoredRef.current = '';
+        setDisplayTranscript('');
+        resetAttempt();
+        if (sessionId && userId && game.currentTrial) {
+          startAttempt({
+            sessionId,
+            userId,
+            exerciseSlug: 'fix_sentence',
+            trialIndex: game.currentIndex,
+            attemptNumber: game.currentAttempt + 1,
+            targetWord: game.phase2TargetFixes?.[0] ?? game.currentTrial.acceptedFixes[0],
+            category: game.currentTrial.category,
+          });
+        }
+        setTimeout(() => setTwoErrorPrompt(false), PHASE_PROMPT_MS * 2);
+        return;
+      }
+      setTwoErrorPrompt(false);
 
       // No mic/audio in typed mode — log a text-source utterance for parity.
       if (sessionId && userId) {
@@ -481,12 +523,49 @@ export function FixSentenceGame({
       try {
         const selfCorrected = !!prevWrongAttempt;
         const result = await game.scoreAnswer(finalCandidate, selfCorrected);
-        
+
         if (!result) {
           processingRef.current = false;
           setIsProcessing(false);
           return;
         }
+
+        // L5 interim: first of two errors repaired. NOT submitted — stop
+        // the mic, log the (correct) utterance, prompt for the remaining
+        // error, then reopen via handleTryAgain's sync-wait path.
+        if (result.phaseAdvance) {
+          stopListening();
+          setIsListening(false);
+          let interimAudioPath: string | undefined;
+          let interimDurationMs: number | undefined;
+          if (isRecording) {
+            const recResult = await stopRecording();
+            if (recResult && sessionId && userId) {
+              interimDurationMs = recResult.duration;
+              const uploaded = await uploadRecording(
+                recResult.audioBlob, userId, sessionId, currentIndexRef.current + 1, recResult.mimeType
+              ).catch(() => null);
+              if (uploaded) interimAudioPath = uploaded;
+            }
+          }
+          await logFinalAnalysis({
+            transcript: rawTranscriptRef.current,
+            transcriptSource: 'browser',
+            isCorrect: true,
+            errorType: 'correct',
+            semanticSimilarity: result.semanticSimilarity,
+            audioStoragePath: interimAudioPath,
+            recordingDurationMs: interimDurationMs,
+          }).catch(() => {});
+          setTwoErrorPrompt(true);
+          void speak(TWO_ERROR_PROMPT_TEXT);
+          setTimeout(() => {
+            setTwoErrorPrompt(false);
+            handleTryAgain(); // resets attempt + reopens mic after TTS
+          }, PHASE_PROMPT_MS);
+          return;
+        }
+        setTwoErrorPrompt(false);
 
         // Stop mic + recording
         stopListening();
@@ -608,6 +687,7 @@ export function FixSentenceGame({
   const handleTryAgain = useCallback(() => {
     if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     setShowFeedback(false);
+    setTwoErrorPrompt(false);
     lastScoredRef.current = '';
     rawTranscriptRef.current = '';
     setDisplayTranscript('');
@@ -696,6 +776,14 @@ export function FixSentenceGame({
       <Card className="border-2">
         <CardContent className="pt-4 pb-4 sm:pt-8 sm:pb-8 px-4 sm:px-6">
           <div className="space-y-4">
+            {twoErrorPrompt && (
+              <div
+                role="status"
+                className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 text-center text-base font-medium text-primary"
+              >
+                ✓ {TWO_ERROR_PROMPT_TEXT}
+              </div>
+            )}
             {renderSentence()}
             
             <div className="flex justify-center">

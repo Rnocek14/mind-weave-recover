@@ -31,12 +31,12 @@ describe('deriveTierStatusFromSpec', () => {
     }
   });
 
-  it('Fix Sentence: L1–L4 implemented, L5–L8 planned', () => {
-    for (let lvl = 1; lvl <= 4; lvl++) {
+  it('Fix Sentence: L1–L5 implemented (L5 two-error tier live), L6–L8 planned', () => {
+    for (let lvl = 1; lvl <= 5; lvl++) {
       expect(deriveTierStatusFromSpec('fix-sentence', lvl, FIX_SENTENCE_LEVELS[lvl]).tierStatus)
         .toBe('implemented');
     }
-    for (let lvl = 5; lvl <= 8; lvl++) {
+    for (let lvl = 6; lvl <= 8; lvl++) {
       expect(deriveTierStatusFromSpec('fix-sentence', lvl, FIX_SENTENCE_LEVELS[lvl]).tierStatus)
         .toBe('planned');
     }

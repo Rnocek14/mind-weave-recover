@@ -41,13 +41,12 @@ import { FIX_SENTENCE_BANK, FIX_SENTENCE_TWO_ERROR_BANK } from '@/data/fixSenten
 export const MIN_TIER_POOL_SIZE = 6;
 
 /**
- * L5 readiness gate. The two-error CONTENT and this selector's cohort are
- * ready (FIX_SENTENCE_TWO_ERROR_BANK); what's missing is the game repair
- * loop's two-phase scoring (see docs/fix-sentence-two-error-spec.md).
- * Flip to true ONLY in the same change that implements that loop —
- * flipping it alone would serve two-error sentences to a single-error UI.
+ * L5 readiness gate. Flipped in the same change that implemented the
+ * two-phase repair loop (useFixSentenceGame repairPhase + order-agnostic
+ * matching + aggregate partial-credit scoring + abandonment safety) per
+ * docs/fix-sentence-two-error-spec.md.
  */
-export const TWO_ERROR_GAME_READY = false;
+export const TWO_ERROR_GAME_READY = true;
 
 /** The L5 candidate pool — exported so tests pin the cohort's integrity. */
 export function selectTwoErrorCandidates(): FixSentenceTrial[] {
