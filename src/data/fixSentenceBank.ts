@@ -589,6 +589,79 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
     category: 'home', difficulty: 3, errorType: 'multiple_valid_repairs',
     phonemeTargets: ['/d/', '/ɔː/', '/r/'],
   },
+
+  // ══════════════ EXPANSION SET (launch content wave) ══════════════
+  // Targets the two genuinely thin cohorts: T3 function_error sentences
+  // whose verbs are in L4_COMMON_VERBS (grows the live L4 selector cohort —
+  // L5–L8 selectors are deliberately unimplemented and need schema work,
+  // not content), and T2 semantic swaps. wrongWordIndex is 1-based word
+  // position. Flagged for SLP review.
+
+  // --- T2 semantic swaps ---
+  {
+    id: 'fs_exp_1', sentence: 'She poured the cereal into a fork.', wrongWord: 'fork', wrongWordIndex: 7,
+    acceptedFixes: ['bowl'], fixAliases: { bowl: ['bowls', 'bull', 'ball'] },
+    category: 'kitchen', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/b/', '/oʊ/', '/l/'],
+  },
+  {
+    id: 'fs_exp_2', sentence: 'He put on his gloves to keep his ears warm.', wrongWord: 'ears', wrongWordIndex: 9,
+    acceptedFixes: ['hands', 'fingers'], fixAliases: { hands: ['hand', 'hans'], fingers: ['finger'] },
+    category: 'clothing', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/h/', '/æ/', '/n/'],
+  },
+  {
+    id: 'fs_exp_3', sentence: 'The nurse checked his pulse at the ankle of his neck.', wrongWord: 'ankle', wrongWordIndex: 8,
+    acceptedFixes: ['side'], fixAliases: { side: ['sides'] },
+    category: 'health', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/s/', '/aɪ/', '/d/'],
+  },
+  {
+    id: 'fs_exp_4', sentence: 'She watered the dishes in the garden before dinner.', wrongWord: 'dishes', wrongWordIndex: 4,
+    acceptedFixes: ['plants', 'flowers', 'vegetables'], fixAliases: { plants: ['plant'], flowers: ['flower'], vegetables: ['vegetable', 'veggies'] },
+    category: 'garden', difficulty: 2, errorType: 'semantic_swap',
+    phonemeTargets: ['/p/', '/l/', '/æ/'],
+  },
+
+  // --- T3 function errors (all verbs in L4_COMMON_VERBS → live L4 cohort) ---
+  {
+    id: 'fs_exp_5', sentence: 'He cut the birthday cake with a spoon.', wrongWord: 'spoon', wrongWordIndex: 8,
+    acceptedFixes: ['knife', 'cake knife'], fixAliases: { knife: ['knives', 'nife'], 'cake knife': ['cake cutter'] },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/n/', '/aɪ/', '/f/'],
+  },
+  {
+    id: 'fs_exp_6', sentence: 'She swept the porch with a paintbrush.', wrongWord: 'paintbrush', wrongWordIndex: 7,
+    acceptedFixes: ['broom'], fixAliases: { broom: ['brooms', 'brum'] },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/b/', '/r/', '/uː/'],
+  },
+  {
+    // (Replaced a 'locked/key' draft that near-duplicated fs_21 — same verb,
+    // same fix, same frame.)
+    id: 'fs_exp_7', sentence: 'She lit the birthday candles with a crayon.', wrongWord: 'crayon', wrongWordIndex: 8,
+    acceptedFixes: ['match', 'lighter', 'matches'], fixAliases: { match: ['matches', 'mach'], lighter: ['lighters', 'liter'] },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/m/', '/æ/', '/tʃ/'],
+  },
+  {
+    id: 'fs_exp_8', sentence: 'She wrote the grocery list with a straw.', wrongWord: 'straw', wrongWordIndex: 8,
+    acceptedFixes: ['pen', 'pencil'], fixAliases: { pen: ['pens', 'pin'], pencil: ['pencils'] },
+    category: 'home', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/p/', '/ɛ/', '/n/'],
+  },
+  {
+    id: 'fs_exp_9', sentence: 'He drained the pasta with a plate.', wrongWord: 'plate', wrongWordIndex: 7,
+    acceptedFixes: ['colander', 'strainer'], fixAliases: { colander: ['colanders', 'cull under'], strainer: ['strainers', 'strain her'] },
+    category: 'kitchen', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/s/', '/t/', '/r/'],
+  },
+  {
+    id: 'fs_exp_10', sentence: 'She raised the flag with a ladder.', wrongWord: 'ladder', wrongWordIndex: 7,
+    acceptedFixes: ['rope', 'pulley'], fixAliases: { rope: ['ropes', 'robe'], pulley: ['pulleys', 'pully'] },
+    category: 'outdoor', difficulty: 3, errorType: 'function_error',
+    phonemeTargets: ['/r/', '/oʊ/', '/p/'],
+  },
 ];
 
 /**
