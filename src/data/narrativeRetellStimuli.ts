@@ -459,6 +459,144 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     ],
     keyEvents: ['down by two', 'youngest wanted the shot', 'made three-pointer', 'won at buzzer', 'trusting each other mattered'],
   },
+
+  // ============ EXPANSION SET (launch content wave) ============
+  // Calibrated to the tier conventions above: T1 ≤35 words, simple concrete,
+  // one short sentence per scene; T2 adds characters, cause-effect, emotion;
+  // T3 requires inference/abstraction. keyEvents stay terse verb-phrase gist
+  // fragments (they feed eventCoverage scoring). Flagged for SLP review.
+
+  // --- Tier 1 additions ---
+  {
+    id: 'rainy-walk',
+    title: 'The Rainy Walk',
+    scenes: [
+      { emoji: '☀️', text: 'Ana went for a walk in the sun.' },
+      { emoji: '🌧️', text: 'Halfway home, it started to rain.' },
+      { emoji: '🏃', text: 'She ran to a bus stop and waited.' },
+      { emoji: '🌈', text: 'The rain stopped and she saw a rainbow.' },
+    ],
+    keyEvents: ['went for walk', 'started to rain', 'ran to bus stop', 'rain stopped', 'saw rainbow'],
+    expectedClauses: 5,
+    tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'new-recipe',
+    title: 'The New Recipe',
+    scenes: [
+      { emoji: '📖', text: 'Leo found a soup recipe in a book.' },
+      { emoji: '🛒', text: 'He bought the vegetables at the store.' },
+      { emoji: '🍲', text: 'He cooked the soup all afternoon.' },
+      { emoji: '😋', text: 'His wife said it was the best soup ever.' },
+    ],
+    keyEvents: ['found recipe', 'bought vegetables', 'cooked soup', 'wife loved it'],
+    expectedClauses: 4,
+    tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'bird-feeder',
+    title: 'The Bird Feeder',
+    scenes: [
+      { emoji: '🔨', text: 'Ed built a bird feeder for his yard.' },
+      { emoji: '🌰', text: 'He filled it with seeds every morning.' },
+      { emoji: '🐿️', text: 'A squirrel kept stealing the seeds.' },
+      { emoji: '😄', text: 'Ed gave the squirrel its own bowl of nuts.' },
+    ],
+    keyEvents: ['built bird feeder', 'filled with seeds', 'squirrel stole seeds', 'gave squirrel nuts'],
+    expectedClauses: 4,
+    tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'library-book',
+    title: 'The Library Book',
+    scenes: [
+      { emoji: '📚', text: 'Mia borrowed a book from the library.' },
+      { emoji: '😴', text: 'She read it in bed every night.' },
+      { emoji: '📅', text: 'The book was due back on Friday.' },
+      { emoji: '🚶', text: 'She returned it and borrowed two more.' },
+    ],
+    keyEvents: ['borrowed book', 'read every night', 'due Friday', 'returned it', 'borrowed two more'],
+    expectedClauses: 5,
+    tier: 1,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+
+  // --- Tier 2 additions ---
+  {
+    id: 'flat-tire',
+    title: 'The Flat Tire',
+    scenes: [
+      { emoji: '🚗', text: 'On the way to her sister\'s house, Gina heard a loud thump.' },
+      { emoji: '😟', text: 'She pulled over and saw the back tire was flat.' },
+      { emoji: '🚙', text: 'A truck driver stopped and showed her how to use the jack.' },
+      { emoji: '🍰', text: 'Gina arrived late but proud, and told the story over dessert.' },
+    ],
+    keyEvents: ['heard thump', 'tire was flat', 'pulled over', 'driver showed jack', 'arrived late', 'told story'],
+    expectedClauses: 6,
+    tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'wrong-bus',
+    title: 'The Wrong Bus',
+    scenes: [
+      { emoji: '🚌', text: 'Omar got on the bus while reading his phone.' },
+      { emoji: '🏞️', text: 'Twenty minutes later, he looked up and saw a park he didn\'t know.' },
+      { emoji: '🗺️', text: 'The driver explained he had taken the 42 instead of the 24.' },
+      { emoji: '🚶', text: 'He got off, crossed the street, and rode the right bus home laughing at himself.' },
+    ],
+    keyEvents: ['reading his phone', 'wrong bus', 'unknown park', 'driver explained', 'crossed street', 'rode home'],
+    expectedClauses: 6,
+    tier: 2,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+
+  // --- Tier 3 additions ---
+  {
+    id: 'empty-bench',
+    title: 'The Empty Bench',
+    scenes: [
+      { emoji: '🪑', text: 'Every morning for years, two old friends met on the same park bench.' },
+      { emoji: '🍂', text: 'One autumn, one of them stopped coming.' },
+      { emoji: '🌷', text: 'The other kept coming anyway, and planted tulips beside the bench.' },
+      { emoji: '🧒', text: 'In spring, he began teaching his granddaughter chess there, the way his friend once taught him.' },
+    ],
+    keyEvents: ['met on bench for years', 'friend stopped coming', 'kept coming', 'planted tulips', 'taught granddaughter', 'way friend taught him'],
+    expectedClauses: 6,
+    tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'the-toolbox',
+    title: 'The Toolbox',
+    scenes: [
+      { emoji: '🧰', text: 'After her father passed, Kate couldn\'t bring herself to open his old toolbox.' },
+      { emoji: '🚪', text: 'When her own cabinet door broke, she finally lifted the lid.' },
+      { emoji: '📝', text: 'Inside, taped to the hammer, was a note: "Measure twice, cut once — love, Dad."' },
+      { emoji: '🔨', text: 'She fixed the door herself, and left the note right where it was.' },
+    ],
+    keyEvents: ['couldn\'t open toolbox', 'cabinet door broke', 'lifted the lid', 'found note from dad', 'fixed door herself', 'left note in place'],
+    expectedClauses: 6,
+    tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: 'the-seedling',
+    title: 'The Seedling',
+    scenes: [
+      { emoji: '🌱', text: 'A retired teacher planted an oak seedling in the schoolyard on her last day.' },
+      { emoji: '🥀', text: 'Some students said it would never survive the dry summer.' },
+      { emoji: '🚿', text: 'All vacation, different kids took turns quietly watering it.' },
+      { emoji: '🌳', text: 'Years later, new students ate lunch in its shade without knowing the story.' },
+    ],
+    keyEvents: ['teacher planted seedling', 'said it would not survive', 'kids took turns watering', 'grew into tree', 'students ate in shade', 'without knowing story'],
+    expectedClauses: 6,
+    tier: 3,
+    structureMap: DEFAULT_STRUCTURE,
+  },
 ];
 
 export function getStoriesByTier(tier: number): NarrativeStory[] {
