@@ -18,7 +18,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useTextToSpeech, stopGlobalTTS } from '@/hooks/useTextToSpeech';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
@@ -32,7 +32,7 @@ import { buildFixSentenceChoices } from '@/lib/fixSentenceChoices';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { speakMayaCoaching, resetCoachingState, cancelPendingMayaCoaching } from '@/lib/evaluation/mayaCoachingResponses';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Check, X, Minus, Keyboard, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { voiceController } from '@/lib/voiceController';
@@ -98,6 +98,10 @@ export function FixSentenceGame({
   const cancelRecordingRef = useRef<() => void>(() => {});
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ttsAbortRef = useRef(false);
+  // Re-runs the scoring effect once the VoiceController mic-lock clears, so
+  // an answer spoken during Maya's tail-lock is scored instead of dropped.
+  const [micLockRetryTick, setMicLockRetryTick] = useState(0);
+  const micLockRetryRef = useRef<NodeJS.Timeout | null>(null);
 
   const { speak } = useTextToSpeech();
   const { analyzePronunciation } = usePronunciationAnalysis();
@@ -226,6 +230,10 @@ export function FixSentenceGame({
   const currentIndexRef = useRef(game.currentIndex);
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
   useEffect(() => { currentIndexRef.current = game.currentIndex; }, [game.currentIndex]);
+  // Live mirror for timer callbacks — the 12s stall reminder otherwise reads
+  // showFeedback from a stale closure and can speak over visible feedback.
+  const showFeedbackRef = useRef(showFeedback);
+  useEffect(() => { showFeedbackRef.current = showFeedback; }, [showFeedback]);
 
   // L1/L2 scaffolded response mode (ladder targetSupport). L1 keeps the
   // wrong-word highlight (highlight_plus_choice); L2 drops it
@@ -425,6 +433,9 @@ export function FixSentenceGame({
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+      if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
+      // A coaching line queued for the PREVIOUS trial must not play into this one.
+      cancelPendingMayaCoaching();
       lastScoredRef.current = '';
       rawTranscriptRef.current = '';
       stableTranscriptRef.current = '';
@@ -461,7 +472,7 @@ export function FixSentenceGame({
         // BEFORE the sentence itself.
         if (stallTimerFixRef.current) clearTimeout(stallTimerFixRef.current);
         stallTimerFixRef.current = setTimeout(() => {
-          if (!showFeedback && !isProcessing && !ttsAbortRef.current) {
+          if (!showFeedbackRef.current && !processingRef.current && !ttsAbortRef.current) {
             vg.speakReminder();
           }
         }, 12000);
@@ -492,12 +503,25 @@ export function FixSentenceGame({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
+  // Silence any in-flight/queued speech the moment the game completes so a
+  // delayed coaching line or feedback can't play over the completion screen
+  // (or the next exercise in a lesson).
+  useEffect(() => {
+    if (game.isComplete) {
+      cancelPendingMayaCoaching();
+      stopGlobalTTS();
+    }
+  }, [game.isComplete]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
+      if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
+      cancelPendingMayaCoaching();
+      stopGlobalTTS();
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
@@ -523,11 +547,15 @@ export function FixSentenceGame({
     // Prevents stale transcripts from a previous trial leaking in (the
     // "same answer reused for every sentence" bug).
     if (!speechIsListening) return;
-    // Sync-Wait: ignore any transcript captured while Maya is speaking (or within
-    // the post-speech tail lock). Otherwise Maya's own feedback bleeds into the
-    // mic and gets scored as the user's (wrong) answer.
+    // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
+    // tail lock) — but do NOT throw the transcript away. Patients often answer
+    // the instant the sentence ends, inside the tail lock; discarding here
+    // silently swallowed those answers ("it's not even showing he said that").
+    // Re-run once the lock clears; the echo gate below still rejects anything
+    // that is actually Maya's own voice.
     if (voiceController.isMicLocked) {
-      rawTranscriptRef.current = '';
+      if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
+      micLockRetryRef.current = setTimeout(() => setMicLockRetryTick(t => t + 1), 450);
       return;
     }
 
@@ -554,7 +582,12 @@ export function FixSentenceGame({
       return;
     }
     setValidationHint(null);
-    resetCoachingState('fix_sentence', speak);
+    // Reset coaching WITHOUT speaking reinforcement. Passing `speak` here made
+    // Maya say "That fixes it." the moment a transcript merely passed
+    // validation — before scoring, even for wrong answers — and TTS latency
+    // landed it seconds later, mid-next-trial. The feedback card (and success
+    // sound) already confirm correct answers.
+    resetCoachingState('fix_sentence');
 
     // Reset stability timer on every new transcript (user still speaking)
     if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
@@ -574,7 +607,13 @@ export function FixSentenceGame({
 
       try {
         const selfCorrected = !!prevWrongAttempt;
-        const result = await game.scoreAnswer(finalCandidate, selfCorrected);
+        // Score the FULL utterance, not the extracted tail. The matcher now
+        // accepts fixes embedded in longer answers ("the dentist cleaned my
+        // teeth" for fix "teeth"), which the 1-2-token extraction destroyed.
+        // scoreAnswer still extracts a compact candidate itself for the
+        // semantic-embedding fallback.
+        const rawFull = rawTranscriptRef.current || finalCandidate;
+        const result = await game.scoreAnswer(rawFull, selfCorrected);
 
         if (!result) {
           processingRef.current = false;
@@ -697,7 +736,7 @@ export function FixSentenceGame({
       if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
+  }, [transcript, micLockRetryTick]);
 
   // Render sentence with highlighted wrong word
   const renderSentence = () => {

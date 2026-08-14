@@ -33,6 +33,7 @@ vi.mock("@/hooks/useSpeechRecognition", () => ({
 }));
 vi.mock("@/hooks/useTextToSpeech", () => ({
   useTextToSpeech: () => ({ speak: vi.fn(async () => {}), isLoading: false, error: null }),
+  stopGlobalTTS: vi.fn(),
 }));
 vi.mock("@/hooks/usePronunciationAnalysis", () => ({
   usePronunciationAnalysis: () => ({ analyzePronunciation: vi.fn(async () => null) }),
@@ -89,6 +90,7 @@ vi.mock("@/lib/voiceController", () => ({
 vi.mock("@/lib/evaluation/mayaCoachingResponses", () => ({
   speakMayaCoaching: vi.fn(async () => {}),
   resetCoachingState: vi.fn(),
+  cancelPendingMayaCoaching: vi.fn(),
 }));
 // The semantic fallback must never be needed in these playthroughs — every
 // typed answer is an exact accepted fix or a deliberate wrong word.

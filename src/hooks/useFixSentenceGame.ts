@@ -9,6 +9,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
+import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 import {
@@ -191,30 +192,74 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
 
   /**
    * Match a spoken answer against one accepted-fix set (+ aliases).
+   *
+   * Accepts, in priority order:
+   *  1. The bare fix (± plural, ± leading article): "water", "the water"
+   *  2. An alias the same way
+   *  3. The fix embedded as exact word(s) anywhere in the utterance —
+   *     patients answer with the whole corrected sentence ("the dentist
+   *     cleaned my teeth"), negate the error first ("not shoes, teeth"),
+   *     or repeat the word ("tail tail"). Embedded matching is EXACT-token
+   *     only (no plural/fuzzy drift), so reading the wrong sentence back
+   *     never matches and morphology trials keep their exact contrast
+   *     (an embedded "walk" can never satisfy the fix "walked").
    */
   const matchFixSet = useCallback((
     spoken: string,
     acceptedFixes: string[],
     fixAliases: Record<string, string[]>,
+    trialSentence?: string,
   ): string | null => {
-    const normalized = spoken.toLowerCase().trim().replace(/[^a-z\s]/g, '');
+    const normalize = (s: string) =>
+      s.toLowerCase().trim().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ');
+    const normalized = normalize(spoken);
     if (!normalized || normalized.length < 2) return null;
+    const stripped = normalized.replace(/^(a|an|the)\s+/, '');
+    const wholeMatches = (candidate: string, f: string): boolean =>
+      candidate === f || candidate === f + 's' || candidate + 's' === f;
 
-    // Check direct matches
+    // 1) Whole-utterance direct matches
     for (const fix of acceptedFixes) {
       const f = fix.toLowerCase();
-      if (normalized === f || normalized === f + 's' || normalized + 's' === f) return fix;
-      // Check "a knife" → "knife"
-      if (normalized.startsWith('a ') && normalized.slice(2) === f) return fix;
-      if (normalized.startsWith('the ') && normalized.slice(4) === f) return fix;
+      if (wholeMatches(normalized, f) || wholeMatches(stripped, f)) return fix;
     }
 
-    // Check aliases
+    // 2) Whole-utterance aliases
     for (const [canonical, aliases] of Object.entries(fixAliases)) {
       for (const alias of aliases) {
         const a = alias.toLowerCase();
-        if (normalized === a || normalized === a + 's' || normalized + 's' === a) return canonical;
+        if (wholeMatches(normalized, a) || wholeMatches(stripped, a)) return canonical;
       }
+    }
+
+    // 3) Fix (or alias) embedded in a longer utterance — exact contiguous
+    //    word sequence only. A fix that already occurs in the trial's OWN
+    //    sentence is excluded here (a few items contain one of their fixes,
+    //    e.g. "…using oven mitts" with fix "oven"): otherwise reading the
+    //    wrong sentence back would count as a repair. Bare-word answers for
+    //    such fixes still land via steps 1-2.
+    const containsPhraseIn = (haystack: string[], phrase: string): boolean => {
+      const parts = normalize(phrase).split(' ').filter(Boolean);
+      if (parts.length === 0 || parts.length > haystack.length) return false;
+      for (let i = 0; i <= haystack.length - parts.length; i++) {
+        let matched = true;
+        for (let j = 0; j < parts.length; j++) {
+          if (haystack[i + j] !== parts[j]) { matched = false; break; }
+        }
+        if (matched) return true;
+      }
+      return false;
+    };
+    const words = normalized.split(' ');
+    const sentenceWords = trialSentence ? normalize(trialSentence).split(' ') : null;
+    const appearsInSentence = (phrase: string): boolean =>
+      sentenceWords ? containsPhraseIn(sentenceWords, phrase) : false;
+
+    for (const fix of acceptedFixes) {
+      if (!appearsInSentence(fix) && containsPhraseIn(words, fix)) return fix;
+    }
+    for (const [canonical, aliases] of Object.entries(fixAliases)) {
+      if (aliases.some(a => !appearsInSentence(a) && containsPhraseIn(words, a))) return canonical;
     }
 
     return null;
@@ -224,7 +269,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    * Local match against a trial's primary error (single-error path).
    */
   const localMatch = useCallback((spoken: string, trial: FixSentenceTrial): string | null => {
-    return matchFixSet(spoken, trial.acceptedFixes, trial.fixAliases);
+    return matchFixSet(spoken, trial.acceptedFixes, trial.fixAliases, trial.sentence);
   }, [matchFixSet]);
 
   /**
@@ -258,10 +303,31 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         // Order-agnostic: primary error's list is checked first, which is
         // also the spec's ambiguity rule (a fix accepted by both errors
         // credits the one that ranks it first).
-        const m1 = matchFixSet(normalized, currentTrial.acceptedFixes, currentTrial.fixAliases);
-        const m2 = m1 ? null : matchFixSet(normalized, second.acceptedFixes, second.fixAliases);
+        const m1 = matchFixSet(normalized, currentTrial.acceptedFixes, currentTrial.fixAliases, currentTrial.sentence);
+        const m2 = m1 ? null : matchFixSet(normalized, second.acceptedFixes, second.fixAliases, currentTrial.sentence);
         const matchedErr: 1 | 2 | null = m1 ? 1 : m2 ? 2 : null;
         const matchedFix = m1 ?? m2;
+
+        // Whole-sentence repair: an utterance that fixes BOTH errors at once
+        // ("The chef cooked the meal and washed the dishes") completes the
+        // trial outright — no interim "one more mistake" prompt for a
+        // mistake that was already repaired.
+        if (m1) {
+          const mOther = matchFixSet(normalized, second.acceptedFixes, second.fixAliases, currentTrial.sentence);
+          if (mOther) {
+            playSuccess();
+            phase1RepairRef.current = null;
+            return {
+              ...baseResult,
+              matchedFix: m1,
+              isCorrect: true,
+              isPartialCredit: false,
+              semanticSimilarity: 1.0,
+              phase1Fix: m1,
+              phase2Fix: mOther,
+            };
+          }
+        }
 
         if (matchedErr && matchedFix) {
           playSuccess();
@@ -299,7 +365,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       const target = p1?.errorNum === 1
         ? second
         : { acceptedFixes: currentTrial.acceptedFixes, fixAliases: currentTrial.fixAliases };
-      const m = matchFixSet(normalized, target.acceptedFixes, target.fixAliases);
+      const m = matchFixSet(normalized, target.acceptedFixes, target.fixAliases, currentTrial.sentence);
       if (m && p1) {
         playSuccess();
         phase1RepairRef.current = null; // aggregate owns the pair now
@@ -370,11 +436,16 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       };
     }
 
-    // 3) Semantic similarity fallback — compare to each acceptedFix
+    // 3) Semantic similarity fallback — compare to each acceptedFix.
+    // Long utterances score systematically low against a single-word fix, so
+    // embed the extracted answer ("I think it's the water" → "the water")
+    // rather than the raw utterance. Local matching above already handled
+    // any utterance that literally contains an accepted fix.
+    const semanticCandidate = extractAnswerFromTranscript(normalized) || normalized;
     let bestSim = 0;
     let bestFix: string | null = null;
     for (const fix of currentTrial.acceptedFixes) {
-      const sim = await getSemanticSimilarity(normalized, fix, currentTrial.category);
+      const sim = await getSemanticSimilarity(semanticCandidate, fix, currentTrial.category);
       if (sim > bestSim) {
         bestSim = sim;
         bestFix = fix;

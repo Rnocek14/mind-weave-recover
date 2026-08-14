@@ -180,12 +180,15 @@ export default function MinimalPairsExercise() {
     const finalize = () => {
       if (fromLesson && !exerciseCompleteSentRef.current) {
         exerciseCompleteSentRef.current = true;
+        // Leave the score summary on screen long enough to actually read it —
+        // at 400ms the completion card flashed and vanished into the next
+        // exercise before the patient could see their result.
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('exercise-complete', {
             detail: { exerciseSlug: 'minimal-pairs', results },
           }));
           navigate(returnTo, { state: { resuming: true }, replace: true });
-        }, 400);
+        }, 5000);
       }
     };
 

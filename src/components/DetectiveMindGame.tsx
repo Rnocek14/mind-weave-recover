@@ -240,9 +240,14 @@ export function DetectiveMindGame({
         }
       }
 
-      // Instructions on first case
+      // Instructions on first case — name only the letters that exist for
+      // this case (previously always said "A, B, C, or D" even with 3 options).
       if (currentIndex === 0) {
-        try { await speak("Read the story, then say or tap A, B, C, or D."); } catch { void 0; }
+        const letters = displayedOptions.map((_, i) => String.fromCharCode(65 + i));
+        const letterList = letters.length > 1
+          ? `${letters.slice(0, -1).join(', ')}, or ${letters[letters.length - 1]}`
+          : (letters[0] ?? 'A');
+        try { await speak(`Read the story, then say or tap ${letterList}.`); } catch { void 0; }
         if (localSeq !== ttsSeqRef.current) return;
         await new Promise(r => setTimeout(r, 150));
         if (localSeq !== ttsSeqRef.current) return;
@@ -254,8 +259,11 @@ export function DetectiveMindGame({
       await new Promise(r => setTimeout(r, 250));
       if (localSeq !== ttsSeqRef.current) return;
       // Read question + each option in the SAME shuffled order shown on screen.
+      // "Option C: …" instead of "C. …" — TTS normalization treats a bare
+      // letter+period sentence as an initial/abbreviation and can skip it
+      // (patients heard the last option read with no letter at all).
       const optionsSpoken = displayedOptions
-        .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+        .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
         .join('. ');
       try { await speak(`${currentCase.question} ${optionsSpoken}.`); } catch { void 0; }
       if (localSeq !== ttsSeqRef.current) return;
@@ -795,10 +803,12 @@ export function DetectiveMindGame({
                 vg.interrupt();
                 stopDirect();
                 ttsSeqRef.current++;
+                // Same "Option C:" anchoring as the auto-read — a bare
+                // letter+period gets skipped by TTS normalization.
                 const optionsSpoken = displayedOptions
-                  .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+                  .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
                   .join('. ');
-                speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
+                speakDirect(`${currentCase.question} ${optionsSpoken}.`);
               }}
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 hover:text-foreground"
             >

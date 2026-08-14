@@ -152,18 +152,25 @@ export function MinimalPairsGame({
     echoActiveRef.current = true;
     setEchoStatus('listening');
     setEchoTranscript('');
-    // Sync-Wait: target was just spoken in feedback effect; small gap before mic.
-    await new Promise((r) => setTimeout(r, 600));
+    // Sync-Wait: target was just spoken in feedback effect; small gap before
+    // mic. Kept short — the TTS round-trip already added seconds of delay and
+    // patients start speaking as soon as they see the prompt.
+    await new Promise((r) => setTimeout(r, 250));
     if (!echoActiveRef.current) return;
     try { speech.startListening(); } catch {}
-    // Auto-stop after 4s — exposure window, not evaluation.
+    // Auto-stop window — exposure, not evaluation. 7s: aphasic speech onset
+    // is slow, and the previous 4s window closed on patients mid-attempt.
+    // Guard on the ref, not `echoStatus`: this closure captured 'idle' (the
+    // only state startEcho can be invoked from), so a state check here is
+    // always false and the auto-stop never fired — a silent echo then hung
+    // until the 12s fallback instead of moving on.
     echoTimerRef.current = setTimeout(() => {
-      if (echoActiveRef.current && echoStatus === 'listening') {
+      if (echoActiveRef.current) {
         stopEcho();
         setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
       }
-    }, 4000);
-  }, [speech, stopEcho, echoStatus]);
+    }, 7000);
+  }, [speech, stopEcho]);
 
   const handleEchoSaidIt = useCallback(() => {
     stopEcho();
@@ -517,7 +524,9 @@ export function MinimalPairsGame({
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm">
-              {echoStatus === 'idle' && <>Now say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
+              {/* 'idle' = mic NOT open yet (Maya is re-speaking the word first).
+                  Say "get ready" so the patient doesn't speak into a dead mic. */}
+              {echoStatus === 'idle' && <>Get ready to say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
               {echoStatus === 'listening' && <>Listening… say <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
               {echoStatus === 'heard' && (
                 <>Nice — that sounded close.{echoTranscript ? <span className="text-muted-foreground"> ({echoTranscript})</span> : null}</>

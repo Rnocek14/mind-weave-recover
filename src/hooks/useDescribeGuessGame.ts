@@ -210,8 +210,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
 
     const analysisText = getSemanticAnalysisText(transcript);
 
-    const directMatch = matchAnswer(transcript, trial.target, trial.acceptedWords, trial.category);
-    if (directMatch.isMatch && directMatch.countsAsCorrect) {
+    // DIRECT shortcut only for real word-level matches (exact / synonym /
+    // phonetic / fragment). matchAnswer classifies ANY 3+ non-foil words as
+    // 'circumlocution' — for this game that is simply "the patient started
+    // describing", NOT evidence the description conveys the target. Letting
+    // it through made the app "guess" (and prompt "Say X") after the very
+    // first utterance. Descriptions must earn the guess through the semantic
+    // 2-of-3 evaluation below.
+    // No foils passed: acceptedWords are VALID answers for this trial, and
+    // matchAnswer's third parameter is its known-WRONG list — feeding accepted
+    // synonyms in there made the matcher treat them as errors.
+    const directMatch = matchAnswer(transcript, trial.target, [], trial.category);
+    if (directMatch.isMatch && directMatch.countsAsCorrect && directMatch.matchType !== 'circumlocution') {
       return {
         guessed: true,
         confidence: Math.max(0.8, directMatch.confidence),
