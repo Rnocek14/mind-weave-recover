@@ -367,6 +367,7 @@ export default function MinimalPairsExercise() {
             sessionId={sessionId}
             totalTrials={Math.min(stats.total, 10)}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            showRestart={!fromLesson}
             onComplete={handleComplete}
             onTrialComplete={handleTrialComplete}
           />

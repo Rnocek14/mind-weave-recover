@@ -564,6 +564,15 @@ export function FixSentenceGame({
       micLockRetryRef.current = setTimeout(() => setMicLockRetryTick(t => t + 1), 450);
       return;
     }
+    // Verbatim read-back of the trial sentence is never an answer — it is
+    // Maya's own "Hear it again" audio (or the patient echoing it). The gate's
+    // echo filter would catch this, except its expectedAnswers bypass admits
+    // sentences that happen to contain one of their own fixes (fs_53, fs_88).
+    const normEq = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+    if (trial.sentence && normEq(transcript) === normEq(trial.sentence)) {
+      rawTranscriptRef.current = '';
+      return;
+    }
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;

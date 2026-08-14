@@ -308,27 +308,12 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         const matchedErr: 1 | 2 | null = m1 ? 1 : m2 ? 2 : null;
         const matchedFix = m1 ?? m2;
 
-        // Whole-sentence repair: an utterance that fixes BOTH errors at once
-        // ("The chef cooked the meal and washed the dishes") completes the
-        // trial outright — no interim "one more mistake" prompt for a
-        // mistake that was already repaired.
-        if (m1) {
-          const mOther = matchFixSet(normalized, second.acceptedFixes, second.fixAliases, currentTrial.sentence);
-          if (mOther) {
-            playSuccess();
-            phase1RepairRef.current = null;
-            return {
-              ...baseResult,
-              matchedFix: m1,
-              isCorrect: true,
-              isPartialCredit: false,
-              semanticSimilarity: 1.0,
-              phase1Fix: m1,
-              phase2Fix: mOther,
-            };
-          }
-        }
-
+        // NOTE: an utterance that repairs BOTH errors at once still goes
+        // through the interim prompt (no outright completion). Trials where
+        // both errors accept the same word (e.g. "knife" on fs2_3) make a
+        // single-fix utterance indistinguishable from a double repair, and
+        // the spec's ambiguity rule credits the primary error only. Phase 2
+        // re-listens; repeating the corrected sentence completes normally.
         if (matchedErr && matchedFix) {
           playSuccess();
           phase1RepairRef.current = { errorNum: matchedErr, fix: matchedFix, spoken, selfCorrected };

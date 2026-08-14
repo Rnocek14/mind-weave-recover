@@ -26,12 +26,17 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { voiceController } from '@/lib/voiceController';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
   totalTrials?: number;
   focusPhonemes?: string[];
   sessionId?: string | null;
+  /** Hide the "Practice Again" restart on the completion card. Lesson flow
+   *  passes false: the page auto-advances, and a reset tapped inside that
+   *  window would restart a game that's about to navigate away. */
+  showRestart?: boolean;
   onComplete?: (results: {
     score: number;
     correctCount: number;
@@ -58,6 +63,7 @@ export function MinimalPairsGame({
   totalTrials = 10,
   focusPhonemes,
   sessionId = null,
+  showRestart = true,
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
@@ -152,10 +158,11 @@ export function MinimalPairsGame({
     echoActiveRef.current = true;
     setEchoStatus('listening');
     setEchoTranscript('');
-    // Sync-Wait: target was just spoken in feedback effect; small gap before
-    // mic. Kept short — the TTS round-trip already added seconds of delay and
-    // patients start speaking as soon as they see the prompt.
-    await new Promise((r) => setTimeout(r, 250));
+    // Sync-Wait: target was just spoken in the feedback effect. Wait for the
+    // VoiceController tail-lock to clear (~400ms after TTS ends) instead of a
+    // fixed sleep — opens the mic as early as the protocol allows without
+    // capturing the audio tail. Bounded so a stuck flag can't hang the echo.
+    await voiceController.awaitMicSafe(1500);
     if (!echoActiveRef.current) return;
     try { speech.startListening(); } catch {}
     // Auto-stop window — exposure, not evaluation. 7s: aphasic speech onset
@@ -385,12 +392,18 @@ export function MinimalPairsGame({
           realLifeLine={maya.realLifeLine}
         />
 
-        <div className="text-center">
-          <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Practice Again
-          </Button>
-        </div>
+        {showRestart ? (
+          <div className="text-center">
+            <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Practice Again
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">
+            Next exercise starting…
+          </p>
+        )}
       </div>
     );
   }

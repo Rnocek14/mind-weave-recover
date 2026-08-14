@@ -115,21 +115,30 @@ describe('useFixSentenceGame.scoreAnswer — embedded-fix acceptance', () => {
   });
 });
 
-describe('useFixSentenceGame — L5 whole-sentence double repair', () => {
-  it('completes a two-error trial outright when one utterance fixes both errors', async () => {
+describe('useFixSentenceGame — L5 two-error trials with embedded matching', () => {
+  it('an utterance containing a fix advances phase 1, then phase 2 accepts an embedded fix', async () => {
     const hook = renderHook(() =>
       useFixSentenceGame({ trialCount: 5, difficulty: 3, clinicalLevel: 5 })
     );
     const trial = hook.result.current.currentTrial!;
     expect(trial.secondError).toBeDefined();
-    const both = `${trial.acceptedFixes[0]} and ${trial.secondError!.acceptedFixes[0]}`;
-    let result: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+
+    let interim: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
     await act(async () => {
-      result = await hook.result.current.scoreAnswer(both);
+      interim = await hook.result.current.scoreAnswer(
+        `it should be ${trial.acceptedFixes[0]} there`
+      );
     });
-    expect(result!.isCorrect).toBe(true);
-    expect(result!.phaseAdvance).toBeUndefined();
-    expect(result!.phase1Fix).toBe(trial.acceptedFixes[0]);
-    expect(result!.phase2Fix).toBe(trial.secondError!.acceptedFixes[0]);
+    expect(interim!.phaseAdvance).toBe(true);
+    expect(interim!.phase1Fix).toBe(trial.acceptedFixes[0]);
+
+    // Phase 2: the remaining error's fix, again embedded in a phrase.
+    const remaining = hook.result.current.phase2TargetFixes![0];
+    let aggregate: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+    await act(async () => {
+      aggregate = await hook.result.current.scoreAnswer(`and also ${remaining}`);
+    });
+    expect(aggregate!.isCorrect).toBe(true);
+    expect(aggregate!.phase2Fix).toBe(remaining);
   });
 });

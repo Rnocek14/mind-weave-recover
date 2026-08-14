@@ -109,11 +109,13 @@ export function SessionPauseControl() {
           onClick={enterPause}
           aria-label="Pause session"
           className={variantClass(variant, {
-            // top-16 + z-[55]: exercise pages render a sticky `z-50` header
-            // (h-14) with its own Home button top-right — a `top-3 z-40`
-            // button sat underneath it, invisible and unclickable. Sit just
-            // below the header row and above its stacking level.
-            base: 'fixed top-16 right-3 z-[55] h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors',
+            // top-[4.75rem]: exercise pages render a sticky `z-50` header
+            // (h-14, taller in lesson mode with the inline progress strip)
+            // with its own Home button top-right — a `top-3 z-40` button sat
+            // underneath it, invisible and unclickable. Sitting fully below
+            // the header box means z-40 suffices, keeping the button under
+            // modal overlays (dialogs/recaps at z-50).
+            base: 'fixed top-[4.75rem] right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors',
             simplified: 'h-14 w-14 right-4 text-foreground border-2',
           })}
         >

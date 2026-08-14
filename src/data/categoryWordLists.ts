@@ -158,7 +158,7 @@ const JOBS = new Set([
   'photographer', 'cameraman', 'designer', 'programmer', 'developer',
   'accountant', 'banker', 'broker', 'analyst', 'consultant', 'manager',
   'advisor', 'adviser', 'financial advisor', 'financial adviser',
-  'financial planner', 'social worker', 'plumbing',
+  'financial planner', 'social worker', 'plumbing', 'farming', 'banking',
   'ceo', 'president', 'mayor', 'governor', 'senator', 'politician',
   'ambassador', 'diplomat', 'translator', 'interpreter', 'tutor', 'coach',
   'trainer', 'referee', 'umpire', 'athlete', 'astronaut', 'barber',
@@ -415,14 +415,20 @@ export function validateCategoryWord(word: string, categorySlug: string): WordVa
   // e.g., "eleph" for "elephant", "hippo" for "hippopotamus"
   // Require the input to cover at least 60% of the valid word to avoid false matches
   // like "blue" → "bluejay" or "car" → "cardinal"
-  // Stemmed candidates run through the same check so trade/activity forms
-  // match their agent nouns: "plumbing" → "plumb" → "plumber",
-  // "teaching" → "teach" → "teacher".
   for (const valid of wordSet) {
     if (valid.includes(' ')) continue; // Skip compound words for prefix matching
-    for (const cand of [clean, ...candidates]) {
-      if (valid.startsWith(cand) && cand.length >= 4 && cand.length / valid.length >= 0.6) return 'valid';
-      if (cand.startsWith(valid) && valid.length >= 4 && valid.length / cand.length >= 0.6) return 'valid';
+    if (valid.startsWith(clean) && clean.length >= 4 && clean.length / valid.length >= 0.6) return 'valid';
+    if (clean.startsWith(valid) && valid.length >= 4 && valid.length / clean.length >= 0.6) return 'valid';
+    // Stemmed candidates run through a TIGHTER version of the same check so
+    // trade/activity forms match their agent nouns ("plumbing" → "plumb" →
+    // "plumber", "teaching" → "teach" → "teacher"). Tighter thresholds
+    // (≥5 chars, ≥70% coverage) because derived stems are noisier than the
+    // raw word: "cooking" → "cook" must NOT match "cookie" (4/6 = 0.67),
+    // "tires" → "tire" must NOT match "tired".
+    for (const cand of candidates) {
+      if (cand === clean) continue;
+      if (valid.startsWith(cand) && cand.length >= 5 && cand.length / valid.length >= 0.7) return 'valid';
+      if (cand.startsWith(valid) && valid.length >= 5 && valid.length / cand.length >= 0.7) return 'valid';
     }
   }
 
