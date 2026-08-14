@@ -28,6 +28,7 @@ vi.mock("@/hooks/useSpeechRecognition", () => ({
     isListening: false,
     startListening: vi.fn(),
     stopListening: vi.fn(),
+    resetTranscript: vi.fn(),
     isSupported: false,
   }),
 }));

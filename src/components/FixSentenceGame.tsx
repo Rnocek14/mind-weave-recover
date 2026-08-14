@@ -405,6 +405,7 @@ export function FixSentenceGame({
     isListening: speechIsListening,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
@@ -436,6 +437,11 @@ export function FixSentenceGame({
       if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
       // A coaching line queued for the PREVIOUS trial must not play into this one.
       cancelPendingMayaCoaching();
+      // Clear the recognizer's dedupe state too: it suppresses a transcript
+      // identical to the last processed one, so without this a patient who
+      // repeats the previous trial's (or attempt's) exact words gets NO
+      // callback at all — the answer silently never registers.
+      resetTranscript();
       lastScoredRef.current = '';
       rawTranscriptRef.current = '';
       stableTranscriptRef.current = '';
@@ -781,6 +787,9 @@ export function FixSentenceGame({
     setTwoErrorPrompt(false);
     lastScoredRef.current = '';
     rawTranscriptRef.current = '';
+    // Without this, repeating the exact same words on the retry is deduped
+    // by the recognizer and never delivered.
+    resetTranscript();
     setDisplayTranscript('');
     processingRef.current = false;
     resetAttempt();
@@ -805,7 +814,7 @@ export function FixSentenceGame({
       setIsListening(true);
       if (isRecordingSupported) startRecording();
     });
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, showTextInput, choiceMode]);
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript, showTextInput, choiceMode]);
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
