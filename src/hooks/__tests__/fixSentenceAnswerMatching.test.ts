@@ -115,6 +115,61 @@ describe('useFixSentenceGame.scoreAnswer — embedded-fix acceptance', () => {
   });
 });
 
+describe('useFixSentenceGame.scoreAnswer — intent tolerance', () => {
+  it('accepts a phonetically distorted form of the fix (word retrieval succeeded)', async () => {
+    const hook = setup();
+    const trial = hook.result.current.currentTrial!;
+    const sentenceWords = new Set(
+      trial.sentence.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/),
+    );
+    const fix = trial.acceptedFixes.find(
+      (f) => !f.includes(' ') && f.length >= 4 && !sentenceWords.has(f.toLowerCase()),
+    );
+    if (!fix) return; // trial without a fuzzable fix — covered by the bank sweep
+    const distorted = fix.slice(0, -1) + (fix.endsWith('x') ? 'z' : 'x');
+    let result: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+    await act(async () => {
+      result = await hook.result.current.scoreAnswer(distorted);
+    });
+    expect(result!.isCorrect).toBe(true);
+    expect(result!.matchedFix).toBe(fix);
+  });
+
+  it('morphology trials stay exact: distorted or base forms never pass', async () => {
+    const hook = renderHook(() =>
+      useFixSentenceGame({ trialCount: 5, difficulty: 3, clinicalLevel: 6 })
+    );
+    const trial = hook.result.current.currentTrial!;
+    expect(trial.morphology).toBeDefined();
+    const required = trial.morphology!.requiredForm;
+
+    // Distorted inflected form — fuzzy matching must NOT rescue it.
+    let distortedResult: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+    await act(async () => {
+      distortedResult = await hook.result.current.scoreAnswer(required + 'x');
+    });
+    expect(distortedResult!.isCorrect).toBe(false);
+
+    // The erroneous base form — the ±s plural tolerance must not bridge it
+    // ("apple" for fix "apples").
+    let baseResult: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+    await act(async () => {
+      baseResult = await hook.result.current.scoreAnswer(trial.morphology!.erroneousForm);
+    });
+    expect(baseResult!.isCorrect).toBe(false);
+
+    // The required form itself still passes, embedded in the corrected sentence.
+    const corrected = trial.sentence
+      .toLowerCase()
+      .replace(trial.wrongWord.toLowerCase(), required.toLowerCase());
+    let correctResult: Awaited<ReturnType<typeof hook.result.current.scoreAnswer>>;
+    await act(async () => {
+      correctResult = await hook.result.current.scoreAnswer(corrected);
+    });
+    expect(correctResult!.isCorrect).toBe(true);
+  });
+});
+
 describe('useFixSentenceGame — L5 two-error trials with embedded matching', () => {
   it('an utterance containing a fix advances phase 1, then phase 2 accepts an embedded fix', async () => {
     const hook = renderHook(() =>
