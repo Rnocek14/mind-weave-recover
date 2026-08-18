@@ -305,8 +305,12 @@ export default function Today() {
     // not on the polished allowlist (expression_focused / comprehension_focused /
     // low_energy do). Previously that made the primary "Start" button a silent
     // no-op. Fall back to a known-good lesson so the button ALWAYS starts a session.
+    // Prefer the ADAPTIVE daily lesson over a hardcoded preset when the
+    // recommended template can't build: the adaptive lesson carries domain
+    // weighting, recency rotation, and per-user signals; falling back to the
+    // same static preset served an identical session every time.
     const recLesson =
-      buildPresetLesson(presetId) ?? buildPresetLesson('core_communication') ?? activeLesson;
+      buildPresetLesson(presetId) ?? activeLesson ?? buildPresetLesson('core_communication');
     console.log('[Today] handleStartRecommended', { presetId, hasRecLesson: !!recLesson });
     if (!recLesson) {
       // Last-resort fallback: run the default daily lesson start path.

@@ -251,7 +251,8 @@ export default function TwoCluesExercise() {
   // Load gate: clinical progression must load before the game mounts so
   // the bridge's effective floor is in place from trial 1. Mirrors
   // SemanticFeatures / MinimalPairs Wave 0 gate.
-  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
+  // Also wait for adaptation: trial pools snapshot focusPhonemes at mount.
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded && !adaptation.loading;
 
   if (!isReady) {
     return <ExerciseLoading />;

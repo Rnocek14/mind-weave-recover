@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MinimalPairsGame } from '@/components/MinimalPairsGame';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { getMinimalPairStats } from '@/data/minimalPairsBank';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -246,6 +247,13 @@ export default function MinimalPairsExercise() {
     });
   }, [submitTrial, activeProfile?.id, sessionId, difficulty, adaptationTelemetry]);
   
+  // Wait for the adaptation contract before mounting the game: the pair
+  // pool snapshots focusPhonemes at mount, so starting early silently
+  // discards the patient's targeted sounds.
+  if (isStarted && adaptation.loading) {
+    return <ExerciseLoading />;
+  }
+
   if (!isStarted) {
     return (
       <div className="min-h-dvh bg-background p-4 md:p-8">

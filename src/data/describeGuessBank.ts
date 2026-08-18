@@ -985,6 +985,12 @@ import { PHOTO_BANK } from './photoBank';
 /** Quiet remap for trials whose original photoBankId is missing in PHOTO_BANK. */
 const PHOTO_ID_REMAP: Record<string, string> = {
   cat_1: 'cat_3',
+  // Restored trials: these referenced photo ids that never existed and were
+  // silently dropped, shrinking the tier pools. The photo bank has the same
+  // object under a different id ("bike" is pictured as a bicycle; the trial
+  // already accepts both words).
+  umbrella_1: 'umbrella_t3_22',
+  bicycle_1: 'bike_3',
 };
 
 /**

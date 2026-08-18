@@ -227,7 +227,10 @@ export default function FixSentenceExercise() {
     }
   }, [fromLesson, navigate]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  // Wait for the adaptation contract too: games snapshot their trial pool on
+  // mount, so mounting before struggling-phoneme targeting resolves would
+  // silently discard it (the "never targets his hard sounds" bug).
+  const isReady = !isCreatingSession && !!activeSessionId && !adaptation.loading;
 
   if (!isReady) {
     return <ExerciseLoading />;

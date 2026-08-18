@@ -321,7 +321,7 @@ const SentenceConstructionExercise = () => {
             MinimalPairs / SemanticFeatures: don't mount until the clinical
             floor is resolved so the engine starts at the right tier. */}
         <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
-          {progression.loaded ? (
+          {progression.loaded && !adaptation.loading ? (
             <SentenceConstructionGame
               config={config}
               bounds={bounds}
@@ -387,7 +387,7 @@ const SentenceConstructionExercise = () => {
 
       {/* Game fills remaining space — load gate on clinical progression. */}
       <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
-        {progression.loaded ? (
+        {progression.loaded && !adaptation.loading ? (
           <SentenceConstructionGame
             config={config}
             bounds={bounds}
