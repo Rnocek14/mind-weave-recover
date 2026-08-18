@@ -13,6 +13,14 @@ export default {
       },
     },
     extend: {
+      screens: {
+        // Height-based variant: games must fit the fold, and the constraint
+        // is VERTICAL. A laptop is wide (so `sm:` roomy styles applied) but
+        // short (~610-700px usable) — exactly where compact layouts are
+        // needed most. Use `tall:` to grant roomy spacing only when the
+        // viewport actually has the height for it.
+        tall: { raw: "(min-height: 850px)" },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

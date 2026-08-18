@@ -157,6 +157,8 @@ const JOBS = new Set([
   'producer', 'writer', 'author', 'journalist', 'reporter', 'editor',
   'photographer', 'cameraman', 'designer', 'programmer', 'developer',
   'accountant', 'banker', 'broker', 'analyst', 'consultant', 'manager',
+  'advisor', 'adviser', 'financial advisor', 'financial adviser',
+  'financial planner', 'social worker', 'plumbing', 'farming', 'banking',
   'ceo', 'president', 'mayor', 'governor', 'senator', 'politician',
   'ambassador', 'diplomat', 'translator', 'interpreter', 'tutor', 'coach',
   'trainer', 'referee', 'umpire', 'athlete', 'astronaut', 'barber',
@@ -397,7 +399,12 @@ export function validateCategoryWord(word: string, categorySlug: string): WordVa
   
   // Direct match
   if (wordSet.has(clean)) return 'valid';
-  
+
+  // Multi-word phrases (typed input, pasted compounds): delegate to the
+  // compound matcher, which adds final-word plural tolerance
+  // ("wire cutters" → "wire cutter").
+  if (clean.includes(' ') && isExactCategoryMatch(clean, categorySlug)) return 'valid';
+
   // Try normalized/stemmed forms
   const candidates = normalizeWord(clean);
   for (const candidate of candidates) {
@@ -412,8 +419,19 @@ export function validateCategoryWord(word: string, categorySlug: string): WordVa
     if (valid.includes(' ')) continue; // Skip compound words for prefix matching
     if (valid.startsWith(clean) && clean.length >= 4 && clean.length / valid.length >= 0.6) return 'valid';
     if (clean.startsWith(valid) && valid.length >= 4 && valid.length / clean.length >= 0.6) return 'valid';
+    // Stemmed candidates run through a TIGHTER version of the same check so
+    // trade/activity forms match their agent nouns ("plumbing" → "plumb" →
+    // "plumber", "teaching" → "teach" → "teacher"). Tighter thresholds
+    // (≥5 chars, ≥70% coverage) because derived stems are noisier than the
+    // raw word: "cooking" → "cook" must NOT match "cookie" (4/6 = 0.67),
+    // "tires" → "tire" must NOT match "tired".
+    for (const cand of candidates) {
+      if (cand === clean) continue;
+      if (valid.startsWith(cand) && cand.length >= 5 && cand.length / valid.length >= 0.7) return 'valid';
+      if (cand.startsWith(valid) && valid.length >= 5 && valid.length / cand.length >= 0.7) return 'valid';
+    }
   }
-  
+
   return 'invalid';
 }
 
@@ -426,7 +444,19 @@ export function isExactCategoryMatch(phrase: string, categorySlug: string): bool
   const clean = phrase.toLowerCase().trim();
   const wordSet = CATEGORY_WORD_MAP[categorySlug];
   if (!wordSet) return false;
-  return wordSet.has(clean);
+  if (wordSet.has(clean)) return true;
+
+  // Plural tolerance on the FINAL word only, so spoken plurals of compound
+  // entries still land: "wire cutters" → "wire cutter", "staple guns" →
+  // "staple gun". The head words stay exact to keep compound matching strict.
+  const parts = clean.split(/\s+/);
+  const last = parts[parts.length - 1];
+  const lastVariants: string[] = [];
+  if (last.endsWith('ies') && last.length > 4) lastVariants.push(last.slice(0, -3) + 'y');
+  if (last.endsWith('es') && last.length > 3) lastVariants.push(last.slice(0, -2));
+  if (last.endsWith('s') && !last.endsWith('ss') && last.length > 3) lastVariants.push(last.slice(0, -1));
+  if (!last.endsWith('s')) lastVariants.push(last + 's');
+  return lastVariants.some(v => wordSet.has([...parts.slice(0, -1), v].join(' ')));
 }
 
 /**

@@ -390,6 +390,19 @@ export function speakMayaReinforcement(
 }
 
 /**
+ * Cancel any coaching line that is scheduled but not yet spoken. Call on
+ * trial advance / exercise completion / unmount so a delayed line (300ms–2s
+ * debounce + TTS fetch latency) can't play over the next trial or the
+ * completion screen.
+ */
+export function cancelPendingMayaCoaching() {
+  if (pendingCoachingTimer) {
+    clearTimeout(pendingCoachingTimer);
+    pendingCoachingTimer = null;
+  }
+}
+
+/**
  * Reset coaching state for an exercise + optionally speak reinforcement.
  * Reinforcement only speaks when there were prior coaching interventions
  * (completing the coaching loop), not on first-try successes.

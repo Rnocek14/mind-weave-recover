@@ -178,6 +178,22 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   }, []);
 
   /**
+   * Live check-off: mark feature types the patient has COVERED IN SPEECH so
+   * the chips light up as they describe ("where you find it" → Where ✓).
+   * Deliberately does NOT touch promptsShown — that list feeds cue-level
+   * telemetry and spoken coverage is independent production, not a cue.
+   */
+  const recordSpokenFeatures = useCallback((transcript: string) => {
+    if (!currentTrial || !transcript) return;
+    const detected = detectFeatureKeywords(transcript, currentTrial);
+    if (detected.length === 0) return;
+    setFeatureTypesUsed(prev => {
+      if (detected.every(d => prev.has(d))) return prev;
+      return new Set([...prev, ...detected]);
+    });
+  }, [currentTrial, detectFeatureKeywords]);
+
+  /**
    * Evaluate whether the app should "guess" — 2-of-3 rule
    * 
    * NEW STRATEGY (whole-description approach):
@@ -210,8 +226,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
 
     const analysisText = getSemanticAnalysisText(transcript);
 
-    const directMatch = matchAnswer(transcript, trial.target, trial.acceptedWords, trial.category);
-    if (directMatch.isMatch && directMatch.countsAsCorrect) {
+    // DIRECT shortcut only for real word-level matches (exact / synonym /
+    // phonetic / fragment). matchAnswer classifies ANY 3+ non-foil words as
+    // 'circumlocution' — for this game that is simply "the patient started
+    // describing", NOT evidence the description conveys the target. Letting
+    // it through made the app "guess" (and prompt "Say X") after the very
+    // first utterance. Descriptions must earn the guess through the semantic
+    // 2-of-3 evaluation below.
+    // No foils passed: acceptedWords are VALID answers for this trial, and
+    // matchAnswer's third parameter is its known-WRONG list — feeding accepted
+    // synonyms in there made the matcher treat them as errors.
+    const directMatch = matchAnswer(transcript, trial.target, [], trial.category);
+    if (directMatch.isMatch && directMatch.countsAsCorrect && directMatch.matchType !== 'circumlocution') {
       return {
         guessed: true,
         confidence: Math.max(0.8, directMatch.confidence),
@@ -406,6 +432,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     evaluateGuess,
     finalizeTrial,
     recordFeatureChip,
+    recordSpokenFeatures,
     recordWordRetrieval,
     nextTrial,
     startRound,

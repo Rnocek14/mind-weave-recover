@@ -50,10 +50,14 @@ export function useVoiceGuidance(exerciseSlug?: string) {
     return speakIfVoiceLed(guidance.voiceTask);
   }, [shouldAutoSpeak, guidance, speakIfVoiceLed]);
 
-  /** Speak the stall reminder */
+  /** Speak the stall reminder — rotates through alternates when defined. */
+  const reminderIndexRef = useRef(0);
   const speakReminder = useCallback(async (): Promise<void> => {
     if (!shouldAutoSpeak || !guidance?.voiceReminder) return;
-    return speakIfVoiceLed(guidance.voiceReminder);
+    const lines = [guidance.voiceReminder, ...(guidance.voiceReminderAlts ?? [])];
+    const line = lines[reminderIndexRef.current % lines.length];
+    reminderIndexRef.current += 1;
+    return speakIfVoiceLed(line);
   }, [shouldAutoSpeak, guidance, speakIfVoiceLed]);
 
   /** Auto-read arbitrary text (for stories, questions). Only in Full Coaching. */

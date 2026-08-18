@@ -276,7 +276,7 @@ export default function CategoryFluencyExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
           <CategoryFluencyGame
             difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}

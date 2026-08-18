@@ -150,11 +150,14 @@ export function LevelBadge({
             role="status"
             aria-live="polite"
           >
-            {/* Always-visible anchor label — never hidden behind hover. */}
+            {/* Anchor label. In compact mode it collapses on short screens
+                (laptops/phones) — the stars+label line carries the meaning,
+                the tooltip + aria-label keep the full context, and in-game
+                vertical space goes to the task. */}
             <span
               className={cn(
                 'font-semibold uppercase tracking-wide opacity-70',
-                compact ? 'text-[10px]' : 'text-[11px]',
+                compact ? 'text-[10px] hidden tall:inline' : 'text-[11px]',
               )}
             >
               Today's Challenge
@@ -174,7 +177,7 @@ export function LevelBadge({
               <span className="text-sm font-semibold">{flow}</span>
             </span>
             {hasSupportInfo && (
-              <span className="text-xs font-medium opacity-90">
+              <span className={cn('text-xs font-medium opacity-90', compact && 'hidden tall:inline')}>
                 {supportText}
               </span>
             )}

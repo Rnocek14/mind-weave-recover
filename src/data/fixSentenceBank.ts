@@ -73,7 +73,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_3', sentence: 'I put on my shoes and tied the flowers.', wrongWord: 'flowers', wrongWordIndex: 9,
-    acceptedFixes: ['laces', 'shoelaces'], fixAliases: { laces: ['lace', 'lays'], shoelaces: ['shoe laces'] },
+    acceptedFixes: ['laces', 'shoelaces', 'knot', 'bow'], fixAliases: { laces: ['lace', 'lays'], shoelaces: ['shoe laces'], knot: ['knots'], bow: ['bows'] },
     category: 'clothing', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/l/', '/s/', '/ʃ/'],
   },
@@ -85,7 +85,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_5', sentence: 'I drove the car and turned the blanket.', wrongWord: 'blanket', wrongWordIndex: 9,
-    acceptedFixes: ['wheel', 'steering wheel'], fixAliases: { wheel: ['wheels', 'weel'], 'steering wheel': ['steering'] },
+    acceptedFixes: ['wheel', 'steering wheel', 'corner', 'block'], fixAliases: { wheel: ['wheels', 'weel'], 'steering wheel': ['steering'], corner: ['corners'], block: ['blocks'] },
     category: 'driving', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/w/', '/iː/', '/l/'],
   },

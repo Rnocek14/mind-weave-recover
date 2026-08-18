@@ -126,6 +126,7 @@ export function DetectiveMindGame({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const selectedOptionRef = useRef<number | null>(null);
   useEffect(() => { selectedOptionRef.current = selectedOption; }, [selectedOption]);
+  const feedbackCardRef = useRef<HTMLDivElement | null>(null);
   const [lastResult, setLastResult] = useState<DetectiveTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -240,9 +241,14 @@ export function DetectiveMindGame({
         }
       }
 
-      // Instructions on first case
+      // Instructions on first case — name only the letters that exist for
+      // this case (previously always said "A, B, C, or D" even with 3 options).
       if (currentIndex === 0) {
-        try { await speak("Read the story, then say or tap A, B, C, or D."); } catch { void 0; }
+        const letters = displayedOptions.map((_, i) => String.fromCharCode(65 + i));
+        const letterList = letters.length > 1
+          ? `${letters.slice(0, -1).join(', ')}, or ${letters[letters.length - 1]}`
+          : (letters[0] ?? 'A');
+        try { await speak(`Read the story, then say or tap ${letterList}.`); } catch { void 0; }
         if (localSeq !== ttsSeqRef.current) return;
         await new Promise(r => setTimeout(r, 150));
         if (localSeq !== ttsSeqRef.current) return;
@@ -254,8 +260,11 @@ export function DetectiveMindGame({
       await new Promise(r => setTimeout(r, 250));
       if (localSeq !== ttsSeqRef.current) return;
       // Read question + each option in the SAME shuffled order shown on screen.
+      // "Option C: …" instead of "C. …" — TTS normalization treats a bare
+      // letter+period sentence as an initial/abbreviation and can skip it
+      // (patients heard the last option read with no letter at all).
       const optionsSpoken = displayedOptions
-        .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+        .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
         .join('. ');
       try { await speak(`${currentCase.question} ${optionsSpoken}.`); } catch { void 0; }
       if (localSeq !== ttsSeqRef.current) return;
@@ -602,10 +611,20 @@ export function DetectiveMindGame({
     return 'minimal';                               // Tiny optional link
   }, [explainSkipCount]);
 
+  // Keep the verdict on screen: the feedback card renders BELOW the story +
+  // options, which on phones/tablets puts "Case solved" under the fold —
+  // patients saw the green option highlight but never the verdict card.
+  useEffect(() => {
+    if (phase !== 'feedback') return;
+    try {
+      feedbackCardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    } catch { /* older browsers: options object unsupported */ }
+  }, [phase]);
+
   // Auto-advance from feedback → next case to keep session rhythm.
-  // Incorrect: 6s (read the "why"). Correct: 3.5s normally, but when the
-  // "Explain why (bonus)" button is prominently offered, give 9s so the user
-  // actually has a chance to tap it before we move on.
+  // Incorrect: 12s (read the "why"). Correct: 5s normally (3.5s was short
+  // enough to miss entirely), but when the "Explain why (bonus)" button is
+  // prominently offered, give 9s so the user actually has a chance to tap it.
   // Tapping "Next Case" or "Explain why" before timer fires cancels it.
   useEffect(() => {
     if (phase !== 'feedback' || !lastResult) return;
@@ -614,7 +633,7 @@ export function DetectiveMindGame({
     // 12s keeps session rhythm while giving a slow reader a real chance;
     // tapping Next / Explain still advances immediately.
     const delay = lastResult.correct
-      ? (explainPromptLevel === 'full' ? 9000 : 3500)
+      ? (explainPromptLevel === 'full' ? 9000 : 5000)
       : 12000;
     const t = setTimeout(() => { handleSkipExplain(); }, delay);
     return () => clearTimeout(t);
@@ -686,11 +705,12 @@ export function DetectiveMindGame({
         </div>
       )}
 
-      {/* Purpose banner — first case only */}
+      {/* Purpose banner — first case only. Subtitle only on tall screens:
+          the vertical budget belongs to the story and answers. */}
       {isFirstCase && phase === 'answering' && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 text-sm text-center">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 tall:py-3 text-sm text-center">
           <span className="font-medium">🕵️ Read the story, find the clues, answer the question.</span>
-          <p className="text-muted-foreground text-xs mt-1">
+          <p className="text-muted-foreground text-xs mt-1 hidden tall:block">
             This builds the same skills you use following conversations and reading.
           </p>
         </div>
@@ -705,12 +725,13 @@ export function DetectiveMindGame({
         </span>
       </div>
 
-      {/* Story card — always visible */}
+      {/* Story card — always visible. Compact on phones so the options and
+          the verdict card don't get pushed below the fold. */}
       <Card className="border-2 border-border/50">
-        <CardContent className="pt-6 space-y-3">
+        <CardContent className="pt-4 pb-4 space-y-2 tall:pt-6 tall:pb-6 tall:space-y-3">
           {currentCase.story.map((sentence, i) => (
             <p key={i} className={cn(
-              "text-base leading-relaxed",
+              "text-base leading-snug tall:leading-relaxed",
               showHint && i === currentCase.hintSentenceIndex && "bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded font-medium"
             )}>
               {sentence}
@@ -721,10 +742,10 @@ export function DetectiveMindGame({
 
       {/* Phase: Answering — question + options shown immediately with story */}
       {phase === 'answering' && (
-        <div className="space-y-3">
+        <div className="space-y-2 tall:space-y-3">
           <h3 className="text-base font-semibold">{currentCase.question}</h3>
           
-          <div className="grid gap-2.5">
+          <div className="grid gap-2 tall:gap-2.5">
             {displayedOptions.map((option, i) => {
               const isSelected = selectedOption === i;
               return (
@@ -734,7 +755,7 @@ export function DetectiveMindGame({
                   onClick={() => handleSelectOption(i)}
                   disabled={selectedOption !== null}
                   className={[
-                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all",
+                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 tall:py-3.5 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "disabled:opacity-60 disabled:cursor-not-allowed",
                     isSelected
@@ -759,7 +780,7 @@ export function DetectiveMindGame({
           </div>
 
           {!usedHint && (
-            <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground h-8 tall:h-9">
               <Lightbulb className="h-4 w-4 mr-2" />
               {recommendedCueType === 'semantic' 
                 ? 'Highlight key evidence (−5 bonus points)'
@@ -795,10 +816,12 @@ export function DetectiveMindGame({
                 vg.interrupt();
                 stopDirect();
                 ttsSeqRef.current++;
+                // Same "Option C:" anchoring as the auto-read — a bare
+                // letter+period gets skipped by TTS normalization.
                 const optionsSpoken = displayedOptions
-                  .map((opt, i) => `${String.fromCharCode(65 + i)}. ${opt}`)
+                  .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
                   .join('. ');
-                speakDirect(`${currentCase.question}. ${optionsSpoken}.`);
+                speakDirect(`${currentCase.question} ${optionsSpoken}.`);
               }}
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 hover:text-foreground"
             >
@@ -870,11 +893,11 @@ export function DetectiveMindGame({
 
       {/* Phase: Feedback — shows result + model explanation */}
       {phase === 'feedback' && lastResult && (
-        <div className="space-y-3">
+        <div className="space-y-3" ref={feedbackCardRef}>
           <Card className={cn(
             "border-2",
-            lastResult.correct 
-              ? "border-green-500 bg-green-50 dark:bg-green-950/20" 
+            lastResult.correct
+              ? "border-green-500 bg-green-50 dark:bg-green-950/20"
               : "border-red-500 bg-red-50 dark:bg-red-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">

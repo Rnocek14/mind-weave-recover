@@ -24,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 import { useUiProfile } from '@/hooks/useUiProfile';
 import { variantClass, isMinimal } from '@/lib/ui/variantClass';
+import { TEXT_SCALES, getStoredTextScale, setTextScale, type TextScale } from '@/lib/textScale';
+import { cn } from '@/lib/utils';
 
 export function SessionPauseControl() {
   const location = useLocation();
@@ -32,6 +34,12 @@ export function SessionPauseControl() {
   const { variant } = profile;
   const [isPaused, setIsPaused] = useState(false);
   const pauseStartRef = useRef<number | null>(null);
+  const [textScale, setTextScaleState] = useState<TextScale>(() => getStoredTextScale());
+
+  const handleTextScale = useCallback((scale: TextScale) => {
+    setTextScale(scale);
+    setTextScaleState(scale);
+  }, []);
 
   // Show on any /exercise/* route. Pause is universally useful, so we don't
   // gate on lesson resume state (which only exists mid-flow).
@@ -109,8 +117,14 @@ export function SessionPauseControl() {
           onClick={enterPause}
           aria-label="Pause session"
           className={variantClass(variant, {
-            base: 'fixed top-3 right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors',
-            simplified: 'h-14 w-14 top-4 right-4 text-foreground border-2',
+            // top-[4.75rem]: exercise pages render a sticky `z-50` header
+            // (h-14, taller in lesson mode with the inline progress strip)
+            // with its own Home button top-right — a `top-3 z-40` button sat
+            // underneath it, invisible and unclickable. Sitting fully below
+            // the header box means z-40 suffices, keeping the button under
+            // modal overlays (dialogs/recaps at z-50).
+            base: 'fixed top-[4.75rem] right-3 z-40 h-9 w-9 rounded-full bg-background/80 backdrop-blur border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors',
+            simplified: 'h-14 w-14 right-4 text-foreground border-2',
           })}
         >
           <Pause className={variantClass(variant, { base: 'w-4 h-4', simplified: 'w-6 h-6' })} />
@@ -171,6 +185,30 @@ export function SessionPauseControl() {
                 <X className="w-4 h-4" />
                 End session early
               </Button>
+            </div>
+
+            {/* Text size — the highest-value accessibility control for this
+                population, surfaced where a caregiver naturally looks for
+                settings mid-session. Applies instantly, persists per device. */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Text size</p>
+              <div className="flex justify-center gap-2">
+                {(Object.keys(TEXT_SCALES) as TextScale[]).map((scale) => (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => handleTextScale(scale)}
+                    className={cn(
+                      'px-3 py-2 rounded-lg border text-sm transition-colors',
+                      textScale === scale
+                        ? 'border-primary bg-primary/10 text-foreground font-medium'
+                        : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {TEXT_SCALES[scale].label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Keyboard tip is desktop-oriented detail; hidden in minimal. */}

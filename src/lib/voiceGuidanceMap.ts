@@ -16,6 +16,13 @@ export interface VoiceGuidance {
   voiceTask: string;
   /** Spoken if user stalls (~6-10s) */
   voiceReminder?: string;
+  /**
+   * Optional alternate stall lines. When present, repeated stalls rotate
+   * through [voiceReminder, ...voiceReminderAlts] instead of repeating the
+   * same sentence — hearing an identical prompt three times reads as the
+   * app being stuck, not as help.
+   */
+  voiceReminderAlts?: string[];
   /** Whether Maya should auto-read story/question content */
   autoReadStimulus: boolean;
 }
@@ -113,7 +120,11 @@ const guidanceMap: Record<string, VoiceGuidance> = {
   'describe-guess': {
     voiceIntro: "You'll see a picture. Describe what you see without saying its name — tell me what it looks like, what you use it for, or where you find it.",
     voiceTask: "Start describing it now — speak out loud. Tell me what you see.",
-    voiceReminder: "What does it look like? What color is it? Where would you find it? Just say anything that comes to mind.",
+    voiceReminder: "What does it look like? What color is it? Just say anything that comes to mind.",
+    voiceReminderAlts: [
+      "Try a different angle — what would you use it for? Or where would you find it?",
+      "No rush. Even one word helps — a color, a shape, or what it's for.",
+    ],
     autoReadStimulus: false,
   },
   'thought-continuation': {

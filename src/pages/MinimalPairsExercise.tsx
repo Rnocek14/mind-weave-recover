@@ -180,16 +180,21 @@ export default function MinimalPairsExercise() {
     const finalize = () => {
       if (fromLesson && !exerciseCompleteSentRef.current) {
         exerciseCompleteSentRef.current = true;
+        // Leave the score summary on screen long enough to actually read it —
+        // at 400ms the completion card flashed and vanished into the next
+        // exercise before the patient could see their result.
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('exercise-complete', {
             detail: { exerciseSlug: 'minimal-pairs', results },
           }));
           navigate(returnTo, { state: { resuming: true }, replace: true });
-        }, 400);
+        }, 5000);
       }
     };
 
-    if (commitResult.progressionSnapshot) {
+    // Recap overlay only for standalone runs — mid-lesson it reads as the
+    // whole session ending (see FixSentenceExercise).
+    if (commitResult.progressionSnapshot && !fromLesson) {
       finalizeAfterRecapRef.current = finalize;
       setRecap(commitResult.progressionSnapshot);
     } else {
@@ -357,13 +362,14 @@ export default function MinimalPairsExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
         <div className="max-w-2xl mx-auto">
           <MinimalPairsGame
             difficulty={difficulty}
             sessionId={sessionId}
             totalTrials={Math.min(stats.total, 10)}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            showRestart={!fromLesson}
             onComplete={handleComplete}
             onTrialComplete={handleTrialComplete}
           />

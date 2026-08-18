@@ -120,6 +120,15 @@ function similarity(a: string, b: string): number {
   return 1 - levenshtein(a, b) / maxLen;
 }
 
+/**
+ * Levenshtein-based similarity, exported for other games' near-miss
+ * matching (e.g. Fix Sentence) so the tolerance stays consistent with the
+ * photo-naming thresholds here.
+ */
+export function phoneticSimilarity(a: string, b: string): number {
+  return similarity(a.toLowerCase(), b.toLowerCase());
+}
+
 /** Strip articles, pronouns, fillers from speech */
 function cleanTranscript(raw: string): string {
   return raw

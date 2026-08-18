@@ -9,6 +9,8 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
+import { extractAnswerFromTranscript, areHomophones } from '@/lib/speechNormalizer';
+import { phoneticSimilarity } from '@/lib/answerMatcher';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import { useRecencyExclusion } from '@/lib/recency/useRecencyExclusion';
 import {
@@ -47,6 +49,153 @@ export interface FixSentenceTrialResult {
    * Feeds submitTrial.supportUsed so ladder evidence sees the true task.
    */
   support?: 'highlight_plus_choice' | 'choice_based' | 'open_response';
+}
+
+const normalizeSpoken = (s: string): string =>
+  s.toLowerCase().trim().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ');
+
+/** Contiguous word-sequence containment: does `haystack` contain `phrase`? */
+function containsTokenPhrase(haystack: string[], phrase: string): boolean {
+  const parts = normalizeSpoken(phrase).split(' ').filter(Boolean);
+  if (parts.length === 0 || parts.length > haystack.length) return false;
+  for (let i = 0; i <= haystack.length - parts.length; i++) {
+    let matched = true;
+    for (let j = 0; j < parts.length; j++) {
+      if (haystack[i + j] !== parts[j]) { matched = false; break; }
+    }
+    if (matched) return true;
+  }
+  return false;
+}
+
+/**
+ * Match a spoken answer against one accepted-fix set (+ aliases).
+ *
+ * Accepts, in priority order:
+ *  1. The bare fix (± plural unless disabled, ± leading article):
+ *     "water", "the water"
+ *  2. An alias the same way
+ *  3. The fix embedded as exact word(s) anywhere in the utterance —
+ *     patients answer with the whole corrected sentence ("the dentist
+ *     cleaned my teeth"), negate the error first ("not shoes, teeth"),
+ *     or repeat the word ("tail tail"). Embedded matching is EXACT-token
+ *     only (no plural/fuzzy drift), so reading the wrong sentence back
+ *     never matches and morphology trials keep their exact contrast
+ *     (an embedded "walk" can never satisfy the fix "walked").
+ *
+ * `pluralTolerance: false` (morphology trials) disables the ±s whole-form
+ * tolerance entirely — "apple" must never satisfy the plural fix "apples".
+ */
+export function matchSpokenFix(
+  spoken: string,
+  acceptedFixes: string[],
+  fixAliases: Record<string, string[]>,
+  trialSentence?: string,
+  opts: { pluralTolerance?: boolean } = {},
+): string | null {
+  const pluralTolerance = opts.pluralTolerance !== false;
+  const normalized = normalizeSpoken(spoken);
+  if (!normalized || normalized.length < 2) return null;
+  const stripped = normalized.replace(/^(a|an|the)\s+/, '');
+  const wholeMatches = (candidate: string, f: string): boolean =>
+    candidate === f ||
+    (pluralTolerance && (candidate === f + 's' || candidate + 's' === f));
+
+  // 1) Whole-utterance direct matches
+  for (const fix of acceptedFixes) {
+    const f = fix.toLowerCase();
+    if (wholeMatches(normalized, f) || wholeMatches(stripped, f)) return fix;
+  }
+
+  // 2) Whole-utterance aliases
+  for (const [canonical, aliases] of Object.entries(fixAliases)) {
+    for (const alias of aliases) {
+      const a = alias.toLowerCase();
+      if (wholeMatches(normalized, a) || wholeMatches(stripped, a)) return canonical;
+    }
+  }
+
+  // 3) Fix (or alias) embedded in a longer utterance — exact contiguous
+  //    word sequence only. A fix that already occurs in the trial's OWN
+  //    sentence is excluded here (a few items contain one of their fixes,
+  //    e.g. "…using oven mitts" with fix "oven"): otherwise reading the
+  //    wrong sentence back would count as a repair. Bare-word answers for
+  //    such fixes still land via steps 1-2.
+  const words = normalized.split(' ');
+  const sentenceWords = trialSentence ? normalizeSpoken(trialSentence).split(' ') : null;
+  const appearsInSentence = (phrase: string): boolean =>
+    sentenceWords ? containsTokenPhrase(sentenceWords, phrase) : false;
+
+  for (const fix of acceptedFixes) {
+    if (!appearsInSentence(fix) && containsTokenPhrase(words, fix)) return fix;
+  }
+  for (const [canonical, aliases] of Object.entries(fixAliases)) {
+    if (aliases.some(a => !appearsInSentence(a) && containsTokenPhrase(words, a))) return canonical;
+  }
+
+  return null;
+}
+
+// Function words excluded from phonetic matching: too close to short fixes
+// ("can"→"pan", "put"→"pot") while carrying no naming intent. Homophone
+// checks run BEFORE this filter, so "see"→"sea", "sun"→"son" still land.
+const FUZZY_STOPWORDS = new Set([
+  'and', 'the', 'are', 'was', 'were', 'has', 'had', 'have', 'can', 'could',
+  'will', 'would', 'should', 'you', 'your', 'not', 'but', 'with', 'this',
+  'that', 'these', 'those', 'they', 'them', 'then', 'than', 'she', 'him',
+  'her', 'his', 'its', 'our', 'out', 'all', 'one', 'two', 'get', 'got',
+  'put', 'say', 'said', 'did', 'does', 'done', 'there', 'here', 'what',
+  'when', 'who', 'how', 'why', 'yes', 'okay', 'like', 'just', 'very',
+  'really', 'know', 'well', 'now', 'too', 'also', 'need', 'want', 'maybe',
+  'think', 'for', 'was', 'been', 'being', 'about', 'because',
+]);
+
+/**
+ * Phonetic near-miss: the patient produced the right word with a distorted
+ * form ("pen" for "pan", "watter" for "water") or a homophone the ASR
+ * transcribed differently ("see" for "sea"). Mirrors the photo-naming
+ * matcher's philosophy — a phonemic paraphasia of the target is successful
+ * word retrieval, not an error.
+ *
+ * Deliberately conservative:
+ *  - only SHORT utterances (≤ 3 content tokens) — a naming-style attempt.
+ *    Long discourse almost always contains the exact word when retrieved,
+ *    and fuzzing every token of a sentence invites false accepts.
+ *  - tokens of the trial's own sentence never match (echo protection)
+ *  - function words never fuzzy-match (homophones still checked first)
+ *  - single-word fixes only; same thresholds as answerMatcher
+ *  - callers must NOT use this for morphology trials (exact contrast) —
+ *    scoreAnswer skips it there.
+ */
+export function matchApproximateFix(
+  spoken: string,
+  acceptedFixes: string[],
+  trialSentence?: string,
+): { fix: string; similarity: number } | null {
+  const normalized = normalizeSpoken(spoken);
+  if (!normalized) return null;
+  const sentenceTokens = new Set(
+    trialSentence ? normalizeSpoken(trialSentence).split(' ') : [],
+  );
+  const tokens = normalized.split(' ').filter(t => t.length >= 3 && !sentenceTokens.has(t));
+  if (tokens.length === 0 || tokens.length > 3) return null;
+
+  let best: { fix: string; similarity: number } | null = null;
+  for (const fix of acceptedFixes) {
+    const f = fix.toLowerCase();
+    if (f.includes(' ') || f.length < 3) continue;
+    if (sentenceTokens.has(f)) continue;
+    for (const token of tokens) {
+      if (areHomophones(token, f)) return { fix, similarity: 1 };
+      if (FUZZY_STOPWORDS.has(token)) continue;
+      const sim = phoneticSimilarity(token, f);
+      const threshold = f.length <= 4 ? 0.6 : 0.65;
+      if (sim >= threshold && (!best || sim > best.similarity)) {
+        best = { fix, similarity: sim };
+      }
+    }
+  }
+  return best;
 }
 
 interface UseFixSentenceGameOptions {
@@ -190,42 +339,15 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   }, [repairPhase, currentTrial]);
 
   /**
-   * Match a spoken answer against one accepted-fix set (+ aliases).
-   */
-  const matchFixSet = useCallback((
-    spoken: string,
-    acceptedFixes: string[],
-    fixAliases: Record<string, string[]>,
-  ): string | null => {
-    const normalized = spoken.toLowerCase().trim().replace(/[^a-z\s]/g, '');
-    if (!normalized || normalized.length < 2) return null;
-
-    // Check direct matches
-    for (const fix of acceptedFixes) {
-      const f = fix.toLowerCase();
-      if (normalized === f || normalized === f + 's' || normalized + 's' === f) return fix;
-      // Check "a knife" → "knife"
-      if (normalized.startsWith('a ') && normalized.slice(2) === f) return fix;
-      if (normalized.startsWith('the ') && normalized.slice(4) === f) return fix;
-    }
-
-    // Check aliases
-    for (const [canonical, aliases] of Object.entries(fixAliases)) {
-      for (const alias of aliases) {
-        const a = alias.toLowerCase();
-        if (normalized === a || normalized === a + 's' || normalized + 's' === a) return canonical;
-      }
-    }
-
-    return null;
-  }, []);
-
-  /**
    * Local match against a trial's primary error (single-error path).
+   * Morphology trials match exact/alias only — the ± plural tolerance would
+   * let the erroneous base form satisfy a plural fix ("apple" → "apples").
    */
   const localMatch = useCallback((spoken: string, trial: FixSentenceTrial): string | null => {
-    return matchFixSet(spoken, trial.acceptedFixes, trial.fixAliases);
-  }, [matchFixSet]);
+    return matchSpokenFix(spoken, trial.acceptedFixes, trial.fixAliases, trial.sentence, {
+      pluralTolerance: !trial.morphology,
+    });
+  }, []);
 
   /**
    * Score a spoken answer — local match first, semantic fallback
@@ -258,11 +380,17 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         // Order-agnostic: primary error's list is checked first, which is
         // also the spec's ambiguity rule (a fix accepted by both errors
         // credits the one that ranks it first).
-        const m1 = matchFixSet(normalized, currentTrial.acceptedFixes, currentTrial.fixAliases);
-        const m2 = m1 ? null : matchFixSet(normalized, second.acceptedFixes, second.fixAliases);
+        const m1 = matchSpokenFix(normalized, currentTrial.acceptedFixes, currentTrial.fixAliases, currentTrial.sentence);
+        const m2 = m1 ? null : matchSpokenFix(normalized, second.acceptedFixes, second.fixAliases, currentTrial.sentence);
         const matchedErr: 1 | 2 | null = m1 ? 1 : m2 ? 2 : null;
         const matchedFix = m1 ?? m2;
 
+        // NOTE: an utterance that repairs BOTH errors at once still goes
+        // through the interim prompt (no outright completion). Trials where
+        // both errors accept the same word (e.g. "knife" on fs2_3) make a
+        // single-fix utterance indistinguishable from a double repair, and
+        // the spec's ambiguity rule credits the primary error only. Phase 2
+        // re-listens; repeating the corrected sentence completes normally.
         if (matchedErr && matchedFix) {
           playSuccess();
           phase1RepairRef.current = { errorNum: matchedErr, fix: matchedFix, spoken, selfCorrected };
@@ -299,7 +427,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       const target = p1?.errorNum === 1
         ? second
         : { acceptedFixes: currentTrial.acceptedFixes, fixAliases: currentTrial.fixAliases };
-      const m = matchFixSet(normalized, target.acceptedFixes, target.fixAliases);
+      const m = matchSpokenFix(normalized, target.acceptedFixes, target.fixAliases, currentTrial.sentence);
       if (m && p1) {
         playSuccess();
         phase1RepairRef.current = null; // aggregate owns the pair now
@@ -370,11 +498,40 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       };
     }
 
-    // 3) Semantic similarity fallback — compare to each acceptedFix
+    // 3) Phonetic near-miss / homophone — the patient found the right word
+    // but it came out distorted ("pen" for "pan") or the recognizer wrote a
+    // homophone ("see" for "sea"). Credit the attempt as retrieval success.
+    // Never runs for morphology trials (early-returned above).
+    const near = matchApproximateFix(normalized, currentTrial.acceptedFixes, currentTrial.sentence);
+    if (near) {
+      playSuccess();
+      return {
+        trialId: currentTrial.id,
+        sentence: currentTrial.sentence,
+        wrongWord: currentTrial.wrongWord,
+        spokenWord: spoken,
+        matchedFix: near.fix,
+        isCorrect: true,
+        isPartialCredit: false,
+        selfCorrected,
+        semanticSimilarity: near.similarity,
+        reactionTimeMs,
+        attemptNumber: currentAttempt,
+        difficulty: currentTrial.difficulty,
+        phonemeTargets: currentTrial.phonemeTargets,
+      };
+    }
+
+    // 4) Semantic similarity fallback — compare to each acceptedFix.
+    // Long utterances score systematically low against a single-word fix, so
+    // embed the extracted answer ("I think it's the water" → "the water")
+    // rather than the raw utterance. Local matching above already handled
+    // any utterance that literally contains an accepted fix.
+    const semanticCandidate = extractAnswerFromTranscript(normalized) || normalized;
     let bestSim = 0;
     let bestFix: string | null = null;
     for (const fix of currentTrial.acceptedFixes) {
-      const sim = await getSemanticSimilarity(normalized, fix, currentTrial.category);
+      const sim = await getSemanticSimilarity(semanticCandidate, fix, currentTrial.category);
       if (sim > bestSim) {
         bestSim = sim;
         bestFix = fix;
@@ -411,7 +568,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       difficulty: currentTrial.difficulty,
       phonemeTargets: currentTrial.phonemeTargets,
     };
-  }, [currentTrial, currentAttempt, localMatch, matchFixSet, repairPhase, playSuccess, playError]);
+  }, [currentTrial, currentAttempt, localMatch, repairPhase, playSuccess, playError]);
 
   /**
    * Score a CHOICE-TILE selection — the L1/L2 scaffolded response mode

@@ -26,12 +26,17 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
+import { voiceController } from '@/lib/voiceController';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
   totalTrials?: number;
   focusPhonemes?: string[];
   sessionId?: string | null;
+  /** Hide the "Practice Again" restart on the completion card. Lesson flow
+   *  passes false: the page auto-advances, and a reset tapped inside that
+   *  window would restart a game that's about to navigate away. */
+  showRestart?: boolean;
   onComplete?: (results: {
     score: number;
     correctCount: number;
@@ -58,6 +63,7 @@ export function MinimalPairsGame({
   totalTrials = 10,
   focusPhonemes,
   sessionId = null,
+  showRestart = true,
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
@@ -152,18 +158,26 @@ export function MinimalPairsGame({
     echoActiveRef.current = true;
     setEchoStatus('listening');
     setEchoTranscript('');
-    // Sync-Wait: target was just spoken in feedback effect; small gap before mic.
-    await new Promise((r) => setTimeout(r, 600));
+    // Sync-Wait: target was just spoken in the feedback effect. Wait for the
+    // VoiceController tail-lock to clear (~400ms after TTS ends) instead of a
+    // fixed sleep — opens the mic as early as the protocol allows without
+    // capturing the audio tail. Bounded so a stuck flag can't hang the echo.
+    await voiceController.awaitMicSafe(1500);
     if (!echoActiveRef.current) return;
     try { speech.startListening(); } catch {}
-    // Auto-stop after 4s — exposure window, not evaluation.
+    // Auto-stop window — exposure, not evaluation. 7s: aphasic speech onset
+    // is slow, and the previous 4s window closed on patients mid-attempt.
+    // Guard on the ref, not `echoStatus`: this closure captured 'idle' (the
+    // only state startEcho can be invoked from), so a state check here is
+    // always false and the auto-stop never fired — a silent echo then hung
+    // until the 12s fallback instead of moving on.
     echoTimerRef.current = setTimeout(() => {
-      if (echoActiveRef.current && echoStatus === 'listening') {
+      if (echoActiveRef.current) {
         stopEcho();
         setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
       }
-    }, 4000);
-  }, [speech, stopEcho, echoStatus]);
+    }, 7000);
+  }, [speech, stopEcho]);
 
   const handleEchoSaidIt = useCallback(() => {
     stopEcho();
@@ -304,6 +318,9 @@ export function MinimalPairsGame({
   }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
+  // First time, spell the step out loud — "select then say" is a two-step
+  // pattern patients reliably forget on trial one and remember after.
+  const echoInstructionSpokenRef = useRef(false);
   useEffect(() => {
     if (!showFeedback || isComplete) return;
     if (!state.isCorrect) return;
@@ -311,7 +328,14 @@ export function MinimalPairsGame({
     // Speak target once for production model, then open mic.
     let cancelled = false;
     (async () => {
-      try { await speak(currentTrial!.targetWord); } catch {}
+      try {
+        if (!echoInstructionSpokenRef.current) {
+          echoInstructionSpokenRef.current = true;
+          await speak(`Your turn — say the word: ${currentTrial!.targetWord}.`);
+        } else {
+          await speak(currentTrial!.targetWord);
+        }
+      } catch {}
       if (cancelled) return;
       startEcho();
     })();
@@ -378,12 +402,18 @@ export function MinimalPairsGame({
           realLifeLine={maya.realLifeLine}
         />
 
-        <div className="text-center">
-          <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Practice Again
-          </Button>
-        </div>
+        {showRestart ? (
+          <div className="text-center">
+            <Button onClick={() => reset()} size="lg" className="min-h-[48px]">
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Practice Again
+            </Button>
+          </div>
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">
+            Next exercise starting…
+          </p>
+        )}
       </div>
     );
   }
@@ -448,8 +478,11 @@ export function MinimalPairsGame({
         </div>
       )}
       
-      {/* Side-by-side images — full-width, large touch targets */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+      {/* Side-by-side images — full-width, large touch targets. Width capped
+          relative to viewport HEIGHT (tiles are square, so tile height =
+          half the grid width): keeps both pictures + the say-it bar on
+          screen on laptops, which are wide but short. */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full mx-auto max-w-[76vh]">
         {[0, 1].map((index) => {
           const trial = index === 0 ? currentTrial.trial1 : currentTrial.trial2;
           const word = index === 0 ? currentTrial.pair.word1 : currentTrial.pair.word2;
@@ -517,7 +550,9 @@ export function MinimalPairsGame({
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm">
-              {echoStatus === 'idle' && <>Now say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
+              {/* 'idle' = mic NOT open yet (Maya is re-speaking the word first).
+                  Say "get ready" so the patient doesn't speak into a dead mic. */}
+              {echoStatus === 'idle' && <>Get ready to say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
               {echoStatus === 'listening' && <>Listening… say <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>}
               {echoStatus === 'heard' && (
                 <>Nice — that sounded close.{echoTranscript ? <span className="text-muted-foreground"> ({echoTranscript})</span> : null}</>

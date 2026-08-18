@@ -326,8 +326,11 @@ export function DescribeGuessGame({
     speechErrorCountRef.current += 1;
     const isPermissionDenied = /denied|not-allowed|permission/i.test(speechError);
     if ((isPermissionDenied || speechErrorCountRef.current >= 2) && !useTyping) {
+      // Flip THIS game locally only. Persisting the global typing preference
+      // here made one transient mic error (common on iOS when recognition
+      // starts without a gesture) force EVERY later game to open in typing
+      // mode. The global flag is reserved for the user's explicit toggle.
       setUseTyping(true);
-      try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
     }
   }, [speechError, useTyping]);
 
@@ -390,17 +393,40 @@ export function DescribeGuessGame({
     }
   }, [game.currentTrial, game.isComplete, game.currentIndex, vg]);
 
-  // Voice guidance: stall reminder if no speech for ~8s
+  // Live feature check-off: as the patient describes, keyword-detected
+  // feature types light their chips up ("where you'd find it" → Where ✓),
+  // so coverage is visible without tapping anything.
+  useEffect(() => {
+    if (!fullTranscript || !game.currentTrial || showFeedback) return;
+    game.recordSpokenFeatures(fullTranscript);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullTranscript]);
+
+  // Voice guidance: stall reminder if no speech for ~8s.
+  // Capped at 2 per trial — repeating the same line indefinitely at a
+  // patient whose mic is dead is noise, not help. After the second silent
+  // stall, switch to a VISIBLE hint pointing at the typing button instead.
+  const stallReminderCountRef = useRef(0);
   useEffect(() => {
     if (!game.currentTrial || game.isComplete || showFeedback) return;
     if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current);
     stallTimerVgRef.current = setTimeout(() => {
-      if (vg.shouldAutoSpeak && !displayTranscript) {
-        vg.speakReminder();
+      if (displayTranscript || useTypingRef.current) return;
+      stallReminderCountRef.current += 1;
+      if (stallReminderCountRef.current <= 2) {
+        if (vg.shouldAutoSpeak) vg.speakReminder();
+      }
+      if (stallReminderCountRef.current >= 2) {
+        setValidationHint("I can't hear anything yet — check the mic, or tap “Type instead” below.");
       }
     }, 8000);
     return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
   }, [game.currentTrial?.id, game.isComplete, showFeedback, vg, displayTranscript]);
+
+  // Reset the stall cap for each new trial.
+  useEffect(() => {
+    stallReminderCountRef.current = 0;
+  }, [game.currentTrial?.id]);
 
   // Begin new trial
   useEffect(() => {
@@ -1004,12 +1030,13 @@ export function DescribeGuessGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction — clear Taboo-style */}
+      {/* Instruction — clear Taboo-style. Subtitle only on tall screens;
+          the chips below carry the same guidance interactively. */}
       <div className="text-center shrink-0 space-y-1">
         <p className="text-sm font-medium text-foreground">
           🚫 Describe this <strong>without</strong> saying the word!
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground hidden tall:block">
           Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
       </div>
@@ -1019,10 +1046,13 @@ export function DescribeGuessGame({
         <CardContent className="p-0 h-full">
           {currentImage ? (
             <div className="h-full flex items-center justify-center bg-muted/30">
+              {/* Viewport-HEIGHT cap: an uncapped square photo fills the fold
+                  (phones AND laptops — wide but short) and pushes the chips +
+                  mic/typing controls off-screen. Tall screens get more. */}
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-full max-w-full object-contain"
+                className="max-h-[34vh] tall:max-h-[45vh] max-w-full object-contain"
               />
             </div>
           ) : (
@@ -1054,7 +1084,10 @@ export function DescribeGuessGame({
                   game.featureTypesUsed.has(chip.featureType) && 'ring-2 ring-primary/50',
                 )}
               >
-                {chip.icon}
+                {/* Covered (tapped OR spoken) → explicit check-off */}
+                {game.featureTypesUsed.has(chip.featureType)
+                  ? <Check className="h-3.5 w-3.5" />
+                  : chip.icon}
                 <span className="ml-1">{chip.label}</span>
               </Button>
             );
