@@ -354,11 +354,13 @@ export function CategoryFluencyGame({
   });
 
   // Auto-flip to typing if mic permission is denied — prevents the
-  // muted-mic + "Listening…" contradiction.
+  // muted-mic + "Listening…" contradiction. Local to this game only: the
+  // global preferTypingInput flag is reserved for the user's explicit
+  // toggle, so one transient "not-allowed" here can't force every later
+  // game to open in typing mode.
   useEffect(() => {
     if (speechError && /denied|not-allowed|permission/i.test(speechError) && !showTextInput) {
       setShowTextInput(true);
-      sessionStorage.setItem('preferTypingInput', 'true');
     }
   }, [speechError, showTextInput]);
 

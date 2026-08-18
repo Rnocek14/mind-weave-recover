@@ -126,6 +126,7 @@ export function DetectiveMindGame({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const selectedOptionRef = useRef<number | null>(null);
   useEffect(() => { selectedOptionRef.current = selectedOption; }, [selectedOption]);
+  const feedbackCardRef = useRef<HTMLDivElement | null>(null);
   const [lastResult, setLastResult] = useState<DetectiveTrialResult | null>(null);
   const [usedHint, setUsedHint] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -610,10 +611,20 @@ export function DetectiveMindGame({
     return 'minimal';                               // Tiny optional link
   }, [explainSkipCount]);
 
+  // Keep the verdict on screen: the feedback card renders BELOW the story +
+  // options, which on phones/tablets puts "Case solved" under the fold —
+  // patients saw the green option highlight but never the verdict card.
+  useEffect(() => {
+    if (phase !== 'feedback') return;
+    try {
+      feedbackCardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    } catch { /* older browsers: options object unsupported */ }
+  }, [phase]);
+
   // Auto-advance from feedback → next case to keep session rhythm.
-  // Incorrect: 6s (read the "why"). Correct: 3.5s normally, but when the
-  // "Explain why (bonus)" button is prominently offered, give 9s so the user
-  // actually has a chance to tap it before we move on.
+  // Incorrect: 12s (read the "why"). Correct: 5s normally (3.5s was short
+  // enough to miss entirely), but when the "Explain why (bonus)" button is
+  // prominently offered, give 9s so the user actually has a chance to tap it.
   // Tapping "Next Case" or "Explain why" before timer fires cancels it.
   useEffect(() => {
     if (phase !== 'feedback' || !lastResult) return;
@@ -622,7 +633,7 @@ export function DetectiveMindGame({
     // 12s keeps session rhythm while giving a slow reader a real chance;
     // tapping Next / Explain still advances immediately.
     const delay = lastResult.correct
-      ? (explainPromptLevel === 'full' ? 9000 : 3500)
+      ? (explainPromptLevel === 'full' ? 9000 : 5000)
       : 12000;
     const t = setTimeout(() => { handleSkipExplain(); }, delay);
     return () => clearTimeout(t);
@@ -694,11 +705,12 @@ export function DetectiveMindGame({
         </div>
       )}
 
-      {/* Purpose banner — first case only */}
+      {/* Purpose banner — first case only. Subtitle hidden on phones: the
+          vertical budget belongs to the story and answers. */}
       {isFirstCase && phase === 'answering' && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-3 text-sm text-center">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 sm:py-3 text-sm text-center">
           <span className="font-medium">🕵️ Read the story, find the clues, answer the question.</span>
-          <p className="text-muted-foreground text-xs mt-1">
+          <p className="text-muted-foreground text-xs mt-1 hidden sm:block">
             This builds the same skills you use following conversations and reading.
           </p>
         </div>
@@ -713,9 +725,10 @@ export function DetectiveMindGame({
         </span>
       </div>
 
-      {/* Story card — always visible */}
+      {/* Story card — always visible. Compact on phones so the options and
+          the verdict card don't get pushed below the fold. */}
       <Card className="border-2 border-border/50">
-        <CardContent className="pt-6 space-y-3">
+        <CardContent className="pt-4 pb-4 space-y-2 sm:pt-6 sm:pb-6 sm:space-y-3">
           {currentCase.story.map((sentence, i) => (
             <p key={i} className={cn(
               "text-base leading-relaxed",
@@ -742,7 +755,7 @@ export function DetectiveMindGame({
                   onClick={() => handleSelectOption(i)}
                   disabled={selectedOption !== null}
                   className={[
-                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all",
+                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 sm:py-3.5 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "disabled:opacity-60 disabled:cursor-not-allowed",
                     isSelected
@@ -880,11 +893,11 @@ export function DetectiveMindGame({
 
       {/* Phase: Feedback — shows result + model explanation */}
       {phase === 'feedback' && lastResult && (
-        <div className="space-y-3">
+        <div className="space-y-3" ref={feedbackCardRef}>
           <Card className={cn(
             "border-2",
-            lastResult.correct 
-              ? "border-green-500 bg-green-50 dark:bg-green-950/20" 
+            lastResult.correct
+              ? "border-green-500 bg-green-50 dark:bg-green-950/20"
               : "border-red-500 bg-red-50 dark:bg-red-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">

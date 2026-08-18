@@ -318,6 +318,9 @@ export function MinimalPairsGame({
   }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
+  // First time, spell the step out loud — "select then say" is a two-step
+  // pattern patients reliably forget on trial one and remember after.
+  const echoInstructionSpokenRef = useRef(false);
   useEffect(() => {
     if (!showFeedback || isComplete) return;
     if (!state.isCorrect) return;
@@ -325,7 +328,14 @@ export function MinimalPairsGame({
     // Speak target once for production model, then open mic.
     let cancelled = false;
     (async () => {
-      try { await speak(currentTrial!.targetWord); } catch {}
+      try {
+        if (!echoInstructionSpokenRef.current) {
+          echoInstructionSpokenRef.current = true;
+          await speak(`Your turn — say the word: ${currentTrial!.targetWord}.`);
+        } else {
+          await speak(currentTrial!.targetWord);
+        }
+      } catch {}
       if (cancelled) return;
       startEcho();
     })();

@@ -192,7 +192,9 @@ export default function MinimalPairsExercise() {
       }
     };
 
-    if (commitResult.progressionSnapshot) {
+    // Recap overlay only for standalone runs — mid-lesson it reads as the
+    // whole session ending (see FixSentenceExercise).
+    if (commitResult.progressionSnapshot && !fromLesson) {
       finalizeAfterRecapRef.current = finalize;
       setRecap(commitResult.progressionSnapshot);
     } else {

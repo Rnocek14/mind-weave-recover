@@ -73,7 +73,7 @@ export const FIX_SENTENCE_BANK: FixSentenceTrial[] = [
   },
   {
     id: 'fs_3', sentence: 'I put on my shoes and tied the flowers.', wrongWord: 'flowers', wrongWordIndex: 9,
-    acceptedFixes: ['laces', 'shoelaces'], fixAliases: { laces: ['lace', 'lays'], shoelaces: ['shoe laces'] },
+    acceptedFixes: ['laces', 'shoelaces', 'knot', 'bow'], fixAliases: { laces: ['lace', 'lays'], shoelaces: ['shoe laces'], knot: ['knots'], bow: ['bows'] },
     category: 'clothing', difficulty: 1, errorType: 'category_error',
     phonemeTargets: ['/l/', '/s/', '/ʃ/'],
   },

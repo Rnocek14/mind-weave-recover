@@ -178,6 +178,22 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   }, []);
 
   /**
+   * Live check-off: mark feature types the patient has COVERED IN SPEECH so
+   * the chips light up as they describe ("where you find it" → Where ✓).
+   * Deliberately does NOT touch promptsShown — that list feeds cue-level
+   * telemetry and spoken coverage is independent production, not a cue.
+   */
+  const recordSpokenFeatures = useCallback((transcript: string) => {
+    if (!currentTrial || !transcript) return;
+    const detected = detectFeatureKeywords(transcript, currentTrial);
+    if (detected.length === 0) return;
+    setFeatureTypesUsed(prev => {
+      if (detected.every(d => prev.has(d))) return prev;
+      return new Set([...prev, ...detected]);
+    });
+  }, [currentTrial, detectFeatureKeywords]);
+
+  /**
    * Evaluate whether the app should "guess" — 2-of-3 rule
    * 
    * NEW STRATEGY (whole-description approach):
@@ -416,6 +432,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     evaluateGuess,
     finalizeTrial,
     recordFeatureChip,
+    recordSpokenFeatures,
     recordWordRetrieval,
     nextTrial,
     startRound,
