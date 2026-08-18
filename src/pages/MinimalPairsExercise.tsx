@@ -362,7 +362,7 @@ export default function MinimalPairsExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
         <div className="max-w-2xl mx-auto">
           <MinimalPairsGame
             difficulty={difficulty}

@@ -705,12 +705,12 @@ export function DetectiveMindGame({
         </div>
       )}
 
-      {/* Purpose banner — first case only. Subtitle hidden on phones: the
-          vertical budget belongs to the story and answers. */}
+      {/* Purpose banner — first case only. Subtitle only on tall screens:
+          the vertical budget belongs to the story and answers. */}
       {isFirstCase && phase === 'answering' && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 sm:py-3 text-sm text-center">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg px-4 py-2 tall:py-3 text-sm text-center">
           <span className="font-medium">🕵️ Read the story, find the clues, answer the question.</span>
-          <p className="text-muted-foreground text-xs mt-1 hidden sm:block">
+          <p className="text-muted-foreground text-xs mt-1 hidden tall:block">
             This builds the same skills you use following conversations and reading.
           </p>
         </div>
@@ -728,10 +728,10 @@ export function DetectiveMindGame({
       {/* Story card — always visible. Compact on phones so the options and
           the verdict card don't get pushed below the fold. */}
       <Card className="border-2 border-border/50">
-        <CardContent className="pt-4 pb-4 space-y-2 sm:pt-6 sm:pb-6 sm:space-y-3">
+        <CardContent className="pt-4 pb-4 space-y-2 tall:pt-6 tall:pb-6 tall:space-y-3">
           {currentCase.story.map((sentence, i) => (
             <p key={i} className={cn(
-              "text-base leading-relaxed",
+              "text-base leading-snug tall:leading-relaxed",
               showHint && i === currentCase.hintSentenceIndex && "bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded font-medium"
             )}>
               {sentence}
@@ -742,10 +742,10 @@ export function DetectiveMindGame({
 
       {/* Phase: Answering — question + options shown immediately with story */}
       {phase === 'answering' && (
-        <div className="space-y-3">
+        <div className="space-y-2 tall:space-y-3">
           <h3 className="text-base font-semibold">{currentCase.question}</h3>
           
-          <div className="grid gap-2.5">
+          <div className="grid gap-2 tall:gap-2.5">
             {displayedOptions.map((option, i) => {
               const isSelected = selectedOption === i;
               return (
@@ -755,7 +755,7 @@ export function DetectiveMindGame({
                   onClick={() => handleSelectOption(i)}
                   disabled={selectedOption !== null}
                   className={[
-                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 sm:py-3.5 text-left transition-all",
+                    "group flex w-full items-center gap-3 rounded-xl border-2 px-4 py-2.5 tall:py-3.5 text-left transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "disabled:opacity-60 disabled:cursor-not-allowed",
                     isSelected
@@ -780,7 +780,7 @@ export function DetectiveMindGame({
           </div>
 
           {!usedHint && (
-            <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={handleHint} className="w-full text-muted-foreground h-8 tall:h-9">
               <Lightbulb className="h-4 w-4 mr-2" />
               {recommendedCueType === 'semantic' 
                 ? 'Highlight key evidence (−5 bonus points)'

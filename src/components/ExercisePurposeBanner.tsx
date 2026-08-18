@@ -41,10 +41,11 @@ export function ExercisePurposeBanner({
   return (
     <div
       className={variantClass(variant, {
-        // Compact at phone widths — this banner shares the first-trial fold
-        // with the actual task, and vertical budget belongs to the task.
-        base: `bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 sm:py-3 text-sm text-foreground/80 ${className}`,
-        simplified: 'px-4 py-2.5 text-sm sm:px-5 sm:py-4 sm:text-base leading-relaxed',
+        // Compact unless the screen is tall — this banner shares the
+        // first-trial fold with the actual task, and vertical budget belongs
+        // to the task. (`tall:` is height-based; laptops are wide but short.)
+        base: `bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 tall:py-3 text-sm text-foreground/80 ${className}`,
+        simplified: 'px-4 py-2.5 text-sm tall:px-5 tall:py-4 tall:text-base leading-relaxed',
       })}
     >
       <span className="font-medium text-primary/90">Why this matters:</span>{' '}

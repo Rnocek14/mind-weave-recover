@@ -478,8 +478,11 @@ export function MinimalPairsGame({
         </div>
       )}
       
-      {/* Side-by-side images — full-width, large touch targets */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+      {/* Side-by-side images — full-width, large touch targets. Width capped
+          relative to viewport HEIGHT (tiles are square, so tile height =
+          half the grid width): keeps both pictures + the say-it bar on
+          screen on laptops, which are wide but short. */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full mx-auto max-w-[76vh]">
         {[0, 1].map((index) => {
           const trial = index === 0 ? currentTrial.trial1 : currentTrial.trial2;
           const word = index === 0 ? currentTrial.pair.word1 : currentTrial.pair.word2;

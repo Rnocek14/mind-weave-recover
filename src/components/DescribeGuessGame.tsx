@@ -1030,12 +1030,13 @@ export function DescribeGuessGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction — clear Taboo-style */}
+      {/* Instruction — clear Taboo-style. Subtitle only on tall screens;
+          the chips below carry the same guidance interactively. */}
       <div className="text-center shrink-0 space-y-1">
         <p className="text-sm font-medium text-foreground">
           🚫 Describe this <strong>without</strong> saying the word!
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground hidden tall:block">
           Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
       </div>
@@ -1045,12 +1046,13 @@ export function DescribeGuessGame({
         <CardContent className="p-0 h-full">
           {currentImage ? (
             <div className="h-full flex items-center justify-center bg-muted/30">
-              {/* Viewport cap: an uncapped square photo fills a phone's fold
-                  and pushes the chips + mic/typing controls off-screen. */}
+              {/* Viewport-HEIGHT cap: an uncapped square photo fills the fold
+                  (phones AND laptops — wide but short) and pushes the chips +
+                  mic/typing controls off-screen. Tall screens get more. */}
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-[34vh] sm:max-h-full max-w-full object-contain"
+                className="max-h-[34vh] tall:max-h-[45vh] max-w-full object-contain"
               />
             </div>
           ) : (
