@@ -22,6 +22,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const About = lazy(() => import("./pages/About"));
+const FreeAphasiaGames = lazy(() => import("./pages/FreeAphasiaGames"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -177,6 +178,8 @@ const App = () => (
                   <Route path="/onboarding/role" element={<RoleOnboarding />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
+                  {/* Public SEO landing page — playable demos, no auth */}
+                  <Route path="/free-aphasia-games" element={<FreeAphasiaGames />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
                   
