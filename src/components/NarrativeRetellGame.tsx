@@ -832,10 +832,11 @@ export function NarrativeRetellGame({
 
       {/* ─── Reading phase: all cards visible at once ─── */}
       {phase === 'reading' && (
-        <div className="space-y-3">
-          {/* Clear, dynamic purpose banner */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 text-center">
-            <p className="text-lg font-semibold text-foreground">
+        <div className="space-y-2 tall:space-y-3">
+          {/* Clear, dynamic purpose banner — compact on short screens so all
+              scene cards + the "Tell it back" button stay on one screen */}
+          <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 tall:py-3 text-center">
+            <p className="text-base tall:text-lg font-semibold text-foreground">
               {currentIndex === 0
                 ? `📖 Listen to "${currentStory.title}" — then tell it back`
                 : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
@@ -855,9 +856,9 @@ export function NarrativeRetellGame({
           {/* All scene cards visible */}
           {currentStory.scenes.map((scene, i) => (
             <Card key={i} className="border border-border/50">
-              <CardContent className="pt-4 flex items-start gap-3">
+              <CardContent className="pt-2.5 pb-2.5 tall:pt-4 tall:pb-6 flex items-start gap-3">
                 <span className="text-2xl">{scene.emoji}</span>
-                <p className="text-base leading-relaxed">{scene.text}</p>
+                <p className="text-base leading-snug tall:leading-relaxed">{scene.text}</p>
               </CardContent>
             </Card>
           ))}

@@ -858,7 +858,7 @@ function PhotoNamingExerciseInner() {
   // progression has resolved. Otherwise `initialDifficulty` is captured at
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
-  if (customPhotosLoading || !progression.loaded) {
+  if (customPhotosLoading || !progression.loaded || adaptation.loading) {
     return (
       <ExerciseLoadGate
         loadingLabel={customPhotosLoading ? 'Loading photos...' : 'Loading your progress...'}

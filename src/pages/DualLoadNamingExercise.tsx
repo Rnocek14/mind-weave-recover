@@ -218,7 +218,7 @@ export default function DualLoadNamingExercise() {
     } else if (!fromLesson) navigate('/today');
   }, [fromLesson, navigate]);
 
-  if (isCreatingSession || !activeSessionId) {
+  if (isCreatingSession || !activeSessionId || adaptation.loading) {
     return <ExerciseLoading />;
   }
 
