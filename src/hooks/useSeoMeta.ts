@@ -49,6 +49,9 @@ export function useSeoMeta({ title, description, canonicalPath }: SeoMeta): void
     let restoreCanonical: (() => void) | null = null;
     if (canonicalPath && typeof window !== 'undefined') {
       const href = `${window.location.origin}${canonicalPath}`;
+      // og:url must self-reference the route too — otherwise crawlers
+      // attribute this page's preview to the homepage.
+      undos.push(upsertMeta('property', 'og:url', href));
       const existing = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
       if (existing) {
         const prevHref = existing.href;
@@ -62,6 +65,7 @@ export function useSeoMeta({ title, description, canonicalPath }: SeoMeta): void
         restoreCanonical = () => link.remove();
       }
     }
+
 
     return () => {
       document.title = prevTitle;
