@@ -25,6 +25,8 @@ const About = lazy(() => import("./pages/About"));
 const FreeAphasiaGames = lazy(() => import("./pages/FreeAphasiaGames"));
 const AphasiaSentenceExercises = lazy(() => import("./pages/AphasiaSentenceExercises"));
 const FreeAphasiaWorksheets = lazy(() => import("./pages/FreeAphasiaWorksheets"));
+const Guides = lazy(() => import("./pages/Guides"));
+const Guide = lazy(() => import("./pages/Guide"));
 const WorksheetsPrint = lazy(() => import("./pages/WorksheetsPrint"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -186,6 +188,10 @@ const App = () => (
                   <Route path="/aphasia-sentence-exercises" element={<AphasiaSentenceExercises />} />
                   <Route path="/free-aphasia-worksheets" element={<FreeAphasiaWorksheets />} />
                   <Route path="/free-aphasia-worksheets/print" element={<WorksheetsPrint />} />
+                  {/* Long-form guides. The hub is the internal-linking spine;
+                      each article is prerendered (see scripts/postbuild-seo.mjs). */}
+                  <Route path="/guides" element={<Guides />} />
+                  <Route path="/guides/:slug" element={<Guide />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
                   

@@ -13,6 +13,7 @@ const FREE_RESOURCES: Array<{ to: string; label: string }> = [
   { to: '/free-aphasia-games', label: 'Free aphasia games' },
   { to: '/aphasia-sentence-exercises', label: 'Sentence exercises' },
   { to: '/free-aphasia-worksheets', label: 'Printable worksheets' },
+  { to: '/guides', label: 'Guides' },
 ];
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {

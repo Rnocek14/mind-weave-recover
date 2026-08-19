@@ -27,11 +27,23 @@ const DIST = resolve('dist');
 const BRAND = 'NeuroSpark';
 const PDF = 'downloads/neurospark-home-practice-pack.pdf';
 const MIN_PDF_BYTES = 50_000;
+/** Guide slugs, from the same JSON the prerender step reads. */
+function guideSlugs() {
+  try {
+    const slugs = JSON.parse(readFileSync(resolve('src/content/guides/slugs.json'), 'utf8'));
+    return Array.isArray(slugs) ? slugs : [];
+  } catch {
+    return [];
+  }
+}
+
 const PRERENDERED = [
   'free-aphasia-games',
   'aphasia-sentence-exercises',
   'free-aphasia-worksheets',
   'about',
+  'guides',
+  ...guideSlugs().map((slug) => `guides/${slug}`),
 ];
 
 const errors = [];
