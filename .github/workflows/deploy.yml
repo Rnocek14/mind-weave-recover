@@ -1,0 +1,94 @@
+# Publish the site on every push to main.
+#
+# WHY: for weeks the live domain served a build that predated every fix in
+# the repo, because publishing was a button somebody had to remember to
+# press. Nothing about that is visible from the code, which is the worst
+# property a deploy can have. This makes "merged to main" and "live" the
+# same event.
+#
+# The artifact is inspected before it goes out (scripts/verify-dist.mjs):
+# a build that lost its brand, its downloadable pack, or that baked a
+# localhost origin into a canonical is refused rather than published.
+#
+# ACTIVATION: the workflow enables GitHub Pages itself on first run. The
+# site answers at the custom domain below once its DNS points at GitHub
+# Pages; until then it is reachable at the repository's github.io URL and
+# the domain keeps serving whatever it served before. Nothing breaks in the
+# meantime — this is safe to merge ahead of the DNS change.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; the newer commit is the one that should win.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # Canonical origin baked into the sitemap and the prerendered pages.
+  SITE_URL: https://neurospark.co
+  # Written to dist/CNAME so Pages serves the site at the domain root, which
+  # is what lets every asset path stay root-relative.
+  CUSTOM_DOMAIN: neurospark.co
+
+jobs:
+  build:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # The prerender step drives a real browser. Without this it fails soft
+      # and the marketing pages ship as an empty shell to the AI-search
+      # crawlers they exist for.
+      - name: Install Chromium (for prerendering)
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build
+        run: bun run build
+
+      # Pages serves a static tree, so any client-side route that has no
+      # file on disk (/today, /auth, /exercise/*) 404s unless the 404 page
+      # IS the app shell.
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Custom domain
+        run: echo "${CUSTOM_DOMAIN}" > dist/CNAME
+
+      - name: Verify the artifact before publishing
+        run: node scripts/verify-dist.mjs
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
