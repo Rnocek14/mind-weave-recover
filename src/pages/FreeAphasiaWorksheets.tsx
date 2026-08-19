@@ -10,7 +10,9 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Download, Printer, ArrowRight, Check } from 'lucide-react';
 import { MarketingLayout } from '@/components/marketing/MarketingLayout';
+import { AuthorByline } from '@/components/marketing/AuthorByline';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { faqPageSchema } from '@/lib/seo/structuredData';
 import { buildWorksheetPack } from '@/lib/worksheets/buildWorksheetPack';
 
 const PDF_PATH = '/downloads/neurospark-home-practice-pack.pdf';
@@ -40,6 +42,9 @@ export default function FreeAphasiaWorksheets() {
     description:
       'A free printable aphasia worksheet pack for stroke survivors: sentence repair, word-finding sprints, riddles, listening pairs, a caregiver cueing guide, and an answer key. Large print, no email required.',
     canonicalPath: '/free-aphasia-worksheets',
+    // The questions below are rendered on the page; the markup only
+    // describes what a visitor can actually read.
+    jsonLd: [faqPageSchema(FAQ, '/free-aphasia-worksheets')],
   });
 
   const pack = buildWorksheetPack();
@@ -182,6 +187,8 @@ export default function FreeAphasiaWorksheets() {
             those exercises, on paper, free for anyone who needs them.
           </p>
         </section>
+
+        <AuthorByline />
       </div>
     </MarketingLayout>
   );

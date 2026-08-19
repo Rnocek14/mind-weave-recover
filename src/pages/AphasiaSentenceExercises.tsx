@@ -13,8 +13,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ArrowRight, Printer, Wrench } from 'lucide-react';
 import { MarketingLayout } from '@/components/marketing/MarketingLayout';
+import { AuthorByline } from '@/components/marketing/AuthorByline';
 import { DemoFixSentence } from '@/components/demo/DemoFixSentence';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { faqPageSchema } from '@/lib/seo/structuredData';
 
 const CUE_LADDER: Array<{ step: string; say: string; why: string }> = [
   {
@@ -78,6 +80,9 @@ export default function AphasiaSentenceExercises() {
     description:
       'Free sentence completion and sentence repair practice for aphasia after stroke. Play a short session right now — no signup — plus a caregiver cueing guide and printable worksheets.',
     canonicalPath: '/aphasia-sentence-exercises',
+    // The questions below are rendered on the page; the markup only
+    // describes what a visitor can actually read.
+    jsonLd: [faqPageSchema(FAQ, '/aphasia-sentence-exercises')],
   });
 
   return (
@@ -239,6 +244,8 @@ export default function AphasiaSentenceExercises() {
             </li>
           </ul>
         </section>
+
+        <AuthorByline />
       </div>
     </MarketingLayout>
   );

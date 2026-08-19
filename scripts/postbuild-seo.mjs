@@ -41,9 +41,10 @@ const ROUTES = [
   '/free-aphasia-games',
   '/aphasia-sentence-exercises',
   '/free-aphasia-worksheets',
-  // NOTE: '/about' is deliberately NOT indexed yet — it is still written as a
-  // clinician-facing pitch. Add it once it is rewritten as the founder story
-  // (which is also the page's value as an experience/authorship signal).
+  // '/about' is the founder story: a named author with direct experience of
+  // the problem. In health content that is the strongest quality signal the
+  // site has, so it is indexed rather than hidden.
+  '/about',
 ];
 
 /** Text the app's own error boundary renders — never publish this. */
@@ -76,6 +77,12 @@ function writeSitemap() {
       }
     }
     info(`sitemap.xml written for ${SITE_URL}`);
+    // A hand-written public/sitemap.xml is copied into dist by Vite and then
+    // silently replaced by the line above. Say so, loudly: a second source of
+    // truth for this file looks maintained right up until it goes stale.
+    if (existsSync(resolve('public', 'sitemap.xml'))) {
+      warn('public/sitemap.xml exists and was OVERWRITTEN — delete it; this script owns the sitemap.');
+    }
   } catch (err) {
     warn(`sitemap skipped: ${String(err).slice(0, 120)}`);
   }
