@@ -5,6 +5,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 const LAST_UPDATED = "July 16, 2026";
 
@@ -19,6 +20,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function TermsOfService() {
   const navigate = useNavigate();
+  useSeoMeta({
+    title: "Terms of Service — NeuroSpark",
+    description:
+      "The terms for using NeuroSpark speech and language practice, including account rules, acceptable use, and the limits of practice support.",
+    canonicalPath: "/terms",
+  });
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10 space-y-6">
