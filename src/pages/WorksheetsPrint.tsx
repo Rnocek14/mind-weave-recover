@@ -11,6 +11,7 @@
 
 import { useMemo } from 'react';
 import { buildWorksheetPack } from '@/lib/worksheets/buildWorksheetPack';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 const SITE = 'neurorecover.app';
 
@@ -37,6 +38,14 @@ function WriteLines({ count }: { count: number }) {
 }
 
 export default function WorksheetsPrint() {
+  // Also stamps the generated PDF's document title — without this the file
+  // carries the app shell's title in every PDF reader and email preview.
+  useSeoMeta({
+    title: 'Home Practice Pack — Printable Aphasia Worksheets',
+    description:
+      'Printable speech and language practice pages for after a stroke: sentence repair, word finding, riddles, listening pairs, and a caregiver cueing guide.',
+  });
+
   const pack = useMemo(() => buildWorksheetPack(), []);
   const sentenceSection = pack.sections.find((s) => s.id === 'sentences')!;
   const categorySection = pack.sections.find((s) => s.id === 'categories')!;
@@ -133,7 +142,7 @@ export default function WorksheetsPrint() {
           gives a little more help — so they keep the part they can still do.
         </p>
         <ol className="ws-ladder">
-          <li><strong>Wait 10 full seconds.</strong> Retrieval is slow before it is impossible. Silence is the most useful thing you can offer.</li>
+          <li><strong>Wait 10 full seconds.</strong> Retrieval is often slow rather than gone, so an unhurried pause frequently lets the word arrive. If waiting turns into distress, move down a step or simply give the word.</li>
           <li><strong>Point at the problem.</strong> “Something in there isn’t right — can you find it?”</li>
           <li><strong>Give the category.</strong> “It should be something you drive.”</li>
           <li><strong>Give the first sound.</strong> “It starts with wh…”</li>
@@ -147,7 +156,8 @@ export default function WorksheetsPrint() {
           <br />
           2. End every session on something they got right.
           <br />
-          3. Short and often beats long and rare.
+          3. Short and often is easier to sustain than long and rare — and your
+          speech therapist can tell you what to aim for.
         </div>
       </Page>
 
@@ -171,6 +181,8 @@ export default function WorksheetsPrint() {
                 <strong>Partner</strong>
                 <br />
                 {sentenceSection.partnerNote}
+                <br />
+                <em>Play this one out loud, free: {SITE}{sentenceSection.playPath}</em>
               </div>
             </Page>
           ) : null
@@ -187,6 +199,8 @@ export default function WorksheetsPrint() {
             <strong>Partner</strong>
             <br />
             {categorySection.partnerNote}
+            <br />
+            <em>Play this one out loud, free: {SITE}{categorySection.playPath}</em>
           </div>
         </Page>
       ))}
@@ -207,6 +221,8 @@ export default function WorksheetsPrint() {
               <strong>Partner</strong>
               <br />
               {clueSection.partnerNote}
+              <br />
+              <em>Play this one out loud, free: {SITE}{clueSection.playPath}</em>
             </div>
           </Page>
         ) : null
@@ -228,6 +244,8 @@ export default function WorksheetsPrint() {
               <strong>Partner</strong>
               <br />
               {pairSection.partnerNote}
+              <br />
+              <em>Play this one out loud, free: {SITE}{pairSection.playPath}</em>
             </div>
           </Page>
         ) : null

@@ -90,13 +90,26 @@ const CATEGORY_PAGES: Array<Omit<CategoryPage, 'lines'>> = [
   { label: 'Things that fly', prompt: 'Name as many things that fly as you can.', hint: 'birds · insects · machines' },
 ];
 
+/**
+ * Items that work on screen but not on paper. The interactive game HIGHLIGHTS
+ * the wrong word; the printed sheet does not, so any sentence that is still
+ * true as written leaves the reader hunting for an error that isn't there.
+ * fs_33 ("opened the door with my elbow") is worse than merely ambiguous — an
+ * elbow is exactly how many people with one-sided weakness open a door.
+ */
+const PRINT_EXCLUDE = new Set(['fs_33', 'fs_51']);
+
 export function buildWorksheetPack(): WorksheetPack {
   const rand = seeded(20260819);
 
   const byLevel = (level: 1 | 2 | 3, count: number) => {
     const pool = FIX_SENTENCE_BANK.filter(
       (t: FixSentenceTrial) =>
-        t.difficulty === level && !t.secondError && !t.morphology && t.acceptedFixes.length > 0
+        t.difficulty === level &&
+        !t.secondError &&
+        !t.morphology &&
+        t.acceptedFixes.length > 0 &&
+        !PRINT_EXCLUDE.has(t.id)
     );
     return take(pool, count, rand).map((t) => ({
       sentence: t.sentence,
@@ -116,8 +129,17 @@ export function buildWorksheetPack(): WorksheetPack {
     alternatives: [...p.anchors.slice(1, 3), ...p.cluster.slice(0, 2)],
   }));
 
+  // The bank stores some contrasts in both orders (sock_lock AND lock_sock);
+  // printed side by side on one sheet that reads as a mistake.
+  const seenPair = new Set<string>();
   const pairs = take(
-    MINIMAL_PAIRS.filter((p) => p.difficulty === 1),
+    MINIMAL_PAIRS.filter((p) => {
+      if (p.difficulty !== 1) return false;
+      const key = [p.word1, p.word2].map((w) => w.toLowerCase()).sort().join('|');
+      if (seenPair.has(key)) return false;
+      seenPair.add(key);
+      return true;
+    }),
     24,
     rand
   ).map((p) => ({

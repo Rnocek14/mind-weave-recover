@@ -130,9 +130,11 @@ export default function FreeAphasiaWorksheets() {
               you can move up deliberately.
             </p>
             <p>
-              <strong className="text-foreground">Keep it to five or ten minutes.</strong>{' '}
-              Fatigue after a stroke is real and it flattens performance fast.
-              Short and frequent beats long and rare.
+              <strong className="text-foreground">Watch for fatigue, not the clock.</strong>{' '}
+              Fatigue after a stroke is real and it flattens performance fast, so
+              many families find shorter, more frequent sessions easier to
+              sustain. A speech-language pathologist can set a target that fits
+              the person.
             </p>
             <p>
               <strong className="text-foreground">Use the cueing ladder on page 2.</strong>{' '}
@@ -146,6 +148,19 @@ export default function FreeAphasiaWorksheets() {
               The answer key says this too.
             </p>
           </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-muted/40 p-5 space-y-2">
+          <h2 className="text-lg font-bold">Before you start</h2>
+          <p className="text-sm leading-relaxed">
+            These are practice activities, not medical treatment, and they are
+            not a substitute for care from a licensed speech-language
+            pathologist. The pack was written by the family that built this app,
+            not by a clinician. If speech changes are new or sudden, contact a
+            doctor — and if you are working with a speech therapist, show them
+            the pack so they can tell you which parts suit the person you are
+            practicing with.
+          </p>
         </section>
 
         <section className="space-y-4">

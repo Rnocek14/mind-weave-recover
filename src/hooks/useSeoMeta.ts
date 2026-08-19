@@ -44,18 +44,29 @@ export function useSeoMeta({ title, description, canonicalPath }: SeoMeta): void
       upsertMeta('property', 'og:description', description),
     ];
 
-    let canonical: HTMLLinkElement | null = null;
+    // Upsert, never append: prerendered pages already ship a canonical, and
+    // a second one that disagrees is worse than none at all.
+    let restoreCanonical: (() => void) | null = null;
     if (canonicalPath && typeof window !== 'undefined') {
-      canonical = document.createElement('link');
-      canonical.rel = 'canonical';
-      canonical.href = `${window.location.origin}${canonicalPath}`;
-      document.head.appendChild(canonical);
+      const href = `${window.location.origin}${canonicalPath}`;
+      const existing = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+      if (existing) {
+        const prevHref = existing.href;
+        existing.href = href;
+        restoreCanonical = () => { existing.href = prevHref; };
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'canonical';
+        link.href = href;
+        document.head.appendChild(link);
+        restoreCanonical = () => link.remove();
+      }
     }
 
     return () => {
       document.title = prevTitle;
       undos.forEach((u) => u());
-      canonical?.remove();
+      restoreCanonical?.();
     };
   }, [title, description, canonicalPath]);
 }

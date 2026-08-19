@@ -10,7 +10,7 @@
  * telemetry, no clinical hooks.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import { Check, X, RotateCcw, ArrowRight, Lightbulb, Volume2 } from 'lucide-reac
 import { FIX_SENTENCE_BANK, type FixSentenceTrial } from '@/data/fixSentenceBank';
 import { matchSpokenFix } from '@/hooks/useFixSentenceGame';
 import { buildFixSentenceChoices } from '@/lib/fixSentenceChoices';
-import { demoSpeak, isDemoTtsSupported } from './demoTts';
+import { demoSpeak, demoStopSpeaking, isDemoTtsSupported } from './demoTts';
 import { cn } from '@/lib/utils';
 
 const SESSION_LENGTH = 4;
@@ -36,6 +36,10 @@ function pickTrials(): FixSentenceTrial[] {
 type Verdict = { correct: boolean; matched: string | null } | null;
 
 export function DemoFixSentence() {
+
+  // Navigating away must silence the demo voice — browser speech keeps
+  // talking after the component is gone otherwise.
+  useEffect(() => demoStopSpeaking, []);
   const [trials, setTrials] = useState<FixSentenceTrial[]>(() => pickTrials());
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState('');

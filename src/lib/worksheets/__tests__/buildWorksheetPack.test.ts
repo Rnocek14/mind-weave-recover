@@ -8,6 +8,7 @@
  * answer key that actually answers the printed items.
  */
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 import { buildWorksheetPack } from '@/lib/worksheets/buildWorksheetPack';
 import { FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
 
@@ -77,6 +78,27 @@ describe('buildWorksheetPack', () => {
       expect(p.word1).not.toBe(p.word2);
       expect(p.contrast.length).toBeGreaterThan(0);
     }
+  });
+
+  it('excludes items that are unfair on paper (no highlighted error to find)', () => {
+    // The interactive game highlights the wrong word; the printed sheet does
+    // not, so a sentence that is still true as written has no findable error.
+    const printed = pack.sentences.flatMap((b) => b.items.map((i) => i.sentence));
+    expect(printed).not.toContain('I opened the door with my elbow.');
+  });
+
+  it('never prints the same listening contrast twice', () => {
+    const keys = pack.pairs.map((p) => [p.word1, p.word2].map((w) => w.toLowerCase()).sort().join('|'));
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('composition is snapshot-locked against the hosted PDF', () => {
+    // The download at public/downloads/ is a frozen render of this pack. If a
+    // content bank changes underneath it this hash moves, which is the signal
+    // to regenerate the PDF from /free-aphasia-worksheets/print — otherwise
+    // the hosted file silently disagrees with the page's own item counts.
+    const hash = createHash('sha256').update(JSON.stringify(pack)).digest('hex').slice(0, 16);
+    expect(hash).toBe('73a2310a014b5fc9');
   });
 
   it('every section points at a playable version', () => {

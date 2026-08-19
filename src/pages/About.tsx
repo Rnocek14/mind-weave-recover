@@ -1,9 +1,17 @@
 import { Brain, Activity, FileText, BarChart3, Shield, Zap, Target, Layers, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 const About = () => {
   const navigate = useNavigate();
+
+  useSeoMeta({
+    title: "About NeuroRecover — Speech Practice Built After a Stroke",
+    description:
+      "NeuroRecover is voice-driven speech and language practice for stroke survivors with aphasia, built by a family for a father after his stroke and shaped by real sessions at the kitchen table.",
+    canonicalPath: "/about",
+  });
 
   return (
     <div className="min-h-dvh bg-background">
@@ -145,7 +153,6 @@ const About = () => {
             <Brain className="w-4 h-4" />
             <span>NeuroRecover — Continuous Recovery Intelligence</span>
           </div>
-          <p className="text-xs text-muted-foreground">Confidential — For clinical review only</p>
         </div>
       </footer>
     </div>

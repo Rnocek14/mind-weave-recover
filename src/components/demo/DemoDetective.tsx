@@ -6,12 +6,12 @@
  * here can affect (or depend on) the real clinical game.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle, XCircle, Volume2, RotateCcw, ArrowRight } from 'lucide-react';
 import { DETECTIVE_CASES, type DetectiveCase } from '@/data/detectiveMindCases';
-import { demoSpeak, isDemoTtsSupported } from './demoTts';
+import { demoSpeak, demoStopSpeaking, isDemoTtsSupported } from './demoTts';
 import { cn } from '@/lib/utils';
 
 const SESSION_LENGTH = 3;
@@ -27,6 +27,10 @@ function pickCases(): DetectiveCase[] {
 }
 
 export function DemoDetective({ onFinished }: { onFinished?: (correct: number, total: number) => void }) {
+
+  // Navigating away must silence the demo voice — browser speech keeps
+  // talking after the component is gone otherwise.
+  useEffect(() => demoStopSpeaking, []);
   const [cases, setCases] = useState<DetectiveCase[]>(() => pickCases());
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);

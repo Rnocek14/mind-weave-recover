@@ -6,11 +6,11 @@
  * mic, or in-app voice stack.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, X, Volume2, RotateCcw } from 'lucide-react';
 import { getMinimalPairTrials, type MinimalPairTrial } from '@/data/minimalPairsBank';
-import { demoSpeak, isDemoTtsSupported } from './demoTts';
+import { demoSpeak, demoStopSpeaking, isDemoTtsSupported } from './demoTts';
 import { cn } from '@/lib/utils';
 
 const SESSION_LENGTH = 5;
@@ -26,6 +26,10 @@ function pickTrials(): MinimalPairTrial[] {
 }
 
 export function DemoMinimalPairs({ onFinished }: { onFinished?: (correct: number, total: number) => void }) {
+
+  // Navigating away must silence the demo voice — browser speech keeps
+  // talking after the component is gone otherwise.
+  useEffect(() => demoStopSpeaking, []);
   const [trials, setTrials] = useState<MinimalPairTrial[]>(() => pickTrials());
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<0 | 1 | null>(null);
@@ -87,7 +91,7 @@ export function DemoMinimalPairs({ onFinished }: { onFinished?: (correct: number
           {correctCount} of {trials.length} correct
         </p>
         <p className="text-sm text-muted-foreground">
-          The full version uses a natural therapy voice, adds a say-it-back
+          The full version uses a natural guide voice, adds a say-it-back
           step, and focuses on the exact sounds each person finds hardest.
         </p>
         <Button variant="outline" size="sm" onClick={restart}>
@@ -133,7 +137,13 @@ export function DemoMinimalPairs({ onFinished }: { onFinished?: (correct: number
               )}
             >
               <div className="aspect-square bg-muted">
-                <img src={trial.imageUrl} alt="" className="w-full h-full object-cover" />
+                {/* Naming the picture gives a screen-reader user exactly what a
+                    sighted user already sees; the task is which word was HEARD. */}
+                <img
+                  src={trial.imageUrl}
+                  alt={i === 0 ? current.pair.word1 : current.pair.word2}
+                  className="w-full h-full object-cover"
+                />
               </div>
               {answered && (
                 <div className={cn(

@@ -56,7 +56,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok) {
+          // Only the app root may refresh the offline shell. Marketing routes
+          // are prerendered to their OWN html, so caching any navigation here
+          // would store (say) the worksheets page as the global offline
+          // fallback and serve it in place of the app.
+          if (res.ok && url.pathname === '/') {
             const copy = res.clone();
             caches.open(SHELL_CACHE).then((c) => c.put(OFFLINE_URL, copy)).catch(() => {});
           }

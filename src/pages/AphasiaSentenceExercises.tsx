@@ -10,7 +10,7 @@
 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ArrowRight, Printer, Wrench } from 'lucide-react';
 import { MarketingLayout } from '@/components/marketing/MarketingLayout';
 import { DemoFixSentence } from '@/components/demo/DemoFixSentence';
@@ -20,7 +20,7 @@ const CUE_LADDER: Array<{ step: string; say: string; why: string }> = [
   {
     step: 'Wait',
     say: '(say nothing for 10 seconds)',
-    why: 'Word retrieval after a stroke is slow before it is impossible. Silence is the most useful thing a partner can offer, and the hardest.',
+    why: 'Word retrieval is often slow rather than gone, so an unhurried pause frequently lets the word arrive. Sometimes it will not — if waiting turns into distress, move down a rung or simply give the word.',
   },
   {
     step: 'Point at the problem',
@@ -102,10 +102,10 @@ export default function AphasiaSentenceExercises() {
         <section>
           <Card className="border-2">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
+              <h2 className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
                 <Wrench className="h-5 w-5 text-primary" />
                 Fix the Sentence — free practice session
-              </CardTitle>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Each sentence has one wrong word. Type the word that fixes it —
                 or type the whole corrected sentence. Both count.
@@ -138,6 +138,12 @@ export default function AphasiaSentenceExercises() {
               </li>
             ))}
           </ol>
+          <p className="text-sm text-muted-foreground">
+            The ladder is a guide, not a rule. Some words will not come no matter
+            how long anyone waits — after a stroke that is the condition, not a
+            failure of effort. When a pause turns into frustration, hand over the
+            word, take the win of a shared attempt, and move on.
+          </p>
         </section>
 
         <section className="space-y-4">
@@ -193,8 +199,8 @@ export default function AphasiaSentenceExercises() {
           <p className="text-muted-foreground leading-relaxed">
             Typing removes the part that conversation actually requires: getting
             the word out of your mouth. The full version of this exercise is
-            spoken — you say the answer, the app listens, and it credits the
-            word you were reaching for even when it comes out distorted. It also
+            spoken — you say the answer, the app listens, and it is built to credit
+            the word you were reaching for even when it comes out distorted. It also
             reads each sentence aloud, tracks which sentences give trouble, and
             brings those back later.
           </p>
