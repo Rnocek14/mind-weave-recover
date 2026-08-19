@@ -27,7 +27,14 @@ import { join, resolve } from 'node:path';
 
 const DIST = resolve('dist');
 const PORT = Number(process.env.PRERENDER_PORT ?? 4183);
-const SITE_URL = (process.env.SITE_URL ?? '').replace(/\/$/, '');
+/**
+ * Production origin. SITE_URL overrides it (preview deploys, staging), but it
+ * DEFAULTS to the real domain so an ordinary `npm run build` on the deploy
+ * host emits correct canonicals and a sitemap without any env configuration —
+ * the previous env-only behaviour silently shipped neither.
+ */
+const DEFAULT_SITE_URL = 'https://neurospark.co';
+const SITE_URL = (process.env.SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, '');
 
 /** Public, indexable routes. Keep in sync with the marketing routes in App.tsx. */
 const ROUTES = [
