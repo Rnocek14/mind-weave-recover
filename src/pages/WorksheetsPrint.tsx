@@ -13,7 +13,7 @@ import { useMemo } from 'react';
 import { buildWorksheetPack } from '@/lib/worksheets/buildWorksheetPack';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 
-const SITE = 'neurorecover.app';
+const SITE = 'neurospark.co';
 
 function Page({ children, footer }: { children: React.ReactNode; footer?: string }) {
   return (
