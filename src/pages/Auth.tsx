@@ -232,7 +232,7 @@ const Auth = () => {
               <Brain className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold">Welcome to NeuroRecover</h1>
+          <h1 className="text-2xl font-bold">Welcome to NeuroSpark</h1>
           <p className="text-muted-foreground">
             {forgotMode
               ? (resetSent ? "Check your email for a reset link" : "Enter your email to reset your password")

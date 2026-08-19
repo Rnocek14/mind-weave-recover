@@ -1,5 +1,5 @@
 /**
- * Terms of Service — plain-language terms for NeuroRecover.
+ * Terms of Service — plain-language terms for NeuroSpark.
  * Launch draft; recommend legal review as the product grows.
  */
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,9 @@ export default function TermsOfService() {
           <p className="mt-1 text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
         </header>
 
-        <Section title="What NeuroRecover is">
+        <Section title="What NeuroSpark is">
           <p>
-            NeuroRecover is an app for practicing speech and language skills,
+            NeuroSpark is an app for practicing speech and language skills,
             built for people recovering from stroke and aphasia. By creating an
             account you agree to these terms and to our{" "}
             <Link to="/privacy" className="text-primary underline">Privacy Policy</Link>.
@@ -42,7 +42,7 @@ export default function TermsOfService() {
 
         <Section title="Not medical care">
           <p>
-            NeuroRecover is a practice tool, not medical care. It does not
+            NeuroSpark is a practice tool, not medical care. It does not
             diagnose, treat, or replace your doctor or speech-language
             pathologist. Scores and levels in the app describe your practice —
             they are not a medical assessment. Always follow the guidance of
@@ -82,7 +82,7 @@ export default function TermsOfService() {
 
         <Section title="The service">
           <p>
-            We work hard to keep NeuroRecover available and reliable, but it is
+            We work hard to keep NeuroSpark available and reliable, but it is
             provided "as is", without warranties. Features may change as the
             app improves. We may suspend accounts that break these terms.
           </p>
@@ -90,7 +90,7 @@ export default function TermsOfService() {
 
         <Section title="Ending your account">
           <p>
-            You can stop using NeuroRecover at any time and ask for your
+            You can stop using NeuroSpark at any time and ask for your
             account and data to be deleted (see the Privacy Policy for how).
           </p>
         </Section>

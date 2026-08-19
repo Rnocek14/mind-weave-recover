@@ -1,4 +1,4 @@
-# NeuroRecover — free speech practice for stroke survivors.
+# NeuroSpark — free speech practice for stroke survivors.
 # Everything public is open to crawlers; the app itself requires a login.
 
 User-agent: Googlebot

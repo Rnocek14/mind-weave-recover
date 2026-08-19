@@ -20,7 +20,7 @@ function Page({ children, footer }: { children: React.ReactNode; footer?: string
     <section className="ws-page">
       <div className="ws-page-body">{children}</div>
       <div className="ws-foot">
-        <span>{footer ?? 'NeuroRecover — free home practice pack'}</span>
+        <span>{footer ?? 'NeuroSpark — free home practice pack'}</span>
         <span>{SITE}</span>
       </div>
     </section>
@@ -113,7 +113,7 @@ export default function WorksheetsPrint() {
         <p style={{ fontSize: '16pt', margin: '0 0 4pt' }}>Speech and language practice after stroke</p>
         <hr className="ws-cover-rule" />
         <p style={{ fontSize: '14pt', lineHeight: 1.6 }}>
-          These pages were built from the practice activities in NeuroRecover — an
+          These pages were built from the practice activities in NeuroSpark — an
           app one family made after a stroke, so practice could happen at the
           kitchen table between speech therapy sessions.
         </p>

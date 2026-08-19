@@ -1,6 +1,6 @@
 {
-  "name": "NeuroRecover — Speech Recovery Practice",
-  "short_name": "NeuroRecover",
+  "name": "NeuroSpark — Speech Recovery Practice",
+  "short_name": "NeuroSpark",
   "description": "Daily speech and language practice for stroke recovery, guided by Maya.",
   "start_url": "/",
   "display": "standalone",

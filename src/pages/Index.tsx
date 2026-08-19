@@ -2,9 +2,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, Camera, Activity, Award, Heart, Sparkles, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+
+/** Footer navigation. The free resource pages are public and indexable. */
+const FOOTER_LINKS: Array<{ to: string; label: string }> = [
+  { to: '/free-aphasia-games', label: 'Free aphasia games' },
+  { to: '/aphasia-sentence-exercises', label: 'Sentence exercises' },
+  { to: '/free-aphasia-worksheets', label: 'Printable worksheets' },
+  { to: '/about', label: 'About' },
+  { to: '/privacy', label: 'Privacy Policy' },
+  { to: '/terms', label: 'Terms of Service' },
+];
 
 const Index = () => {
   const navigate = useNavigate();
@@ -28,10 +38,12 @@ const Index = () => {
   // Only show landing page for unauthenticated users
   return (
     <div className="min-h-dvh bg-gradient-calm">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Wordmark — the landing page is what neurospark.co resolves to, so the
+          product needs to name itself here, not only inside the app. */}
+      <header className="container mx-auto px-4 pt-4 flex items-center justify-between gap-3">
+        <span className="text-lg font-bold tracking-tight text-foreground">NeuroSpark</span>
         <ThemeToggle />
-      </div>
+      </header>
 
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-12 md:py-20">
@@ -127,17 +139,20 @@ const Index = () => {
           ))}
         </div>
 
-        {/* Footer */}
-        <footer className="mt-16 pb-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/about")}>
-            About
-          </button>
-          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/privacy")}>
-            Privacy Policy
-          </button>
-          <button className="hover:text-foreground hover:underline" onClick={() => navigate("/terms")}>
-            Terms of Service
-          </button>
+        {/* Footer. Real anchors, not navigate() buttons: the free resource
+            pages are the ones search engines index, and a button carries no
+            link for a crawler to follow. */}
+        <footer className="mt-16 pb-8 space-y-3">
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            {FOOTER_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className="hover:text-foreground hover:underline">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <p className="text-center text-xs text-muted-foreground">
+            NeuroSpark is speech and language practice, not medical treatment.
+          </p>
         </footer>
       </div>
     </div>

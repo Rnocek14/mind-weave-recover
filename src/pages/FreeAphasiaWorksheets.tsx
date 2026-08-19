@@ -13,7 +13,7 @@ import { MarketingLayout } from '@/components/marketing/MarketingLayout';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
 import { buildWorksheetPack } from '@/lib/worksheets/buildWorksheetPack';
 
-const PDF_PATH = '/downloads/neurorecover-home-practice-pack.pdf';
+const PDF_PATH = '/downloads/neurospark-home-practice-pack.pdf';
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
@@ -176,7 +176,7 @@ export default function FreeAphasiaWorksheets() {
         <section className="rounded-xl border-2 border-primary/20 bg-primary/5 p-5 space-y-2">
           <h2 className="text-xl font-bold">Why this pack exists</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            NeuroRecover began as an app built for one man after his stroke, so
+            NeuroSpark began as an app built for one man after his stroke, so
             that practice between speech therapy sessions didn't depend on
             photocopied worksheets nobody had time to make. These pages are
             those exercises, on paper, free for anyone who needs them.

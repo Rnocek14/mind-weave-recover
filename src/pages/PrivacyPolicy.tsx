@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
 
         <Section title="The short version">
           <p>
-            NeuroRecover is a speech practice app. To help you practice, we
+            NeuroSpark is a speech practice app. To help you practice, we
             record what you say during exercises and keep your practice
             history. Your data is used for your therapy — to score your
             practice, show your progress, and let your therapist or caregiver
@@ -47,7 +47,7 @@ export default function PrivacyPolicy() {
         </Section>
 
         <Section title="What we collect">
-          <p>When you use NeuroRecover, we store:</p>
+          <p>When you use NeuroSpark, we store:</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
               <span className="text-foreground font-medium">Account information</span> —
@@ -146,7 +146,7 @@ export default function PrivacyPolicy() {
 
         <Section title="Not medical care">
           <p>
-            NeuroRecover is a practice tool. It does not replace your doctor or
+            NeuroSpark is a practice tool. It does not replace your doctor or
             speech-language pathologist, and nothing in the app is medical
             advice or a diagnosis. Always follow the guidance of your care
             team.

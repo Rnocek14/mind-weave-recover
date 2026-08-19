@@ -1,5 +1,5 @@
 /**
- * NeuroRecover service worker — conservative caching, no lockout risk.
+ * NeuroSpark service worker — conservative caching, no lockout risk.
  *
  * Strategy (chosen to make stale-cache bugs structurally impossible):
  *   • Navigations: NETWORK-FIRST. A fresh index.html (with its new hashed
@@ -14,7 +14,10 @@
  * Bump CACHE_VERSION to force a clean sweep of old caches on activate.
  */
 
-const CACHE_VERSION = 'v1';
+// v2: the NeuroRecover → NeuroSpark rename changed the app shell and the
+// manifest, so sweep the old caches rather than leaving an installed PWA
+// showing the previous name on its offline screen.
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `assets-${CACHE_VERSION}`;
 const OFFLINE_URL = '/index.html';

@@ -111,7 +111,7 @@ export default function FreeAphasiaGames() {
             <Heart className="h-5 w-5 text-primary" /> Why this exists
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            NeuroRecover started as a home project: an app built for my dad
+            NeuroSpark started as a home project: an app built for my dad
             after his stroke, so he could practice between speech therapy
             sessions without worksheets piling up on the kitchen table. It grew
             into a full practice companion — games you play by <em>speaking</em>,
