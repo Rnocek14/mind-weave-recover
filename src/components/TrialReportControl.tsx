@@ -33,7 +33,7 @@ import { getRecentTrial, clearLastTrial, type LastTrial } from '@/lib/feedback/l
 import { submitTrialReport, attachNote, type ReportReason } from '@/lib/feedback/submitTrialReport';
 import { cn } from '@/lib/utils';
 
-type Phase = 'idle' | 'open' | 'sent' | 'noting';
+type Phase = 'idle' | 'open' | 'sending' | 'sent' | 'failed' | 'noting';
 
 /** Poll rather than subscribe: the store is written from a non-React path. */
 const POLL_MS = 1500;
@@ -46,6 +46,8 @@ export function TrialReportControl() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [reportId, setReportId] = useState<string | null>(null);
   const [note, setNote] = useState('');
+  /** Kept so a failed report can be retried without asking again. */
+  const [lastReason, setLastReason] = useState<ReportReason | null>(null);
 
   // Forget the trial when the person leaves the exercise, so a report can
   // never be attached to the wrong screen.
@@ -56,6 +58,7 @@ export function TrialReportControl() {
       setPhase('idle');
       setReportId(null);
       setNote('');
+      setLastReason(null);
     }
   }, [onExerciseRoute]);
 
@@ -70,9 +73,14 @@ export function TrialReportControl() {
   const send = useCallback(
     async (reason: ReportReason) => {
       if (!trial) return;
-      setPhase('sent');
+      setLastReason(reason);
+      setPhase('sending');
       const result = await submitTrialReport(trial, reason);
       setReportId(result.id);
+      // Say what actually happened. Telling someone their report was logged
+      // when it was not is worse than having no button at all: they believe
+      // the problem has been passed on, and it has not.
+      setPhase(result.ok ? 'sent' : 'failed');
     },
     [trial]
   );
@@ -165,6 +173,38 @@ export function TrialReportControl() {
           <Button size="sm" onClick={sendNote} className="text-sm">Send</Button>
           <Button size="sm" variant="ghost" onClick={() => setPhase('sent')} className="text-sm">
             Skip
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'sending') {
+    return (
+      <div className={cn(wrapper, 'rounded-xl border border-border bg-background shadow-lg p-3')}>
+        <p className="text-sm text-muted-foreground">Sending…</p>
+      </div>
+    );
+  }
+
+  if (phase === 'failed') {
+    return (
+      <div className={cn(wrapper, 'rounded-xl border border-border bg-background shadow-lg p-3 space-y-2')}>
+        <p className="text-sm font-semibold">That didn't reach us.</p>
+        <p className="text-xs text-muted-foreground leading-snug">
+          Nothing you did wrong — it's our end. Your practice is unaffected.
+        </p>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-sm"
+            onClick={() => lastReason && send(lastReason)}
+          >
+            Try again
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setPhase('idle')} className="text-sm">
+            Close
           </Button>
         </div>
       </div>

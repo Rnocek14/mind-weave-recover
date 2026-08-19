@@ -125,6 +125,41 @@ describe('TrialReportControl', () => {
     expect(screen.getByRole('textbox')).toBeTruthy();
   });
 
+  it('says so when the report does not reach us, and never claims it did', async () => {
+    // The table may not exist yet, the network may be down. Telling someone
+    // their report was logged when it was not is worse than having no button:
+    // they believe the problem has been passed on, and it has not.
+    submitMock.mockResolvedValueOnce({ ok: false, id: null });
+    recordLastTrial(wrongTrial);
+    renderAt('/exercise/category-fluency');
+    fireEvent.click(screen.getByText(/something wrong/i));
+    fireEvent.click(screen.getByText(/that should have counted/i));
+    expect(await screen.findByText(/didn't reach us/i)).toBeTruthy();
+    expect(screen.queryByText(/that's logged/i)).toBeNull();
+  });
+
+  it('offers a retry that reuses the same reason', async () => {
+    submitMock.mockResolvedValueOnce({ ok: false, id: null });
+    recordLastTrial(wrongTrial);
+    renderAt('/exercise/category-fluency');
+    fireEvent.click(screen.getByText(/something wrong/i));
+    fireEvent.click(screen.getByText(/didn't hear me/i));
+    await screen.findByText(/didn't reach us/i);
+    fireEvent.click(screen.getByText(/try again/i));
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(2));
+    expect(submitMock.mock.calls[1][1]).toBe('not_heard');
+  });
+
+  it('never offers to attach a note to a report that failed', async () => {
+    submitMock.mockResolvedValueOnce({ ok: false, id: null });
+    recordLastTrial(wrongTrial);
+    renderAt('/exercise/category-fluency');
+    fireEvent.click(screen.getByText(/something wrong/i));
+    fireEvent.click(screen.getByText(/didn't hear me/i));
+    await screen.findByText(/didn't reach us/i);
+    expect(screen.queryByText(/add a note/i)).toBeNull();
+  });
+
   it('can be dismissed without reporting anything', () => {
     recordLastTrial(wrongTrial);
     renderAt('/exercise/category-fluency');
