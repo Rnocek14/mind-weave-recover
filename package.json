@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "qa": "bun run lint && bun run test && tsc --noEmit && bun run test:e2e",
-    "prerender": "node scripts/postbuild-seo.mjs"
+    "prerender": "node scripts/postbuild-seo.mjs",
+    "worksheets:pdf": "node scripts/generate-worksheet-pdf.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

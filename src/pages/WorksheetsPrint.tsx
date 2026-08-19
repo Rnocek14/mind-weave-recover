@@ -90,7 +90,7 @@ export default function WorksheetsPrint() {
         .ws-pair-row { display: flex; gap: 0.5in; font-size: 22pt; padding: 10pt 0; border-bottom: 1pt dotted #999; }
         .ws-pair-row span { flex: 1; text-align: center; }
         .ws-cols { column-count: 2; column-gap: 0.5in; }
-        .ws-key { font-family: system-ui, sans-serif; font-size: 12pt; line-height: 1.7; }
+        .ws-key { font-family: system-ui, sans-serif; font-size: 11pt; line-height: 1.4; }
         .ws-cover-rule { border: 0; border-top: 3pt solid #000; margin: 14pt 0; }
         .ws-ladder { font-size: 13pt; font-family: system-ui, sans-serif; line-height: 1.5; }
         .ws-ladder li { margin-bottom: 9pt; }
@@ -230,11 +230,11 @@ export default function WorksheetsPrint() {
 
       {/* Listening pairs */}
       {pack.pairs.map((_, i) =>
-        i % 12 === 0 ? (
+        i % 8 === 0 ? (
           <Page key={`p-${i}`} footer="Listening Pairs">
             <h2 className="ws-h2">Listening Pairs</h2>
             <p className="ws-instruction">{pairSection.instruction}</p>
-            {pack.pairs.slice(i, i + 12).map((p, j) => (
+            {pack.pairs.slice(i, i + 8).map((p, j) => (
               <div className="ws-pair-row" key={j}>
                 <span>{p.word1}</span>
                 <span>{p.word2}</span>
@@ -303,12 +303,11 @@ export default function WorksheetsPrint() {
             ))}
           </div>
         </div>
-        <div className="ws-note">
+        <div className="ws-note" style={{ marginTop: '8pt' }}>
           <strong>Remember</strong>
           <br />
-          Any answer that makes the sentence true is correct, even when it is not
-          the one printed here. Reaching a different sensible word is successful
-          word finding.
+          Any answer that makes the sentence true is correct, even when it is
+          not the one printed here.
         </div>
       </Page>
     </div>
