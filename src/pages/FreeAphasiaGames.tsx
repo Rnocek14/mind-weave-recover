@@ -10,12 +10,13 @@
 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Search, Ear, Timer, ArrowRight, Heart } from 'lucide-react';
 import { DemoDetective } from '@/components/demo/DemoDetective';
 import { DemoMinimalPairs } from '@/components/demo/DemoMinimalPairs';
 import { DemoWordFinding } from '@/components/demo/DemoWordFinding';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { MarketingLayout } from '@/components/marketing/MarketingLayout';
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
@@ -28,7 +29,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Are these games really free?',
-    a: 'Everything on this page plays free, with no account and no download. The full app adds voice-based play (speak your answers instead of tapping), a therapy voice that guides each session, difficulty that adapts to the person playing, and progress tracking you can share with a therapist.',
+    a: 'Everything on this page plays free, with no account and no download. The full app adds voice-based play (speak your answers instead of tapping), a guide voice that walks through each session, difficulty that adapts to the person playing, and progress tracking you can share with a therapist.',
   },
   {
     q: 'Who are these exercises for?',
@@ -45,18 +46,8 @@ export default function FreeAphasiaGames() {
   });
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container max-w-4xl px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="font-semibold">NeuroRecover</Link>
-          <Button asChild size="sm">
-            <Link to="/auth">Try the full app</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main className="container max-w-4xl px-4 py-8 space-y-10">
+    <MarketingLayout>
+      <div className="container max-w-4xl px-4 py-8 space-y-10">
         {/* Hero */}
         <section className="text-center space-y-3 max-w-2xl mx-auto">
           <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
@@ -73,10 +64,10 @@ export default function FreeAphasiaGames() {
         <section className="grid gap-6 md:grid-cols-1 lg:grid-cols-1 max-w-2xl mx-auto w-full">
           <Card id="word-finding" className="border-2">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
+              <h2 className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
                 <Timer className="h-5 w-5 text-primary" />
                 Word-Finding Sprint
-              </CardTitle>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 The classic naming exercise: how many words in a category can
                 you find? Practices the retrieval that aphasia makes hard.
@@ -87,10 +78,10 @@ export default function FreeAphasiaGames() {
 
           <Card id="listening" className="border-2">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
+              <h2 className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
                 <Ear className="h-5 w-5 text-primary" />
                 Sound Detective (Minimal Pairs)
-              </CardTitle>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Hear a word, tap the matching picture. Practices telling apart
                 similar-sounding words — a core listening skill after stroke.
@@ -101,10 +92,10 @@ export default function FreeAphasiaGames() {
 
           <Card id="comprehension" className="border-2">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
+              <h2 className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
                 <Search className="h-5 w-5 text-primary" />
                 Detective Mind (Story Comprehension)
-              </CardTitle>
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Read a three-line story, find the clue, answer the question.
                 Practices the comprehension skills used in everyday conversation.
@@ -139,7 +130,7 @@ export default function FreeAphasiaGames() {
         <section className="max-w-2xl mx-auto space-y-3">
           <h2 className="text-2xl font-bold">What the full app adds</h2>
           <ul className="space-y-2 text-muted-foreground">
-            <li>• <strong>Speak your answers</strong> — the app listens, understands what you were reaching for, and never marks a good attempt wrong for imperfect pronunciation</li>
+            <li>• <strong>Speak your answers</strong> — the app listens for the word you were reaching for, and is built to credit a close attempt rather than penalise imperfect pronunciation</li>
             <li>• <strong>Nine practice games</strong> covering naming, sentences, describing, retelling, and listening</li>
             <li>• <strong>Short guided sessions</strong> that adapt to energy and ability, with a voice that explains everything</li>
             <li>• <strong>Targeting</strong> — over time, sessions focus on the words and sounds the person finds hardest</li>
@@ -164,13 +155,7 @@ export default function FreeAphasiaGames() {
             </div>
           ))}
         </section>
-      </main>
-
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground space-x-3">
-        <Link to="/about" className="hover:text-foreground">About</Link>
-        <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-        <Link to="/terms" className="hover:text-foreground">Terms</Link>
-      </footer>
-    </div>
+      </div>
+    </MarketingLayout>
   );
 }
