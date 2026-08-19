@@ -16,6 +16,7 @@ import { DemoDetective } from '@/components/demo/DemoDetective';
 import { DemoMinimalPairs } from '@/components/demo/DemoMinimalPairs';
 import { DemoWordFinding } from '@/components/demo/DemoWordFinding';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { MarketingLayout } from '@/components/marketing/MarketingLayout';
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
@@ -45,18 +46,8 @@ export default function FreeAphasiaGames() {
   });
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container max-w-4xl px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="font-semibold">NeuroRecover</Link>
-          <Button asChild size="sm">
-            <Link to="/auth">Try the full app</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main className="container max-w-4xl px-4 py-8 space-y-10">
+    <MarketingLayout>
+      <div className="container max-w-4xl px-4 py-8 space-y-10">
         {/* Hero */}
         <section className="text-center space-y-3 max-w-2xl mx-auto">
           <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
@@ -164,13 +155,7 @@ export default function FreeAphasiaGames() {
             </div>
           ))}
         </section>
-      </main>
-
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground space-x-3">
-        <Link to="/about" className="hover:text-foreground">About</Link>
-        <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-        <Link to="/terms" className="hover:text-foreground">Terms</Link>
-      </footer>
-    </div>
+      </div>
+    </MarketingLayout>
   );
 }

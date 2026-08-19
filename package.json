@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/postbuild-seo.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "qa": "bun run lint && bun run test && tsc --noEmit && bun run test:e2e"
+    "qa": "bun run lint && bun run test && tsc --noEmit && bun run test:e2e",
+    "prerender": "node scripts/postbuild-seo.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

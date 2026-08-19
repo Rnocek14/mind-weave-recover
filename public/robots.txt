@@ -1,3 +1,6 @@
+# NeuroRecover — free speech practice for stroke survivors.
+# Everything public is open to crawlers; the app itself requires a login.
+
 User-agent: Googlebot
 Allow: /
 
@@ -10,5 +13,25 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+# AI search crawlers — explicitly allowed so the free resources stay
+# eligible for citation in AI answers (these fetch for search results,
+# which is how a growing share of caregivers now find health information).
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
 User-agent: *
 Allow: /
+
+# Sitemap is appended at build time once SITE_URL is configured.
