@@ -10,6 +10,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 const LAST_UPDATED = "July 16, 2026";
 
@@ -24,6 +25,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function PrivacyPolicy() {
   const navigate = useNavigate();
+  useSeoMeta({
+    title: "Privacy Policy — NeuroSpark",
+    description:
+      "How NeuroSpark handles voice recordings, practice data, and personal information for stroke survivors, caregivers, and clinicians.",
+    canonicalPath: "/privacy",
+  });
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10 space-y-6">

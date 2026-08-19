@@ -96,7 +96,7 @@ const PendingApproval = () => {
       await supabase.from("role_requests").insert({
         user_id: user.id,
         email: user.email ?? "",
-        requested_role: metadataRole ?? "clinician",
+        requested_role: (metadataRole ?? "clinician") as "clinician" | "caregiver",
       });
       setStatus("pending");
     } finally {

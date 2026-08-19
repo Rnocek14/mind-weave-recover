@@ -58,9 +58,10 @@ function writeSitemap() {
     return;
   }
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const urls = ['/', ...ROUTES]
-      .map((r) => `  <url>\n    <loc>${SITE_URL}${r}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`)
+    // Prerendered marketing routes plus the static legal pages, which are
+    // indexable but not worth prerendering.
+    const urls = ['/', ...ROUTES, '/privacy', '/terms']
+      .map((r) => `  <url>\n    <loc>${SITE_URL}${r}</loc>\n  </url>`)
       .join('\n');
     writeFileSync(
       join(DIST, 'sitemap.xml'),

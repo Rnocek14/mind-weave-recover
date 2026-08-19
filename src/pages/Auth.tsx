@@ -14,10 +14,17 @@ import {
 } from "@/components/ui/select";
 import { Brain, Loader2 } from "lucide-react";
 import { trackEvent, FUNNEL_EVENTS } from "@/lib/appEvents";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 type SignupRole = "patient" | "clinician" | "caregiver";
 
 const Auth = () => {
+  useSeoMeta({
+    title: "Sign In or Create an Account — NeuroSpark",
+    description:
+      "Sign in to NeuroSpark or create a free account to start daily speech and language practice after a stroke.",
+    canonicalPath: "/auth",
+  });
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
