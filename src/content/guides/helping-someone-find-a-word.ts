@@ -7,6 +7,7 @@ export const guide: Guide = {
   description:
     'A step-by-step cueing ladder for helping someone with aphasia reach a word themselves — what to say, in what order, and why waiting ten seconds is the hardest part.',
   updated: '2026-08-19',
+  intent: 'how-to',
   standfirst:
     'For the family member sitting across the table while someone searches for a word, and not sure whether helping helps.',
   related: [
