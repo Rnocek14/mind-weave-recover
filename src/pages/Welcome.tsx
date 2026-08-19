@@ -14,6 +14,7 @@ import { markOnboardingComplete } from '@/lib/onboarding';
 import { useSurvivorSelfStart } from '@/hooks/useSurvivorSelfStart';
 import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { cn } from '@/lib/utils';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 
 type WelcomeStep = 'greeting' | 'ready';
 
@@ -23,6 +24,13 @@ export default function Welcome() {
   const { recordSelfStart } = useSurvivorSelfStart();
   const [step, setStep] = useState<WelcomeStep>('greeting');
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useSeoMeta({
+    title: 'Welcome to NeuroSpark — Start Your First Practice Session',
+    description:
+      'A short, calm welcome that sets up your first NeuroSpark speech practice session — no setup forms, just start speaking.',
+    canonicalPath: '/welcome',
+  });
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
