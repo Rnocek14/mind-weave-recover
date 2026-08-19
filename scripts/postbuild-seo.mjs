@@ -58,7 +58,9 @@ function writeSitemap() {
     return;
   }
   try {
-    const urls = ['/', ...ROUTES]
+    // Prerendered marketing routes plus the static legal pages, which are
+    // indexable but not worth prerendering.
+    const urls = ['/', ...ROUTES, '/privacy', '/terms']
       .map((r) => `  <url>\n    <loc>${SITE_URL}${r}</loc>\n  </url>`)
       .join('\n');
     writeFileSync(
