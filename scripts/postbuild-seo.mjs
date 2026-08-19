@@ -77,6 +77,12 @@ function writeSitemap() {
       }
     }
     info(`sitemap.xml written for ${SITE_URL}`);
+    // A hand-written public/sitemap.xml is copied into dist by Vite and then
+    // silently replaced by the line above. Say so, loudly: a second source of
+    // truth for this file looks maintained right up until it goes stale.
+    if (existsSync(resolve('public', 'sitemap.xml'))) {
+      warn('public/sitemap.xml exists and was OVERWRITTEN — delete it; this script owns the sitemap.');
+    }
   } catch (err) {
     warn(`sitemap skipped: ${String(err).slice(0, 120)}`);
   }
