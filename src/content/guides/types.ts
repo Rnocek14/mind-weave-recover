@@ -12,6 +12,36 @@
  * as prose. Everything around it is structured.
  */
 
+/**
+ * The kind of search this guide is written for.
+ *
+ * WHY THIS IS IN THE DATA: the first batches are written before there is any
+ * Search Console history, so topic choice is judgment, not evidence. Tagging
+ * each guide with the intent it targets turns "we wrote some articles" into a
+ * readable experiment — when impression data does arrive, you can see which
+ * KIND of query found the site rather than only which page did, and aim the
+ * next batch at that instead of guessing again.
+ */
+export type GuideIntent =
+  /** "He just had a stroke and I don't know what to do." */
+  | 'situational'
+  /** "How do I help him find a word?" */
+  | 'how-to'
+  /** "How much practice, how often, for how long?" */
+  | 'dosage'
+  /** "What does this word the doctor used actually mean?" */
+  | 'definitional'
+  /** "Why does he do this specific thing?" */
+  | 'symptom'
+  /** "This is exhausting and I'm not coping." */
+  | 'emotional'
+  /** "What is out there that I can use?" */
+  | 'resource'
+  /** "How long will this take?" */
+  | 'prognosis'
+  /** "Give me exercises I can do today." */
+  | 'activity';
+
 export interface GuideFaq {
   q: string;
   a: string;
@@ -28,6 +58,8 @@ export interface Guide {
   description: string;
   /** ISO date (YYYY-MM-DD). Shown to readers and used as sitemap lastmod. */
   updated: string;
+  /** The search intent this guide targets. See GuideIntent. */
+  intent: GuideIntent;
   /**
    * One sentence under the headline saying who this is for. Readers arriving
    * from a search need to know in two seconds whether they are in the right

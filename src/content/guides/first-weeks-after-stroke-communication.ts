@@ -7,6 +7,7 @@ export const guide: Guide = {
   description:
     'Practical ways to keep talking with a family member whose speech has changed after a stroke — what helps in a hospital room, what to stop doing, and what nobody warns you about.',
   updated: '2026-08-19',
+  intent: 'situational',
   standfirst:
     'Written for the person sitting in the chair beside the bed, who has just realized that talking is going to be different now.',
   related: [

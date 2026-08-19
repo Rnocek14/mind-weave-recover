@@ -7,6 +7,7 @@ export const guide: Guide = {
   description:
     'Plain-language explanations of the three speech and language diagnoses families hear most after a stroke, how they differ, and why a person can have more than one at once.',
   updated: '2026-08-19',
+  intent: 'definitional',
   standfirst:
     'For anyone who has just been handed a word by a clinician and would like to know what it actually describes.',
   related: [
@@ -130,7 +131,7 @@ is the same either way:
 - Watch for fatigue and stop before the wall.
 
 Where it does change things is in what practice should target, and that's
-exactly the judgement a speech-language pathologist is trained to make.
+exactly the judgment a speech-language pathologist is trained to make.
 Practice aimed at word finding is a different activity from practice aimed at
 the mouth's motor plan.
 

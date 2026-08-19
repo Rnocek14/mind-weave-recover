@@ -7,6 +7,7 @@ export const guide: Guide = {
   description:
     'Why short, frequent speech practice usually beats long sessions after a stroke, how to spot the point where practice stops helping, and how to build a routine that lasts.',
   updated: '2026-08-19',
+  intent: 'dosage',
   standfirst:
     'For families told that practice between therapy sessions matters, and not told how much.',
   related: [

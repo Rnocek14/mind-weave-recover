@@ -14,8 +14,36 @@
  * Exits non-zero if any check fails, so it can gate a release.
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 const SITE = (process.argv[2] ?? 'https://neurospark.co').replace(/\/$/, '');
 const BRAND = 'NeuroSpark';
+
+/**
+ * Every route that must render its OWN page rather than the app shell. Read
+ * from the same JSON the build reads, because this script has already been
+ * wrong once in the direction that matters: it reported 8/8 green while the
+ * whole guides section and the rewritten About page were absent from the live
+ * site. A checker that only knows about the pages that existed when it was
+ * written reports success by omission.
+ */
+function contentRoutes() {
+  const fixed = [
+    '/free-aphasia-games',
+    '/aphasia-sentence-exercises',
+    '/free-aphasia-worksheets',
+    '/about',
+    '/guides',
+  ];
+  try {
+    const slugs = JSON.parse(readFileSync(resolve('src/content/guides/slugs.json'), 'utf8'));
+    return [...fixed, ...slugs.map((slug) => `/guides/${slug}`)];
+  } catch {
+    console.warn('[verify-live] slugs.json unreadable — guide pages not checked.');
+    return fixed;
+  }
+}
 
 let passed = 0;
 const failures = [];
@@ -55,10 +83,10 @@ async function main() {
     else fail(`${path} is served`, `HTTP ${res.status}`);
   }
 
-  // 3. The marketing routes render themselves rather than falling through
-  //    to the app shell — the failure mode that would get the app's 404
-  //    screen indexed under three different URLs.
-  for (const path of ['/free-aphasia-games', '/aphasia-sentence-exercises', '/free-aphasia-worksheets']) {
+  // 3. Content routes render themselves rather than falling through to the
+  //    app shell — the failure mode that gets the app's 404 screen indexed
+  //    under a dozen different URLs.
+  for (const path of contentRoutes()) {
     const res = await get(path);
     const title = titleOf(res.body);
     if (res.status !== 200) fail(`${path} renders`, `HTTP ${res.status}`);

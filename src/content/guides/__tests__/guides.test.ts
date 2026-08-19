@@ -31,6 +31,25 @@ describe('the guide registry', () => {
     }
   });
 
+  it('spreads across search intents, so the crawl data can discriminate', () => {
+    // The early batches are written before there is any Search Console
+    // history. Covering distinct intents is what makes the first months of
+    // impression data a readable experiment rather than one data point
+    // repeated: it shows which KIND of query finds the site.
+    const intents = new Set(GUIDES.map((g) => g.intent));
+    expect(intents.size, `only ${intents.size} distinct intents`).toBeGreaterThanOrEqual(5);
+  });
+
+  it('never leans more than half the library on one intent', () => {
+    const counts = new Map<string, number>();
+    for (const g of GUIDES) counts.set(g.intent, (counts.get(g.intent) ?? 0) + 1);
+    for (const [intent, n] of counts) {
+      expect(n, `${intent} is ${n}/${GUIDES.length} of the library`).toBeLessThanOrEqual(
+        Math.ceil(GUIDES.length / 2)
+      );
+    }
+  });
+
   it('resolves a known slug and rejects an unknown one', () => {
     expect(getGuide(GUIDES[0].slug)).toBe(GUIDES[0]);
     expect(getGuide('no-such-guide')).toBeUndefined();
