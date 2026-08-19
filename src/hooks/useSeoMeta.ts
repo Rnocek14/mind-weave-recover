@@ -15,6 +15,12 @@ interface SeoMeta {
   description: string;
   /** Path for the canonical URL, e.g. "/free-aphasia-games". */
   canonicalPath?: string;
+  /**
+   * JSON-LD nodes describing content that is VISIBLE on this page. Nulls are
+   * dropped so a builder can return null for "nothing to describe" without
+   * every caller having to filter.
+   */
+  jsonLd?: Array<Record<string, unknown> | null>;
 }
 
 function upsertMeta(attr: 'name' | 'property', key: string, content: string): () => void {
@@ -33,7 +39,27 @@ function upsertMeta(attr: 'name' | 'property', key: string, content: string): ()
   };
 }
 
-export function useSeoMeta({ title, description, canonicalPath }: SeoMeta): void {
+/**
+ * Replace this route's JSON-LD. Existing managed blocks are removed first:
+ * a prerendered page already ships its own, and on hydration we would
+ * otherwise append a second identical copy.
+ */
+function upsertJsonLd(nodes: Array<Record<string, unknown> | null>): () => void {
+  const MARK = 'data-seo-jsonld';
+  const clear = () => document.head.querySelectorAll(`script[${MARK}]`).forEach((el) => el.remove());
+  clear();
+  for (const node of nodes) {
+    if (!node) continue;
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute(MARK, '');
+    script.textContent = JSON.stringify(node);
+    document.head.appendChild(script);
+  }
+  return clear;
+}
+
+export function useSeoMeta({ title, description, canonicalPath, jsonLd }: SeoMeta): void {
   useEffect(() => {
     const prevTitle = document.title;
     document.title = title;
@@ -66,11 +92,17 @@ export function useSeoMeta({ title, description, canonicalPath }: SeoMeta): void
       }
     }
 
+    const removeJsonLd = jsonLd?.length ? upsertJsonLd(jsonLd) : null;
 
     return () => {
       document.title = prevTitle;
       undos.forEach((u) => u());
       restoreCanonical?.();
+      removeJsonLd?.();
     };
-  }, [title, description, canonicalPath]);
+    // jsonLd is rebuilt on every render by its callers, so it is serialized
+    // for the dependency comparison rather than compared by identity — which
+    // would re-inject the same markup on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, canonicalPath, JSON.stringify(jsonLd ?? null)]);
 }

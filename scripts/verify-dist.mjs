@@ -31,6 +31,7 @@ const PRERENDERED = [
   'free-aphasia-games',
   'aphasia-sentence-exercises',
   'free-aphasia-worksheets',
+  'about',
 ];
 
 const errors = [];

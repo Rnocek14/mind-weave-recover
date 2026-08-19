@@ -16,7 +16,9 @@ import { DemoDetective } from '@/components/demo/DemoDetective';
 import { DemoMinimalPairs } from '@/components/demo/DemoMinimalPairs';
 import { DemoWordFinding } from '@/components/demo/DemoWordFinding';
 import { useSeoMeta } from '@/hooks/useSeoMeta';
+import { faqPageSchema } from '@/lib/seo/structuredData';
 import { MarketingLayout } from '@/components/marketing/MarketingLayout';
+import { AuthorByline } from '@/components/marketing/AuthorByline';
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
@@ -43,6 +45,9 @@ export default function FreeAphasiaGames() {
     description:
       'Three free speech practice games for stroke survivors with aphasia: word finding, listening, and comprehension. Play right now in your browser — no account, no download.',
     canonicalPath: '/free-aphasia-games',
+    // The questions below are rendered on the page; the markup only
+    // describes what a visitor can actually read.
+    jsonLd: [faqPageSchema(FAQ, '/free-aphasia-games')],
   });
 
   return (
@@ -155,6 +160,8 @@ export default function FreeAphasiaGames() {
             </div>
           ))}
         </section>
+
+        <AuthorByline />
       </div>
     </MarketingLayout>
   );
