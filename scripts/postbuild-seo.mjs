@@ -36,6 +36,27 @@ const PORT = Number(process.env.PRERENDER_PORT ?? 4183);
 const DEFAULT_SITE_URL = 'https://neurospark.co';
 const SITE_URL = (process.env.SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, '');
 
+const warn = (msg) => console.warn(`[postbuild-seo] ${msg}`);
+const info = (msg) => console.log(`[postbuild-seo] ${msg}`);
+
+/**
+ * Guide slugs, read from the registry's companion JSON. This script is plain
+ * Node and cannot import the TypeScript registry, and a guide that is not
+ * prerendered is invisible to the AI-search crawlers it was written for — so
+ * the list lives in JSON that both sides read, with a unit test asserting the
+ * two agree. Missing file degrades to "no guides prerendered", never a crash.
+ */
+function guideRoutes() {
+  try {
+    const slugs = JSON.parse(readFileSync(resolve('src/content/guides/slugs.json'), 'utf8'));
+    if (!Array.isArray(slugs)) throw new Error('slugs.json is not an array');
+    return ['/guides', ...slugs.map((slug) => `/guides/${slug}`)];
+  } catch (err) {
+    warn(`guide routes unavailable (${String(err).slice(0, 80)}) — none prerendered.`);
+    return [];
+  }
+}
+
 /** Public, indexable routes. Keep in sync with the marketing routes in App.tsx. */
 const ROUTES = [
   '/free-aphasia-games',
@@ -45,13 +66,12 @@ const ROUTES = [
   // the problem. In health content that is the strongest quality signal the
   // site has, so it is indexed rather than hidden.
   '/about',
+  ...guideRoutes(),
 ];
 
 /** Text the app's own error boundary renders — never publish this. */
 const CRASH_MARKERS = ['Something went wrong', 'Application error'];
 
-const warn = (msg) => console.warn(`[postbuild-seo] ${msg}`);
-const info = (msg) => console.log(`[postbuild-seo] ${msg}`);
 
 function writeSitemap() {
   if (!SITE_URL) {
