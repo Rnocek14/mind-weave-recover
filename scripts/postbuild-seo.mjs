@@ -58,9 +58,8 @@ function writeSitemap() {
     return;
   }
   try {
-    const today = new Date().toISOString().slice(0, 10);
     const urls = ['/', ...ROUTES]
-      .map((r) => `  <url>\n    <loc>${SITE_URL}${r}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`)
+      .map((r) => `  <url>\n    <loc>${SITE_URL}${r}</loc>\n  </url>`)
       .join('\n');
     writeFileSync(
       join(DIST, 'sitemap.xml'),

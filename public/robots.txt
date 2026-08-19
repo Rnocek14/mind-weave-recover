@@ -34,4 +34,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-# Sitemap is appended at build time once SITE_URL is configured.
+Sitemap: https://neurospark.co/sitemap.xml
