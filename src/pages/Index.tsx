@@ -5,6 +5,7 @@ import { Brain, Camera, Activity, Award, Heart, Sparkles, Loader2 } from "lucide
 import { Link, useNavigate } from "react-router-dom";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { useSeoMeta } from "@/hooks/useSeoMeta";
 
 /** Footer navigation. The free resource pages are public and indexable. */
 const FOOTER_LINKS: Array<{ to: string; label: string }> = [
@@ -19,6 +20,13 @@ const FOOTER_LINKS: Array<{ to: string; label: string }> = [
 const Index = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+
+  useSeoMeta({
+    title: 'NeuroSpark — Daily Speech Practice After a Stroke',
+    description:
+      'Personalized speech and language practice for stroke recovery. Rebuild word finding, conversation, and confidence at home with adaptive daily sessions.',
+    canonicalPath: '/',
+  });
 
   // Auto-redirect authenticated users to /today
   useEffect(() => {
