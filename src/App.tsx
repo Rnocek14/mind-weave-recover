@@ -133,6 +133,7 @@ import { ClinicianProtectedRoute } from "@/components/ClinicianProtectedRoute";
 import { RequireAuth } from "@/components/RequireAuth";
 import { MayaSessionOverlay } from "@/components/coach/MayaSessionOverlay";
 import { SessionPauseControl } from "@/components/SessionPauseControl";
+import { TrialReportControl } from "@/components/TrialReportControl";
 import { useAuth } from "@/hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -167,6 +168,7 @@ const App = () => (
                 <Sonner />
                 <MayaSessionOverlay />
                 <SessionPauseControl />
+                <TrialReportControl />
                 <VoiceGateHud />
                 <UiVariantPicker />
                 <ViewToggle />

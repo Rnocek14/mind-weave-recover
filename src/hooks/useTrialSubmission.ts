@@ -24,6 +24,7 @@ import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
+import { recordLastTrial } from '@/lib/feedback/lastTrial';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import type {
   CommitSessionResult,
@@ -110,6 +111,24 @@ export function useTrialSubmission(opts: Options) {
         },
         progression: null,
       };
+
+      // 0) Remember this trial in memory so the app-root report control can
+      // attach real context ("said X, wanted Y, scored Z") to a one-tap
+      // report without any game needing to know the feature exists. Purely
+      // in-memory and non-throwing — feedback must never be able to break a
+      // practice session.
+      recordLastTrial({
+        exerciseSlug: canonicalSlug,
+        sessionId: opts.sessionId,
+        level: input.level,
+        trialIndex: typeof input.trialIndex === 'number' ? input.trialIndex : null,
+        stimulusId: input.stimulusId ?? null,
+        expected: input.expectedResponse ?? null,
+        userResponse: input.userResponse ?? null,
+        browserTranscript: input.browserTranscript ?? null,
+        isCorrect: input.isCorrect,
+        cueLevel: input.cueLevel ?? null,
+      });
 
       // 1) exercise_events (raw clinical record) — always.
       try {
