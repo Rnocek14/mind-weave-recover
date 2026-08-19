@@ -26,7 +26,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const OUT = resolve('public/downloads/neurorecover-home-practice-pack.pdf');
+const OUT = resolve('public/downloads/neurospark-home-practice-pack.pdf');
 const PORT = Number(process.env.WORKSHEET_PDF_PORT ?? 4193);
 const ROUTE = '/free-aphasia-worksheets/print';
 

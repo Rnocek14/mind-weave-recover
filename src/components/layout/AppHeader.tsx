@@ -95,7 +95,7 @@ export function AppHeader() {
         {/* Logo/Brand */}
         <Link to={homeHref} className="flex items-center gap-2 font-semibold">
           <Brain className="h-5 w-5 text-primary" />
-          <span className="hidden sm:inline">NeuroRecover</span>
+          <span className="hidden sm:inline">NeuroSpark</span>
         </Link>
 
         {/* Primary Navigation */}

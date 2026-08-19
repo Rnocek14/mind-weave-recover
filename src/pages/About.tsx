@@ -7,9 +7,9 @@ const About = () => {
   const navigate = useNavigate();
 
   useSeoMeta({
-    title: "About NeuroRecover — Speech Practice Built After a Stroke",
+    title: "About NeuroSpark — Speech Practice Built After a Stroke",
     description:
-      "NeuroRecover is voice-driven speech and language practice for stroke survivors with aphasia, built by a family for a father after his stroke and shaped by real sessions at the kitchen table.",
+      "NeuroSpark is voice-driven speech and language practice for stroke survivors with aphasia, built by a family for a father after his stroke and shaped by real sessions at the kitchen table.",
     canonicalPath: "/about",
   });
 
@@ -22,7 +22,7 @@ const About = () => {
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
               <Brain className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground tracking-tight">NeuroRecover</span>
+            <span className="text-xl font-bold text-foreground tracking-tight">NeuroSpark</span>
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="text-muted-foreground">
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
@@ -39,7 +39,7 @@ const About = () => {
           Structured speech practice that adapts to every individual's recovery.
         </h1>
         <p className="mt-6 text-lg text-muted-foreground max-w-2xl leading-relaxed">
-          NeuroRecover is a clinician-informed digital practice tool for people recovering from stroke-related 
+          NeuroSpark is a clinician-informed digital practice tool for people recovering from stroke-related 
           language difficulties. It provides structured, adaptive home practice and gives clinicians 
           between-session visibility into recovery progress.
         </p>
@@ -59,7 +59,7 @@ const About = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground mb-4">Our Approach</h2>
             <p className="text-muted-foreground leading-relaxed">
-              NeuroRecover fills the post-discharge gap with adaptive practice that continuously adjusts to 
+              NeuroSpark fills the post-discharge gap with adaptive practice that continuously adjusts to 
               each person's abilities, and generates detailed telemetry that clinicians can review. 
               Every session produces clinically meaningful data — not just engagement metrics.
             </p>
@@ -70,13 +70,13 @@ const About = () => {
       {/* Core Capabilities */}
       <section className="max-w-5xl mx-auto px-6 py-12 border-t border-border/40">
         <h2 className="text-2xl font-bold text-foreground mb-2">Core Capabilities</h2>
-        <p className="text-muted-foreground mb-10">What makes NeuroRecover different from generic brain-training apps.</p>
+        <p className="text-muted-foreground mb-10">What makes NeuroSpark different from generic brain-training apps.</p>
 
         <div className="grid md:grid-cols-2 gap-6">
           <CapabilityCard
             icon={<FileText className="w-5 h-5" />}
             title="Clinical Note Parsing"
-            description="Upload clinical documents and NeuroRecover automatically extracts diagnosis, lesion location, aphasia type, and severity to personalise the practice plan from day one."
+            description="Upload clinical documents and NeuroSpark automatically extracts diagnosis, lesion location, aphasia type, and severity to personalise the practice plan from day one."
           />
           <CapabilityCard
             icon={<Activity className="w-5 h-5" />}
@@ -109,7 +109,7 @@ const About = () => {
       {/* For Clinicians */}
       <section className="max-w-5xl mx-auto px-6 py-12 border-t border-border/40">
         <h2 className="text-2xl font-bold text-foreground mb-2">For Clinicians</h2>
-        <p className="text-muted-foreground mb-8">NeuroRecover is designed to complement professional therapy, not replace it.</p>
+        <p className="text-muted-foreground mb-8">NeuroSpark is designed to complement professional therapy, not replace it.</p>
         
         <div className="grid md:grid-cols-3 gap-6">
           <InfoCard
@@ -135,7 +135,7 @@ const About = () => {
             <div>
               <h3 className="text-xl font-bold text-foreground mb-2">Clinical Positioning</h3>
               <p className="text-muted-foreground leading-relaxed">
-                NeuroRecover is a structured home practice tool informed by the ICF framework and 
+                NeuroSpark is a structured home practice tool informed by the ICF framework and 
                 evidence-based aphasia rehabilitation approaches. It is <strong className="text-foreground">not a medical device</strong> and 
                 is intended to supplement — not replace — professional speech-language pathology services. 
                 All adaptive decisions are deterministic and transparent, with full audit trails available 
@@ -151,7 +151,7 @@ const About = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Brain className="w-4 h-4" />
-            <span>NeuroRecover — Continuous Recovery Intelligence</span>
+            <span>NeuroSpark — Continuous Recovery Intelligence</span>
           </div>
         </div>
       </footer>

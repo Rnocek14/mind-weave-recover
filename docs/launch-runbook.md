@@ -1,4 +1,4 @@
-# Launch Runbook — NeuroRecover
+# Launch Runbook — NeuroSpark
 
 **Scope:** Everything required to take the current branch
 (`claude/stroke-recovery-qa-audit-min40j`) live, verify it, and operate the

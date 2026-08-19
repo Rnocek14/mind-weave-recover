@@ -20,7 +20,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-background flex flex-col">
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-40">
         <div className="container max-w-4xl px-4 h-14 flex items-center justify-between gap-3">
-          <Link to="/" className="font-semibold shrink-0">NeuroRecover</Link>
+          <Link to="/" className="font-semibold shrink-0">NeuroSpark</Link>
           <nav className="hidden sm:flex items-center gap-4 text-sm text-muted-foreground">
             {FREE_RESOURCES.map((r) => (
               <Link key={r.to} to={r.to} className="hover:text-foreground">{r.label}</Link>
@@ -46,7 +46,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
             <Link to="/terms" className="text-muted-foreground hover:text-foreground">Terms</Link>
           </div>
           <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-            NeuroRecover provides speech and language <strong>practice</strong> activities.
+            NeuroSpark provides speech and language <strong>practice</strong> activities.
             It is not medical treatment and does not replace care from a licensed
             speech-language pathologist. If speech changes are new or sudden, contact
             a doctor.
