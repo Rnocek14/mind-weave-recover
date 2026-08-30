@@ -52,3 +52,33 @@ describe('validateCategoryWord — multi-word phrases (typed input path)', () =>
     expect(validateCategoryWord('wire cutters', 'tools')).toBe('valid');
   });
 });
+
+describe('validateCategoryWord — drinks brand names (QA: "Mountain Dew and coke didn\'t count")', () => {
+  it('accepts common soda brand names', () => {
+    expect(validateCategoryWord('coke', 'drinks')).toBe('valid');
+    expect(validateCategoryWord('pepsi', 'drinks')).toBe('valid');
+    expect(validateCategoryWord('sprite', 'drinks')).toBe('valid');
+    expect(validateCategoryWord('fanta', 'drinks')).toBe('valid');
+  });
+
+  it('accepts multi-word brands through the compound matcher', () => {
+    expect(isExactCategoryMatch('mountain dew', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('dr pepper', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('coca cola', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('red bull', 'drinks')).toBe(true);
+  });
+
+  it('accepts common everyday drinks previously missing', () => {
+    expect(isExactCategoryMatch('chai tea', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('chocolate milk', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('sweet tea', 'drinks')).toBe(true);
+    expect(isExactCategoryMatch('iced coffee', 'drinks')).toBe(true);
+  });
+
+  it('still rejects non-drinks', () => {
+    expect(validateCategoryWord('sandwich', 'drinks')).not.toBe('valid');
+    // 'chair' regression guard: bare 'chai' in the list made 'chair' a valid
+    // drink through truncation tolerance — chai lives as compounds only.
+    expect(validateCategoryWord('chair', 'drinks')).not.toBe('valid');
+  });
+});

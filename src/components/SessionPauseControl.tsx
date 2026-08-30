@@ -26,6 +26,7 @@ import { useUiProfile } from '@/hooks/useUiProfile';
 import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 import { TEXT_SCALES, getStoredTextScale, setTextScale, type TextScale } from '@/lib/textScale';
 import { cn } from '@/lib/utils';
+import { stopGlobalTTS } from '@/hooks/useTextToSpeech';
 
 export function SessionPauseControl() {
   const location = useLocation();
@@ -56,11 +57,13 @@ export function SessionPauseControl() {
     setIsPaused(true);
     console.log('[SessionPause] Paused');
 
-    // Stop any active SpeechRecognition the page has spun up.
-    // Each game holds its own recognizer ref, but they all listen for
-    // 'pause-session' events as a fallback. Dispatch one and also
-    // brute-force-stop any SpeechSynthesis so Maya goes quiet immediately.
-    try { window.speechSynthesis?.cancel(); } catch {}
+    // Stop ALL audio immediately — Maya speaks through an HTMLAudioElement
+    // (ElevenLabs stream), so speechSynthesis.cancel() alone never silenced
+    // her. stopGlobalTTS() kills the audio element, aborts any in-flight TTS
+    // fetch, and cancels browser synth. The 'session-pause' event then flips
+    // the gate in useTextToSpeech so any NEW speak() call waits for resume
+    // instead of talking over the pause overlay.
+    stopGlobalTTS();
     window.dispatchEvent(new CustomEvent('session-pause'));
   }, []);
 
@@ -76,6 +79,10 @@ export function SessionPauseControl() {
     console.log('[SessionPause] User ended session from pause overlay');
     setIsPaused(false);
     pauseStartRef.current = null;
+    // Release any speak() calls held by the pause gate WITHOUT playing them,
+    // so a stale instruction never speaks over the /today screen.
+    window.dispatchEvent(new CustomEvent('session-abandon'));
+    stopGlobalTTS();
     // Clear resume state so the "Continue session" card doesn't appear later.
     try {
       localStorage.removeItem('lessonFlowState_resume');

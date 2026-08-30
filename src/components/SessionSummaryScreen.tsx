@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Sparkles, Trophy, ArrowRight, MessageCircle, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useCoachingMode } from "@/contexts/CoachingModeContext";
@@ -244,8 +244,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
         {/* Untrained-word generalization probe — real measured signal */}
         <ProbeResultsCard userId={user?.id} profileId={activeProfileId} />
 
-        {/* Quick stats — plain language */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Quick stats — plain language. The whole-round score tile keeps the
+            tone-aware label next to the number so a hard day reads as
+            "building up", never as a failing grade. */}
+        <div className={overallAvg != null ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-4"}>
           <div className="bg-muted/50 rounded-xl p-4">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Trophy className="w-5 h-5 text-primary" />
@@ -264,6 +266,17 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               {totalTrials === 1 ? "Round" : "Rounds"}
             </p>
           </div>
+          {overallAvg != null && (
+            <div className="bg-muted/50 rounded-xl p-4" data-testid="session-overall-score">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Target className="w-5 h-5 text-primary" />
+                <span className="text-2xl font-bold text-foreground">{overallAvg}%</span>
+              </div>
+              <p className={`text-sm ${scoreToLabel(overallAvg).className}`}>
+                {scoreToLabel(overallAvg).text}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Per-exercise plain-language feedback */}

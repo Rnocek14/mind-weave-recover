@@ -240,6 +240,24 @@ const DRINKS = new Set([
   'orange juice', 'apple juice', 'grape juice', 'cranberry juice', 'root beer',
   'ginger ale', 'sports drink', 'gatorade', 'kool aid', 'seltzer',
   'sparkling water', 'tonic', 'eggnog', 'kombucha', 'slushie',
+  // Brand names — speech recognition capitalizes these but input is lowercased
+  'coke', 'coca cola', 'diet coke', 'pepsi', 'sprite', 'mountain dew',
+  'dr pepper', 'fanta', 'seven up', 'red bull', 'monster', 'powerade',
+  'snapple', 'capri sun', 'sunny d', 'la croix', 'hi c', 'crystal light',
+  'ovaltine', 'nesquik', 'yoo hoo', 'tang', 'squirt', 'crush', 'mello yello',
+  'frappuccino', 'starbucks',
+  // Common drinks previously missing
+  'energy drink', 'soft drink', 'sweet tea', 'green tea', 'black tea',
+  'herbal tea', 'chai tea', 'chai latte', 'matcha', 'boba', 'bubble tea', 'americano', 'decaf',
+  'chocolate milk', 'strawberry milk', 'almond milk', 'oat milk', 'soy milk',
+  'buttermilk', 'limeade', 'fruit punch', 'grapefruit juice', 'pineapple juice',
+  'tomato juice', 'prune juice', 'lemon juice', 'fruit juice', 'club soda',
+  'mineral water', 'coconut water', 'ice water', 'orange soda', 'grape soda',
+  'cream soda', 'horchata', 'sangria', 'mimosa', 'martini', 'mojito', 'daiquiri',
+  'pina colada', 'tequila', 'brandy', 'bourbon', 'scotch', 'sake', 'mead',
+  'ale', 'lager', 'stout', 'hard cider', 'moonshine', 'schnapps', 'liqueur',
+  'arnold palmer', 'shirley temple', 'hot toddy', 'hot tea', 'iced coffee',
+  'cold brew', 'macchiato', 'frappe', 'malt', 'float', 'nectar', 'soymilk',
 ]);
 
 const INSTRUMENTS = new Set([

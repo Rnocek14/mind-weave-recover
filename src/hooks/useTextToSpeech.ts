@@ -64,6 +64,37 @@ export const stopGlobalTTS = () => {
   }
 };
 
+// ── Session pause gate ──────────────────────────────────────────────────────
+// SessionPauseControl dispatches 'session-pause' / 'session-resume' /
+// 'session-abandon' window events. On pause, any playing audio stops
+// immediately and NEW speak() calls wait here until resume — so a game that
+// awaits its TTS freezes at the speech boundary instead of talking through
+// the pause overlay. 'session-abandon' (End session early) releases waiters
+// with proceed=false so no stale instruction plays after navigating away.
+let sessionIsPaused = false;
+let pauseWaiters: Array<(proceed: boolean) => void> = [];
+
+const releasePauseWaiters = (proceed: boolean) => {
+  sessionIsPaused = false;
+  const waiters = pauseWaiters;
+  pauseWaiters = [];
+  waiters.forEach(resolve => resolve(proceed));
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('session-pause', () => {
+    sessionIsPaused = true;
+    stopGlobalTTS();
+  });
+  window.addEventListener('session-resume', () => releasePauseWaiters(true));
+  window.addEventListener('session-abandon', () => releasePauseWaiters(false));
+}
+
+const waitForSessionResume = (): Promise<boolean> => {
+  if (!sessionIsPaused) return Promise.resolve(true);
+  return new Promise(resolve => pauseWaiters.push(resolve));
+};
+
 export const useTextToSpeech = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -265,6 +296,10 @@ export const useTextToSpeech = () => {
       previousText,
       nextText,
     } = options;
+
+    // Session paused → hold this speech until resume; drop it on abandon.
+    const proceed = await waitForSessionResume();
+    if (!proceed) return;
 
     setIsLoading(true);
     setIsSpeaking(false); notifyVC(false);

@@ -140,7 +140,12 @@ export function MinimalPairsGame({
       setEchoTranscript(t);
       setEchoStatus('heard');
     },
-    continuousListening: false,
+    // continuousListening keeps the recognizer auto-restarting after Chrome's
+    // early 'no-speech' end. Aphasic speech onset is slow — with one-shot
+    // recognition the mic silently died within seconds while the UI still
+    // said "Listening…", so the patient spoke into a dead mic. The echo
+    // phase's own 7s timer (and stopEcho) still bounds the window.
+    continuousListening: true,
     enabled: true,
   });
 
@@ -158,6 +163,9 @@ export function MinimalPairsGame({
     echoActiveRef.current = true;
     setEchoStatus('listening');
     setEchoTranscript('');
+    // Clear the recognizer's dedupe state — without this, a patient repeating
+    // a word they already said this session gets no callback at all.
+    speech.resetTranscript();
     // Sync-Wait: target was just spoken in the feedback effect. Wait for the
     // VoiceController tail-lock to clear (~400ms after TTS ends) instead of a
     // fixed sleep — opens the mic as early as the protocol allows without

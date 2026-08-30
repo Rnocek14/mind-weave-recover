@@ -63,6 +63,16 @@ interface PromptChip {
   icon: React.ReactNode;
 }
 
+// Spoken acknowledgment for a feature dimension the patient already covered,
+// used when coaching them to describe a second dimension before the app guesses.
+const FEATURE_ACKNOWLEDGMENTS: Record<FeatureType, string> = {
+  function: 'what you do with it',
+  location: 'where you find it',
+  appearance: 'what it looks like',
+  material: 'what it is made of',
+  category: 'what kind of thing it is',
+};
+
 const PROMPT_CHIPS: PromptChip[] = [
   { featureType: 'function', label: 'Use', question: 'What do you use it for?', icon: <Wrench className="h-3.5 w-3.5" /> },
   { featureType: 'location', label: 'Where', question: 'Where do you see it?', icon: <MapPin className="h-3.5 w-3.5" /> },
@@ -423,9 +433,14 @@ export function DescribeGuessGame({
     return () => { if (stallTimerVgRef.current) clearTimeout(stallTimerVgRef.current); };
   }, [game.currentTrial?.id, game.isComplete, showFeedback, vg, displayTranscript]);
 
+  // Cap "describe more" redirects at 2 per trial so a struggling patient
+  // is never trapped repeating descriptions instead of finishing the trial.
+  const describeMorePromptsRef = useRef(0);
+
   // Reset the stall cap for each new trial.
   useEffect(() => {
     stallReminderCountRef.current = 0;
+    describeMorePromptsRef.current = 0;
   }, [game.currentTrial?.id]);
 
   // Begin new trial
@@ -751,6 +766,38 @@ export function DescribeGuessGame({
 
       // Evaluate guess (2-of-3 rule) — embeddings called here only
       const guessResult = await game.evaluateGuess(currentTranscript, trial);
+
+      // Hold the guess until the description covers 2+ feature dimensions.
+      // A single fluent sentence can satisfy the semantic rules, but the
+      // therapy target is producing MULTIPLE feature types — acknowledge the
+      // dimension they gave and coach for a missing one before "getting it".
+      // The transcript is kept, so everything said so far still counts.
+      if (guessResult.guessed && !wordWin && guessResult.featureCount < 2 && describeMorePromptsRef.current < 2) {
+        describeMorePromptsRef.current += 1;
+        stopListening();
+        setIsListening(false);
+        setIsEvaluating(false);
+        evaluatedRef.current = false;
+
+        const covered = [...game.featureTypesUsed];
+        const nextChip = PROMPT_CHIPS.find(c => !covered.includes(c.featureType)) ?? PROMPT_CHIPS[2];
+        const ack = covered.length > 0 ? FEATURE_ACKNOWLEDGMENTS[covered[0]] : null;
+        const coachLine = ack
+          ? `Good — you told me ${ack}. Now, ${nextChip.question}`
+          : `Good start. Tell me more — ${nextChip.question}`;
+        setValidationHint(coachLine);
+        setTimeout(() => setValidationHint(null), 8000);
+
+        await speak(coachLine);
+        micStartCycleRef.current += 1;
+        setMicOpening(true);
+        setMicRecoveryReady(false);
+        await awaitMicSafe(250);
+        startMicWithRetries(micStartCycleRef.current);
+        listeningStartRef.current = Date.now();
+        lastTranscriptChangeRef.current = Date.now();
+        return;
+      }
 
       // Stop mic AFTER evaluation completes (not before)
       stopListening();

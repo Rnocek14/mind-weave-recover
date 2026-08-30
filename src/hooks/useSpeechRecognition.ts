@@ -458,6 +458,10 @@ export const useSpeechRecognition = (
     console.log('🎤 Starting listening...');
     stateRef.current = 'STARTING';
     manuallyStoppedRef.current = false;
+    // Fresh start = fresh restart budget. Without this, no-speech restarts
+    // accumulated across trials until the 15-cap silently killed the mic
+    // mid-session for non-patient-mode consumers.
+    noSpeechCountRef.current = 0;
     setTranscript('');
     setError(null);
     

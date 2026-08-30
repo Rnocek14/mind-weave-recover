@@ -245,41 +245,6 @@ export function FixSentenceGame({
     [choiceMode, game.currentTrial],
   );
 
-  // Choice-tile tap: speak the word (model), score locally, submit through
-  // the same result pipeline as speech/typed — support level rides on the
-  // result so ladder evidence sees the true (scaffolded) task.
-  const handleChoiceTap = useCallback((word: string) => {
-    if (processingRef.current || showFeedback || !game.currentTrial) return;
-    processingRef.current = true;
-    setIsProcessing(true);
-    try {
-      void speak(word);
-      const result = game.scoreChoice(word);
-      if (!result) return;
-      setDisplayTranscript(word);
-      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
-      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 1, timestamp: Date.now() });
-      game.submitResult(result);
-      setShowFeedback(true);
-      if (result.isCorrect) {
-        setTimeout(() => {
-          game.nextTrial();
-          setShowFeedback(false);
-          setDisplayTranscript('');
-        }, AUTO_ADVANCE_DELAY_MS);
-      } else {
-        // Gentle retry: same tiles (deterministic), no mic involved.
-        setTimeout(() => {
-          setShowFeedback(false);
-          setDisplayTranscript('');
-        }, WRONG_ANSWER_DISPLAY_MS);
-      }
-    } finally {
-      processingRef.current = false;
-      setIsProcessing(false);
-    }
-  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement]);
-
   // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
   const handleTypedSubmit = useCallback(async () => {
     const text = typedAnswer.trim();
@@ -418,6 +383,86 @@ export function FixSentenceGame({
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
   useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
 
+  // Choice-tile tap: speak the word (model), score locally, submit through
+  // the same result pipeline as speech/typed — support level rides on the
+  // result so ladder evidence sees the true (scaffolded) task.
+  const handleChoiceTap = useCallback((word: string) => {
+    if (processingRef.current || showFeedback || !game.currentTrial) return;
+    processingRef.current = true;
+    setIsProcessing(true);
+    try {
+      // Close the mic before Maya models the word — otherwise her own speech
+      // is transcribed and can re-trigger the spoken-tile matcher.
+      stopListening();
+      setIsListening(false);
+      void speak(word);
+      const result = game.scoreChoice(word);
+      if (!result) return;
+      setDisplayTranscript(word);
+      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 1, timestamp: Date.now() });
+      game.submitResult(result);
+      setShowFeedback(true);
+      if (result.isCorrect) {
+        setTimeout(() => {
+          game.nextTrial();
+          setShowFeedback(false);
+          setDisplayTranscript('');
+        }, AUTO_ADVANCE_DELAY_MS);
+      } else {
+        // Gentle retry: same tiles (deterministic). Re-open the mic once
+        // Maya's feedback finishes so a spoken retry works too.
+        setTimeout(() => {
+          setShowFeedback(false);
+          setDisplayTranscript('');
+          resetTranscript();
+          void voiceController.awaitMicSafe().then(() => {
+            if (!showFeedbackRef.current && !processingRef.current) {
+              startListening();
+              setIsListening(true);
+            }
+          });
+        }, WRONG_ANSWER_DISPLAY_MS);
+      }
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+    }
+  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement, resetTranscript, startListening, stopListening]);
+
+  // Choice-mode voice input: saying a tile word answers exactly like tapping
+  // it. Matches the latest transcript against the visible tiles and routes
+  // through handleChoiceTap so scoring/adaptation stay identical. (L1/L2
+  // previously had NO way to speak the answer at all.)
+  useEffect(() => {
+    if (!choiceMode || !choiceTiles || !game.currentTrial) return;
+    if (!transcript || processingRef.current || showFeedback) return;
+    if (!speechIsListening) return;
+    const norm = (w: string) => w.toLowerCase().replace(/[^a-z']/g, '');
+    const tokens = transcript.toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+    const candidate = norm(extractAnswerFromTranscript(transcript));
+    // Echo guard: never match a tile word Maya herself said recently — the
+    // sentence can contain a distractor tile word (the error word may be
+    // another trial's fix). The correct tile is never in the sentence.
+    const mayaTokens = new Set(
+      voiceController.getRecentSpoken().flatMap(line =>
+        line.toLowerCase().split(/\s+/).map(norm).filter(Boolean)
+      )
+    );
+    const match = choiceTiles.find(t => {
+      const nt = norm(t);
+      if (mayaTokens.has(nt)) return false;
+      return nt === candidate || tokens.includes(nt);
+    });
+    if (match) {
+      stopListening();
+      setIsListening(false);
+      resetTranscript();
+      handleChoiceTap(match);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript, choiceMode, choiceTiles, showFeedback, speechIsListening]);
+
   // Stall timer for voice reminder
   const stallTimerFixRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -465,10 +510,12 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        if (sessionId && userId && !showTextInput && !choiceMode) {
+        if (sessionId && userId && !showTextInput) {
           startListening();
           setIsListening(true);
-          if (isRecordingSupported) startRecording();
+          // Audio upload only matters for open response; choice mode scores
+          // a tile word, so skip the recorder there.
+          if (isRecordingSupported && !choiceMode) startRecording();
         }
 
         // Start the stall reminder ONLY after the sentence has actually been
@@ -549,9 +596,12 @@ export function FixSentenceGame({
   useEffect(() => {
     const trial = currentTrialRef.current;
     if (!transcript || !trial || processingRef.current || showFeedback) return;
+    // Choice mode has its own spoken-tile matcher below — the open-response
+    // scorer must not also fire on the same transcript.
+    if (choiceMode) return;
     // Gate: only score when the mic is actually open for THIS trial.
     // Prevents stale transcripts from a previous trial leaking in (the
-    // "same answer reused for every sentence" bug).
+    // "same answer reused for every trial" bug).
     if (!speechIsListening) return;
     // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
     // tail lock) — but do NOT throw the transcript away. Patients often answer
@@ -978,8 +1028,14 @@ export function FixSentenceGame({
       )}
 
       {/* L1/L2 choice tiles — the ladder's scaffolded response mode.
-          Tap speaks the word (model) and answers; no mic, no typing. */}
+          Tap OR say a tile word to answer; both route through handleChoiceTap. */}
       {choiceMode && choiceTiles && !showFeedback && (
+        <div className="space-y-2">
+          {isListening && (
+            <p className="text-sm text-muted-foreground text-center flex items-center justify-center gap-1.5">
+              <Mic className="h-3.5 w-3.5" /> Say the word — or tap it below
+            </p>
+          )}
         <div className="grid grid-cols-2 gap-3" data-testid="choice-tiles">
           {choiceTiles.map((word) => (
             <Button
@@ -993,6 +1049,7 @@ export function FixSentenceGame({
               {word}
             </Button>
           ))}
+        </div>
         </div>
       )}
 
