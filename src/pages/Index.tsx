@@ -134,7 +134,7 @@ const Index = () => {
               clinical product. */}
           {[
             { value: "20+", label: "Speech Activities" },
-            { value: "~8 min", label: "Daily Sessions" },
+            { value: "5–15 min", label: "Daily Sessions" },
             { value: "24/7", label: "Practice Anytime" },
             { value: "1:1", label: "Adapts to You" },
           ].map((stat, i) => (

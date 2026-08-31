@@ -45,7 +45,6 @@ const ParserAnalytics = lazy(() => import("./pages/ParserAnalytics"));
 const PrivacySettings = lazy(() => import("./pages/PrivacySettings"));
 const History = lazy(() => import("./pages/History"));
 const ResearchExport = lazy(() => import("./pages/ResearchExport"));
-const ClusterAnalytics = lazy(() => import("./pages/ClusterAnalytics"));
 const PhotoLibrary = lazy(() => import("./pages/PhotoLibrary"));
 const PhotoNamingExercise = lazy(() => import("./pages/PhotoNamingExercise"));
 const FeedTheMonsterExercise = lazy(() => import("./pages/FeedTheMonsterExercise"));
@@ -273,7 +272,9 @@ const App = () => (
                   <Route path="/admin/pipeline" element={<AppLayout><AdminProtectedRoute><AdminPipeline /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/analytics" element={<AppLayout><AdminProtectedRoute><ParserAnalytics /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/research-export" element={<AppLayout><AdminProtectedRoute><ResearchExport /></AdminProtectedRoute></AppLayout>} />
-                  <Route path="/analytics/cluster" element={<AppLayout><AdminProtectedRoute><ClusterAnalytics /></AdminProtectedRoute></AppLayout>} />
+                  {/* /analytics/cluster removed from routing: useClusterComparison still
+                      returns placeholder cohort stats (hardcoded percentile/norms). Restore
+                      the route only once real cluster aggregates ship. */}
                   <Route path="/admin/outcomes-validation" element={<AppLayout><AdminProtectedRoute><OutcomesValidation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/engine-simulation" element={<AppLayout><AdminProtectedRoute><AdminEngineSimulation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/alerts" element={<AppLayout><AdminProtectedRoute><AdminAlertRollup /></AdminProtectedRoute></AppLayout>} />

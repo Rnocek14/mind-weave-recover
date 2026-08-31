@@ -7,6 +7,17 @@ import { Shield, Trash2, Volume2 } from "lucide-react";
 import { BackButton } from "@/components/layout/BackButton";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -143,12 +154,6 @@ export default function PrivacySettings() {
 
   const deleteAllData = async () => {
     if (!user) return;
-
-    const confirmed = window.confirm(
-      "Delete your account and all your data? This cannot be undone."
-    );
-
-    if (!confirmed) return;
 
     try {
       // Server-side deletion: removes storage objects, then the auth account
@@ -322,14 +327,32 @@ export default function PrivacySettings() {
 
             <div className="pt-6 mt-6 border-t">
               <h3 className="font-semibold mb-3 text-destructive">Danger Zone</h3>
-              <Button 
-                variant="destructive" 
-                onClick={deleteAllData}
-                className="w-full"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete All My Data
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete All My Data
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This deletes your account, your practice history, and your
+                      recordings. It cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep my account</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={deleteAllData}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete everything
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </Card>

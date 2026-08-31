@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID, type MayaTtsMode } from '@/lib/constants/voice';
 import { voiceController } from '@/lib/voiceController';
@@ -74,6 +75,9 @@ export const stopGlobalTTS = () => {
 let sessionIsPaused = false;
 let pauseWaiters: Array<(proceed: boolean) => void> = [];
 
+// One visible "voice unavailable" notice per page load (see speakBrowser).
+let audioUnavailableNotified = false;
+
 const releasePauseWaiters = (proceed: boolean) => {
   sessionIsPaused = false;
   const waiters = pauseWaiters;
@@ -116,6 +120,16 @@ export const useTextToSpeech = () => {
         // silence. Flow-style games ignore `error` and keep their existing
         // never-block behavior.
         setError('audio_unavailable');
+        // Visible failure beats silent failure: without this, a dead TTS key
+        // or lost connection makes Maya simply never speak while the UI
+        // advances normally. One toast per page load — not per utterance.
+        if (!audioUnavailableNotified) {
+          audioUnavailableNotified = true;
+          toast.error("Maya's voice isn't working right now", {
+            description: 'Check your internet connection. You can keep practicing — instructions stay on screen.',
+            duration: 8000,
+          });
+        }
         // Make sure no stale browser audio is still queued from a prior session.
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           try { window.speechSynthesis.cancel(); } catch {}

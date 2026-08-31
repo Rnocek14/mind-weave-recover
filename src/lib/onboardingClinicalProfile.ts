@@ -32,7 +32,7 @@ const DIFFICULTY = {
   findingWords: 'Finding words',
   understanding: 'Understanding others',
   readingWriting: 'Reading/Writing',
-  movement: 'Movement',
+  movement: 'Using my hand',
 } as const;
 
 /** Map stroke-timing answer → chronicity tag (informational, low stakes). */

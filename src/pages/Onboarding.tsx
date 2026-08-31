@@ -35,7 +35,9 @@ const Onboarding = () => {
   const { user } = useAuth();
 
   const goals = [
-    { id: "motor", label: "Rebuild Movement", icon: Hand, desc: "Improve arm, hand, and leg mobility" },
+    // Honest scope: the app's motor content is tap-response games (speed,
+    // accuracy, visual attention) — it is NOT an arm/leg mobility program.
+    { id: "motor", label: "Hand & Eye Practice", icon: Hand, desc: "Tapping speed, accuracy, and visual attention" },
     { id: "speech", label: "Restore Speech", icon: MessageSquare, desc: "Practice naming and communication" },
     { id: "cognition", label: "Enhance Cognition", icon: Brain, desc: "Memory, attention, and problem-solving" },
   ];
@@ -172,7 +174,7 @@ const Onboarding = () => {
           <div className="bg-success-light/20 border border-success/30 rounded-lg p-4 text-left">
             <h4 className="font-semibold text-success mb-2">What to Expect:</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>✓ 15-20 minute guided sessions</li>
+              <li>✓ 5–15 minute guided sessions</li>
               <li>✓ Personalized difficulty that adjusts to you</li>
               <li>✓ Track progress with visual reports</li>
               <li>✓ Practice anytime, anywhere</li>
@@ -248,7 +250,7 @@ const Onboarding = () => {
               <div>
                 <label className="text-sm font-medium block mb-2">Main difficulty right now? <span className="text-muted-foreground font-normal">(select all that apply)</span></label>
                 <div className="flex flex-wrap gap-2">
-                  {['Finding words', 'Understanding others', 'Reading/Writing', 'Movement'].map(opt => (
+                  {['Finding words', 'Understanding others', 'Reading/Writing', 'Using my hand'].map(opt => (
                     <Badge 
                       key={opt}
                       variant={screener.mainDifficulty.includes(opt) ? 'default' : 'outline'}

@@ -234,8 +234,11 @@ export const PhotoNamingGame = ({
 
   const { toast: showToast } = useToast();
 
-  // Keyboard shortcut for debug overlay (Ctrl+Shift+D or Cmd+Shift+D)
+  // Keyboard shortcut for debug overlay (Ctrl+Shift+D or Cmd+Shift+D).
+  // Dev builds only — an accidental chord in production must never pop a
+  // "🐛 debug enabled" toast in front of a patient or an audience.
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'd') {

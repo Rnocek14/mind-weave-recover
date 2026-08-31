@@ -224,12 +224,9 @@ export default function ClinicianPanel() {
             <div className="text-xs text-muted-foreground uppercase tracking-wider">Top Issue</div>
             <div className="text-sm font-medium mt-0.5">{cohortSnapshot.topIssue}</div>
           </Card>
-          <Card className="p-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate("/admin/cohort-research")}>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              Research <ExternalLink className="w-2.5 h-2.5" />
-            </div>
-            <div className="text-sm font-medium mt-0.5 text-primary">Cohort Analytics →</div>
-          </Card>
+          {/* Cohort Analytics card removed: it navigated to /admin/cohort-research,
+              which is AdminProtectedRoute — clinicians were bounced to /dashboard.
+              Restore only with a clinician-accessible destination. */}
         </div>
       )}
 
