@@ -103,7 +103,18 @@ const NOISE_SPEECH_RATIO = 0.2;
 
 export function classifyUtteranceValidity(input: ValidityInput): ValidityResult {
   const transcriptRaw = (input.transcript ?? '').trim();
-  const durationMs = Math.max(0, Math.round(input.recordingDurationMs ?? 0));
+  // Unknown duration (recorder never ran / failed to report) is NOT the same
+  // as a measured 0ms clip. Photo Naming only captures duration when a
+  // MediaRecorder session was active, so a genuinely-spoken answer that ASR
+  // transcribed can arrive here with recordingDurationMs undefined — it must
+  // not be stamped no_response by the too-short rule. Only a *measured*
+  // sub-400ms clip is rejected on duration.
+  const durationKnown =
+    typeof input.recordingDurationMs === 'number' &&
+    Number.isFinite(input.recordingDurationMs);
+  const durationMs = durationKnown
+    ? Math.max(0, Math.round(input.recordingDurationMs as number))
+    : 0; // signals-only placeholder; duration rules below check durationKnown
   const asrConfidence =
     typeof input.asrConfidence === 'number' && Number.isFinite(input.asrConfidence)
       ? input.asrConfidence
@@ -144,8 +155,8 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     };
   }
 
-  // 1. No response — too short OR no transcript at all
-  if (durationMs < MIN_VALID_DURATION_MS || transcriptRaw.length === 0) {
+  // 1. No response — measured-too-short OR no transcript at all
+  if ((durationKnown && durationMs < MIN_VALID_DURATION_MS) || transcriptRaw.length === 0) {
     // Distinguish: if duration is sufficient but transcript is empty AND
     // ratio looks like noise → background_noise; else no_response.
     if (
@@ -168,7 +179,7 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     return {
       validity: 'no_response',
       reason:
-        durationMs < MIN_VALID_DURATION_MS
+        durationKnown && durationMs < MIN_VALID_DURATION_MS
           ? `Recording too short (${durationMs}ms < ${MIN_VALID_DURATION_MS}ms).`
           : 'Empty transcript — no speech detected.',
       confidence: 0.9,

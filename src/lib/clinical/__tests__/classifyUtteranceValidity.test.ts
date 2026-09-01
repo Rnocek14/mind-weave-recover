@@ -12,6 +12,30 @@ describe('classifyUtteranceValidity', () => {
     expect(r.countsTowardScore).toBe(false);
   });
 
+  it('does NOT reject a real transcript when duration is unknown (recorder never ran)', () => {
+    // Photo Naming only reports recordingDurationMs when a MediaRecorder
+    // session was active. A spoken answer transcribed by ASR must not be
+    // stamped no_response just because duration was never measured.
+    const r = classifyUtteranceValidity({
+      transcript: 'cat',
+      recordingDurationMs: null,
+      asrConfidence: 0.9,
+    });
+    expect(r.validity).toBe('valid_attempt');
+    expect(r.countsTowardScore).toBe(true);
+  });
+
+  it('still flags empty transcript as no_response when duration is unknown', () => {
+    const r = classifyUtteranceValidity({
+      transcript: '',
+      recordingDurationMs: undefined,
+      asrConfidence: null,
+    });
+    expect(r.validity).toBe('no_response');
+    expect(r.reason).toContain('Empty transcript');
+    expect(r.countsTowardScore).toBe(false);
+  });
+
   it('flags empty transcript as no_response', () => {
     const r = classifyUtteranceValidity({
       transcript: '   ',

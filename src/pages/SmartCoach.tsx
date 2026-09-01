@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { humanizeSlug } from '@/lib/performanceAwareFeedback';
 import { toast } from 'sonner';
+import { PATIENT_RECOVERY_SCORE_ENABLED } from '@/lib/flags/patientRecoveryScore';
 
 // ─── Toast throttle: prevents spam by enforcing a minimum gap ────
 let lastToastTime = 0;
@@ -102,7 +103,8 @@ export default function SmartCoach() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile } = useProfile();
-  const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: true });
+  // Patient exposure of the composite score is gated until validation lands.
+  const recoveryScore = useRecoveryScore(user?.id, activeProfile?.id, { enabled: PATIENT_RECOVERY_SCORE_ENABLED });
   const coachProfile = useCoachProfile(user?.id);
 
   // Session state
@@ -927,7 +929,7 @@ export default function SmartCoach() {
             </div>
 
             {/* Recovery score */}
-            {recoveryScore.score != null && recoveryScore.confidence !== 'insufficient' && (
+            {PATIENT_RECOVERY_SCORE_ENABLED && recoveryScore.score != null && recoveryScore.confidence !== 'insufficient' && (
               <div className="bg-card border rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>

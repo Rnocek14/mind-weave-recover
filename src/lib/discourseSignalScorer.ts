@@ -20,6 +20,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { showCrisisSafetyNotice } from "@/lib/safety/crisisDetection";
 import {
   ACTIVE_CALIBRATION,
   applyErrorTypeCaps,
@@ -105,6 +106,17 @@ export async function scoreDiscourseTurn(input: ScoreInput): Promise<ClinicalSig
 
     if (error) {
       console.warn("[discourseScorer] edge function error, falling back:", error.message);
+      return localFallbackScore(input);
+    }
+    // Safety gate tripped server-side (covers typed input that never passes
+    // through the speech-recognition hook). Surface the fixed guidance and
+    // return the deterministic local score so adaptation gets a sane,
+    // LLM-free signal for this turn.
+    if (data && typeof data === "object" && (data as { crisis?: boolean }).crisis === true) {
+      const kind = (data as { crisisKind?: string }).crisisKind === "medical_emergency"
+        ? "medical_emergency" as const
+        : "self_harm" as const;
+      showCrisisSafetyNotice(kind);
       return localFallbackScore(input);
     }
     if (!data || typeof data !== "object" || data.error) {

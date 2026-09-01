@@ -31,6 +31,7 @@ import {
   ResponsiveContainer, Area, AreaChart, Tooltip as RechartsTooltip,
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { PATIENT_RECOVERY_SCORE_ENABLED } from '@/lib/flags/patientRecoveryScore';
 
 // ── Tunable thresholds (centralized for easy adjustment) ──
 const THRESHOLDS = {
@@ -137,7 +138,7 @@ export default function RecoveryProgress() {
   const { dataPoints: cueData, currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId);
   const { words, mastered, emerging, struggling, loading: wordLoading } = useWordMastery(userId);
   const { dataPoints: errorData, currentScore: errorScore, trend: errorTrend, loading: errorLoading } = useErrorQualityScore(userId);
-  const { score: recoveryScore, weeklyDelta, confidence: scoreConfidence, loading: scoreLoading } = useRecoveryScore(userId, profileId);
+  const { score: recoveryScore, weeklyDelta, confidence: scoreConfidence, loading: scoreLoading } = useRecoveryScore(userId, profileId, { enabled: PATIENT_RECOVERY_SCORE_ENABLED });
 
   const loading = lrLoading || cueLoading || wordLoading || errorLoading || scoreLoading;
   const strokeDate = activeProfile?.stroke_date;
@@ -205,8 +206,9 @@ export default function RecoveryProgress() {
           </div>
         </div>
 
-        {/* Recovery Score Hero */}
-        {recoveryScore != null && scoreConfidence !== 'insufficient' && (
+        {/* Recovery Score Hero — patient exposure gated until the composite
+            is validated against real patient data (see the flag module). */}
+        {PATIENT_RECOVERY_SCORE_ENABLED && recoveryScore != null && scoreConfidence !== 'insufficient' && (
           <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/2 to-transparent overflow-hidden">
             <CardContent className="p-5 md:p-6">
               <div className="flex items-center justify-between">

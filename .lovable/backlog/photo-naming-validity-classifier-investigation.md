@@ -1,7 +1,35 @@
 # Investigation: Photo Naming validity classifier mislabels correct trials
 
-Status: OPEN — separate from data-integrity plumbing (#1/#3, now fixed)
+Status: RESOLVED 2026-09-01 — root cause confirmed and fixed (see Resolution)
 Severity: MED–HIGH (clinical signal quality)
+
+## Resolution (2026-09-01)
+
+Two confirmed root causes, both in the gate's inputs — the classifier's
+thresholds were untouched, per the checklist below:
+
+1. **Unknown duration collapsed to 0ms.** `PhotoNamingGame` only measures
+   `recordingDurationMs` when a MediaRecorder session was active
+   (`isRecording && user && activeSessionId`). A fast browser (Web Speech)
+   recognition with no recording reported `undefined`, which
+   `classifyUtteranceValidity` coerced to `0` — tripping the `< 400ms`
+   no_response rule against a trial the scorer marked correct. Fix: the
+   classifier now distinguishes *unknown* duration from *measured-short*;
+   only a measured sub-400ms clip is rejected on duration
+   (`src/lib/clinical/classifyUtteranceValidity.ts`).
+2. **Gate transcript narrower than scorer transcript.** The gate read
+   `whisperTranscript || browserTranscript` while the scoring path also had
+   the unified `utteranceAnalysis.transcript`. When both ASR fields were
+   empty but analysis transcribed the speech, the gate stamped
+   background_noise/no_response. Fix: the call-site fallback chain now ends
+   with `utteranceAnalysis?.transcript`
+   (`src/pages/PhotoNamingExercise.tsx`). That field is only ever the raw
+   whisper transcript or empty — never back-filled with the target — so
+   silence cannot be rescued into a scored attempt.
+
+Covered by new cases in `classifyUtteranceValidity.test.ts` and
+`photoNamingValidityReconciliation.test.ts` (unknown-duration rescue,
+analysis-transcript rescue, and silence-not-rescued guards).
 
 ## Symptom
 On Photo Naming sessions, correct spoken trials are scored as 100 but the

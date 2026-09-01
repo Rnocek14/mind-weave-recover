@@ -281,6 +281,15 @@ Weights reflect clinical importance:
 
 **Do NOT ship this composite score until individual metrics are validated with real patient data.**
 
+> **Status 2026-09-01:** an implementation exists (`useRecoveryScore.ts`,
+> `SCORE_VERSION v1`) and had reached patient surfaces ahead of this rule.
+> Patient exposure (Recovery Progress hero, Smart Coach summary, the
+> `/recovery-score` breakdown) is now gated off behind
+> `src/lib/flags/patientRecoveryScore.ts` until validation lands; clinician
+> Patient Hub surfaces keep the beta-labeled score. Note the shipped v1
+> weights differ from the formula above (no transfer index; latency and
+> endurance at 0.10 each) — reconcile before any validation study.
+
 ---
 
 ## Data Gaps — Status

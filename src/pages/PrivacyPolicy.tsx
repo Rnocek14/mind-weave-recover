@@ -12,7 +12,7 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSeoMeta } from "@/hooks/useSeoMeta";
 
-const LAST_UPDATED = "July 16, 2026";
+const LAST_UPDATED = "September 1, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -112,10 +112,26 @@ export default function PrivacyPolicy() {
               converts your recorded speech to text and analyzes pronunciation.
             </li>
             <li>
-              <span className="text-foreground font-medium">AI language services</span> —
-              short pieces of text (such as a word you said and the target
-              word) may be sent to AI services to judge how close in meaning
-              they are, and to generate Maya's spoken guidance.
+              <span className="text-foreground font-medium">OpenAI</span> —
+              reads therapy documents you choose to upload (like discharge
+              summaries) to fill in your therapy profile, and helps write
+              your progress summaries. We only send a document after you
+              agree on the upload screen.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Lovable AI</span> —
+              powers conversation practice and coaching. What you say (or
+              type) in those exercises is sent there to generate the
+              response and score the turn.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">ElevenLabs</span> —
+              turns Maya's written guidance into spoken audio.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Fly.io</span> —
+              runs our own speech-analysis worker, which fetches your
+              practice recordings to measure pronunciation timing.
             </li>
           </ul>
         </Section>

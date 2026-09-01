@@ -19,6 +19,7 @@ import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
 function classifyPhotoNamingTrial(input: {
   whisperTranscript?: string | null;
   browserTranscript?: string | null;
+  utteranceAnalysisTranscript?: string | null;
   whisperConfidence?: number | null;
   recordingDurationMs?: number | null;
   speechToPauseRatio?: number | null;
@@ -26,7 +27,11 @@ function classifyPhotoNamingTrial(input: {
   confirmedBy?: 'user' | 'caregiver' | null;
   asrVerified?: boolean;
 }) {
-  const gateTranscript = input.whisperTranscript || input.browserTranscript || null;
+  const gateTranscript =
+    input.whisperTranscript ||
+    input.browserTranscript ||
+    input.utteranceAnalysisTranscript ||
+    null;
   return classifyUtteranceValidity({
     transcript: gateTranscript,
     asrConfidence: input.whisperConfidence ?? null,
@@ -94,6 +99,42 @@ describe('Photo Naming validity reconciliation (B4)', () => {
     expect(r.countsTowardScore).toBe(false); // clean ASR axis stays clean
     expect(r.countsTowardParticipation).toBe(true);
     expect(r.countsTowardPracticeAccuracy).toBe(true);
+  });
+
+  it('THE FIX (duration unknown) — recorder never ran but browser heard the answer → valid_attempt', () => {
+    // Duration is only measured when a MediaRecorder session was active
+    // (isRecording && user && activeSessionId). A fast browser recognition
+    // with no recording used to collapse to 0ms → no_response while the
+    // scorer marked the trial correct — the score=100/no_response mismatch
+    // in the validity-classifier backlog item.
+    const r = classifyPhotoNamingTrial({
+      whisperTranscript: '',
+      browserTranscript: 'cat',
+      recordingDurationMs: null,
+    });
+    expect(r.validity).toBe('valid_attempt');
+    expect(r.countsTowardScore).toBe(true);
+  });
+
+  it('THE FIX (analysis transcript) — whisper and browser empty, analysis transcribed it → valid_attempt', () => {
+    const r = classifyPhotoNamingTrial({
+      whisperTranscript: '',
+      browserTranscript: '',
+      utteranceAnalysisTranscript: 'elephant',
+      recordingDurationMs: 2000,
+    });
+    expect(r.validity).toBe('valid_attempt');
+    expect(r.countsTowardScore).toBe(true);
+  });
+
+  it('duration unknown AND no transcript anywhere → still no_response (silence is not rescued)', () => {
+    const r = classifyPhotoNamingTrial({
+      whisperTranscript: '',
+      browserTranscript: '',
+      recordingDurationMs: null,
+    });
+    expect(r.validity).toBe('no_response');
+    expect(r.countsTowardScore).toBe(false);
   });
 
   it('short utterance (<400ms) → no_response even if browser heard something', () => {

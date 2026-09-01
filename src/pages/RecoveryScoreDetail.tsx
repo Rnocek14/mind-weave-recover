@@ -4,10 +4,12 @@
  * Shows: score breakdown, trend over time, component analysis, contributing factors
  */
 
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useUiMode } from '@/hooks/useUiMode';
 import { useRecoveryScore } from '@/hooks/useRecoveryScore';
+import { PATIENT_RECOVERY_SCORE_ENABLED } from '@/lib/flags/patientRecoveryScore';
 import { BackButton } from '@/components/layout/BackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +45,18 @@ export default function RecoveryScoreDetail() {
   const userId = user?.id;
   const profileId = activeProfile?.id;
 
-  const { score, breakdown, confidence, trend, weeklyDelta, loading, history } = useRecoveryScore(userId, profileId, { persistSnapshot: false });
+  const { score, breakdown, confidence, trend, weeklyDelta, loading, history } = useRecoveryScore(userId, profileId, {
+    persistSnapshot: false,
+    enabled: PATIENT_RECOVERY_SCORE_ENABLED || isClinician,
+  });
+
+  // Patient exposure of the composite is gated until it is validated against
+  // real patient data (see the flag module). Clinician view keeps the
+  // beta-labeled breakdown — clinicians can contextualize a directional,
+  // uncalibrated number.
+  if (!PATIENT_RECOVERY_SCORE_ENABLED && !isClinician) {
+    return <Navigate to="/recovery-progress" replace />;
+  }
 
   if (loading) {
     return (

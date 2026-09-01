@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { maybeSurfaceCrisisNotice } from '@/lib/safety/crisisDetection';
 
 type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING' | 'RESTARTING';
 
@@ -196,6 +197,12 @@ export const useSpeechRecognition = (
         console.log('🎤 Final transcript:', finalTranscript);
         setTranscript(finalTranscript);
 
+        // Safety check — every speech surface routes final transcripts through
+        // here, so this is the one place a self-harm or acute-stroke utterance
+        // can be caught regardless of which exercise is running. Additive only:
+        // shows the fixed emergency guidance, never touches scoring or flow.
+        maybeSurfaceCrisisNotice(finalTranscript);
+
         // Capture engine confidence + the alternate hypotheses (we request
         // maxAlternatives=5). For disordered speech the correct target often
         // sits in an alternative even when the top hypothesis is wrong, and
@@ -331,10 +338,14 @@ export const useSpeechRecognition = (
       lastStopTimeRef.current = Date.now();
       
       // Process any pending interim transcript as final result if not already processed
-      if (pendingTranscriptRef.current && 
+      if (pendingTranscriptRef.current &&
           !manuallyStoppedRef.current) {
         const pending = pendingTranscriptRef.current;
         pendingTranscriptRef.current = '';
+
+        // Safety check for interim speech promoted to final on end — the
+        // same additive crisis notice as the isFinal path above.
+        maybeSurfaceCrisisNotice(pending);
         
         if (discourseMode && pending) {
           // Accumulate the pending interim as a final segment

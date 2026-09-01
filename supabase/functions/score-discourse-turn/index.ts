@@ -3,6 +3,7 @@
 // Used by ConversationPartner + ThoughtContinuation.
 import { getAuthedUser, jsonResponse } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { detectCrisis, crisisSafetyMessage } from "../_shared/crisisDetection.ts";
 
 
 const corsHeaders = {
@@ -288,6 +289,23 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "transcript and promptText are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Safety gate — BEFORE the LLM, same as the conversational functions. A
+    // self-harm or acute-stroke utterance must not be graded as a discourse
+    // turn (or sent to the LLM at all); the client surfaces the fixed safety
+    // message and skips normal scoring for this turn.
+    const crisis = detectCrisis(body.transcript);
+    if (crisis.isCrisis && crisis.kind) {
+      return new Response(
+        JSON.stringify({
+          crisis: true,
+          crisisKind: crisis.kind,
+          safetyMessage: crisisSafetyMessage(crisis.kind),
+          source: "crisis",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
 

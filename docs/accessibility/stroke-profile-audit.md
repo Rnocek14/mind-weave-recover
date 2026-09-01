@@ -220,7 +220,7 @@ Pass B **strengthens Option A (adaptive `uiProfile`)** rather than weakening it:
 
 These three should land before 2C-i ships so the new variants don't paper over old bugs:
 
-- **CLEAN-1 (F1):** Gate `Voice/Gate HUD` behind `import.meta.env.DEV` and a localStorage flag. Currently renders in production anon sessions. Trivial fix in the HUD component.
+- **CLEAN-1 (F1):** ✅ RESOLVED (verified 2026-09-01). Both dev overlays are now opt-in only in production: `VoiceGateHud` requires `?hud=1` / `localStorage.hud=1` (never auto-shows, even in DEV), and the `UiVariantPicker` variant selector requires `?uivars=1` / `localStorage.uivars=1` outside Vite dev. Neither renders in patient/anon sessions by default.
 - **CLEAN-2 (F2):** Add a deep-link guard to `/exercise/*` — if no hydrated lesson context, either bounce to `/today` with a one-line toast or render a one-tap "Resume from Today" recovery card. Prevents the permanent loading state.
 - **CLEAN-3 (F3):** Hide `Clinician Hub →` on `/today` when `role !== 'clinician'` (anon users currently see it).
 
