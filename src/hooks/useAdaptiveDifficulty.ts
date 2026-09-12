@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
-import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { clampToBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
 import { SuccessBandController, type SuccessBandConfig, type SuccessBandState } from '@/lib/successBandController';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
@@ -113,11 +113,17 @@ export const useAdaptiveDifficulty = ({
   // render. Adjust during render (not in an effect) so a child game seeded from
   // a prop sees the real level on its first mount, and only while no trial has
   // been recorded, so live adaptation is never overwritten.
-  const [seededDifficulty, setSeededDifficulty] = useState(initialDifficulty);
-  if (initialDifficulty !== seededDifficulty) {
-    setSeededDifficulty(initialDifficulty);
-    if (trialIndexRef.current === 0 && currentDifficulty !== initialDifficulty) {
-      setCurrentDifficulty(initialDifficulty);
+  // Clamped, and non-finite input is ignored: `NaN !== NaN` is always true, so
+  // comparing a NaN prop would queue a state update on every render and React
+  // would abort the exercise with "Too many re-renders".
+  const seedCandidate = Number.isFinite(initialDifficulty)
+    ? clampToBounds(initialDifficulty, bounds)
+    : null;
+  const [seededDifficulty, setSeededDifficulty] = useState(seedCandidate);
+  if (seedCandidate !== null && seedCandidate !== seededDifficulty) {
+    setSeededDifficulty(seedCandidate);
+    if (trialIndexRef.current === 0) {
+      setCurrentDifficulty(seedCandidate);
     }
   }
 

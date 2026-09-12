@@ -837,12 +837,13 @@ export function getTrialsForDifficulty(level: number, count: number = 10): Phono
  * screen with no way to finish or record the session, and an in-session
  * escalation past 6 silently swapped nothing while the UI announced a level-up.
  *
- * The bands mirror the per-level content description in
- * `src/lib/progression/phonologicalAwarenessLevels.ts`. No engine level gets a
- * HARDER pool than it had before: 1 is unchanged, 2–6 are equal or easier, and
- * 7–10 go from empty to the top of the bank.
+ * Engine levels 1–5 keep exactly the pool they had, so no patient's content
+ * changes; engine 6 gains the top band it was already asking for, and 7–10 go
+ * from empty to the top of the bank. Softening the lower bands instead would
+ * have made every currently-reachable clinical level practise EASIER contrasts
+ * while still climbing the ladder.
  */
-const ENGINE_LEVEL_TO_BANK_DIFFICULTY = [1, 1, 2, 2, 3, 3, 4, 5, 5, 5] as const;
+const ENGINE_LEVEL_TO_BANK_DIFFICULTY = [1, 2, 3, 4, 5, 5, 5, 5, 5, 5] as const;
 
 export function mapEngineLevelToPhonoBankDifficulty(level: number): number {
   if (!Number.isFinite(level)) return 1;

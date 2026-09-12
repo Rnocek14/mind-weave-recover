@@ -13,18 +13,35 @@
  * shortens a session, one of these fails and names the game.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { DUAL_LOAD_NAMING_LEVELS, highestImplementedDualLoadNamingLevel } from '../dualLoadNamingLevels';
 import { MULTI_STEP_PLANNING_LEVELS, highestImplementedMultiStepPlanningLevel } from '../multiStepPlanningLevels';
 import { SYNONYM_GENERATOR_LEVELS, highestImplementedSynonymGeneratorLevel } from '../synonymGeneratorLevels';
 import { CATEGORY_FLUENCY_LEVELS, highestImplementedCategoryFluencyLevel } from '../categoryFluencyLevels';
 
-/** Default trials/rounds a standalone session ships with, per game page. */
-const SHIPPED_SESSION_LENGTH: Record<string, number> = {
-  'dual-load-naming': 4,
-  'multi-step-plan': 4,
-  'synonym-generator': 4,
-  'category-fluency': 4,
+/**
+ * The default trials/rounds a standalone session ships with, read from the page
+ * itself. Hard-coding these numbers here would let someone lower a page default
+ * back below its ladder's requirement without failing anything, which is the
+ * exact regression this file exists to prevent.
+ */
+const PAGE_DEFAULT_SOURCE: Record<string, string> = {
+  'dual-load-naming': 'src/pages/DualLoadNamingExercise.tsx',
+  'multi-step-plan': 'src/pages/MultiStepPlanExercise.tsx',
+  'synonym-generator': 'src/pages/SynonymGeneratorExercise.tsx',
+  'category-fluency': 'src/pages/CategoryFluencyExercise.tsx',
 };
+
+function shippedSessionLength(slug: string): number {
+  const source = readFileSync(resolve(process.cwd(), PAGE_DEFAULT_SOURCE[slug]), 'utf8');
+  // e.g. `const trialLimit = Number(location.state?.trialLimit) || 4;`
+  const match = source.match(
+    /(?:trialLimit|roundCount)\s*=\s*Number\(location\.state\?\.trialLimit\)\s*\|\|\s*(\d+)/,
+  );
+  if (!match) throw new Error(`could not read the shipped session length for ${slug}`);
+  return Number(match[1]);
+}
 
 const LADDERS: Array<{
   slug: string;
@@ -40,7 +57,7 @@ const LADDERS: Array<{
 describe('session length vs promotion evidence', () => {
   for (const { slug, levels, ceiling } of LADDERS) {
     it(`${slug}: every implemented rung is reachable in one shipped session`, () => {
-      const shipped = SHIPPED_SESSION_LENGTH[slug];
+      const shipped = shippedSessionLength(slug);
       for (let level = 1; level <= ceiling; level++) {
         const spec = levels[level];
         if (!spec) continue;

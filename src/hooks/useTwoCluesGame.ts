@@ -80,8 +80,15 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
       focusPhonemes,
     });
     // Kids Mode narrows to easy, kid-world puzzles — but never overrides an
-    // explicit clinician-configured category or difficulty.
-    if (kidsMode && !category && !difficulty) {
+    // explicit clinician-configured category.
+    //
+    // This used to bail out whenever a `difficulty` was supplied, on the
+    // assumption that a difficulty could only come from a clinician. It now
+    // also carries the patient's own clinical floor, so that assumption
+    // silently switched the pediatric filter off — a child at clinical L7 was
+    // served the adult abstract/science/history pool. Matches the same guard in
+    // setActiveDifficulty below.
+    if (kidsMode && !category) {
       puzzles = filterKidsTwoCluesPuzzles(puzzles);
     }
     // Cross-session recency: prefer puzzles not seen in the last ~2 sessions

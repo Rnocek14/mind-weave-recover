@@ -11,15 +11,18 @@
  * any clinical level, and L5, L6, L7 and L8 all produced the identical session.
  * It now speaks the scale the game actually uses.
  *
- *   Clinical L1, L2 → 1 (broad concrete, 45 s)
- *   Clinical L3, L4 → 2 (broad concrete, 35 s)
- *   Clinical L5     → 3 (mid/narrow concrete, 30 s)
- *   Clinical L6     → 4 (mid/narrow concrete, 25 s)
- *   Clinical L7, L8 → 5 (abstract, 20 s)
+ *   Clinical L1, L2  → 1 (broad concrete, 45 s)
+ *   Clinical L3, L4  → 2 (broad concrete, 35 s)
+ *   Clinical L5, L6  → 3 (mid/narrow concrete, 30 s)
+ *   Clinical L7, L8  → 4 (mid/narrow concrete, 25 s)
  *
- * L1–L5 keep exactly the difficulty they resolve to today; only L6+ — the rungs
- * whose ladder text calls for abstract, time-pressured retrieval — move up, and
- * they were previously indistinguishable from L5.
+ * L1–L6 keep exactly the difficulty they resolve to today; only L7/L8 move up,
+ * by one step, and they were previously indistinguishable from L5. The floor
+ * deliberately stops at 4: the soft-regression step subtracts one, so a floor of
+ * 5 would hand a STRUGGLING patient (scaffolded 5-1 = 4) a harder session than
+ * the same patient received unscaffolded before this change. Difficulty 5 —
+ * the abstract bank at 20 s — remains reachable by in-session escalation, which
+ * is evidence-driven, rather than being assigned up front.
  *
  * Soft-regression scaffolding mirrors PhotoNaming/FixSentence: when
  * supportBaseline ≥ threshold, lower the floor by 1 (clamped to 1).
@@ -33,9 +36,9 @@ const CLINICAL_TO_TIER_FLOOR: Record<number, number> = {
   3: 2,
   4: 2,
   5: 3,
-  6: 4,
-  7: 5,
-  8: 5,
+  6: 3,
+  7: 4,
+  8: 4,
 };
 
 /** Highest difficulty the game's timer / threshold / category tables define. */
@@ -70,10 +73,12 @@ export function resolveEffectiveCategoryFluencyInitialDifficulty(args: {
   const softRegressionScaffold =
     supportBaseline >= SOFT_REGRESSION_SCAFFOLD_THRESHOLD;
   const clinicalFloor = clinicalLevelToTierFloor(args.clinicalLevel, supportBaseline);
-  const base = Math.max(
-    1,
-    Math.min(MAX_CATEGORY_FLUENCY_DIFFICULTY, Math.round(args.sessionAdaptationDifficulty || 1)),
-  );
+  // The session-adaptation tier is on a different (roughly 1–10) scale and is
+  // not earned clinical evidence, so it keeps its original ceiling of 3. A
+  // generated lesson block can carry a start difficulty of 5 for a brand-new
+  // patient; letting that through unconverted would open Category Fluency on
+  // the abstract bank at 20 s and a 7-word bar at clinical Level 1.
+  const base = Math.max(1, Math.min(3, Math.round(args.sessionAdaptationDifficulty || 1)));
   const effective = Math.max(base, clinicalFloor);
   return { effective, clinicalFloor, raised: effective > base, softRegressionScaffold };
 }

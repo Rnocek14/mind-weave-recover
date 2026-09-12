@@ -52,7 +52,11 @@ export async function flushMasteryShadow(args: {
       .from('adaptation_trial_logs')
       .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty, trial_mode, graded_score, score_vector, signal_granularity')
       .eq('user_id', userId)
-      .eq('profile_id', profileId)
+      // Unattributed rows (profile_id null) are written on purpose when the
+      // active profile has not resolved yet — the logger says so and inserts
+      // anyway — so they are this user's own trials and must still count.
+      // Excluding them would shrink the window and quietly move confidence.
+      .or(`profile_id.eq.${profileId},profile_id.is.null`)
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
       .order('created_at', { ascending: true });

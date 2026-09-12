@@ -68,8 +68,8 @@ did not:
 |---|---|---|
 | Minimal Pairs | mid-session swap passed a 1–3 tier to a function expecting a 1–10 level, so every swap served the easiest contrasts | passes the engine level |
 | Multi-Step Planning | the page's 1–10 engine floor was read as a 1–3 content tier, and the controller seeded at `tier × 3` | prop is an engine level, collapsed for content selection |
-| Phonological Awareness | engine levels 7 and above matched nothing in a 1–5 bank, so a promoted patient got an empty screen | engine levels collapse onto the bank |
-| Category Fluency | the bridge emitted 1–3 into a 1–5 game, so the abstract categories were unreachable and L5–L8 were identical | bridge speaks the game's real scale |
+| Phonological Awareness | engine levels 7 and above matched nothing in a 1–5 bank, so a promoted patient got an empty screen | levels above the bank's top map to it; 1–5 are untouched |
+| Category Fluency | the bridge emitted 1–3 into a 1–5 game, so L5–L8 were all identical | bridge speaks the game's real scale, one step at a time |
 | Two Clues | the game received no difficulty at all and never filtered or swapped content | receives the clinical floor and swaps the upcoming queue |
 | Dual-Load Naming | the pool filter was upper-bound only, so tiers 2 and 3 were the same content | strict tier isolation |
 
@@ -195,3 +195,60 @@ none was changed silently.
    progress and struggle, so this may be intended; it is worth confirming.
 6. **Nine games have no clinical ladder.** Their start level comes from session
    adaptation only, so nothing carries across sessions.
+7. **Lesson-only patients can still stall.** The raised defaults apply to
+   standalone sessions. A generated lesson block can carry a shorter
+   `trialLimit`, and a patient who only ever practises through lessons may
+   still not reach a level's evidence bar. Raising the presets is a lesson-design
+   decision.
+8. **Two games carry levels earned under rules that have since been
+   corrected.** Two Clues levels above 3 were only reachable under the inverted
+   support mapping, and Multi-Step Plan levels were earned under a much laxer
+   correctness bar. Both now start from a floor derived from those levels. A
+   one-time recalibration of the stored rows would be cleaner than letting the
+   old numbers set the content floor.
+
+## Review of the change set
+
+The diff was reviewed from three independent lenses before landing: regression
+risk, clinical safety, and React/runtime semantics. Two returned "do not ship"
+on a first pass. Everything they raised was either fixed or verified false:
+
+- **Kids Mode was silently switched off in Two Clues.** Supplying a difficulty
+  had been treated as proof of a clinician override, so passing the patient's
+  own clinical floor disabled the pediatric content filter — a child at clinical
+  Level 7 would have been served the adult abstract pool. The filter now keys
+  only on an explicit clinician category. This was a regression introduced by
+  this work.
+- **A non-finite starting level would have crashed the exercise.** Because
+  `NaN !== NaN`, the new render-phase re-seed would queue a state update on every
+  render and React would abort with "too many re-renders". The seed is now
+  finite-checked and bounds-clamped in both hooks, and no longer reads the ref it
+  writes, so a replayed render (StrictMode, a discarded concurrent render) cannot
+  leave state behind.
+- **The Category Fluency remap was too aggressive twice over.** It widened the
+  clamp on the session-adaptation input, which could have put a brand-new patient
+  on the abstract bank at 20 seconds; and its top floors interacted with soft
+  regression so that a struggling patient's scaffolded session came out harder
+  than their unscaffolded session had been. The session input keeps its original
+  ceiling, and the floors stop one step lower. Difficulty 5 is still reachable,
+  but only by in-session escalation, which is evidence-driven.
+- **The phonological remap softened content that already worked.** The first
+  version moved several currently-reachable levels down by up to two bands. It
+  now maps levels 1 to 5 to themselves and only fills the empty range above the
+  bank's top.
+- **The mastery flush would have dropped unattributed rows.** Trials are
+  deliberately written with no profile when the active profile has not resolved
+  yet. The query keeps the profile scoping but still counts this user's own
+  unattributed rows.
+- **The manual "too hard" control eased by two levels.** It now eases by one, and
+  clears the rolling window so the miss recorded alongside it cannot immediately
+  trigger a second drop.
+- **The Photo Naming promotion scoping removed the one independence check that
+  matters.** Level 3 to 4 is where the ladder stops scaffolding, so the
+  cue-independence floor is still enforced on that crossing.
+- **The session-length contract test did not enforce what its comment claimed.**
+  It hard-coded the numbers; it now reads the shipped defaults from the pages, and
+  fails if one is lowered.
+- **Refuted:** the claim that tightening the plan-success rule made some items
+  unpassable. Measured across all 60 planning items, a perfect recitation clears
+  the bar on every one.

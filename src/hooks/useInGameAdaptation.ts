@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { AdaptiveDifficultyController } from '@/lib/adaptiveDifficulty';
-import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { clampToBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -273,12 +273,22 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   // any child sees the value. (React's documented "adjust state when a prop
   // changes" pattern.) It only applies while no trial has been recorded, so
   // live in-session adaptation is never clobbered.
-  const [seededDifficulty, setSeededDifficulty] = useState(initialDifficulty);
-  if (initialDifficulty !== seededDifficulty) {
-    setSeededDifficulty(initialDifficulty);
-    if (trialCountRef.current === 0 && currentDifficultyRef.current !== initialDifficulty) {
-      currentDifficultyRef.current = initialDifficulty;
-      setCurrentDifficulty(initialDifficulty);
+  // The seed is clamped and non-finite input is ignored: `NaN !== NaN` is
+  // always true, so comparing a NaN prop would queue a state update on every
+  // render and React would abort the exercise with "Too many re-renders".
+  const seedCandidate = Number.isFinite(initialDifficulty)
+    ? clampToBounds(initialDifficulty, bounds)
+    : null;
+  const [seededDifficulty, setSeededDifficulty] = useState(seedCandidate);
+  if (seedCandidate !== null && seedCandidate !== seededDifficulty) {
+    setSeededDifficulty(seedCandidate);
+    // No inner comparison against the ref this block also writes: React may
+    // replay a render pass (StrictMode, a discarded concurrent render), and a
+    // guard that reads its own mutation would skip the queued state update on
+    // the replay and leave state behind the ref.
+    if (trialCountRef.current === 0) {
+      currentDifficultyRef.current = seedCandidate;
+      setCurrentDifficulty(seedCandidate);
     }
   }
 
@@ -660,10 +670,23 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   // ===========================================================================
   // Manual difficulty controls (for external use)
   // ===========================================================================
-  const stepDown = useCallback((reason: string = 'Manual difficulty reduction'): number => {
-    const newLevel = controllerRef.current.handleFrustration(currentDifficultyRef.current);
+  /**
+   * Manual ease. `steps` defaults to 2 to match the emergency response, but a
+   * patient tapping "this is too hard" is asking for the next thing down, not
+   * for the four-errors-in-a-row emergency, so callers acting on a direct
+   * request should pass 1.
+   */
+  const stepDown = useCallback((reason: string = 'Manual difficulty reduction', steps: number = 2): number => {
+    const floor = controllerRef.current.getBounds().floor;
+    const newLevel = Math.max(floor, currentDifficultyRef.current - Math.max(1, Math.round(steps)));
     currentDifficultyRef.current = newLevel;
     trialsAtLevelRef.current = 0;
+    // Same reason the rolling window is cleared after an automatic change: the
+    // trials in it were gathered at the level we just left, and leaving them
+    // would let the next answer re-trigger a step-down off stale evidence.
+    controllerRef.current.reset();
+    // An explicit choice outranks a clinical floor that resolves later.
+    setSeededDifficulty(newLevel);
     setCurrentDifficulty(newLevel);
     onDifficultyChange?.(newLevel, reason, 'down');
     
@@ -701,6 +724,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     reactionTimesRef.current = [];
     
     // Sync state
+    setSeededDifficulty(startDifficulty);
     setCurrentDifficulty(startDifficulty);
     setConsecutiveErrors(0);
     setFrustrationLevel('none');

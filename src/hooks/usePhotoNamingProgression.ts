@@ -236,11 +236,18 @@ export function usePhotoNamingProgression({
       // permanent hold. Passing null uses the classifier's documented
       // "missing numeric signals cannot disqualify on that axis" path, so the
       // evidence half of the rule still applies at every level.
-      const enforceIndependenceFloors = levelSpec.targetSupport === 'independent';
+      const atIndependentLevel = levelSpec.targetSupport === 'independent';
+      // The cue-independence floor still applies on the rung immediately below
+      // independent naming: L3 -> L4 is exactly where the ladder stops
+      // scaffolding, and it is the one crossing that should require evidence of
+      // independence rather than only accuracy under a cue.
+      const crossingIntoIndependence =
+        getPhotoNamingLevelSpec(level + 1).targetSupport === 'independent';
       const promotion = classifyMasteryPromotion({
         verdict: gate.verdict,
-        masteryScore: enforceIndependenceFloors ? gate.minMasteryScore : null,
-        cueIndependence: enforceIndependenceFloors ? gate.minCueIndependence : null,
+        masteryScore: atIndependentLevel ? gate.minMasteryScore : null,
+        cueIndependence:
+          atIndependentLevel || crossingIntoIndependence ? gate.minCueIndependence : null,
       });
       if (import.meta.env.DEV && promotion.decision === 'delay_reinforce') {
         console.log('[PhotoNamingProgression] promotion delayed by mastery quality:', promotion.reason);

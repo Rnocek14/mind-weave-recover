@@ -246,7 +246,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       // window, which only reacts once the rate reads below 50% — so the
       // button's promise ("Switching to an easier phrase") often went unkept.
       // A patient asking for easier work is a direct request, not a statistic.
-      stepDownAdaptive('Patient asked for an easier phrase');
+      stepDownAdaptive('Patient asked for an easier phrase', 1);
       toast({
         title: "No problem!",
         description: "Switching to an easier phrase.",

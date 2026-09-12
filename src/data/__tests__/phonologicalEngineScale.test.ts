@@ -21,9 +21,17 @@ describe('phonological bank — engine scale', () => {
 
   it('collapses the 1-10 engine scale onto the 1-5 bank without inverting it', () => {
     const mapped = Array.from({ length: 10 }, (_, i) => mapEngineLevelToPhonoBankDifficulty(i + 1));
-    expect(mapped).toEqual([1, 1, 2, 2, 3, 3, 4, 5, 5, 5]);
+    expect(mapped).toEqual([1, 2, 3, 4, 5, 5, 5, 5, 5, 5]);
     for (let i = 1; i < mapped.length; i++) {
       expect(mapped[i]).toBeGreaterThanOrEqual(mapped[i - 1]);
+    }
+  });
+
+  it('does not soften any level that already worked', () => {
+    // Engine 1-5 must map to themselves; the only defect was the empty pool
+    // above the bank's top difficulty.
+    for (let level = 1; level <= 5; level++) {
+      expect(mapEngineLevelToPhonoBankDifficulty(level)).toBe(level);
     }
   });
 
