@@ -130,7 +130,37 @@ export function useTrialSubmission(opts: Options) {
         cueLevel: input.cueLevel ?? null,
       });
 
-      // 1) exercise_events (raw clinical record) — always.
+      // 1) clinical_progression_state — buffer FIRST, synchronously.
+      //
+      // Games fire this call without awaiting it and then immediately signal
+      // completion, which runs commitSession() and flushes the ladder. While
+      // buffering sat after the awaited exercise_events insert, the final trial
+      // of every session was still in flight when evidence was computed — a
+      // three-round game could never satisfy its evidence rule and a one-round
+      // lesson persisted nothing at all. Buffering is a ref push with no I/O,
+      // so nothing is gained by making it wait for the network.
+      //
+      // Validity gate (spec §5.8): attempts the classifier ruled non-scorable
+      // (filler-only / no-response / background noise / ASR failure) must NOT
+      // feed clinical progression — a broken mic is not a struggle session.
+      // The row is still recorded to telemetry below for audit; it just
+      // doesn't move the ladder. Trials with no validity verdict (tap-based
+      // games, legacy callers) buffer as before.
+      const validityAllowsProgression =
+        !input.validity || applyValidityGate(input.validity).shouldFeedAdaptation;
+      try {
+        if (opts.progression && validityAllowsProgression) {
+          opts.progression.recordTrialOutcome({
+            correct: input.isCorrect,
+            support: input.supportUsed,
+          });
+          summary.routed.progressionBuffered = true;
+        }
+      } catch (err) {
+        console.warn('[submitTrial] progression buffer failed', err);
+      }
+
+      // 2) exercise_events (raw clinical record) — always.
       try {
         await logExerciseEvent({
           correct: input.isCorrect,
@@ -172,7 +202,7 @@ export function useTrialSubmission(opts: Options) {
         console.warn('[submitTrial] exercise_events write failed', err);
       }
 
-      // 2) adaptation_trial_logs.
+      // 3) adaptation_trial_logs.
       // IMPORTANT: games that auto-wire this via useInGameAdaptation
       // (autoLog:true) or a hand-wired useAdaptationTrialLogger (PhotoNaming,
       // TwoClues) must NOT also pass the flag below — that would double-insert.
@@ -201,27 +231,6 @@ export function useTrialSubmission(opts: Options) {
         }
       } catch (err) {
         console.warn('[submitTrial] adaptation_trial_logs queue failed', err);
-      }
-
-      // 3) clinical_progression_state — buffer only (flush on commit).
-      // Validity gate (spec §5.8): attempts the classifier ruled non-scorable
-      // (filler-only / no-response / background noise / ASR failure) must NOT
-      // feed clinical progression — a broken mic is not a struggle session.
-      // The row is still recorded to telemetry above for audit; it just
-      // doesn't move the ladder. Trials with no validity verdict (tap-based
-      // games, legacy callers) buffer as before.
-      const validityAllowsProgression =
-        !input.validity || applyValidityGate(input.validity).shouldFeedAdaptation;
-      try {
-        if (opts.progression && validityAllowsProgression) {
-          opts.progression.recordTrialOutcome({
-            correct: input.isCorrect,
-            support: input.supportUsed,
-          });
-          summary.routed.progressionBuffered = true;
-        }
-      } catch (err) {
-        console.warn('[submitTrial] progression buffer failed', err);
       }
 
       summary.progression = opts.progression?.state

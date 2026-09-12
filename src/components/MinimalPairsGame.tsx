@@ -102,7 +102,11 @@ export function MinimalPairsGame({
       const newTier = levelToBankTier(newLevel);
       if (newTier !== lastTierRef.current) {
         lastTierRef.current = newTier;
-        setActiveDifficulty(newTier);
+        // Pass the ENGINE level (1–10). getMinimalPairTrialsForLevel maps it to
+        // a bank tier itself, so handing it the already-collapsed tier (1–3)
+        // re-mapped every swap back to tier 1 — escalating mid-session served
+        // the EASIEST contrasts instead of harder ones.
+        setActiveDifficulty(newLevel);
       }
       const narration = narrateAdaptation({
         direction: dir,

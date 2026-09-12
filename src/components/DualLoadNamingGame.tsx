@@ -49,7 +49,7 @@ interface DualLoadNamingGameProps {
 export function DualLoadNamingGame({
   userId,
   sessionId,
-  onTrialComplete, onGameComplete, roundCount = 2, tier = 1,
+  onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
   focusPhonemes = [],
 }: DualLoadNamingGameProps) {
   const {

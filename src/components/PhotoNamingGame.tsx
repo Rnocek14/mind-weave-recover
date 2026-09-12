@@ -295,6 +295,10 @@ export const PhotoNamingGame = ({
   const selectedAnswerRef = useRef(selectedAnswer);
   const timedOutRef = useRef(timedOut);
   const showCueRef = useRef(showCue);
+  // The live 0..3 cue ladder, mirrored for the same closure-safety reason as
+  // showCueRef. adaptation_trial_logs.cue_level is the mastery layer's only
+  // view of cue intensity, so it has to carry the ladder, not a boolean.
+  const cueLevelRef = useRef(cueLevel);
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -449,12 +453,15 @@ export const PhotoNamingGame = ({
     enableDifficultyToasts: true,
     enableDifficultyAutoStepDown: true,
     enableInterventionUI: false,
-    // Cue-dependency safety gate — block escalations when avg cue use is high.
-    // engagement.signals.cueDependency is avg cue level (0..3) → normalize to 0..1.
+    // Cue-dependency safety gate — block escalations when cue use is high.
+    // engagementMonitor already returns this normalised to 0..1
+    // (`Math.min(1, rawAvg / MAX_CUE_LEVEL)`), so dividing by 3 again capped the
+    // score at 0.33 — below the 0.5 gate threshold. The gate could therefore
+    // never fire for Photo Naming, the one game with a real cue ladder.
     getCueDependencyScore: () => {
-      const avg = engagement.getState().signals.cueDependency;
-      if (!Number.isFinite(avg) || avg <= 0) return 0;
-      return Math.min(1, avg / 3);
+      const score = engagement.getState().signals.cueDependency;
+      if (!Number.isFinite(score) || score <= 0) return 0;
+      return Math.min(1, score);
     },
     onEscalationBlocked: ({ reason, cueDependencyScore, trialsAtLevel }) => {
       console.info('[PhotoNaming] escalation blocked', { reason, cueDependencyScore, trialsAtLevel });
@@ -502,7 +509,11 @@ export const PhotoNamingGame = ({
       logAdaptationTrial({
         trialIndex: snap.trialIndex,
         difficulty: snap.difficulty,
-        cueLevel: showCueRef.current ? 1 : 0,
+        // 0 independent / 1 semantic / 2 phonemic / 3 full word. Flattening
+        // this to 0/1 scored every cued-correct trial at cue independence
+        // 0.667 — above the 0.65 floor — so a fully cue-dependent patient
+        // still looked independent to the mastery layer and was promoted.
+        cueLevel: cueLevelRef.current,
         cueDependency: snap.cueDependency,
         successRate: snap.successRate,
         correct: snap.correct,
@@ -530,6 +541,7 @@ export const PhotoNamingGame = ({
   useEffect(() => { selectedAnswerRef.current = selectedAnswer; }, [selectedAnswer]);
   useEffect(() => { timedOutRef.current = timedOut; }, [timedOut]);
   useEffect(() => { showCueRef.current = showCue; }, [showCue]);
+  useEffect(() => { cueLevelRef.current = cueLevel; }, [cueLevel]);
   
   // Track lane switches using ACTUAL lane from hook (not inferred from difficulty)
   const previousActualLaneRef = useRef<'easy' | 'mid' | 'hard' | null>(null);

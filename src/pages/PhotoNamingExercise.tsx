@@ -196,6 +196,20 @@ function PhotoNamingExerciseInner() {
     trialsFrozenRef.current = false;
   }, [kidsMode]);
 
+  // Same reason, for the clinical floor. The effective engine level arrives in
+  // stages (auth -> active profile -> clinical_progression_state), and the
+  // progression hook reports `loaded` as soon as the ids are merely ABSENT, so
+  // the load gate below can open once at the collapsed floor of 1 before the
+  // real level lands. Re-open the freeze while the patient has not answered
+  // anything yet, so the words on screen end up at the level the badge, the
+  // logged trial level and the progression evidence all already claim. After
+  // the first answer the list stays fixed for the rest of the round.
+  useEffect(() => {
+    if (recentAccuracies.length === 0) {
+      trialsFrozenRef.current = false;
+    }
+  }, [initialDifficulty, recentAccuracies.length]);
+
 
 
   // Single owner of session creation: useStandaloneSession (mutex-protected,
@@ -259,6 +273,12 @@ function PhotoNamingExerciseInner() {
 
   useEffect(() => {
     if (customPhotosLoading) return;
+    // The load gate further down only protects the GAME MOUNT. React runs every
+    // effect after every commit regardless of what the component returned, so
+    // without the same condition here the 10-trial list is chosen — and frozen
+    // — on the very first commit, when the clinical level is still null and the
+    // engine floor has collapsed to 1.
+    if (!progression.loaded || adaptation.loading) return;
     if (trialsFrozenRef.current) {
       console.log('[PhotoNaming] trial list already frozen for this round; ignoring late data update');
       return;
@@ -465,7 +485,7 @@ function PhotoNamingExerciseInner() {
     setTrials(selectedTrials);
     trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
-  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode]);
+  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode, progression.loaded, adaptation.loading]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;

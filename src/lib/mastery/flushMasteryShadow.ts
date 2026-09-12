@@ -42,10 +42,17 @@ export async function flushMasteryShadow(args: {
     if (exerciseSlugs.length === 0) return;
 
     const sinceIso = new Date(Date.now() - 14 * 86400_000).toISOString();
+    // Scope to the patient profile, not just the account. One login can hold
+    // several patient profiles (a caregiver managing two survivors, a clinician
+    // demo profile alongside a real one). Reading by user_id alone pooled every
+    // profile's trials and then wrote the result onto THIS profile's
+    // user_skill_mastery rows, so one patient's performance moved another
+    // patient's mastery, confidence and cue-independence.
     const { data: recentLogs } = await supabase
       .from('adaptation_trial_logs')
       .select('exercise_slug, correct, cue_level, created_at, session_id, difficulty, trial_mode, graded_score, score_vector, signal_granularity')
       .eq('user_id', userId)
+      .eq('profile_id', profileId)
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
       .order('created_at', { ascending: true });

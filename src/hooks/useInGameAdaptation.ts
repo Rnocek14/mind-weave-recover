@@ -151,6 +151,12 @@ export interface InGameAdaptationState {
   shouldSimplifyTask: boolean;
 }
 
+/**
+ * Stand-in success rate used while the rolling window is still filling.
+ * "No evidence yet" must read as calm, never as failure.
+ */
+const NEUTRAL_SUCCESS_RATE = 1;
+
 export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
   const {
     exerciseSlug,
@@ -254,6 +260,28 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
+  // A page resolves the patient's persistent clinical level asynchronously, so
+  // `initialDifficulty` routinely arrives AFTER the first render. The hook used
+  // to keep whatever it saw first, which stranded patients an entire session
+  // below their earned level — a render-level load gate cannot help, because
+  // React runs the hook before the gate can return.
+  //
+  // This runs DURING render, not in an effect: React renders child components
+  // before it runs the parent's effects, so a game that seeds its content from
+  // a prop would already have captured the stale level by the time an effect
+  // fired. Adjusting during render re-runs this component immediately, before
+  // any child sees the value. (React's documented "adjust state when a prop
+  // changes" pattern.) It only applies while no trial has been recorded, so
+  // live in-session adaptation is never clobbered.
+  const [seededDifficulty, setSeededDifficulty] = useState(initialDifficulty);
+  if (initialDifficulty !== seededDifficulty) {
+    setSeededDifficulty(initialDifficulty);
+    if (trialCountRef.current === 0 && currentDifficultyRef.current !== initialDifficulty) {
+      currentDifficultyRef.current = initialDifficulty;
+      setCurrentDifficulty(initialDifficulty);
+    }
+  }
+
   // ===========================================================================
   // Core API: Record a trial result
   // 
@@ -292,10 +320,20 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
     }
     const newConsecutiveErrors = consecutiveErrorsRef.current;
     
-    // Compute frustration level from fresh values
+    // Compute frustration level from fresh values.
+    //
+    // The success-rate clauses only mean something once the rolling window is
+    // full. On a partial window a single wrong answer reads as 0% and used to
+    // trip the emergency two-level step-down on the FIRST trial of a session —
+    // exactly what PER_GAME_LEVELING_CONTRACT §1.4 forbids ("Never punish a
+    // single trial or a single session"). Until the window fills we hand the
+    // classifier a neutral rate so only the consecutive-error clauses can fire,
+    // which preserves the documented "4 errors in a row → emergency 2-step
+    // step-down" (EXERCISE_ADAPTATION_GUIDE).
+    const windowFull = controller.getState().trialCount >= windowSize;
     const newFrustrationLevel = computeFrustrationLevel(
       newConsecutiveErrors,
-      successRateRef.current,
+      windowFull ? successRateRef.current : NEUTRAL_SUCCESS_RATE,
       frustrationErrorThreshold
     );
     
@@ -375,8 +413,11 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
               level: previousLevel,
             };
 
-            // Notify the engine — narrator can render "cue_dependency_hold".
-            onDifficultyChange?.(previousLevel, blockReason, 'down');
+            // Nothing changed, so do NOT fire onDifficultyChange. It used to be
+            // called with direction 'down', which made games announce "Made it
+            // easier" / play a level-down sound to a patient who had just done
+            // well enough to earn an escalation. Games that want to react to a
+            // hold subscribe to onEscalationBlocked, which is what it is for.
             onEscalationBlocked?.(evtBlocked);
 
             // Skip applying the escalation; do NOT reset trialsAtLevel.
@@ -428,6 +469,17 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       }
     }
     
+    // Evidence belongs to the level it was gathered at. The rolling window
+    // measured performance at the PREVIOUS level, so once the level moves it
+    // must not also decide the next move. Without this, a correct streak
+    // escalated on EVERY trial after the window filled (L5 → L10 in eight
+    // trials) and a step-down kept re-firing off stale trials. The contract
+    // asks for sustained evidence at a level before it moves again
+    // (PER_GAME_LEVELING_CONTRACT §1.2).
+    if (difficultyAdjusted) {
+      controller.reset();
+    }
+
     // Sync all state from refs (single batch for React)
     setTrialCount(trialCountRef.current);
     setConsecutiveErrors(consecutiveErrorsRef.current);
@@ -534,6 +586,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
       consecutiveErrors: newConsecutiveErrors,
     };
   }, [
+    windowSize,
     frustrationErrorThreshold,
     enableDifficultyAutoStepDown,
     enableInterventionUI,

@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useMultiStepPlanningGame, PlanningTrialResult } from '@/hooks/useMultiStepPlanningGame';
+import { useMultiStepPlanningGame, isSuccessfulPlan, PlanningTrialResult } from '@/hooks/useMultiStepPlanningGame';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -43,6 +43,12 @@ interface MultiStepPlanningGameProps {
   onTrialComplete: (result: PlanningTrialResult) => void;
   onGameComplete: (results: PlanningTrialResult[]) => void;
   roundCount?: number;
+  /**
+   * Engine difficulty 1–10 (the clinical floor from the page's bridge), NOT a
+   * 1–3 content tier. The page has always passed the engine level here; the
+   * component used to read it as a tier, which sent a clinical-L3 patient to
+   * the hardest planning content at engine level 9.
+   */
   tier?: number;
   /** Auto-start mic on first trial (from lesson flow) */
   autoStart?: boolean;
@@ -53,11 +59,16 @@ type Phase = 'prompt' | 'speaking' | 'scored';
 export function MultiStepPlanningGame({
   userId,
   sessionId,
-  onTrialComplete, onGameComplete, roundCount = 3, tier = 1,
+  onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
   autoStart = false,
 }: MultiStepPlanningGameProps) {
+  // `tier` arrives as an ENGINE level (1–10). Collapse it to a content tier for
+  // item selection, and use it directly to seed the controller.
+  const startLevel = Math.max(1, Math.min(10, Math.round(tier)));
+  const startContentTier = levelToTierLocal(startLevel);
+
   const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitPlan, nextItem } =
-    useMultiStepPlanningGame(roundCount, tier);
+    useMultiStepPlanningGame(roundCount, startContentTier);
 
   // Visible adaptation
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
@@ -67,8 +78,8 @@ export function MultiStepPlanningGame({
   const adaptation = useInGameAdaptation({
     exerciseSlug: 'multi-step-planning',
     sessionId: sessionId ?? null,
-    initialDifficulty: Math.max(1, Math.min(10, tier * 3)),
-    bounds: { floor: 1, ceiling: 10, suggestedStart: tier * 3 },
+    initialDifficulty: startLevel,
+    bounds: { floor: 1, ceiling: 10, suggestedStart: startLevel },
     autoLog: false, // Wave 2: MultiStepPlanExercise owns the unified submitTrial pathway.
     enableDifficultyToasts: false,
     enableAutoHints: false,
@@ -260,7 +271,7 @@ export function MultiStepPlanningGame({
         setPhase('scored');
         onTrialComplete(result);
         // Feed adaptive engine: success = covering steps AND in correct order
-        const success = result.goalCoverage >= 0.6 && result.sequenceScore >= 0.5;
+        const success = isSuccessfulPlan(result);
         adaptation.recordTrial({
           correct: success,
           reactionTimeMs: durationMs,

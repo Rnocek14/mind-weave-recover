@@ -206,6 +206,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     recordTrial: recordAdaptiveTrial,
     getCueLevel: getAdaptiveCueLevel,
     frustrationLevel,
+    stepDown: stepDownAdaptive,
     reset: resetAdaptation,
   } = useInGameAdaptation({
     exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
@@ -239,8 +240,13 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     },
     skipTooHard: () => {
       if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
-      // Record as failed trial, then step down difficulty and advance
-      recordAdaptiveTrial({ correct: false, reactionTimeMs: 0 });
+      // Honour the request directly. Two things were wrong here: the trial was
+      // recorded twice (once here and again inside handleIncorrectAnswer), so a
+      // single tap counted as two failures; and easing was left to the rolling
+      // window, which only reacts once the rate reads below 50% — so the
+      // button's promise ("Switching to an easier phrase") often went unkept.
+      // A patient asking for easier work is a direct request, not a statistic.
+      stepDownAdaptive('Patient asked for an easier phrase');
       toast({
         title: "No problem!",
         description: "Switching to an easier phrase.",

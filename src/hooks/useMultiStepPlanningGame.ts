@@ -30,6 +30,80 @@ export interface PlanningTrialResult {
   };
 }
 
+/**
+ * How much of the plan did the patient say IN ORDER?
+ *
+ * Returns the share of recognised step pairs that were spoken in the plan's
+ * expected order, or 0 when fewer than two steps are recognisable.
+ *
+ * This used to walk keySteps by index and collect the index itself, so the
+ * collected list was ascending by construction: every pair counted as in-order
+ * and the score was a flat 1.0 for any answer mentioning two steps — a
+ * perfectly reversed plan included. Sequencing is the executive skill this
+ * exercise trains, so the score has to read where each step appears in the
+ * transcript. Matching is on words longer than three characters, the same
+ * granularity the coverage scorer uses.
+ */
+export function computeSequenceScore(
+  transcript: string,
+  keySteps: string[],
+  idealOrder?: number[],
+): number {
+  const transcriptLower = transcript.toLowerCase();
+
+  // `idealOrder` lists keyStep INDICES in the order a good plan states them, so
+  // the clinically correct position of keySteps[i] is where i appears in that
+  // list, not i itself. Two items in the bank are authored non-monotonic, and
+  // ranking by declaration index marked their authored ideal ordering as partly
+  // out of order. Declaration order remains the fallback when the field is
+  // absent or the wrong length.
+  const rankOfStep = keySteps.map((_, i) => i);
+  if (idealOrder && idealOrder.length === keySteps.length) {
+    idealOrder.forEach((stepIndex, position) => {
+      if (stepIndex >= 0 && stepIndex < keySteps.length) rankOfStep[stepIndex] = position;
+    });
+  }
+
+  const matched: Array<{ step: number; at: number }> = [];
+
+  for (let i = 0; i < keySteps.length; i++) {
+    let earliest = -1;
+    for (const word of keySteps[i].toLowerCase().split(/\s+/)) {
+      if (word.length <= 3) continue;
+      const at = transcriptLower.indexOf(word);
+      if (at !== -1 && (earliest === -1 || at < earliest)) earliest = at;
+    }
+    if (earliest !== -1) matched.push({ step: rankOfStep[i], at: earliest });
+  }
+
+  const spokenOrder = [...matched].sort((a, b) => a.at - b.at);
+  let inOrderPairs = 0;
+  let totalPairs = 0;
+  for (let i = 0; i < spokenOrder.length; i++) {
+    for (let j = i + 1; j < spokenOrder.length; j++) {
+      totalPairs++;
+      if (spokenOrder[i].step < spokenOrder[j].step) inOrderPairs++;
+    }
+  }
+  return totalPairs > 0 ? inOrderPairs / totalPairs : 0;
+}
+
+/**
+ * Did this plan succeed?
+ *
+ * One trial must have ONE verdict. The in-game engine asked for coverage >= 0.6
+ * AND order >= 0.5, while the page logged `goalCoverage >= 0.3` as correct — so
+ * naming a single step out of five was written to the clinical ladder as a
+ * fully-credited success, and a complete but perfectly reversed plan counted as
+ * correct there too while the engine scored it a failure. Both now call this.
+ */
+export function isSuccessfulPlan(result: {
+  goalCoverage: number;
+  sequenceScore: number;
+}): boolean {
+  return result.goalCoverage >= 0.6 && result.sequenceScore >= 0.5;
+}
+
 function buildPlanningItems(tier: number, roundCount: number, exclude: Set<string>): PlanningItem[] {
   const t = Math.max(1, Math.min(3, tier));
   const pool = PLANNING_ITEMS.filter(i => i.tier <= Math.min(t + 1, 3) && i.tier >= Math.max(t - 1, 1));
@@ -86,27 +160,11 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
         .filter(s => s.trim().length > 3).length
     );
 
-    // Sequence score: check if matched concepts appear in roughly correct order in transcript
-    const transcriptLower = transcript.toLowerCase();
-    const matchedIndices: number[] = [];
-    for (let i = 0; i < currentItem.keySteps.length; i++) {
-      const stepWords = currentItem.keySteps[i].toLowerCase().split(/\s+/);
-      const found = stepWords.some(w => w.length > 3 && transcriptLower.includes(w));
-      if (found) {
-        matchedIndices.push(i);
-      }
-    }
-
-    // Sequence score = ratio of in-order pairs
-    let inOrderPairs = 0;
-    let totalPairs = 0;
-    for (let i = 0; i < matchedIndices.length; i++) {
-      for (let j = i + 1; j < matchedIndices.length; j++) {
-        totalPairs++;
-        if (matchedIndices[i] < matchedIndices[j]) inOrderPairs++;
-      }
-    }
-    const sequenceScore = totalPairs > 0 ? inOrderPairs / totalPairs : 0;
+    const sequenceScore = computeSequenceScore(
+      transcript,
+      currentItem.keySteps,
+      currentItem.idealOrder,
+    );
 
     const result: PlanningTrialResult = {
       itemId: currentItem.id,

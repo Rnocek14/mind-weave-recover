@@ -147,11 +147,13 @@ export function usePhotoNamingProgression({
         );
       } catch (error) {
         console.warn('[PhotoNamingProgression] load fallback:', error);
-        loadedState = defaultProgressionState({
-          userId,
-          profileId,
-          exerciseSlug: PHOTO_NAMING_SLUG,
-        });
+        // The stored row was never read (5 s timeout on a cold start or a poor
+        // mobile link). Mark it so the session flush cannot overwrite real
+        // progress with this Level 1 stand-in.
+        loadedState = defaultProgressionState(
+          { userId, profileId, exerciseSlug: PHOTO_NAMING_SLUG },
+          { loadFailed: true },
+        );
       }
       if (cancelled) return;
       setState(loadedState);
@@ -184,7 +186,11 @@ export function usePhotoNamingProgression({
   const flushAtSessionEnd = useCallback(
     async (params: { sessionId: string | null }) => {
       if (flushedRef.current) return { ok: true, skipped: true as const };
-      const trials = trialsRef.current;
+      // Snapshot the buffer: evidence and the progress delta are computed
+      // before an awaited mastery-gate read, so a trial landing during that
+      // await would otherwise shift the struggle ratio without counting
+      // toward the evidence it was part of.
+      const trials = [...trialsRef.current];
       if (!userId || !profileId || trials.length === 0) {
         flushedRef.current = true;
         return { ok: true, skipped: true as const };
@@ -196,7 +202,7 @@ export function usePhotoNamingProgression({
           userId,
           profileId,
           exerciseSlug: PHOTO_NAMING_SLUG,
-        });
+        }, { loadFailed: true });
 
       // Level-aware evidence + progress: each clinical level defines its own
       // "on-target" support tier and accuracy bar. Scaffolded chip recovery
@@ -219,10 +225,22 @@ export function usePhotoNamingProgression({
       // (the adopted flagship — mirrors the staged rollout discipline used by
       // the mastery routing and shadow-gate adoption sets). A cue-dependent
       // learner with high raw accuracy now waits one confirming session.
+      //
+      // SCOPE: the numeric quality floors describe INDEPENDENT naming. Levels
+      // whose own clinical target IS support — L1 recognition, L2 semantic cue,
+      // L3 phonemic cue — are SUPPOSED to score below them, and recognition /
+      // scaffolded trials are excluded from the expressive mastery row
+      // entirely, so applying the floors there re-creates the very defect this
+      // level ladder was written to correct (treating heavy-support recovery
+      // like independent naming) and turns the one-session delay into a
+      // permanent hold. Passing null uses the classifier's documented
+      // "missing numeric signals cannot disqualify on that axis" path, so the
+      // evidence half of the rule still applies at every level.
+      const enforceIndependenceFloors = levelSpec.targetSupport === 'independent';
       const promotion = classifyMasteryPromotion({
         verdict: gate.verdict,
-        masteryScore: gate.minMasteryScore,
-        cueIndependence: gate.minCueIndependence,
+        masteryScore: enforceIndependenceFloors ? gate.minMasteryScore : null,
+        cueIndependence: enforceIndependenceFloors ? gate.minCueIndependence : null,
       });
       if (import.meta.env.DEV && promotion.decision === 'delay_reinforce') {
         console.log('[PhotoNamingProgression] promotion delayed by mastery quality:', promotion.reason);

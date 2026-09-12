@@ -25,9 +25,32 @@ import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const TWO_CLUES_SLUG = 'two-clues';
 
-/** Map TwoClues anchor usage to the canonical lexical SupportLevel. */
-export function mapTwoCluesSupport(reachedAnchor: boolean): SupportLevel {
-  return reachedAnchor ? 'semantic_cue' : 'independent';
+/**
+ * Map the cue actually delivered during the trial to the canonical lexical
+ * SupportLevel — the same 0..3 ladder Photo Naming uses and the same scale as
+ * the locked `cue_level` contract in docs/unified-trial-contract.md.
+ *
+ * This used to key off `reachedAnchor`, which is a MATCH TIER ("did the spoken
+ * word hit an anchor?"), not scaffolding. Producing the intended word — the
+ * best possible answer — was therefore booked as `semantic_cue`, while a weaker
+ * cluster word counted as `independent`. Since L3–L7 all target `independent`,
+ * the best answers were off-target and the ladder could never advance.
+ * The contract is explicit that supportUsed is "derived from observed in-trial
+ * scaffolding, never inferred".
+ *
+ * @param cueLevel 0 = no cue shown, 1 = semantic, 2 = phonemic, 3 = full reveal.
+ */
+export function mapTwoCluesSupport(cueLevel: number): SupportLevel {
+  switch (Math.max(0, Math.min(3, Math.round(cueLevel || 0)))) {
+    case 0:
+      return 'independent';
+    case 1:
+      return 'semantic_cue';
+    case 2:
+      return 'phonemic_cue';
+    default:
+      return 'carrier_or_full_model';
+  }
 }
 
 interface BufferedTrial {
@@ -93,7 +116,11 @@ export function useTwoCluesProgression({
   const flushAtSessionEnd = useCallback(
     async (params: { sessionId: string | null }) => {
       if (flushedRef.current) return { ok: true, skipped: true as const };
-      const trials = trialsRef.current;
+      // Snapshot the buffer: evidence and the progress delta are computed
+      // before an awaited mastery-gate read, so a trial landing during that
+      // await would otherwise shift the struggle ratio without counting
+      // toward the evidence it was part of.
+      const trials = [...trialsRef.current];
       if (!userId || !profileId || trials.length === 0) {
         flushedRef.current = true;
         return { ok: true, skipped: true as const };
@@ -105,7 +132,7 @@ export function useTwoCluesProgression({
           userId,
           profileId,
           exerciseSlug: TWO_CLUES_SLUG,
-        });
+        }, { loadFailed: true });
 
       const level = prev.currentLevel;
       const levelSpec = getTwoCluesLevelSpec(level);

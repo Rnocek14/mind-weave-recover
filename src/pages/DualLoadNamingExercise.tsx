@@ -58,7 +58,14 @@ export default function DualLoadNamingExercise() {
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
-  const trialLimit = Number(location.state?.trialLimit) || 2;
+  // Clinical Progression v1 §5.3: a level-up needs 100% progress AND the
+  // level's evidence rule, and that rule counts on-target trials within ONE
+  // session. While the default session was shorter than the highest
+  // `minOnTargetAttempts` across the implemented rungs, evidence could never
+  // be met: the bar sat at 100% and the patient was held below the level they
+  // had earned, indefinitely. Keep this >= that maximum — the contract test
+  // src/lib/progression/__tests__/sessionLengthMeetsEvidence.test.ts enforces it.
+  const trialLimit = Number(location.state?.trialLimit) || 4;
 
   const adaptation = useSessionAdaptation({
     exerciseSlug: EXERCISE_SLUG,

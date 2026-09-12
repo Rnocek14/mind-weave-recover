@@ -10,15 +10,24 @@ import { DUAL_LOAD_SETS, DualLoadSet } from '@/data/dualLoadNamingStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 
 /** Build a list of dual-load sets for a given tier, prioritising focus phonemes and avoiding repeats. */
-function buildSets(
+export function buildSets(
   tier: number,
   count: number,
   focusPhonemes: string[],
   excludeIds: Set<string>,
 ): DualLoadSet[] {
-  const pool = DUAL_LOAD_SETS.filter(
-    (s) => s.tier <= Math.min(tier + 1, 3) && !excludeIds.has(s.id),
-  );
+  // Strict tier isolation. The old upper-bound-only filter
+  // (`s.tier <= Math.min(tier + 1, 3)`) made tiers 2 and 3 resolve to the SAME
+  // pool, so crossing that boundary changed nothing while the badge announced
+  // "Made it harder", and tier 1 drew half its candidates from tier 2. Content
+  // tier is this game's only difficulty lever.
+  const t = Math.max(1, Math.min(3, Math.round(tier)));
+  let pool = DUAL_LOAD_SETS.filter((s) => s.tier === t && !excludeIds.has(s.id));
+  if (pool.length === 0) {
+    // Exclusions exhausted the tier — repeat WITHIN the tier rather than
+    // blending in another tier's content.
+    pool = DUAL_LOAD_SETS.filter((s) => s.tier === t);
+  }
 
   if (focusPhonemes.length > 0) {
     const normalizedFocus = new Set(focusPhonemes.map((p) => p.replace(/\//g, '').toLowerCase()));

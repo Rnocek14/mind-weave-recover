@@ -25,6 +25,7 @@ import {
 } from '@/hooks/useCategoryFluencyProgression';
 import {
   resolveEffectiveCategoryFluencyInitialDifficulty,
+  MAX_CATEGORY_FLUENCY_DIFFICULTY,
 } from '@/lib/progression/categoryFluencyDifficultyBridge';
 import { getCategoryFluencyLevelSpec } from '@/lib/progression/categoryFluencyLevels';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,14 @@ export default function CategoryFluencyExercise() {
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
-  const roundCount = Number(location.state?.trialLimit) || 3;
+  // Clinical Progression v1 §5.3: a level-up needs 100% progress AND the
+  // level's evidence rule, and that rule counts on-target trials within ONE
+  // session. While the default session was shorter than the highest
+  // `minOnTargetAttempts` across the implemented rungs, evidence could never
+  // be met: the bar sat at 100% and the patient was held below the level they
+  // had earned, indefinitely. Keep this >= that maximum — the contract test
+  // src/lib/progression/__tests__/sessionLengthMeetsEvidence.test.ts enforces it.
+  const roundCount = Number(location.state?.trialLimit) || 4;
   const blockIndex = location.state?.blockIndex ?? null;
   const lessonAdaptations = restored.adaptations;
 
@@ -175,8 +183,12 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         words: result.words,
         difficulty: result.difficulty,
+        // The game runs a 1–5 difficulty scale (timer, threshold and category
+        // bank all key off it), so report the canonical 1–10 level from that
+        // scale. Declaring {max: 3} clamped difficulties 4 and 5 to the same
+        // reported level and understated every session above the easy bank.
         game_level: typeof result.difficulty === 'number'
-          ? tierToLevel(result.difficulty, { min: 1, max: 3 })
+          ? tierToLevel(result.difficulty, { min: 1, max: MAX_CATEGORY_FLUENCY_DIFFICULTY })
           : null,
         difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,

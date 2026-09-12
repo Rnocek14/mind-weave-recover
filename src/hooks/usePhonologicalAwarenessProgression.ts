@@ -101,7 +101,11 @@ export function usePhonologicalAwarenessProgression({
   const flushAtSessionEnd = useCallback(
     async (params: { sessionId: string | null }) => {
       if (flushedRef.current) return { ok: true, skipped: true as const };
-      const trials = trialsRef.current;
+      // Snapshot the buffer: evidence and the progress delta are computed
+      // before an awaited mastery-gate read, so a trial landing during that
+      // await would otherwise shift the struggle ratio without counting
+      // toward the evidence it was part of.
+      const trials = [...trialsRef.current];
       if (!userId || !profileId || trials.length === 0) {
         flushedRef.current = true;
         return { ok: true, skipped: true as const };
@@ -113,7 +117,7 @@ export function usePhonologicalAwarenessProgression({
           userId,
           profileId,
           exerciseSlug: PHONOLOGICAL_AWARENESS_SLUG,
-        });
+        }, { loadFailed: true });
 
       const level = prev.currentLevel;
       const levelSpec = getPhonologicalAwarenessLevelSpec(level);
@@ -133,6 +137,10 @@ export function usePhonologicalAwarenessProgression({
           evidenceMet,
           progressDelta,
           masteryVerdict: gate.verdict,
+          // Receptive ladder: a correct no-hint (`recognition_only`) trial is the
+          // independent baseline here, not a scaffolded one, so it must not be
+          // counted as struggle. See receptiveIsStruggleTrial.
+          track: 'receptive' as const,
           maxImplementedLevel: highestImplementedPhonologicalAwarenessLevel(),
         },
       );

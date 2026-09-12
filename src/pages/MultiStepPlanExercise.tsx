@@ -14,7 +14,7 @@ import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MultiStepPlanningGame } from '@/components/MultiStepPlanningGame';
-import { PlanningTrialResult } from '@/hooks/useMultiStepPlanningGame';
+import { PlanningTrialResult, isSuccessfulPlan } from '@/hooks/useMultiStepPlanningGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
@@ -52,7 +52,14 @@ export default function MultiStepPlanExercise() {
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
-  const trialLimit = Number(location.state?.trialLimit) || 3;
+  // Clinical Progression v1 §5.3: a level-up needs 100% progress AND the
+  // level's evidence rule, and that rule counts on-target trials within ONE
+  // session. While the default session was shorter than the highest
+  // `minOnTargetAttempts` across the implemented rungs, evidence could never
+  // be met: the bar sat at 100% and the patient was held below the level they
+  // had earned, indefinitely. Keep this >= that maximum — the contract test
+  // src/lib/progression/__tests__/sessionLengthMeetsEvidence.test.ts enforces it.
+  const trialLimit = Number(location.state?.trialLimit) || 4;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
@@ -122,11 +129,12 @@ export default function MultiStepPlanExercise() {
     trialIndexRef.current += 1;
 
     pivot.recordTrialResult({
-      wasCorrect: result.goalCoverage >= 0.3,
+      wasCorrect: isSuccessfulPlan(result),
       reactionTimeMs: result.durationMs,
     });
 
-    const isCorrect = result.goalCoverage >= 0.3;
+    // One trial, one verdict — the same rule the in-game engine applies.
+    const isCorrect = isSuccessfulPlan(result);
     let errorType: string | undefined;
     if (!isCorrect) {
       if (result.stepsFound === 0) errorType = 'no_plan_steps';

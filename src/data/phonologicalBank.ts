@@ -827,11 +827,35 @@ export function getTrialsForDifficulty(level: number, count: number = 10): Phono
 /**
  * Get mixed trials from current and adjacent levels
  */
+/**
+ * Engine level (1–10) → phonological bank difficulty (1–5).
+ *
+ * The bank only carries difficulties 1–5, but the clinical bridge and the
+ * in-session controller both speak the universal 1–10 engine scale. Without
+ * this collapse, `getMixedTrials(7)` matched nothing and returned an empty
+ * pool: a patient promoted to clinical L6 opened the exercise to a blank
+ * screen with no way to finish or record the session, and an in-session
+ * escalation past 6 silently swapped nothing while the UI announced a level-up.
+ *
+ * The bands mirror the per-level content description in
+ * `src/lib/progression/phonologicalAwarenessLevels.ts`. No engine level gets a
+ * HARDER pool than it had before: 1 is unchanged, 2–6 are equal or easier, and
+ * 7–10 go from empty to the top of the bank.
+ */
+const ENGINE_LEVEL_TO_BANK_DIFFICULTY = [1, 1, 2, 2, 3, 3, 4, 5, 5, 5] as const;
+
+export function mapEngineLevelToPhonoBankDifficulty(level: number): number {
+  if (!Number.isFinite(level)) return 1;
+  const idx = Math.max(1, Math.min(10, Math.round(level))) - 1;
+  return ENGINE_LEVEL_TO_BANK_DIFFICULTY[idx];
+}
+
 export function getMixedTrials(
   targetLevel: number,
   totalTrials: number,
   options?: { focusPhonemes?: string[] }
 ): PhonologicalTrial[] {
+  targetLevel = mapEngineLevelToPhonoBankDifficulty(targetLevel);
   const currentLevel = PHONO_TRIALS.filter(t => t.difficulty === targetLevel);
   const easierLevel = targetLevel > 1 
     ? PHONO_TRIALS.filter(t => t.difficulty === targetLevel - 1)

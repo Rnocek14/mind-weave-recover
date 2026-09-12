@@ -143,20 +143,20 @@ export default function TwoCluesExercise() {
 
     const isCorrect = result.tier === 'strong' || result.tier === 'related';
 
+    // The cue the game actually delivered (0 none / 1 semantic / 2 phonemic /
+    // 3 full reveal). Everything support-shaped keys off this. It used to key
+    // off `reachedAnchor`, which measures how good the ANSWER was, not how much
+    // help was given — so the best possible answer was recorded as scaffolded.
+    const deliveredCueLevel = Math.max(0, Math.min(3, Math.round(result.cueLevel ?? 0)));
+
     // Record for mid-session pivot
     pivot.recordTrialResult({
       wasCorrect: isCorrect,
       reactionTimeMs: result.reactionTimeMs,
-      cueLevel: result.reachedAnchor ? 1 : 0,
+      cueLevel: deliveredCueLevel,
     });
 
-    // Lexical axis SupportLevel mapping:
-    //   independent  → produced from the two clues alone (no anchor)
-    //   semantic_cue → anchor word was shown (semantic scaffold)
-    // TwoClues never escalates to phonemic / full-model, so the ladder
-    // stops at semantic_cue.
-    const usedAnchor = !!result.reachedAnchor;
-    const supportUsed = mapTwoCluesSupport(usedAnchor);
+    const supportUsed = mapTwoCluesSupport(deliveredCueLevel);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     void submitTrial({
@@ -169,7 +169,7 @@ export default function TwoCluesExercise() {
       userResponse: cleanedAnswer ?? result.spokenWord ?? null,
       isCorrect,
       accuracyScore: typeof result.semanticSimilarity === 'number' ? result.semanticSimilarity : (isCorrect ? 1 : 0),
-      cueLevel: usedAnchor ? 1 : 0,
+      cueLevel: deliveredCueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
       trialMode: 'production',
@@ -300,6 +300,7 @@ export default function TwoCluesExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            initialDifficulty={bridge.effective}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : undefined}
           />

@@ -133,7 +133,7 @@ export function SynonymGeneratorGame({
   onRoundComplete,
   onGameComplete,
   onDifficultyChange,
-  roundCount = 3,
+  roundCount = 4,
   bounds = DEFAULT_BOUNDS,
   autoStartFirst = false,
   userId,

@@ -36,6 +36,18 @@ export interface ClinicalProgressionState {
   lastSessionId: string | null;
   lastUpdatedAt: string;
   createdAt: string;
+  /**
+   * True when this state is a FALLBACK produced because the stored row could
+   * not be read (transport error, thrown network error, or a caller-side load
+   * timeout) — as opposed to a genuine "no row yet" for a new patient.
+   *
+   * A fallback looks exactly like a brand-new Level 1 patient, so persisting a
+   * session on top of it silently overwrote real progress: a patient stored at
+   * L4 / 60% came back from one failed read as L1 / 31%, losing three levels
+   * and the soft-regression anchor. `saveProgressionState` refuses to write
+   * while this is set.
+   */
+  loadFailed?: boolean;
 }
 
 export type SupportLevel =
@@ -148,6 +160,31 @@ export function isStruggleTrial(params: {
 }
 
 /**
+ * Struggle signal on the RECEPTIVE track.
+ *
+ * `RECEPTIVE_SUPPORT_CREDIT` above already establishes that for comprehension
+ * and acoustic tasks `recognition_only` means "picked the right answer with NO
+ * hint" — the independent baseline, worth full credit. The struggle predicate
+ * was never inverted alongside it, so a flawless hint-free session was booked
+ * as a struggle session: support_baseline climbed to its cap, the soft-
+ * regression scaffold stayed on permanently for the best-performing patients,
+ * and consecutive_success_sessions could never leave zero.
+ *
+ * Here a receptive trial is a struggle only when it was wrong, or when the
+ * patient needed the heaviest scaffolding to get there.
+ */
+export function receptiveIsStruggleTrial(params: {
+  correct: boolean;
+  support: SupportLevel;
+}): boolean {
+  if (!params.correct) return true;
+  return (
+    params.support === 'carrier_or_full_model' ||
+    params.support === 'after_multiple_replays'
+  );
+}
+
+/**
  * Convert a session's worth of trials into a progress delta (0–100 points)
  * for the current level. Independent corrects are worth more than cued ones.
  *
@@ -208,6 +245,14 @@ export interface SessionRollupInput {
    */
   masteryPromotion?: 'promote' | 'delay_reinforce' | 'no_opinion';
   /**
+   * Which credit / struggle semantics this game runs on.
+   *
+   * 'expressive' (default) keeps the historical behaviour. 'receptive' uses
+   * `receptiveIsStruggleTrial`, matching the inverted credit table that
+   * comprehension and acoustic ladders already use.
+   */
+  track?: 'expressive' | 'receptive';
+  /**
    * Highest level whose contentSelector actually ships differentiated
    * content. When provided, level-up is clamped here so the patient never
    * advances into a planned tier and silently receives baseline-fallback
@@ -255,7 +300,9 @@ export function applySessionToState(
   prev: ClinicalProgressionState,
   input: SessionRollupInput
 ): ClinicalProgressionState {
-  const struggleCount = input.trials.filter(isStruggleTrial).length;
+  const struggles =
+    input.track === 'receptive' ? receptiveIsStruggleTrial : isStruggleTrial;
+  const struggleCount = input.trials.filter(struggles).length;
   const wasStruggleSession =
     input.trials.length > 0 && struggleCount / input.trials.length >= 0.5;
 
@@ -318,13 +365,17 @@ export function applySessionToState(
 
 // ---------- Defaults ----------
 
-export function defaultProgressionState(params: {
-  userId: string;
-  profileId: string;
-  exerciseSlug: string;
-}): ClinicalProgressionState {
+export function defaultProgressionState(
+  params: {
+    userId: string;
+    profileId: string;
+    exerciseSlug: string;
+  },
+  options: { loadFailed?: boolean } = {},
+): ClinicalProgressionState {
   const now = new Date().toISOString();
   return {
+    ...(options.loadFailed ? { loadFailed: true as const } : {}),
     userId: params.userId,
     profileId: params.profileId,
     exerciseSlug: params.exerciseSlug,
@@ -396,13 +447,13 @@ export async function loadProgressionState(params: {
 
     if (error) {
       console.warn('[clinicalProgression] load failed:', error.message);
-      return defaultProgressionState(params);
+      return defaultProgressionState(params, { loadFailed: true });
     }
     if (!data) return defaultProgressionState(params);
     return fromRow(data as DbRow);
   } catch (e) {
     console.warn('[clinicalProgression] load threw (network?):', e);
-    return defaultProgressionState(params);
+    return defaultProgressionState(params, { loadFailed: true });
   }
 }
 
@@ -418,6 +469,19 @@ export async function loadProgressionState(params: {
 export async function saveProgressionState(
   state: ClinicalProgressionState
 ): Promise<{ ok: boolean; error?: string }> {
+  // Never write a session on top of a state we could not read. The fallback is
+  // indistinguishable from a new patient at Level 1, so upserting it would
+  // demote whoever is actually stored in that row. The session's telemetry is
+  // already recorded; only the ladder write is skipped.
+  if (state.loadFailed) {
+    console.warn(
+      '[clinicalProgression] refusing to persist over a failed load for',
+      state.exerciseSlug,
+      '— the stored row was never read, so writing would overwrite real progress.',
+    );
+    return { ok: false, error: 'progression_load_not_authoritative' };
+  }
+
   // Read the previous row first so the audit event can record the transition.
   let prevRow: {
     current_level: number | null;

@@ -31,7 +31,7 @@ import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useAdaptationEventLogger } from '@/hooks/useAdaptationEventLogger';
-import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
+import { getCapabilityDifficultyBounds, clampToBounds } from '@/lib/difficultyBounds';
 import { Mic, MicOff, SkipForward, Volume2, RotateCcw, Loader2, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useGameSounds } from '@/hooks/useGameSounds';
@@ -57,6 +57,13 @@ interface TwoCluesGameProps {
   userId?: string;
   profileId?: string;
   focusPhonemes?: string[];
+  /**
+   * Engine difficulty 1–10 to open at — normally the clinical floor from the
+   * page's bridge. Without it the controller always started at 1, so a
+   * patient's earned level, a lesson's start difficulty and a clinician's
+   * offset were all computed, logged, and then discarded.
+   */
+  initialDifficulty?: number;
   /** Profile-recommended first cue type (personalizes cue ladder order) */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -122,6 +129,7 @@ export function TwoCluesGame({
   profileId,
   focusPhonemes,
   recommendedCueType,
+  initialDifficulty,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -206,7 +214,7 @@ export function TwoCluesGame({
 
     exerciseSlug: 'two_clues',
     sessionId: sessionId || null,
-    initialDifficulty: bounds.suggestedStart,
+    initialDifficulty: clampToBounds(initialDifficulty ?? bounds.suggestedStart, bounds),
     bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
@@ -220,6 +228,14 @@ export function TwoCluesGame({
       void engagement.logIntervention('cue_dependency_gate', 'hold_and_fade_cues', 'auto');
     },
     onDifficultyChange: (level, reason, direction) => {
+      // Actually change what the patient sees. Previously this only flashed a
+      // badge: the puzzle queue was built once from the whole unfiltered bank,
+      // so "harder"/"easier" never altered a single item.
+      const nextTier = levelToPuzzleTier(level);
+      if (nextTier !== lastPuzzleTierRef.current) {
+        lastPuzzleTierRef.current = nextTier;
+        setActiveDifficultyRef.current?.(nextTier);
+      }
       setDifficultyChanged(direction);
       const narration = narrateAdaptation({
         direction,
@@ -278,12 +294,23 @@ export function TwoCluesGame({
     cancelRecording,
   } = useAudioRecorder();
 
+  // Engine level 1–10 → bank tier 1–3 (the bank only carries three tiers).
+  const levelToPuzzleTier = (lvl: number): 1 | 2 | 3 =>
+    lvl <= 3 ? 1 : lvl <= 7 ? 2 : 3;
+  const startTier = levelToPuzzleTier(
+    clampToBounds(initialDifficulty ?? bounds.suggestedStart, bounds),
+  );
+
   const game = useTwoCluesGame({
     roundCount,
+    difficulty: startTier,
     focusPhonemes,
     onTrialComplete,
     onGameComplete,
   });
+  const lastPuzzleTierRef = useRef<1 | 2 | 3>(startTier);
+  const setActiveDifficultyRef = useRef(game.setActiveDifficulty);
+  setActiveDifficultyRef.current = game.setActiveDifficulty;
 
   // Stable refs for game values used in effects (avoids re-triggering on game object identity)
   const currentPuzzleRef = useRef(game.currentPuzzle);
@@ -871,7 +898,9 @@ export function TwoCluesGame({
       }
 
       // Pass pre-computed result to game state
-      game.submitAnswer(candidate, result);
+      // Pass the cue ladder position actually reached, so support level and
+      // cue_level describe the scaffolding given rather than the match quality.
+      game.submitAnswer(candidate, result, cueLevel);
 
       // Adaptive difficulty
       const isSuccess = result.tier === 'strong' || result.tier === 'related';

@@ -26,6 +26,13 @@ export interface TwoCluesTrialResult {
   reactionTimeMs: number;
   coachResponse?: string;
   attemptNumber: number;
+  /**
+   * Highest cue actually SHOWN before this answer: 0 none, 1 semantic,
+   * 2 phonemic, 3 full reveal. Support level and cue_level must be derived
+   * from this, never from `reachedAnchor` — that is a match tier ("did the
+   * spoken word hit an anchor?"), not scaffolding.
+   */
+  cueLevel: number;
 }
 
 export interface TwoCluesGameState {
@@ -102,6 +109,31 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     uniqueAnswersThisRound: new Set(),
   }));
 
+  /**
+   * Mid-session adaptation: swap the UPCOMING puzzles to a new bank tier.
+   * Played rounds and the round in progress are preserved, per the content-swap
+   * contract in src/docs/EXERCISE_ADAPTATION_GUIDE.md ("swap only the upcoming
+   * queue, never reset").
+   */
+  const setActiveDifficulty = useCallback((newDifficulty: 1 | 2 | 3) => {
+    setState(prev => {
+      const upcomingNeeded = prev.puzzles.length - prev.currentIndex - 1;
+      if (upcomingNeeded <= 0) return prev;
+
+      const played = new Set(prev.puzzles.slice(0, prev.currentIndex + 1).map(p => p.id));
+      let pool = getPuzzles({ category: category as any, difficulty: newDifficulty, focusPhonemes });
+      if (kidsMode && !category) pool = filterKidsTwoCluesPuzzles(pool);
+      const fresh = orderFreshFirst('two_clues', shufflePuzzles(pool), { tier: newDifficulty })
+        .filter(p => !played.has(p.id))
+        .slice(0, upcomingNeeded);
+      if (fresh.length === 0) return prev;
+
+      markManyUsed('two_clues', fresh.map(p => p.id), { tier: newDifficulty });
+      const past = prev.puzzles.slice(0, prev.currentIndex + 1);
+      return { ...prev, puzzles: [...past, ...fresh] };
+    });
+  }, [category, focusPhonemes?.join(','), kidsMode]);
+
   // Start a new round (reset timer)
   const startRound = useCallback(() => {
     roundStartTimeRef.current = Date.now();
@@ -118,7 +150,11 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   // Uses functional setState for fresh state + fires callback outside updater
   const pendingTrialRef = useRef<TwoCluesTrialResult | null>(null);
 
-  const submitAnswer = useCallback((spokenWord: string, precomputedResult?: ScoringResult): ScoringResult => {
+  const submitAnswer = useCallback((
+    spokenWord: string,
+    precomputedResult?: ScoringResult,
+    cueLevel: number = 0,
+  ): ScoringResult => {
     const result: ScoringResult = precomputedResult ?? {
       tier: 'uncertain',
       score: 0,
@@ -160,6 +196,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         reactionTimeMs,
         coachResponse: result.coachResponse,
         attemptNumber: prev.currentAttempt,
+        cueLevel: Math.max(0, Math.min(3, Math.round(cueLevel || 0))),
       };
 
       // Stash for callback outside updater
@@ -235,6 +272,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
           ? Date.now() - roundStartTimeRef.current
           : 0,
         attemptNumber: 0,
+        // A skipped puzzle was never answered, so no cue was "used" for credit.
+        cueLevel: 0,
       };
       onTrialComplete?.(skipResult);
     }
@@ -300,6 +339,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
 
     // Actions
     startRound,
+    setActiveDifficulty,
     submitAnswer,
     nextRound,
     skipRound,

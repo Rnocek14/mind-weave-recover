@@ -108,6 +108,19 @@ export const useAdaptiveDifficulty = ({
     controllerRef.current.setBounds(bounds);
   }, [bounds]);
 
+  // Parity with useInGameAdaptation: a page resolves the patient's stored level
+  // asynchronously, so `initialDifficulty` often arrives after the first
+  // render. Adjust during render (not in an effect) so a child game seeded from
+  // a prop sees the real level on its first mount, and only while no trial has
+  // been recorded, so live adaptation is never overwritten.
+  const [seededDifficulty, setSeededDifficulty] = useState(initialDifficulty);
+  if (initialDifficulty !== seededDifficulty) {
+    setSeededDifficulty(initialDifficulty);
+    if (trialIndexRef.current === 0 && currentDifficulty !== initialDifficulty) {
+      setCurrentDifficulty(initialDifficulty);
+    }
+  }
+
   // Publish current adaptive level into the registry so useExerciseTelemetry
   // can auto-inject `game_level` without per-page wiring. Cleared on unmount.
   useEffect(() => {
