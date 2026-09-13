@@ -31,6 +31,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { mapTrialToSkills, isExcludedFromMastery } from './skillMapping';
+import { MASTERY_MODEL_VERSION } from './version';
 import type { MasteryConfidenceLevel } from '@/lib/progression/clinicalProgression';
 
 const RANK: Record<MasteryConfidenceLevel, number> = {
@@ -145,7 +146,7 @@ export async function readMasteryGate(args: {
   try {
     const { data, error } = await supabase
       .from('user_skill_mastery')
-      .select('skill_slug, confidence, trials_total, mastery_score, cue_independence')
+      .select('skill_slug, confidence, trials_total, mastery_score, cue_independence, model_version')
       .eq('profile_id', profileId)
       .in('skill_slug', skills);
 
@@ -154,15 +155,43 @@ export async function readMasteryGate(args: {
       return { verdict: 'skip', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
     }
 
+    // A row computed by a superseded model is not evidence about this one.
+    // The gate is read at the START of a session's flush and the mastery row is
+    // rewritten at the END, so the row in hand always predates the running
+    // model by at least one session. Without this check, the very first session
+    // after a scoring change is still judged by the old maths — which for the
+    // practice-cadence fix meant the patient it was written for stayed blocked
+    // one more time, for no reason they could see or act on. A superseded row
+    // reads as no signal, which degrades the verdict to 'skip': promotion
+    // proceeds on accuracy and evidence, exactly as it does for a new patient,
+    // until the next flush rewrites the row under the current model.
+    //
+    // A null version means the row predates the column; there is nothing to
+    // compare, so it keeps the benefit of the doubt rather than silently
+    // disabling the gate forever.
+    const supersededSkills: string[] = [];
     const rowBySkill = new Map<
       string,
       { confidence: MasteryConfidenceLevel; trialsTotal: number }
     >();
+    const currentRows: typeof data = [];
     for (const row of data ?? []) {
+      const version = (row as { model_version?: string | null }).model_version;
+      if (version != null && version !== MASTERY_MODEL_VERSION) {
+        supersededSkills.push(row.skill_slug);
+        continue;
+      }
+      currentRows.push(row);
       rowBySkill.set(row.skill_slug, {
         confidence: (row.confidence as MasteryConfidenceLevel) ?? 'none',
         trialsTotal: row.trials_total ?? 0,
       });
+    }
+    if (supersededSkills.length > 0) {
+      console.info(
+        '[masteryGate] ignoring rows from a superseded model until the next flush:',
+        supersededSkills.join(', '),
+      );
     }
 
     const bySkill: MasteryGateResult['bySkill'] = {};
@@ -189,10 +218,10 @@ export async function readMasteryGate(args: {
 
     // Weakest-skill quality signals for the promotion classifier. Only rows
     // that actually carry the value participate (null ≠ zero).
-    const scores = (data ?? [])
+    const scores = currentRows
       .map((r) => r.mastery_score)
       .filter((v): v is number => typeof v === 'number');
-    const independences = (data ?? [])
+    const independences = currentRows
       .map((r) => r.cue_independence)
       .filter((v): v is number => typeof v === 'number');
     const minMasteryScore = scores.length > 0 ? Math.min(...scores) : null;

@@ -2239,6 +2239,12 @@ export const PhotoNamingGame = ({
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = currentAttemptId ?? undefined;
+    // Captured for the same reason as everything above it: the two telemetry
+    // calls below run after `await`ing background analysis, and by then the
+    // patient may already be on the next trial, which has overwritten the ref
+    // with ITS support level. Reading the ref there would report one trial's
+    // scaffolding against another trial's answer.
+    const capturedSupport = resolvedSupportRef.current ?? undefined;
     
     // Run analysis in background without blocking
     (async () => {
@@ -2360,7 +2366,7 @@ export const PhotoNamingGame = ({
           // The support level this game resolved for the trial. The page must
           // report this rather than re-derive it from cueLevel, which cannot see
           // a chip tap or the post-silence recovery case.
-          supportUsed: resolvedSupportRef.current ?? undefined,
+          supportUsed: capturedSupport,
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2490,7 +2496,7 @@ export const PhotoNamingGame = ({
           // The support level this game resolved for the trial. The page must
           // report this rather than re-derive it from cueLevel, which cannot see
           // a chip tap or the post-silence recovery case.
-          supportUsed: resolvedSupportRef.current ?? undefined,
+          supportUsed: capturedSupport,
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',

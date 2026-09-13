@@ -146,7 +146,7 @@ Detective Mind and Phonological Awareness. The expressive track is unchanged.
   counted as two failures, and left the easing to the rolling window, so its
   promise was often not kept. It now records once and steps down.
 
-### Three defects found and fixed after the first pass
+### Defects found and fixed after the first pass
 
 **Minimal Pairs recorded only the patient's mistakes.** `useSpeechRecognition`
 returns a fresh object every render, so a `[speech]` dependency gave the
@@ -189,6 +189,45 @@ without that, the wider read would recompute skills the patient has not touched,
 find an empty recency window, and blank their accuracy and cue-independence to
 null. The model version is bumped so rows either side of the change are not
 trended together.
+
+**Three defects the first fixes introduced, caught by review.** A verified
+three-lens review of the shipped diff raised fifteen findings; nine were
+distinct, and these are the ones that mattered.
+
+*Correct Minimal Pairs answers were timed against the say-it step.* Reporting a
+correct trial is deliberately held until the optional echo resolves, and the
+reaction time was recomputed at report time — so a patient who answered in 600 ms
+and then sat silently through the window was recorded at 12,600 ms, while an
+incorrect answer at the same true latency reported 600 ms. Correct answers looked
+slower than wrong ones in the clinical record, and latency is what the sessions
+view and the cohort analytics average. The latency is now stamped when the answer
+is given; the echo step is exposure, not evaluation, and is not timed.
+
+*Photo Naming could report one trial's support level against another trial's
+answer.* Two telemetry calls run after `await`ing background analysis and read
+`resolvedSupportRef` live, while every sibling value in the same payload is
+snapshotted before the await. If the patient advanced first, the next trial had
+already overwritten the ref. The support level is now captured with the rest.
+
+*The retention window could manufacture distributed practice.* Two incidental
+one-trial visits three months ago plus one long sitting today read as three
+separate occasions and cleared a gate that a single massed sitting must not
+clear. An occasion outside the recency window now has to carry at least three
+trials; sessions inside recency still count regardless of size, so nothing the
+old 14-day rule counted has been taken away. Two related tightenings landed with
+it: the whole flush now works from one clock, so a trial on the 14-day boundary
+cannot be inside the window for the write-set filter and outside it for the
+scorer; and unattributed rows (written on purpose when the active profile has not
+resolved) stay bounded to the recency window rather than pooling across 90 days
+on a login that holds several patient profiles.
+
+*And the model version was made load-bearing.* The gate is read at the start of a
+session's flush and the mastery row is rewritten at the end, so the row the gate
+sees always predates the running model. A row tagged with a superseded version
+now reads as no signal — the verdict degrades to `skip`, promotion proceeds on
+accuracy and evidence — until the next flush rewrites it. Without that, the first
+session after this change would still have judged the cadence-trapped patient by
+the maths that trapped them.
 
 **A wrong choice tile was scored correct.** Fix Sentence builds its L1/L2 tiles by
 excluding anything in the accepted-fix list, but the game grades through
@@ -277,7 +316,17 @@ none was changed silently.
    `trialLimit`, and a patient who only ever practises through lessons may
    still not reach a level's evidence bar. Raising the presets is a lesson-design
    decision.
-8. **Two games carry levels earned under rules that have since been
+8. **Minimal Pairs state was built from mistake-only data.** Until the reporting
+   fix above, only wrong answers reached the ladder, so every stored
+   minimal-pairs row records a patient who never got anything right:
+   `supportBaseline` pinned at its cap, `consecutiveStruggleSessions` high, level
+   at or near 1. The fix corrects the flow but not the history — a patient
+   discriminating at 90% restarts from a scaffolded Level 1, and the lesson
+   planner has been boosting what is actually their strongest exercise. This
+   belongs with item 9: a one-time pass that resets `support_baseline` and
+   `consecutive_struggle_sessions` for minimal-pairs rows last written before the
+   fix.
+9. **Two games carry levels earned under rules that have since been
    corrected.** Two Clues levels above 3 were only reachable under the inverted
    support mapping, and Multi-Step Plan levels were earned under a much laxer
    correctness bar. Both now start from a floor derived from those levels. A

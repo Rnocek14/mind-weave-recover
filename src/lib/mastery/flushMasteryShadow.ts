@@ -37,6 +37,11 @@ export async function flushMasteryShadow(args: {
   profileId: string;
 }): Promise<void> {
   const { sessionId, userId, profileId } = args;
+  // One clock for the whole flush. The recency filter below and every
+  // computeMastery call must agree on where "now" is, or a trial sitting on the
+  // 14-day boundary can be inside the window for one and outside it for the
+  // other — enough to have a skill's row scoped out and left unwritten.
+  const now = new Date();
   try {
     const { data: sessionLogs } = await supabase
       .from('adaptation_trial_logs')
@@ -57,7 +62,18 @@ export async function flushMasteryShadow(args: {
     // that count a measure of frequency, which permanently blocked level-up for
     // anyone practising a skill less than roughly weekly.
     const sinceIso = new Date(
-      Date.now() - MASTERY_RETENTION_WINDOW_DAYS * 86400_000,
+      now.getTime() - MASTERY_RETENTION_WINDOW_DAYS * 86400_000,
+    ).toISOString();
+    // Unattributed rows stay bounded to the recency window. They are counted at
+    // all because the logger deliberately inserts without a profile when the
+    // active profile has not resolved yet — but on a login holding several
+    // patient profiles that attribution is a guess, and the retention window is
+    // 6.4x longer than the one that guess was judged safe over. Worse, it now
+    // feeds the session count, where a single stale unattributed visit is a
+    // whole practice occasion. Recent rows keep the benefit of the doubt; old
+    // ones do not.
+    const nullProfileSinceIso = new Date(
+      now.getTime() - MASTERY_RECENCY_WINDOW_DAYS * 86400_000,
     ).toISOString();
     // Scope to the patient profile, not just the account. One login can hold
     // several patient profiles (a caregiver managing two survivors, a clinician
@@ -73,7 +89,10 @@ export async function flushMasteryShadow(args: {
       // active profile has not resolved yet — the logger says so and inserts
       // anyway — so they are this user's own trials and must still count.
       // Excluding them would shrink the window and quietly move confidence.
-      .or(`profile_id.eq.${profileId},profile_id.is.null`)
+      .or(
+        `profile_id.eq.${profileId},` +
+          `and(profile_id.is.null,created_at.gte.${nullProfileSinceIso})`,
+      )
       .in('exercise_slug', exerciseSlugs)
       .gte('created_at', sinceIso)
       // Newest first with an explicit cap: PostgREST applies a server-side row
@@ -138,7 +157,7 @@ export async function flushMasteryShadow(args: {
     // upsert would write that over a real row, blanking the very quality
     // signals the promotion classifier reads. Two buckets of one game
     // (mapTrialToSkills keys on difficulty) are enough to hit it.
-    const recencyCutoffMs = Date.now() - MASTERY_RECENCY_WINDOW_DAYS * 86400_000;
+    const recencyCutoffMs = now.getTime() - MASTERY_RECENCY_WINDOW_DAYS * 86400_000;
     const skillList = Object.keys(bySkill).filter((skill) =>
       bySkill[skill].some(
         (t) => new Date(t.created_at).getTime() >= recencyCutoffMs,
@@ -165,11 +184,11 @@ export async function flushMasteryShadow(args: {
     const existingMap = new Map<string, Partial<MasteryRow>>();
     for (const row of existing ?? []) existingMap.set(row.skill_slug, row as any);
 
-    const wk = weekStart();
+    const wk = weekStart(now);
 
     for (const skill of skillList) {
       const prev = (existingMap.get(skill) as MasteryRow | undefined) ?? null;
-      const next = computeMastery(bySkill[skill], prev);
+      const next = computeMastery(bySkill[skill], prev, now);
 
       await supabase.from('user_skill_mastery').upsert(
         {

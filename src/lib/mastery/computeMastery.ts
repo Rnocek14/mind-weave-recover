@@ -51,6 +51,19 @@ export const MASTERY_RECENCY_WINDOW_DAYS = 14;
  */
 export const MASTERY_RETENTION_WINDOW_DAYS = 90;
 
+/**
+ * How many trials a session must carry before it counts as a practice occasion
+ * on the strength of the retention window alone.
+ *
+ * Without this, two one-trial visits three months ago plus one long sitting
+ * today read as "three separate occasions" and clear the gate — the retention
+ * window would be manufacturing distributed practice out of incidental taps.
+ * Sessions inside the RECENCY window still count regardless of size, exactly as
+ * they did before the split, so this can only remove evidence the old 14-day
+ * rule never had. The change stays one-directional.
+ */
+export const MIN_RETENTION_SESSION_TRIALS = 3;
+
 export interface MasteryTrial {
   is_correct: boolean;
   cue_level: number | null;        // 0..3, higher = more support
@@ -69,6 +82,14 @@ export interface MasteryTrial {
 export interface MasteryRow {
   mastery_score: number;           // 0..1
   confidence: 'none' | 'low' | 'medium' | 'high';
+  /**
+   * Trials inside the RECENCY window. Deliberately not the retention-window
+   * count: letting stale trials satisfy the ≥5/≥12 volume floors would turn
+   * today's honest "no opinion" into a block for infrequent, short-session
+   * patients. Equal to `trials_recent` by construction; both are kept because
+   * `readMasteryGate.STUCK_LOW_TRIAL_FLOOR` and the persisted column are named
+   * for the former.
+   */
   trials_total: number;
   trials_recent: number;           // last 14d
   accuracy_recent: number | null;
@@ -149,11 +170,32 @@ export function computeMastery(
 
   // Distinct sessions and day span across the RETENTION window — the
   // "has this been demonstrated on separate occasions" question.
-  const sessions = new Set(retention.map(t => t.session_id).filter(Boolean));
-  const sessionCount = sessions.size;
-  const daySpan = retention.length > 1
-    ? daysAgo(retention[0].created_at, refMs) -
-      daysAgo(retention[retention.length - 1].created_at, refMs)
+  //
+  // An occasion qualifies if it is recent (the old rule, whatever its size) or
+  // if it is substantial enough to mean something months later. Anything the
+  // 14-day rule counted still counts.
+  const trialsBySession = new Map<string, number>();
+  const recencyIds = new Set<string>();
+  for (const t of retention) {
+    if (!t.session_id) continue;
+    trialsBySession.set(t.session_id, (trialsBySession.get(t.session_id) ?? 0) + 1);
+    if (daysAgo(t.created_at, refMs) <= MASTERY_RECENCY_WINDOW_DAYS) {
+      recencyIds.add(t.session_id);
+    }
+  }
+  const countedSessions = new Set(
+    [...trialsBySession.entries()]
+      .filter(([id, n]) => recencyIds.has(id) || n >= MIN_RETENTION_SESSION_TRIALS)
+      .map(([id]) => id),
+  );
+  const sessionCount = countedSessions.size;
+
+  const counted = retention.filter(
+    t => t.session_id != null && countedSessions.has(t.session_id),
+  );
+  const daySpan = counted.length > 1
+    ? daysAgo(counted[0].created_at, refMs) -
+      daysAgo(counted[counted.length - 1].created_at, refMs)
     : 0;
 
   let confidence: MasteryRow['confidence'] = 'none';

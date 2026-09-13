@@ -93,7 +93,7 @@ export default function MasteryShadowDev() {
                   <th>Mastery</th>
                   <th>Confidence</th>
                   <th>Cue indep.</th>
-                  <th>Trials (14d / total)</th>
+                  <th>Trials (14d)</th>
                   <th>Velocity/wk</th>
                   <th>Plateau</th>
                 </tr>
@@ -114,7 +114,7 @@ export default function MasteryShadowDev() {
                       </Badge>
                     </td>
                     <td>{r.cue_independence != null ? (r.cue_independence * 100).toFixed(0) + '%' : '—'}</td>
-                    <td>{r.trials_recent} / {r.trials_total}</td>
+                    <td>{r.trials_recent}</td>
                     <td>{r.velocity_per_week != null ? r.velocity_per_week.toFixed(3) : '—'}</td>
                     <td>{r.plateau_flag ? <Badge variant="destructive">plateau</Badge> : '—'}</td>
                   </tr>

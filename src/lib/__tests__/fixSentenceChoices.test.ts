@@ -37,7 +37,12 @@ describe('buildFixSentenceChoices (L1/L2 scaffold tiles)', () => {
    * that, on a Level 1/2 tile set, telling the patient a wrong tap was right and
    * feeding the false success into ladder evidence.
    *
-   * So ask the scorer, across every bank the choice modes can draw from.
+   * So ask the scorer. Scope: `scoreChoice` grades against the PRIMARY error's
+   * fixes only, so this oracle is exact for single-error trials. Two-error and
+   * morphology items are included as a guard — they are L5/L6 content and
+   * cannot currently reach L1/L2 choice mode, but if that ever changes the
+   * oracle must be extended to `secondError` before this test can be trusted
+   * for them.
    */
   it('the scorer accepts exactly one tile — not merely the fix list', () => {
     const banks = [

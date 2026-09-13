@@ -226,8 +226,12 @@ export function runMasteryConfidenceSim(
     const row = computeMastery(windowTrials, prev, new Date(sessionTimeMs + 60_000));
     prev = row;
 
-    // A.2 — distinct sessions + day span across the retention window, matching
-    // the counts computeMastery actually fed into the confidence ladder.
+    // A.2 — distinct sessions + day span across the retention window. NOTE:
+    // this is the raw count, whereas computeMastery now discounts occasions
+    // outside recency that carry fewer than MIN_RETENTION_SESSION_TRIALS
+    // trials. Every sim archetype practises daily with well-filled sessions, so
+    // the two agree here; a future archetype on a sparse cadence would not, and
+    // the explainer below would then overstate the evidence.
     const sessionCount = new Set(
       windowTrials.map((tr) => tr.session_id).filter(Boolean),
     ).size;

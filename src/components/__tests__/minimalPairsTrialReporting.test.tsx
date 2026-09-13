@@ -140,6 +140,29 @@ describe('Minimal Pairs trial reporting', () => {
     expect(mic.running, 'Skip must close the microphone').toBe(false);
   });
 
+  it('times the answer, not the say-it step that follows it', async () => {
+    // A correct answer's report is deliberately held until the say-it step
+    // resolves. Recomputing the elapsed time at that point charged the patient
+    // for the whole echo window, so in the clinical record every correct answer
+    // looked seconds slower than every wrong one at identical true latency —
+    // and the latency is what SessionsTab and the cohort analytics average.
+    const reported: Array<{ isCorrect: boolean; reactionTimeMs: number }> = [];
+    render(<MinimalPairsGame difficulty={1} totalTrials={3} sessionId={null}
+      onTrialComplete={(t) => reported.push({ isCorrect: t.isCorrect, reactionTimeMs: t.reactionTimeMs })} />);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    await act(async () => { fireEvent.click(tiles()[0]); await Promise.resolve(); });
+    // Sit through the entire say-it window in silence — the common case.
+    await act(async () => { await vi.advanceTimersByTimeAsync(20000); });
+
+    expect(reported.length).toBe(1);
+    expect(reported[0].isCorrect).toBe(true);
+    expect(
+      reported[0].reactionTimeMs,
+      `answered at ~600ms but reported ${reported[0].reactionTimeMs}ms`,
+    ).toBeLessThan(3000);
+  });
+
   it('never leaves the microphone open once the exercise is over', async () => {
     render(<MinimalPairsGame difficulty={1} totalTrials={1} sessionId={null}
       onTrialComplete={() => {}} onComplete={() => {}} />);

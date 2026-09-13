@@ -223,10 +223,20 @@ export function MinimalPairsGame({
     }
   }, [currentTrial, showFeedback]);
 
+  // The latency of the ANSWER, stamped when the patient actually answers.
+  // `onTrialComplete` for a correct trial is deliberately deferred until the
+  // optional say-it step resolves, so recomputing the elapsed time at report
+  // time charged the patient for the whole echo window — up to twelve seconds.
+  // Incorrect trials are never deferred, so the clinical record ended up with
+  // every correct answer looking slower than every wrong one at identical true
+  // latency. The echo step is exposure, not evaluation; it must not be timed.
+  const answerLatencyRef = useRef(0);
+
   const lastReportedTrialRef = useRef<number>(-1);
   useEffect(() => {
     if (showFeedback && state.isCorrect !== null && lastReportedTrialRef.current !== trialIndex) {
       lastReportedTrialRef.current = trialIndex;
+      answerLatencyRef.current = Math.max(0, Date.now() - trialStartRef.current);
       adaptation.recordTrial({
         correct: state.isCorrect === true,
         reactionTimeMs: Date.now() - trialStartRef.current,
@@ -325,7 +335,7 @@ export function MinimalPairsGame({
       audioReplayCount: audioReplayCountRef.current,
       echoAttempted: echoStatus === 'heard',
       echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
-      reactionTimeMs: Math.max(0, Date.now() - trialStartRef.current),
+      reactionTimeMs: answerLatencyRef.current,
     });
   };
 

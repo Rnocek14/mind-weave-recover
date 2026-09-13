@@ -131,6 +131,34 @@ describe('mastery confidence and practice cadence', () => {
     }
   });
 
+  it('will not manufacture occasions out of incidental one-trial visits', () => {
+    // The failure the retention window makes possible: two stray taps months
+    // ago plus one long sitting today would read as three separate occasions
+    // and clear a gate that one massed sitting must not clear.
+    const stray = (daysBack: number, id: string): MasteryTrial => ({
+      is_correct: true,
+      cue_level: 0,
+      created_at: new Date(NOW.getTime() - daysBack * 86400_000).toISOString(),
+      session_id: id,
+    });
+    const massedToday = history(1, 40, 0);
+    const { row, verdict } = verdictFor([
+      stray(80, 'stray-a'),
+      stray(70, 'stray-b'),
+      ...massedToday,
+    ]);
+    expect(row.confidence).toBe('low');
+    expect(verdict).toBe('block');
+
+    // Two REAL sessions months ago, though, are real evidence.
+    const { verdict: withRealSessions } = verdictFor([
+      ...history(1, 8, 0).map((t) => ({ ...t, session_id: 'old-a', created_at: new Date(NOW.getTime() - 80 * 86400_000).toISOString() })),
+      ...history(1, 8, 0).map((t) => ({ ...t, session_id: 'old-b', created_at: new Date(NOW.getTime() - 70 * 86400_000).toISOString() })),
+      ...massedToday,
+    ]);
+    expect(withRealSessions).toBe('pass');
+  });
+
   it('keeps its silence on a short lesson block practised monthly', () => {
     // Three trials once a month: the gate has no data worth an opinion, so it
     // must return 'skip' and let accuracy and evidence decide — not 'block',
@@ -142,8 +170,11 @@ describe('mastery confidence and practice cadence', () => {
     expect(verdict).toBe('skip');
   });
 
-  it('lets the level actually advance once the verdict clears', () => {
-    // End-to-end: the blocked verdict was not cosmetic — it stopped level-up.
+  it('documents why the verdict matters: block stops level-up outright', () => {
+    // This one asserts against code the change does not touch, and so cannot
+    // fail if the fix regresses — it is here to record the CONSEQUENCE the rest
+    // of the file is about. Without it, "the verdict was 'block'" reads as a
+    // diagnostic rather than as the thing that froze the patient's progress.
     const base = defaultProgressionState({
       userId: 'u',
       profileId: 'p',
