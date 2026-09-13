@@ -11,7 +11,45 @@
  *   mastery_score    = EWMA( accuracy × (0.4 + 0.6 × cue_independence), α=0.3 )
  *   confidence       = none(<5) / low(5–11) / medium(12–29, ≥3 sessions) /
  *                      high(≥30, ≥6 sessions, ≥3 days)
+ *
+ * TWO WINDOWS, TWO QUESTIONS
+ * --------------------------
+ * "How is the patient doing?" and "how much evidence do we have?" are not the
+ * same question, and they do not share a timescale.
+ *
+ *   RECENCY  (14d) — current performance: accuracy_recent, cue_independence,
+ *                    the EWMA mastery score, trial volume, plateau.
+ *   RETENTION(90d) — distributed-practice evidence: how many separate sessions
+ *                    the skill has been demonstrated in, and over how many days.
+ *
+ * Counting sessions inside the 14-day recency window conflated *distributed*
+ * with *frequent*. A patient practising a skill every ten days accumulated
+ * plenty of trials but only two sessions per fortnight, so confidence pinned at
+ * 'low'; `readMasteryGate` reads low-with-≥12-trials as "stuck low" and blocks
+ * level-up, so that patient could never advance no matter how well they
+ * performed — and a patient who had already earned 'medium' lost it simply by
+ * practising less often. Session count and day span therefore read the
+ * retention window; everything else still reads recency.
+ *
+ * Both counts can only grow when the window widens, so this can only move a
+ * gate verdict from 'block' toward 'pass' — never the reverse. Massed practice
+ * (one long sitting, however many trials) still lands at 'low', which is the
+ * distinction the session floor was written to draw.
  */
+
+/**
+ * Window for "how is the patient doing right now" — accuracy, cue
+ * independence, the EWMA score, trial volume, plateau.
+ */
+export const MASTERY_RECENCY_WINDOW_DAYS = 14;
+
+/**
+ * Window for "how much distributed evidence do we have" — distinct sessions
+ * and day span. Longer on purpose: three sessions spread over six weeks are
+ * stronger retention evidence than three sessions in three days, and a home
+ * programme run once a week must not read as no evidence at all.
+ */
+export const MASTERY_RETENTION_WINDOW_DAYS = 90;
 
 export interface MasteryTrial {
   is_correct: boolean;
@@ -73,8 +111,17 @@ export function computeMastery(
   );
   const last = sorted[sorted.length - 1];
 
-  const recent = sorted.filter(t => daysAgo(t.created_at, refMs) <= 14);
-  const trialsTotal = sorted.length;
+  const recent = sorted.filter(
+    t => daysAgo(t.created_at, refMs) <= MASTERY_RECENCY_WINDOW_DAYS,
+  );
+  // Distributed-practice evidence reads the longer window. Callers that only
+  // hand over a recency window's worth of trials get exactly the old numbers.
+  const retention = sorted.filter(
+    t => daysAgo(t.created_at, refMs) <= MASTERY_RETENTION_WINDOW_DAYS,
+  );
+  // Volume stays on recency — widening it would let stale trials satisfy the
+  // trial floors, which is the one direction this change must not move.
+  const trialsTotal = recent.length;
   const trialsRecent = recent.length;
 
   const correctRecent = recent.filter(t => t.is_correct);
@@ -100,11 +147,13 @@ export function computeMastery(
   }
   const masteryScore = Math.max(0, Math.min(1, ewma));
 
-  // Sessions in recent window
-  const sessions = new Set(recent.map(t => t.session_id).filter(Boolean));
+  // Distinct sessions and day span across the RETENTION window — the
+  // "has this been demonstrated on separate occasions" question.
+  const sessions = new Set(retention.map(t => t.session_id).filter(Boolean));
   const sessionCount = sessions.size;
-  const daySpan = recent.length > 1
-    ? daysAgo(recent[0].created_at, refMs) - daysAgo(recent[recent.length - 1].created_at, refMs)
+  const daySpan = retention.length > 1
+    ? daysAgo(retention[0].created_at, refMs) -
+      daysAgo(retention[retention.length - 1].created_at, refMs)
     : 0;
 
   let confidence: MasteryRow['confidence'] = 'none';

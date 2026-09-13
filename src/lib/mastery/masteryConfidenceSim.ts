@@ -20,7 +20,12 @@
  *   5. Does confidence correlate with cue dependency?      (cue-dependent)
  */
 
-import { computeMastery, type MasteryRow, type MasteryTrial } from './computeMastery';
+import {
+  computeMastery,
+  MASTERY_RETENTION_WINDOW_DAYS,
+  type MasteryRow,
+  type MasteryTrial,
+} from './computeMastery';
 import { mulberry32 } from '@/lib/simulation/userProfiles';
 import {
   explainMasteryConfidence,
@@ -211,15 +216,18 @@ export function runMasteryConfidenceSim(
       });
     }
 
-    // Mirror production: pass the trailing 14-day window + prev row.
-    const sinceMs = sessionTimeMs - 14 * DAY;
+    // Mirror production: flushMasteryShadow fetches the RETENTION window and
+    // computeMastery narrows to recency internally, so the sim must hand over
+    // the same span or it stops representing what ships.
+    const sinceMs = sessionTimeMs - MASTERY_RETENTION_WINDOW_DAYS * DAY;
     const windowTrials = allTrials.filter(
       (tr) => new Date(tr.created_at).getTime() >= sinceMs,
     );
     const row = computeMastery(windowTrials, prev, new Date(sessionTimeMs + 60_000));
     prev = row;
 
-    // A.2 — distinct sessions + day span inside the scoring window.
+    // A.2 — distinct sessions + day span across the retention window, matching
+    // the counts computeMastery actually fed into the confidence ladder.
     const sessionCount = new Set(
       windowTrials.map((tr) => tr.session_id).filter(Boolean),
     ).size;

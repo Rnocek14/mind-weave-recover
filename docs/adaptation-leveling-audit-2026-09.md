@@ -146,6 +146,72 @@ Detective Mind and Phonological Awareness. The expressive track is unchanged.
   counted as two failures, and left the easing to the rolling window, so its
   promise was often not kept. It now records once and steps down.
 
+### Four defects found and fixed after the first pass
+
+**Minimal Pairs recorded only the patient's mistakes.** `useSpeechRecognition`
+returns a fresh object every render, so a `[speech]` dependency gave the
+mic-teardown callback a new identity every render, and the per-trial reset effect
+keyed on it fired continuously — closing the say-it microphone within a frame of
+it opening and resetting the step to idle. A correct answer is held back until
+that step resolves, so correct answers were never reported at all. Wrong answers
+were, because they do not wait. A flawless session therefore persisted nothing
+(the flush short-circuits at zero buffered trials) and a mixed session was booked
+as 0% accurate, which pins `supportBaseline` at its cap and makes promotion out of
+any Minimal Pairs level arithmetically impossible — while the in-session engine,
+which never waited on the echo, kept moving the badge. The fix holds the reporter
+in a ref, reports on every exit from the feedback screen, and closes the
+microphone on the way out — including on the last trial, where the final
+`nextTrial()` sets `isComplete` without touching `trialIndex`, so nothing else
+would have. Without that last part the fix would have left the mic live on the
+completion screen. The regression test installs a fake Web Speech API on purpose:
+without one the echo short-circuits and reporting appears to work, which is
+exactly why 127 green test files never caught it.
+
+**The mastery gate was a practice-cadence gate.** `computeMastery` counted
+distinct sessions inside the same 14-day window it uses for accuracy, so
+"distributed practice" was really measuring frequency. A patient working a skill
+every ten days banked plenty of trials but only two sessions per fortnight, which
+pinned confidence at "low"; the gate reads low-with-volume as "stuck low" and
+returns `block`, and a blocked verdict stops level-up outright. Progress sat at
+100% forever with no on-screen explanation, and a patient who had already earned
+"medium" lost it by easing off. Session count and day span now read a 90-day
+retention window while accuracy, cue independence, the EWMA score and trial
+volume stay on recency — so the change can only move a verdict from `block`
+toward `pass`, never the reverse, which is proved over 180 cadence × session-size
+combinations. Massed practice (one long sitting, however many trials) still
+lands at "low", which is the distinction the session floor exists to draw, and a
+three-trial block practised monthly still returns `skip` rather than a block no
+amount of correct work could clear. The flush fetches the retention window
+newest-first under an explicit cap, because an ascending query that hits
+PostgREST's row ceiling drops the *newest* rows — every row the recency window is
+made of. The write set stays scoped to skills practised in the last fortnight:
+without that, the wider read would recompute skills the patient has not touched,
+find an empty recency window, and blank their accuracy and cue-independence to
+null. The model version is bumped so rows either side of the change are not
+trended together.
+
+**A wrong choice tile was scored correct.** Fix Sentence builds its L1/L2 tiles by
+excluding anything in the accepted-fix list, but the game grades through
+`matchSpokenFix`, which also honours ±s plural tolerance. "crayon" cleared the
+list and still matched the fix "crayons", so a patient tapping it was told they
+were right — on the two most scaffolded rungs, with the false credit flowing
+into ladder evidence. The builder now asks the scorer itself, so the two cannot
+drift again. The existing tile test passed on the broken code because it used the
+fix list as its oracle; the new one uses the scorer, across all three banks.
+
+**Photo Naming served the same words at four of seven levels.** The clinical
+content selector — high-frequency at L4, mid-frequency at L5, category spread at
+L6, phrase carriers at L7 — was written and unit-tested, then left unreachable:
+`usePhotoNamingGame` consults it only when the caller supplies no `customTrials`,
+and the exercise page always supplies them. Measured on the real bank, L1→L2,
+L3→L4, L4→L5 and L7→L8 handed the patient a byte-identical word list. The page
+now resolves its stock pool through the selector for levels 4–7, and six of the
+seven crossings change the vocabulary. L1→L2 stays identical on purpose: those
+rungs are separated by how much support still counts as on-target, not by
+words. Clinician-targeted words and phonemes, custom photos and Kids Mode keep
+the precedence they already had, and a tier narrower than the session tops up
+from the engine pool rather than shortening it.
+
 ## Verified working (a selection)
 
 Worth stating, because much of the system is sound:
@@ -166,21 +232,28 @@ Worth stating, because much of the system is sound:
 These are real and confirmed, but each needs a clinical or product call, so
 none was changed silently.
 
-1. **The mastery gate behaves as a session-cadence gate.** Confidence reaches
-   "medium" only with at least three distinct sessions inside a 14-day window,
-   and the gate turns a low-confidence-with-volume row into a hard block. A
-   patient practising weekly at 100% accuracy with full independence is
-   therefore blocked from promotion indefinitely. Measured on the real modules:
-   confidence "low", mastery score 1.00, gate "block". Note that widening the
-   lookback window does **not** fix this — the session count is computed over
-   the inner 14-day window, so a wider fetch raises the trial total while
-   leaving confidence at "low", which makes the block *more* likely. The fix has
-   to change what confidence means, or stop treating a cadence artifact as
-   evidence of weakness. The rule is deliberately test-locked, so changing it is
-   a policy decision.
-2. **Hard regression is not implemented.** The spec describes a level drop after
-   two consecutive struggle sessions; only the counters exist. Soft regression
-   (support inflation) does work.
+1. **Level 8 Photo Naming content is still the engine pool.** The clinical
+   selector's L8 tier trains on `PROBE_WORDS` and tags each trial
+   `isAdvancedReviewTrial` so aggregators can keep them out of mastery — but
+   nothing outside the selector's own unit tests reads that flag. Enabling the
+   tier would feed the reserved generalization probes into mastery and the
+   ladder as ordinary trials and destroy the untrained-probe measure for the
+   patients furthest along. L4–L7 are wired; L8 waits on the flag being honoured
+   end to end. `photoNamingSessionPool.ts` says so at the constant that gates it,
+   and a test fails if a probe word ever reaches a training pool.
+2. **Hard regression is not implemented — and is deliberately still not.** The
+   spec describes a level drop after two consecutive struggle sessions; only the
+   counters exist. Soft regression does work, and now demonstrably: all thirteen
+   pages read `supportBaseline` and lower the engine floor a step at 2, and a
+   non-struggle session decays it again. Two things argue against adding the
+   level drop in this pass. The thresholds are a clinical decision the spec does
+   not supply ("the level's struggle threshold" names no number). And measured on
+   Photo Naming, four of the seven possible demotions would change nothing the
+   patient sees — L4 and L5 mapped to the same engine band, so the demotion would
+   move the clinical record, forfeit up to 100 progress points and flip the
+   care-planning signal without altering the therapy. The content half of that is
+   now fixed (see below), which makes hard regression *more* tractable later, not
+   less; the threshold question still needs a clinician.
 3. **In-session adaptation is inert in very short games.** With the
    single-trial punishment removed, Multi-Step Planning and Narrative Retell
    (window 4, three rounds) can no longer move within a session, and Category

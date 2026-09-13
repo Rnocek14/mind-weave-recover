@@ -148,14 +148,26 @@ export function MinimalPairsGame({
     enabled: true,
   });
 
+  // `useSpeechRecognition` returns a fresh object literal on every render, so a
+  // `[speech]` dependency gives its consumers a new identity every render. The
+  // per-trial reset effect below keys on `stopEcho`, so that made the reset run
+  // on EVERY render: it closed the mic and drove `echoStatus` back to 'idle'
+  // within a frame of `startEcho` opening it. A correct answer therefore never
+  // reached 'heard' or 'skipped', and the report effect — which holds correct
+  // trials until the say-it step resolves — never fired. The exercise recorded
+  // only the patient's mistakes. Hold the live handle in a ref and keep
+  // `stopEcho` stable for the life of the component.
+  const speechRef = useRef(speech);
+  speechRef.current = speech;
+
   const stopEcho = useCallback(() => {
     echoActiveRef.current = false;
     if (echoTimerRef.current) { clearTimeout(echoTimerRef.current); echoTimerRef.current = null; }
-    try { speech.stopListening(); } catch {}
-  }, [speech]);
+    try { speechRef.current.stopListening(); } catch {}
+  }, []);
 
   const startEcho = useCallback(async () => {
-    if (!speech.isSupported) {
+    if (!speechRef.current.isSupported) {
       setEchoStatus('skipped');
       return;
     }
@@ -168,7 +180,7 @@ export function MinimalPairsGame({
     // capturing the audio tail. Bounded so a stuck flag can't hang the echo.
     await voiceController.awaitMicSafe(1500);
     if (!echoActiveRef.current) return;
-    try { speech.startListening(); } catch {}
+    try { speechRef.current.startListening(); } catch {}
     // Auto-stop window — exposure, not evaluation. 7s: aphasic speech onset
     // is slow, and the previous 4s window closed on patients mid-attempt.
     // Guard on the ref, not `echoStatus`: this closure captured 'idle' (the
@@ -181,7 +193,7 @@ export function MinimalPairsGame({
         setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
       }
     }, 7000);
-  }, [speech, stopEcho]);
+  }, [stopEcho]);
 
   const handleEchoSaidIt = useCallback(() => {
     stopEcho();
@@ -280,13 +292,27 @@ export function MinimalPairsGame({
   // onTrialComplete identity. Also requires selectedIndex !== null so we
   // never log a trial the user hasn't actually answered.
   const trialReportedRef = useRef<string>('');
-  useEffect(() => {
+
+  // ONE reporting path for the feedback screen.
+  //   waitForEcho true  — the passive effect below. A CORRECT trial is held
+  //                       until the optional say-it step resolves, so
+  //                       `echoAttempted` is truthful.
+  //   waitForEcho false — every EXIT from the feedback screen (Skip, the
+  //                       auto-advance timers). A trial the patient actually
+  //                       answered must reach telemetry and the clinical ladder
+  //                       even if the echo never resolves.
+  // `trialReportedRef` is set synchronously before `onTrialComplete` and its
+  // key is unique per trial, so however many exits race, a trial is reported
+  // exactly once. Held in a ref so `advanceTrial` stays stable: a changing
+  // dependency would restart the auto-advance timers on every render.
+  const reportTrialIfPendingRef = useRef<(waitForEcho: boolean) => void>(() => {});
+  reportTrialIfPendingRef.current = (waitForEcho: boolean) => {
     if (!showFeedback || !currentTrial || !onTrialComplete) return;
     if (state.selectedIndex === null) return;
     const reportKey = `${trialIndex}-${currentTrial.pair.id}`;
     if (trialReportedRef.current === reportKey) return;
     const correct = state.isCorrect === true;
-    if (correct && echoStatus !== 'heard' && echoStatus !== 'skipped') return;
+    if (waitForEcho && correct && echoStatus !== 'heard' && echoStatus !== 'skipped') return;
     trialReportedRef.current = reportKey;
     const selectedWord = state.selectedIndex === 0
       ? currentTrial.pair.word1
@@ -301,7 +327,27 @@ export function MinimalPairsGame({
       echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
       reactionTimeMs: Math.max(0, Date.now() - trialStartRef.current),
     });
+  };
+
+  useEffect(() => {
+    reportTrialIfPendingRef.current(true);
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
+
+  /** Leave the feedback screen, reporting the answer first if it is still pending. */
+  // Close the say-it microphone on the way out, too. The per-trial reset effect
+  // is the only other thing that stops the recognizer on an advance, and it keys
+  // on `trialIndex` — but the FINAL `nextTrial()` sets `isComplete` and leaves
+  // `trialIndex` alone, so on the last trial nothing closed the mic. Tapping
+  // Skip during the say-it window left it live on the completion screen, and
+  // tapping Skip during the pause before it opens let the pending `startEcho`
+  // open it AFTER the exercise had ended — on a screen with no echo panel and no
+  // mic indicator at all. `stopEcho` is idempotent and stable, so on every other
+  // exit this is a no-op the reset effect would have performed a moment later.
+  const advanceTrial = useCallback(() => {
+    reportTrialIfPendingRef.current(false);
+    stopEcho();
+    nextTrial();
+  }, [nextTrial, stopEcho]);
 
   // Auto-advance after selection — aphasia-friendly pacing.
   // Incorrect: 5s so the patient can actually read the contrast info.
@@ -310,16 +356,18 @@ export function MinimalPairsGame({
     if (!showFeedback || isComplete) return;
     if (state.isCorrect) {
       if (echoStatus === 'heard' || echoStatus === 'skipped') {
-        const t = setTimeout(() => { nextTrial(); }, 3500);
+        const t = setTimeout(() => { advanceTrial(); }, 3500);
         return () => clearTimeout(t);
       }
       // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
-      const fallback = setTimeout(() => { nextTrial(); }, 12000);
+      // This is exactly the path that fires when the echo is lost, so it must
+      // save the trial rather than discard it.
+      const fallback = setTimeout(() => { advanceTrial(); }, 12000);
       return () => clearTimeout(fallback);
     }
-    const t = setTimeout(() => { nextTrial(); }, 5000);
+    const t = setTimeout(() => { advanceTrial(); }, 5000);
     return () => clearTimeout(t);
-  }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
+  }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, advanceTrial]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
   // First time, spell the step out loud — "select then say" is a two-step
@@ -599,7 +647,7 @@ export function MinimalPairsGame({
               {currentTrial.pair.contrastDescription}
             </p>
           </div>
-          <Button onClick={nextTrial} variant="ghost" size="sm" className="gap-1 shrink-0 ml-3 text-muted-foreground">
+          <Button onClick={advanceTrial} variant="ghost" size="sm" className="gap-1 shrink-0 ml-3 text-muted-foreground">
             Skip
             <ArrowRight className="w-3.5 h-3.5" />
           </Button>

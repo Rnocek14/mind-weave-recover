@@ -60,6 +60,7 @@ import {
   mapPhotoNamingSupport,
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
 interface PhotoNamingGameProps {
@@ -103,6 +104,14 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
+    /**
+     * The SupportLevel this game already resolved for the trial — the same
+     * value handed to the progression ladder. Pages must forward this rather
+     * than re-derive support from cueLevel: the contract requires supportUsed
+     * to come from observed in-trial scaffolding, and a re-derivation cannot
+     * see a chip tap or the post-ASR-silence recovery case.
+     */
+    supportUsed?: SupportLevel;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -299,6 +308,13 @@ export const PhotoNamingGame = ({
   // showCueRef. adaptation_trial_logs.cue_level is the mastery layer's only
   // view of cue intensity, so it has to carry the ladder, not a boolean.
   const cueLevelRef = useRef(cueLevel);
+  // The SupportLevel this game resolved for the trial in progress — chip vs
+  // spoken, which cue rung was reached, and the post-ASR-silence recovery
+  // case. The page must report THIS rather than re-derive support from
+  // cueLevel: a chip tap after an attempted production is scaffolded
+  // production, not pure recognition, and the contract requires supportUsed to
+  // come from observed scaffolding rather than being inferred.
+  const resolvedSupportRef = useRef<SupportLevel | null>(null);
   
   const { toast } = useToast();
   const { playSuccess, playError, playLevelUp, playLevelDown, playHint, playTimeout } = useGameSounds();
@@ -1830,6 +1846,7 @@ export const PhotoNamingGame = ({
     // (spec §5.8 — technical failures are excluded from progression).
     const micWasBroken = !!micErrorMessage;
     if (!micWasBroken) {
+      resolvedSupportRef.current = mapPhotoNamingSupport({ inputMode: 'production', cueLevel });
       progression.recordTrialOutcome({
         correct: false,
         support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
@@ -1859,6 +1876,10 @@ export const PhotoNamingGame = ({
     ) : false;
     
     onTrialComplete?.({
+      // The support level this game resolved for the trial. The page must
+      // report this rather than re-derive it from cueLevel, which cannot see
+      // a chip tap or the post-silence recovery case.
+      supportUsed: resolvedSupportRef.current ?? undefined,
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
@@ -2136,6 +2157,7 @@ export const PhotoNamingGame = ({
             cueLevel,
           })
         : mapPhotoNamingSupport({ inputMode, cueLevel });
+    resolvedSupportRef.current = supportLevel;
     progression.recordTrialOutcome({
       correct: isCorrectAnswer,
       support: supportLevel,
@@ -2335,6 +2357,10 @@ export const PhotoNamingGame = ({
 
         // Log telemetry with unified analysis
         onTrialComplete?.({
+          // The support level this game resolved for the trial. The page must
+          // report this rather than re-derive it from cueLevel, which cannot see
+          // a chip tap or the post-silence recovery case.
+          supportUsed: resolvedSupportRef.current ?? undefined,
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2461,6 +2487,10 @@ export const PhotoNamingGame = ({
 
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
         onTrialComplete?.({
+          // The support level this game resolved for the trial. The page must
+          // report this rather than re-derive it from cueLevel, which cannot see
+          // a chip tap or the post-silence recovery case.
+          supportUsed: resolvedSupportRef.current ?? undefined,
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
@@ -2562,9 +2592,10 @@ export const PhotoNamingGame = ({
     if (!isManualConfirmed) {
       // Clinical Progression v1: buffer this caregiver-rated trial. Treated as
       // scaffolded production at minimum semantic_cue support.
+      resolvedSupportRef.current = mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) });
       progression.recordTrialOutcome({
         correct,
-        support: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
+        support: resolvedSupportRef.current,
       });
       // Update via in-game adaptation hook (handles difficulty adjustment)
       adaptationResult = recordTrial({
@@ -2585,6 +2616,10 @@ export const PhotoNamingGame = ({
     const caregiverEncouragementScore = correct ? 100 : (responseType === 'tried' ? 50 : (responseType === 'looked' ? 25 : 0));
     
     onTrialComplete?.({
+      // The support level this game resolved for the trial. The page must
+      // report this rather than re-derive it from cueLevel, which cannot see
+      // a chip tap or the post-silence recovery case.
+      supportUsed: resolvedSupportRef.current ?? undefined,
       correct,
       reactionTimeMs: reactionTime,
       errorType,

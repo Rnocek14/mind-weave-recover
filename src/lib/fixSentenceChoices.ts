@@ -8,6 +8,7 @@
  */
 import type { FixSentenceTrial } from '@/data/fixSentenceBank';
 import { FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
+import { matchSpokenFix } from '@/hooks/useFixSentenceGame';
 
 export const CHOICE_TILE_COUNT = 4;
 
@@ -46,6 +47,27 @@ function validAnswerSet(trial: FixSentenceTrial): Set<string> {
 }
 
 /**
+ * Would the SCORER accept this word for this trial?
+ *
+ * The exact-string set above is not the rule the game actually grades by.
+ * `matchSpokenFix` also honours ±s plural tolerance and leading articles, so a
+ * distractor could clear the set and still be marked correct: the school-supply
+ * item whose fixes include "crayons" drew "crayon" as a distractor, and a
+ * patient tapping it was told they were right. That lands on L1/L2 — the two
+ * most scaffolded rungs, for the most impaired patients — and the false credit
+ * flows straight into ladder evidence.
+ *
+ * Asking the scorer itself removes the possibility of the two drifting again.
+ */
+function scorerAccepts(trial: FixSentenceTrial, word: string): boolean {
+  return (
+    matchSpokenFix(word, trial.acceptedFixes, trial.fixAliases, trial.sentence, {
+      pluralTolerance: !trial.morphology,
+    }) != null
+  );
+}
+
+/**
  * Build the tile set: the primary accepted fix + distractors drawn from
  * the single-error bank's answer vocabulary (single words only — tiles
  * must be tappable at a glance), deterministically shuffled.
@@ -65,6 +87,7 @@ export function buildFixSentenceChoices(
     for (const candidate of [t.acceptedFixes[0], t.wrongWord]) {
       const n = normalize(candidate);
       if (!n || n.includes(' ') || exclude.has(n) || seen.has(n)) continue;
+      if (scorerAccepts(trial, candidate)) continue;
       seen.add(n);
       pool.push(candidate);
     }

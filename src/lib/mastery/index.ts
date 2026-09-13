@@ -1,6 +1,11 @@
 export { mapTrialToSkills, isExcludedFromMastery } from './skillMapping';
 export type { SkillSlug } from './skillMapping';
-export { computeMastery, suggestLevelChange } from './computeMastery';
+export {
+  computeMastery,
+  suggestLevelChange,
+  MASTERY_RECENCY_WINDOW_DAYS,
+  MASTERY_RETENTION_WINDOW_DAYS,
+} from './computeMastery';
 export type { MasteryRow, MasteryTrial } from './computeMastery';
 export { MASTERY_MODEL_VERSION } from './version';
 export {
