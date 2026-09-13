@@ -146,7 +146,7 @@ Detective Mind and Phonological Awareness. The expressive track is unchanged.
   counted as two failures, and left the easing to the rolling window, so its
   promise was often not kept. It now records once and steps down.
 
-### Four defects found and fixed after the first pass
+### Three defects found and fixed after the first pass
 
 **Minimal Pairs recorded only the patient's mistakes.** `useSpeechRecognition`
 returns a fresh object every render, so a `[speech]` dependency gave the
@@ -199,19 +199,6 @@ into ladder evidence. The builder now asks the scorer itself, so the two cannot
 drift again. The existing tile test passed on the broken code because it used the
 fix list as its oracle; the new one uses the scorer, across all three banks.
 
-**Photo Naming served the same words at four of seven levels.** The clinical
-content selector — high-frequency at L4, mid-frequency at L5, category spread at
-L6, phrase carriers at L7 — was written and unit-tested, then left unreachable:
-`usePhotoNamingGame` consults it only when the caller supplies no `customTrials`,
-and the exercise page always supplies them. Measured on the real bank, L1→L2,
-L3→L4, L4→L5 and L7→L8 handed the patient a byte-identical word list. The page
-now resolves its stock pool through the selector for levels 4–7, and six of the
-seven crossings change the vocabulary. L1→L2 stays identical on purpose: those
-rungs are separated by how much support still counts as on-target, not by
-words. Clinician-targeted words and phonemes, custom photos and Kids Mode keep
-the precedence they already had, and a tier narrower than the session tops up
-from the engine pool rather than shortening it.
-
 ## Verified working (a selection)
 
 Worth stating, because much of the system is sound:
@@ -232,15 +219,32 @@ Worth stating, because much of the system is sound:
 These are real and confirmed, but each needs a clinical or product call, so
 none was changed silently.
 
-1. **Level 8 Photo Naming content is still the engine pool.** The clinical
-   selector's L8 tier trains on `PROBE_WORDS` and tags each trial
-   `isAdvancedReviewTrial` so aggregators can keep them out of mastery — but
-   nothing outside the selector's own unit tests reads that flag. Enabling the
-   tier would feed the reserved generalization probes into mastery and the
-   ladder as ordinary trials and destroy the untrained-probe measure for the
-   patients furthest along. L4–L7 are wired; L8 waits on the flag being honoured
-   end to end. `photoNamingSessionPool.ts` says so at the constant that gates it,
-   and a test fails if a probe word ever reaches a training pool.
+1. **Photo Naming serves the same words at four of its seven level-ups, and the
+   selector written to fix that cannot safely be switched on.** Measured on the
+   real bank: L1→L2, L3→L4, L4→L5 and L7→L8 hand the patient a byte-identical
+   word list. The clinical content selector exists for exactly this — high
+   frequency at L4, mid frequency at L5, category spread at L6, phrase carriers
+   at L7 — and is unit-tested, but nothing in the running app reaches it:
+   `usePhotoNamingGame` consults it only when the caller supplies no
+   `customTrials`, and the exercise page always supplies them.
+
+   Wiring it in was tried and reverted, because measurement showed it would trade
+   a gap for a harm. Mean content tier per clinical level today runs
+   1.00, 1.00, 2.00, 2.00, 2.00, 2.32, 3.00, 3.00 — flat in places, but never
+   backwards. Through the selector it becomes
+   1.00, 1.00, 2.00, **1.06**, 2.02, **1.66**, 1.88, 3.00: promotion from L3 to L4
+   would make the words markedly *easier*, and L6 easier than L5. The cause is
+   that word frequency is orthogonal to the bank's difficulty tier, and L7's
+   carrier-phrase mode — the thing meant to supply L7's difficulty — sets a
+   `carrierPhrase` field that no component renders. Intersecting the two axes
+   restores monotonicity but collapses L4 to three usable words.
+
+   So this needs the two difficulty axes reconciled (or the bank enriched so the
+   frequency bands span the tiers), and the carrier phrase actually shown, before
+   the selector can be reached. L8 additionally trains on `PROBE_WORDS`, tagged
+   `isAdvancedReviewTrial` for segregation by a flag nothing outside the
+   selector's own tests reads — enabling it would feed the reserved
+   generalization probes into mastery as ordinary trials.
 2. **Hard regression is not implemented — and is deliberately still not.** The
    spec describes a level drop after two consecutive struggle sessions; only the
    counters exist. Soft regression does work, and now demonstrably: all thirteen
@@ -292,6 +296,13 @@ on a first pass. Everything they raised was either fixed or verified false:
   Level 7 would have been served the adult abstract pool. The filter now keys
   only on an explicit clinician category. This was a regression introduced by
   this work.
+- **Wiring Photo Naming's clinical content selector would have inverted the
+  ladder.** It was implemented, measured, and reverted in the same pass: the
+  selector's frequency bands are orthogonal to the bank's difficulty tiers, so
+  promotion from Level 3 to Level 4 would have handed the patient *easier* words
+  (mean tier 2.00 → 1.06), and Level 6 easier than Level 5. See open item 1 for
+  the full measurement and what it would take to enable. This was a regression
+  introduced by this work and caught before it shipped.
 - **A non-finite starting level would have crashed the exercise.** Because
   `NaN !== NaN`, the new render-phase re-seed would queue a state update on every
   render and React would abort with "too many re-renders". The seed is now

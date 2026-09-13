@@ -27,7 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Camera, SkipForward, Target, AlertTriangle, Coffee, ChevronDown } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { PHOTO_BANK, PhotoTrial, getTrialsForLevel } from '@/data/photoBank';
-import { resolvePhotoNamingStockPool } from '@/lib/progression/photoNamingSessionPool';
 import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
@@ -210,28 +209,7 @@ function PhotoNamingExerciseInner() {
     if (recentAccuracies.length === 0) {
       trialsFrozenRef.current = false;
     }
-    // `startingLevel` is listed alongside the engine difficulty because the two
-    // can move independently: `effective = max(sessionAdaptation, clinicalFloor)`,
-    // so a patient whose session tier already exceeds their clinical floor sees
-    // the level land with no change to `initialDifficulty` at all — and from L4
-    // the level, not the engine tier, is what chooses the words.
-  }, [initialDifficulty, progression.startingLevel, recentAccuracies.length]);
-
-  /**
-   * The stock word pool for this session. From Level 4 the clinical level, not
-   * the engine tier, chooses the vocabulary — see photoNamingSessionPool for
-   * why, and for which levels are deliberately left on the engine pool.
-   */
-  const resolveStockPool = useCallback(
-    (count: number): PhotoTrial[] =>
-      resolvePhotoNamingStockPool({
-        clinicalLevel: progression.startingLevel,
-        engineDifficulty: initialDifficulty,
-        count,
-        totalTrials,
-      }),
-    [initialDifficulty, progression.startingLevel, totalTrials],
-  );
+  }, [initialDifficulty, recentAccuracies.length]);
 
 
 
@@ -390,9 +368,8 @@ function PhotoNamingExerciseInner() {
         console.warn('⚠️ No matching trials for targets:', targetedWords);
       }
     } else if (photoSource === 'stock') {
-      // Level-appropriate words: the clinical selector from L4, the engine
-      // tier below it.
-      const levelFilteredTrials = resolveStockPool(totalTrials);
+      // Use difficulty-filtered trials for proper variety
+      const levelFilteredTrials = getTrialsForLevel(initialDifficulty, totalTrials);
       const uniqueStock = deduplicateByTarget(shuffleArray(levelFilteredTrials));
       selectedTrials = uniqueStock.slice(0, totalTrials);
       console.log('📸 Stock photo mode:', { 
@@ -411,7 +388,7 @@ function PhotoNamingExerciseInner() {
       }
     } else {
       // Mixed: 60% custom, 40% stock if custom photos exist
-      const levelFilteredTrials = resolveStockPool(PHOTO_BANK.length);
+      const levelFilteredTrials = getTrialsForLevel(initialDifficulty, PHOTO_BANK.length);
       if (usableCustomPhotos.length > 0) {
         const customCount = Math.min(Math.ceil(totalTrials * 0.6), usableCustomPhotos.length);
         const stockCount = totalTrials - customCount;
@@ -509,7 +486,7 @@ function PhotoNamingExerciseInner() {
     setTrials(selectedTrials);
     trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
-  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, resolveStockPool, kidsMode, progression.loaded, adaptation.loading]);
+  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode, progression.loaded, adaptation.loading]);
 
   const handleTrialComplete = async (result: {
     correct: boolean;
