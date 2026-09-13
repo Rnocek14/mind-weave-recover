@@ -106,10 +106,17 @@ export default function PhonologicalExercise() {
       return getTrialsByTargetWords(targetedWords, 10);
     }
     if (adaptation.focusPhonemes.length > 0 && !adaptation.loading) {
-      return getMixedTrials(adaptation.difficultyTier, 30, { focusPhonemes: adaptation.focusPhonemes });
+      // Draw the focus-phoneme set at the level the engine actually opens at.
+      // `bridge.effective` is max(session tier, clinical floor) — the same
+      // value the level badge and every logged trial report. Using the raw
+      // session tier handed a patient resuming at a high clinical level an
+      // easy trial set while the badge and the record said otherwise: the
+      // clinical floor was computed, logged, and then discarded on the content
+      // path that any patient with a phoneme history takes.
+      return getMixedTrials(bridge.effective, 30, { focusPhonemes: adaptation.focusPhonemes });
     }
     return undefined;
-  }, [targetedWords.join(','), adaptation.focusPhonemes.join(','), adaptation.difficultyTier, adaptation.loading]);
+  }, [targetedWords.join(','), adaptation.focusPhonemes.join(','), bridge.effective, adaptation.loading]);
 
   useEffect(() => {
     if (!user?.id) return;

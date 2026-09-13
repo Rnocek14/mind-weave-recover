@@ -200,7 +200,12 @@ export function matchApproximateFix(
 
 interface UseFixSentenceGameOptions {
   trialCount?: number;
-  difficulty?: 1 | 2 | 3;
+  /**
+   * Engine difficulty. Accepts a bank tier 1–3 or an engine level 1–10; the
+   * bank maps the number through the intensity ladder itself. Game components
+   * pass the live engine level.
+   */
+  difficulty?: number;
   /**
    * Clinical level (1–8). When ≥ 4 the PR6 content selector is applied to
    * filter the trial pool. When the selector falls back (tier not
@@ -236,9 +241,14 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     getTier: (t) => t.difficulty,
     getId: (t) => t.id,
   });
-  const tierForRecency = (typeof difficulty === 'number' ? difficulty : 2);
+  // Recency is WRITTEN under the ITEM's own bank tier (see nextTrial:
+  // `recency.markUsed(completed.id, completed.difficulty)`), which is always
+  // 1..3. Reading it under the engine level meant the key never matched for the
+  // clinical selector pools — every two-error, morphology and function-error
+  // item is bank tier 3 — so clinical L4/L5/L6 re-served the same few sentences
+  // every session and most of those cohorts were unreachable.
   const initialRecentIds = useMemo(
-    () => recency.getRecent(tierForRecency),
+    () => [1, 2, 3].flatMap((bankTier) => recency.getRecent(bankTier)),
     // Capture once per mount; we want a stable initial selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -271,8 +281,25 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         if (fromBaseline.length >= trialCount) return fromBaseline.slice(0, trialCount);
         // Pad from the selector pool, oldest-recency last.
         const recentSet = new Set(initialRecentIds);
-        const fresh = result.pool.filter((t) => !recentSet.has(t.id));
-        const filler = [...fromBaseline, ...fresh.filter((t) => !fromBaseline.some((b) => b.id === t.id))];
+        const chosen = new Set(fromBaseline.map((t) => t.id));
+        const filler = [...fromBaseline];
+        for (const t of result.pool) {
+          if (chosen.has(t.id) || recentSet.has(t.id)) continue;
+          chosen.add(t.id);
+          filler.push(t);
+        }
+        // Soft exclusion, per the recency primitive's contract: never return
+        // fewer items than asked for. Now that the recency key actually
+        // matches, a small cohort (8 two-error / 12 morphology items) really
+        // will be exhausted after a few sessions — re-serve the oldest rather
+        // than shortening the patient's session.
+        if (filler.length < trialCount) {
+          const lruRank = new Map(initialRecentIds.map((id, i) => [id, i] as const));
+          const reusable = result.pool
+            .filter((t) => !chosen.has(t.id))
+            .sort((a, b) => (lruRank.get(a.id) ?? -1) - (lruRank.get(b.id) ?? -1));
+          filler.push(...reusable);
+        }
         return filler.slice(0, trialCount);
       }
       return baseline;

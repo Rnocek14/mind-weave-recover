@@ -254,6 +254,15 @@ export default function MinimalPairsExercise() {
     return <ExerciseLoading />;
   }
 
+  // ...and for the persistent clinical level, for exactly the same reason. The
+  // trial pool is seeded from `difficulty` once, and the game captures its tier
+  // at mount, so a level that lands one commit later moves the badge, the
+  // logged trial level and the progression evidence while the patient keeps
+  // answering the pairs chosen for the level they had before.
+  if (isStarted && !progression.loaded) {
+    return <ExerciseLoading />;
+  }
+
   if (!isStarted) {
     return (
       <div className="min-h-dvh bg-background p-4 md:p-8">

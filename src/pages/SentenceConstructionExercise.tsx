@@ -119,6 +119,10 @@ const SentenceConstructionExercise = () => {
 
   // Per-trial dynamic tier controller (1..10). Seeded by clinical floor.
   const dynamicTier = useDynamicTier({
+    // This page is the single adaptation_trial_logs writer: its submitTrial
+    // sets unified_route_adaptation_log. Without this the wrapped controller
+    // would insert a second row for every trial.
+    autoLog: false,
     exerciseSlug: 'sentence-construction',
     sessionId,
     userId: user?.id,

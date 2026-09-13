@@ -206,7 +206,14 @@ export function FixSentenceGame({
 
   const game = useFixSentenceGame({
     trialCount,
-    difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))) as 1 | 2 | 3,
+    // Pass the ENGINE level (1–10) straight through. getFixSentenceTrials reads
+    // this number as an engine level, so collapsing it to 1–3 first made the
+    // bank re-read the TIER as engine level 1/2/3 — a clinical-L3 patient got
+    // only category errors, and engine 8–10 got semantic swaps instead of the
+    // multi-repair cohort. The mid-session repool already passes the engine
+    // level through; this makes the opening pool agree with it instead of
+    // jumping a cohort on the first adaptation.
+    difficulty: currentDifficulty,
     focusPhonemes,
     clinicalLevel,
     onTrialComplete,

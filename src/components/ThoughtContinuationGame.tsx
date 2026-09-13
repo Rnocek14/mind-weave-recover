@@ -326,6 +326,12 @@ export function ThoughtContinuationGame({
   // feels consistent across games.
   // ---------------------------------------------------------------------------
   const processUtteranceRef = useRef<() => void>(() => {});
+  // Latest `moveToNextPrompt` (declared further down). The auto-advance below
+  // must go through this ref: the binding captured when processUtterance was
+  // created still holds the PRE-shift discourse level, and prompt selection
+  // applies that level as a hard content-tier band, so a shift landed one
+  // prompt late and the final turn's shift never landed at all.
+  const moveToNextPromptRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     // Only arm the auto-advance loop while we're actively listening for an answer.
@@ -807,9 +813,10 @@ export function ThoughtContinuationGame({
         startListening();
       }, 3500);
     } else {
-      // Auto-advance after showing positive feedback
+      // Auto-advance after showing positive feedback. Call through the ref so
+      // the next prompt is chosen at the level this turn just moved us to.
       setTimeout(() => {
-        moveToNextPrompt();
+        moveToNextPromptRef.current?.();
       }, 2000);
     }
 
@@ -871,6 +878,12 @@ export function ThoughtContinuationGame({
     // Select next prompt (will be triggered by useEffect)
     selectAndSetNextPrompt();
   }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg, clearAnswerState]);
+
+  // Keep the ref pointing at the latest moveToNextPrompt so the auto-advance
+  // above selects the next prompt at the level this turn just moved us to.
+  useEffect(() => {
+    moveToNextPromptRef.current = moveToNextPrompt;
+  }, [moveToNextPrompt]);
 
   const handleSkipPrompt = useCallback(async () => {
     // Stop mic + recording to prevent leaks

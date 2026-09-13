@@ -105,6 +105,10 @@ export default function DualLoadNamingExercise() {
   // mapped through engine level → content tier (1..3).
   const initialTierFromFloor = difficultyLevel <= 3 ? 1 : difficultyLevel <= 7 ? 2 : 3;
   const dynamicTier = useDynamicTier({
+    // This page is the single adaptation_trial_logs writer: its submitTrial
+    // sets unified_route_adaptation_log. Without this the wrapped controller
+    // would insert a second row for every trial.
+    autoLog: false,
     exerciseSlug: EXERCISE_SLUG,
     sessionId: activeSessionId,
     userId: user?.id,

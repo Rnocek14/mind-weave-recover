@@ -106,8 +106,15 @@ export function isSuccessfulPlan(result: {
 
 function buildPlanningItems(tier: number, roundCount: number, exclude: Set<string>): PlanningItem[] {
   const t = Math.max(1, Math.min(3, tier));
-  const pool = PLANNING_ITEMS.filter(i => i.tier <= Math.min(t + 1, 3) && i.tier >= Math.max(t - 1, 1));
+  // Strict tier isolation, matching the data module's own selector contract
+  // ("returns ONLY items at the tier ... allow repeats WITHIN tier, never
+  // blend"). The old plus-or-minus-one window let content tier 2 draw from the
+  // entire bank, so a patient who had just been told the task got harder could
+  // be handed a tier-1 goal. Each tier holds 20 items against a 3-4 round
+  // session.
+  const pool = PLANNING_ITEMS.filter(i => i.tier === t);
   const fresh = pool.filter(i => !exclude.has(i.id));
+  // Exhausted by exclusions: repeat within the tier rather than blending.
   const finalPool = fresh.length >= roundCount ? fresh : pool;
   return shuffleArray(finalPool).slice(0, roundCount);
 }

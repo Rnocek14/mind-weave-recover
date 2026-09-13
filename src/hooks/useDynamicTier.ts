@@ -38,6 +38,16 @@ export interface UseDynamicTierOptions {
   targetSuccessRate?: number;
   /** ± window around target before adjusting. Default 0.10. */
   adjustmentThreshold?: number;
+  /**
+   * Forwarded to the wrapped `useInGameAdaptation`. Defaults to true so pages
+   * with no other adaptation writer keep logging exactly as before.
+   *
+   * A page whose trial already reaches adaptation_trial_logs by another route
+   * — `taskParameters.unified_route_adaptation_log` on submitTrial, or a game
+   * component with its own logger — must pass false, or every trial is
+   * inserted twice.
+   */
+  autoLog?: boolean;
 }
 
 export interface UseDynamicTierReturn {
@@ -83,6 +93,7 @@ export function useDynamicTier(opts: UseDynamicTierOptions): UseDynamicTierRetur
     windowSize = 5,
     targetSuccessRate = 0.75,
     adjustmentThreshold = 0.10,
+    autoLog = true,
   } = opts;
 
   const { capabilityScores } = useExerciseGating(userId, profileId);
@@ -111,6 +122,7 @@ export function useDynamicTier(opts: UseDynamicTierOptions): UseDynamicTierRetur
     windowSize,
     targetSuccessRate,
     adjustmentThreshold,
+    autoLog,
     enableDifficultyAutoStepDown: true,
     enableDifficultyToasts: false, // tier games already show feedback per trial
     enableAutoHints: false,

@@ -20,7 +20,6 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { getRandomOpener } from '@/lib/conversationFollowups';
 import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
-import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 import { flushVoiceSessionQueue } from '@/lib/voiceController';
 
@@ -349,15 +348,15 @@ export function ConversationPartnerGame({
         {progressDots}
       </div>
 
-      {adaptation.shiftDirection && (
-        <div className="flex justify-center">
-          <AdaptationBadge
-            direction={adaptation.shiftDirection}
-            reason={adaptation.shiftReason}
-            variant="card"
-          />
-        </div>
-      )}
+      {/*
+        No AdaptationBadge here, deliberately. The badge promises that something
+        the patient can feel has changed, but nothing in this exercise consumes
+        `adaptation.level`: the conversation hook takes no level input and the
+        follow-up line is chosen by stuck type and turn number alone. Announcing
+        "made it harder" when nothing moved is the one thing that is actually
+        false. This exercise's visible adaptation channel is Maya's cues.
+        Restore the badge only alongside a real lever.
+      */}
 
       <Card className="overflow-hidden">
         <CardContent className="p-6 space-y-6">

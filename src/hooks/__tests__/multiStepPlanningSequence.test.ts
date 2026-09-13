@@ -9,7 +9,8 @@
  * appears in what the patient said.
  */
 import { describe, it, expect } from 'vitest';
-import { computeSequenceScore, isSuccessfulPlan } from '@/hooks/useMultiStepPlanningGame';
+import { renderHook } from '@testing-library/react';
+import { computeSequenceScore, isSuccessfulPlan, useMultiStepPlanningGame } from '@/hooks/useMultiStepPlanningGame';
 
 const STEPS = ['fill the kettle', 'boil water', 'pour into mug', 'add sugar'];
 
@@ -55,5 +56,17 @@ describe('isSuccessfulPlan — one trial, one verdict', () => {
   it('accepts a mostly-complete plan in a sensible order', () => {
     expect(isSuccessfulPlan({ goalCoverage: 0.6, sequenceScore: 0.5 })).toBe(true);
     expect(isSuccessfulPlan({ goalCoverage: 1, sequenceScore: 1 })).toBe(true);
+  });
+});
+
+describe('planning item pool — tier isolation', () => {
+  it('serves only the requested content tier', () => {
+    for (const tier of [1, 2, 3]) {
+      const { result } = renderHook(() => useMultiStepPlanningGame(3, tier));
+      const served = (result.current.currentItem ? [result.current.currentItem] : []).map((i) => i.tier);
+      expect(served.length).toBe(1);
+      // The old pool blended tier +/- 1, so "harder" could hand back an easier goal.
+      expect(served[0]).toBe(tier);
+    }
   });
 });

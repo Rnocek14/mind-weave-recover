@@ -81,12 +81,23 @@ export default function PatternMatchExercise() {
   }, [user?.id]);
 
   // Get merged exercise config with capability adaptations
+  // The 5th argument is the lesson block. Passing null discarded the daily
+  // lesson's prescription entirely: there is no pattern-match entry in the
+  // clinical profile mapper, so the start difficulty collapsed to the
+  // capability suggestion (1 with no assessment). The lesson engine really
+  // does emit a start difficulty for the block containing this exercise, and
+  // the flow really does forward it — the value existed and was thrown away
+  // every session. useExerciseConfig resolves lesson > clinical > capability
+  // and then clamps to the capability bounds, so this cannot exceed the
+  // patient's safety ceiling.
   const { config, hasCapabilityAdaptations, bounds } = useExerciseConfig(
     'pattern-match',
     user?.id,
     activeProfile?.id,
     clinicalProfile,
-    null
+    lessonAdaptations?.startDifficulty
+      ? { startDifficulty: lessonAdaptations.startDifficulty }
+      : null
   );
   
   const { getAdaptations } = useExerciseGating(user?.id, activeProfile?.id);

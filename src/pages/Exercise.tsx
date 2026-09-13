@@ -84,7 +84,7 @@ const Exercise = () => {
   const totalRounds = 20;
   const { doseCap, refresh: refreshDoseCap } = useDoseCap(user?.id);
   
-  const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, undefined, exerciseId || "photo-naming");
+  const { level, loading: levelLoading, stepDown, saveLevel } = useExerciseDifficulty(user?.id, undefined, exerciseId || "photo-naming");
   const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
     sessionId,
     exerciseId || "photo-naming"
@@ -441,13 +441,21 @@ const Exercise = () => {
     startTrial();
   };
 
-  // Auto-start when coming from lesson flow (skip the "Start Exercise" gate)
+  // Auto-start when coming from lesson flow (skip the "Start Exercise" gate).
+  //
+  // Wait for the saved level first. startExercise reaches setIsPlaying(true)
+  // synchronously, so without this the game mounts in the very next commit
+  // while the stored level is still being fetched and `level` is still its
+  // initial 1. The phrase game builds its whole list once at mount, so the
+  // patient would run the entire lesson block on tier-1 content no matter what
+  // they had earned.
   useEffect(() => {
+    if (levelLoading) return;
     if (fromLesson && !isPlaying && !autoStartedRef.current) {
       autoStartedRef.current = true;
       startExercise();
     }
-  }, [fromLesson]);
+  }, [fromLesson, levelLoading]);
 
   const handleMoodSelect = (mood: number) => {
     setPreMood(mood);
