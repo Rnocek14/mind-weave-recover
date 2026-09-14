@@ -14,8 +14,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { TrialReportControl } from '@/components/TrialReportControl';
 import { recordLastTrial, clearLastTrial } from '@/lib/feedback/lastTrial';
 
-const submitMock = vi.fn(async () => ({ ok: true, id: 'report-1' }));
-const attachMock = vi.fn(async () => true);
+// Declared with a rest parameter so `mock.calls[n][i]` is typed: a zero-arg
+// mock gives vitest an empty tuple, and reading calls[0][1] (the reason code
+// these tests assert on) failed `tsc --noEmit` and with it `bun run qa`.
+const submitMock = vi.fn(async (..._args: unknown[]) => ({ ok: true, id: 'report-1' }));
+const attachMock = vi.fn(async (..._args: unknown[]) => true);
 
 vi.mock('@/lib/feedback/submitTrialReport', async () => {
   const actual = await vi.importActual<typeof import('@/lib/feedback/submitTrialReport')>(
@@ -23,8 +26,8 @@ vi.mock('@/lib/feedback/submitTrialReport', async () => {
   );
   return {
     ...actual,
-    submitTrialReport: (...args: unknown[]) => submitMock(...(args as [])),
-    attachNote: (...args: unknown[]) => attachMock(...(args as [])),
+    submitTrialReport: (...args: unknown[]) => submitMock(...args),
+    attachNote: (...args: unknown[]) => attachMock(...args),
   };
 });
 

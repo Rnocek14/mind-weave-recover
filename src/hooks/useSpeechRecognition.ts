@@ -399,13 +399,36 @@ export const useSpeechRecognition = (
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityRecovery);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          // Ignore
+      // The microphone must not outlive the page that opened it.
+      //
+      // `stop()` is asynchronous: the browser delivers `onend` AFTER this
+      // cleanup has run. In patient mode that handler schedules a restart (up
+      // to 999 times, deliberately — an aphasia user cannot toggle Voice off
+      // and on), so it re-armed a timer this cleanup had already cleared and
+      // called `start()` on a component that no longer exists. Leaving Photo
+      // Naming mid-trial left the recognizer running.
+      //
+      // Flag the stop first so any callback already in flight bails
+      // (startListening clears the flag again on a fresh start), then detach
+      // the handlers so this instance can never drive the hook again, then
+      // stop it and clear the timers.
+      manuallyStoppedRef.current = true;
+      recognition.onstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      try {
+        // abort() drops the audio immediately; stop() waits to finalise a
+        // result we would have nowhere to deliver. Not every engine has it.
+        if (typeof recognition.abort === 'function') {
+          recognition.abort();
+        } else {
+          recognition.stop();
         }
+      } catch (e) {
+        // Ignore
       }
+      stateRef.current = 'IDLE';
       clearRestartTimers();
     };
   }, [isSupported, optContinuous, patientMode, discourseMode]);

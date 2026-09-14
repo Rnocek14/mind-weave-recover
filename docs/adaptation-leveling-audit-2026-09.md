@@ -530,6 +530,17 @@ engagement gap once triage could escalate. The sweep now writes the dose row
 for the practice window it can see (first trial → last trial), and any session
 with a trial is floored at one minute.
 
+**The microphone could outlive the page.** Carried as "reported, not
+reproduced" since the first pass, and now reproduced and fixed. Patient mode
+deliberately restarts the recognizer on every `onend`, up to 999 times, because
+an aphasia user cannot be asked to toggle Voice off and on. The unmount cleanup
+called `stop()` and cleared the pending timers — but `stop()` is asynchronous,
+so `onend` arrived *after* cleanup, saw no "manually stopped" flag, and armed a
+fresh restart that cleanup could no longer clear. Leaving Photo Naming mid-trial
+left the recognizer running on a page the patient had left. Cleanup now flags
+the stop, detaches the handlers, and aborts rather than stops; a unit test with
+a fake recognizer fails if a restart ever follows an unmount.
+
 **Smaller:** "No spoken attempts this session" in Session Review meant "no
 *scored* spoken attempts"; it now distinguishes no attempts, unscorable
 attempts, and taps after unheard speech. Low-confidence exact matches are
@@ -568,9 +579,8 @@ an independent production.
   design), but the stored error type and similarities describe the chip: a
   "dat" accepted as "cat" is recorded as an exact match. The utterance is
   stored alongside, so nothing is lost, but the classification is not of it.
-- **A recognizer may restart after Photo Naming unmounts** (reported, not yet
-  reproduced here). A hot microphone after leaving the page would be a
-  privacy defect; it needs a browser-level reproduction.
+- ~~**A recognizer may restart after Photo Naming unmounts**~~ — reproduced and
+  fixed in the third pass; see above.
 - **Photo Naming's chip count is four at every level**; the documented "three
   chips below Level 4" step is overridden by the intensity table.
 - **Fix the Sentence at Level 1 earns 1.25 points per correct tile** — a
