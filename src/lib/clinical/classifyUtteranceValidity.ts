@@ -35,6 +35,24 @@ export type ValidityLabel =
   // progression spec — never toward expressive levels.
   | 'recognition_response';
 
+/**
+ * Every label the client can write. The `satisfies` clause keeps this list
+ * exhaustive against the union; the DB contract test checks each one against
+ * the CHECK constraints in supabase/migrations, so a new label cannot ship
+ * without the migration that lets Postgres accept it.
+ */
+const VALIDITY_LABEL_SET = {
+  valid_attempt: true,
+  filler_only: true,
+  no_response: true,
+  background_noise: true,
+  other_speaker_suspected: true,
+  low_confidence: true,
+  manual_confirmed: true,
+  recognition_response: true,
+} as const satisfies Record<ValidityLabel, true>;
+export const VALIDITY_LABELS = Object.keys(VALIDITY_LABEL_SET) as readonly ValidityLabel[];
+
 /** Who confirmed a manual_confirmed trial (or 'asr' for ASR-verified attempts). */
 export type ConfirmedBy = 'asr' | 'user' | 'caregiver';
 

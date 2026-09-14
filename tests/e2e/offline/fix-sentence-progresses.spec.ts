@@ -112,5 +112,6 @@ test.describe('Fix the Sentence at Level 1', () => {
     console.log('FIX SENTENCE ROW:', JSON.stringify(row));
     console.log('UNMATCHED:', backend.unmatched.map((u) => `${u.method} ${u.path}`));
     expect(backend.pageErrors).toEqual([]);
+    expect(backend.rejected).toEqual([]);
   });
 });

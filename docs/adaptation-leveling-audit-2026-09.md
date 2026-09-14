@@ -414,7 +414,9 @@ is red, a shorter gap or high fatigue with a falling dose is amber.
 **The status card's accuracy slope was in the wrong unit.** `learning_rates.
 accuracy_slope` is a fraction per day; the card read it as percentage points
 per week, so a genuine −14-points-a-week decline rounded to "−0%" and never
-crossed its −5 / −10 thresholds. Converted once, at the hub's stats hook.
+crossed its −5 / −10 thresholds. The hub's stats hook now exposes both units
+side by side (`accuracySlope` as stored, `accuracySlopePctPerWeek` for the
+glance cards) — see the third pass for why converting in place was wrong.
 
 **The Speech Profile tab's phoneme focus list was always empty.** It filtered
 accuracy as 0–1; the writer stores 0–100. Its category badges also read an
@@ -442,7 +444,119 @@ false alarm once it was not; it now counts attempted escalations only). That
 harness has drifted from the production engine in other ways too (no window
 reset after a change) and should be presented as narration copy, not evidence.
 
+## Third pass — what the review of the second pass found
+
+The second pass was itself reviewed from two independent lenses (runtime /
+data-flow and clinical validity), each measuring the live modules against the
+pre-diff modules on identical inputs. Fourteen findings came back; the ones
+that changed behaviour are below. The lesson of this pass is the same as the
+first: a fix that makes a dead signal live must be followed downstream, because
+every consumer of that signal was written assuming it was dead.
+
+**The new tap label would have been rejected by the database.** `exercise_events`
+and `utterance_analyses` carry CHECK constraints on `validity_label`; neither
+listed `recognition_response`. In production every tap row would have failed
+the insert (the telemetry hook retries three times, logs, and returns), so a
+chip-only session would have persisted no trials at all — and the browser proof
+passed because the offline fake accepted any label. Fixed with a migration
+(`20260914010000_recognition_response_validity_label.sql`, **which must be
+applied before this branch is deployed**), a unit test that parses the
+constraints out of the migrations and holds every client label to them, and a
+fake that enforces the same allow-list and fails the proof on a rejected write.
+
+**Session Review still reviewed a tapped answer as a spoken one.** Photo Naming
+writes two rows per attempt (the background analysis upserts
+`utterance_analyses`; `submitTrial` writes `exercise_events` with the verdict
+and `trial_mode`). The merge kept the utterance row, which has no verdict and an
+error type produced by classifying an empty transcript, so the recognition line,
+the "Wrong choice (tap)" category and the tap exclusion never fired for Photo
+Naming. When both rows exist the events row now supplies the verdict, mode and
+correctness for a tap, and fills a missing verdict for a spoken attempt.
+
+**Converting the slope in the hook broke four other readers.** The alert
+detector (`|slope| ≤ 0.01` plateau), the progress note (±0.01), next actions
+(`> 0.5`) and the Intelligence tab (`× 100 %/day`) all read the same hook field
+and were calibrated to fraction-per-day; after the conversion a flat 0.001/day
+patient read "+0.7 %/wk → trajectory positive" and a real 0.02/day decline
+printed "+1400.0%/day". The hook now carries both units under different names,
+and a test pins which consumer reads which.
+
+**The slope was per *active* day, from an arbitrary row, and shown on thin
+evidence.** `calculate-learning-rates` regressed on the index among practice
+days, so a Mon/Wed/Fri patient's identical change read at twice a daily
+patient's rate; it writes 21 rows per run (7 domains × 3 windows) and the hub
+took whichever was newest; and at the function's own minimum (10 trials,
+3 days) a flat patient at a constant 75% was painted "Needs attention" about
+40% of the time. The regression now uses calendar-day offsets and records
+`active_days` (migration `20260914011000_learning_rates_active_days.sql`); the
+hub reads the speech / 14-day row by name and shows no trend at all under
+30 trials or 5 practice days.
+
+**An open microphone was counted as an attempted production.** The mic
+auto-starts on every trial, and `productionAttempted` was set whenever it was
+listening, so with the voice toggle at its default every silent tap resolved to
+`semantic_cue` (credit 0.6) and a patient who never spoke could climb the
+expressive ladder to Level 4 on taps alone — the case spec §5.4 forbids. The
+flag is now set only when the recognizer delivers the patient's speech. The
+same trial is recorded as `trial_mode = 'scaffolded'` when it *was* a chip after
+heard speech, so the clinical record and the ladder agree about every trial;
+a plain tap stays `recognition`.
+
+**The recap promised something "I Said It" does not do.** The hold message told
+a tap-only patient to use "I Said It" if the mic could not hear them, but a
+manual confirmation deliberately buffers nothing into progression (and the
+button is hidden with voice off). The clause is gone.
+
+**The sweep's copy of the accuracy reducer had not learned taps.**
+`sweep-stale-sessions` — which closes exactly the sessions whose tab was shut —
+mirrors `reduceAccuracy` by hand and had no recognition branch, so a chip-only
+session ended by the sweep stamped participation 0 / practice null while the
+same session ended by the client stamped 10 / 90. The mirror now matches, and a
+test extracts the Deno function and runs it beside the client's on identical
+rows so the two cannot drift again.
+
+**Three raw-score readers included taps in "accuracy".** The week-over-week
+comparison, the per-session badges and the learning-rate regression averaged
+`exercise_events.score` with no validity filter, so a chip-only session was 90%
+"accuracy" there while Session Review said taps were kept out. All three now
+use one shared predicate (`isSpeechScoredRow`) or its SQL equivalent
+(`counts_toward_score = true`).
+
+**Practice the sweep closed never became engagement.** The client writes the
+speech dose row only when it ends the session itself, and rounds sessions under
+30 s to zero minutes; the sweep wrote none. A patient practising daily on iOS
+(where the tab closes and the sweep ends the session) read as a 14-day
+engagement gap once triage could escalate. The sweep now writes the dose row
+for the practice window it can see (first trial → last trial), and any session
+with a trial is floored at one minute.
+
+**Smaller:** "No spoken attempts this session" in Session Review meant "no
+*scored* spoken attempts"; it now distinguishes no attempts, unscorable
+attempts, and taps after unheard speech. Low-confidence exact matches are
+counted correct with `needs_review` set — a flag nothing displayed; Session
+Review now says how many there were. A gated tap that reaches a progression
+ladder without a declared support is buffered as `recognition_only`, never as
+an independent production.
+
 ### Still open after this pass
+
+- **Two migrations must be applied to the Supabase project before deploy**
+  (`20260914010000_recognition_response_validity_label.sql`,
+  `20260914011000_learning_rates_active_days.sql`). Until the first lands, a
+  tap row is rejected on insert; until the second lands, the hub shows no
+  accuracy trend (a safe state, not a wrong one).
+- **A fatigue check-in counts as engagement.** `buildSnapshotTimeline` treats
+  any readiness entry as a signal, so a patient who logs fatigue daily and
+  never practises is "stable" with 7/7 active days. Whether a check-in is
+  engagement is a product decision; the flag is currently named "engagement
+  gap".
+- **Echo defence is by delivery time, not capture time.** A transcript the
+  recognizer delivers after the mic-lock window is accepted even if the audio
+  was captured during it, and an exact-match transcript bypasses the echo
+  filter. Unchanged by these passes; a capture-time stamp is the fix.
+- **The rule-based semantic fallback covers ~4% of same-category confusions**
+  in the photo bank ("cow" for "horse" is *unrelated* when embeddings are
+  down). Extending the groups to the bank's actual categories is content work.
 
 - **Only the first 10 s of a recording reach the pronunciation service**
   (`MAX_AUDIO_DURATION_SEC`, a memory guard). Recording starts ~900 ms into the

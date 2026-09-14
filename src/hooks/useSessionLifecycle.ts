@@ -233,7 +233,12 @@ export const useSessionLifecycle = ({
           
           // Auto-populate speech dose into recovery spine
           if (durationSec > 0) {
-            const speechMinutes = Math.round(durationSec / 60);
+            // A session with at least one trial is practice, however brief: a
+            // 25-second session rounded to 0 minutes wrote no dose row and read
+            // as a day with no engagement in the clinician hub.
+            const speechMinutes = stats.totalTrials > 0
+              ? Math.max(1, Math.round(durationSec / 60))
+              : Math.round(durationSec / 60);
             if (speechMinutes > 0 && userRef.current && profileRef.current) {
               try {
                 await (supabase as any)

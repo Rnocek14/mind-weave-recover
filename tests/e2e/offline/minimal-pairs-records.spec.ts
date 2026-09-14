@@ -79,5 +79,6 @@ test.describe('Minimal Pairs records what the patient does', () => {
     console.log('MP SUMMARY:', JSON.stringify(summary));
     console.log('UNMATCHED:', backend.unmatched.map((u) => `${u.method} ${u.path}`));
     expect(backend.pageErrors).toEqual([]);
+    expect(backend.rejected).toEqual([]);
   });
 });

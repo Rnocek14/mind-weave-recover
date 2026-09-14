@@ -148,11 +148,18 @@ export function useTrialSubmission(opts: Options) {
       // games, legacy callers) buffer as before.
       const validityAllowsProgression =
         !input.validity || applyValidityGate(input.validity).shouldFeedAdaptation;
+      // A recognition (tap) response may feed a ladder — receptive games are
+      // built on it — but never as anything other than recognition_only, so an
+      // expressive ladder credits it nothing (spec §5.4). A caller that gates a
+      // tap without declaring its support cannot accidentally bank it as an
+      // independent production.
+      const bufferedSupport =
+        input.validity?.validity === 'recognition_response' ? 'recognition_only' : input.supportUsed;
       try {
         if (opts.progression && validityAllowsProgression) {
           opts.progression.recordTrialOutcome({
             correct: input.isCorrect,
-            support: input.supportUsed,
+            support: bufferedSupport,
           });
           summary.routed.progressionBuffered = true;
         }

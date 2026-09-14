@@ -30,6 +30,8 @@ import {
   type Route,
 } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export const SUPABASE_HOST = 'wjedbpjaiqdxhmjzkcxo.supabase.co';
 const PROJECT_REF = SUPABASE_HOST.split('.')[0];
@@ -70,6 +72,13 @@ export interface FakeBackend {
   unmatched: LoggedRequest[];
   /** Page errors captured from every page in the context. */
   pageErrors: string[];
+  /**
+   * Writes the fake refused the way Postgres would (CHECK constraint
+   * violations). A real backend rejects these rows silently as far as the
+   * patient is concerned — the telemetry hook retries, logs and moves on — so
+   * the proof must fail loudly instead of passing on a row that never landed.
+   */
+  rejected: LoggedRequest[];
   /** Reset everything except the seeds — for "second session" scenarios use `rows` instead. */
   clearLog(): void;
 }
@@ -386,6 +395,55 @@ function defaultRpc(): NonNullable<FakeBackendOptions['rpc']> {
   };
 }
 
+// ─── Schema constraints the fake enforces ───────────────────────────────────
+//
+// The app writes validity labels the database only accepts if a migration
+// added them to the CHECK constraint. Parse the allow-list from the migrations
+// themselves (last definition wins) so a label the client invents without a
+// migration is rejected here exactly as production would reject it.
+
+const CONSTRAINED_TABLES = ['exercise_events', 'utterance_analyses'] as const;
+
+function loadValidityLabelAllowLists(): Map<string, Set<string>> {
+  const dir = resolve(process.cwd(), 'supabase/migrations');
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+  const out = new Map<string, Set<string>>();
+  for (const tbl of CONSTRAINED_TABLES) {
+    const constraint = `${tbl}_validity_label_chk`;
+    let labels: Set<string> | null = null;
+    for (const f of files) {
+      const sql = readFileSync(resolve(dir, f), 'utf8');
+      const re = new RegExp(`ADD CONSTRAINT\\s+${constraint}[\\s\\S]*?;`, 'g');
+      for (const m of sql.matchAll(re)) {
+        labels = new Set([...m[0].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]));
+      }
+    }
+    if (!labels || labels.size === 0) {
+      throw new Error(`offline e2e: could not parse ${constraint} from supabase/migrations`);
+    }
+    out.set(tbl, labels);
+  }
+  return out;
+}
+
+const validityAllowLists = loadValidityLabelAllowLists();
+
+/** Postgres-shaped error for a row the CHECK constraint would refuse, or null. */
+function checkViolation(tbl: string, row: Row): { code: string; message: string; details: string; hint: null } | null {
+  const allow = validityAllowLists.get(tbl);
+  if (!allow) return null;
+  const v = row.validity_label;
+  if (v == null || allow.has(String(v))) return null;
+  return {
+    code: '23514',
+    message: `new row for relation "${tbl}" violates check constraint "${tbl}_validity_label_chk"`,
+    details: `Failing row contains validity_label=${String(v)}.`,
+    hint: null,
+  };
+}
+
 export async function installFakeSupabase(
   context: BrowserContext,
   options: FakeBackendOptions = {},
@@ -395,6 +453,7 @@ export async function installFakeSupabase(
   const log: LoggedRequest[] = [];
   const unmatched: LoggedRequest[] = [];
   const pageErrors: string[] = [];
+  const rejected: LoggedRequest[] = [];
   const functions = { ...defaultFunctions(), ...(options.functions ?? {}) };
   const rpc = { ...defaultRpc(), ...(options.rpc ?? {}) };
 
@@ -506,6 +565,20 @@ export async function installFakeSupabase(
       const conflictCols = (query.on_conflict ?? '').split(',').filter(Boolean);
       const merge = prefer['resolution'] === 'merge-duplicates';
       const ignore = prefer['resolution'] === 'ignore-duplicates';
+      // Postgres checks every row before any is written; one bad row fails the
+      // whole statement.
+      for (const raw of incoming) {
+        const existing =
+          conflictCols.length > 0
+            ? rows.find((r) => conflictCols.every((c) => looseEq(r[c], String(raw[c]))))
+            : undefined;
+        const candidate = existing && merge ? { ...existing, ...raw } : raw;
+        const violation = checkViolation(name, candidate);
+        if (violation) {
+          rejected.push(entry);
+          return respond(route, 400, violation, {}, entry);
+        }
+      }
       const written: Row[] = [];
       for (const raw of incoming) {
         const row: Row = { ...raw };
@@ -536,6 +609,13 @@ export async function installFakeSupabase(
       const patch = req.postDataJSON?.() ?? {};
       entry.body = patch;
       const matched = rows.filter(pred);
+      for (const r of matched) {
+        const violation = checkViolation(name, { ...r, ...patch });
+        if (violation) {
+          rejected.push(entry);
+          return respond(route, 400, violation, {}, entry);
+        }
+      }
       for (const r of matched) Object.assign(r, patch);
       if (!representation) return respond(route, 204, undefined, {}, entry);
       const s = shape(matched);
@@ -622,6 +702,7 @@ export async function installFakeSupabase(
     log,
     unmatched,
     pageErrors,
+    rejected,
     clearLog: () => {
       log.length = 0;
       unmatched.length = 0;

@@ -16,7 +16,8 @@
  *     100% struggle solely because the user fell back to chips.
  */
 import { describe, it, expect } from 'vitest';
-import { resolvePhotoNamingChipSupport } from '@/hooks/usePhotoNamingProgression';
+import { readFileSync } from 'node:fs';
+import { resolvePhotoNamingChipSupport, resolvePhotoNamingTrialMode } from '@/hooks/usePhotoNamingProgression';
 import { applySessionToState, defaultProgressionState } from '@/lib/progression/clinicalProgression';
 
 describe('Photo Naming chip recovery support mapping', () => {
@@ -62,5 +63,48 @@ describe('Photo Naming chip recovery support mapping', () => {
     expect(next.consecutiveStruggleSessions).toBeLessThanOrEqual(
       prev.consecutiveStruggleSessions
     );
+  });
+});
+
+describe('resolvePhotoNamingTrialMode — the record agrees with the ladder', () => {
+  it('a plain chip tap (no production attempted) is a recognition trial', () => {
+    const support = resolvePhotoNamingChipSupport({ productionAttempted: false, cueLevel: 0 });
+    expect(support).toBe('recognition_only');
+    expect(resolvePhotoNamingTrialMode({ inputMode: 'recognition', support })).toBe('recognition');
+  });
+
+  it('a chip tap after an attempted production the mic could not score is scaffolded, as the ladder credits it', () => {
+    const support = resolvePhotoNamingChipSupport({ productionAttempted: true, cueLevel: 0 });
+    expect(support).toBe('semantic_cue');
+    expect(resolvePhotoNamingTrialMode({ inputMode: 'recognition', support })).toBe('scaffolded');
+  });
+
+  it('a spoken answer is production whatever cue it needed', () => {
+    expect(resolvePhotoNamingTrialMode({ inputMode: 'production', support: 'independent' })).toBe('production');
+    expect(resolvePhotoNamingTrialMode({ inputMode: 'production', support: 'phonemic_cue' })).toBe('production');
+  });
+});
+
+describe('productionAttempted is evidence of speech, not an open microphone', () => {
+  // The mic auto-starts on every trial. Keying the flag off isListening made
+  // every silent tap "scaffolded production" (semantic_cue, credit 0.6), so a
+  // patient who never spoke could climb the expressive ladder on taps alone.
+  const src = readFileSync('src/components/PhotoNamingGame.tsx', 'utf8');
+
+  it('the flag is no longer set from isListening', () => {
+    expect(src).not.toMatch(/if \(isListening\) productionAttemptedRef\.current = true/);
+  });
+
+  it('the flag is set where the recognizer delivers the patient\'s speech', () => {
+    const start = src.indexOf('const handleSpeechResult = useCallback(');
+    const body = src.slice(start, src.indexOf('}, [', start));
+    expect(start).toBeGreaterThan(0);
+    expect(body).toMatch(/productionAttemptedRef\.current = true/);
+  });
+
+  it('a gated tap reaches a progression ladder only as recognition_only', () => {
+    const sub = readFileSync('src/hooks/useTrialSubmission.ts', 'utf8');
+    expect(sub).toMatch(/validity === 'recognition_response' \? 'recognition_only' : input\.supportUsed/);
+    expect(sub).toMatch(/support: bufferedSupport/);
   });
 });

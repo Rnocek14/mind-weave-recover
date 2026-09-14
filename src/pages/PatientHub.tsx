@@ -260,7 +260,7 @@ export default function PatientHub() {
           redFlagCount={redFlagCount}
           orangeFlagCount={orangeFlagCount}
           unacknowledgedAlerts={unacknowledgedCount}
-          accuracySlope={sessionStats.accuracySlope}
+          accuracySlope={sessionStats.accuracySlopePctPerWeek}
           activeDays={activeDays}
           lastActiveDate={lastActiveLabel}
         />
@@ -283,7 +283,7 @@ export default function PatientHub() {
         <ClinicianProgressCard
           userId={patientUserId}
           profileId={profileId}
-          accuracySlope={sessionStats.accuracySlope}
+          accuracySlope={sessionStats.accuracySlopePctPerWeek}
           recentTrials={sessionStats.trialCount}
           priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
         />

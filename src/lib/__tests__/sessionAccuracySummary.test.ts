@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
+import { reduceAccuracy, isSpeechScoredRow } from '@/lib/sessionAccuracySummary';
 
 describe('reduceAccuracy (session summary accuracy fix)', () => {
   it('returns null fields when there are no scored trials', () => {
@@ -98,5 +98,20 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(r.independent_accuracy).toBeNull();
     expect(r.practice_accuracy).toBe(100);
     expect(r.participation_trials).toBe(2);
+  });
+});
+
+describe('isSpeechScoredRow — the one definition every accuracy reader shares', () => {
+  it('admits ASR-scored rows and rows with no verdict (legacy / choice games)', () => {
+    expect(isSpeechScoredRow({ score: 100, counts_toward_score: true, validity_label: 'valid_attempt', exercise_slug: 'photo_naming' })).toBe(true);
+    expect(isSpeechScoredRow({ score: 0, counts_toward_score: null, validity_label: null, exercise_slug: 'minimal_pairs' })).toBe(true);
+  });
+
+  it('keeps taps, manual confirmations, gated clips and discourse slugs out', () => {
+    expect(isSpeechScoredRow({ score: 100, counts_toward_score: false, validity_label: 'recognition_response', exercise_slug: 'photo_naming' })).toBe(false);
+    expect(isSpeechScoredRow({ score: 100, counts_toward_score: false, validity_label: 'manual_confirmed', exercise_slug: 'photo_naming' })).toBe(false);
+    expect(isSpeechScoredRow({ score: 0, counts_toward_score: false, validity_label: 'no_response', exercise_slug: 'photo_naming' })).toBe(false);
+    expect(isSpeechScoredRow({ score: 80, counts_toward_score: true, validity_label: null, exercise_slug: 'conversation_turn' })).toBe(false);
+    expect(isSpeechScoredRow({ score: null, counts_toward_score: true, validity_label: 'valid_attempt', exercise_slug: 'photo_naming' })).toBe(false);
   });
 });

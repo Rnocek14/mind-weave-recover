@@ -38,24 +38,37 @@ const ACCURACY_EXCLUDED_SLUGS = new Set([
   'conversation_partner',
   'conversation_coach',
   'conversation_turn',
+  'voice_practice',
 ]);
 
 function accuracySummaryFields(rows: ScoredRow[]): Record<string, number | null> {
   const mean = (xs: number[]) =>
     xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
   const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
+  // Recognition (tap) responses: scored on the choice, never on a clip. Their
+  // own series — out of speech accuracy, in participation — as on the client.
+  const isRecognition = (r: ScoredRow) => r.validity_label === 'recognition_response';
   const isExcludedSlug = (r: ScoredRow) =>
     typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
 
   const scored = rows.filter(
-    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r) && !isExcludedSlug(r),
+    (r) =>
+      typeof r.score === 'number' &&
+      r.counts_toward_score !== false &&
+      !isManual(r) &&
+      !isRecognition(r) &&
+      !isExcludedSlug(r),
   );
   const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));
+  const recognition = rows.filter(
+    (r) => typeof r.score === 'number' && isRecognition(r) && !isExcludedSlug(r),
+  );
 
   const all = scored.map((r) => r.score as number);
   const independent = scored.filter((r) => (r.cue_level ?? 0) === 0).map((r) => r.score as number);
   const cued = scored.filter((r) => (r.cue_level ?? 0) > 0).map((r) => r.score as number);
-  const practice = [...all, ...manual.map((r) => r.score as number)];
+  const recognitionScores = recognition.map((r) => r.score as number);
+  const practice = [...all, ...manual.map((r) => r.score as number), ...recognitionScores];
 
   const accuracy = mean(all);
 
@@ -67,7 +80,9 @@ function accuracySummaryFields(rows: ScoredRow[]): Record<string, number | null>
     practice_accuracy: mean(practice),
     scored_trials: all.length,
     manual_confirmed_trials: manual.length,
-    participation_trials: all.length + manual.length,
+    recognition_trials: recognition.length,
+    recognition_accuracy: mean(recognitionScores),
+    participation_trials: all.length + manual.length + recognition.length,
   };
 }
 
@@ -232,8 +247,37 @@ Deno.serve(async (req) => {
       if (updateError) {
         updateFailures += 1;
         console.error('[SessionSweeper] Error updating session', s.id, updateError.message);
-      } else {
-        updateCount += 1;
+        continue;
+      }
+      updateCount += 1;
+
+      // The client writes the speech dose row when IT ends a session; a
+      // session this sweep closes (tab closed, iOS pagehide) never got one, so
+      // a patient who practised every day read as a 14-day engagement gap in
+      // the clinician hub. Credit the practice window that actually happened
+      // (first trial → last trial), floored at one minute for any session with
+      // a trial, keyed by session so a late client write cannot double it.
+      const trials = (eventsBySession.get(s.id) ?? []).length;
+      if (trials > 0 && s.user_id && s.profile_id) {
+        const startedMs = Date.parse(s.started_at as string);
+        const lastActivity = lastActivityBySession.get(s.id) ?? startedMs;
+        const activeSec = Math.max(0, Math.round((lastActivity - startedMs) / 1000));
+        const { error: doseError } = await supabase.from('dose_logs').upsert(
+          {
+            user_id: s.user_id,
+            profile_id: s.profile_id,
+            domain_slug: 'speech',
+            log_date: new Date(lastActivity).toISOString().slice(0, 10),
+            dose_value: Math.max(1, Math.round(activeSec / 60)),
+            source: 'system',
+            session_id: s.id,
+            metadata: { trials, duration_sec: activeSec, swept: true },
+          },
+          { onConflict: 'session_id' },
+        );
+        if (doseError) {
+          console.warn('[SessionSweeper] dose_logs write failed for', s.id, doseError.message);
+        }
       }
     }
 

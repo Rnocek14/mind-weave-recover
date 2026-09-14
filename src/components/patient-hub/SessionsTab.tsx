@@ -15,6 +15,7 @@ import {
   Timer, ArrowRightLeft, FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isSpeechScoredRow } from "@/lib/sessionAccuracySummary";
 import { useAuth } from "@/hooks/useAuth";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
 import { generateSessionInsight, type SessionInsight } from "@/lib/sessionInsightGenerator";
@@ -123,7 +124,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         const [eventsRes, adaptRes] = await Promise.all([
           supabase
             .from("exercise_events")
-            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
+            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms, counts_toward_score, validity_label")
             .in("session_id", sessionIds),
           supabase
             .from("adaptation_events" as any)
@@ -152,14 +153,26 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
         sessionIds.forEach((sid) => {
           const evts = bySession.get(sid) || [];
-          const exMap = new Map<string, { trials: number; correct: number; audio: number; rtSum: number; rtCount: number }>();
+          // Accuracy badges use the speech-scored series (the same predicate as
+          // Session Review and the session summary); a chip-only Photo Naming
+          // session falls back to its recognition (tap) accuracy rather than
+          // reading as 90% speech accuracy or as 0%.
+          const exMap = new Map<string, { trials: number; scored: number; correct: number; recognition: number; recognitionCorrect: number; audio: number; rtSum: number; rtCount: number }>();
+          const isCorrect = (e: { score: number | null }) => e.score === 1 || e.score === 100;
+          const isRecognition = (e: { validity_label?: string | null }) => e.validity_label === "recognition_response";
 
           evts.forEach((e) => {
             const slug = e.exercise_slug || "unknown";
-            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, correct: 0, audio: 0, rtSum: 0, rtCount: 0 });
+            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, scored: 0, correct: 0, recognition: 0, recognitionCorrect: 0, audio: 0, rtSum: 0, rtCount: 0 });
             const ex = exMap.get(slug)!;
             ex.trials++;
-            if (e.score === 1 || e.score === 100) ex.correct++;
+            if (isSpeechScoredRow(e)) {
+              ex.scored++;
+              if (isCorrect(e)) ex.correct++;
+            } else if (isRecognition(e)) {
+              ex.recognition++;
+              if (isCorrect(e)) ex.recognitionCorrect++;
+            }
             if (e.audio_storage_path) ex.audio++;
             if (e.reaction_time_ms && e.reaction_time_ms > 0) {
               ex.rtSum += e.reaction_time_ms;
@@ -167,17 +180,26 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
             }
           });
 
+          const pct = (correct: number, total: number) => (total > 0 ? Math.round((correct / total) * 100) : 0);
+          const accuracyOf = (d: { scored: number; correct: number; recognition: number; recognitionCorrect: number }) =>
+            d.scored > 0 ? pct(d.correct, d.scored) : pct(d.recognitionCorrect, d.recognition);
+
           const exercises: ExerciseSummary[] = Array.from(exMap.entries()).map(([slug, d]) => ({
             slug,
             trialCount: d.trials,
-            correctCount: d.correct,
-            accuracy: d.trials > 0 ? Math.round((d.correct / d.trials) * 100) : 0,
+            correctCount: d.scored > 0 ? d.correct : d.recognitionCorrect,
+            accuracy: accuracyOf(d),
             audioCount: d.audio,
             avgRtMs: d.rtCount > 0 ? Math.round(d.rtSum / d.rtCount) : null,
           }));
 
           const totalTrials = evts.length;
-          const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
+          const scoredEvts = evts.filter(isSpeechScoredRow);
+          const recognitionEvts = evts.filter(isRecognition);
+          const overall = scoredEvts.length > 0
+            ? pct(scoredEvts.filter(isCorrect).length, scoredEvts.length)
+            : pct(recognitionEvts.filter(isCorrect).length, recognitionEvts.length);
+          const totalCorrect = (scoredEvts.length > 0 ? scoredEvts : recognitionEvts).filter(isCorrect).length;
           const totalAudio = evts.filter((e) => e.audio_storage_path).length;
           const allRt = evts.filter((e) => e.reaction_time_ms && e.reaction_time_ms > 0).map((e) => e.reaction_time_ms!);
           const avgRtMs = allRt.length > 0 ? Math.round(allRt.reduce((a, b) => a + b, 0) / allRt.length) : null;
@@ -185,7 +207,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
           metaMap.set(sid, {
             exercises,
             totalTrials,
-            overallAccuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : 0,
+            overallAccuracy: overall,
             totalAudio,
             avgRtMs,
             adaptationCount: adaptCounts.get(sid) || 0,

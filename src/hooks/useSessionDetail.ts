@@ -32,6 +32,12 @@ export interface TrialData {
   /** 'production' (spoken) | 'recognition' (tapped a choice) | 'scaffolded' … — from task_parameters. */
   trial_mode?: string | null;
   clinician_validity_override?: string | null;
+  /**
+   * The error classifier scored this trial correct on an exact transcript
+   * match but the recognizer's confidence was low. It counts; the clinician
+   * should hear the clip. exercise_events only.
+   */
+  needs_review?: boolean | null;
   /** Which underlying table the row came from — needed for clinician overrides. */
   source_table?: 'utterance_analyses' | 'exercise_events';
   // ── Voice Engine v2 shadow verdict (exercise_events, Phase 2) ──
@@ -50,6 +56,55 @@ export interface TrialData {
   gop_data?: any;
   pause_count?: number | null;
   effortful_speech?: boolean | null;
+}
+
+/** A tapped choice, as the events row records it. */
+function isTapRecord(ev: TrialData): boolean {
+  return ev.trial_mode === 'recognition' || ev.validity_label === 'recognition_response';
+}
+
+/**
+ * Combine the two records of one attempt. Exported for tests.
+ *
+ * - A tap: the events row IS the record (verdict, trial_mode, support, the
+ *   choice's correctness). The utterance row only holds whatever the mic
+ *   happened to capture around the tap, and its error_type was produced by
+ *   classifying an empty transcript — keep only its clip evidence.
+ * - Spoken: the utterance row is the richer record; carry over what only the
+ *   events row knows (trial_mode, task parameters) and its gate verdict when
+ *   the utterance row has none. utterance_analyses.counts_toward_score
+ *   defaults to true, so it is only trusted alongside a verdict.
+ */
+export function mergeAttemptRows(ua: TrialData, ev: TrialData): TrialData {
+  if (isTapRecord(ev)) {
+    return {
+      ...ev,
+      target_word: ev.target_word || ua.target_word,
+      transcript: ev.transcript ?? ua.transcript ?? null,
+      audio_storage_path: ev.audio_storage_path ?? ua.audio_storage_path ?? null,
+      recording_duration_ms: ev.recording_duration_ms ?? ua.recording_duration_ms ?? null,
+      pronunciation_status: ua.pronunciation_status ?? null,
+      gop_data: ua.gop_data ?? null,
+      pause_count: ua.pause_count ?? null,
+      effortful_speech: ua.effortful_speech ?? null,
+    };
+  }
+  const uaHasVerdict = ua.validity_label != null;
+  return {
+    ...ua,
+    trial_mode: ua.trial_mode ?? ev.trial_mode ?? null,
+    taskParameters: ua.taskParameters ?? ev.taskParameters,
+    outputs: ua.outputs ?? ev.outputs,
+    ...(uaHasVerdict
+      ? {}
+      : {
+          validity_label: ev.validity_label ?? null,
+          validity_reason: ev.validity_reason ?? null,
+          counts_toward_score: ev.counts_toward_score ?? ua.counts_toward_score ?? null,
+        }),
+    clinician_validity_override: ua.clinician_validity_override ?? ev.clinician_validity_override ?? null,
+    needs_review: ev.needs_review ?? null,
+  };
 }
 
 export function useSessionDetail() {
@@ -87,7 +142,7 @@ export function useSessionDetail() {
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
-            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, acoustic_metrics"
+            "attempt_id, exercise_slug, score, reaction_time_ms, error_type, cue_type_given, cue_was_effective, cue_level, audio_storage_path, recording_duration_ms, semantic_similarity, phonological_similarity, browser_transcript, whisper_transcript, task_parameters, outputs, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, acoustic_metrics, needs_review"
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
@@ -96,7 +151,7 @@ export function useSessionDetail() {
 
         const mapped: TrialData[] = (eeData ?? []).map((ev) => ({
           attempt_id: ev.attempt_id || ev.created_at || "",
-          target_word: (ev.task_parameters as any)?.target_word || (ev.task_parameters as any)?.targetWord || (ev.outputs as any)?.target || "",
+          target_word: (ev.task_parameters as any)?.target_word || (ev.task_parameters as any)?.targetWord || (ev.task_parameters as any)?.expected_response || (ev.outputs as any)?.target || "",
           transcript: ev.whisper_transcript || ev.browser_transcript || null,
           is_correct: ev.score === 1 || ev.score === 100 ? true : ev.score === 0 ? false : null,
           exercise_slug: ev.exercise_slug,
@@ -123,10 +178,25 @@ export function useSessionDetail() {
           counts_toward_score: (ev as any).counts_toward_score ?? null,
           clinician_validity_override: (ev as any).clinician_validity_override ?? null,
           trial_mode: (ev.task_parameters as any)?.trial_mode ?? null,
+          needs_review: (ev as any).needs_review ?? null,
           source_table: 'exercise_events' as const,
         }));
+        // Photo Naming writes BOTH rows for one attempt: the background analysis
+        // upserts utterance_analyses (transcript, audio, similarity — but no
+        // validity verdict and no trial_mode) and submitTrial writes
+        // exercise_events (gate verdict, trial_mode, support). Keeping the
+        // utterance row alone dropped the verdict and the tap flag, so a tapped
+        // answer reviewed as a spoken one with a paraphasia label.
+        const eventsByAttempt = new Map<string, TrialData>();
+        for (const row of mapped) {
+          if (row.attempt_id && !eventsByAttempt.has(row.attempt_id)) eventsByAttempt.set(row.attempt_id, row);
+        }
+        const merged = uaRows.map((ua) => {
+          const ev = ua.attempt_id ? eventsByAttempt.get(ua.attempt_id) : undefined;
+          return ev ? mergeAttemptRows(ua, ev) : ua;
+        });
         const eventsOnly = mapped.filter((row) => !row.attempt_id || !uaAttemptIds.has(row.attempt_id));
-        rows = [...uaRows, ...eventsOnly].sort((a, b) =>
+        rows = [...merged, ...eventsOnly].sort((a, b) =>
           String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')),
         );
       }

@@ -101,6 +101,23 @@ export function resolvePhotoNamingChipSupport(args: {
   });
 }
 
+/**
+ * The telemetry `trial_mode` for a Photo Naming answer, derived from the
+ * support the ladder credited so the clinical record and the level ladder
+ * never disagree about the same trial:
+ *   - spoken answer                                   → 'production'
+ *   - chip with no production attempted (credit 0)    → 'recognition'
+ *   - chip after an attempted production the mic could
+ *     not score (credited as cue-assisted production) → 'scaffolded'
+ */
+export function resolvePhotoNamingTrialMode(args: {
+  inputMode: 'production' | 'recognition';
+  support: SupportLevel;
+}): 'production' | 'recognition' | 'scaffolded' {
+  if (args.inputMode !== 'recognition') return 'production';
+  return args.support === 'recognition_only' ? 'recognition' : 'scaffolded';
+}
+
 interface BufferedTrial {
   correct: boolean;
   support: SupportLevel;

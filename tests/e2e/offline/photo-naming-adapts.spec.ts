@@ -225,6 +225,7 @@ test.describe('Photo Naming adapts, visibly, and remembers', () => {
     console.log('PROGRESSION ROW:', JSON.stringify(progression[0]));
     console.log('UNMATCHED:', backend.unmatched.map((u) => `${u.method} ${u.path}`));
     expect(backend.pageErrors).toEqual([]);
+    expect(backend.rejected).toEqual([]);
   });
 
   test('three misses step difficulty down and the patient is offered support', async ({ offlinePage: page, backend }) => {
@@ -275,6 +276,7 @@ test.describe('Photo Naming adapts, visibly, and remembers', () => {
     console.log('DIFFICULTY TRACE (4 misses then correct):', difficulties(backend).join(' '), '(first snapshot', d.join(' '), ')');
     console.log('UNMATCHED:', backend.unmatched.map((u) => `${u.method} ${u.path}`));
     expect(backend.pageErrors).toEqual([]);
+    expect(backend.rejected).toEqual([]);
   });
 
   test('a returning Level-5 patient starts harder than a new one', async ({ browser }) => {

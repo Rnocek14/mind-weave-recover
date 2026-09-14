@@ -78,7 +78,10 @@ export function applyValidityGate(
     validity.validity === 'valid_attempt' || validity.validity === 'recognition_response';
   return {
     shouldScore: validity.countsTowardScore,
-    shouldFeedAdaptation: isValid, // only ASR-verified attempts feed adaptation
+    // Verified utterances and recognition responses feed adaptation; a tap
+    // reaches an expressive ladder only as recognition_only (see
+    // useTrialSubmission), which such a ladder credits nothing.
+    shouldFeedAdaptation: isValid,
     shouldShowToClinician: true, // always visible in Session Review (in correct bucket)
     shouldCountParticipation: validity.countsTowardParticipation ?? isValid,
     shouldCountPracticeAccuracy: validity.countsTowardPracticeAccuracy ?? isValid,

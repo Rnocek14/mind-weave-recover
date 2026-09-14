@@ -526,6 +526,7 @@ function PhotoNamingExerciseInner() {
     supportUsed?: SupportLevel;
     /** 'tap' when the patient chose a label instead of speaking. */
     responseMode?: 'tap' | 'speech';
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
@@ -613,9 +614,10 @@ function PhotoNamingExerciseInner() {
               ? 'semantic_cue'
               : 'independent'),
         latencyMs: result.reactionTimeMs ?? null,
-        // The mastery logger already stamps recognition for taps; the clinical
-        // record must agree with it.
-        trialMode: answeredByTap ? 'recognition' : 'production',
+        // The mode the game stamped on its mastery telemetry, from the support
+        // the ladder credited ('scaffolded' for a chip after an attempted
+        // production). The clinical record must agree with it.
+        trialMode: result.trialMode ?? (answeredByTap ? 'recognition' : 'production'),
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,

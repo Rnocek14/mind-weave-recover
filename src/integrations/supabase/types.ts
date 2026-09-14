@@ -1996,6 +1996,7 @@ export type Database = {
       learning_rates: {
         Row: {
           accuracy_slope: number | null
+          active_days: number | null
           calculated_at: string | null
           confidence_score: number | null
           domain: string
@@ -2012,6 +2013,7 @@ export type Database = {
         }
         Insert: {
           accuracy_slope?: number | null
+          active_days?: number | null
           calculated_at?: string | null
           confidence_score?: number | null
           domain: string
@@ -2028,6 +2030,7 @@ export type Database = {
         }
         Update: {
           accuracy_slope?: number | null
+          active_days?: number | null
           calculated_at?: string | null
           confidence_score?: number | null
           domain?: string

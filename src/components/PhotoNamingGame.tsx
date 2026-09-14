@@ -59,6 +59,7 @@ import {
   usePhotoNamingProgression,
   mapPhotoNamingSupport,
   resolvePhotoNamingChipSupport,
+  resolvePhotoNamingTrialMode,
 } from '@/hooks/usePhotoNamingProgression';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
@@ -127,6 +128,14 @@ interface PhotoNamingGameProps {
      * judge, and running the speech gate on one records the trial as silence.
      */
     responseMode?: 'tap' | 'speech';
+    /**
+     * The trial mode the mastery/progression telemetry was stamped with, from
+     * the support the ladder credited: 'recognition' for a plain tap,
+     * 'scaffolded' for a tap after an attempted production the mic could not
+     * score, 'production' for speech. The page records the same value so the
+     * clinical record agrees with the ladder about every trial.
+     */
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -1049,6 +1058,10 @@ export const PhotoNamingGame = ({
       console.log('🎤 handleSpeechResult blocked - mic locked (Maya speaking)');
       return;
     }
+    // The recognizer heard the patient say something this trial (interim or
+    // final, matching or not). A chip tapped after this is scaffolded
+    // production; a chip tapped with no speech heard is pure recognition.
+    productionAttemptedRef.current = true;
     // Guard: ignore if already processing/scored
     if (showFeedback || selectedAnswer || timedOut || isPlayingChoicesRef.current) {
       console.log('🎤 handleSpeechResult blocked - state guard');
@@ -1113,9 +1126,14 @@ export const PhotoNamingGame = ({
     patientMode: true,
   });
 
+  // NOTE: an open microphone is NOT evidence of an attempted production. The
+  // mic auto-starts on every trial, so keying productionAttempted off
+  // isListening made every silent tap "scaffolded production" (semantic_cue,
+  // credit 0.6) and let a patient who never spoke climb the expressive ladder
+  // on taps alone — the exact thing spec §5.4 forbids. The flag is now set
+  // where the recognizer delivers the patient's speech (handleSpeechResult).
   useEffect(() => {
     isListeningRef.current = isListening;
-    if (isListening) productionAttemptedRef.current = true;
   }, [isListening]);
 
   const micErrorMessage =
@@ -2187,6 +2205,10 @@ export const PhotoNamingGame = ({
           })
         : mapPhotoNamingSupport({ inputMode, cueLevel });
     resolvedSupportRef.current = supportLevel;
+    // Re-stamp the telemetry mode from the resolved support: a chip after an
+    // attempted production is scaffolded production for the ladder, so the
+    // mastery log and the clinical record must say so too.
+    currentTrialModeRef.current = resolvePhotoNamingTrialMode({ inputMode, support: supportLevel });
     progression.recordTrialOutcome({
       correct: isCorrectAnswer,
       support: supportLevel,
@@ -2275,6 +2297,11 @@ export const PhotoNamingGame = ({
     // scaffolding against another trial's answer.
     const capturedSupport = resolvedSupportRef.current ?? undefined;
     const capturedResponseMode: 'tap' | 'speech' = inputMode === 'recognition' ? 'tap' : 'speech';
+    const capturedTrialMode = capturedSupport
+      ? resolvePhotoNamingTrialMode({ inputMode, support: capturedSupport })
+      : inputMode === 'recognition'
+        ? 'recognition'
+        : 'production';
     
     // Run analysis in background without blocking
     (async () => {
@@ -2409,6 +2436,7 @@ export const PhotoNamingGame = ({
           // a chip tap or the post-silence recovery case.
           supportUsed: capturedSupport,
           responseMode: capturedResponseMode,
+          trialMode: capturedTrialMode,
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2540,6 +2568,7 @@ export const PhotoNamingGame = ({
           // a chip tap or the post-silence recovery case.
           supportUsed: capturedSupport,
           responseMode: capturedResponseMode,
+          trialMode: capturedTrialMode,
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',

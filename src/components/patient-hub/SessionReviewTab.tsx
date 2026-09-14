@@ -22,6 +22,7 @@ import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
 import { SessionSummaryStrip } from "./review/SessionSummaryStrip";
 import { VoiceEvidenceGrid } from "./review/VoiceEvidenceGrid";
 import { ErrorPatternBreakdown, categoryOfTrial } from "./review/ErrorPatternBreakdown";
+import { recognitionLineSuffix } from "./review/recognitionLine";
 import { SoundsToWatch } from "./review/SoundsToWatch";
 import { CueResponsePanel } from "./review/CueResponsePanel";
 import { SessionNotesPanel } from "./review/SessionNotesPanel";
@@ -140,6 +141,16 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       t.trial_mode === "recognition" || t.validity_label === "recognition_response";
     const recognition = trials.filter(isTap);
     const recognitionCorrect = recognition.filter((t) => t.is_correct === true).length;
+    // Spoken attempts = every non-tap trial, scored or not. "No spoken
+    // attempts" used to mean "no SCORED spoken attempts", which told the
+    // clinician the patient never tried to speak when five excluded clips sat
+    // in the audit below.
+    const spokenAttempts = trials.filter((t) => !isTap(t)).length;
+    // A chip tapped after the mic failed to score an attempted production.
+    const scaffoldedTaps = recognition.filter((t) => t.trial_mode === 'scaffolded').length;
+    // Scored on an exact match at low recognizer confidence: counted, but the
+    // clinician should hear it. Written to every row; nothing surfaced it.
+    const needsReview = scored.filter((t) => t.needs_review === true).length;
 
     // Validity buckets across ALL voice trials (for the trust strip)
     const buckets = { valid: 0, filler: 0, silence: 0, noise: 0, flagged: 0 };
@@ -167,7 +178,10 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       validityBuckets: buckets,
       recognitionTrials: recognition.length,
       recognitionCorrect,
-      spokenTrials: total,
+      spokenTrials: spokenAttempts,
+      scoredSpokenTrials: total,
+      scaffoldedTaps,
+      needsReview,
     };
   }, [trials]);
 
@@ -244,9 +258,12 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
               data-testid="recognition-responses-line"
             >
               Recognition (tap) responses: {metrics.recognitionCorrect}/{metrics.recognitionTrials} correct
-              {metrics.spokenTrials === 0
-                ? " — no spoken attempts this session, so speech accuracy is not shown."
-                : " — kept separate from speech accuracy above."}
+              {recognitionLineSuffix(metrics)}
+            </p>
+          )}
+          {metrics.needsReview > 0 && (
+            <p className="text-xs text-muted-foreground px-1" data-testid="needs-review-line">
+              {metrics.needsReview} scored {metrics.needsReview === 1 ? "clip" : "clips"} matched the target at low recognizer confidence — counted correct, worth a listen.
             </p>
           )}
 

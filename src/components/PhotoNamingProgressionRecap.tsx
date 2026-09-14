@@ -15,7 +15,7 @@ export interface PhotoNamingProgressionRecapProps {
   onContinue: () => void;
   autoAdvanceMs?: number;
   /**
-   * The whole session was answered by tapping, with no attempt to speak.
+   * The whole session was answered by tapping, with no speech the recognizer could hear.
    * Recognition earns no expressive credit (progression spec §5.4), so the
    * bar cannot move — and telling the patient "your work still counts" would
    * be untrue. Say what would move it instead.
@@ -24,7 +24,7 @@ export interface PhotoNamingProgressionRecapProps {
 }
 
 export const RECOGNITION_ONLY_HOLD_MESSAGE =
-  'You found the right pictures. Saying each word out loud is what moves your level — tap I Said It if the microphone cannot hear you.';
+  'You found the right pictures. Saying each word out loud is what moves your level.';
 
 export function PhotoNamingProgressionRecap({
   recognitionOnly,

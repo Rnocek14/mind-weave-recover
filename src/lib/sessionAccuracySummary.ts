@@ -55,7 +55,7 @@ export interface SessionAccuracySummary {
   participation_trials: number;
 }
 
-interface ScoredRow {
+export interface ScoredRow {
   score: number | null;
   cue_level: number | null;
   counts_toward_score: boolean | null;
@@ -96,6 +96,29 @@ const EMPTY: SessionAccuracySummary = {
   participation_trials: 0,
 };
 
+/**
+ * Is this exercise_events row part of the SPEECH accuracy series?
+ *
+ * The one definition every reader must share: ASR-scored, not gated out by
+ * validity, not a manual confirmation, not a recognition (tap) response, not a
+ * continuously-graded discourse slug. Readers that averaged raw `score` — the
+ * weekly comparison, the per-session badges, the learning-rate regression —
+ * counted a chip-only session as 90% "accuracy" while Session Review said taps
+ * were kept out of it.
+ */
+export function isSpeechScoredRow(r: {
+  score: number | null;
+  counts_toward_score?: boolean | null;
+  validity_label?: string | null;
+  exercise_slug?: string | null;
+}): boolean {
+  if (typeof r.score !== 'number') return false;
+  if (r.counts_toward_score === false) return false;
+  if (r.validity_label === 'manual_confirmed' || r.validity_label === 'recognition_response') return false;
+  if (typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug)) return false;
+  return true;
+}
+
 /** Pure reducer — exported for unit testing without a DB round-trip. */
 export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
   const mean = (xs: number[]) =>
@@ -109,14 +132,7 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
   // ASR/clinically-verified scored trials — the clean accuracy series.
   // Excludes validity-filtered rows, manual_confirmed (never ASR-verified), and
   // continuously-graded conversation/discourse rows.
-  const scored = rows.filter(
-    (r) =>
-      typeof r.score === 'number' &&
-      r.counts_toward_score !== false &&
-      !isManual(r) &&
-      !isRecognition(r) &&
-      !isExcludedSlug(r)
-  );
+  const scored = rows.filter(isSpeechScoredRow);
 
   // Manual-confirmed correct trials (score present, explicitly tagged).
   const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));

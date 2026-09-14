@@ -19,6 +19,7 @@ interface LearningRateResult {
   startDate: string;
   endDate: string;
   confidenceScore: number;
+  activeDays: number;
 }
 
 Deno.serve(async (req) => {
@@ -179,11 +180,15 @@ async function calculateLearningRate(
   const exerciseSlug = getDomainExerciseSlug(domain);
 
   // Fetch exercise events
+  // Speech-scored rows only. Recognition (tap) responses, manual confirmations
+  // and clips the validity gate excluded all carry counts_toward_score=false;
+  // regressing over raw scores let a chip-only session read as 90% accuracy.
   const { data: events } = await supabase
     .from('exercise_events')
     .select('score, reaction_time_ms, created_at')
     .in('session_id', sessionIds)
     .eq('exercise_slug', exerciseSlug)
+    .eq('counts_toward_score', true)
     .not('reaction_time_ms', 'is', null)
     .order('created_at', { ascending: true });
 
@@ -223,7 +228,8 @@ async function calculateLearningRate(
     endAccuracy: dailyData[dailyData.length - 1].accuracy,
     startDate: startDate.toISOString().split('T')[0],
     endDate: endDate.toISOString().split('T')[0],
-    confidenceScore
+    confidenceScore,
+    activeDays: dailyData.length,
   };
 }
 
@@ -243,6 +249,7 @@ async function saveLearningRate(supabase: any, result: LearningRateResult): Prom
       start_date: result.startDate,
       end_date: result.endDate,
       confidence_score: result.confidenceScore,
+      active_days: result.activeDays,
       calculated_at: new Date().toISOString()
     }, {
       onConflict: 'user_id,profile_id,domain,time_window_days,end_date'
@@ -293,10 +300,15 @@ function groupByDay(events: any[]): DailyDataPoint[] {
     dayMap.set(date, existing);
   });
 
-  const sortedDays = Array.from(dayMap.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, data], index) => ({
-      dayIndex: index,
+  // dayIndex is the CALENDAR-day offset from the first practice day, so the
+  // slope is "per day" as the data dictionary says. Indexing active days
+  // instead (0, 1, 2 …) made a Mon/Wed/Fri patient's slope read at twice the
+  // rate of a daily patient's for the same change.
+  const sorted = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const firstDayMs = sorted.length > 0 ? Date.parse(`${sorted[0][0]}T00:00:00Z`) : 0;
+  const sortedDays = sorted
+    .map(([date, data]) => ({
+      dayIndex: Math.round((Date.parse(`${date}T00:00:00Z`) - firstDayMs) / 86_400_000),
       date,
       accuracy: data.total > 0 ? data.correct / data.total : 0,
       avgReactionTime: data.rtCount > 0 ? data.rtSum / data.rtCount : 0,

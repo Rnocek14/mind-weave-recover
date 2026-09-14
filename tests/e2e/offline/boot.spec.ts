@@ -25,5 +25,6 @@ test.describe('offline harness boots the real app', () => {
     console.log('UNMATCHED:', JSON.stringify(backend.unmatched.map((u) => `${u.method} ${u.path} ${JSON.stringify(u.query)}`), null, 1));
     console.log('PAGE ERRORS:', backend.pageErrors);
     expect(backend.pageErrors).toEqual([]);
+    expect(backend.rejected).toEqual([]);
   });
 });
