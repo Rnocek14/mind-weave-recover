@@ -126,7 +126,7 @@ describe("formatEhrSummary", () => {
 
   it("includes flags when present", () => {
     const flags: RecoveryFlag[] = [
-      { type: "no_signal", label: "4-day engagement gap", days: 4 },
+      { type: "no_signal", label: "4-day engagement gap", days: 4, severity: "orange" },
     ];
     const summary = formatEhrSummary({
       timeline: baseTimeline,
@@ -140,7 +140,7 @@ describe("formatEhrSummary", () => {
 
   it("includes clinician suggestions based on flags", () => {
     const flags: RecoveryFlag[] = [
-      { type: "fatigue_spike", label: "fatigue", days: 3 },
+      { type: "fatigue_spike", label: "fatigue", days: 3, severity: "orange" },
     ];
     const summary = formatEhrSummary({
       timeline: baseTimeline,

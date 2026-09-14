@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { DIFFICULTY_CHANGE_TYPES } from '@/hooks/useAdaptationEventLogger';
 import { supabase } from '@/integrations/supabase/client';
 import { CuePreferenceLearner, type CueType, type CueStats } from '@/lib/cuePreferenceLearner';
 
@@ -69,7 +70,7 @@ export function useOutcomeProof(userId: string | undefined, daysBack = 30) {
           .from('adaptation_events')
           .select('created_at, exercise_slug, adaptation_type, value_before, value_after, evidence')
           .eq('user_id', userId)
-          .eq('adaptation_type', 'difficulty_change')
+          .in('adaptation_type', [...DIFFICULTY_CHANGE_TYPES])
           .gte('created_at', sinceISO)
           .order('created_at', { ascending: true })
           .limit(200);

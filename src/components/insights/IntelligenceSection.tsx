@@ -38,7 +38,9 @@ interface IntelligenceSectionProps {
 }
 
 export function IntelligenceSection({ userId, profileId }: IntelligenceSectionProps) {
-  const { events, isLoading: timelineLoading } = useAdaptationTimeline(userId, 14);
+  // Events are stamped with profile_id; on a household login with several
+  // patient profiles an unscoped read mixed their "What changed" timelines.
+  const { events, isLoading: timelineLoading } = useAdaptationTimeline(userId, 14, 100, profileId);
   const { data: proof, isLoading: proofLoading } = useOutcomeProof(userId, 30);
 
   const isLoading = timelineLoading || proofLoading;

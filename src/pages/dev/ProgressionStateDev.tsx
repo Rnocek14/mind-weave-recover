@@ -57,9 +57,13 @@ export default function ProgressionStateDev() {
           .select('exercise_slug,current_level,stable_level,progress_pct,support_baseline,consecutive_success_sessions,consecutive_struggle_sessions,last_session_id,last_updated_at')
           .eq('profile_id', activeProfile.id)
           .order('last_updated_at', { ascending: false }),
+        // Scoped to the active profile: admins hold a read-all policy on this
+        // table, so an unscoped read counted every patient's trials here and
+        // painted red "no state" badges off other people's practice.
         supabase
           .from('adaptation_trial_logs')
           .select('exercise_slug, created_at')
+          .eq('profile_id', activeProfile.id)
           .order('created_at', { ascending: false })
           .limit(500),
       ]);

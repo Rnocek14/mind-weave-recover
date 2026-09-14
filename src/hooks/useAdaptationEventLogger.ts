@@ -35,6 +35,18 @@ export type AdaptationType =
   | 'break_prompted'
   | 'confidence_boost_shown';
 
+/**
+ * The in-game events that move difficulty. Readers that count "adaptations"
+ * or list "difficulty adjustments" must filter on THIS set: there is no
+ * 'difficulty_change' type, and a reader that asked for one (Insights did)
+ * counted zero adaptations for every patient, forever.
+ */
+export const DIFFICULTY_CHANGE_TYPES: readonly AdaptationType[] = [
+  'difficulty_up',
+  'difficulty_down',
+  'frustration_stepdown',
+] as const;
+
 export type AdaptationLayer = 'session' | 'in_game';
 export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 

@@ -63,6 +63,13 @@ export interface TrialLogEntry {
     trialsAtLevel: number;
     level: number;
   };
+  /**
+   * True when the controller proposed an UP move on this trial — whether it
+   * was applied or held by the cue gate. The gate can only fire on an
+   * attempted escalation, so validation reasons about attempts, not about
+   * every trial where the signals happened to be high.
+   */
+  escalationAttempted?: boolean;
 }
 
 export interface SimulationResult {
@@ -162,7 +169,11 @@ export function runSimulation(config: SimulationConfig): SimulationResult {
     trialsAtLevel += 1;
 
     const state = monitor.assessState();
-    const cueDependencyScore = state.signals.cueDependency / 3; // normalize 0..1
+    // engagementMonitor already normalises cueDependency to 0..1 (rawAvg / 3).
+    // Dividing again capped it at 0.33, below the 0.5 gate — so the harness's
+    // "Blocked escalations" tile could never move and the cue-dependency
+    // archetype validated nothing. The production hook had the same bug.
+    const cueDependencyScore = state.signals.cueDependency;
     const previousLevel = difficulty;
 
     let entry: TrialLogEntry = {
@@ -205,6 +216,7 @@ export function runSimulation(config: SimulationConfig): SimulationResult {
         const direction = adjusted > previousLevel ? 'up' : 'down';
 
         if (direction === 'up') {
+          entry.escalationAttempted = true;
           // Apply cue-dependency safety gate
           if (
             cueDependencyScore > cfg.cueDependencyEscalationThreshold &&
@@ -325,11 +337,18 @@ function validate(
     },
   );
 
-  // 2. Gate must actually fire when conditions are met (only assert if conditions occurred)
+  // 2. Gate must actually fire when conditions are met. The gate only runs
+  //    when the controller proposes an UP move, so an "opportunity" is an
+  //    attempted escalation under blocking conditions — not any trial where
+  //    cue dependency happened to be high while the level was already held
+  //    or being stepped down.
   const opportunities = log.filter(
-    (l) => l.cueDependency > cfg.cueDependencyEscalationThreshold && l.trialsAtLevel < cfg.minTrialsAtLevelForEscalation,
+    (l) =>
+      l.escalationAttempted === true &&
+      l.cueDependency > cfg.cueDependencyEscalationThreshold &&
+      l.trialsAtLevel < cfg.minTrialsAtLevelForEscalation,
   );
-  if (opportunities.length > 0 && summary.blockedEscalations === 0 && upEvents.length > 0) {
+  if (opportunities.length > 0 && summary.blockedEscalations === 0) {
     inconsistencies.push(
       'Conditions for blocking were observed but no escalation was ever blocked.',
     );

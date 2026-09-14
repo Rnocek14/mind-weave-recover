@@ -426,6 +426,22 @@ says "Stepping up"; Chromium was told to allow the microphone "in Safari
 settings"; the mic-broken timeout left the previous trial's support level in
 the record.
 
+**The evidence surfaces had their own gaps.** Insights counted "adaptations"
+by filtering `adaptation_events` on a type no writer emits (`difficulty_change`),
+so its Adaptations stat and "Difficulty Adjustments" list were empty for every
+patient; it now filters on the logger's own set (`DIFFICULTY_CHANGE_TYPES`), and
+a test fails if the two drift. Its "What changed" timeline ignored the profile it
+was handed, mixing patients on a household login. The admin progression page
+counted every patient's trials under the active profile (admins hold a read-all
+policy). And the adaptation simulator behind `/dev/adaptation-sim` divided an
+already-normalised cue-dependency score by three — the same bug the first pass
+fixed in the game — so its "Blocked escalations" tile could never move (and its self-check
+counted a blocking "opportunity" on any trial with high cue dependency, whether
+or not an escalation was attempted — vacuous while the score was capped, a
+false alarm once it was not; it now counts attempted escalations only). That
+harness has drifted from the production engine in other ways too (no window
+reset after a change) and should be presented as narration copy, not evidence.
+
 ### Still open after this pass
 
 - **Only the first 10 s of a recording reach the pronunciation service**
