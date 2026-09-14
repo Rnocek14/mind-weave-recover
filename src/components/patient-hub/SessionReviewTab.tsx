@@ -133,9 +133,18 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       })
       .filter((n) => n > 0);
 
-    // Validity buckets across ALL trials (for the trust strip)
+    // Recognition (tap) responses: scored on the choice, not a voice clip.
+    // They never enter the speech accuracy above, and they are not "excluded
+    // clips" either — they get their own line under the strip.
+    const isTap = (t: TrialData) =>
+      t.trial_mode === "recognition" || t.validity_label === "recognition_response";
+    const recognition = trials.filter(isTap);
+    const recognitionCorrect = recognition.filter((t) => t.is_correct === true).length;
+
+    // Validity buckets across ALL voice trials (for the trust strip)
     const buckets = { valid: 0, filler: 0, silence: 0, noise: 0, flagged: 0 };
     for (const t of trials) {
+      if (isTap(t)) continue;
       if (isScored(t)) { buckets.valid += 1; continue; }
       const label = t.clinician_validity_override || t.validity_label || "";
       switch (label) {
@@ -156,6 +165,9 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       cueDependencyPct: total > 0 ? Math.round((cued / total) * 100) : 0,
       highestLevel: levels.length > 0 ? Math.max(...levels) : null,
       validityBuckets: buckets,
+      recognitionTrials: recognition.length,
+      recognitionCorrect,
+      spokenTrials: total,
     };
   }, [trials]);
 
@@ -226,6 +238,17 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
             cueDependencyPct={metrics.cueDependencyPct}
             validityBuckets={metrics.validityBuckets}
           />
+          {metrics.recognitionTrials > 0 && (
+            <p
+              className="text-xs text-muted-foreground px-1"
+              data-testid="recognition-responses-line"
+            >
+              Recognition (tap) responses: {metrics.recognitionCorrect}/{metrics.recognitionTrials} correct
+              {metrics.spokenTrials === 0
+                ? " — no spoken attempts this session, so speech accuracy is not shown."
+                : " — kept separate from speech accuracy above."}
+            </p>
+          )}
 
           {/* 2. Voice Evidence */}
           <Section

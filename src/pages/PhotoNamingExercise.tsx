@@ -524,6 +524,8 @@ function PhotoNamingExerciseInner() {
     asrVerified?: boolean;
     /** SupportLevel the game resolved for this trial (chip vs spoken, cue rung). */
     supportUsed?: SupportLevel;
+    /** 'tap' when the patient chose a label instead of speaking. */
+    responseMode?: 'tap' | 'speech';
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
@@ -565,7 +567,13 @@ function PhotoNamingExerciseInner() {
       // transcribe is mislabeled no_response/background_noise and dropped from
       // accuracy even though the browser recognizer already matched it correct.
       const gateTranscript = result.whisperTranscript || result.browserTranscript || null;
+      // A tapped choice has no utterance to gate. Running the speech gate on it
+      // labelled every tap no_response ("recording too short"), so a patient who
+      // tapped ten pictures correctly was recorded as having scored nothing and
+      // participated in nothing, and a chip-only session had no accuracy at all.
+      const answeredByTap = result.responseMode === 'tap';
       const validity = classifyUtteranceValidity({
+        responseMode: answeredByTap ? 'tap' : 'speech',
         transcript: gateTranscript,
         asrConfidence: result.whisperConfidence ?? null,
         recordingDurationMs: result.recordingDurationMs ?? null,
@@ -605,7 +613,9 @@ function PhotoNamingExerciseInner() {
               ? 'semantic_cue'
               : 'independent'),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
+        // The mastery logger already stamps recognition for taps; the clinical
+        // record must agree with it.
+        trialMode: answeredByTap ? 'recognition' : 'production',
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,

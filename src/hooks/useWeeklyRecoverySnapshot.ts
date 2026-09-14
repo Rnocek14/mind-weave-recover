@@ -23,6 +23,63 @@ export interface RecoveryFlag {
   type: "no_signal" | "fatigue_spike";
   label: string;
   days: number;
+  /**
+   * Triage weight. The Patient Hub counts red flags toward "attention" and
+   * amber toward "watch"; it used to read a `severity` this type never
+   * carried, so no flag ever escalated triage and the hub reported
+   * "No flags" over a fortnight of silence. A week without any signal is
+   * red; a shorter gap, or high fatigue with a falling dose, is amber.
+   */
+  severity: "red" | "orange";
+}
+
+/**
+ * Triage flags derived from the daily timeline. Pure and exported so the
+ * thresholds and severities can be tested without a network.
+ */
+export function computeRecoveryFlags(timeline: SnapshotDay[]): RecoveryFlag[] {
+    if (timeline.length === 0) return [];
+    const result: RecoveryFlag[] = [];
+
+    // Flag 1: trailing no-signal streak
+    let noSignalStreak = 0;
+    for (let i = timeline.length - 1; i >= 0; i--) {
+      if (!timeline[i].hasAnySignal) noSignalStreak++;
+      else break;
+    }
+    if (noSignalStreak >= 3) {
+      result.push({
+        type: "no_signal",
+        label: `${noSignalStreak}-day engagement gap`,
+        days: noSignalStreak,
+        severity: noSignalStreak >= 7 ? "red" : "orange",
+      });
+    }
+
+    // Flag 2: fatigue ≥4 for 3+ recent days AND dose dropped vs prior week
+    const recent7 = timeline.slice(-7);
+    const highFatigueDays = recent7.filter(
+      (d) => d.fatigueRating !== null && d.fatigueRating >= 4
+    );
+    if (highFatigueDays.length >= 3) {
+      const avgDose =
+        recent7.reduce((s, d) => s + d.totalMinutes, 0) / recent7.length;
+      const prior7 = timeline.slice(-14, -7);
+      const priorAvgDose =
+        prior7.length > 0
+          ? prior7.reduce((s, d) => s + d.totalMinutes, 0) / prior7.length
+          : avgDose;
+      if (priorAvgDose > 0 && avgDose < priorAvgDose * 0.7) {
+        result.push({
+          type: "fatigue_spike",
+          label: "High fatigue + dose drop",
+          days: highFatigueDays.length,
+          severity: "orange",
+        });
+      }
+    }
+
+    return result;
 }
 
 export function useWeeklyRecoverySnapshot(
@@ -111,48 +168,7 @@ export function useWeeklyRecoverySnapshot(
     fetchSnapshot();
   }, [fetchSnapshot]);
   // Computed flags
-  const flags = useMemo<RecoveryFlag[]>(() => {
-    if (timeline.length === 0) return [];
-    const result: RecoveryFlag[] = [];
-
-    // Flag 1: trailing no-signal streak
-    let noSignalStreak = 0;
-    for (let i = timeline.length - 1; i >= 0; i--) {
-      if (!timeline[i].hasAnySignal) noSignalStreak++;
-      else break;
-    }
-    if (noSignalStreak >= 3) {
-      result.push({
-        type: "no_signal",
-        label: `${noSignalStreak}-day engagement gap`,
-        days: noSignalStreak,
-      });
-    }
-
-    // Flag 2: fatigue ≥4 for 3+ recent days AND dose dropped vs prior week
-    const recent7 = timeline.slice(-7);
-    const highFatigueDays = recent7.filter(
-      (d) => d.fatigueRating !== null && d.fatigueRating >= 4
-    );
-    if (highFatigueDays.length >= 3) {
-      const avgDose =
-        recent7.reduce((s, d) => s + d.totalMinutes, 0) / recent7.length;
-      const prior7 = timeline.slice(-14, -7);
-      const priorAvgDose =
-        prior7.length > 0
-          ? prior7.reduce((s, d) => s + d.totalMinutes, 0) / prior7.length
-          : avgDose;
-      if (priorAvgDose > 0 && avgDose < priorAvgDose * 0.7) {
-        result.push({
-          type: "fatigue_spike",
-          label: "High fatigue + dose drop",
-          days: highFatigueDays.length,
-        });
-      }
-    }
-
-    return result;
-  }, [timeline]);
+  const flags = useMemo<RecoveryFlag[]>(() => computeRecoveryFlags(timeline), [timeline]);
 
   // Last active day
   const lastActiveDate = useMemo(() => {

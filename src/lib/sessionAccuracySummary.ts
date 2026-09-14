@@ -43,6 +43,14 @@ export interface SessionAccuracySummary {
   cue_assisted_trials: number;
   /** Phase 1B — count of manual-confirmed (non-ASR) correct trials. */
   manual_confirmed_trials: number;
+  /**
+   * Recognition (tap) responses — scored on the choice, kept out of every
+   * speech-accuracy series. A chip-only Photo Naming session used to reduce to
+   * scored_trials 0 / participation 0 because the speech gate labelled each tap
+   * no_response; these two fields are where those trials now show up.
+   */
+  recognition_trials: number;
+  recognition_accuracy: number | null;
   /** Phase 1B — trials counting toward participation (ASR-valid + manual). */
   participation_trials: number;
 }
@@ -83,6 +91,8 @@ const EMPTY: SessionAccuracySummary = {
   independent_trials: 0,
   cue_assisted_trials: 0,
   manual_confirmed_trials: 0,
+  recognition_trials: 0,
+  recognition_accuracy: null,
   participation_trials: 0,
 };
 
@@ -92,6 +102,7 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
 
   const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
+  const isRecognition = (r: ScoredRow) => r.validity_label === 'recognition_response';
   const isExcludedSlug = (r: ScoredRow) =>
     typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
 
@@ -99,11 +110,21 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
   // Excludes validity-filtered rows, manual_confirmed (never ASR-verified), and
   // continuously-graded conversation/discourse rows.
   const scored = rows.filter(
-    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r) && !isExcludedSlug(r)
+    (r) =>
+      typeof r.score === 'number' &&
+      r.counts_toward_score !== false &&
+      !isManual(r) &&
+      !isRecognition(r) &&
+      !isExcludedSlug(r)
   );
 
   // Manual-confirmed correct trials (score present, explicitly tagged).
   const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));
+
+  // Recognition (tap) responses — their own series, never mixed into speech accuracy.
+  const recognition = rows.filter(
+    (r) => typeof r.score === 'number' && isRecognition(r) && !isExcludedSlug(r)
+  );
 
   const all = scored.map((r) => r.score as number);
   const independent = scored
@@ -113,8 +134,10 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     .filter((r) => (r.cue_level ?? 0) > 0)
     .map((r) => r.score as number);
 
-  // Practice accuracy = ASR-scored ∪ manual-confirmed.
-  const practice = [...all, ...manual.map((r) => r.score as number)];
+  // Practice accuracy = ASR-scored ∪ manual-confirmed ∪ recognition — the coarse
+  // "how did practice go" number, across modalities.
+  const recognitionScores = recognition.map((r) => r.score as number);
+  const practice = [...all, ...manual.map((r) => r.score as number), ...recognitionScores];
 
   const accuracy = mean(all);
 
@@ -128,7 +151,9 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     independent_trials: independent.length,
     cue_assisted_trials: cued.length,
     manual_confirmed_trials: manual.length,
-    participation_trials: all.length + manual.length,
+    recognition_trials: recognition.length,
+    recognition_accuracy: mean(recognitionScores),
+    participation_trials: all.length + manual.length + recognition.length,
   };
 }
 
@@ -163,6 +188,8 @@ export function accuracySummaryToSummaryFields(
     asr_accuracy: acc.asr_accuracy,
     practice_accuracy: acc.practice_accuracy,
     scored_trials: acc.scored_trials,
+    recognition_trials: acc.recognition_trials,
+    recognition_accuracy: acc.recognition_accuracy,
     manual_confirmed_trials: acc.manual_confirmed_trials,
     participation_trials: acc.participation_trials,
   };

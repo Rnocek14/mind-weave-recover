@@ -26,6 +26,11 @@ export interface ProgressionRecapProps {
   onContinue: () => void;
   /** Auto-advance after this many ms as a safety fallback. Default 8000. */
   autoAdvanceMs?: number;
+  /**
+   * Replaces the neutral "no change" line when the caller KNOWS why nothing
+   * moved and can say what would. Keep it short, concrete and non-punitive.
+   */
+  holdMessage?: string;
 }
 
 export function ProgressionRecap({
@@ -36,6 +41,7 @@ export function ProgressionRecap({
   leveledUp,
   onContinue,
   autoAdvanceMs = 8000,
+  holdMessage,
 }: ProgressionRecapProps) {
   const dismissedRef = useRef(false);
   const [animatedPct, setAnimatedPct] = useState(prev.progressPct);
@@ -118,7 +124,7 @@ export function ProgressionRecap({
             </p>
           ) : noMovement ? (
             <p className="text-xs text-muted-foreground pt-1">
-              No change this session — your work still counts. Practice keeps the skill warm.
+              {holdMessage ?? 'No change this session — your work still counts. Practice keeps the skill warm.'}
             </p>
           ) : (
             <p className="text-xs text-foreground/80 pt-1">

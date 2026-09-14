@@ -31,6 +31,26 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Phonemes to focus on: below 70% accuracy with enough trials, weakest first.
+ *
+ * `phoneme_difficulty_map[].accuracy` is written by compute-speech-profile on
+ * Azure's 0–100 scale (`Math.round(totalAccuracy / count)`), and the patient's
+ * own Speech Profile page reads it that way. This tab read it as 0–1: the
+ * filter `accuracy < 0.7` matched nothing, so the clinician's focus list was
+ * always empty, and had it matched it would have rendered "6500%".
+ */
+export function selectFocusPhonemes(
+  map: Record<string, { accuracy: number; trials: number }> | null | undefined,
+  limit = 8,
+): Array<[string, { accuracy: number; trials: number }]> {
+  if (!map) return [];
+  return Object.entries(map)
+    .filter(([, v]) => v.accuracy < 70 && v.trials >= 3)
+    .sort(([, a], [, b]) => a.accuracy - b.accuracy)
+    .slice(0, limit);
+}
+
 interface SpeechProfileTabProps {
   userId: string;
   profileId: string | undefined;
@@ -143,13 +163,10 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
     [speechProfile?.updated_at]
   );
 
-  const focusPhonemes = useMemo(() => {
-    if (!speechProfile?.phoneme_difficulty_map) return [];
-    return Object.entries(speechProfile.phoneme_difficulty_map)
-      .filter(([, v]) => v.accuracy < 0.7 && v.trials >= 3)
-      .sort(([, a], [, b]) => a.accuracy - b.accuracy)
-      .slice(0, 8);
-  }, [speechProfile]);
+  const focusPhonemes = useMemo(
+    () => selectFocusPhonemes(speechProfile?.phoneme_difficulty_map),
+    [speechProfile],
+  );
 
   const cueEfficacy = speechProfile?.cue_efficacy_by_type;
   const bestCue = useMemo(() => {
@@ -181,7 +198,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
   const primaryWeakness = useMemo(() => {
     if (focusPhonemes.length > 0) {
       const [phoneme, data] = focusPhonemes[0];
-      return `/${phoneme}/ at ${Math.round(data.accuracy * 100)}% accuracy`;
+      return `/${phoneme}/ at ${Math.round(data.accuracy)}% accuracy`;
     }
     if (challengingCategories && challengingCategories.length > 0) {
       const cat = challengingCategories[0];
@@ -307,7 +324,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                     {focusPhonemes.map(([phoneme, data]) => (
                       <div key={phoneme} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-xs">
                         <span className="font-bold text-destructive">/{phoneme}/</span>
-                        <span className="text-muted-foreground">{Math.round(data.accuracy * 100)}% ({data.trials}t)</span>
+                        <span className="text-muted-foreground">{Math.round(data.accuracy)}% ({data.trials}t)</span>
                       </div>
                     ))}
                   </div>
@@ -385,8 +402,9 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
                     {challengingCategories.slice(0, 6).map((cat: any, i: number) => (
                       <Badge key={i} variant="outline" className="text-xs">
                         {typeof cat === "string" ? cat.replace(/_/g, " ") : cat.category?.replace(/_/g, " ") || "Unknown"}
-                        {typeof cat !== "string" && cat.accuracy != null && (
-                          <span className="ml-1 text-muted-foreground">{Math.round(cat.accuracy * 100)}%</span>
+                        {/* compute-speech-profile persists { category, successRate (0–1), trials } — there is no `accuracy` field. */}
+                        {typeof cat !== "string" && typeof cat.successRate === "number" && (
+                          <span className="ml-1 text-muted-foreground">{Math.round(cat.successRate * 100)}%</span>
                         )}
                       </Badge>
                     ))}

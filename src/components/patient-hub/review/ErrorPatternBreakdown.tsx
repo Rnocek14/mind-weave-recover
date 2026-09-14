@@ -19,6 +19,11 @@ interface ErrorPatternBreakdownProps {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  // A wrong TAP is not a paraphasia. The classifier still compares the chosen
+  // word with the target (useful — it tells you which foil drew the patient),
+  // but a recognition error must never be counted as a speech-production
+  // error pattern; it gets its own row.
+  wrong_choice: "Wrong choice (tap)",
   phonemic_paraphasia: "Phonemic paraphasia",
   semantic_paraphasia: "Semantic paraphasia",
   circumlocution: "Circumlocution",
@@ -31,6 +36,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const ORDER = [
+  "wrong_choice",
   "phonemic_paraphasia",
   "semantic_paraphasia",
   "circumlocution",
@@ -41,6 +47,11 @@ const ORDER = [
   "agrammatic",
   "uncategorized",
 ];
+
+/** The answer was a tapped choice, not an utterance. */
+export function isTapResponse(t: TrialData): boolean {
+  return t.trial_mode === "recognition" || t.validity_label === "recognition_response";
+}
 
 function isAgrammatic(t: TrialData): boolean {
   // Heuristic: multi-word target, response is 1–2 words, and not a naming task.
@@ -78,9 +89,9 @@ export function ErrorPatternBreakdown({ trials, selected, onSelect }: ErrorPatte
     );
 
     incorrect.forEach((t) => {
-      const cat = normalizeErrorType(t.error_type);
+      const cat = isTapResponse(t) ? "wrong_choice" : normalizeErrorType(t.error_type);
       counts.set(cat, (counts.get(cat) || 0) + 1);
-      if (isAgrammatic(t)) {
+      if (!isTapResponse(t) && isAgrammatic(t)) {
         counts.set("agrammatic", (counts.get("agrammatic") || 0) + 1);
       }
     });
@@ -157,8 +168,12 @@ export function ErrorPatternBreakdown({ trials, selected, onSelect }: ErrorPatte
 export function categoryOfTrial(t: TrialData): string[] {
   const cats: string[] = [];
   if (t.is_correct === false) {
-    cats.push(normalizeErrorType(t.error_type));
-    if (isAgrammatic(t)) cats.push("agrammatic");
+    if (isTapResponse(t)) {
+      cats.push("wrong_choice");
+    } else {
+      cats.push(normalizeErrorType(t.error_type));
+      if (isAgrammatic(t)) cats.push("agrammatic");
+    }
   }
   return cats;
 }

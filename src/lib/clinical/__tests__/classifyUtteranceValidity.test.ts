@@ -12,6 +12,21 @@ describe('classifyUtteranceValidity', () => {
     expect(r.countsTowardScore).toBe(false);
   });
 
+  it('does not treat an unknown recording duration as a short one', () => {
+    // The recorder starts ~900 ms into a trial and only when a session, user
+    // and MediaRecorder all exist; the browser recognizer listens on its own
+    // stream. A heard word with NO recording is a word, not silence.
+    for (const recordingDurationMs of [null, undefined]) {
+      const r = classifyUtteranceValidity({
+        transcript: 'cat',
+        recordingDurationMs,
+        asrConfidence: 0.9,
+      });
+      expect(r.validity, String(recordingDurationMs)).toBe('valid_attempt');
+      expect(r.countsTowardScore).toBe(true);
+    }
+  });
+
   it('flags empty transcript as no_response', () => {
     const r = classifyUtteranceValidity({
       transcript: '   ',

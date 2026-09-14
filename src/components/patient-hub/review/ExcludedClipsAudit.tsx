@@ -32,6 +32,8 @@ const LABEL_META: Record<string, { title: string; tone: "muted" | "warn" }> = {
 };
 
 function isExcluded(t: TrialData): boolean {
+  // A tapped choice is not a clip: nothing was recorded, nothing was excluded.
+  if (t.trial_mode === "recognition" || t.validity_label === "recognition_response") return false;
   // Excluded if gate says so AND clinician hasn't reclassified as patient
   if (t.clinician_validity_override === "patient") return false;
   if (t.clinician_validity_override === "not_patient") return true;

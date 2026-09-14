@@ -29,6 +29,8 @@ export interface TrialData {
   validity_label?: string | null;
   validity_reason?: string | null;
   counts_toward_score?: boolean | null;
+  /** 'production' (spoken) | 'recognition' (tapped a choice) | 'scaffolded' … — from task_parameters. */
+  trial_mode?: string | null;
   clinician_validity_override?: string | null;
   /** Which underlying table the row came from — needed for clinician overrides. */
   source_table?: 'utterance_analyses' | 'exercise_events';
@@ -70,11 +72,18 @@ export function useSessionDetail() {
 
       if (uaError) throw uaError;
 
+      // Voice games write utterance_analyses; choice games (Minimal Pairs,
+      // Meaning Match, Category Fluency …) write exercise_events only. Using
+      // the events table ONLY when a session had zero utterance rows silently
+      // dropped every non-voice game from a mixed session's review. Read both
+      // and merge, keeping the utterance row where the same attempt has one.
+      const uaRows: TrialData[] = (uaData ?? []).map((r) => ({
+        ...r,
+        source_table: 'utterance_analyses' as const,
+      }));
+      const uaAttemptIds = new Set(uaRows.map((r) => r.attempt_id).filter(Boolean));
       let rows: TrialData[];
-      if (uaData && uaData.length > 0) {
-        rows = uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const }));
-      } else {
-        // Fallback to exercise_events
+      {
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
@@ -113,9 +122,13 @@ export function useSessionDetail() {
           validity_reason: (ev as any).validity_reason ?? null,
           counts_toward_score: (ev as any).counts_toward_score ?? null,
           clinician_validity_override: (ev as any).clinician_validity_override ?? null,
+          trial_mode: (ev.task_parameters as any)?.trial_mode ?? null,
           source_table: 'exercise_events' as const,
         }));
-        rows = mapped;
+        const eventsOnly = mapped.filter((row) => !row.attempt_id || !uaAttemptIds.has(row.attempt_id));
+        rows = [...uaRows, ...eventsOnly].sort((a, b) =>
+          String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')),
+        );
       }
 
       // ── Voice Engine v2: merge shadow verdicts (Phase 2 columns) ──

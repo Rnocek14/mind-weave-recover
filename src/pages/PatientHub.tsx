@@ -100,6 +100,10 @@ export default function PatientHub() {
   // own profile (self view).
   const subject = targetProfileId ? patientProfile : activeProfile;
   const profileId = subject?.id;
+  // Every card and tab below must be keyed by THIS id. Passing the viewer's
+  // own auth id (`user?.id`) is invisible in self-view — the two coincide — and
+  // wrong the moment a clinician opens a patient: the tabs then query the
+  // clinician's rows and show nothing, or the wrong person.
   const patientUserId = subject?.user_id || (targetProfileId ? "" : user?.id) || "";
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
@@ -139,8 +143,8 @@ export default function PatientHub() {
   // Engagement + flag breakdown for the cards
   const recent7 = timeline.slice(-7);
   const activeDays = recent7.filter((d) => d.hasAnySignal).length;
-  const redFlagCount = (flags || []).filter((f: any) => f.severity === "red").length;
-  const orangeFlagCount = (flags || []).filter((f: any) => f.severity === "orange").length;
+  const redFlagCount = (flags || []).filter((f) => f.severity === "red").length;
+  const orangeFlagCount = (flags || []).filter((f) => f.severity === "orange").length;
   const engagement = useMemo(
     () => (timeline.length > 0 ? computeEngagementScore(timeline) : null),
     [timeline]
@@ -272,12 +276,12 @@ export default function PatientHub() {
       </div>
 
       <div data-tour="ph-listen">
-        <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+        <ClinicianListenCard userId={patientUserId} profileId={profileId} />
       </div>
 
       <div data-tour="ph-progress">
         <ClinicianProgressCard
-          userId={user?.id || ""}
+          userId={patientUserId}
           profileId={profileId}
           accuracySlope={sessionStats.accuracySlope}
           recentTrials={sessionStats.trialCount}
@@ -286,7 +290,7 @@ export default function PatientHub() {
       </div>
 
       <div data-tour="ph-levels">
-        <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+        <ClinicianLevelsCard userId={patientUserId} profileId={profileId} />
       </div>
 
 
@@ -333,7 +337,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Sessions</h3>
                     <span className="text-[11px] text-muted-foreground">Recent activity & accuracy</span>
                   </div>
-                  <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+                  <SessionsTab userId={patientUserId} profileId={profileId} windowSize={windowSize} timeline={timeline} />
                 </section>
 
                 <section id="overview-intel" className="scroll-mt-4 border-t border-border pt-5">
@@ -342,7 +346,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Intelligence</h3>
                     <span className="text-[11px] text-muted-foreground">Learning rate, cohort, predictions</span>
                   </div>
-                  <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <IntelligenceTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -375,7 +379,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Speech Profile</h3>
                     <span className="text-[11px] text-muted-foreground">Phoneme patterns & fade trajectory</span>
                   </div>
-                  <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <SpeechProfileTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 

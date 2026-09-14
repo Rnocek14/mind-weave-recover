@@ -241,8 +241,14 @@ export async function getSemanticSimilarityDetailed(
   // Lexical guard: if there's no morphological/token overlap and the embedding
   // score is suspicious-but-not-clearly-correct, cap it. Prevents unrelated
   // English words from drifting into the partial-credit band.
+  // The cap exists for EMBEDDING drift. The rule-based path returns a
+  // deliberate 0.7 for two words in the same category — "dog" for "cat" is the
+  // textbook semantic paraphasia — and capping that to 0.45 put it exactly on
+  // the classifier's > 0.45 threshold, so whenever embeddings were unavailable
+  // (no key, a 429, a network blip disabling them for the page) every semantic
+  // paraphasia was recorded as 'unrelated'.
   const overlap = hasLexicalOverlap(spoken, target);
-  if (!overlap && raw < 0.78) {
+  if (source === 'embedding' && !overlap && raw < 0.78) {
     return { score: Math.min(raw, NONSENSE_CAP), source };
   }
 

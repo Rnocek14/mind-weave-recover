@@ -69,8 +69,9 @@ export function ClinicianSummaryHeader({
     const criticalAlerts = alerts.filter(a => a.severity === "critical" && !a.acknowledged_at);
     const accDeclining = avgAccuracy != null && priorAvgAccuracy != null && avgAccuracy < priorAvgAccuracy - 8;
     const accImproving = avgAccuracy != null && priorAvgAccuracy != null && avgAccuracy > priorAvgAccuracy + 3;
-    const slopeUp = accuracySlope != null && accuracySlope > 0.3;
-    const slopeDown = accuracySlope != null && accuracySlope < -0.3;
+    // accuracySlope is percentage points per week (see learningRateUnits).
+    const slopeUp = accuracySlope != null && accuracySlope > 2;
+    const slopeDown = accuracySlope != null && accuracySlope < -2;
     const goodRetention = retentionRate != null && retentionRate >= 60;
     const lowRetention = retentionRate != null && retentionRate < 40;
     const goodCue = cueScore != null && cueScore >= 0.6;
@@ -98,8 +99,8 @@ export function ClinicianSummaryHeader({
       else parts.push("moderate cue reliance");
     }
     if (accuracySlope != null) {
-      if (accuracySlope > 0.3) parts.push("accuracy trending up");
-      else if (accuracySlope < -0.3) parts.push("accuracy declining");
+      if (accuracySlope > 2) parts.push("accuracy trending up");
+      else if (accuracySlope < -2) parts.push("accuracy declining");
     }
     if (activeDays <= 2 && activeDays > 0) parts.push("low engagement");
     return parts.length > 0 ? parts.join(", ") : "limited data for summary";

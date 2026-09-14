@@ -63,6 +63,14 @@ import {
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
+/** iOS/iPadOS: microphone permission lives in Safari's settings; elsewhere the browser's site settings. */
+function isAppleMobileBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const iPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
+  return /iPad|iPhone|iPod/.test(ua) || iPadOS;
+}
+
 interface PhotoNamingGameProps {
   totalTrials?: number;
   initialDifficulty?: number;
@@ -112,6 +120,13 @@ interface PhotoNamingGameProps {
      * see a chip tap or the post-ASR-silence recovery case.
      */
     supportUsed?: SupportLevel;
+    /**
+     * How the answer was given. 'tap' = the patient chose a picture label
+     * (recognition); 'speech' = spoken (production). The page needs this to
+     * pick the right validity gate and trial mode: a tap has no utterance to
+     * judge, and running the speech gate on one records the trial as silence.
+     */
+    responseMode?: 'tap' | 'speech';
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -1106,7 +1121,9 @@ export const PhotoNamingGame = ({
   const micErrorMessage =
     speechError && !speechError.toLowerCase().includes('no speech detected')
       ? speechError.includes('Microphone access denied')
-        ? 'Microphone access is blocked — allow it in Safari settings.'
+        ? isAppleMobileBrowser()
+          ? 'Microphone access is blocked — allow it in Safari settings.'
+          : 'Microphone access is blocked — allow it in your browser\u2019s site settings.'
         : speechError.includes('Failed to start speech recognition')
           ? 'Microphone couldn’t start — tap Voice Off, then On.'
           : speechError
@@ -1677,6 +1694,8 @@ export const PhotoNamingGame = ({
     prev: { level: number; progressPct: number };
     next: { level: number; progressPct: number };
     leveledUp: boolean;
+    /** Every trial was a tap with no attempt to speak — nothing can move the level. */
+    recognitionOnly: boolean;
   } | null>(null);
   const finalizeCompleteRef = useRef<(() => void) | null>(null);
 
@@ -1712,7 +1731,15 @@ export const PhotoNamingGame = ({
 
       // Clinical Progression v1: persist updated level/progress for this profile.
       const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
-      const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
+      const snapshot = (
+        flushResult as {
+          snapshot?: Omit<NonNullable<typeof recap>, 'recognitionOnly'> & {
+            evidenceMet: boolean;
+            trialCount?: number;
+            productionTrials?: number;
+          };
+        }
+      ).snapshot;
 
       const finalize = () => {
         completeSession();
@@ -1736,6 +1763,8 @@ export const PhotoNamingGame = ({
           prev: snapshot.prev,
           next: snapshot.next,
           leveledUp: snapshot.leveledUp,
+          recognitionOnly:
+            (snapshot.trialCount ?? 0) > 0 && (snapshot.productionTrials ?? 0) === 0,
         });
       } else {
         finalize();
@@ -2245,6 +2274,7 @@ export const PhotoNamingGame = ({
     // with ITS support level. Reading the ref there would report one trial's
     // scaffolding against another trial's answer.
     const capturedSupport = resolvedSupportRef.current ?? undefined;
+    const capturedResponseMode: 'tap' | 'speech' = inputMode === 'recognition' ? 'tap' : 'speech';
     
     // Run analysis in background without blocking
     (async () => {
@@ -2298,7 +2328,7 @@ export const PhotoNamingGame = ({
         // the recognition result), else the speech-worker's whisper confidence,
         // else the legacy 0.8 default — so the classifier's low-confidence
         // retry gate finally receives a real signal instead of a constant.
-        const errorClassification = await classifySpeechError(
+        const rawClassification = await classifySpeechError(
           word,
           capturedTrial.target,
           getLastRecognition()?.confidence ?? whisperConfidence ?? 0.8,
@@ -2314,6 +2344,17 @@ export const PhotoNamingGame = ({
             avgPauseDurationMs: acousticMetrics.avgPauseDurationMs
           } : undefined
         );
+        // A tap is compared with the target like any answer — the similarity
+        // says which foil drew the patient — but it is a choice, not an
+        // utterance, and the record must say so before anyone reads
+        // "phonemic paraphasia" off a button press.
+        const errorClassification =
+          capturedResponseMode === 'tap'
+            ? {
+                ...rawClassification,
+                reasoning: `Tap response — chose "${word}" for "${capturedTrial.target}". ${rawClassification.reasoning}`,
+              }
+            : rawClassification;
         
         // Add to error history for adaptive cueing
         setErrorHistory(prev => [...prev, errorClassification]);
@@ -2367,6 +2408,7 @@ export const PhotoNamingGame = ({
           // report this rather than re-derive it from cueLevel, which cannot see
           // a chip tap or the post-silence recovery case.
           supportUsed: capturedSupport,
+          responseMode: capturedResponseMode,
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2497,6 +2539,7 @@ export const PhotoNamingGame = ({
           // report this rather than re-derive it from cueLevel, which cannot see
           // a chip tap or the post-silence recovery case.
           supportUsed: capturedSupport,
+          responseMode: capturedResponseMode,
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
@@ -2798,6 +2841,7 @@ export const PhotoNamingGame = ({
           prev={recap.prev}
           next={recap.next}
           leveledUp={recap.leveledUp}
+          recognitionOnly={recap.recognitionOnly}
           onContinue={() => {
             const fn = finalizeCompleteRef.current;
             finalizeCompleteRef.current = null;
@@ -2840,7 +2884,7 @@ export const PhotoNamingGame = ({
             <TrendingDown className="w-4 h-4 shrink-0" />
           )}
           <span className="font-medium">
-            {difficultyChanged === 'up' ? 'Level up' : 'Adjusting to help'}
+            {difficultyChanged === 'up' ? 'Stepping up' : 'Adjusting to help'}
           </span>
           {difficultyNote && (
             <span className="text-muted-foreground hidden sm:inline">— {difficultyNote}</span>

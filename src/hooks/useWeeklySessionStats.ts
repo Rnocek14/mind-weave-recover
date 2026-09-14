@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { slopePerDayToPctPerWeek } from "@/lib/learningRateUnits";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WeeklySessionStats {
@@ -6,6 +7,7 @@ interface WeeklySessionStats {
   sessionCount: number;
   avgAccuracy: number | null;
   priorAvgAccuracy: number | null;
+  /** Percentage points of accuracy per week (converted from learning_rates' fraction-per-day). */
   accuracySlope: number | null;
   isLoading: boolean;
 }
@@ -112,7 +114,7 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
           sessionCount: sessionIds.length,
           avgAccuracy: avgAcc,
           priorAvgAccuracy: priorAvg,
-          accuracySlope: lrData?.[0]?.accuracy_slope ?? null,
+          accuracySlope: slopePerDayToPctPerWeek(lrData?.[0]?.accuracy_slope),
           isLoading: false,
         });
       } catch (err) {

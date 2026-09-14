@@ -111,8 +111,40 @@ export const classifySpeechError = async (
     };
   }
   
-  // Step 1b: CONFIDENCE GATE - Low ASR confidence triggers retry, not wrong
-  // This prevents "it heard something and marked it wrong" when ASR is uncertain
+  
+  const normalized_spoken = spokenWord.toLowerCase().trim();
+  const normalized_target = targetWord.toLowerCase().trim();
+  
+  // Step 2: Check for exact match (correct).
+  // This runs BEFORE the confidence gate on purpose. The transcript literally
+  // equals the target; low ASR confidence is a reason to flag the row for
+  // review, not to record the word the patient said as a miss. Previously the
+  // gate ran first, so a patient who said "cat" for "cat" at 30% confidence saw
+  // "Correct" on screen while the clinical record stored errorType 'uncertain'
+  // and score 0 — the record contradicted the screen.
+  if (normalized_spoken === normalized_target) {
+    const lowAsrConfidence = asrConfidence < 0.4;
+    return {
+      errorType: 'correct',
+      confidence: asrConfidence,
+      reasoning: lowAsrConfidence
+        ? `Exact match to target (ASR confidence ${(asrConfidence * 100).toFixed(0)}% — flagged for review)`
+        : 'Exact match to target',
+      needs_review: lowAsrConfidence,
+      phonemeAccuracy: 1.0,
+      phonological_similarity: 1.0,
+      semantic_similarity: 1.0, // FIX: Always populate (exact match = 1.0)
+      meaningAccuracy: 1.0,
+      fluencyMetrics: acousticMetrics ? {
+        ...acousticMetrics,
+        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
+      } : undefined
+    };
+  }
+  
+  // Step 2b: CONFIDENCE GATE - Low ASR confidence triggers retry, not wrong.
+  // Runs after the exact-match check (see above) so it can never turn a
+  // correctly heard target into 'uncertain'.
   if (asrConfidence < 0.4) {
     return {
       errorType: 'uncertain',
@@ -126,30 +158,9 @@ export const classifySpeechError = async (
     };
   }
   
-  // Step 1c: MEDIUM CONFIDENCE GATE - Proceed but flag for leniency
+  // Step 2c: MEDIUM CONFIDENCE GATE - Proceed but flag for leniency
   const isLowConfidence = asrConfidence < 0.6;
-  
-  const normalized_spoken = spokenWord.toLowerCase().trim();
-  const normalized_target = targetWord.toLowerCase().trim();
-  
-  // Step 2: Check for exact match (correct)
-  if (normalized_spoken === normalized_target) {
-    return {
-      errorType: 'correct',
-      confidence: asrConfidence,
-      reasoning: 'Exact match to target',
-      needs_review: false,
-      phonemeAccuracy: 1.0,
-      phonological_similarity: 1.0,
-      semantic_similarity: 1.0, // FIX: Always populate (exact match = 1.0)
-      meaningAccuracy: 1.0,
-      fluencyMetrics: acousticMetrics ? {
-        ...acousticMetrics,
-        effortfulSpeech: detectEffortfulSpeech(acousticMetrics)
-      } : undefined
-    };
-  }
-  
+
   // Step 3: Check for self-correction pattern
   // (e.g., "dog... cat... no... dog" - contains target after errors)
   if (normalized_spoken.includes(normalized_target) && 

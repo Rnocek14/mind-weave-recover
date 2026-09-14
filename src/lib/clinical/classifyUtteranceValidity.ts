@@ -24,7 +24,16 @@ export type ValidityLabel =
   // could not verify (empty/unscorable transcript, mic/ASR failure, or
   // hard-to-transcribe aphasic speech). Counts toward participation + practice
   // accuracy, but NEVER toward ASR/independent accuracy.
-  | 'manual_confirmed';
+  | 'manual_confirmed'
+  // The patient answered by TAPPING a choice, not by speaking. That is a
+  // recognition response: objectively right or wrong on the tap itself, with
+  // no utterance to gate. Running the speech gate on it produced
+  // `no_response` ("recording too short") for every tap, so a patient who
+  // tapped ten pictures correctly was recorded as having scored nothing and
+  // participated in nothing. Counts toward participation + practice
+  // accuracy; NEVER toward ASR/independent accuracy, and — per the
+  // progression spec — never toward expressive levels.
+  | 'recognition_response';
 
 /** Who confirmed a manual_confirmed trial (or 'asr' for ASR-verified attempts). */
 export type ConfirmedBy = 'asr' | 'user' | 'caregiver';
@@ -48,6 +57,12 @@ export interface ValidityInput {
   asrVerified?: boolean | null;
   /** Provenance of the transcript, when known. */
   confirmationMode?: 'asr' | 'manual' | 'caregiver' | null;
+  /**
+   * How the answer was given. 'tap' short-circuits the speech heuristics —
+   * there is no utterance to judge — and labels the trial a
+   * recognition_response. Omitted/'speech' runs the gate as before.
+   */
+  responseMode?: 'speech' | 'tap' | null;
   // Reserved (unused in Phase 1)
   targetWord?: string | null;
   targetPhrase?: string | null;
@@ -121,6 +136,19 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     matchedFiller: false,
   };
 
+  if (input.responseMode === 'tap') {
+    return {
+      validity: 'recognition_response',
+      reason: 'Answered by tapping a choice — a recognition response, scored on the tap; there is no utterance to gate.',
+      confidence: 1,
+      countsTowardScore: false,
+      countsTowardParticipation: true,
+      countsTowardPracticeAccuracy: true,
+      confirmedBy: null,
+      signals,
+    };
+  }
+
   const manualConfirmed = input.manualConfirmed === true;
   const asrVerified = input.asrVerified === true;
   const confirmedBy: ConfirmedBy | null = input.confirmedBy ?? null;
@@ -144,8 +172,14 @@ export function classifyUtteranceValidity(input: ValidityInput): ValidityResult 
     };
   }
 
-  // 1. No response — too short OR no transcript at all
-  if (durationMs < MIN_VALID_DURATION_MS || transcriptRaw.length === 0) {
+  // 1. No response — nothing transcribed, or a MEASURED recording too short to
+  // hold a word. An unknown duration is not a short one: the recorder starts
+  // ~900 ms into a trial and only when a session, user and MediaRecorder all
+  // exist, so a word the browser recognizer heard can arrive with no recording
+  // at all. Treating that null as 0 ms labelled the heard word no_response and
+  // dropped it from accuracy. Filler and low-confidence checks still follow.
+  const durationKnown = typeof input.recordingDurationMs === 'number' && Number.isFinite(input.recordingDurationMs);
+  if (transcriptRaw.length === 0 || (durationKnown && durationMs < MIN_VALID_DURATION_MS)) {
     // Distinguish: if duration is sufficient but transcript is empty AND
     // ratio looks like noise → background_noise; else no_response.
     if (

@@ -333,6 +333,120 @@ none was changed silently.
    one-time recalibration of the stored rows would be cleaner than letting the
    old numbers set the content floor.
 
+## Second pass — the running app, the voice path, and the clinician's view
+
+The first pass proved the engine maths with unit tests. This pass asked the
+questions a hospital reviewer would: does the *running* app do it, does the
+voice path record what the patient actually did, and does the clinician's view
+say what the data says. It found the answers by driving the real app in a real
+browser and by reading rows back.
+
+### An offline harness for the real app
+
+`tests/e2e/fixtures/fakeSupabase.ts` intercepts every request to the project's
+Supabase host and answers it from an in-memory table store that speaks enough
+PostgREST for the SPA to boot signed in and run whole sessions with no network
+and no credentials. Everything the app writes lands where a test can read it.
+`tests/e2e/offline/*` uses it to prove, in Chromium, against the built app:
+
+- **Photo Naming steps up on sustained success and says so.** Ten correct
+  answers: logged difficulty `1 1 1 2 2 2 2 3 3 3`, "Great progress!" toast,
+  stars never fall.
+- **Photo Naming eases off on struggle and says so.** From Level 5: four misses
+  then recovery gives `6 6 6 4 4 4 4 5 5 5` — down two on frustration, back up
+  one on recovery — with the "Adjusting difficulty" toast.
+- **The level you earned is the level you come back to.** A seeded Level-5 row
+  starts the session at engine difficulty 6 and three stars; a new patient at 1
+  and one star.
+- **Fix the Sentence banks progress at Level 1** (tiles + highlighted word; the
+  recap shows the bar moving and the persisted row carries it).
+- **Minimal Pairs records every answer** — `100 100 100 100 0 0 0 100 100 0`
+  in, ten rows out, difficulty `1 1 1 2 2 2 2 1 1 1` — the defect the first
+  pass fixed, now proven in the browser.
+
+### What the browser run exposed, and what changed
+
+**A tapped answer was recorded as silence.** Photo Naming ran the *speech*
+validity gate on every answer, including chip taps. A tap has no recording, so
+every tap was stored as `no_response`, `counts_toward_score: false`,
+`trial_mode: "production"`. A patient who tapped ten pictures correctly reduced
+to `scored_trials: 0`, `participation_trials: 0`, no session accuracy at all —
+while the mastery logger, correctly, said `recognition`. A tap is now a
+`recognition_response`: scored on the choice, counted for participation and
+practice accuracy (`recognition_trials`, `recognition_accuracy` on the session
+summary), kept out of every speech-accuracy series and — per progression spec
+§5.4 — out of expressive levels. The clinician's Session Review shows
+"Recognition (tap) responses: n/n" beside speech accuracy, lists wrong taps as
+"Wrong choice (tap)" rather than as paraphasias, and no longer lists taps among
+excluded *clips*. The recap after a tap-only session no longer says "your work
+still counts" (it could not have moved anything); it says what would move the
+level.
+
+**The clinical record could contradict the screen.** The error classifier's
+confidence gate ran *before* its exact-match check: a patient who said "cat" for
+"cat" at 30% ASR confidence saw "Correct" and was stored as `uncertain`, score
+0. Exact match now wins; low confidence flags the row for review.
+
+**Semantic paraphasia was unreachable without the embedding service.** The
+noise cap for embedding drift (0.45) was also applied to the deliberate
+rule-based same-category score (0.7), landing exactly on the classifier's
+`> 0.45` threshold — so "dog" for "cat" was recorded as `unrelated` whenever
+embeddings were off. The cap now applies to embeddings only.
+
+**A heard word with no recording was silence.** The recorder starts ~900 ms into
+a trial and only with a session, user and MediaRecorder; the gate treated a
+`null` duration as 0 ms. Unknown is no longer short. (A *measured* recording
+under 400 ms is still `no_response` — that policy is test-locked and kept.)
+
+**The clinician's hub was keyed by the clinician.** Six cards and tabs received
+the viewer's auth id rather than the patient's — invisible in self-view, wrong
+the moment a clinician opens a patient. All are keyed by `patientUserId` now,
+and a test fails if a viewer-keyed prop reappears.
+
+**Session Review dropped non-voice games from mixed sessions.** The detail hook
+read `exercise_events` only when a session had zero `utterance_analyses` rows.
+Both sources are read and merged now.
+
+**Triage could never escalate.** Flags were counted by a `severity` the flag type
+did not carry. Flags now carry one where they are generated: a week of silence
+is red, a shorter gap or high fatigue with a falling dose is amber.
+
+**The status card's accuracy slope was in the wrong unit.** `learning_rates.
+accuracy_slope` is a fraction per day; the card read it as percentage points
+per week, so a genuine −14-points-a-week decline rounded to "−0%" and never
+crossed its −5 / −10 thresholds. Converted once, at the hub's stats hook.
+
+**The Speech Profile tab's phoneme focus list was always empty.** It filtered
+accuracy as 0–1; the writer stores 0–100. Its category badges also read an
+`accuracy` field that is not persisted (`successRate` is).
+
+**Smaller, patient-facing:** the in-session banner said "Level up" for an
+engine step while the recap said the Clinical Level had not changed — it now
+says "Stepping up"; Chromium was told to allow the microphone "in Safari
+settings"; the mic-broken timeout left the previous trial's support level in
+the record.
+
+### Still open after this pass
+
+- **Only the first 10 s of a recording reach the pronunciation service**
+  (`MAX_AUDIO_DURATION_SEC`, a memory guard). Recording starts ~900 ms into the
+  trial and hard mode allows 30 s, so a slow retriever's utterance can fall
+  outside the analysed window. Keeping the *last* 10 s is the likely fix but
+  changes a worker; it needs its own verification.
+- **On the spoken path the classifier is fed the matched chip label**, not the
+  utterance. Correctness is unaffected (the lenient phonetic match is the
+  design), but the stored error type and similarities describe the chip: a
+  "dat" accepted as "cat" is recorded as an exact match. The utterance is
+  stored alongside, so nothing is lost, but the classification is not of it.
+- **A recognizer may restart after Photo Naming unmounts** (reported, not yet
+  reproduced here). A hot microphone after leaving the page would be a
+  privacy defect; it needs a browser-level reproduction.
+- **Photo Naming's chip count is four at every level**; the documented "three
+  chips below Level 4" step is overridden by the intensity table.
+- **Fix the Sentence at Level 1 earns 1.25 points per correct tile** — a
+  5-trial validation session moves the bar about 6%. Every rung is reachable;
+  the cadence is a clinical calibration.
+
 ## Review of the change set
 
 The diff was reviewed from three independent lenses before landing: regression

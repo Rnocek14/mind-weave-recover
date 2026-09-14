@@ -50,6 +50,8 @@ const BUCKETS: Record<ValidityLabel, GateDecision['bucket']> = {
   low_confidence: 'review',
   other_speaker_suspected: 'review',
   manual_confirmed: 'manual',
+  // A tap is a valid response in its own modality; it is simply not a clip.
+  recognition_response: 'valid',
 };
 
 export function applyValidityGate(
@@ -70,7 +72,10 @@ export function applyValidityGate(
       reason: null,
     };
   }
-  const isValid = validity.validity === 'valid_attempt';
+  // A recognition response is as real as a verified utterance for adaptation
+  // and participation; only the ASR-accuracy axis excludes it (countsTowardScore).
+  const isValid =
+    validity.validity === 'valid_attempt' || validity.validity === 'recognition_response';
   return {
     shouldScore: validity.countsTowardScore,
     shouldFeedAdaptation: isValid, // only ASR-verified attempts feed adaptation

@@ -308,6 +308,11 @@ export function usePhotoNamingProgression({
         leveledUp: next.currentLevel > prev.currentLevel,
         evidenceMet,
         progressDelta,
+        trialCount: trials.length,
+        // Recognition-only taps earn no expressive credit (spec §5.4), so a
+        // session made entirely of them cannot move the bar however accurate
+        // it was. The recap uses this to say so instead of "your work counts".
+        productionTrials: trials.filter((t) => t.support !== 'recognition_only').length,
         masteryGateBlocked:
           evidenceMet &&
           prev.progressPct + progressDelta >= 100 &&
