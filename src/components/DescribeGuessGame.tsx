@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { decideAutoSubmit } from '@/lib/describeGuess/autoSubmitDecision';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
@@ -103,6 +104,9 @@ export function DescribeGuessGame({
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
   const [wordSaidRedirect, setWordSaidRedirect] = useState(false);
   const wordSaidRedirectFiredRef = useRef(false);
+  /** Word retrieval is credited once per trial; the effect below re-runs on
+   *  every transcript growth now that it no longer short-circuits. */
+  const wordRetrievalRecordedRef = useRef(false);
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const promptTimersRef = useRef<NodeJS.Timeout[]>([]);
@@ -439,6 +443,7 @@ export function DescribeGuessGame({
     setAwaitingWordAttempt(false);
     setWordSaidRedirect(false);
     wordSaidRedirectFiredRef.current = false;
+    wordRetrievalRecordedRef.current = false;
     setDisplayTranscript('');
     rawTranscriptRef.current = '';
     processingRef.current = false;
@@ -553,16 +558,24 @@ export function DescribeGuessGame({
     if (wordSaidRedirectFiredRef.current) return; // Only redirect once per trial
 
     if (game.checkWordMatch(textToCheck, trial)) {
-      game.recordWordRetrieval();
+      // Once per trial: this effect re-runs on every transcript growth, and we
+      // no longer short-circuit it with an immediate evaluation.
+      if (!wordRetrievalRecordedRef.current) {
+        wordRetrievalRecordedRef.current = true;
+        game.recordWordRetrieval();
+      }
 
       // Check if they already produced descriptive content — if so, fast-track evaluation
       const contentWords = getContentWordCount(textToCheck);
       const targetWordCount = trial.target.split(/\s+/).length;
       const wordsExcludingTarget = contentWords - targetWordCount;
       if (wordsExcludingTarget >= 3 || game.featureTypesUsed.size >= 1) {
-        // They described AND said the word — immediately evaluate (no silence wait)
-        console.log('[DescribeGuess] Word said after description — fast-tracking evaluation');
-        runEvaluationRef.current();
+        // They described AND said the word. This used to call runEvaluation()
+        // with ZERO silence wait, which is the harshest cut-off in the game:
+        // 9 of 57 trials have a feature keyword that is also an accepted word
+        // (cup/'glass', chair/'seat', lamp/'light'), so describing the item
+        // correctly ended the turn mid-sentence. Fall through instead and let
+        // the patient silence path decide when they have actually finished.
         return;
       }
 
@@ -915,13 +928,24 @@ export function DescribeGuessGame({
 
       setNudgeHint(state.nudgeHint);
 
-      if (state.suppressAutoSubmit) return;
-
       const profile = TIMING_PROFILES.discourse;
       const multiplier = getProfileMultiplier(profile, state.state, state.confidence);
-      const threshold = Math.round(profile.baseSilenceMs * multiplier);
 
-      if (silenceMs >= threshold) {
+      // The shared profile/classifier pair yields ~1080ms for any 3+ word
+      // utterance, which ends a three-part answer after its first sentence.
+      // decideAutoSubmit only ever EXTENDS that, and guarantees the trial can
+      // still always end. Shared timing constants are deliberately untouched —
+      // every other game uses them.
+      const decision = decideAutoSubmit({
+        silenceMs,
+        elapsedMs,
+        featureCount: game.featureTypesUsed.size,
+        classifierThresholdMs: Math.round(profile.baseSilenceMs * multiplier),
+        suppressAutoSubmit: state.suppressAutoSubmit,
+      });
+
+      if (decision.shouldEvaluate) {
+        console.log('[DescribeGuess] auto-submit:', decision.reason, `${silenceMs}ms >= ${decision.thresholdMs}ms`);
         runEvaluation();
       }
     }, 200);
