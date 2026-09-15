@@ -229,6 +229,35 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     expect(result.support).toBe("highlight_plus_choice");
   });
 
+  it("drops the scaffold when the real level arrives late", async () => {
+    // useFixSentenceProgression reports `loaded` on its level-1 fallback when
+    // the profile id is not there yet, and never un-sets it — so the game can
+    // mount at level 1 and get the true level a moment later as a prop change.
+    // choiceMode is state now (that is what gave L1/L2 a voice option), so
+    // without this it latched: a level-6 patient would sit through a whole
+    // session of four-word choice tiles.
+    const { rerender } = render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+
+    rerender(<FixSentenceGame trialCount={3} clinicalLevel={6} />);
+    await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
+  });
+
+  it("keeps the scaffold the person asked for when the level arrives late", async () => {
+    const { rerender } = render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+
+    // They chose the mic themselves.
+    await act(async () => {
+      fireEvent.click(screen.getByText(/say the answer out loud/i));
+    });
+    await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
+
+    // A late level change must not hand the tiles back underneath them.
+    rerender(<FixSentenceGame trialCount={3} clinicalLevel={2} />);
+    await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
+  });
+
   it("offers the voice toggle in choice mode", async () => {
     render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
     await waitFor(() => screen.getByTestId("choice-tiles"));
