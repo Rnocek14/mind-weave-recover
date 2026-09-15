@@ -18,7 +18,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { decideAutoSubmit } from '@/lib/describeGuess/autoSubmitDecision';
+import { decideAutoSubmit, DG_COVERAGE_TARGET } from '@/lib/describeGuess/autoSubmitDecision';
+import { detectSpokenDimensions } from '@/lib/describeGuess/coverageGuess';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
@@ -923,7 +924,13 @@ export function DescribeGuessGame({
         transcript: fullTranscript,
         elapsedMs,
         silenceDurationMs: silenceMs,
-        promptText: trial?.target,
+        // Deliberately NO promptText. The classifier's promptText is "text the
+        // person may be reading aloud instead of producing" — this game has no
+        // such text. What used to be passed here was trial.target, the one word
+        // they are trying NOT to say, which meant saying it scored 100% prompt
+        // overlap, classified as 'reading', and suppressed auto-submit until the
+        // 75-second backstop. The classifier now also refuses to call a
+        // sub-sentence prompt an echo, so this is belt and braces.
       });
 
       setNudgeHint(state.nudgeHint);
@@ -941,7 +948,21 @@ export function DescribeGuessGame({
         elapsedMs,
         // Spoken coverage, not chip taps: asking for help should never make
         // the app LESS patient with the answer that follows.
-        featureCount: game.featureTypesSpoken.size,
+        //
+        // Read straight off the transcript instead of off game.featureTypesSpoken.
+        // That state is set by an effect on the same `fullTranscript` change
+        // that re-creates this interval, so the interval's closure captured
+        // the PREVIOUS render's set — coverage arrived one utterance late and
+        // a finished answer sat through the 7s thin-coverage wait instead of
+        // the 4s one. Same rule, same function, no render timing in it.
+        // Saying the target word is the best outcome in the game, not a
+        // reason to keep waiting: treat it as full coverage so the answer
+        // lands on the 4s floor instead of the 7s thin-coverage wait. The
+        // floor still applies, so this is not the zero-wait fast-track that
+        // used to cut people off mid-sentence.
+        featureCount: wordRetrievalRecordedRef.current
+          ? DG_COVERAGE_TARGET
+          : detectSpokenDimensions(fullTranscript, trial).length,
         classifierThresholdMs: Math.round(profile.baseSilenceMs * multiplier),
         suppressAutoSubmit: state.suppressAutoSubmit,
       });

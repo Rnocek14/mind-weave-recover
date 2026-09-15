@@ -44,6 +44,28 @@ const FRAGMENT_PATTERN = /^(\w{1,3}\s){0,2}\w{1,4}$/; // very short fragments
 // Similarity threshold for "reading the prompt"
 const READING_SIMILARITY_THRESHOLD = 0.7;
 
+/**
+ * How many words a prompt needs before "you overlapped with it" can mean
+ * "you are reading it aloud".
+ *
+ * promptSimilarity is `matched / promptWords`, so a ONE-word prompt scores a
+ * perfect 1.0 the moment the transcript contains that word anywhere — and a
+ * three-word prompt scores 1.0 for saying its three words in any order,
+ * anywhere, among any number of others. For a naming or describing task the
+ * prompt IS the answer, so that formula flags the single best thing a person
+ * can do as prompt-echoing and suppresses auto-submit on it.
+ *
+ * This bit Describe & Guess hard: it passed `trial.target` (every one of the
+ * 57 bank targets is a single word), so saying the word you were reaching for
+ * classified as 'reading', set suppressAutoSubmit, and left the person sitting
+ * in silence until the 75s backstop. AbstractCompare has the same shape
+ * ("wordA and wordB" is three words, and naming both is how you answer).
+ *
+ * Echoing is only a meaningful signal for a prompt long enough that repeating
+ * it is a strategy rather than an answer — a sentence, not a word.
+ */
+const READING_MIN_PROMPT_WORDS = 4;
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 function countFillers(text: string): number {
@@ -111,7 +133,8 @@ export function classifySpeechState(input: ClassifySpeechStateInput): SpeechStat
   }
 
   // ── 2. Reading / echoing prompt ─────────────────────────
-  if (promptText && wordCount >= 2) {
+  const promptWordCount = promptText ? promptText.trim().split(/\s+/).filter(Boolean).length : 0;
+  if (promptText && wordCount >= 2 && promptWordCount >= READING_MIN_PROMPT_WORDS) {
     const similarity = promptSimilarity(cleaned, promptText);
     if (similarity >= READING_SIMILARITY_THRESHOLD) {
       reasons.push(`Prompt echo: ${(similarity * 100).toFixed(0)}% word overlap`);

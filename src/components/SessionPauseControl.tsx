@@ -58,6 +58,14 @@ export function SessionPauseControl() {
     setIsPaused(true);
     console.log('[SessionPause] Paused');
 
+    // FIRST, before anything else: tell the controller the session is held.
+    // stopAllVoice() below has to report "Maya is no longer speaking" so the
+    // mic lock clears on resume — but that signal is exactly what every game
+    // waits on to open the mic and re-arm its stall prompts. Setting the pause
+    // flag first means isMicLocked stays true and speakStream() returns
+    // immediately, so releasing the speaking flag can't wake anything up.
+    voiceController.setSessionPaused(true);
+
     // Maya is ElevenLabs audio playing through an HTML5 <audio> element, not
     // browser speech synthesis. This used to call speechSynthesis.cancel(),
     // which cannot touch that element — so the overlay came up and Maya kept
@@ -74,8 +82,10 @@ export function SessionPauseControl() {
 
     // Kept for games that may want to react to a pause. NOTE: nothing listens
     // to this today — it is not a working recogniser stop, and the comment
-    // that used to claim otherwise was wrong. Per-game recognisers are still
-    // owned by each game; see the pause/mic gap noted in the PR.
+    // that used to claim otherwise was wrong. The actual hold is
+    // voiceController.setSessionPaused above, which every game observes
+    // through awaitMicSafe/isMicLocked without having to subscribe to
+    // anything.
     window.dispatchEvent(new CustomEvent('session-pause'));
   }, []);
 
@@ -83,6 +93,9 @@ export function SessionPauseControl() {
     const durMs = pauseStartRef.current ? Date.now() - pauseStartRef.current : 0;
     pauseStartRef.current = null;
     setIsPaused(false);
+    // Release the hold before announcing the resume, so a listener that opens
+    // the mic isn't told to wait by a flag we are about to clear anyway.
+    voiceController.setSessionPaused(false);
     console.log('[SessionPause] Resumed after', Math.round(durMs / 1000), 's');
     window.dispatchEvent(new CustomEvent('session-resume', { detail: { pausedMs: durMs } }));
   }, []);
@@ -91,6 +104,10 @@ export function SessionPauseControl() {
     console.log('[SessionPause] User ended session from pause overlay');
     setIsPaused(false);
     pauseStartRef.current = null;
+    // Leaving the session is also leaving the pause. Without this the flag
+    // stays set on a global singleton and the NEXT exercise opens with its
+    // mic held shut and Maya mute, with no overlay on screen to explain it.
+    voiceController.setSessionPaused(false);
     // Clear resume state so the "Continue session" card doesn't appear later.
     try {
       localStorage.removeItem('lessonFlowState_resume');

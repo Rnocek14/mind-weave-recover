@@ -259,6 +259,18 @@ export function FixSentenceGame({
   // support level honest without touching the scoring path at all.
   const scaffoldByDefault = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
   const [choiceMode, setChoiceMode] = useState(scaffoldByDefault);
+  /**
+   * Mirror, because the trial-start flow decides whether to open the mic AFTER
+   * `await speak(sentence)` — and by then the state it closed over is 2-4
+   * seconds old. The toggle button is on screen for that whole window, so
+   * someone who switched to the tiles while Maya was still reading got the mic
+   * opened and the recorder started behind them, with the "Listening…"
+   * indicator suppressed because choiceMode was (correctly) true in render.
+   * A live microphone with nothing on screen to say so is not a bug you get to
+   * ship in an app for someone else's living room.
+   */
+  const choiceModeRef = useRef(choiceMode);
+  useEffect(() => { choiceModeRef.current = choiceMode; }, [choiceMode]);
   const showHighlight = !choiceMode || clinicalLevel === 1;
   const choiceTiles = React.useMemo(
     () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
@@ -514,7 +526,9 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        if (sessionId && userId && !showTextInput && !choiceMode) {
+        // choiceModeRef, not choiceMode: this line runs after an await. See
+        // the ref's declaration.
+        if (sessionId && userId && !showTextInput && !choiceModeRef.current) {
           startListening();
           setIsListening(true);
           if (isRecordingSupported) startRecording();
@@ -602,6 +616,10 @@ export function FixSentenceGame({
     // Prevents stale transcripts from a previous trial leaking in (the
     // "same answer reused for every sentence" bug).
     if (!speechIsListening) return;
+    // And never score while the choice tiles are up. The mic should not be
+    // open at all in that mode, but "should not" is not an invariant — if it
+    // ever is, what it hears is the room, not an answer.
+    if (choiceModeRef.current) return;
     // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
     // tail lock) — but do NOT throw the transcript away. Patients often answer
     // the instant the sentence ends, inside the tail lock; discarding here

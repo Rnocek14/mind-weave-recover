@@ -1,21 +1,31 @@
-# Publish the site on every push to main.
+# Build the real production artifact on every push, and publish it only when
+# there is somewhere to publish it to.
 #
-# WHY: for weeks the live domain served a build that predated every fix in
-# the repo, because publishing was a button somebody had to remember to
-# press. Nothing about that is visible from the code, which is the worst
-# property a deploy can have. This makes "merged to main" and "live" the
-# same event.
+# WHAT WENT WRONG WITH THE FIRST VERSION OF THIS FILE: it claimed in a comment
+# that "the workflow enables GitHub Pages itself on first run" and passed
+# `enablement: true` to actions/configure-pages. That is not a thing the
+# default GITHUB_TOKEN is allowed to do — every run since has died on
+# "Create Pages site failed: Resource not accessible by integration", which
+# put a red X on main for five consecutive merges. A deploy check that is
+# always red is worse than no check, because it teaches you to ignore the one
+# signal that is supposed to mean something.
 #
-# The artifact is inspected before it goes out (scripts/verify-dist.mjs):
-# a build that lost its brand, its downloadable pack, or that baked a
-# localhost origin into a canonical is refused rather than published.
+# WHAT IT DOES NOW:
+#   build   — every push to main. Builds the same artifact the live site would
+#             serve and refuses it (scripts/verify-dist.mjs) if it lost the
+#             brand, lost the downloadable pack, or baked a localhost origin
+#             into a canonical. CI runs lint/tests/type-check but never builds
+#             for production, so this is the only place a broken prerender or
+#             a bad SITE_URL would surface before a user hit it.
+#   publish — opt-in only. It runs when you dispatch it by hand, or when the
+#             repository variable PAGES_ENABLED is set to "true".
 #
-# ACTIVATION: the workflow enables GitHub Pages itself on first run. The
-# site answers at the custom domain below once its DNS points at GitHub
-# Pages; until then it is reachable at the repository's github.io URL and
-# the domain keeps serving whatever it served before. Nothing breaks in the
-# meantime — this is safe to merge ahead of the DNS change.
-name: Deploy
+# TO ACTUALLY PUBLISH FROM HERE: Settings → Pages → Source: "GitHub Actions"
+# (this is a human step; no token in a workflow can do it), then either run
+# this workflow manually or set the PAGES_ENABLED variable to make it
+# automatic. Until then the domain keeps serving whatever it serves today and
+# nothing here touches it.
+name: Site artifact
 
 on:
   push:
@@ -27,7 +37,7 @@ permissions:
   pages: write
   id-token: write
 
-# Never let two deploys race; the newer commit is the one that should win.
+# Never let two publishes race; the newer commit is the one that should win.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -35,8 +45,8 @@ concurrency:
 env:
   # Canonical origin baked into the sitemap and the prerendered pages.
   SITE_URL: https://neurospark.co
-  # Written to dist/CNAME so Pages serves the site at the domain root, which
-  # is what lets every asset path stay root-relative.
+  # Written to dist/CNAME so Pages would serve the site at the domain root,
+  # which is what lets every asset path stay root-relative.
   CUSTOM_DOMAIN: neurospark.co
 
 jobs:
@@ -62,9 +72,9 @@ jobs:
       - name: Build
         run: bun run build
 
-      # Pages serves a static tree, so any client-side route that has no
-      # file on disk (/today, /auth, /exercise/*) 404s unless the 404 page
-      # IS the app shell.
+      # Pages serves a static tree, so any client-side route that has no file
+      # on disk (/today, /auth, /exercise/*) 404s unless the 404 page IS the
+      # app shell.
       - name: SPA fallback
         run: cp dist/index.html dist/404.html
 
@@ -74,17 +84,17 @@ jobs:
       - name: Verify the artifact before publishing
         run: node scripts/verify-dist.mjs
 
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
+      # Uploading is safe whether or not Pages is switched on — it is a plain
+      # artifact upload and touches no Pages API.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-  deploy:
-    name: Publish
+  publish:
+    name: Publish to GitHub Pages
     needs: build
+    # Skipped, not failed, while Pages is off. See the header.
+    if: github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -78,6 +78,8 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const [practicedSlugs, setPracticedSlugs] = useState<string[]>([]);
   const [attemptedTrials, setAttemptedTrials] = useState(0);
   const [durationSec, setDurationSec] = useState<number | null>(null);
+  /** The read failed. Distinct from "nothing to show", and said out loud. */
+  const [loadFailed, setLoadFailed] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const hasSpokenClosingRef = useRef(false);
 
@@ -101,10 +103,20 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       // trouble) or that only ran null-scoring exercises returned nothing, and
       // this whole screen collapsed to a bare "session complete" headline —
       // which is what a person saw after genuinely doing the work.
-      const { data: events } = await supabase
+      const { data: events, error } = await supabase
         .from("exercise_events")
         .select("exercise_slug, score, counts_toward_score, validity_label")
         .eq("session_id", sessionId);
+
+      // A failed read and an empty session produce the same empty arrays, and
+      // this screen would render the same reassuring "we couldn't score this
+      // one" either way. That sentence is true about a mic problem and a lie
+      // about a network problem, so keep them apart.
+      if (error) {
+        console.warn('[SessionSummary] could not load results', error);
+        setLoadFailed(true);
+        return;
+      }
 
       const scorable = (events ?? []).filter(
         (ev) =>
@@ -154,7 +166,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       }
     };
 
-    fetchResults();
+    fetchResults().catch((err) => {
+      console.warn('[SessionSummary] results fetch threw', err);
+      setLoadFailed(true);
+    });
   }, [sessionId]);
 
   const overallAvg = useMemo(() => {
@@ -316,7 +331,14 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
             session can be unscorable because the microphone struggled, and
             telling someone they did badly on that is worse than telling them
             nothing. */}
-        {exerciseScores.length === 0 && practicedSlugs.length > 0 && (
+        {loadFailed && (
+          <p className="px-1 text-sm text-muted-foreground leading-relaxed text-left">
+            We couldn't load the results for this session just now. The practice
+            was saved — it will show up in your history.
+          </p>
+        )}
+
+        {!loadFailed && exerciseScores.length === 0 && practicedSlugs.length > 0 && (
           <div className="space-y-2 text-left">
             {practicedSlugs.map((slug) => (
               <div

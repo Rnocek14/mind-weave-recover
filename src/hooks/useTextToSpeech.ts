@@ -47,6 +47,14 @@ export const stopGlobalTTS = () => {
   globalAbortController = null;
 
   if (globalAudio) {
+    // Clear the duration-based "speech finished" timer before dropping the
+    // element. It is armed when playback starts and only cleared by onended /
+    // onerror, neither of which a pause() fires — so without this it survives
+    // the stop, fires at the moment the clip WOULD have ended, and reports
+    // "Maya stopped speaking" long after she was silenced. Effects gated on
+    // isSpeaking then re-arm on a stop that already happened.
+    const pending = (globalAudio as unknown as { _accurateTimeout?: ReturnType<typeof setTimeout> })._accurateTimeout;
+    if (pending) clearTimeout(pending);
     globalAudio.pause();
     globalAudio.currentTime = 0;
     globalAudio = null;
@@ -259,6 +267,18 @@ export const useTextToSpeech = () => {
     text: string,
     options: TTSOptions = {}
   ): Promise<void> => {
+    // A paused session means silence, including for speech that was queued or
+    // scheduled before the tap. Games arm stall reminders and coaching lines
+    // on timers; without this gate the overlay goes up, Maya stops, and then
+    // a 3-12s timer fires and she starts talking over the pause screen.
+    //
+    // KNOWN TRADE-OFF: a trial-start flow that does `await speak(sentence)`
+    // gets an instantly-resolved promise while paused, so if you pause during
+    // the sentence and resume, it is not re-read. The sentence is on screen
+    // and "Hear it again" replays it, and that is a much smaller cost than
+    // Maya talking through a pause the person asked for.
+    if (voiceController.isSessionPaused) return;
+
     const {
       voiceId = MAYA_VOICE_ID,
       mode = 'fast',
