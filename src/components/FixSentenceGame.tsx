@@ -259,6 +259,28 @@ export function FixSentenceGame({
   // support level honest without touching the scoring path at all.
   const scaffoldByDefault = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
   const [choiceMode, setChoiceMode] = useState(scaffoldByDefault);
+
+  /**
+   * Follow the level until the person overrides it.
+   *
+   * choiceMode used to be derived straight from clinicalLevel, so it tracked
+   * the prop for free. Making it state — which is what gave the entry levels a
+   * voice option at all — quietly introduced a latch, and there is a race that
+   * walks right into it: useFixSentenceProgression sets `loaded` true on its
+   * level-1 fallback when the profile id is not there yet, and never sets it
+   * back to false. The page's gate is spent, the game mounts at level 1, and
+   * the real level lands a moment later as a prop change that the initial
+   * useState can no longer see. A returning patient at level 6 would have sat
+   * through a whole session of four-word choice tiles.
+   *
+   * A manual toggle wins from then on: someone who asked for the tiles, or
+   * asked for the mic, does not want the answer changed underneath them.
+   */
+  const modeChosenByUserRef = useRef(false);
+  useEffect(() => {
+    if (modeChosenByUserRef.current) return;
+    setChoiceMode(scaffoldByDefault);
+  }, [scaffoldByDefault]);
   /**
    * Mirror, because the trial-start flow decides whether to open the mic AFTER
    * `await speak(sentence)` — and by then the state it closed over is 2-4
@@ -292,6 +314,7 @@ export function FixSentenceGame({
   const handleUseVoice = useCallback(() => {
     // Never trade the tiles away for a microphone that does not exist.
     if (!isSpeechRecognitionSupported()) return;
+    modeChosenByUserRef.current = true;
     setChoiceMode(false);
     if (showTextInput) return;
     void voiceController.awaitMicSafe().then(() => {
@@ -303,6 +326,7 @@ export function FixSentenceGame({
   }, [showTextInput, isRecordingSupported]);
 
   const handleUseChoices = useCallback(() => {
+    modeChosenByUserRef.current = true;
     stopListeningRef.current();
     setIsListening(false);
     if (isRecording) cancelRecordingRef.current();
