@@ -74,6 +74,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
 
   const [exerciseScores, setExerciseScores] = useState<ExerciseScore[]>([]);
+  /** What was practiced, regardless of whether any of it could be scored. */
+  const [practicedSlugs, setPracticedSlugs] = useState<string[]>([]);
+  const [attemptedTrials, setAttemptedTrials] = useState(0);
   const [durationSec, setDurationSec] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const hasSpokenClosingRef = useRef(false);
@@ -91,15 +94,34 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       // validity-filtered rows (counts_toward_score=false) and manual_confirmed
       // trials, so the number shown here matches Insights/History and manual
       // confirmations don't inflate it.
+      // The `score is not null` filter used to live in the query. It now lives
+      // in `scorable` below instead, so the ACCURACY set is byte-identical
+      // while the same single round-trip also tells us what was practiced.
+      // Without that, a session whose trials were all validity-filtered (mic
+      // trouble) or that only ran null-scoring exercises returned nothing, and
+      // this whole screen collapsed to a bare "session complete" headline —
+      // which is what a person saw after genuinely doing the work.
       const { data: events } = await supabase
         .from("exercise_events")
         .select("exercise_slug, score, counts_toward_score, validity_label")
-        .eq("session_id", sessionId)
-        .not("score", "is", null);
+        .eq("session_id", sessionId);
 
       const scorable = (events ?? []).filter(
-        (ev) => ev.counts_toward_score !== false && ev.validity_label !== "manual_confirmed",
+        (ev) =>
+          ev.score !== null &&
+          ev.counts_toward_score !== false &&
+          ev.validity_label !== "manual_confirmed",
       );
+
+      // Participation, which is always true even when accuracy is unknowable.
+      // Deliberately NOT turned into a score: coercing an unscorable trial to
+      // "incorrect" would show someone a bad number for a session in which
+      // they did nothing wrong.
+      const practiced = Array.from(
+        new Set((events ?? []).map((ev) => ev.exercise_slug).filter(Boolean) as string[]),
+      );
+      setPracticedSlugs(practiced);
+      setAttemptedTrials((events ?? []).length);
 
       if (scorable.length > 0) {
         // Group by exercise and compute averages
@@ -285,6 +307,33 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* No scorable trials — show the work instead of nothing.
+            This is the branch that used to render as a bare headline. It
+            reports participation and never invents an accuracy figure: a
+            session can be unscorable because the microphone struggled, and
+            telling someone they did badly on that is worse than telling them
+            nothing. */}
+        {exerciseScores.length === 0 && practicedSlugs.length > 0 && (
+          <div className="space-y-2 text-left">
+            {practicedSlugs.map((slug) => (
+              <div
+                key={slug}
+                className="flex items-center justify-between px-4 py-3 rounded-lg bg-muted/30"
+              >
+                <span className="font-medium text-foreground capitalize text-sm">
+                  {slugToName(slug)}
+                </span>
+                <span className="text-sm font-medium text-muted-foreground">Practiced</span>
+              </div>
+            ))}
+            <p className="px-1 text-sm text-muted-foreground leading-relaxed">
+              {attemptedTrials > 0
+                ? "We couldn't score this one — that usually means the microphone had trouble hearing, not that anything went wrong. The practice still counts."
+                : "The practice still counts."}
+            </p>
           </div>
         )}
 

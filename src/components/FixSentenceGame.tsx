@@ -96,6 +96,11 @@ export function FixSentenceGame({
   const processingRef = useRef(false);
   const stopListeningRef = useRef<() => void>(() => {});
   const cancelRecordingRef = useRef<() => void>(() => {});
+  // Same ref-mirror pattern: these handlers are declared above the
+  // useSpeechRecognition/useAudioRecorder destructures, so they cannot close
+  // over the functions directly.
+  const startListeningRef = useRef<() => void>(() => {});
+  const startRecordingRef = useRef<() => void>(() => {});
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ttsAbortRef = useRef(false);
   // Re-runs the scoring effect once the VoiceController mic-lock clears, so
@@ -238,12 +243,54 @@ export function FixSentenceGame({
   // L1/L2 scaffolded response mode (ladder targetSupport). L1 keeps the
   // wrong-word highlight (highlight_plus_choice); L2 drops it
   // (choice_based). L3+ is open response — the existing speech/typed UI.
-  const choiceMode = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
+  //
+  // This is STATE, not a derived constant. It used to be
+  // `clinicalLevel <= 2`, which meant the microphone was unreachable at the
+  // two entry levels — and MIN_LEVEL is 1, so every new user met a voice-first
+  // app with no voice in this game at all. The ladder spec
+  // (docs/clinical-progression-v1-spec.md) specifies the support profile —
+  // WHAT HELP IS ON SCREEN — not how the answer is delivered, so scaffolding
+  // the screen never required taking the mic away.
+  //
+  // The two channels are mutually exclusive on purpose. Speaking WITH the
+  // choices still visible would be less support than tapping but more than
+  // open response, and the progression engine has no way to record that
+  // in-between state; hiding the tiles when the mic opens keeps the recorded
+  // support level honest without touching the scoring path at all.
+  const scaffoldByDefault = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
+  const [choiceMode, setChoiceMode] = useState(scaffoldByDefault);
   const showHighlight = !choiceMode || clinicalLevel === 1;
   const choiceTiles = React.useMemo(
     () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
     [choiceMode, game.currentTrial],
   );
+
+  /**
+   * Switch between saying the answer and tapping a choice.
+   *
+   * Mutually exclusive by design (see the choiceMode comment above): turning
+   * the mic on hides the tiles, so the scaffold the person actually had is the
+   * scaffold the progression engine records. Sync-Wait is respected on the way
+   * in — opening the mic while Maya is still speaking is how she gets scored
+   * as the answer.
+   */
+  const handleUseVoice = useCallback(() => {
+    setChoiceMode(false);
+    if (showTextInput) return;
+    void voiceController.awaitMicSafe().then(() => {
+      if (showFeedbackRef.current) return;
+      startListeningRef.current();
+      setIsListening(true);
+      if (isRecordingSupported) startRecordingRef.current();
+    });
+  }, [showTextInput, isRecordingSupported]);
+
+  const handleUseChoices = useCallback(() => {
+    stopListeningRef.current();
+    setIsListening(false);
+    if (isRecording) cancelRecordingRef.current();
+    setChoiceMode(true);
+  }, [isRecording]);
 
   // Choice-tile tap: speak the word (model), score locally, submit through
   // the same result pipeline as speech/typed — support level rides on the
@@ -416,6 +463,8 @@ export function FixSentenceGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
+  useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
   useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
 
   // Stall timer for voice reminder
@@ -993,7 +1042,26 @@ export function FixSentenceGame({
               {word}
             </Button>
           ))}
+          <button
+            type="button"
+            onClick={handleUseVoice}
+            className="col-span-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground py-1"
+          >
+            Or say the answer out loud
+          </button>
         </div>
+      )}
+
+      {/* Back to the scaffold. Offered only where tiles are the level's
+          default, so higher levels are unchanged. */}
+      {!choiceMode && scaffoldByDefault && !showFeedback && !showTextInput && (
+        <button
+          type="button"
+          onClick={handleUseChoices}
+          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Show me the choices instead
+        </button>
       )}
 
       {/* Typing fallback input */}
