@@ -14,7 +14,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { TrialReportControl } from '@/components/TrialReportControl';
 import { recordLastTrial, clearLastTrial } from '@/lib/feedback/lastTrial';
 
-const submitMock = vi.fn(async () => ({ ok: true, id: 'report-1' }));
+const submitMock = vi.fn(async (...args: unknown[]) => ({ ok: true, id: 'report-1' as string | null }));
 const attachMock = vi.fn(async () => true);
 
 vi.mock('@/lib/feedback/submitTrialReport', async () => {
