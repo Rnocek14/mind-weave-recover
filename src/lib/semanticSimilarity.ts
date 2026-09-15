@@ -203,10 +203,25 @@ export interface SemanticSimilarityDetail {
   source: SemanticScorerSource;
 }
 
+/**
+ * What kind of comparison this is.
+ *
+ * 'word_to_word' (default, and every existing caller): the person was asked to
+ * NAME something, so sharing no words with the target is evidence they said
+ * something unrelated — the lexical guard below is correct.
+ *
+ * 'description_to_word': the person was asked to DESCRIBE something without
+ * naming it. Sharing no words with the target is the success condition, not a
+ * warning sign, so applying the guard capped every correct circumlocution at
+ * 0.45 and put it below every threshold that reads this score.
+ */
+export type SemanticComparison = 'word_to_word' | 'description_to_word';
+
 export async function getSemanticSimilarityDetailed(
   spoken: string,
   target: string,
-  category?: string
+  category?: string,
+  comparison: SemanticComparison = 'word_to_word'
 ): Promise<SemanticSimilarityDetail> {
   const ns = spoken.toLowerCase().trim();
   const nt = target.toLowerCase().trim();
@@ -241,9 +256,13 @@ export async function getSemanticSimilarityDetailed(
   // Lexical guard: if there's no morphological/token overlap and the embedding
   // score is suspicious-but-not-clearly-correct, cap it. Prevents unrelated
   // English words from drifting into the partial-credit band.
-  const overlap = hasLexicalOverlap(spoken, target);
-  if (!overlap && raw < 0.78) {
-    return { score: Math.min(raw, NONSENSE_CAP), source };
+  // Skipped for descriptions: see SemanticComparison. A circumlocution never
+  // contains its target, so this guard fired on every correct answer.
+  if (comparison === 'word_to_word') {
+    const overlap = hasLexicalOverlap(spoken, target);
+    if (!overlap && raw < 0.78) {
+      return { score: Math.min(raw, NONSENSE_CAP), source };
+    }
   }
 
   return { score: raw, source };
@@ -252,7 +271,8 @@ export async function getSemanticSimilarityDetailed(
 export async function getSemanticSimilarity(
   spoken: string,
   target: string,
-  category?: string
+  category?: string,
+  comparison: SemanticComparison = 'word_to_word'
 ): Promise<number> {
-  return (await getSemanticSimilarityDetailed(spoken, target, category)).score;
+  return (await getSemanticSimilarityDetailed(spoken, target, category, comparison)).score;
 }
