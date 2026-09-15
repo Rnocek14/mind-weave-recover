@@ -189,9 +189,46 @@ function detectInstructionEcho(
 // Non-answer detection
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Words that carry no answer on their own, used to tell a genuine attempt
+ * from a phrase like "skip this one please".
+ */
+const PREAMBLE_STOPWORDS = new Set([
+  'a', 'an', 'the', 'this', 'that', 'these', 'those', 'it', 'its', "it's", 'one',
+  'please', 'now', 'just', 'um', 'uh', 'er', 'well', 'so', 'and', 'but', 'or',
+  'what', 'whats', 'is', 'was', 'be', 'to', 'of', 'for', 'my', 'me', 'i', 'you',
+  'thing', 'called', 'name', 'word', 'sorry', 'oh', 'hmm', 'okay', 'ok', 'yeah',
+]);
+
+/**
+ * How much real content has to follow a "I can't remember..." opener before we
+ * treat the utterance as an attempt rather than a refusal.
+ */
+const PREAMBLE_CONTENT_WORDS_REQUIRED = 3;
+
 function isNonAnswer(normalizedText: string): boolean {
   const lower = normalizedText.toLowerCase().replace(/[^a-z\s']/g, ' ').replace(/\s+/g, ' ').trim();
-  return NON_ANSWER_PHRASES.some(p => lower === p || lower.startsWith(p + ' ') || lower.endsWith(' ' + p));
+
+  for (const p of NON_ANSWER_PHRASES) {
+    if (lower === p || lower.endsWith(' ' + p)) return true;
+
+    if (lower.startsWith(p + ' ')) {
+      // A non-answer phrase used as a PREAMBLE is not a refusal.
+      // "I can't remember what it's called, but you drink your coffee out of
+      // it" is a textbook circumlocution — and the single most common way an
+      // aphasic answer begins. Discarding it told the person to "take your
+      // time and give it a try" immediately after they had given a complete,
+      // correct description. Only the phrase ALONE, or a phrase with nothing
+      // substantive after it, counts as declining to answer.
+      const remainder = lower.slice(p.length + 1).trim();
+      const contentWords = remainder
+        .split(' ')
+        .filter((w) => w.length > 1 && !PREAMBLE_STOPWORDS.has(w));
+      if (contentWords.length < PREAMBLE_CONTENT_WORDS_REQUIRED) return true;
+      return false;
+    }
+  }
+  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════
