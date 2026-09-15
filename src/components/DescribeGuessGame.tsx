@@ -1116,9 +1116,16 @@ export function DescribeGuessGame({
       {/* Prompt Chips (appear on cooldown) */}
       {!showFeedback && !awaitingWordAttempt && (
         <div className="flex flex-wrap justify-center gap-1.5 shrink-0">
-          {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip, i) => {
-            const isVisible = i < visiblePrompts + 2;
-            if (i > 1 && i >= visiblePrompts + 2) return null;
+          {/* ONE threshold, here in the slice. There used to be three, and they
+              disagreed: the slice and the early return both used
+              visiblePrompts + 2, while the className hid anything with
+              `i >= visiblePrompts`. Two off-by-two apart, so "Made of" and
+              "Kind of" were rendered into the row — taking up width, reserving
+              layout — at opacity-0 and pointer-events-none for every reachable
+              value of visiblePrompts. Two of the five help chips could not be
+              seen or tapped at any point in the game, and "Looks like" only
+              surfaced at 14s instead of 6s. */}
+          {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip) => {
             return (
               <Button
                 key={chip.featureType}
@@ -1127,7 +1134,6 @@ export function DescribeGuessGame({
                 onClick={() => handleChipTap(chip)}
                 className={cn(
                   'transition-all text-xs h-8',
-                  i > 1 && i >= visiblePrompts ? 'opacity-0 pointer-events-none' : 'opacity-100',
                   game.featureTypesUsed.has(chip.featureType) && 'ring-2 ring-primary/50',
                 )}
               >

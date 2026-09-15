@@ -31,6 +31,24 @@ interface TTSOptions {
 let globalAudio: HTMLAudioElement | null = null;
 let globalAudioUrl: string | null = null;
 let globalAbortController: AbortController | null = null;
+/**
+ * Settles the promise of whichever utterance is playing right now.
+ *
+ * speakStream returns a promise that games `await` before doing the rest of
+ * the trial — opening the mic, arming a stall reminder, calling startEcho().
+ * It has exactly five resolvers, and every one of them is an event or a timer
+ * belonging to the audio element: pause() fires neither 'ended' nor 'error',
+ * so stopping playback silently removes them all. Before today the
+ * duration-based timer survived a stop and resolved the promise at the moment
+ * the clip WOULD have ended, which is why nothing hung. Clearing that timer
+ * (correct on its own — it was also reporting "Maya stopped speaking" long
+ * after she had) took away the last resolver, so pausing while Maya was
+ * reading left the awaiting trial suspended forever: mic never opens, no stall
+ * prompt, nothing on screen to say why.
+ *
+ * Stopping has to SETTLE the utterance, not just cancel its timers.
+ */
+let globalSettle: (() => void) | null = null;
 
 /**
  * Browser TTS fallback (window.speechSynthesis) is the source of the "rogue
@@ -47,16 +65,21 @@ export const stopGlobalTTS = () => {
   globalAbortController = null;
 
   if (globalAudio) {
-    // Clear the duration-based "speech finished" timer before dropping the
-    // element. It is armed when playback starts and only cleared by onended /
-    // onerror, neither of which a pause() fires — so without this it survives
-    // the stop, fires at the moment the clip WOULD have ended, and reports
-    // "Maya stopped speaking" long after she was silenced. Effects gated on
-    // isSpeaking then re-arm on a stop that already happened.
-    const pending = (globalAudio as unknown as { _accurateTimeout?: ReturnType<typeof setTimeout> })._accurateTimeout;
-    if (pending) clearTimeout(pending);
     globalAudio.pause();
     globalAudio.currentTime = 0;
+  }
+
+  // Finish the interrupted utterance: clears its timers (so nothing reports
+  // "Maya stopped speaking" at the moment she would have finished) AND
+  // resolves its promise (so whatever was awaiting it carries on). See
+  // globalSettle. Runs before the teardown below because it does most of it.
+  const settle = globalSettle;
+  globalSettle = null;
+  if (settle) {
+    try { settle(); } catch (e) { console.warn('[TTS] settle error', e); }
+  }
+
+  if (globalAudio) {
     globalAudio = null;
   }
 
@@ -351,7 +374,35 @@ export const useTextToSpeech = () => {
         setIsLoading(false);
         setIsSpeaking(true); notifyVC(true);
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+          // ONE way for this utterance to end, reachable from every path
+          // including an external stop. Idempotent, because several of those
+          // paths can race (a stop during the safety timeout, an error after
+          // a pause). Everything that used to be copy-pasted into five
+          // handlers lives here once — which is what let the five drift apart
+          // and leave a promise with no resolver at all.
+          let settled = false;
+          // Declared before finish() so the finisher can never reach it in the
+          // temporal dead zone, whatever order the paths below end up running.
+          let safetyTimeout: ReturnType<typeof setTimeout> | undefined;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            if (safetyTimeout) clearTimeout(safetyTimeout);
+            const accurate = (audio as unknown as { _accurateTimeout?: ReturnType<typeof setTimeout> })._accurateTimeout;
+            if (accurate) {
+              clearTimeout(accurate);
+              (audio as unknown as { _accurateTimeout?: ReturnType<typeof setTimeout> })._accurateTimeout = undefined;
+            }
+            setIsSpeaking(false); notifyVC(false);
+            if (globalAudio === audio) globalAudio = null;
+            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
+            if (globalSettle === finish) globalSettle = null;
+            try { URL.revokeObjectURL(audioUrl); } catch { /* already revoked */ }
+            resolve();
+          };
+          globalSettle = finish;
+
           // Safety timeout — resolve quickly so session never stalls.
           // Keep the fallback buffer tight; VoiceController already adds a
           // post-speech tail lock, and long buffers leave the mic off.
@@ -359,13 +410,9 @@ export const useTextToSpeech = () => {
           const timeoutMs = (!isNaN(audioDuration) && audioDuration > 0) 
             ? Math.min((audioDuration + 0.4) * 1000, 60000)
             : 5000; // If duration unknown, 5s fallback
-          const safetyTimeout = setTimeout(() => {
+          safetyTimeout = setTimeout(() => {
             console.warn(`[TTS] Safety timeout — resolving after ${timeoutMs}ms`);
-            setIsSpeaking(false); notifyVC(false);
-            if (globalAudio === audio) globalAudio = null;
-            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
-            URL.revokeObjectURL(audioUrl);
-            resolve();
+            finish();
           }, timeoutMs);
 
           // Also set a secondary timeout after metadata loads with accurate duration
@@ -374,47 +421,24 @@ export const useTextToSpeech = () => {
               clearTimeout(safetyTimeout);
               const accurateTimeout = setTimeout(() => {
                 console.warn('[TTS] Duration-based timeout — resolving');
-                setIsSpeaking(false); notifyVC(false);
-                if (globalAudio === audio) globalAudio = null;
-                if (globalAudioUrl === audioUrl) globalAudioUrl = null;
-                URL.revokeObjectURL(audioUrl);
-                resolve();
+                finish();
               }, (audio.duration + 0.4) * 1000);
-              // Store for cleanup
-              (audio as any)._accurateTimeout = accurateTimeout;
+              // Store so finish() (and any external stop) can clear it.
+              (audio as unknown as { _accurateTimeout?: ReturnType<typeof setTimeout> })._accurateTimeout = accurateTimeout;
             }
           };
 
-          audio.onended = () => {
-            clearTimeout(safetyTimeout);
-            if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false); notifyVC(false);
-            if (globalAudio === audio) globalAudio = null;
-            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
-            URL.revokeObjectURL(audioUrl);
-            resolve();
-          };
+          audio.onended = finish;
 
           audio.onerror = () => {
-            clearTimeout(safetyTimeout);
-            if ((audio as any)._accurateTimeout) clearTimeout((audio as any)._accurateTimeout);
-            setIsSpeaking(false); notifyVC(false);
-            if (globalAudio === audio) globalAudio = null;
-            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
-            URL.revokeObjectURL(audioUrl);
             // Don't reject — fall through gracefully so session continues
             console.warn('[TTS] Audio playback error, falling back to browser TTS');
-            speakBrowser(text).then(resolve).catch(() => resolve());
+            speakBrowser(text).finally(finish);
           };
 
           audio.play().catch((playError) => {
-            clearTimeout(safetyTimeout);
-            setIsSpeaking(false); notifyVC(false);
-            if (globalAudio === audio) globalAudio = null;
-            if (globalAudioUrl === audioUrl) globalAudioUrl = null;
-            URL.revokeObjectURL(audioUrl);
             console.warn('[TTS] Play failed, falling back to browser:', playError);
-            speakBrowser(text).then(resolve).catch(() => resolve());
+            speakBrowser(text).finally(finish);
           });
         });
       }

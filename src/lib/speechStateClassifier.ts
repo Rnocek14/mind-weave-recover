@@ -38,7 +38,19 @@ export interface SpeechStateResult {
 // ─── Detection patterns ─────────────────────────────────────
 
 const FILLED_PAUSES = /\b(um+|uh+|er+|ah+|hmm+|eh+)\b/gi;
-const RESTART_PATTERNS = /\b(the|a|i|it|wait|no)\b.*\b(the|a|i|it|wait|no)\b/i;
+/**
+ * A restart is a repetition or a self-correction, not two common words.
+ *
+ * This used to be /\b(the|a|i|it|wait|no)\b.*\b(the|a|i|it|wait|no)\b/ — any
+ * two of those tokens ANYWHERE in the utterance. "I think it is a cup" has
+ * three. So the restart signal fired on ordinary fluent English, and since two
+ * struggle signals are enough to return `suppressAutoSubmit: true`, a normal
+ * sentence plus one other signal stopped the turn from ever being taken.
+ *
+ * What an actual restart looks like: a doubled word ("the— the— the thing"),
+ * or an explicit correction marker.
+ */
+const RESTART_PATTERNS = /\b(\w+)\s+\1\b|\b(no wait|wait no|i mean|sorry no)\b/i;
 const FRAGMENT_PATTERN = /^(\w{1,3}\s){0,2}\w{1,4}$/; // very short fragments
 
 // Similarity threshold for "reading the prompt"
@@ -153,7 +165,16 @@ export function classifySpeechState(input: ClassifySpeechStateInput): SpeechStat
   const fillerCount = countFillers(cleaned);
   const hasRestart = hasRestarts(cleaned);
   const isFragment = wordCount <= 2 && FRAGMENT_PATTERN.test(cleaned);
-  const wordRate = getWordRate(wordCount, elapsedMs);
+  // Rate of SPEAKING, not rate over the whole turn. elapsedMs runs from the
+  // moment the mic opened and keeps climbing through the silence we are
+  // deciding about, so dividing by it meant the measured rate fell without
+  // limit while the transcript sat frozen. Below 30wpm it latched
+  // 'struggling' — suppressAutoSubmit — and because elapsedMs only grows, it
+  // could never unlatch: the turn ran to the backstop. Subtracting the
+  // trailing silence makes the number constant once someone stops talking,
+  // which is what a speaking rate should be.
+  const speakingMs = Math.max(0, elapsedMs - silenceDurationMs);
+  const wordRate = getWordRate(wordCount, speakingMs);
   const verySlowRate = wordRate > 0 && wordRate < 30; // <30 wpm = very slow
   
   const struggleSignals = [
