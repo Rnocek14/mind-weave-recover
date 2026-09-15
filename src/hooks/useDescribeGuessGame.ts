@@ -21,6 +21,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { matchAnswer } from '@/lib/answerMatcher';
 import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
+import { evaluateCoverage } from '@/lib/describeGuess/coverageGuess';
 import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
@@ -257,8 +258,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     // No foils passed: acceptedWords are VALID answers for this trial, and
     // matchAnswer's third parameter is its known-WRONG list — feeding accepted
     // synonyms in there made the matcher treat them as errors.
+    // Only a REAL word-level match counts as saying the word. 'phonetic_close'
+    // and 'partial_fragment' are Levenshtein/prefix rules over every word in
+    // the transcript, and they fired constantly on ordinary speech: "and" ->
+    // hand, "at"/"that" -> hat, "she" -> shoe, "car" -> carrot, "but" ->
+    // button. 19 of 57 bank targets collide with everyday English that way, so
+    // this gate was the main reason the app "guessed" for reasons unrelated to
+    // the description. Narrowing it is only safe because COVERAGE below is now
+    // a live path — before, removing this would have made the app guess almost
+    // never, which is strictly worse for the person playing.
+    const DIRECT_MATCH_TYPES = ['exact', 'synonym'];
     const directMatch = matchAnswer(transcript, trial.target, [], trial.category);
-    if (directMatch.isMatch && directMatch.countsAsCorrect && directMatch.matchType !== 'circumlocution') {
+    if (directMatch.isMatch && directMatch.countsAsCorrect && DIRECT_MATCH_TYPES.includes(directMatch.matchType)) {
       return {
         guessed: true,
         confidence: Math.max(0.8, directMatch.confidence),
@@ -274,10 +285,10 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     // This is the key insight — circumlocution works at sentence level
     const candidatePhrases = extractCandidatePhrases(analysisText, 5);
     const [wholeDescSimilarity, phraseSimilarities] = await Promise.all([
-      getSemanticSimilarity(analysisText, trial.target, trial.category),
+      getSemanticSimilarity(analysisText, trial.target, trial.category, 'description_to_word'),
       Promise.all(
         candidatePhrases.map(async (phrase) => {
-          const sim = await getSemanticSimilarity(phrase, trial.target, trial.category);
+          const sim = await getSemanticSimilarity(phrase, trial.target, trial.category, 'description_to_word');
           return { word: phrase, sim };
         })
       )
@@ -311,7 +322,18 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     // Rule D: Strong whole-description alone can carry the guess even without chips
     if (wholeDescSimilarity >= 0.8) rulesPassed.push('D');
 
-    const guessed = rulesPassed.includes('D') || rulesPassed.length >= 2;
+    // Rule COVERAGE: they named two or more of THIS trial's dimensions in
+    // speech. Deterministic, offline, and independent of the embedding service
+    // — which is a network call that degrades silently to a rule-based
+    // fallback. This is also the clinical definition of successful
+    // circumlocution, so it is the thing worth rewarding rather than a proxy
+    // for it. Evaluated against the whole bank in
+    // src/lib/describeGuess/__tests__/coverageGuess.test.ts.
+    const coverage = evaluateCoverage(transcript, trial);
+    if (coverage.described) rulesPassed.push('COVERAGE');
+
+    const guessed =
+      rulesPassed.includes('D') || rulesPassed.includes('COVERAGE') || rulesPassed.length >= 2;
     const confidence = bestSimilarity;
 
     // Top-3 average for telemetry
