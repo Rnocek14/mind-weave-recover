@@ -21,7 +21,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/describeGuessBank';
 import { matchAnswer } from '@/lib/answerMatcher';
 import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
-import { evaluateCoverage } from '@/lib/describeGuess/coverageGuess';
+import { evaluateCoverage, detectSpokenDimensions } from '@/lib/describeGuess/coverageGuess';
 import { getSemanticSimilarity } from '@/lib/semanticSimilarity';
 import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNormalizer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
@@ -162,27 +162,22 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   }, []);
 
   /**
-   * Check feature keywords in transcript (supplements chip tracking)
+   * Which dimensions of THIS trial the transcript actually covers.
+   *
+   * Delegates to detectSpokenDimensions rather than keeping a second copy of
+   * the matching rule. There were briefly two implementations of the same
+   * word-boundary match — one here driving the chips and the Strategy star,
+   * one in coverageGuess driving whether the app says you succeeded. Two
+   * copies of a rule drift, and the direction they drift in is "the chips say
+   * you covered it, the app says you didn't", which is the worst possible
+   * disagreement to show someone. One rule, evaluated against the whole trial
+   * bank in coverageGuess.test.ts.
    */
-  const detectFeatureKeywords = useCallback((transcript: string, trial: DescribeGuessTrial): FeatureType[] => {
-    const detected: FeatureType[] = [];
-    // Word-boundary match. This used to be a bare substring test, which
-    // credited a dimension the person never mentioned: "can" matched
-    // "candle", "cat" matched "category", "at" matched almost anything. A
-    // star that can be earned by coincidence is not worth showing.
-    const haystack = ` ${transcript.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()} `;
-
-    for (const [featureType, keywords] of Object.entries(trial.featureKeywords)) {
-      const hit = keywords?.some((kw) => {
-        const needle = kw.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-        if (!needle) return false;
-        // Multi-word keywords still match as a contiguous phrase.
-        return haystack.includes(` ${needle} `);
-      });
-      if (hit) detected.push(featureType as FeatureType);
-    }
-    return detected;
-  }, []);
+  const detectFeatureKeywords = useCallback(
+    (transcript: string, trial: DescribeGuessTrial): FeatureType[] =>
+      detectSpokenDimensions(transcript, trial),
+    []
+  );
 
   /**
    * Record that user tapped a feature prompt chip

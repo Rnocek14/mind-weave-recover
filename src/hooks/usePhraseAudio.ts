@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { MAYA_VOICE_ID } from '@/lib/constants/voice';
@@ -43,6 +43,9 @@ export function usePhraseAudio() {
       console.log('[usePhraseAudio] already playing or loading, ignoring request');
       return;
     }
+
+    // A held session means silence on this channel too.
+    if (voiceController.isSessionPaused) return;
 
     setLastError(null);
     setIsLoading(true);
@@ -156,6 +159,13 @@ export function usePhraseAudio() {
     setPlaying(false);
     setIsLoading(false);
   }, []);
+
+  // This hook plays through its own <audio> element, which stopGlobalTTS has
+  // no handle on. Register so stopAllVoice() — the pause button, and every
+  // exercise transition — can actually silence it.
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(() => voiceController.registerAudioStopper(() => stopRef.current()), []);
 
   return {
     playPhrase,
