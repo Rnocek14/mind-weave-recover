@@ -44,6 +44,17 @@ interface UseSpeechRecognitionOptions {
   discourseMode?: boolean;
 }
 
+/**
+ * Does this browser have the Web Speech API at all?
+ *
+ * Exported as a plain predicate so callers can decide whether to OFFER a
+ * microphone before they have a hook instance to ask. Anything that takes a
+ * scaffold away in exchange for speech has to know this first.
+ */
+export const isSpeechRecognitionSupported = (): boolean =>
+  typeof window !== 'undefined' &&
+  ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
 export const useSpeechRecognition = (
   onResultOrOptions: ((transcript: string) => void) | UseSpeechRecognitionOptions,
   autoStart = false,
@@ -103,8 +114,7 @@ export const useSpeechRecognition = (
   }, [enabled]);
 
   // Check if Speech Recognition is supported
-  const isSupported = typeof window !== 'undefined' && 
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  const isSupported = isSpeechRecognitionSupported();
 
   useEffect(() => {
     if (!isSupported) {

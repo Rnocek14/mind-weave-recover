@@ -101,6 +101,10 @@ export function DescribeGuessGame({
   const [typedAnswer, setTypedAnswer] = useState('');
   const speechErrorCountRef = useRef(0);
   const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
+  /** Re-runs the transcript mirror once the mic lock clears. See its effect. */
+  const [micLockRetryTick, setMicLockRetryTick] = useState(0);
+  const micLockRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current); }, []);
   const [guessMessage, setGuessMessage] = useState<string | null>(null);
   const [awaitingWordAttempt, setAwaitingWordAttempt] = useState(false);
   const [wordSaidRedirect, setWordSaidRedirect] = useState(false);
@@ -539,17 +543,36 @@ export function DescribeGuessGame({
 
   // Update display — use fullTranscript (accumulated) for display and evaluation
   useEffect(() => {
-    // Discard anything captured while Maya is still speaking (or in the 400ms
-    // tail-lock) — that's TTS bleed, not the user's description.
+    // Don't mirror text captured while Maya is speaking (or inside the 400ms
+    // tail lock) — that is TTS bleed, not the description.
+    //
+    // But do NOT throw away what was already said. This used to be
+    // `rawTranscriptRef.current = ''`, and the mic lock is taken every time
+    // the person taps a help chip, because tapping one makes Maya read the
+    // question aloud. The recogniser is continuous and knows nothing about
+    // the lock, so any audio at all during it — Maya bleeding in, or simply
+    // the person still talking over her — wiped the whole accumulated
+    // description. Nothing ever restored it: displayTranscript kept the old
+    // text, so the screen still showed the answer and the "I'm done" button
+    // still looked available, while runEvaluation read an empty string. Ask
+    // for a hint mid-answer and everything you had said was gone, silently,
+    // with the manual escape hatch dead too.
+    //
+    // FixSentenceGame hit the same thing and reached the same conclusion
+    // ("it's not even showing he said that"): keep the transcript, re-run
+    // once the lock clears, and let the echo gate reject Maya's own voice —
+    // which it can, because the chip questions are passed to it as
+    // extraSpokenContext below.
     if (voiceController.isMicLocked) {
-      rawTranscriptRef.current = '';
+      if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
+      micLockRetryRef.current = setTimeout(() => setMicLockRetryTick((t) => t + 1), 450);
       return;
     }
     if (fullTranscript) {
       setDisplayTranscript(fullTranscript);
       rawTranscriptRef.current = fullTranscript;
     }
-  }, [fullTranscript]);
+  }, [fullTranscript, micLockRetryTick]);
 
   // Check for direct word match in real-time — redirect user to describe instead
   useEffect(() => {

@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useSpeechRecognition, isSpeechRecognitionSupported } from '@/hooks/useSpeechRecognition';
 import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -290,6 +290,8 @@ export function FixSentenceGame({
    * as the answer.
    */
   const handleUseVoice = useCallback(() => {
+    // Never trade the tiles away for a microphone that does not exist.
+    if (!isSpeechRecognitionSupported()) return;
     setChoiceMode(false);
     if (showTextInput) return;
     void voiceController.awaitMicSafe().then(() => {
@@ -468,7 +470,11 @@ export function FixSentenceGame({
     startListening,
     stopListening,
     resetTranscript,
-    isSupported,
+    // NB: isSupported is deliberately NOT taken from here. This destructure
+    // sits ~170 lines below handleUseVoice, so referencing it from that
+    // callback's dep array is a temporal-dead-zone crash on every render —
+    // which is how the first attempt at this guard went. isSpeechRecognitionSupported()
+    // is a plain predicate with no ordering to get wrong.
   } = useSpeechRecognition({
     onResult: handleSpeechResult,
     autoStart: false,
@@ -1066,13 +1072,24 @@ export function FixSentenceGame({
               {word}
             </Button>
           ))}
-          <button
-            type="button"
-            onClick={handleUseVoice}
-            className="col-span-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground py-1"
-          >
-            Or say the answer out loud
-          </button>
+          {/* Only where there is a microphone to offer. isSupported was
+              destructured and never read, so on a browser without the Web
+              Speech API this button hid the tiles, set isListening true
+              unconditionally and rendered a pulsing "Listening…" at someone
+              who had just lost the only way they could answer. Nothing was
+              listening and nothing ever would be: startListening returns
+              early when there is no recognition instance, so speechIsListening
+              never changes and the effect that would correct the indicator
+              never re-runs. */}
+          {isSpeechRecognitionSupported() && (
+            <button
+              type="button"
+              onClick={handleUseVoice}
+              className="col-span-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground py-1"
+            >
+              Or say the answer out loud
+            </button>
+          )}
         </div>
       )}
 

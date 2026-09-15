@@ -201,16 +201,43 @@ const PREAMBLE_STOPWORDS = new Set([
 ]);
 
 /**
- * How much real content has to follow a "I can't remember..." opener before we
- * treat the utterance as an attempt rather than a refusal.
+ * How much has to sit either side of an "I can't remember" before the
+ * utterance is an attempt rather than a refusal.
+ *
+ * Two conditions, because either alone gets it wrong.
+ *
+ * A COUNT ALONE is too permissive: "I don't know what it's called" is six
+ * words and still a refusal.
+ *
+ * CONTENT WORDS ALONE were too strict, and the first version of this gate got
+ * it wrong in exactly that way — it demanded three, after filtering through
+ * PREAMBLE_STOPWORDS. But a circumlocution is BUILT from those words. "it's a
+ * thing you drink from" survives the filter as ['drink', 'from'] and was
+ * thrown away as a refusal: two content words, threshold three. The person
+ * described the cup and was told "That's okay — take your time. Give it a
+ * try."
+ *
+ * So: enough words to be a phrase, and at least one of them carrying meaning.
+ * That keeps "I don't know the answer" (two words after the phrase) and "skip
+ * this one please" (three words, none of them content) as refusals, while
+ * "I don't know, you drink from it" is an attempt.
  */
-const PREAMBLE_CONTENT_WORDS_REQUIRED = 3;
+const RESIDUE_WORDS_REQUIRED = 3;
+const RESIDUE_CONTENT_WORDS_REQUIRED = 1;
+
+/** Is what's left once the refusal phrase is removed an attempt at answering? */
+function residueIsAnAttempt(residue: string): boolean {
+  const words = residue.trim().split(' ').filter(Boolean);
+  if (words.length < RESIDUE_WORDS_REQUIRED) return false;
+  const contentWords = words.filter((w) => w.length > 1 && !PREAMBLE_STOPWORDS.has(w));
+  return contentWords.length >= RESIDUE_CONTENT_WORDS_REQUIRED;
+}
 
 function isNonAnswer(normalizedText: string): boolean {
   const lower = normalizedText.toLowerCase().replace(/[^a-z\s']/g, ' ').replace(/\s+/g, ' ').trim();
 
   for (const p of NON_ANSWER_PHRASES) {
-    if (lower === p || lower.endsWith(' ' + p)) return true;
+    if (lower === p) return true;
 
     if (lower.startsWith(p + ' ')) {
       // A non-answer phrase used as a PREAMBLE is not a refusal.
@@ -218,14 +245,21 @@ function isNonAnswer(normalizedText: string): boolean {
       // it" is a textbook circumlocution — and the single most common way an
       // aphasic answer begins. Discarding it told the person to "take your
       // time and give it a try" immediately after they had given a complete,
-      // correct description. Only the phrase ALONE, or a phrase with nothing
-      // substantive after it, counts as declining to answer.
-      const remainder = lower.slice(p.length + 1).trim();
-      const contentWords = remainder
-        .split(' ')
-        .filter((w) => w.length > 1 && !PREAMBLE_STOPWORDS.has(w));
-      if (contentWords.length < PREAMBLE_CONTENT_WORDS_REQUIRED) return true;
-      return false;
+      // correct description.
+      return !residueIsAnAttempt(lower.slice(p.length + 1));
+    }
+
+    if (lower.endsWith(' ' + p)) {
+      // And a non-answer phrase at the END is not a refusal either, for the
+      // same reason and with worse consequences. This branch used to discard
+      // the utterance outright with no check at all — a leftover asymmetry
+      // from fixing only the preamble case. Describe & Guess accumulates the
+      // WHOLE trial into one transcript, so trailing "...I don't know" after
+      // thirty seconds of describing threw away every word that came before
+      // it and answered with the take-your-time line. Giving up on the name
+      // at the end of a good description is the most ordinary thing in this
+      // game.
+      return !residueIsAnAttempt(lower.slice(0, lower.length - p.length - 1));
     }
   }
   return false;
