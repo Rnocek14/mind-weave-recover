@@ -109,3 +109,61 @@ describe('the classifier can no longer mistake an answer for prompt-reading', ()
     expect(state.suppressAutoSubmit).toBe(true);
   });
 });
+
+describe('the struggle signals cannot latch a turn open forever', () => {
+  // The second stall, found after the 'reading' one was fixed. Two signals are
+  // enough to return suppressAutoSubmit, and two of them fired on ordinary
+  // speech:
+  //   - the restart pattern matched any two of (the|a|i|it|wait|no) ANYWHERE,
+  //     which is most English sentences
+  //   - wordRate divided by elapsedMs, which keeps growing through the very
+  //     silence being judged, so the measured rate fell below 30wpm and stayed
+  //     there — elapsedMs only ever grows, so it could never unlatch
+  // Together: a normal answer, a normal pause, and the turn ran to the 75s
+  // backstop.
+  const SENTENCE = 'i think it is a thing you drink out of in the kitchen';
+
+  it('does not call a fluent sentence a restart', () => {
+    const state = classifySpeechState({
+      transcript: SENTENCE,
+      elapsedMs: 9_000,
+      silenceDurationMs: 4_000,
+    });
+    expect(state.suppressAutoSubmit).toBe(false);
+  });
+
+  it('still recognises an actual restart', () => {
+    const state = classifySpeechState({
+      transcript: 'um the the the uh thing',
+      elapsedMs: 9_000,
+      silenceDurationMs: 1_000,
+    });
+    expect(state.state).toBe('struggling');
+  });
+
+  it('measures speaking rate, so waiting longer cannot make it worse', () => {
+    // Same words, same speaking time — only the pause grows. A judgement that
+    // gets more pessimistic the longer it waits can never resolve.
+    const at = (silence: number) =>
+      classifySpeechState({
+        transcript: SENTENCE,
+        elapsedMs: 6_000 + silence,
+        silenceDurationMs: silence,
+      }).suppressAutoSubmit;
+
+    for (const silence of [1_000, 5_000, 20_000, 60_000]) {
+      expect(at(silence), `suppressed after ${silence}ms of silence`).toBe(false);
+    }
+  });
+
+  it('ends the turn instead of running to the backstop', () => {
+    const d = pollOnce({
+      transcript: SENTENCE,
+      elapsedMs: 13_000,
+      silenceMs: 7_000,
+      featureCount: 1,
+    });
+    expect(d.shouldEvaluate).toBe(true);
+    expect(d.reason).not.toBe('backstop');
+  });
+});
