@@ -105,6 +105,12 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   
   // Feature tracking (deterministic via chip taps)
   const [featureTypesUsed, setFeatureTypesUsed] = useState<Set<FeatureType>>(new Set());
+  /**
+   * Dimensions the person actually SPOKE about, as distinct from chips they
+   * tapped for help. featureTypesUsed is the union and still drives the UI
+   * check-marks; scoring reads this one.
+   */
+  const [featureTypesSpoken, setFeatureTypesSpoken] = useState<Set<FeatureType>>(new Set());
   const [promptsShown, setPromptsShown] = useState<string[]>([]);
 
   const currentTrial = trials[currentIndex] ?? null;
@@ -159,12 +165,20 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
    */
   const detectFeatureKeywords = useCallback((transcript: string, trial: DescribeGuessTrial): FeatureType[] => {
     const detected: FeatureType[] = [];
-    const words = transcript.toLowerCase();
-    
+    // Word-boundary match. This used to be a bare substring test, which
+    // credited a dimension the person never mentioned: "can" matched
+    // "candle", "cat" matched "category", "at" matched almost anything. A
+    // star that can be earned by coincidence is not worth showing.
+    const haystack = ` ${transcript.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()} `;
+
     for (const [featureType, keywords] of Object.entries(trial.featureKeywords)) {
-      if (keywords?.some(kw => words.includes(kw.toLowerCase()))) {
-        detected.push(featureType as FeatureType);
-      }
+      const hit = keywords?.some((kw) => {
+        const needle = kw.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!needle) return false;
+        // Multi-word keywords still match as a contiguous phrase.
+        return haystack.includes(` ${needle} `);
+      });
+      if (hit) detected.push(featureType as FeatureType);
     }
     return detected;
   }, []);
@@ -173,6 +187,9 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
    * Record that user tapped a feature prompt chip
    */
   const recordFeatureChip = useCallback((featureType: FeatureType, promptText: string) => {
+    // Deliberately does NOT touch featureTypesSpoken: tapping a help chip is
+    // asking for a cue, not describing. The Strategy star used to be earned by
+    // pressing two buttons and saying nothing.
     setFeatureTypesUsed(prev => new Set([...prev, featureType]));
     setPromptsShown(prev => prev.includes(promptText) ? prev : [...prev, promptText]);
   }, []);
@@ -188,6 +205,10 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     const detected = detectFeatureKeywords(transcript, currentTrial);
     if (detected.length === 0) return;
     setFeatureTypesUsed(prev => {
+      if (detected.every(d => prev.has(d))) return prev;
+      return new Set([...prev, ...detected]);
+    });
+    setFeatureTypesSpoken(prev => {
       if (detected.every(d => prev.has(d))) return prev;
       return new Set([...prev, ...detected]);
     });
@@ -325,10 +346,12 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     if (!currentTrial) return;
 
     const keywordFeatures = detectFeatureKeywords(transcript, currentTrial);
+    // Scored on what was SAID, not on which help buttons were pressed.
+    const spokenFeatures = [...new Set([...featureTypesSpoken, ...keywordFeatures])];
     const allFeatures = [...new Set([...featureTypesUsed, ...keywordFeatures])];
-    
+
     const meaningWin = guessResult.guessed;
-    const strategyWin = allFeatures.length >= 2;
+    const strategyWin = spokenFeatures.length >= 2;
     const hasContent = getContentWordCount(transcript) >= 1;
     const communicationWin = hasContent; // Any meaningful speech = acknowledged
 
@@ -394,6 +417,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     setLastResult(null);
     setCurrentAttempt(1);
     setFeatureTypesUsed(new Set());
+    setFeatureTypesSpoken(new Set());
     setPromptsShown([]);
     wordRetrievalTimeRef.current = null;
     roundStartTimeRef.current = Date.now();
@@ -433,6 +457,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     finalizeTrial,
     recordFeatureChip,
     recordSpokenFeatures,
+    featureTypesSpoken,
     recordWordRetrieval,
     nextTrial,
     startRound,

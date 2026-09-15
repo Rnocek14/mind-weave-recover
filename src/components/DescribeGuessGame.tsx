@@ -939,7 +939,9 @@ export function DescribeGuessGame({
       const decision = decideAutoSubmit({
         silenceMs,
         elapsedMs,
-        featureCount: game.featureTypesUsed.size,
+        // Spoken coverage, not chip taps: asking for help should never make
+        // the app LESS patient with the answer that follows.
+        featureCount: game.featureTypesSpoken.size,
         classifierThresholdMs: Math.round(profile.baseSilenceMs * multiplier),
         suppressAutoSubmit: state.suppressAutoSubmit,
       });
