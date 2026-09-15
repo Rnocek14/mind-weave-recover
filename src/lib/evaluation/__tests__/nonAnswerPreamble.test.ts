@@ -66,3 +66,29 @@ describe('a genuine refusal is still a refusal', () => {
     expect(isTreatedAsNonAnswer('pass')).toBe(true);
   });
 });
+
+describe('the cases the first version of this gate still threw away', () => {
+  // Found by auditing the fix, not by the fix's own tests — which passed
+  // throughout, because they only used examples long enough to clear a
+  // three-content-word threshold.
+  it('keeps a short circumlocution after a preamble', () => {
+    expect(isTreatedAsNonAnswer("i dont know its a thing you drink from")).toBe(false);
+    expect(isTreatedAsNonAnswer("I don't know, you drink from it")).toBe(false);
+    expect(isTreatedAsNonAnswer('i forget you sit on it')).toBe(false);
+  });
+
+  it('keeps a description that gives up on the name at the END', () => {
+    // Describe & Guess accumulates the whole trial into one transcript, so a
+    // trailing refusal used to discard everything said before it.
+    expect(
+      isTreatedAsNonAnswer("you drink your coffee out of it in the morning i dont know")
+    ).toBe(false);
+    expect(isTreatedAsNonAnswer("its round and made of glass i cant remember")).toBe(false);
+  });
+
+  it('still refuses when there is nothing either side', () => {
+    expect(isTreatedAsNonAnswer("I don't know the answer")).toBe(true);
+    expect(isTreatedAsNonAnswer('the thing, I forget')).toBe(true);
+    expect(isTreatedAsNonAnswer('um well i dont know')).toBe(true);
+  });
+});

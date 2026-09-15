@@ -29,9 +29,13 @@ vi.mock("@/hooks/useSpeechRecognition", () => ({
     startListening: vi.fn(),
     stopListening: vi.fn(),
     resetTranscript: vi.fn(),
-    isSupported: false,
   }),
+  // The component asks the browser, not the hook instance — the destructured
+  // isSupported sat ~170 lines below its first use, which is a temporal-dead-
+  // zone crash. Mock defaults to supported so the toggle is exercised.
+  isSpeechRecognitionSupported: () => speechRecognitionAvailable,
 }));
+let speechRecognitionAvailable = true;
 vi.mock("@/hooks/useTextToSpeech", () => ({
   useTextToSpeech: () => ({ speak: vi.fn(async () => {}), isLoading: false, error: null }),
   stopGlobalTTS: vi.fn(),
@@ -223,6 +227,27 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     const result = onTrialComplete.mock.calls[0][0];
     expect(result.isCorrect).toBe(true);
     expect(result.support).toBe("highlight_plus_choice");
+  });
+
+  it("offers the voice toggle in choice mode", async () => {
+    render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+    expect(screen.getByText(/say the answer out loud/i)).toBeTruthy();
+  });
+
+  it("does not offer voice on a browser that has no speech recognition", async () => {
+    // The toggle trades the choice tiles away for the microphone. Offering
+    // that where there is no microphone leaves someone with neither: the
+    // tiles unmount, isListening is set true unconditionally, and a pulsing
+    // "Listening…" appears while nothing is or ever will be listening.
+    speechRecognitionAvailable = false;
+    try {
+      render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
+      await waitFor(() => screen.getByTestId("choice-tiles"));
+      expect(screen.queryByText(/say the answer out loud/i)).toBeNull();
+    } finally {
+      speechRecognitionAvailable = true;
+    }
   });
 
   it("L2 (choice mode): the wrong-word highlight is dropped and support is choice_based", async () => {
