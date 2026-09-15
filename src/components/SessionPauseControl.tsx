@@ -26,6 +26,8 @@ import { useUiProfile } from '@/hooks/useUiProfile';
 import { variantClass, isMinimal } from '@/lib/ui/variantClass';
 import { TEXT_SCALES, getStoredTextScale, setTextScale, type TextScale } from '@/lib/textScale';
 import { cn } from '@/lib/utils';
+import { stopAllVoice } from '@/lib/voiceControllerStop';
+import { voiceController } from '@/lib/voiceController';
 
 export function SessionPauseControl() {
   const location = useLocation();
@@ -56,11 +58,24 @@ export function SessionPauseControl() {
     setIsPaused(true);
     console.log('[SessionPause] Paused');
 
-    // Stop any active SpeechRecognition the page has spun up.
-    // Each game holds its own recognizer ref, but they all listen for
-    // 'pause-session' events as a fallback. Dispatch one and also
-    // brute-force-stop any SpeechSynthesis so Maya goes quiet immediately.
-    try { window.speechSynthesis?.cancel(); } catch {}
+    // Maya is ElevenLabs audio playing through an HTML5 <audio> element, not
+    // browser speech synthesis. This used to call speechSynthesis.cancel(),
+    // which cannot touch that element — so the overlay came up and Maya kept
+    // talking straight through the pause. stopAllVoice() aborts the in-flight
+    // fetch AND stops the audio element, which is the only thing that
+    // actually silences her.
+    stopAllVoice();
+
+    // We paused the audio rather than letting it end, so its 'ended' handler
+    // never fires and voiceController would keep reporting isSpeaking — which
+    // holds the mic lock closed after resume until a timeout eventually
+    // clears it. Flip it now so resuming is clean.
+    voiceController.notifySpeakingChanged(false);
+
+    // Kept for games that may want to react to a pause. NOTE: nothing listens
+    // to this today — it is not a working recogniser stop, and the comment
+    // that used to claim otherwise was wrong. Per-game recognisers are still
+    // owned by each game; see the pause/mic gap noted in the PR.
     window.dispatchEvent(new CustomEvent('session-pause'));
   }, []);
 
