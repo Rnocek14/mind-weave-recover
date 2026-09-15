@@ -23,7 +23,7 @@ vi.mock('@/lib/feedback/submitTrialReport', async () => {
   );
   return {
     ...actual,
-    submitTrialReport: (...args: unknown[]) => submitMock(...(args as [])),
+    submitTrialReport: (...args: unknown[]) => submitMock(...args),
     attachNote: (...args: unknown[]) => attachMock(...(args as [])),
   };
 });
