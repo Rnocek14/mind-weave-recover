@@ -92,7 +92,8 @@ export function getTransitionCoaching(input: TransitionCoachingInput): string | 
 interface SummaryInsightInput {
   mode: CoachingMode;
   exerciseScores: { exercise_slug: string; avg_score: number; trial_count: number }[];
-  durationMin: number;
+  /** null when the session's real length is not known yet — never the plan's. */
+  durationMin: number | null;
 }
 
 export function getSummaryInsight(input: SummaryInsightInput): string | null {
@@ -113,7 +114,8 @@ export function getSummaryInsight(input: SummaryInsightInput): string | null {
   if (input.mode === 'full') {
     // Full mode: richer, more specific insight
     if (avg >= 75) {
-      return `Strong session — ${strongName} was your standout at ${strongest.avg_score}%. ${totalTrials} rounds of real practice in ${input.durationMin} minutes. That consistency builds lasting pathways.`;
+      const inMinutes = input.durationMin ? ` in ${input.durationMin} minutes` : '';
+      return `Strong session — ${strongName} was your standout at ${strongest.avg_score}%. ${totalTrials} rounds of real practice${inMinutes}. That consistency builds lasting pathways.`;
     }
     if (avg >= 50) {
       return `Good effort across ${totalTrials} rounds. ${strongName} showed real strength. ${weakName} was tougher — we'll keep working on that. Each session gets you closer.`;

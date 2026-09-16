@@ -29,3 +29,7 @@ dist-ssr
 *.sln
 *.sw?
 test-results/
+
+# Scratch scripts written by the runtime-verification harness (rt-README.md).
+# The harness itself is committed; individual one-off checks are not.
+rt-check-*.mjs

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useMicroEncouragement } from '@/hooks/useMicroEncouragement';
 import type { ErrorClassificationResult } from '@/lib/errorClassifier';
 import type { UtteranceAnalysis, ShadowEvent } from '@/types/utteranceAnalysis';
@@ -190,13 +191,23 @@ export const useExerciseTelemetry = (
             : null
         );
 
-        const eventData: any = {
+        // TYPED, not `any`. This object used to carry `engine_version: 'v1'` —
+        // a marker for a Voice Engine v2 rollout, described in its own comment
+        // as something "no surface reads". The column was never created on
+        // exercise_events, so PostgREST rejected EVERY insert with PGRST204,
+        // three retries deep, and then the write was simply logged and dropped.
+        // Every trial, for every user, for as long as that line has been there:
+        // no clinical record, no history, nothing for the session summary to
+        // report. The summary screen showing "Session complete!" and nothing
+        // else was the visible end of that.
+        //
+        // `any` is what let it happen — a real TablesInsert type would have
+        // refused to compile, which is exactly what it does now. If engine
+        // versioning is wanted, the column has to exist first.
+        const eventData: TablesInsert<'exercise_events'> = {
           session_id: sessionId,
           exercise_slug: exerciseSlug,
           round: trialNumber,
-          // Voice Engine v2 rollout marker. Scoring is still v1 here; the flip
-          // to v2 verdicts happens in Phase 5 (docs/voice-engine-v2-spec.md §12).
-          engine_version: 'v1',
           score: trial.correct ? 100 : 0,
           reaction_time_ms: trial.reactionTimeMs,
           cue_level: trial.cueLevel ?? 0,

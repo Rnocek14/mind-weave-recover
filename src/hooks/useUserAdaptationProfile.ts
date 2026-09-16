@@ -69,7 +69,7 @@ export function useUserAdaptationProfile({
       setError(null);
       try {
         const { data, error: fetchErr } = await supabase
-          .from('user_adaptation_profiles' as any)
+          .from('user_adaptation_profiles')
           .select('*')
           .eq('profile_id', profileId)
           .maybeSingle();
@@ -88,7 +88,7 @@ export function useUserAdaptationProfile({
           // No row yet — request initial computation, then re-fetch
           await refresh();
           const { data: refreshed } = await supabase
-            .from('user_adaptation_profiles' as any)
+            .from('user_adaptation_profiles')
             .select('*')
             .eq('profile_id', profileId)
             .maybeSingle();

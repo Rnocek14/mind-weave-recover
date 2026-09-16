@@ -139,7 +139,7 @@ export async function flushMasteryShadow(args: {
           support_dependency_trend: next.support_dependency_trend,
           last_practiced_at: next.last_practiced_at,
           model_version: MASTERY_MODEL_VERSION,
-        } as any,
+        },
         { onConflict: 'profile_id,skill_slug' },
       );
 
@@ -157,7 +157,7 @@ export async function flushMasteryShadow(args: {
           plateau_flag: next.plateau_flag,
           fatigue_adjusted_score: next.fatigue_adjusted_score,
           model_version: MASTERY_MODEL_VERSION,
-        } as any,
+        },
         { onConflict: 'profile_id,skill_slug,week_start' },
       );
     }

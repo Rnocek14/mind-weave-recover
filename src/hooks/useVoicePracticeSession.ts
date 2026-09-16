@@ -146,7 +146,6 @@ export function useVoicePracticeSession(
         score: Math.round(roundResult.score * 100),
         counts_toward_score: false,
         error_type: resolvedErrorType,
-        engine_version: 'v1',
         inputs: {
           transcript: roundResult.transcript,
           word_count: roundResult.wordCount,
@@ -180,8 +179,7 @@ export function useVoicePracticeSession(
           unscored_practice: true,
           quarantine_reason: 'voice_practice_heuristic_scoring_v2_spec_s11',
         },
-        // Cast: engine_version predates the next supabase type regen.
-      } as any);
+      });
     } catch (err) {
       console.warn('[VoicePractice] Telemetry emit failed:', err);
     }

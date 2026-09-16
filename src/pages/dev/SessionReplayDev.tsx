@@ -71,7 +71,7 @@ export default function SessionReplayDev() {
     if (!user?.id) return;
     (async () => {
       const { data } = await supabase
-        .from('adaptation_trial_logs' as any)
+        .from('adaptation_trial_logs')
         .select('session_id, exercise_slug, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -95,14 +95,14 @@ export default function SessionReplayDev() {
     setError(null);
     try {
       const { data, error: e1 } = await supabase
-        .from('adaptation_trial_logs' as any)
+        .from('adaptation_trial_logs')
         .select('*')
         .eq('session_id', sid)
         .order('trial_index', { ascending: true });
       if (e1) throw e1;
       setRows((data ?? []) as unknown as TrialRow[]);
       const { data: a } = await supabase
-        .from('adaptation_anomalies' as any)
+        .from('adaptation_anomalies')
         .select('*')
         .eq('session_id', sid)
         .order('created_at', { ascending: true });

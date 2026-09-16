@@ -154,15 +154,26 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
         );
       }
 
-      // Get session duration
-      const { data: session } = await supabase
-        .from("sessions")
-        .select("duration_sec")
-        .eq("id", sessionId)
-        .single();
-
-      if (session?.duration_sec) {
-        setDurationSec(session.duration_sec);
+      // Get session duration.
+      //
+      // The sessions row is being closed by endSessionTracking at the same
+      // moment this screen mounts, so a single read usually lands before
+      // duration_sec is written and comes back null. That used to fall through
+      // to the LESSON PLAN's length — "You practiced for 15 minutes" after 71
+      // seconds, a twelvefold overstatement, and flattering, which is the worst
+      // direction for the one concrete number on the screen. Give the write a
+      // moment to land instead.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const { data: session } = await supabase
+          .from("sessions")
+          .select("duration_sec")
+          .eq("id", sessionId)
+          .single();
+        if (session?.duration_sec) {
+          setDurationSec(session.duration_sec);
+          break;
+        }
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 600));
       }
     };
 
@@ -241,7 +252,15 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
 
   const headline = getSessionHeadline(overallAvg);
   const isPreset = lesson.reasoning?.[0]?.startsWith("Preset:");
-  const durationMin = durationSec ? Math.max(1, Math.round(durationSec / 60)) : lesson.totalDuration;
+  /**
+   * What actually happened, or nothing. Never the plan.
+   *
+   * lesson.totalDuration is how long the session was MEANT to take. Printing it
+   * as "You practiced for N minutes" tells someone who practised for a minute
+   * that they practised for fifteen. Saying nothing is honest; saying the
+   * planned number is not.
+   */
+  const durationMin = durationSec ? Math.max(1, Math.round(durationSec / 60)) : null;
 
   return (
     <div className={variantClass(variant, {
@@ -268,7 +287,9 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
             base: "text-muted-foreground text-lg",
             simplified: "text-xl",
           })}>
-            You practiced for {durationMin} {durationMin === 1 ? "minute" : "minutes"}
+            {durationMin
+              ? `You practiced for ${durationMin} ${durationMin === 1 ? "minute" : "minutes"}`
+              : "You practiced today"}
           </p>
           <p className="text-sm text-primary/80 font-medium mt-1">
             {getSessionDelightLine(overallAvg)}
@@ -295,10 +316,14 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
           <div className="bg-muted/50 rounded-xl p-4">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Sparkles className="w-5 h-5 text-primary" />
-              <span className="text-2xl font-bold text-foreground">{totalTrials || "—"}</span>
+              {/* attemptedTrials, not a dash. Someone whose microphone struggled
+                  saw every exercise listed as "Practiced" and then "— Rounds",
+                  as though none had happened. totalTrials counts only SCORED
+                  trials; attempts are the honest floor. */}
+              <span className="text-2xl font-bold text-foreground">{totalTrials || attemptedTrials || "—"}</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              {totalTrials === 1 ? "Round" : "Rounds"}
+              {(totalTrials || attemptedTrials) === 1 ? "Round" : "Rounds"}
             </p>
           </div>
         </div>

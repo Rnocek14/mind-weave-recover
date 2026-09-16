@@ -45,7 +45,7 @@ export default function AdminVoiceAnalytics() {
     queryKey: ['admin-voice-analytics'],
     queryFn: async () => {
       const { data: rows, error } = await supabase
-        .from('voice_session_summaries' as any)
+        .from('voice_session_summaries')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(200);

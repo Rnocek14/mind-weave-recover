@@ -221,7 +221,11 @@ export function useAdaptationTrialLogger(opts: Options) {
     let trialsFailed = false;
     try {
       if (trials.length > 0) {
-        const { error } = await supabase.from('adaptation_trial_logs' as any).insert(trials as any);
+        // No `as any` on either side. Both tables and every column they carry
+        // are in the generated types, and casting the payload is precisely how
+        // seven phantom columns reached utterance_analyses and one reached
+        // exercise_events — silently dropping every write to both.
+        const { error } = await supabase.from('adaptation_trial_logs').insert(trials);
         if (error) {
           hadFailure = true;
           trialsFailed = true;
@@ -231,7 +235,7 @@ export function useAdaptationTrialLogger(opts: Options) {
         }
       }
       if (anomalies.length > 0) {
-        const { error } = await supabase.from('adaptation_anomalies' as any).insert(anomalies as any);
+        const { error } = await supabase.from('adaptation_anomalies').insert(anomalies);
         if (error) {
           hadFailure = true;
           console.error('[adaptation_anomalies] insert failed', { error: error.message, count: anomalies.length });
@@ -255,13 +259,28 @@ export function useAdaptationTrialLogger(opts: Options) {
       // exercise_events row so prod telemetry-write failures are queryable.
       if (consecutiveFailuresRef.current >= 3 && !failureReportedRef.current && opts.userId && opts.sessionId) {
         failureReportedRef.current = true;
-        void supabase.from('exercise_events' as any).insert({
-          user_id: opts.userId,
+        // The alarm was wired to a bell that does not exist. This row is meant
+        // to make telemetry-write failures queryable in production — and it
+        // carried `user_id` and `event_type`, neither of which is a column on
+        // exercise_events, so the report of the failure failed in exactly the
+        // same way as the thing it was reporting. That is why nothing was
+        // written for so long and nobody knew: the smoke detector was wired to
+        // the fire.
+        //
+        // Encoded now in columns that exist, following the event_subtype
+        // convention the rest of the table already uses.
+        void supabase.from('exercise_events').insert({
           session_id: opts.sessionId,
           exercise_slug: canonicalSlug,
-          event_type: 'telemetry_write_failure',
+          round: 0,
+          task_parameters: {
+            event_subtype: 'telemetry_write_failure',
+            user_id: opts.userId,
+            consecutive_failures: consecutiveFailuresRef.current,
+          },
           inputs: { consecutive_failures: consecutiveFailuresRef.current },
-        } as any);
+          counts_toward_score: false,
+        });
       }
     } else {
       consecutiveFailuresRef.current = 0;

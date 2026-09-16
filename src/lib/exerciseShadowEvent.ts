@@ -51,7 +51,7 @@ export async function logExerciseShadowEvent(
 
   try {
     await supabase
-      .from('shadow_events' as any)
+      .from('shadow_events')
       .insert({
         user_id: params.userId,
         profile_id: params.profileId || null,

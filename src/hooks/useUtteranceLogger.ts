@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 
@@ -339,7 +340,17 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
 
       // Build payload - CRITICAL: Only include cue_was_effective when explicitly true/false
       // to avoid overwriting with NULL on subsequent upserts
-      const payload: Record<string, any> = {
+      //
+      // TYPED, not Record<string, any>. Seven "Voice Engine v2 Phase 1 capture"
+      // fields used to be sent here — raw_transcript_browser, raw_transcript_azure,
+      // chosen_transcript_source, cleaned_transcript, cleaning_events,
+      // source_confidences, sources_agreed — and not one of those columns exists
+      // on utterance_analyses. PostgREST rejects the whole upsert on the first
+      // unknown column, so the entire pronunciation and error-classification
+      // record was thrown away on every trial, not just the v2 extras. The loose
+      // type plus `as any` at the upsert is what let seven phantom columns ship.
+      // They can come back when a migration creates them.
+      const payload: TablesInsert<'utterance_analyses'> = {
         attempt_id: ctx.attemptId,
         user_id: ctx.userId,
         session_id: ctx.sessionId,
@@ -351,14 +362,6 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         transcript: finalTranscript,
         transcript_source: analysis.transcriptSource,
         asr_confidence: analysis.asrConfidence,
-        // Voice Engine v2 Phase 1 capture (no scoring impact):
-        raw_transcript_browser: browserRaw,
-        raw_transcript_azure: azureRaw,
-        chosen_transcript_source: chosenTranscriptSource,
-        cleaned_transcript: cleaning.cleaned || null,
-        cleaning_events: finalTranscript ? cleaning.events : null,
-        source_confidences: sourceConfidences,
-        sources_agreed: sourcesAgreed,
         is_correct: analysis.isCorrect,
         error_type: analysis.errorType,
         phonological_similarity: analysis.phonologicalSimilarity,
@@ -450,7 +453,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       // Upsert to utterance_analyses (clean analytics table)
       const { error: uaError } = await supabase
         .from('utterance_analyses')
-        .upsert(payload as any, {
+        .upsert(payload, {
           onConflict: 'attempt_id'
         });
 

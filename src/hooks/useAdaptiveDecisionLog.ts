@@ -39,7 +39,7 @@ export const useAdaptiveDecisionLog = () => {
     try {
       // Use type assertion for new table until Supabase types regenerate
       const { error } = await (supabase
-        .from('adaptive_decision_logs' as any)
+        .from('adaptive_decision_logs')
         .insert({
           user_id: userId,
           profile_id: profileId || null,

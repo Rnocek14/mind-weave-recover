@@ -104,7 +104,7 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
   const summary = buildSessionSummary(input);
 
   const { error } = await supabase
-    .from('coach_conversation_summaries' as any)
+    .from('coach_conversation_summaries')
     .insert({
       user_id: input.userId,
       profile_id: input.profileId ?? null,
@@ -115,7 +115,7 @@ export async function saveCoachSessionSummary(input: SessionSummaryInput): Promi
         ...(input.sessionIntelligence || {}),
         conversation_transcript: input.conversationTranscript || [],
       },
-    } as any);
+    });
 
   if (error) {
     console.error('[CoachMemory] Failed to save session summary:', error);

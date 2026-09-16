@@ -153,7 +153,7 @@ export async function persistVoiceSessionSummary(
   if (summary.totalTurns === 0 && summary.micStarts === 0) return false;
 
   try {
-    const { error } = await supabase.from('voice_session_summaries' as any).insert({
+    const { error } = await supabase.from('voice_session_summaries').insert({
       user_id: userId,
       session_id: sessionId,
       topic_id: topicId,

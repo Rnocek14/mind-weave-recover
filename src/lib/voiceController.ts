@@ -31,6 +31,7 @@ class VoiceControllerImpl {
   private _tailLockUntil = 0;
   private _sessionPaused = false;
   private listeners = new Set<Listener>();
+  private pauseListeners = new Set<(paused: boolean) => void>();
   private audioStoppers = new Set<() => void>();
   private spokenHistory: string[] = [];
 
@@ -68,7 +69,27 @@ class VoiceControllerImpl {
    * Pause has to be a state the rest of the app can see, not a single action.
    */
   setSessionPaused(paused: boolean) {
+    if (this._sessionPaused === paused) return;
     this._sessionPaused = paused;
+    this.pauseListeners.forEach((l) => {
+      try { l(paused); } catch (e) { console.warn('[VoiceController] pause listener error', e); }
+    });
+  }
+
+  /**
+   * Subscribe to pause/resume.
+   *
+   * Holding isMicLocked stops a mic from OPENING during a pause, but it cannot
+   * close one that is already open — and that is the common case, because you
+   * pause in the middle of a turn. The recogniser layer had never heard of
+   * pause at all: a 20-second hold measured 80 of 80 samples with the mic still
+   * live, and words spoken during the break were appended to the person's
+   * answer and carried into scoring. Someone who stops to talk to the person
+   * who just walked in should not find that in their trial record.
+   */
+  subscribeSessionPaused(listener: (paused: boolean) => void): () => void {
+    this.pauseListeners.add(listener);
+    return () => { this.pauseListeners.delete(listener); };
   }
 
   get isSessionPaused(): boolean {
