@@ -30,7 +30,8 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { validateCategoryWord, isExactCategoryMatch, type WordValidation } from '@/data/categoryWordLists';
+import { validateCategoryWord, type WordValidation } from '@/data/categoryWordLists';
+import { segmentCategoryPhrases } from '@/lib/categoryFluency/phraseSegmenter';
 import { analyzeFluency, buildFluencyFeedback, type FluencyAnalysis } from '@/lib/categoryFluencyAnalysis';
 import { pickExamples, pickIdeasForNextTime } from '@/data/categoryExamplePools';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
@@ -258,27 +259,40 @@ export function CategoryFluencyGame({
 
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
-  const pendingWordRef = useRef<string | null>(null);
+  /**
+   * How many tokens of the accumulated transcript have already been turned
+   * into items. discourseMode hands us the WHOLE transcript every time, so
+   * this is the cursor into it — items are committed once and never re-emitted.
+   */
+  const consumedTokensRef = useRef(0);
+  const tokensRef = useRef<string[]>([]);
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const flushPending = useCallback(() => {
-    const word = pendingWordRef.current;
-    if (!word || processedRef.current.has(word)) {
-      pendingWordRef.current = null;
-      return;
+  /**
+   * Commit the tokens the segmenter is holding back.
+   *
+   * It keeps the last few words uncommitted while speech is still arriving, so
+   * "bowling" is not crossed out a moment before "alley" is said. When the
+   * speaker stops, there is nothing more coming and the tail is real.
+   */
+  const commitTail = useCallback(() => {
+    const tokens = tokensRef.current.slice(consumedTokensRef.current);
+    if (tokens.length === 0) return;
+    const { items, consumed } = segmentCategoryPhrases(tokens, config.category, { final: true });
+    consumedTokensRef.current += consumed;
+    const fresh = items.filter(
+      (it) => it.status !== 'filler' && !processedRef.current.has(it.text)
+    );
+    fresh.forEach((it) => processedRef.current.add(it.text));
+    if (fresh.length === 0) return;
+    const next = [...wordsRef.current, ...fresh];
+    wordsRef.current = next;
+    setWords(next);
+    const lastValid = fresh.filter((e) => e.status === 'valid').pop();
+    if (lastValid) {
+      setLastAddedWord(lastValid.text);
+      setTimeout(() => setLastAddedWord(null), 800);
     }
-    processedRef.current.add(word);
-    const status = validateCategoryWord(word, config.category);
-    if (status !== 'filler') {
-      const next = [...wordsRef.current, { text: word, status }];
-      wordsRef.current = next;
-      setWords(next);
-      if (status === 'valid') {
-        setLastAddedWord(word);
-        setTimeout(() => setLastAddedWord(null), 800);
-      }
-    }
-    pendingWordRef.current = null;
   }, [config.category]);
 
   // Clean up pending timer on unmount
@@ -289,54 +303,42 @@ export function CategoryFluencyGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'active') return;
 
-    // Extract all words from transcript
-    const allWords = transcript
+    // discourseMode gives us the whole accumulated transcript each time, so
+    // re-tokenize it and let the cursor decide what is new.
+    tokensRef.current = transcript
       .toLowerCase()
       .replace(/[^a-zA-Z' -]/g, '')
       .split(/\s+/)
-      .filter(w => w.length >= 2);
+      .filter(Boolean);
 
-    const newEntries: Array<{ text: string; status: WordValidation }> = [];
+    const unconsumed = tokensRef.current.slice(consumedTokensRef.current);
+    if (unconsumed.length === 0) return;
 
-    for (const word of allWords) {
-      if (processedRef.current.has(word)) continue;
+    // final: false — the last few tokens are held back, because a phrase may
+    // still be arriving. "bowling" must not be committed and crossed out a
+    // moment before "alley" is said.
+    const { items, consumed } = segmentCategoryPhrases(unconsumed, config.category, { final: false });
+    consumedTokensRef.current += consumed;
 
-      // Check if pending + current form a valid compound word
-      if (pendingWordRef.current) {
-        const bigram = `${pendingWordRef.current} ${word}`;
-        if (isExactCategoryMatch(bigram, config.category) && !processedRef.current.has(bigram)) {
-          // Clear pending timer — we're consuming the pending word
-          if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-          processedRef.current.add(bigram);
-          processedRef.current.add(pendingWordRef.current);
-          processedRef.current.add(word);
-          pendingWordRef.current = null;
-          newEntries.push({ text: bigram, status: 'valid' });
-          continue;
-        }
-        // Pending word didn't form a bigram — flush it now
-        if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-        flushPending();
-      }
+    // Whatever is still held gets committed once speech stops.
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    pendingTimerRef.current = setTimeout(() => commitTail(), 900);
 
-      // Hold this word as pending briefly, in case the next word forms a compound
-      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-      pendingWordRef.current = word;
-      pendingTimerRef.current = setTimeout(() => flushPending(), 600);
+    const fresh = items.filter(
+      (it) => it.status !== 'filler' && !processedRef.current.has(it.text)
+    );
+    fresh.forEach((it) => processedRef.current.add(it.text));
+    if (fresh.length === 0) return;
+
+    const next = [...wordsRef.current, ...fresh];
+    wordsRef.current = next;
+    setWords(next);
+    const lastValid = fresh.filter((e) => e.status === 'valid').pop();
+    if (lastValid) {
+      setLastAddedWord(lastValid.text);
+      setTimeout(() => setLastAddedWord(null), 800);
     }
-
-    // Show any fully resolved entries immediately
-    if (newEntries.length > 0) {
-      const next = [...wordsRef.current, ...newEntries];
-      wordsRef.current = next;
-      setWords(next);
-      const lastValid = newEntries.filter(e => e.status === 'valid').pop();
-      if (lastValid) {
-        setLastAddedWord(lastValid.text);
-        setTimeout(() => setLastAddedWord(null), 800);
-      }
-    }
-  }, [phase, config.category, flushPending]);
+  }, [phase, config.category, commitTail]);
 
   const {
     isListening,
@@ -367,17 +369,10 @@ export function CategoryFluencyGame({
   const finishRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-    // Flush any pending word before scoring
-    if (pendingWordRef.current && !processedRef.current.has(pendingWordRef.current)) {
-      const pw = pendingWordRef.current;
-      processedRef.current.add(pw);
-      const status = validateCategoryWord(pw, config.category);
-      if (status !== 'filler') {
-        wordsRef.current = [...wordsRef.current, { text: pw, status }];
-        setWords(wordsRef.current);
-      }
-      pendingWordRef.current = null;
-    }
+    // Nothing the segmenter is still holding may be lost at the buzzer — it is
+    // the LAST thing they said, which in a timed task is the one they fought
+    // hardest for.
+    commitTail();
     stopListening();
 
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
@@ -455,7 +450,7 @@ export function CategoryFluencyGame({
         vg.speakIfVoiceLed(enc.text);
       }
     }
-  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg]);
+  }, [config, totalTime, currentDifficulty, results, currentRound, roundCount, onRoundComplete, onGameComplete, adaptation, engagement, stopListening, vg, commitTail]);
 
   // Handle timer expiry outside of setState updater to avoid progress bar glitch
   useEffect(() => {
@@ -479,6 +474,11 @@ export function CategoryFluencyGame({
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
+    // The transcript cursor is per-round too. Without this the next round
+    // starts already "past" everything the last one said and commits nothing.
+    tokensRef.current = [];
+    consumedTokensRef.current = 0;
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTotalTime(newTime);
@@ -552,6 +552,11 @@ export function CategoryFluencyGame({
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
+    // The transcript cursor is per-round too. Without this the next round
+    // starts already "past" everything the last one said and commits nothing.
+    tokensRef.current = [];
+    consumedTokensRef.current = 0;
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     wordsRef.current = [];
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTotalTime(newTime);
