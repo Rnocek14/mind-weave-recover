@@ -354,9 +354,35 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    */
   const scoreAnswer = useCallback(async (
     spoken: string,
-    selfCorrected: boolean = false
+    selfCorrected: boolean = false,
+    /**
+     * Were the choice tiles on screen when this was said?
+     *
+     * The ladder measures WHAT HELP WAS AVAILABLE, not which channel the
+     * answer arrived through. Now that the microphone is open beside the tiles
+     * at L1/L2, a spoken answer with the choices visible had exactly the same
+     * help as a tapped one and has to be logged the same way — otherwise
+     * speaking instead of tapping would quietly look like unsupported
+     * production and push someone up the ladder on evidence they never gave.
+     */
+    choicesOnScreen: boolean = false
   ): Promise<FixSentenceTrialResult | null> => {
     if (!currentTrial) return null;
+
+    /**
+     * Computed ONCE, here, and attached to every path out of this function.
+     *
+     * It was first added to `baseResult` alone — which only three of the seven
+     * returns actually spread. The other four hand-build their result object,
+     * so a spoken answer at level 1 kept logging open_response while a tapped
+     * one logged highlight_plus_choice, on the same trial with the same four
+     * tiles on screen. A value that is correct and never reaches the row is
+     * the same as not having it.
+     */
+    const supportUsed: 'highlight_plus_choice' | 'choice_based' | 'open_response' =
+      choicesOnScreen
+        ? (clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based')
+        : 'open_response';
 
     const reactionTimeMs = Date.now() - roundStartTimeRef.current;
     const normalized = spoken.toLowerCase().trim();
@@ -365,6 +391,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     const second = currentTrial.secondError;
     if (second) {
       const baseResult = {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -458,6 +485,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (matched) {
       playSuccess();
       const result: FixSentenceTrialResult = {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -482,6 +510,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (currentTrial.morphology) {
       playError();
       return {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -506,6 +535,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (near) {
       playSuccess();
       return {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -554,6 +584,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     }
 
     return {
+      support: supportUsed,
       trialId: currentTrial.id,
       sentence: currentTrial.sentence,
       wrongWord: currentTrial.wrongWord,
@@ -568,7 +599,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       difficulty: currentTrial.difficulty,
       phonemeTargets: currentTrial.phonemeTargets,
     };
-  }, [currentTrial, currentAttempt, localMatch, repairPhase, playSuccess, playError]);
+  }, [currentTrial, currentAttempt, localMatch, repairPhase, playSuccess, playError, clinicalLevel]);
 
   /**
    * Score a CHOICE-TILE selection — the L1/L2 scaffolded response mode

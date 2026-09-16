@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { EngagementMonitor, type TrialResult, type EngagementState } from '@/lib/engagementMonitor';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 /**
  * Hook for monitoring user engagement during exercise sessions
@@ -76,12 +77,12 @@ export const useEngagementMonitor = (sessionId: string | null) => {
           trigger_type: triggerType,
           intervention,
           user_action: userAction || null,
-          trigger_data: {
+          trigger_data: ({
             signals: state.signals,
             frustration: state.frustration,
             fatigue: state.fatigue,
             confidence: state.confidence
-          }
+          } as unknown as Json)
         });
 
       if (error) throw error;

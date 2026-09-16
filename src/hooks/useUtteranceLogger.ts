@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesInsert } from '@/integrations/supabase/types';
+import type { TablesInsert, Json } from '@/integrations/supabase/types';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 
@@ -428,7 +428,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         latency_to_first_word_ms: analysis.latencyToFirstWordMs,
         narrowing_level_used: analysis.narrowingLevelUsed,
         narrowing_trigger: analysis.narrowingTrigger,
-        momentum_components: analysis.momentumComponents,
+        momentum_components: analysis.momentumComponents as unknown as Json,
         prompt_intent_type: analysis.promptIntentType,
         prompt_theme: analysis.promptTheme,
         // NEW: Stuck-type classification

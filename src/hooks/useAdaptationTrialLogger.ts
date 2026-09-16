@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { classifyReason, narrateAdaptation, type AdaptationDirection } from '@/lib/adaptationNarrator';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface TrialLogInput {
   trialIndex: number;
@@ -127,7 +128,7 @@ interface AnomalyRow {
   anomaly_type: string;
   severity: 'info' | 'warn' | 'critical';
   detail: string;
-  evidence: Record<string, unknown>;
+  evidence: Json;
 }
 
 const FLUSH_INTERVAL_MS = 2500;

@@ -318,10 +318,12 @@ export const useExerciseTelemetry = (
             confirmed_by: gate.confirmedBy,
             confidence: trial.validity.confidence,
             reason: gate.reason,
-            signals: trial.validity.signals,
+            signals: trial.validity.signals as never,
           };
           eventData.engagement_flags = {
-            ...(eventData.engagement_flags ?? {}),
+            ...(typeof eventData.engagement_flags === 'object' && eventData.engagement_flags !== null
+              ? (eventData.engagement_flags as Record<string, unknown>)
+              : {}),
             validity_label: gate.label,
             validity_bucket: gate.bucket,
             counts_toward_score: gate.shouldScore,
@@ -337,7 +339,7 @@ export const useExerciseTelemetry = (
           eventData.validity_confidence =
             typeof trial.validity.confidence === 'number' ? trial.validity.confidence : null;
           eventData.validity_reason = gate.reason;
-          eventData.validity_signals = trial.validity.signals ?? null;
+          eventData.validity_signals = (trial.validity.signals ?? null) as never;
           eventData.counts_toward_score = gate.shouldScore;
 
         } else {
@@ -399,16 +401,35 @@ export const useExerciseTelemetry = (
               },
               hasTranscript: !!(trial.whisperTranscript || trial.browserTranscript),
             });
-            eventData.axis_scores = verdict.axes;
-            eventData.strategy_used = verdict.strategyUsed;
-            eventData.measurement_confidence = verdict.measurementConfidence;
-            eventData.verdict_primary = verdict.primary;
-            eventData.verdict_reason = verdict.reason;
-            eventData.shadow_v1_agreement = {
-              v1_correct: trial.correct,
-              v2_primary: verdict.primary,
-              agrees: shadowAgreesWithV1(trial.correct, verdict.primary),
-            };
+            // Nested under outputs, which EXISTS, rather than six top-level
+            // columns which do not. axis_scores, strategy_used,
+            // measurement_confidence, verdict_primary, verdict_reason and
+            // shadow_v1_agreement were all being written to exercise_events and
+            // none of them is a column on it — so every trial carrying speech
+            // evidence was rejected whole by PostgREST, the same way
+            // engine_version rejected all of them. The try/catch around this
+            // block protects the write from shadow scoring THROWING; it could
+            // not protect it from shadow scoring succeeding.
+            //
+            // The data is worth keeping, so it goes somewhere real. If these
+            // ever want to be columns, the migration comes first.
+            eventData.outputs = {
+              ...(typeof eventData.outputs === 'object' && eventData.outputs !== null
+                ? (eventData.outputs as Record<string, unknown>)
+                : {}),
+              shadow_v2: {
+                axis_scores: verdict.axes,
+                strategy_used: verdict.strategyUsed,
+                measurement_confidence: verdict.measurementConfidence,
+                verdict_primary: verdict.primary,
+                verdict_reason: verdict.reason,
+                shadow_v1_agreement: {
+                  v1_correct: trial.correct,
+                  v2_primary: verdict.primary,
+                  agrees: shadowAgreesWithV1(trial.correct, verdict.primary),
+                },
+              },
+            } as never;
           } catch (shadowErr) {
             // Shadow scoring is diagnostic only — it must never break the
             // clinical trial write.

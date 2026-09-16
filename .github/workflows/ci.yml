@@ -25,8 +25,13 @@ jobs:
       - name: Unit tests (incl. leveling contract + content coverage)
         run: bunx vitest run
 
+      # `tsc --noEmit` with no -p reads the ROOT tsconfig.json, which is a
+      # solution-style config: "files": [] and two project references. It
+      # therefore checks ZERO files and has always passed. Six phantom database
+      # columns, a temporal-dead-zone crash and a duplicate object key all went
+      # through this step green. Check the actual projects.
       - name: Type-check
-        run: bunx tsc --noEmit
+        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json
 
   e2e:
     name: Playwright E2E

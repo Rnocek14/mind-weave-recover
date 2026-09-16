@@ -33,3 +33,10 @@ test-results/
 # Scratch scripts written by the runtime-verification harness (rt-README.md).
 # The harness itself is committed; individual one-off checks are not.
 rt-check-*.mjs
+
+# Ad-hoc runtime probes written while investigating (see rt-README.md).
+rt-fs-*.mjs
+rt-probe-*.mjs
+
+# Build output from a variant build (agent-produced); never committed.
+dist-ndsp

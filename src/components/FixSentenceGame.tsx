@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useSpeechRecognition, isSpeechRecognitionSupported } from '@/hooks/useSpeechRecognition';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -28,6 +28,7 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { isSentenceEcho } from '@/lib/fixSentence/sentenceEchoGuard';
 import { buildFixSentenceChoices } from '@/lib/fixSentenceChoices';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
@@ -99,8 +100,6 @@ export function FixSentenceGame({
   // Same ref-mirror pattern: these handlers are declared above the
   // useSpeechRecognition/useAudioRecorder destructures, so they cannot close
   // over the functions directly.
-  const startListeningRef = useRef<() => void>(() => {});
-  const startRecordingRef = useRef<() => void>(() => {});
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ttsAbortRef = useRef(false);
   // Re-runs the scoring effect once the VoiceController mic-lock clears, so
@@ -257,101 +256,89 @@ export function FixSentenceGame({
   // open response, and the progression engine has no way to record that
   // in-between state; hiding the tiles when the mic opens keeps the recorded
   // support level honest without touching the scoring path at all.
+  /**
+   * The choice tiles are the entry levels' scaffold — and that is ALL they are.
+   *
+   * This used to be state with a toggle, because L1/L2 were tap-only and the
+   * app is voice-first everywhere else. The toggle was the wrong shape: the
+   * microphone stayed shut until someone found a small underlined link, so a
+   * new user — every user starts at level 1 — spoke at this game and nothing
+   * happened at all. Measured against its siblings: photo-naming, describe-guess
+   * and two-clues all open the mic by themselves; fix-sentence never did, and
+   * window.__sr.say() returned "no-active-recogniser". Not a recognition bug.
+   * There was simply no microphone listening.
+   *
+   * So the mic now opens here exactly like everywhere else, and the tiles stay
+   * on screen at L1/L2 as that level's help. Both channels are live: say it or
+   * tap it. That is what the original comment on this block already argued and
+   * then failed to do — the ladder spec (docs/clinical-progression-v1-spec.md)
+   * describes the support profile as WHAT HELP IS ON SCREEN, not how the answer
+   * is delivered, so scaffolding the screen never required taking the mic away.
+   * Support is recorded from the tiles being VISIBLE, so speaking with them up
+   * is logged identically to tapping one and the ladder evidence is unchanged.
+   */
   const scaffoldByDefault = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
-  const [choiceMode, setChoiceMode] = useState(scaffoldByDefault);
-
-  /**
-   * Follow the level until the person overrides it.
-   *
-   * choiceMode used to be derived straight from clinicalLevel, so it tracked
-   * the prop for free. Making it state — which is what gave the entry levels a
-   * voice option at all — quietly introduced a latch, and there is a race that
-   * walks right into it: useFixSentenceProgression sets `loaded` true on its
-   * level-1 fallback when the profile id is not there yet, and never sets it
-   * back to false. The page's gate is spent, the game mounts at level 1, and
-   * the real level lands a moment later as a prop change that the initial
-   * useState can no longer see. A returning patient at level 6 would have sat
-   * through a whole session of four-word choice tiles.
-   *
-   * A manual toggle wins from then on: someone who asked for the tiles, or
-   * asked for the mic, does not want the answer changed underneath them.
-   */
-  const modeChosenByUserRef = useRef(false);
-  useEffect(() => {
-    if (modeChosenByUserRef.current) return;
-    setChoiceMode(scaffoldByDefault);
-  }, [scaffoldByDefault]);
-  /**
-   * Mirror, because the trial-start flow decides whether to open the mic AFTER
-   * `await speak(sentence)` — and by then the state it closed over is 2-4
-   * seconds old. The toggle button is on screen for that whole window, so
-   * someone who switched to the tiles while Maya was still reading got the mic
-   * opened and the recorder started behind them, with the "Listening…"
-   * indicator suppressed because choiceMode was (correctly) true in render.
-   * A live microphone with nothing on screen to say so is not a bug you get to
-   * ship in an app for someone else's living room.
-   */
+  const choiceMode = scaffoldByDefault;
   const choiceModeRef = useRef(choiceMode);
-  useEffect(() => { choiceModeRef.current = choiceMode; }, [choiceMode]);
-  /** Same reason as choiceModeRef — read after an await, toggled during it. */
-  const showTextInputRef = useRef(showTextInput);
-  useEffect(() => { showTextInputRef.current = showTextInput; }, [showTextInput]);
+  choiceModeRef.current = choiceMode;
+  /**
+   * One answer per trial, whichever channel gets there first.
+   *
+   * With the mic open BESIDE the tiles there are two live ways to answer, and
+   * they can both fire for the same sentence: speak, then tap within the 2500ms
+   * scoring debounce, and the debounced speech scorer still ran. processingRef
+   * was the only guard and handleChoiceTap clears it synchronously in its
+   * finally block, so the race was wide open — reproduced 4 times out of 4, and
+   * it wrote TWO exercise_events and TWO adaptation_trial_logs rows for one
+   * sentence, rendered the late verdict over the NEXT trial, and merged the two
+   * independent answers into a fake "Great self-correction!".
+   *
+   * processingRef says "busy right now". This says "this trial is already
+   * answered", which is the thing that actually has to be true only once.
+   */
+  const trialAnsweredRef = useRef(false);
+  /** handleTryAgain is declared below the tap handler that needs it. */
+  const handleTryAgainRef = useRef<(() => void) | null>(null);
+  /**
+   * Is typing ACTUALLY the answer channel right now?
+   *
+   * Not the same question as `showTextInput`. That flag initialises from
+   * sessionStorage's `preferTypingInput`, which is written by Category
+   * Fluency, Narrative Retell, Describe & Guess and others — it is
+   * session-wide, not per-game. At levels 1-2 the typing box is not rendered
+   * at all (it is gated on !choiceMode), so someone who chose typing anywhere
+   * else in the session arrived here with the microphone held shut for a
+   * keyboard that was never on screen, leaving the four tiles as the only way
+   * to answer. Reproduced twice through the UI with no scripting.
+   *
+   * Typing only counts as the channel when the person can actually see it.
+   *
+   * A ref because the trial-start flow reads it AFTER `await speak(sentence)`,
+   * and "Switch to typing" is on screen for that whole 2-4 second window.
+   */
+  const typingIsTheChannel = showTextInput && !choiceMode;
+  const typingIsTheChannelRef = useRef(typingIsTheChannel);
+  typingIsTheChannelRef.current = typingIsTheChannel;
   const showHighlight = !choiceMode || clinicalLevel === 1;
   const choiceTiles = React.useMemo(
     () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
     [choiceMode, game.currentTrial],
   );
 
-  /**
-   * Switch between saying the answer and tapping a choice.
-   *
-   * Mutually exclusive by design (see the choiceMode comment above): turning
-   * the mic on hides the tiles, so the scaffold the person actually had is the
-   * scaffold the progression engine records. Sync-Wait is respected on the way
-   * in — opening the mic while Maya is still speaking is how she gets scored
-   * as the answer.
-   */
-  const handleUseVoice = useCallback(() => {
-    // Never trade the tiles away for a microphone that does not exist.
-    if (!isSpeechRecognitionSupported()) return;
-    modeChosenByUserRef.current = true;
-    setChoiceMode(false);
-    if (showTextInputRef.current) return;
-    void voiceController.awaitMicSafe().then(() => {
-      // RE-CHECK after the await, not just showFeedback. awaitMicSafe waits
-      // out the rest of Maya's sentence plus the 400ms tail lock, so this
-      // callback runs one to two seconds after the tap — and "Show me the
-      // choices instead" is on screen for every millisecond of it. Someone who
-      // changed their mind got the tiles back AND, a second later, a live
-      // microphone and recorder behind them, with the "Listening…" indicator
-      // suppressed because choiceMode was true in render. Measured at +1479ms,
-      // +1229ms and +1740ms in three of three attempts, persisting for the rest
-      // of the trial, transcribing the room into the clinical attempt record.
-      //
-      // The trial-start flow was fixed for this; this second async path was
-      // not. Anything that opens the mic after an await has to ask again.
-      if (showFeedbackRef.current || choiceModeRef.current || showTextInputRef.current) return;
-      startListeningRef.current();
-      setIsListening(true);
-      if (isRecordingSupported) startRecordingRef.current();
-    });
-  }, [isRecordingSupported]);
-
-  const handleUseChoices = useCallback(() => {
-    modeChosenByUserRef.current = true;
-    stopListeningRef.current();
-    setIsListening(false);
-    if (isRecording) cancelRecordingRef.current();
-    setChoiceMode(true);
-  }, [isRecording]);
-
   // Choice-tile tap: speak the word (model), score locally, submit through
   // the same result pipeline as speech/typed — support level rides on the
   // result so ladder evidence sees the true (scaffolded) task.
   const handleChoiceTap = useCallback((word: string) => {
-    if (processingRef.current || showFeedback || !game.currentTrial) return;
+    if (processingRef.current || trialAnsweredRef.current || showFeedback || !game.currentTrial) return;
+    trialAnsweredRef.current = true;
     processingRef.current = true;
     setIsProcessing(true);
+    // The tap has answered this sentence, and Maya is about to say the word
+    // out loud. Leaving the recogniser open through that is asking for her own
+    // voice — or the room — to land in the next transcript.
+    stopListeningRef.current?.();
+    setIsListening(false);
+    if (isRecording) cancelRecordingRef.current();
     try {
       void speak(word);
       const result = game.scoreChoice(word);
@@ -368,17 +355,21 @@ export function FixSentenceGame({
           setDisplayTranscript('');
         }, AUTO_ADVANCE_DELAY_MS);
       } else {
-        // Gentle retry: same tiles (deterministic), no mic involved.
+        // Gentle retry: same tiles (deterministic). The mic is live beside
+        // them now, so this has to go through handleTryAgain like the spoken
+        // wrong answer does — it releases the one-answer-per-trial latch and
+        // reopens the recogniser. Without that the latch stayed set after a
+        // wrong TAP and the sentence could never be answered again, by either
+        // channel: the retry looked normal and silently accepted nothing.
         setTimeout(() => {
-          setShowFeedback(false);
-          setDisplayTranscript('');
+          handleTryAgainRef.current?.();
         }, WRONG_ANSWER_DISPLAY_MS);
       }
     } finally {
       processingRef.current = false;
       setIsProcessing(false);
     }
-  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement]);
+  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement, isRecording]);
 
   // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
   const handleTypedSubmit = useCallback(async () => {
@@ -393,7 +384,7 @@ export function FixSentenceGame({
 
     try {
       const selfCorrected = !!prevWrongAttempt;
-      const result = await game.scoreAnswer(text, selfCorrected);
+      const result = await game.scoreAnswer(text, selfCorrected, choiceModeRef.current);
       if (!result) {
         processingRef.current = false;
         setIsProcessing(false);
@@ -419,6 +410,10 @@ export function FixSentenceGame({
         setTypedAnswer('');
         lastScoredRef.current = '';
         setDisplayTranscript('');
+        // Phase 2 of a two-error sentence is still the same trial, and it needs
+        // answering again — release the one-answer latch or the second error
+        // could never be repaired.
+        trialAnsweredRef.current = false;
         resetAttempt();
         if (sessionId && userId && game.currentTrial) {
           startAttempt({
@@ -520,8 +515,6 @@ export function FixSentenceGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
-  useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
   useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
 
   // Stall timer for voice reminder
@@ -552,6 +545,8 @@ export function FixSentenceGame({
       rawTranscriptRef.current = '';
       stableTranscriptRef.current = '';
       processingRef.current = false;
+      // A new sentence is a new answer.
+      trialAnsweredRef.current = false;
       setDisplayTranscript('');
       setShowFeedback(false);
       setPrevWrongAttempt(null);
@@ -571,14 +566,24 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        // Refs, not state: this line runs after an await, so both flags are
-        // whatever they were when the trial started, 2-4 seconds ago. Both
-        // toggles ("Show me the choices instead", "Switch to typing") are on
-        // screen for that entire window. See choiceModeRef's declaration.
-        if (sessionId && userId && !showTextInputRef.current && !choiceModeRef.current) {
+        // The mic opens whether or not the tiles are up, and whether or not the
+        // session row exists yet. Both of those used to block it and this was
+        // the only game in the app that behaved that way — PhotoNamingGame
+        // checks UI conditions alone before calling startListening.
+        //
+        // The session gate was the quieter half of the bug. This effect's deps
+        // are [currentTrial.id, isComplete], so a sessionId that arrives a
+        // moment later never re-runs it: the trial simply never listens, for
+        // its whole duration, with no error and no indicator. Opening the
+        // microphone is how the person ANSWERS. Recording audio for upload is
+        // bookkeeping, and only that half needs a session to attach to.
+        //
+        // Still refs and not state, because this line runs after an await and
+        // "Switch to typing" is on screen the whole time.
+        if (!typingIsTheChannelRef.current) {
           startListening();
           setIsListening(true);
-          if (isRecordingSupported) startRecording();
+          if (isRecordingSupported && sessionId && userId) startRecording();
         }
 
         // Start the stall reminder ONLY after the sentence has actually been
@@ -663,11 +668,11 @@ export function FixSentenceGame({
     // Prevents stale transcripts from a previous trial leaking in (the
     // "same answer reused for every sentence" bug).
     if (!speechIsListening) return;
-    // And never score while the choice tiles or the keyboard are up. The mic
-    // should not be open at all in either mode, but "should not" is not an
-    // invariant — if it ever is, what it hears is the room, not an answer, and
-    // it would be scored and uploaded as one.
-    if (choiceModeRef.current || showTextInputRef.current) return;
+    // The keyboard is still exclusive — if someone is typing, the mic is not
+    // the channel. The TILES are no longer exclusive: the mic is deliberately
+    // open beside them and the Listening indicator says so, which is the
+    // difference between an offered microphone and a hidden one.
+    if (typingIsTheChannelRef.current) return;
     // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
     // tail lock) — but do NOT throw the transcript away. Patients often answer
     // the instant the sentence ends, inside the tail lock; discarding here
@@ -685,6 +690,12 @@ export function FixSentenceGame({
     // sentences that happen to contain one of their own fixes (fs_53, fs_88).
     const normEq = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
     if (trial.sentence && normEq(transcript) === normEq(trial.sentence)) {
+      rawTranscriptRef.current = '';
+      return;
+    }
+    // ...and neither is PART of it. See sentenceEchoGuard for the rule and for
+    // the two exemptions it has to carry.
+    if (isSentenceEcho(transcript, trial)) {
       rawTranscriptRef.current = '';
       return;
     }
@@ -730,7 +741,10 @@ export function FixSentenceGame({
       // Double-check the candidate hasn't changed during the wait
       const finalCandidate = stableTranscriptRef.current;
       if (!finalCandidate || finalCandidate.length < 2 || processingRef.current) return;
-      
+      // A tile tap during the debounce has already answered this sentence.
+      if (trialAnsweredRef.current || showFeedbackRef.current) return;
+
+      trialAnsweredRef.current = true;
       processingRef.current = true;
       setIsProcessing(true);
       lastScoredRef.current = finalCandidate;
@@ -743,7 +757,7 @@ export function FixSentenceGame({
         // scoreAnswer still extracts a compact candidate itself for the
         // semantic-embedding fallback.
         const rawFull = rawTranscriptRef.current || finalCandidate;
-        const result = await game.scoreAnswer(rawFull, selfCorrected);
+        const result = await game.scoreAnswer(rawFull, selfCorrected, choiceModeRef.current);
 
         if (!result) {
           processingRef.current = false;
@@ -895,6 +909,7 @@ export function FixSentenceGame({
   };
 
   const handleSkip = useCallback(() => {
+    trialAnsweredRef.current = false;
     if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     stopListening();
@@ -916,6 +931,10 @@ export function FixSentenceGame({
     resetTranscript();
     setDisplayTranscript('');
     processingRef.current = false;
+    // A retry is a fresh chance to answer this same sentence, so the
+    // one-answer-per-trial latch has to be released here as well as on a new
+    // trial — otherwise a wrong answer would lock the sentence for good.
+    trialAnsweredRef.current = false;
     resetAttempt();
 
     if (sessionId && userId && game.currentTrial) {
@@ -933,12 +952,19 @@ export function FixSentenceGame({
     // Sync-Wait: wait until Maya's feedback finishes before re-opening the mic,
     // so the retry doesn't immediately capture her voice as the answer.
     void voiceController.awaitMicSafe().then(() => {
-      if (showTextInput || choiceMode) return;
+      // The tiles are NOT a reason to leave the mic shut — that was the whole
+      // point of opening it at the entry levels, and this is the third place
+      // the old mutual exclusion was written down. Missing it here meant the
+      // mic went out after the FIRST wrong answer and stayed out for the rest
+      // of the sentence, so the retry could only be tapped. Typing is still
+      // exclusive. Refs, because this runs after an await.
+      if (typingIsTheChannelRef.current) return;
       startListening();
       setIsListening(true);
       if (isRecordingSupported) startRecording();
     });
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript, showTextInput, choiceMode]);
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript]);
+  handleTryAgainRef.current = handleTryAgain;
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
@@ -1108,37 +1134,7 @@ export function FixSentenceGame({
               {word}
             </Button>
           ))}
-          {/* Only where there is a microphone to offer. isSupported was
-              destructured and never read, so on a browser without the Web
-              Speech API this button hid the tiles, set isListening true
-              unconditionally and rendered a pulsing "Listening…" at someone
-              who had just lost the only way they could answer. Nothing was
-              listening and nothing ever would be: startListening returns
-              early when there is no recognition instance, so speechIsListening
-              never changes and the effect that would correct the indicator
-              never re-runs. */}
-          {isSpeechRecognitionSupported() && (
-            <button
-              type="button"
-              onClick={handleUseVoice}
-              className="col-span-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground py-1"
-            >
-              Or say the answer out loud
-            </button>
-          )}
         </div>
-      )}
-
-      {/* Back to the scaffold. Offered only where tiles are the level's
-          default, so higher levels are unchanged. */}
-      {!choiceMode && scaffoldByDefault && !showFeedback && !showTextInput && (
-        <button
-          type="button"
-          onClick={handleUseChoices}
-          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          Show me the choices instead
-        </button>
       )}
 
       {/* Typing fallback input */}
@@ -1176,7 +1172,7 @@ export function FixSentenceGame({
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Checking...
           </Badge>
-        ) : choiceMode ? null : !showTextInput ? (
+        ) : !showTextInput ? (
           <div className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
@@ -1200,12 +1196,14 @@ export function FixSentenceGame({
               setIsListening(false);
               if (isRecording) cancelRecording();
             } else {
-              // Switching back to speech: open mic if session is active
-              if (sessionId && userId) {
-                startListening();
-                setIsListening(true);
-                if (isRecordingSupported) startRecording();
-              }
+              // Switching back to speech. NOT gated on the session row — that
+              // is the same gate the trial-start flow had, and it meant asking
+              // for the microphone back did nothing at all, silently, whenever
+              // the session had not landed. Opening the mic is how the person
+              // answers; only the audio upload needs somewhere to attach.
+              startListening();
+              setIsListening(true);
+              if (isRecordingSupported && sessionId && userId) startRecording();
             }
           }}
           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
