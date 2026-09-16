@@ -648,6 +648,28 @@ export function FixSentenceGame({
       rawTranscriptRef.current = '';
       return;
     }
+    // ...and neither is PART of it. The verbatim check above only catches a
+    // whole sentence, and the echo filter's similarity thresholds only catch
+    // long partials — so "I cut the" or "a beautiful lamp", three or four words
+    // of the sentence Maya had just read, sailed through and were scored as
+    // wrong answers. Re-reading the sentence aloud while you hunt for the odd
+    // word is the most natural thing to do in this task, and the mic is now
+    // open the whole time you do it.
+    //
+    // The rule that fits this game exactly: the answer is a word that REPLACES
+    // one in the sentence, so an utterance made entirely of words already in
+    // the sentence cannot be an answer. Anything containing an accepted fix is
+    // exempt, because a couple of trials legitimately reuse a sentence word.
+    if (trial.sentence) {
+      const sentenceWords = new Set(normEq(trial.sentence).split(' ').filter(Boolean));
+      const saidWords = normEq(transcript).split(' ').filter(Boolean);
+      const fixes = new Set((trial.acceptedFixes ?? []).map((f) => normEq(f)));
+      const offersAFix = saidWords.some((w) => fixes.has(w));
+      if (saidWords.length > 0 && !offersAFix && saidWords.every((w) => sentenceWords.has(w))) {
+        rawTranscriptRef.current = '';
+        return;
+      }
+    }
 
     const candidate = extractAnswerFromTranscript(transcript);
     if (candidate === lastScoredRef.current && candidate.length > 0) return;
@@ -893,12 +915,18 @@ export function FixSentenceGame({
     // Sync-Wait: wait until Maya's feedback finishes before re-opening the mic,
     // so the retry doesn't immediately capture her voice as the answer.
     void voiceController.awaitMicSafe().then(() => {
-      if (showTextInput || choiceMode) return;
+      // The tiles are NOT a reason to leave the mic shut — that was the whole
+      // point of opening it at the entry levels, and this is the third place
+      // the old mutual exclusion was written down. Missing it here meant the
+      // mic went out after the FIRST wrong answer and stayed out for the rest
+      // of the sentence, so the retry could only be tapped. Typing is still
+      // exclusive. Refs, because this runs after an await.
+      if (showTextInputRef.current) return;
       startListening();
       setIsListening(true);
       if (isRecordingSupported) startRecording();
     });
-  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript, showTextInput, choiceMode]);
+  }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript]);
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);

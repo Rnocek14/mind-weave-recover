@@ -369,6 +369,21 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
   ): Promise<FixSentenceTrialResult | null> => {
     if (!currentTrial) return null;
 
+    /**
+     * Computed ONCE, here, and attached to every path out of this function.
+     *
+     * It was first added to `baseResult` alone — which only three of the seven
+     * returns actually spread. The other four hand-build their result object,
+     * so a spoken answer at level 1 kept logging open_response while a tapped
+     * one logged highlight_plus_choice, on the same trial with the same four
+     * tiles on screen. A value that is correct and never reaches the row is
+     * the same as not having it.
+     */
+    const supportUsed: 'highlight_plus_choice' | 'choice_based' | 'open_response' =
+      choicesOnScreen
+        ? (clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based')
+        : 'open_response';
+
     const reactionTimeMs = Date.now() - roundStartTimeRef.current;
     const normalized = spoken.toLowerCase().trim();
 
@@ -376,9 +391,8 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     const second = currentTrial.secondError;
     if (second) {
       const baseResult = {
-        support: choicesOnScreen
-          ? ((clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based') as const)
-          : ('open_response' as const),
+        support: supportUsed,
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -472,6 +486,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (matched) {
       playSuccess();
       const result: FixSentenceTrialResult = {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -496,6 +511,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (currentTrial.morphology) {
       playError();
       return {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -520,6 +536,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (near) {
       playSuccess();
       return {
+        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -568,6 +585,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     }
 
     return {
+      support: supportUsed,
       trialId: currentTrial.id,
       sentence: currentTrial.sentence,
       wrongWord: currentTrial.wrongWord,
