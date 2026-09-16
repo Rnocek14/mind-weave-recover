@@ -392,7 +392,6 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (second) {
       const baseResult = {
         support: supportUsed,
-        support: supportUsed,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,

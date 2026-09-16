@@ -37,3 +37,6 @@ rt-check-*.mjs
 # Ad-hoc runtime probes written while investigating (see rt-README.md).
 rt-fs-*.mjs
 rt-probe-*.mjs
+
+# Build output from a variant build (agent-produced); never committed.
+dist-ndsp

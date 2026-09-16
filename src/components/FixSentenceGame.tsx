@@ -283,6 +283,22 @@ export function FixSentenceGame({
   const choiceModeRef = useRef(choiceMode);
   choiceModeRef.current = choiceMode;
   /**
+   * One answer per trial, whichever channel gets there first.
+   *
+   * With the mic open BESIDE the tiles there are two live ways to answer, and
+   * they can both fire for the same sentence: speak, then tap within the 2500ms
+   * scoring debounce, and the debounced speech scorer still ran. processingRef
+   * was the only guard and handleChoiceTap clears it synchronously in its
+   * finally block, so the race was wide open — reproduced 4 times out of 4, and
+   * it wrote TWO exercise_events and TWO adaptation_trial_logs rows for one
+   * sentence, rendered the late verdict over the NEXT trial, and merged the two
+   * independent answers into a fake "Great self-correction!".
+   *
+   * processingRef says "busy right now". This says "this trial is already
+   * answered", which is the thing that actually has to be true only once.
+   */
+  const trialAnsweredRef = useRef(false);
+  /**
    * Read after an await, so it must be a ref: the trial-start flow decides
    * whether to open the mic AFTER `await speak(sentence)`, and "Switch to
    * typing" is on screen for that whole 2-4 second window.
@@ -299,7 +315,8 @@ export function FixSentenceGame({
   // the same result pipeline as speech/typed — support level rides on the
   // result so ladder evidence sees the true (scaffolded) task.
   const handleChoiceTap = useCallback((word: string) => {
-    if (processingRef.current || showFeedback || !game.currentTrial) return;
+    if (processingRef.current || trialAnsweredRef.current || showFeedback || !game.currentTrial) return;
+    trialAnsweredRef.current = true;
     processingRef.current = true;
     setIsProcessing(true);
     try {
@@ -369,6 +386,10 @@ export function FixSentenceGame({
         setTypedAnswer('');
         lastScoredRef.current = '';
         setDisplayTranscript('');
+        // Phase 2 of a two-error sentence is still the same trial, and it needs
+        // answering again — release the one-answer latch or the second error
+        // could never be repaired.
+        trialAnsweredRef.current = false;
         resetAttempt();
         if (sessionId && userId && game.currentTrial) {
           startAttempt({
@@ -502,6 +523,8 @@ export function FixSentenceGame({
       rawTranscriptRef.current = '';
       stableTranscriptRef.current = '';
       processingRef.current = false;
+      // A new sentence is a new answer.
+      trialAnsweredRef.current = false;
       setDisplayTranscript('');
       setShowFeedback(false);
       setPrevWrongAttempt(null);
@@ -712,7 +735,10 @@ export function FixSentenceGame({
       // Double-check the candidate hasn't changed during the wait
       const finalCandidate = stableTranscriptRef.current;
       if (!finalCandidate || finalCandidate.length < 2 || processingRef.current) return;
-      
+      // A tile tap during the debounce has already answered this sentence.
+      if (trialAnsweredRef.current || showFeedbackRef.current) return;
+
+      trialAnsweredRef.current = true;
       processingRef.current = true;
       setIsProcessing(true);
       lastScoredRef.current = finalCandidate;
@@ -877,6 +903,7 @@ export function FixSentenceGame({
   };
 
   const handleSkip = useCallback(() => {
+    trialAnsweredRef.current = false;
     if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     stopListening();
@@ -898,6 +925,10 @@ export function FixSentenceGame({
     resetTranscript();
     setDisplayTranscript('');
     processingRef.current = false;
+    // A retry is a fresh chance to answer this same sentence, so the
+    // one-answer-per-trial latch has to be released here as well as on a new
+    // trial — otherwise a wrong answer would lock the sentence for good.
+    trialAnsweredRef.current = false;
     resetAttempt();
 
     if (sessionId && userId && game.currentTrial) {

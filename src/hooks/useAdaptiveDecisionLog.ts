@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TodayFocus } from '@/lib/adaptiveDecisionEngine';
+import type { Json } from '@/integrations/supabase/types';
 
 interface LogParams {
   userId: string;
@@ -53,8 +54,8 @@ export const useAdaptiveDecisionLog = () => {
           avg_reaction_time_ms: performanceSignals?.avgReactionTimeMs ?? null,
           semantic_error_rate: performanceSignals?.semanticErrorRate ?? null,
           rules_fired: todayFocus.rulesApplied.map(r => r.ruleId),
-          rules_data: todayFocus.rulesApplied,
-          adaptations: todayFocus.adaptations,
+          rules_data: todayFocus.rulesApplied as unknown as Json,
+          adaptations: todayFocus.adaptations as unknown as Json,
           reasoning: todayFocus.reasoning,
         }) as any);
 

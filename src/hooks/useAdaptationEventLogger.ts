@@ -13,6 +13,8 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import type { TablesInsert } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 
 // Adaptation types matching the database schema
 export type AdaptationType =
@@ -115,7 +117,7 @@ export const useAdaptationEventLogger = ({
     }
 
     try {
-      const rows = toInsert.map(event => ({
+      const rows: TablesInsert<'adaptation_events'>[] = toInsert.map(event => ({
         user_id: userId,
         profile_id: profileId || null,
         session_id: event.sessionId || null,
@@ -124,12 +126,12 @@ export const useAdaptationEventLogger = ({
         adaptation_type: event.adaptationType,
         layer: event.layer,
         // Store raw JSONB values, not wrapped in {value: ...}
-        value_before: event.valueBefore ?? null,
-        value_after: event.valueAfter ?? null,
+        value_before: (event.valueBefore ?? null) as Json,
+        value_after: (event.valueAfter ?? null) as Json,
         trigger_type: event.triggerType,
         trigger_rule_id: event.triggerRuleId || null,
         trigger_condition: event.triggerCondition || null,
-        evidence: event.evidence,
+        evidence: event.evidence as Json,
         confidence: event.confidence,
       }));
 
@@ -229,12 +231,12 @@ export const useAdaptationEventLogger = ({
           adaptation_type: event.adaptationType,
           layer: event.layer,
           // Store raw JSONB values
-          value_before: event.valueBefore ?? null,
-          value_after: event.valueAfter ?? null,
+          value_before: (event.valueBefore ?? null) as Json,
+          value_after: (event.valueAfter ?? null) as Json,
           trigger_type: event.triggerType,
           trigger_rule_id: event.triggerRuleId || null,
           trigger_condition: event.triggerCondition || null,
-          evidence: event.evidence,
+          evidence: event.evidence as Json,
           confidence: event.confidence,
         });
 
