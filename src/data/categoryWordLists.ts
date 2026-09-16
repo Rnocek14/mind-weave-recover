@@ -240,6 +240,36 @@ const DRINKS = new Set([
   'orange juice', 'apple juice', 'grape juice', 'cranberry juice', 'root beer',
   'ginger ale', 'sports drink', 'gatorade', 'kool aid', 'seltzer',
   'sparkling water', 'tonic', 'eggnog', 'kombucha', 'slushie',
+
+  // ── Brands and everyday names people actually say ──────────────────
+  // The list had 'cola' but not 'coke', which is what anyone over sixty in
+  // the US calls it — so "rum and coke" lost half its answer and "coke" on
+  // its own was crossed out.
+  'coke', 'pepsi', 'sprite', 'dr pepper', 'mountain dew', 'seven up',
+  'fanta', 'orange soda', 'cream soda', 'club soda', 'tonic water',
+  'red bull', 'energy drink', 'sunkist', 'squirt', 'fresca',
+  // ── Coffee and tea as they are ordered ─────────────────────────────
+  'sweet tea', 'iced coffee', 'hot tea', 'green tea', 'black tea',
+  'herbal tea', 'chamomile tea', 'black coffee', 'decaf', 'americano',
+  'macchiato', 'frappuccino', 'chai', 'chai tea', 'matcha', 'bubble tea',
+  'boba',
+  // ── Milk and juice ─────────────────────────────────────────────────
+  'chocolate milk', 'buttermilk', 'almond milk', 'soy milk', 'oat milk',
+  'protein shake', 'tomato juice', 'pineapple juice', 'lemon juice',
+  'prune juice', 'v8', 'nectar',
+  // ── Water, as people name it ───────────────────────────────────────
+  'ice water', 'tap water', 'bottled water', 'lemon water', 'mineral water',
+  // ── Spirits, beers and the mixed drinks made from them ─────────────
+  'bourbon', 'scotch', 'tequila', 'brandy', 'cognac', 'sherry', 'vermouth',
+  'moonshine', 'schnapps', 'liqueur', 'ale', 'lager', 'stout', 'pilsner',
+  'ipa', 'hard cider', 'hard seltzer', 'malt liquor',
+  'bloody mary', 'screwdriver', 'old fashioned', 'martini', 'manhattan',
+  'mojito', 'daiquiri', 'pina colada', 'sangria', 'mimosa', 'cosmopolitan',
+  'whiskey sour', 'gin and tonic', 'rum and coke', 'jack and coke',
+  'vodka tonic', 'long island', 'shot', 'nightcap',
+  // ── Other things people name ───────────────────────────────────────
+  'arnold palmer', 'horchata', 'agua fresca', 'apple cider', 'hot cocoa',
+  'malt', 'float', 'root beer float', 'egg cream', 'lassi', 'kefir',
 ]);
 
 const INSTRUMENTS = new Set([
@@ -262,6 +292,31 @@ const PLACES_IN_TOWN = new Set([
   'motel', 'airport', 'train station', 'bus stop', 'zoo', 'stadium',
   'arena', 'bar', 'pub', 'laundromat', 'dentist', 'office', 'factory',
   'warehouse', 'farm', 'beach', 'pier', 'harbor', 'bridge',
+
+  // ── Places named by what happens there ─────────────────────────────
+  // "bowling alley" was two crossed-out words: 'bowling' is in HOBBIES, and
+  // neither half is a place on its own.
+  'bowling alley', 'skating rink', 'ice rink', 'golf course', 'driving range',
+  'movie theatre', 'theatre', 'concert hall', 'bowling',
+  // ── Shops, spelled the way they are said ───────────────────────────
+  'liquor store', 'hardware store', 'coffee shop', 'ice cream shop',
+  'ice cream parlor', 'convenience store', 'department store', 'thrift store',
+  'book store', 'bookstore', 'pet store', 'shoe store', 'clothing store',
+  'flower shop', 'florist', 'butcher', 'butcher shop', 'deli', 'delicatessen',
+  'gift shop', 'toy store', 'furniture store', 'dollar store', 'corner store',
+  'nail salon', 'barber', 'car wash', 'dry cleaner', 'repair shop',
+  'auto shop', 'body shop', 'tire shop',
+  // ── Civic and everyday ─────────────────────────────────────────────
+  'doctors office', 'dentist office', 'vet', 'veterinarian', 'animal shelter',
+  'community center', 'senior center', 'rec center', 'town hall',
+  'fire department', 'police department', 'jail', 'prison', 'courthouse',
+  'dmv', 'cemetery', 'funeral home', 'nursing home', 'daycare',
+  'gas pump', 'rest stop', 'truck stop', 'parking lot', 'parking garage',
+  'bus station', 'subway station', 'ferry', 'dock', 'marina',
+  'campground', 'golf club', 'country club', 'church hall', 'temple',
+  'synagogue', 'mosque', 'university', 'college', 'high school',
+  'elementary school', 'preschool', 'playhouse', 'arcade', 'casino',
+  'food bank', 'shelter', 'clinic office', 'urgent care', 'emergency room',
 ]);
 
 const WEATHER = new Set([
