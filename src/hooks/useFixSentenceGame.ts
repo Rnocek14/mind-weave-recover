@@ -354,7 +354,18 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    */
   const scoreAnswer = useCallback(async (
     spoken: string,
-    selfCorrected: boolean = false
+    selfCorrected: boolean = false,
+    /**
+     * Were the choice tiles on screen when this was said?
+     *
+     * The ladder measures WHAT HELP WAS AVAILABLE, not which channel the
+     * answer arrived through. Now that the microphone is open beside the tiles
+     * at L1/L2, a spoken answer with the choices visible had exactly the same
+     * help as a tapped one and has to be logged the same way — otherwise
+     * speaking instead of tapping would quietly look like unsupported
+     * production and push someone up the ladder on evidence they never gave.
+     */
+    choicesOnScreen: boolean = false
   ): Promise<FixSentenceTrialResult | null> => {
     if (!currentTrial) return null;
 
@@ -365,6 +376,9 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     const second = currentTrial.secondError;
     if (second) {
       const baseResult = {
+        support: choicesOnScreen
+          ? ((clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based') as const)
+          : ('open_response' as const),
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,

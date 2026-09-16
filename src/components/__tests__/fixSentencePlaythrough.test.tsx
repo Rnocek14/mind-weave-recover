@@ -22,11 +22,12 @@ import type { FixSentenceTrial } from "@/data/fixSentenceBank";
 vi.mock("@/hooks/useGameSounds", () => ({
   useGameSounds: () => ({ playSuccess: vi.fn(), playError: vi.fn() }),
 }));
+const startListeningSpy = vi.fn();
 vi.mock("@/hooks/useSpeechRecognition", () => ({
   useSpeechRecognition: () => ({
     transcript: "",
     isListening: false,
-    startListening: vi.fn(),
+    startListening: startListeningSpy,
     stopListening: vi.fn(),
     resetTranscript: vi.fn(),
   }),
@@ -243,32 +244,45 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
   });
 
-  it("keeps the scaffold the person asked for when the level arrives late", async () => {
-    const { rerender } = render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
-    await waitFor(() => screen.getByTestId("choice-tiles"));
-
-    // They chose the mic themselves.
-    await act(async () => {
-      fireEvent.click(screen.getByText(/say the answer out loud/i));
-    });
-    await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
-
-    // A late level change must not hand the tiles back underneath them.
-    rerender(<FixSentenceGame trialCount={3} clinicalLevel={2} />);
-    await waitFor(() => expect(screen.queryByTestId("choice-tiles")).toBeNull());
-  });
-
-  it("offers the voice toggle in choice mode", async () => {
+  it("opens the microphone at level 1, with the tiles still on screen", async () => {
+    // THE REPORTED BUG: "fix the sentence still doesnt recognize voice. make it
+    // like all the others." It was not recognition. The microphone never opened
+    // at all — measured against its siblings, photo-naming, describe-guess and
+    // two-clues each open it by themselves and this one never did, so speaking
+    // at it did nothing whatsoever. The tiles are the level's help; they are
+    // not a reason to take the microphone away.
+    // This suite otherwise runs in typing mode on purpose; the microphone is
+    // deliberately not the channel then, so clear that for this one test.
+    sessionStorage.setItem("preferTypingInput", "false");
+    startListeningSpy.mockClear();
     render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
     await waitFor(() => screen.getByTestId("choice-tiles"));
-    expect(screen.getByText(/say the answer out loud/i)).toBeTruthy();
+    await waitFor(() => expect(startListeningSpy).toHaveBeenCalled(), { timeout: 4000 });
+    sessionStorage.setItem("preferTypingInput", "true");
   });
 
-  it("does not offer voice on a browser that has no speech recognition", async () => {
-    // The toggle trades the choice tiles away for the microphone. Offering
-    // that where there is no microphone leaves someone with neither: the
-    // tiles unmount, isListening is set true unconditionally, and a pulsing
-    // "Listening…" appears while nothing is or ever will be listening.
+  it("logs a spoken answer at level 1 as scaffolded, not as open production", async () => {
+    // The ladder measures what help was AVAILABLE, not which channel the answer
+    // came through. If speaking with the choices on screen logged
+    // open_response, choosing to talk would look like unsupported production
+    // and push someone up the ladder on evidence they never gave.
+    const onTrialComplete = vi.fn();
+    render(
+      <FixSentenceGame trialCount={3} clinicalLevel={1} onTrialComplete={onTrialComplete} />
+    );
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+    const trial = findTrialOnScreen();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${trial.acceptedFixes[0]}$`, "i") }));
+    });
+    await waitFor(() => expect(onTrialComplete).toHaveBeenCalled());
+    expect(onTrialComplete.mock.calls[0][0].support).toBe("highlight_plus_choice");
+  });
+
+  it("still gives the entry levels a way to answer with no speech support", async () => {
+    // With no Web Speech API the microphone is simply absent. The tiles are the
+    // whole channel then, which is exactly why they stay on screen rather than
+    // being traded away for a mic that may not exist.
     speechRecognitionAvailable = false;
     try {
       render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);

@@ -257,43 +257,36 @@ export function FixSentenceGame({
   // open response, and the progression engine has no way to record that
   // in-between state; hiding the tiles when the mic opens keeps the recorded
   // support level honest without touching the scoring path at all.
+  /**
+   * The choice tiles are the entry levels' scaffold — and that is ALL they are.
+   *
+   * This used to be state with a toggle, because L1/L2 were tap-only and the
+   * app is voice-first everywhere else. The toggle was the wrong shape: the
+   * microphone stayed shut until someone found a small underlined link, so a
+   * new user — every user starts at level 1 — spoke at this game and nothing
+   * happened at all. Measured against its siblings: photo-naming, describe-guess
+   * and two-clues all open the mic by themselves; fix-sentence never did, and
+   * window.__sr.say() returned "no-active-recogniser". Not a recognition bug.
+   * There was simply no microphone listening.
+   *
+   * So the mic now opens here exactly like everywhere else, and the tiles stay
+   * on screen at L1/L2 as that level's help. Both channels are live: say it or
+   * tap it. That is what the original comment on this block already argued and
+   * then failed to do — the ladder spec (docs/clinical-progression-v1-spec.md)
+   * describes the support profile as WHAT HELP IS ON SCREEN, not how the answer
+   * is delivered, so scaffolding the screen never required taking the mic away.
+   * Support is recorded from the tiles being VISIBLE, so speaking with them up
+   * is logged identically to tapping one and the ladder evidence is unchanged.
+   */
   const scaffoldByDefault = typeof clinicalLevel === 'number' && clinicalLevel <= 2;
-  const [choiceMode, setChoiceMode] = useState(scaffoldByDefault);
-
-  /**
-   * Follow the level until the person overrides it.
-   *
-   * choiceMode used to be derived straight from clinicalLevel, so it tracked
-   * the prop for free. Making it state — which is what gave the entry levels a
-   * voice option at all — quietly introduced a latch, and there is a race that
-   * walks right into it: useFixSentenceProgression sets `loaded` true on its
-   * level-1 fallback when the profile id is not there yet, and never sets it
-   * back to false. The page's gate is spent, the game mounts at level 1, and
-   * the real level lands a moment later as a prop change that the initial
-   * useState can no longer see. A returning patient at level 6 would have sat
-   * through a whole session of four-word choice tiles.
-   *
-   * A manual toggle wins from then on: someone who asked for the tiles, or
-   * asked for the mic, does not want the answer changed underneath them.
-   */
-  const modeChosenByUserRef = useRef(false);
-  useEffect(() => {
-    if (modeChosenByUserRef.current) return;
-    setChoiceMode(scaffoldByDefault);
-  }, [scaffoldByDefault]);
-  /**
-   * Mirror, because the trial-start flow decides whether to open the mic AFTER
-   * `await speak(sentence)` — and by then the state it closed over is 2-4
-   * seconds old. The toggle button is on screen for that whole window, so
-   * someone who switched to the tiles while Maya was still reading got the mic
-   * opened and the recorder started behind them, with the "Listening…"
-   * indicator suppressed because choiceMode was (correctly) true in render.
-   * A live microphone with nothing on screen to say so is not a bug you get to
-   * ship in an app for someone else's living room.
-   */
+  const choiceMode = scaffoldByDefault;
   const choiceModeRef = useRef(choiceMode);
-  useEffect(() => { choiceModeRef.current = choiceMode; }, [choiceMode]);
-  /** Same reason as choiceModeRef — read after an await, toggled during it. */
+  choiceModeRef.current = choiceMode;
+  /**
+   * Read after an await, so it must be a ref: the trial-start flow decides
+   * whether to open the mic AFTER `await speak(sentence)`, and "Switch to
+   * typing" is on screen for that whole 2-4 second window.
+   */
   const showTextInputRef = useRef(showTextInput);
   useEffect(() => { showTextInputRef.current = showTextInput; }, [showTextInput]);
   const showHighlight = !choiceMode || clinicalLevel === 1;
@@ -301,49 +294,6 @@ export function FixSentenceGame({
     () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
     [choiceMode, game.currentTrial],
   );
-
-  /**
-   * Switch between saying the answer and tapping a choice.
-   *
-   * Mutually exclusive by design (see the choiceMode comment above): turning
-   * the mic on hides the tiles, so the scaffold the person actually had is the
-   * scaffold the progression engine records. Sync-Wait is respected on the way
-   * in — opening the mic while Maya is still speaking is how she gets scored
-   * as the answer.
-   */
-  const handleUseVoice = useCallback(() => {
-    // Never trade the tiles away for a microphone that does not exist.
-    if (!isSpeechRecognitionSupported()) return;
-    modeChosenByUserRef.current = true;
-    setChoiceMode(false);
-    if (showTextInputRef.current) return;
-    void voiceController.awaitMicSafe().then(() => {
-      // RE-CHECK after the await, not just showFeedback. awaitMicSafe waits
-      // out the rest of Maya's sentence plus the 400ms tail lock, so this
-      // callback runs one to two seconds after the tap — and "Show me the
-      // choices instead" is on screen for every millisecond of it. Someone who
-      // changed their mind got the tiles back AND, a second later, a live
-      // microphone and recorder behind them, with the "Listening…" indicator
-      // suppressed because choiceMode was true in render. Measured at +1479ms,
-      // +1229ms and +1740ms in three of three attempts, persisting for the rest
-      // of the trial, transcribing the room into the clinical attempt record.
-      //
-      // The trial-start flow was fixed for this; this second async path was
-      // not. Anything that opens the mic after an await has to ask again.
-      if (showFeedbackRef.current || choiceModeRef.current || showTextInputRef.current) return;
-      startListeningRef.current();
-      setIsListening(true);
-      if (isRecordingSupported) startRecordingRef.current();
-    });
-  }, [isRecordingSupported]);
-
-  const handleUseChoices = useCallback(() => {
-    modeChosenByUserRef.current = true;
-    stopListeningRef.current();
-    setIsListening(false);
-    if (isRecording) cancelRecordingRef.current();
-    setChoiceMode(true);
-  }, [isRecording]);
 
   // Choice-tile tap: speak the word (model), score locally, submit through
   // the same result pipeline as speech/typed — support level rides on the
@@ -393,7 +343,7 @@ export function FixSentenceGame({
 
     try {
       const selfCorrected = !!prevWrongAttempt;
-      const result = await game.scoreAnswer(text, selfCorrected);
+      const result = await game.scoreAnswer(text, selfCorrected, choiceModeRef.current);
       if (!result) {
         processingRef.current = false;
         setIsProcessing(false);
@@ -571,14 +521,24 @@ export function FixSentenceGame({
         // Only start mic AFTER TTS completes
         if (ttsAbortRef.current) return;
 
-        // Refs, not state: this line runs after an await, so both flags are
-        // whatever they were when the trial started, 2-4 seconds ago. Both
-        // toggles ("Show me the choices instead", "Switch to typing") are on
-        // screen for that entire window. See choiceModeRef's declaration.
-        if (sessionId && userId && !showTextInputRef.current && !choiceModeRef.current) {
+        // The mic opens whether or not the tiles are up, and whether or not the
+        // session row exists yet. Both of those used to block it and this was
+        // the only game in the app that behaved that way — PhotoNamingGame
+        // checks UI conditions alone before calling startListening.
+        //
+        // The session gate was the quieter half of the bug. This effect's deps
+        // are [currentTrial.id, isComplete], so a sessionId that arrives a
+        // moment later never re-runs it: the trial simply never listens, for
+        // its whole duration, with no error and no indicator. Opening the
+        // microphone is how the person ANSWERS. Recording audio for upload is
+        // bookkeeping, and only that half needs a session to attach to.
+        //
+        // Still refs and not state, because this line runs after an await and
+        // "Switch to typing" is on screen the whole time.
+        if (!showTextInputRef.current) {
           startListening();
           setIsListening(true);
-          if (isRecordingSupported) startRecording();
+          if (isRecordingSupported && sessionId && userId) startRecording();
         }
 
         // Start the stall reminder ONLY after the sentence has actually been
@@ -663,11 +623,11 @@ export function FixSentenceGame({
     // Prevents stale transcripts from a previous trial leaking in (the
     // "same answer reused for every sentence" bug).
     if (!speechIsListening) return;
-    // And never score while the choice tiles or the keyboard are up. The mic
-    // should not be open at all in either mode, but "should not" is not an
-    // invariant — if it ever is, what it hears is the room, not an answer, and
-    // it would be scored and uploaded as one.
-    if (choiceModeRef.current || showTextInputRef.current) return;
+    // The keyboard is still exclusive — if someone is typing, the mic is not
+    // the channel. The TILES are no longer exclusive: the mic is deliberately
+    // open beside them and the Listening indicator says so, which is the
+    // difference between an offered microphone and a hidden one.
+    if (showTextInputRef.current) return;
     // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
     // tail lock) — but do NOT throw the transcript away. Patients often answer
     // the instant the sentence ends, inside the tail lock; discarding here
@@ -743,7 +703,7 @@ export function FixSentenceGame({
         // scoreAnswer still extracts a compact candidate itself for the
         // semantic-embedding fallback.
         const rawFull = rawTranscriptRef.current || finalCandidate;
-        const result = await game.scoreAnswer(rawFull, selfCorrected);
+        const result = await game.scoreAnswer(rawFull, selfCorrected, choiceModeRef.current);
 
         if (!result) {
           processingRef.current = false;
@@ -1108,37 +1068,7 @@ export function FixSentenceGame({
               {word}
             </Button>
           ))}
-          {/* Only where there is a microphone to offer. isSupported was
-              destructured and never read, so on a browser without the Web
-              Speech API this button hid the tiles, set isListening true
-              unconditionally and rendered a pulsing "Listening…" at someone
-              who had just lost the only way they could answer. Nothing was
-              listening and nothing ever would be: startListening returns
-              early when there is no recognition instance, so speechIsListening
-              never changes and the effect that would correct the indicator
-              never re-runs. */}
-          {isSpeechRecognitionSupported() && (
-            <button
-              type="button"
-              onClick={handleUseVoice}
-              className="col-span-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground py-1"
-            >
-              Or say the answer out loud
-            </button>
-          )}
         </div>
-      )}
-
-      {/* Back to the scaffold. Offered only where tiles are the level's
-          default, so higher levels are unchanged. */}
-      {!choiceMode && scaffoldByDefault && !showFeedback && !showTextInput && (
-        <button
-          type="button"
-          onClick={handleUseChoices}
-          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          Show me the choices instead
-        </button>
       )}
 
       {/* Typing fallback input */}
@@ -1176,7 +1106,7 @@ export function FixSentenceGame({
           <Badge variant="secondary" className="text-base px-4 py-2 animate-pulse">
             Checking...
           </Badge>
-        ) : choiceMode ? null : !showTextInput ? (
+        ) : !showTextInput ? (
           <div className={cn(
             'flex items-center gap-2 px-4 py-2 rounded-full text-sm',
             isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'
