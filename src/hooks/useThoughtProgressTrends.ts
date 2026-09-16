@@ -42,7 +42,7 @@ export function useThoughtProgressTrends() {
 
         // Fetch this week's data
         const { data: thisWeekData } = await supabase
-          .from('thought_decision_logs' as any)
+          .from('thought_decision_logs')
           .select('*')
           .eq('profile_id', activeProfile.id)
           .gte('log_date', format(thisWeekStart, 'yyyy-MM-dd'))
@@ -50,7 +50,7 @@ export function useThoughtProgressTrends() {
 
         // Fetch last week's data
         const { data: lastWeekData } = await supabase
-          .from('thought_decision_logs' as any)
+          .from('thought_decision_logs')
           .select('*')
           .eq('profile_id', activeProfile.id)
           .gte('log_date', format(lastWeekStart, 'yyyy-MM-dd'))

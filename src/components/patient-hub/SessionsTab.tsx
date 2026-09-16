@@ -126,7 +126,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
             .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
             .in("session_id", sessionIds),
           supabase
-            .from("adaptation_events" as any)
+            .from("adaptation_events")
             .select("session_id")
             .in("session_id", sessionIds),
         ]);
@@ -716,7 +716,7 @@ function ClinicianNoteSection({ sessionId, userId, profileId }: { sessionId: str
 
   useEffect(() => {
     supabase
-      .from("clinician_session_notes" as any)
+      .from("clinician_session_notes")
       .select("id, note_text, note_type, created_at, updated_at")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true })
@@ -730,7 +730,7 @@ function ClinicianNoteSection({ sessionId, userId, profileId }: { sessionId: str
     if (!draft.trim() || !user?.id) return;
     setSaving(true);
     const { data, error } = await supabase
-      .from("clinician_session_notes" as any)
+      .from("clinician_session_notes")
       .insert({
         session_id: sessionId,
         user_id: userId,
@@ -738,7 +738,7 @@ function ClinicianNoteSection({ sessionId, userId, profileId }: { sessionId: str
         clinician_id: user.id,
         note_text: draft.trim(),
         note_type: "observation",
-      } as any)
+      })
       .select("id, note_text, note_type, created_at, updated_at")
       .single();
     if (!error && data) {

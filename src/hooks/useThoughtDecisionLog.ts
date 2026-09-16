@@ -47,7 +47,7 @@ export const useThoughtDecisionLog = () => {
       const decisionId = crypto.randomUUID();
       
       const { error } = await (supabase
-        .from('thought_decision_logs' as any)
+        .from('thought_decision_logs')
         .insert({
           id: decisionId,
           user_id: userId,
@@ -100,7 +100,7 @@ export const useThoughtDecisionLog = () => {
   }: LogOutcomeParams): Promise<boolean> => {
     try {
       const { error } = await (supabase
-        .from('thought_decision_logs' as any)
+        .from('thought_decision_logs')
         .update({
           outcome_stuck_type: stuckType,
           outcome_did_speak: didSpeak,

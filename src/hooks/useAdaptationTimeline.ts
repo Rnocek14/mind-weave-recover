@@ -58,7 +58,7 @@ export const useAdaptationTimeline = (
       startDate.setDate(startDate.getDate() - daysBack);
 
       let query = supabase
-        .from('adaptation_events' as any)
+        .from('adaptation_events')
         .select('*')
         .eq('user_id', userId)
         .gte('created_at', startDate.toISOString())

@@ -134,7 +134,7 @@ export const useAdaptationEventLogger = ({
       }));
 
       const { error } = await supabase
-        .from('adaptation_events' as any)
+        .from('adaptation_events')
         .insert(rows);
 
       if (error) {
@@ -219,7 +219,7 @@ export const useAdaptationEventLogger = ({
 
     try {
       const { error } = await supabase
-        .from('adaptation_events' as any)
+        .from('adaptation_events')
         .insert({
           user_id: userId,
           profile_id: profileId || null,

@@ -64,7 +64,7 @@ export const useShadowEventLogger = ({
 
     try {
       const { error } = await supabase
-        .from('shadow_events' as any)
+        .from('shadow_events')
         .insert({
           user_id: userId,
           profile_id: profileId || null,

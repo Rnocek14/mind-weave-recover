@@ -82,7 +82,7 @@ export const useEngagementMonitor = (sessionId: string | null) => {
             fatigue: state.fatigue,
             confidence: state.confidence
           }
-        } as any); // Type assertion until Supabase types regenerate
+        });
 
       if (error) throw error;
     } catch (error) {
