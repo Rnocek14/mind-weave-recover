@@ -316,14 +316,26 @@ export function FixSentenceGame({
     if (!isSpeechRecognitionSupported()) return;
     modeChosenByUserRef.current = true;
     setChoiceMode(false);
-    if (showTextInput) return;
+    if (showTextInputRef.current) return;
     void voiceController.awaitMicSafe().then(() => {
-      if (showFeedbackRef.current) return;
+      // RE-CHECK after the await, not just showFeedback. awaitMicSafe waits
+      // out the rest of Maya's sentence plus the 400ms tail lock, so this
+      // callback runs one to two seconds after the tap — and "Show me the
+      // choices instead" is on screen for every millisecond of it. Someone who
+      // changed their mind got the tiles back AND, a second later, a live
+      // microphone and recorder behind them, with the "Listening…" indicator
+      // suppressed because choiceMode was true in render. Measured at +1479ms,
+      // +1229ms and +1740ms in three of three attempts, persisting for the rest
+      // of the trial, transcribing the room into the clinical attempt record.
+      //
+      // The trial-start flow was fixed for this; this second async path was
+      // not. Anything that opens the mic after an await has to ask again.
+      if (showFeedbackRef.current || choiceModeRef.current || showTextInputRef.current) return;
       startListeningRef.current();
       setIsListening(true);
       if (isRecordingSupported) startRecordingRef.current();
     });
-  }, [showTextInput, isRecordingSupported]);
+  }, [isRecordingSupported]);
 
   const handleUseChoices = useCallback(() => {
     modeChosenByUserRef.current = true;

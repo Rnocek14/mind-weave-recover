@@ -77,3 +77,46 @@ describe('stopping every voice channel', () => {
     u1(); u2();
   });
 });
+
+describe('pause tells the microphone layer, not just the mic lock', () => {
+  // isMicLocked stops a mic from OPENING. It cannot close one that is already
+  // open, and that is the usual case — you pause in the middle of a turn. A
+  // 20-second hold measured 80 of 80 samples with the recogniser still live,
+  // and a phrase spoken during the break was appended to the trial answer and
+  // carried into scoring. So pause has to be something the recogniser hears.
+  it('notifies subscribers on pause and on resume', () => {
+    const seen: boolean[] = [];
+    const off = voiceController.subscribeSessionPaused((p) => seen.push(p));
+    voiceController.setSessionPaused(true);
+    voiceController.setSessionPaused(false);
+    expect(seen).toEqual([true, false]);
+    off();
+  });
+
+  it('does not re-announce a state it is already in', () => {
+    const seen: boolean[] = [];
+    const off = voiceController.subscribeSessionPaused((p) => seen.push(p));
+    voiceController.setSessionPaused(true);
+    voiceController.setSessionPaused(true);
+    voiceController.setSessionPaused(false);
+    expect(seen).toEqual([true, false]);
+    off();
+  });
+
+  it('stops notifying once unsubscribed', () => {
+    const seen: boolean[] = [];
+    const off = voiceController.subscribeSessionPaused((p) => seen.push(p));
+    off();
+    voiceController.setSessionPaused(true);
+    expect(seen).toEqual([]);
+  });
+
+  it('keeps going when one subscriber throws', () => {
+    const ok = vi.fn();
+    const off1 = voiceController.subscribeSessionPaused(() => { throw new Error('boom'); });
+    const off2 = voiceController.subscribeSessionPaused(ok);
+    expect(() => voiceController.setSessionPaused(true)).not.toThrow();
+    expect(ok).toHaveBeenCalledWith(true);
+    off1(); off2();
+  });
+});

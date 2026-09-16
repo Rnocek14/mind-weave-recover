@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { voiceController } from '@/lib/voiceController';
 
 type RecognitionState = 'IDLE' | 'STARTING' | 'LISTENING' | 'STOPPING' | 'RESTARTING';
 
@@ -487,6 +488,57 @@ export const useSpeechRecognition = (
     }
   }, [discourseMode]);
 
+  /**
+   * Close the microphone for the duration of a session pause, and open it again
+   * on resume.
+   *
+   * voiceController.isMicLocked already stops a mic from OPENING while paused.
+   * It cannot close one that is already open, and that is the usual case — you
+   * pause mid-turn. This layer had no idea pause existed: a 20-second hold
+   * measured 80 of 80 samples with the recogniser still live, and a phrase
+   * spoken during the break was appended to the trial answer and carried into
+   * scoring and the utterance log. A person who pauses to speak to whoever
+   * walked into the room should not find it in their clinical record.
+   *
+   * Resume deliberately does NOT go through startListening, which clears the
+   * discourse accumulator on a fresh start. Going back after a break must not
+   * cost you the description you had already given — that is the same mistake
+   * three times over in one day.
+   */
+  const pausedWhileListeningRef = useRef(false);
+  /** Mirror: stopListening is declared below this effect. */
+  const stopListeningRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return voiceController.subscribeSessionPaused((paused) => {
+      if (paused) {
+        const live =
+          stateRef.current === 'LISTENING' ||
+          stateRef.current === 'STARTING' ||
+          stateRef.current === 'RESTARTING';
+        pausedWhileListeningRef.current = live;
+        if (live) {
+          console.log('🎤 Session paused — closing the microphone');
+          stopListeningRef.current?.();
+        }
+        return;
+      }
+      if (!pausedWhileListeningRef.current) return;
+      pausedWhileListeningRef.current = false;
+      if (!recognitionRef.current || stateRef.current === 'LISTENING') return;
+      console.log('🎤 Session resumed — reopening the microphone');
+      manuallyStoppedRef.current = false;
+      stateRef.current = 'STARTING';
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        // Already running, or the engine refused; the existing restart
+        // machinery owns recovery from here.
+        console.warn('🎤 Resume start failed:', err);
+        stateRef.current = 'IDLE';
+      }
+    });
+  }, []);
+
   const resetTranscript = useCallback(() => {
     pendingTranscriptRef.current = '';
     lastProcessedTranscriptRef.current = '';
@@ -545,6 +597,7 @@ export const useSpeechRecognition = (
       setIsListening(false);
     }
   }, []);
+  stopListeningRef.current = stopListening;
 
   // Auto-start if requested
   useEffect(() => {
