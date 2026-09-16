@@ -261,6 +261,56 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     sessionStorage.setItem("preferTypingInput", "true");
   });
 
+  it("lets you answer again after a WRONG tile tap", async () => {
+    // The one-answer-per-trial latch that closed the tap/speak race was set by
+    // handleChoiceTap and released only when the trial advanced. A wrong tap
+    // does not advance, so the latch stayed set and the sentence could never be
+    // answered again — by tile OR by voice. The retry looked completely normal
+    // and silently accepted nothing.
+    const onTrialComplete = vi.fn();
+    render(<FixSentenceGame trialCount={3} clinicalLevel={1} onTrialComplete={onTrialComplete} />);
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+    const trial = findTrialOnScreen();
+    // Pick a wrong tile from what is ACTUALLY on screen, not from a guess — a
+    // guessed list that matches nothing silently skips the tap and the test
+    // passes against the bug.
+    const tileText = Array.from(
+      screen.getByTestId("choice-tiles").querySelectorAll("button")
+    ).map((b) => (b.textContent || "").trim());
+    const accepted = trial.acceptedFixes.map((f: string) => f.toLowerCase());
+    const wrong = tileText.find((t) => t && !accepted.includes(t.toLowerCase()));
+    expect(wrong, `no wrong tile among ${JSON.stringify(tileText)}`).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${wrong}$`, "i") }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 6500)); });
+    // The correct tile must still be accepted.
+    await waitFor(() => screen.getByTestId("choice-tiles"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${trial.acceptedFixes[0]}$`, "i") }));
+    });
+    await waitFor(() => expect(onTrialComplete).toHaveBeenCalled(), { timeout: 4000 });
+    expect(onTrialComplete.mock.calls.at(-1)![0].isCorrect).toBe(true);
+  }, 20000);
+
+  it("does not shut the microphone because typing was chosen in another game", async () => {
+    // preferTypingInput is a SESSION-WIDE sessionStorage key, written by
+    // Category Fluency, Narrative Retell, Describe & Guess and others. At
+    // levels 1-2 this game does not render a typing box at all, so honouring
+    // that flag here held the mic shut for a keyboard that was never on screen
+    // and left the four tiles as the only way to answer.
+    sessionStorage.setItem("preferTypingInput", "true");
+    startListeningSpy.mockClear();
+    try {
+      render(<FixSentenceGame trialCount={3} clinicalLevel={1} />);
+      await waitFor(() => screen.getByTestId("choice-tiles"));
+      await waitFor(() => expect(startListeningSpy).toHaveBeenCalled(), { timeout: 4000 });
+    } finally {
+      sessionStorage.setItem("preferTypingInput", "true");
+    }
+  });
+
   it("logs a spoken answer at level 1 as scaffolded, not as open production", async () => {
     // The ladder measures what help was AVAILABLE, not which channel the answer
     // came through. If speaking with the choices on screen logged

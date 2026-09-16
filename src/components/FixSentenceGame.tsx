@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useSpeechRecognition, isSpeechRecognitionSupported } from '@/hooks/useSpeechRecognition';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -28,6 +28,7 @@ import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { isSentenceEcho } from '@/lib/fixSentence/sentenceEchoGuard';
 import { buildFixSentenceChoices } from '@/lib/fixSentenceChoices';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
@@ -99,8 +100,6 @@ export function FixSentenceGame({
   // Same ref-mirror pattern: these handlers are declared above the
   // useSpeechRecognition/useAudioRecorder destructures, so they cannot close
   // over the functions directly.
-  const startListeningRef = useRef<() => void>(() => {});
-  const startRecordingRef = useRef<() => void>(() => {});
   const autoRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const ttsAbortRef = useRef(false);
   // Re-runs the scoring effect once the VoiceController mic-lock clears, so
@@ -298,13 +297,28 @@ export function FixSentenceGame({
    * answered", which is the thing that actually has to be true only once.
    */
   const trialAnsweredRef = useRef(false);
+  /** handleTryAgain is declared below the tap handler that needs it. */
+  const handleTryAgainRef = useRef<(() => void) | null>(null);
   /**
-   * Read after an await, so it must be a ref: the trial-start flow decides
-   * whether to open the mic AFTER `await speak(sentence)`, and "Switch to
-   * typing" is on screen for that whole 2-4 second window.
+   * Is typing ACTUALLY the answer channel right now?
+   *
+   * Not the same question as `showTextInput`. That flag initialises from
+   * sessionStorage's `preferTypingInput`, which is written by Category
+   * Fluency, Narrative Retell, Describe & Guess and others — it is
+   * session-wide, not per-game. At levels 1-2 the typing box is not rendered
+   * at all (it is gated on !choiceMode), so someone who chose typing anywhere
+   * else in the session arrived here with the microphone held shut for a
+   * keyboard that was never on screen, leaving the four tiles as the only way
+   * to answer. Reproduced twice through the UI with no scripting.
+   *
+   * Typing only counts as the channel when the person can actually see it.
+   *
+   * A ref because the trial-start flow reads it AFTER `await speak(sentence)`,
+   * and "Switch to typing" is on screen for that whole 2-4 second window.
    */
-  const showTextInputRef = useRef(showTextInput);
-  useEffect(() => { showTextInputRef.current = showTextInput; }, [showTextInput]);
+  const typingIsTheChannel = showTextInput && !choiceMode;
+  const typingIsTheChannelRef = useRef(typingIsTheChannel);
+  typingIsTheChannelRef.current = typingIsTheChannel;
   const showHighlight = !choiceMode || clinicalLevel === 1;
   const choiceTiles = React.useMemo(
     () => (choiceMode && game.currentTrial ? buildFixSentenceChoices(game.currentTrial) : null),
@@ -319,6 +333,12 @@ export function FixSentenceGame({
     trialAnsweredRef.current = true;
     processingRef.current = true;
     setIsProcessing(true);
+    // The tap has answered this sentence, and Maya is about to say the word
+    // out loud. Leaving the recogniser open through that is asking for her own
+    // voice — or the room — to land in the next transcript.
+    stopListeningRef.current?.();
+    setIsListening(false);
+    if (isRecording) cancelRecordingRef.current();
     try {
       void speak(word);
       const result = game.scoreChoice(word);
@@ -335,17 +355,21 @@ export function FixSentenceGame({
           setDisplayTranscript('');
         }, AUTO_ADVANCE_DELAY_MS);
       } else {
-        // Gentle retry: same tiles (deterministic), no mic involved.
+        // Gentle retry: same tiles (deterministic). The mic is live beside
+        // them now, so this has to go through handleTryAgain like the spoken
+        // wrong answer does — it releases the one-answer-per-trial latch and
+        // reopens the recogniser. Without that the latch stayed set after a
+        // wrong TAP and the sentence could never be answered again, by either
+        // channel: the retry looked normal and silently accepted nothing.
         setTimeout(() => {
-          setShowFeedback(false);
-          setDisplayTranscript('');
+          handleTryAgainRef.current?.();
         }, WRONG_ANSWER_DISPLAY_MS);
       }
     } finally {
       processingRef.current = false;
       setIsProcessing(false);
     }
-  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement]);
+  }, [game, showFeedback, speak, recordAdaptiveTrial, engagement, isRecording]);
 
   // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
   const handleTypedSubmit = useCallback(async () => {
@@ -491,8 +515,6 @@ export function FixSentenceGame({
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
   useEffect(() => { cancelRecordingRef.current = cancelRecording; }, [cancelRecording]);
-  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
-  useEffect(() => { startRecordingRef.current = startRecording; }, [startRecording]);
   useEffect(() => { setIsListening(speechIsListening); }, [speechIsListening]);
 
   // Stall timer for voice reminder
@@ -558,7 +580,7 @@ export function FixSentenceGame({
         //
         // Still refs and not state, because this line runs after an await and
         // "Switch to typing" is on screen the whole time.
-        if (!showTextInputRef.current) {
+        if (!typingIsTheChannelRef.current) {
           startListening();
           setIsListening(true);
           if (isRecordingSupported && sessionId && userId) startRecording();
@@ -650,7 +672,7 @@ export function FixSentenceGame({
     // the channel. The TILES are no longer exclusive: the mic is deliberately
     // open beside them and the Listening indicator says so, which is the
     // difference between an offered microphone and a hidden one.
-    if (showTextInputRef.current) return;
+    if (typingIsTheChannelRef.current) return;
     // Sync-Wait: never SCORE while Maya is speaking (or within the post-speech
     // tail lock) — but do NOT throw the transcript away. Patients often answer
     // the instant the sentence ends, inside the tail lock; discarding here
@@ -671,27 +693,11 @@ export function FixSentenceGame({
       rawTranscriptRef.current = '';
       return;
     }
-    // ...and neither is PART of it. The verbatim check above only catches a
-    // whole sentence, and the echo filter's similarity thresholds only catch
-    // long partials — so "I cut the" or "a beautiful lamp", three or four words
-    // of the sentence Maya had just read, sailed through and were scored as
-    // wrong answers. Re-reading the sentence aloud while you hunt for the odd
-    // word is the most natural thing to do in this task, and the mic is now
-    // open the whole time you do it.
-    //
-    // The rule that fits this game exactly: the answer is a word that REPLACES
-    // one in the sentence, so an utterance made entirely of words already in
-    // the sentence cannot be an answer. Anything containing an accepted fix is
-    // exempt, because a couple of trials legitimately reuse a sentence word.
-    if (trial.sentence) {
-      const sentenceWords = new Set(normEq(trial.sentence).split(' ').filter(Boolean));
-      const saidWords = normEq(transcript).split(' ').filter(Boolean);
-      const fixes = new Set((trial.acceptedFixes ?? []).map((f) => normEq(f)));
-      const offersAFix = saidWords.some((w) => fixes.has(w));
-      if (saidWords.length > 0 && !offersAFix && saidWords.every((w) => sentenceWords.has(w))) {
-        rawTranscriptRef.current = '';
-        return;
-      }
+    // ...and neither is PART of it. See sentenceEchoGuard for the rule and for
+    // the two exemptions it has to carry.
+    if (isSentenceEcho(transcript, trial)) {
+      rawTranscriptRef.current = '';
+      return;
     }
 
     const candidate = extractAnswerFromTranscript(transcript);
@@ -952,12 +958,13 @@ export function FixSentenceGame({
       // mic went out after the FIRST wrong answer and stayed out for the rest
       // of the sentence, so the retry could only be tapped. Typing is still
       // exclusive. Refs, because this runs after an await.
-      if (showTextInputRef.current) return;
+      if (typingIsTheChannelRef.current) return;
       startListening();
       setIsListening(true);
       if (isRecordingSupported) startRecording();
     });
   }, [sessionId, userId, game, startAttempt, startListening, isRecordingSupported, startRecording, resetAttempt, resetTranscript]);
+  handleTryAgainRef.current = handleTryAgain;
 
   const handleSpeakSentence = useCallback(() => {
     if (game.currentTrial) speak(game.currentTrial.sentence);
@@ -1189,12 +1196,14 @@ export function FixSentenceGame({
               setIsListening(false);
               if (isRecording) cancelRecording();
             } else {
-              // Switching back to speech: open mic if session is active
-              if (sessionId && userId) {
-                startListening();
-                setIsListening(true);
-                if (isRecordingSupported) startRecording();
-              }
+              // Switching back to speech. NOT gated on the session row — that
+              // is the same gate the trial-start flow had, and it meant asking
+              // for the microphone back did nothing at all, silently, whenever
+              // the session had not landed. Opening the mic is how the person
+              // answers; only the audio upload needs somewhere to attach.
+              startListening();
+              setIsListening(true);
+              if (isRecordingSupported && sessionId && userId) startRecording();
             }
           }}
           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"

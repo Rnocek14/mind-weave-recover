@@ -599,7 +599,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       difficulty: currentTrial.difficulty,
       phonemeTargets: currentTrial.phonemeTargets,
     };
-  }, [currentTrial, currentAttempt, localMatch, repairPhase, playSuccess, playError]);
+  }, [currentTrial, currentAttempt, localMatch, repairPhase, playSuccess, playError, clinicalLevel]);
 
   /**
    * Score a CHOICE-TILE selection — the L1/L2 scaffolded response mode
