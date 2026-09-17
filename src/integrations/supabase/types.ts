@@ -4432,6 +4432,22 @@ export type Database = {
       }
     }
     Functions: {
+      admin_user_overview: {
+        Args: never
+        Returns: {
+          completed_session_count: number
+          created_at: string
+          email: string
+          is_anonymous: boolean
+          last_session_at: string
+          last_sign_in_at: string
+          profile_names: string[]
+          roles: string[]
+          session_count: number
+          total_practice_minutes: number
+          user_id: string
+        }[]
+      }
       advance_enrollment_after_consent: {
         Args: { _enrollment_id: string }
         Returns: {
