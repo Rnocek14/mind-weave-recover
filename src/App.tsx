@@ -66,6 +66,7 @@ const RecoveryProgress = lazy(() => import("./pages/RecoveryProgress"));
 const Progress = lazy(() => import("./pages/Progress"));
 const AdminEngineSimulation = lazy(() => import("./pages/AdminEngineSimulation"));
 const AdminAlertRollup = lazy(() => import("./pages/AdminAlertRollup"));
+const AdminUserOverview = lazy(() => import("./pages/AdminUserOverview"));
 const AdminOverrideAudit = lazy(() => import("./pages/AdminOverrideAudit"));
 const AdminAdaptationStream = lazy(() => import("./pages/AdminAdaptationStream"));
 const AdminSuccessBand = lazy(() => import("./pages/AdminSuccessBand"));
@@ -285,6 +286,7 @@ const App = () => (
                   <Route path="/admin/outcomes-validation" element={<AppLayout><AdminProtectedRoute><OutcomesValidation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/engine-simulation" element={<AppLayout><AdminProtectedRoute><AdminEngineSimulation /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/alerts" element={<AppLayout><AdminProtectedRoute><AdminAlertRollup /></AdminProtectedRoute></AppLayout>} />
+                  <Route path="/admin/users" element={<AppLayout><AdminProtectedRoute><AdminUserOverview /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/overrides" element={<AppLayout><AdminProtectedRoute><AdminOverrideAudit /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/adaptations" element={<AppLayout><AdminProtectedRoute><AdminAdaptationStream /></AdminProtectedRoute></AppLayout>} />
                   <Route path="/admin/success-band" element={<AppLayout><AdminProtectedRoute><AdminSuccessBand /></AdminProtectedRoute></AppLayout>} />

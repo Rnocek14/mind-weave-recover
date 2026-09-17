@@ -16,6 +16,24 @@ interface NavItem {
 
 const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
   {
+    heading: "People",
+    items: [
+      {
+        title: "All Users",
+        description: "Every account: email, roles, sessions, last practice, CSV export",
+        href: "/admin/users",
+        icon: Users,
+        badge: "New",
+      },
+      {
+        title: "Roles & Assignments",
+        description: "Grant admin, clinician or caregiver access and link patients",
+        href: "/admin?tab=users",
+        icon: Shield,
+      },
+    ],
+  },
+  {
     heading: "System Oversight",
     items: [
       {
