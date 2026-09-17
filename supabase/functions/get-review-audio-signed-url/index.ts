@@ -119,7 +119,7 @@ serve(async (req) => {
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin
       .storage
       .from('session-recordings')
-      .createSignedUrl(analysis.audio_storage_path, expiresInSeconds);
+      .createSignedUrl(audioPath, expiresInSeconds);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('Failed to create signed URL:', signedUrlError);
