@@ -152,6 +152,11 @@ const ClinicalReviewDashboard = () => {
       if (error) throw error;
       if (data?.signed_url) {
         setAudioUrl(data.signed_url);
+      } else if (data?.no_audio) {
+        toast({
+          title: "No recording",
+          description: "This attempt has no saved audio.",
+        });
       }
     } catch (error) {
       console.error("Error loading audio:", error);

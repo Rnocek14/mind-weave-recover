@@ -81,37 +81,45 @@ serve(async (req) => {
       .from('utterance_analyses')
       .select('attempt_id, audio_storage_path, analysis_status')
       .eq('attempt_id', attempt_id)
-      .single();
+      .maybeSingle();
 
-    if (analysisError || !analysis) {
-      console.error('Analysis not found:', analysisError);
+    if (analysisError) {
+      console.error('Analysis lookup failed:', analysisError);
       return new Response(
-        JSON.stringify({ error: 'Utterance analysis not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Utterance analysis lookup failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Verify analysis is in a reviewable state
-    if (analysis.analysis_status !== 'complete') {
+    let audioPath = analysis?.audio_storage_path ?? null;
+
+    // Fallback: the recording may live on the exercise_events row instead
+    if (!audioPath) {
+      const { data: evt } = await supabaseAdmin
+        .from('exercise_events')
+        .select('audio_storage_path')
+        .eq('attempt_id', attempt_id)
+        .not('audio_storage_path', 'is', null)
+        .limit(1)
+        .maybeSingle();
+      audioPath = evt?.audio_storage_path ?? null;
+    }
+
+    if (!audioPath) {
+      // Not an error state — this attempt simply has no recording.
       return new Response(
-        JSON.stringify({ error: 'Analysis not ready for review' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ signed_url: null, no_audio: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!analysis.audio_storage_path) {
-      return new Response(
-        JSON.stringify({ error: 'No audio file associated with this analysis' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Generate signed URL (valid for 5 minutes for review)
     const expiresInSeconds = 300;
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin
       .storage
       .from('session-recordings')
-      .createSignedUrl(analysis.audio_storage_path, expiresInSeconds);
+      .createSignedUrl(audioPath, expiresInSeconds);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       console.error('Failed to create signed URL:', signedUrlError);
