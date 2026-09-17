@@ -21,7 +21,7 @@
  * the wrong origin is worse than no sitemap at all.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -300,12 +300,48 @@ async function prerender() {
   }
 }
 
+/**
+ * Stamp the build so the live site can say what it is.
+ *
+ * For a full day the repository and the live site disagreed and there was no
+ * way to see it without downloading a bundle and grepping it for a string that
+ * a fix had deleted. "It's merged" and "it's live" are different facts, and
+ * nothing anywhere made the gap visible. Now anything — a person, a script,
+ * me — can ask the site directly:
+ *
+ *     curl -s https://neurospark.co/version.json
+ */
+function writeVersion() {
+  let commit = process.env.GITHUB_SHA || '';
+  if (!commit) {
+    try {
+      commit = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString().trim();
+    } catch { commit = 'unknown'; }
+  }
+  let subject = '';
+  try {
+    subject = execSync('git log -1 --pretty=%s', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim().slice(0, 120);
+  } catch { /* optional */ }
+
+  const payload = {
+    commit,
+    short: commit.slice(0, 7),
+    subject,
+    builtAt: new Date().toISOString(),
+  };
+  writeFileSync(join(DIST, 'version.json'), JSON.stringify(payload, null, 2));
+  info(`stamped version.json (${payload.short})`);
+}
+
 async function main() {
   if (!existsSync(DIST)) {
     warn('dist/ not found — nothing to do.');
     return;
   }
   writeSitemap();
+  writeVersion();
   await prerender();
 }
 
