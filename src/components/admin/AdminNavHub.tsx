@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import {
   BarChart3, AlertTriangle, Shield, Activity, Target,
-  Database, FlaskConical, Cpu, ClipboardCheck, ImageIcon, Brain, Mic,
+  Database, FlaskConical, Cpu, ClipboardCheck, ImageIcon, Brain, Mic, Users,
 } from "lucide-react";
 
 interface NavItem {
