@@ -110,12 +110,18 @@ type AttemptRecord = {
   payload?: TablesInsert<'utterance_analyses'>;
 };
 
+export interface CapturedAttempt {
+  readonly attemptId: string | null;
+  readonly finalize: (analysis: Omit<FinalAnalysisInput, 'attemptId'>) => Promise<FinalizationResult>;
+}
+
 interface UtteranceLoggerReturn {
   currentAttemptId: string | null;
   isFinalized: boolean;
   startAttempt: (context: Omit<AttemptContext, 'attemptId' | 'pronRequestId' | 'startedAt'>) => { attemptId: string; pronRequestId: string };
   logBrowserTranscript: (transcript: string, attemptId?: string | null) => void;
   logFinalAnalysis: (analysis: FinalAnalysisInput) => Promise<FinalizationResult>;
+  captureAttempt: () => CapturedAttempt;
   resetAttempt: () => void;
 }
 
@@ -210,9 +216,7 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   const [isFinalized, setIsFinalized] = useState(false);
   const attemptsRef = useRef(new Map<string, AttemptRecord>());
   const activeAttemptRef = useRef<string | null>(null);
-  const epochRef = useRef(0);
   const mountedRef = useRef(true);
-  const renderEpoch = epochRef.current;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -229,7 +233,6 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     });
     attemptsRef.current.set(attemptId, { context: snapshot, browserTranscript: null, state: 'open' });
     activeAttemptRef.current = attemptId;
-    epochRef.current += 1;
     if (mountedRef.current) {
       setCurrentAttemptId(attemptId);
       setIsFinalized(false);
@@ -248,13 +251,9 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
 
   const logFinalAnalysis = useCallback(async (analysis: FinalAnalysisInput): Promise<FinalizationResult> => {
     const explicitIdentity = Object.prototype.hasOwnProperty.call(analysis, 'attemptId');
-    // Existing game handlers close over this render's finalizer. Binding that
-    // render's ID protects late callbacks even before every game is migrated
-    // to explicit IDs. The synchronous startAttempt+finalize legacy sequence
-    // is supported only for the immediately next identity epoch.
-    const id = explicitIdentity
-      ? analysis.attemptId ?? null
-      : currentAttemptId ?? (epochRef.current === renderEpoch + 1 ? activeAttemptRef.current : null);
+    // Keep the synchronous legacy API stable. Async game callbacks must use
+    // captureAttempt() before awaiting work, or pass an explicit original ID.
+    const id = explicitIdentity ? analysis.attemptId ?? null : activeAttemptRef.current;
     const record = id ? attemptsRef.current.get(id) : undefined;
     if (!record || !id) return { status: 'missing_attempt', attemptId: id ?? null };
     if (record.state === 'persisted') return { status: 'persisted', attemptId: id, duplicate: true };
@@ -271,6 +270,9 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
         return { status: 'failed', attemptId: id, reason: 'database_error' };
       }
       record.state = 'persisted';
+      // Retain the deduplication marker, not completed audio-analysis payloads.
+      record.payload = undefined;
+      record.browserTranscript = null;
       if (mountedRef.current && activeAttemptRef.current === id) setIsFinalized(true);
       return { status: 'persisted', attemptId: id, duplicate: false };
     } catch {
@@ -278,11 +280,25 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
       console.warn('[UtteranceLogger] Transport or payload failure; retry remains available.');
       return { status: 'failed', attemptId: id, reason: 'transport_or_payload_error' };
     }
-  }, [currentAttemptId, renderEpoch]);
+  }, []);
+
+  const captureAttempt = useCallback((): CapturedAttempt => {
+    const id = activeAttemptRef.current;
+    const browserTranscript = id ? attemptsRef.current.get(id)?.browserTranscript : null;
+    // This function is stable across renders and reads the active identity at
+    // invocation. The returned finalizer never reads the next active attempt.
+    return Object.freeze({
+      attemptId: id,
+      finalize: (analysis: Omit<FinalAnalysisInput, 'attemptId'>) => logFinalAnalysis({
+        ...analysis,
+        attemptId: id,
+        transcript: analysis.transcript ?? browserTranscript ?? undefined,
+      }),
+    });
+  }, [logFinalAnalysis]);
 
   const resetAttempt = useCallback((): void => {
     activeAttemptRef.current = null;
-    epochRef.current += 1;
     // Retain attempt records for callbacks already in flight. Their lifetime
     // is this hook instance, not a global cache or cross-user singleton.
     if (mountedRef.current) {
@@ -291,5 +307,5 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     }
   }, []);
 
-  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, resetAttempt };
+  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, captureAttempt, resetAttempt };
 };
