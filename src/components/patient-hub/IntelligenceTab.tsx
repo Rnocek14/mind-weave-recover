@@ -5,15 +5,15 @@
  * 3. Why (explanations, collapsed)
  * 4. Deep Data (collapsed)
  */
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Brain, Pill, CheckCircle2, AlertTriangle, ArrowRight, Shield,
-  TrendingUp, TrendingDown, Minus, Info, Activity, Target,
+  Brain, Pill, CheckCircle2, AlertTriangle, ArrowRight,
+  TrendingUp, TrendingDown, Minus, Activity, Target,
   ChevronDown
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,7 +26,6 @@ import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { useWeekOverWeek } from "@/hooks/useWeekOverWeek";
 import { useClinicianOverrides } from "@/hooks/useClinicianOverrides";
 import { useDoseTargets } from "@/hooks/useDoseTargets";
-import { useRecoveryScore } from "@/hooks/useRecoveryScore";
 import { useCueIndependence } from "@/hooks/useCueIndependence";
 import { useLearningRate } from "@/hooks/useLearningRate";
 import { useFunctionalGoals } from "@/hooks/useFunctionalGoals";
@@ -41,7 +40,7 @@ import { PendingSuggestions } from "@/components/clinician/PendingSuggestions";
 import { LongitudinalUtteranceComparison } from "@/components/clinician/LongitudinalUtteranceComparison";
 import { selectTherapyStrategy } from "@/lib/therapyStrategyEngine";
 import { generateNextActions } from "@/lib/generateNextActions";
-import { loadWordHistory, getRetentionDifficultyHint } from "@/lib/smartCoach/crossSessionRetention";
+import { buildPracticeObservations } from "@/lib/clinical/practiceObservations";
 import { cn } from "@/lib/utils";
 
 interface IntelligenceTabProps {
@@ -103,21 +102,9 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
   const { profile: intelligenceProfile, isLoading: intelligenceLoading } = usePatientIntelligence(userId, profileId);
   const { suggestedOverrides, refetch: refetchOverrides } = useClinicianOverrides(profileId);
   const { comparisons: doseComparisons, isLoading: doseLoading } = useDoseTargets(profileId, windowSize);
-  const { score: recoveryScore, breakdown: rsBreakdown, confidence: rsConfidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
   const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId, { profileId });
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId, { profileId });
   const { goals, loading: goalsLoading } = useFunctionalGoals(userId, profileId);
-
-  // Retention data for readiness signal
-  const [retentionRate, setRetentionRate] = useState<number | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    loadWordHistory(userId, 100).then((history) => {
-      const hint = getRetentionDifficultyHint(history);
-      const tracked = history.filter(w => w.sessionCount >= 2).length;
-      setRetentionRate(tracked > 0 ? Math.round((hint.retainedWords.length / tracked) * 100) : null);
-    });
-  }, [userId]);
 
   const { currentDayGroups, priorDayGroups, currentTimeline, priorTimelineSplit } = useMemo(() => {
     const cutoff = allDayGroups.length - windowSize;
@@ -154,45 +141,19 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
     [timeline, flags, alerts, sessionStats, activeDays]
   );
 
-  // Readiness / Discharge Signal
-  const readinessSignal = useMemo(() => {
-    const signals: { label: string; value: number | null; weight: number }[] = [
-      { label: "Recovery Score", value: recoveryScore, weight: 0.3 },
-      { label: "Cue Independence", value: cueScore, weight: 0.25 },
-      { label: "Retention Rate", value: retentionRate, weight: 0.25 },
-      { label: "Accuracy Trend", value: sessionStats.accuracySlope != null ? (sessionStats.accuracySlope > 0.01 ? 80 : sessionStats.accuracySlope > -0.01 ? 60 : 30) : null, weight: 0.2 },
-    ];
-    const validSignals = signals.filter(s => s.value != null);
-    if (validSignals.length < 2) return { level: "insufficient" as const, score: null, signals };
-    const weighted = validSignals.reduce((sum, s) => sum + (s.value! * s.weight), 0) / validSignals.reduce((sum, s) => sum + s.weight, 0);
-    const level = weighted >= 80 ? "ready" as const : weighted >= 65 ? "stable" as const : weighted >= 45 ? "improving" as const : "plateau" as const;
-    return { level, score: Math.round(weighted), signals };
-  }, [recoveryScore, cueScore, retentionRate, sessionStats.accuracySlope]);
-
-  // Functional communication links
+  // Observations stay within measured app performance. Patient goals are
+  // preserved, but scores do not establish recovery or treatment readiness.
   const functionalLinks = useMemo(() => {
-    const links: { exercise: string; functional: string; signal: string }[] = [];
-    const avgAcc = sessionStats.avgAccuracy;
-    if (avgAcc != null) {
-      if (avgAcc >= 70) {
-        links.push({ exercise: "Photo Naming / Category Fluency", functional: "Object identification in daily life", signal: `${Math.round(avgAcc)}% naming accuracy → functional word retrieval improving` });
-      }
-      if (sessionStats.accuracySlope != null && sessionStats.accuracySlope > 0) {
-        links.push({ exercise: "Response speed trend", functional: "Conversational flow & participation", signal: "Faster responses → improved real-time communication" });
-      }
-    }
-    if (cueScore != null && cueScore >= 60) {
-      links.push({ exercise: "Cue independence", functional: "Independent communication", signal: `${cueScore}% independence → less support needed in daily interactions` });
-    }
-    if (retentionRate != null && retentionRate >= 50) {
-      links.push({ exercise: "Word retention", functional: "Vocabulary carryover", signal: `${retentionRate}% retention → practiced words transferring to daily use` });
-    }
-    const activeGoals = goals.filter(g => !g.archived_at);
-    activeGoals.forEach(g => {
-      links.push({ exercise: `Goal: ${g.target_domain}`, functional: g.goal_text, signal: `Active goal — ${g.baseline_status}` });
+    const links = buildPracticeObservations({
+      averageScorePct: sessionStats.avgAccuracy,
+      scoreSlopePerDay: sessionStats.accuracySlope,
+      cueIndexPct: cueScore,
+    });
+    goals.filter(g => !g.archived_at).forEach(g => {
+      links.push({ exercise: `Goal: ${g.target_domain}`, functional: g.goal_text, signal: `Active goal - ${g.baseline_status}` });
     });
     return links;
-  }, [sessionStats, cueScore, retentionRate, goals]);
+  }, [sessionStats, cueScore, goals]);
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
 
@@ -264,42 +225,18 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
 
             <OutcomePredictionCard userId={userId} profileId={profileId} />
 
-            {/* Readiness Signal */}
-            {readinessSignal.score != null && (
-              <Card className={cn("border-l-4 mx-1", readinessSignal.level === "ready" ? "border-l-success" : readinessSignal.level === "stable" ? "border-l-primary" : readinessSignal.level === "improving" ? "border-l-amber-500" : "border-l-destructive")}>
-                <CardHeader className="pb-2 pt-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    Readiness Signal
-                    <Badge variant={readinessSignal.level === "ready" ? "default" : "secondary"} className="text-xs capitalize">
-                      {readinessSignal.level === "ready" ? "Ready for step-down" : readinessSignal.level}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 space-y-2">
-                  <div className="space-y-1.5">
-                    {readinessSignal.signals.map((s) => (
-                      <div key={s.label} className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{s.label}</span>
-                        <span className="font-medium">{s.value != null ? `${s.value}%` : "—"}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Info className="w-3 h-3" />
-                    Composite of recovery score, cue independence, retention, and accuracy trend
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <p role="note" className="text-xs text-muted-foreground px-3">
+              App practice does not establish readiness for discharge or reduced therapy.
+              Everyday communication requires separate assessment.
+            </p>
 
-            {/* Functional Communication Transfer */}
+            {/* Observed practice and patient-defined goals */}
             {functionalLinks.length > 0 && (
               <Card className="mx-1">
                 <CardHeader className="pb-2 pt-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Target className="w-4 h-4 text-primary" />
-                    Functional Communication Impact
+                    Practice observations and goals
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pb-3 space-y-2">

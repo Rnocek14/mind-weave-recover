@@ -1,24 +1,17 @@
 /**
- * Session Review Tab — picks one session and presents focused
+ * Session Review Tab - picks one session and presents focused
  * recording-level evidence for clinical analysis.
- *
- * Sections:
- *   1. Session summary strip
- *   2. Voice evidence (4 curated clips)
- *   3. Error pattern breakdown (interactive)
- *   4. Sounds to watch (auto-detected, hedged)
- *   5. Cue response + cross-session fade
- *   6. Clinician notes
- *
- * Only the *selected* session loads its trial detail (lazy).
+ * Only the selected session loads its trial detail (lazy).
  */
 import { useEffect, useMemo, useState } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
+import { hasDeliveredCue, isScoredClinicalEvidence } from "@/lib/clinical/scoredEvidence";
 import { SessionSummaryStrip } from "./review/SessionSummaryStrip";
 import { VoiceEvidenceGrid } from "./review/VoiceEvidenceGrid";
 import { ErrorPatternBreakdown, categoryOfTrial } from "./review/ErrorPatternBreakdown";
@@ -41,11 +34,7 @@ interface SessionLite {
   duration_sec: number | null;
 }
 
-function Section({
-  title,
-  description,
-  children,
-}: {
+function Section({ title, description, children }: {
   title: string;
   description?: string;
   children: React.ReactNode;
@@ -54,9 +43,7 @@ function Section({
     <section className="space-y-2">
       <div>
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
-        {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </div>
       {children}
     </section>
@@ -64,44 +51,62 @@ function Section({
 }
 
 export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
+  // Reset selection, evidence, filters and child audio state together, before
+  // any render can display the old patient's recordings under the new ID.
+  return <ProfileSessionReview key={profileId ?? 'no-profile'} profileId={profileId} />;
+}
+
+function ProfileSessionReview({ profileId }: SessionReviewTabProps) {
   const [sessions, setSessions] = useState<SessionLite[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionsError, setSessionsError] = useState(false);
+  const [reload, setReload] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [errorFilter, setErrorFilter] = useState<string | null>(null);
+  const { trials, loading: trialsLoading, loadedSessionId, fetchTrials } = useSessionDetail();
 
-  const { trials, loading: trialsLoading, fetchTrials } = useSessionDetail();
-
-  // Load last 10 sessions for the picker
   useEffect(() => {
     if (!profileId) {
       setSessions([]);
+      setSelectedId(null);
       setSessionsLoading(false);
       return;
     }
     let cancelled = false;
     (async () => {
       setSessionsLoading(true);
-      const { data } = await supabase
-        .from("sessions")
-        .select("id, started_at, duration_sec")
-        .eq("profile_id", profileId)
-        .not("ended_at", "is", null)
-        .order("started_at", { ascending: false })
-        .limit(10);
-      if (cancelled) return;
-      const rows = (data ?? []) as SessionLite[];
-      setSessions(rows);
-      if (rows.length > 0 && !selectedId) setSelectedId(rows[0].id);
-      setSessionsLoading(false);
+      setSessionsError(false);
+      try {
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("id, started_at, duration_sec")
+          .eq("profile_id", profileId)
+          .not("ended_at", "is", null)
+          .order("started_at", { ascending: false })
+          .limit(10);
+        if (cancelled) return;
+        if (error) throw error;
+        const rows = (data ?? []) as SessionLite[];
+        setSessions(rows);
+        setSelectedId((current) => rows.some((row) => row.id === current)
+          ? current : rows[0]?.id ?? null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Error loading review sessions:", error);
+        setSessions([]);
+        setSelectedId(null);
+        setSessionsError(true);
+      } finally {
+        if (!cancelled) setSessionsLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, [profileId]);
+  }, [profileId, reload]);
 
-  // Load trials for selected session
   useEffect(() => {
     if (selectedId) {
       setErrorFilter(null);
-      fetchTrials(selectedId);
+      void fetchTrials(selectedId);
     }
   }, [selectedId, fetchTrials]);
 
@@ -110,22 +115,12 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
     [sessions, selectedId]
   );
 
-  // Derived session-level metrics — Speech Validity Gate aware.
-  // Accuracy / cue-dependency / level reflect ONLY clips that count toward score
-  // (clinician override `patient` re-admits an excluded clip).
   const metrics = useMemo(() => {
-    const isScored = (t: TrialData) => {
-      if (t.clinician_validity_override === "patient") return true;
-      if (t.clinician_validity_override === "not_patient" || t.clinician_validity_override === "noise" || t.clinician_validity_override === "filler") return false;
-      if (t.counts_toward_score === false) return false;
-      if (t.validity_label && t.validity_label !== "valid_attempt") return false;
-      return true;
-    };
-    const scored = trials.filter(isScored);
+    const scored = trials.filter(isScoredClinicalEvidence);
     const total = scored.length;
     const correct = scored.filter((t) => t.is_correct === true).length;
     const slugs = new Set(scored.map((t) => t.exercise_slug || "").filter(Boolean));
-    const cued = scored.filter((t) => !!t.cue_type_given).length;
+    const cued = scored.filter((t) => hasDeliveredCue(t.cue_type_given)).length;
     const levels = scored
       .map((t) => {
         const tp = t.taskParameters as any;
@@ -133,10 +128,9 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       })
       .filter((n) => n > 0);
 
-    // Validity buckets across ALL trials (for the trust strip)
     const buckets = { valid: 0, filler: 0, silence: 0, noise: 0, flagged: 0 };
     for (const t of trials) {
-      if (isScored(t)) { buckets.valid += 1; continue; }
+      if (isScoredClinicalEvidence(t)) { buckets.valid += 1; continue; }
       const label = t.clinician_validity_override || t.validity_label || "";
       switch (label) {
         case "filler":
@@ -149,7 +143,6 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
         default: buckets.flagged += 1; break;
       }
     }
-
     return {
       gamesPlayed: slugs.size,
       accuracyPct: total > 0 ? Math.round((correct / total) * 100) : 0,
@@ -159,7 +152,6 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
     };
   }, [trials]);
 
-  // Trials filtered by selected error category
   const filteredTrials = useMemo(() => {
     if (!errorFilter) return trials;
     return trials.filter((t) => categoryOfTrial(t).includes(errorFilter));
@@ -174,7 +166,14 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
       </div>
     );
   }
-
+  if (sessionsError) {
+    return (
+      <div role="alert" className="space-y-3 rounded-lg border p-6 text-sm">
+        <p>Session history could not be loaded. No patient results are shown.</p>
+        <Button variant="outline" onClick={() => setReload((value) => value + 1)}>Retry</Button>
+      </div>
+    );
+  }
   if (sessions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground text-center">
@@ -185,13 +184,10 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
 
   return (
     <div className="space-y-5 p-1">
-      {/* Session picker */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-muted-foreground">Reviewing session:</span>
         <Select value={selectedId ?? undefined} onValueChange={setSelectedId}>
-          <SelectTrigger className="w-auto min-w-[220px] h-9">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="w-auto min-w-[220px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
             {sessions.map((s) => (
               <SelectItem key={s.id} value={s.id}>
@@ -214,9 +210,13 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-40 w-full" />
         </div>
+      ) : loadedSessionId !== selectedId ? (
+        <div className="space-y-3 rounded-lg border p-4 text-sm">
+          <p>Evidence for this session is not loaded. No previous session results are shown.</p>
+          <Button variant="outline" onClick={() => selectedId && void fetchTrials(selectedId)}>Retry</Button>
+        </div>
       ) : (
         <>
-          {/* 1. Summary */}
           <SessionSummaryStrip
             startedAt={selectedSession.started_at}
             durationSec={selectedSession.duration_sec}
@@ -226,12 +226,7 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
             cueDependencyPct={metrics.cueDependencyPct}
             validityBuckets={metrics.validityBuckets}
           />
-
-          {/* 2. Voice Evidence */}
-          <Section
-            title="Voice evidence"
-            description="Curated clips from this session, or hear the same target across time."
-          >
+          <Section title="Voice evidence" description="Curated clips from this session, or hear the same target across time.">
             <Tabs defaultValue="session" className="w-full">
               <TabsList className="h-9">
                 <TabsTrigger value="session" className="text-xs">This session</TabsTrigger>
@@ -247,55 +242,28 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
                 />
               </TabsContent>
               <TabsContent value="across" className="mt-3">
-                <AcrossTimeView
-                  currentSessionTrials={trials}
-                  profileId={profileId}
-                />
+                <AcrossTimeView currentSessionTrials={trials} profileId={profileId} />
               </TabsContent>
             </Tabs>
           </Section>
-
-          {/* 3. Error patterns */}
-          <Section
-            title="Error pattern breakdown"
-            description="Click any bar to filter the trials below."
-          >
-            <ErrorPatternBreakdown
-              trials={trials}
-              selected={errorFilter}
-              onSelect={setErrorFilter}
-            />
+          <Section title="Error pattern breakdown" description="Click any bar to filter the trials below.">
+            <ErrorPatternBreakdown trials={trials} selected={errorFilter} onSelect={setErrorFilter} />
           </Section>
-
-          {/* 3b. Attempt-by-attempt axis evidence (Voice Engine v2 preview) */}
           <Section
             title="What happened on each attempt"
-            description="Plain-language verdicts with the evidence behind them — word retrieval, communication success, and independence per attempt."
+            description="Plain-language verdicts with the evidence behind them - word retrieval, communication success, and independence per attempt."
           >
             <AxisEvidencePanel trials={trials} />
           </Section>
-
-          {/* 4. Sounds to watch */}
           <SoundsToWatch trials={trials} />
-
-          {/* 5. Cue response */}
-          <Section
-            title="Cue response"
-            description="What kind of support unlocked correct production."
-          >
+          <Section title="Cue response" description="What kind of support unlocked correct production.">
             <CueResponsePanel trials={trials} profileId={profileId} />
           </Section>
-
-          {/* Filtered trial list (when an error category is selected) */}
           {errorFilter && (
-            <Section
-              title={`Trials in this category (${filteredTrials.length})`}
-            >
+            <Section title={`Trials in this category (${filteredTrials.length})`}>
               <FilteredTrialList trials={filteredTrials} />
             </Section>
           )}
-
-          {/* 6. Notes */}
           <SessionNotesPanel sessionId={selectedSession.id} profileId={profileId} />
         </>
       )}
@@ -304,16 +272,11 @@ export function SessionReviewTab({ profileId }: SessionReviewTabProps) {
 }
 
 function FilteredTrialList({ trials }: { trials: TrialData[] }) {
-  if (trials.length === 0) {
-    return <div className="text-xs text-muted-foreground">No trials in this category.</div>;
-  }
+  if (trials.length === 0) return <div className="text-xs text-muted-foreground">No trials in this category.</div>;
   return (
     <ul className="space-y-1.5">
       {trials.map((t) => (
-        <li
-          key={t.attempt_id}
-          className="rounded-md border border-border bg-card px-3 py-2 flex items-center gap-2"
-        >
+        <li key={t.attempt_id} className="rounded-md border border-border bg-card px-3 py-2 flex items-center gap-2">
           {t.audio_storage_path ? (
             <Volume2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           ) : (
@@ -327,9 +290,7 @@ function FilteredTrialList({ trials }: { trials: TrialData[] }) {
             </div>
           </div>
           {t.error_type && (
-            <span className="text-[10px] text-muted-foreground capitalize shrink-0">
-              {t.error_type.replace(/_/g, " ")}
-            </span>
+            <span className="text-[10px] text-muted-foreground capitalize shrink-0">{t.error_type.replace(/_/g, " ")}</span>
           )}
         </li>
       ))}
