@@ -1,0 +1,1 @@
+UPDATE public.profiles SET is_active = true WHERE id IN ('8891a8e6-ca6a-4bfb-88c1-deb85d0d150c','b0f7bc41-a39c-4917-abd7-178c63879fa7','a21a1be3-2565-46dd-823f-e494f67d2a80');
