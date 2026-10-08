@@ -1,0 +1,67 @@
+name: Evidence and production bundle
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  evidence-build:
+    name: Evidence regression suite and production bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Run complete unit suite and report counts
+        shell: bash
+        run: |
+          status=0
+          bunx vitest run --reporter=json --outputFile=evidence-test-results.json > /tmp/evidence-tests.log 2>&1 || status=$?
+          if [ -f evidence-test-results.json ]; then
+            node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('evidence-test-results.json', 'utf8'));
+          console.log(JSON.stringify({
+            success: report.success,
+            total: report.numTotalTests,
+            passed: report.numPassedTests,
+            failed: report.numFailedTests,
+            skipped: report.numPendingTests,
+            testFiles: report.testResults?.length,
+          }, null, 2));
+          for (const file of report.testResults ?? []) {
+            if (file.name.includes('auditEvidenceIntegrity') || file.name.includes('scoredEvidence')) {
+              console.log(`REGRESSION ${file.status}: ${file.name}`);
+            }
+            for (const assertion of file.assertionResults ?? []) {
+              if (assertion.status === 'failed') {
+                console.error(assertion.fullName, assertion.failureMessages?.join('\n'));
+              }
+            }
+          }
+          NODE
+          else
+            echo 'No test report was produced.'
+            status=1
+          fi
+          if [ "$status" -ne 0 ]; then tail -n 80 /tmp/evidence-tests.log; fi
+          exit "$status"
+      - name: Build production bundle without deployment or live prerendering
+        shell: bash
+        run: |
+          status=0
+          bunx vite build > /tmp/evidence-build.log 2>&1 || status=$?
+          tail -n 25 /tmp/evidence-build.log
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          test -s dist/index.html
+          echo 'Production bundle built. No deploy, live verification or prerender was run.'
