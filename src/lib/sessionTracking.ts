@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ExerciseModality, normalizeExerciseSlug } from './exerciseSlugNormalizer';
 import { trackEvent, FUNNEL_EVENTS } from './appEvents';
+import { sessionWriteApplied } from './sessionWriteResult';
 
 export interface SessionPlan {
   blocks: Array<{
@@ -140,14 +141,21 @@ export const endSession = async (
     ...accuracySummaryToSummaryFields(acc),
   };
 
-  const { error } = await (supabase as any).rpc('end_session_with_summary_patch', {
+  const { data, error } = await (supabase as any).rpc('end_session_with_summary_patch', {
     p_session_id: sessionId,
     p_summary_patch: summaryPatch,
     p_duration_sec: summary.durationSec,
     p_ended_reason: reason,
   });
-  
+
   if (error) throw error;
+  // An RPC may return successfully yet modify zero rows when a session was
+  // already closed or is inaccessible. Do not fire completion analytics or
+  // achievements when the clinical summary was not persisted.
+  if (!sessionWriteApplied(data, error)) {
+    console.warn('[SessionTracking] End session returned no updated row:', sessionId);
+    return;
+  }
 
   if (reason === 'completed') {
     trackEvent(FUNNEL_EVENTS.SESSION_COMPLETED, {
