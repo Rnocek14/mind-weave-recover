@@ -126,42 +126,26 @@ export const endSession = async (
   summary: SessionSummary,
   reason: 'completed' | 'abandoned' | 'skipped' | 'manual' = 'completed'
 ) => {
-  // Preserve any mode/metadata that was stamped at session creation time
-  // (e.g. 'lesson' from LessonFlow, 'standalone' from useStandaloneSession,
-  // 'smart_coach' from SmartCoach). Without merging, the final UPDATE would
-  // wipe these flags and analytics could no longer distinguish session types.
-  const { data: existing } = await supabase
-    .from('sessions')
-    .select('summary')
-    .eq('id', sessionId)
-    .maybeSingle();
-
-  const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
-
   // Stamp canonical top-level accuracy fields so plateau/regression detectors
   // (which read summary.accuracy) actually receive a value. Computed from the
   // raw exercise_events ground truth, split into independent vs cue-assisted.
   const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('./sessionAccuracySummary');
   const acc = await computeSessionAccuracySummary(sessionId);
 
-  const mergedSummary = {
-    ...existingSummary,
+  // Merge inside PostgreSQL rather than SELECT -> merge -> UPDATE in the
+  // browser. The latter loses fields when another summary writer commits
+  // between our read and write.
+  const summaryPatch = {
     ...summary,
     ...accuracySummaryToSummaryFields(acc),
   };
 
-  // Idempotent: only set ended_at + ended_reason if not already ended.
-  // This prevents overwriting a server-side sweeper close or a prior call.
-  const { error } = await supabase
-    .from('sessions')
-    .update({
-      ended_at: new Date().toISOString(),
-      duration_sec: summary.durationSec,
-      summary: mergedSummary as any,
-      ended_reason: reason,
-    })
-    .eq('id', sessionId)
-    .is('ended_at', null);
+  const { error } = await (supabase as any).rpc('end_session_with_summary_patch', {
+    p_session_id: sessionId,
+    p_summary_patch: summaryPatch,
+    p_duration_sec: summary.durationSec,
+    p_ended_reason: reason,
+  });
   
   if (error) throw error;
 
