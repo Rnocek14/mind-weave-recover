@@ -157,21 +157,11 @@ export const useSessionLifecycle = ({
 
         if (isOwnedByParent) {
           // Parent flow (LessonFlow / SmartCoach) owns ended_at + ended_reason.
-          // We must NOT close the session here, otherwise the next exercise
-          // in the lesson will be orphaned. We also must NOT replace summary —
-          // we merge our exercise stats into it so analytics keep mode/etc.
-          const { data: existing } = await supabase
-            .from('sessions')
-            .select('summary')
-            .eq('id', sid)
-            .maybeSingle();
-
-          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
-          const exerciseScores = (existingSummary.scores as Record<string, number> | undefined) ?? {};
-
-          const mergedSummary = {
-            ...existingSummary,
-            scores: { ...exerciseScores, [exerciseSlug]: stats.score },
+          // Merge only this exercise's patch in PostgreSQL. The DB function
+          // also merges nested scores by slug, preventing concurrent exercise
+          // writers from erasing each other.
+          const summaryPatch = {
+            scores: { [exerciseSlug]: stats.score },
             // Track per-exercise reps without clobbering totals owned by parent
             lastExerciseReps: stats.totalTrials,
             lastExerciseDurationSec: durationSec,
@@ -180,42 +170,29 @@ export const useSessionLifecycle = ({
             ...accFields,
           };
 
-          const { error } = await supabase
-            .from('sessions')
-            .update({ summary: mergedSummary as any })
-            .eq('id', sid)
-            .is('ended_at', null);
+          const { error } = await (supabase as any).rpc('merge_session_summary', {
+            p_session_id: sid,
+            p_summary_patch: summaryPatch,
+            p_require_open: true,
+          });
           updateError = error;
         } else {
-          // Standalone exercise — we own the session, close it.
-          // Merge into existing summary so prior metadata (mode, etc.) survives.
-          const { data: existing } = await supabase
-            .from('sessions')
-            .select('summary')
-            .eq('id', sid)
-            .maybeSingle();
-
-          const existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
-          const existingScores = (existingSummary.scores as Record<string, number> | undefined) ?? {};
-
-          const mergedSummary = {
-            ...existingSummary,
+          // Standalone exercise — close the session and merge this patch in one
+          // database UPDATE so summary fields cannot be lost to a concurrent
+          // recovery/accuracy writer.
+          const summaryPatch = {
             durationSec,
-            scores: { ...existingScores, [exerciseSlug]: stats.score },
+            scores: { [exerciseSlug]: stats.score },
             reps: stats.totalTrials,
             ...accFields,
           };
 
-          const { error } = await supabase
-            .from('sessions')
-            .update({
-              ended_at: new Date().toISOString(),
-              duration_sec: durationSec,
-              summary: mergedSummary as any,
-              ended_reason: reason,
-            })
-            .eq('id', sid)
-            .is('ended_at', null);
+          const { error } = await (supabase as any).rpc('end_session_with_summary_patch', {
+            p_session_id: sid,
+            p_summary_patch: summaryPatch,
+            p_duration_sec: durationSec,
+            p_ended_reason: reason,
+          });
           updateError = error;
         }
 
