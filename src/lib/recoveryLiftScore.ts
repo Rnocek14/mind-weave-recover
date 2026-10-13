@@ -68,6 +68,18 @@ export function calculateRecoveryLift(turns: TurnSnapshot[]): RecoveryLiftResult
   const baseline = turns.slice(0, WINDOW_SIZE);
   const end = turns.slice(-WINDOW_SIZE);
 
+  // Data-integrity guard: latency contributes 20% of this composite.
+  // Missing latency must never be coerced into a numeric observation (avg([])
+  // previously became 0ms, which could manufacture an apparent improvement).
+  // Require complete timing in both compared windows; otherwise do not publish
+  // a composite at all. This is intentionally conservative for clinical data.
+  const hasCompleteLatency = [...baseline, ...end].every(
+    t => t.latencyMs != null && Number.isFinite(t.latencyMs) && t.latencyMs >= 0
+  );
+  if (!hasCompleteLatency) {
+    return null;
+  }
+
   const baselineAvg = {
     fluency: avg(baseline.map(t => t.fluencyScore)),
     wordCount: avg(baseline.map(t => t.wordCount)),
