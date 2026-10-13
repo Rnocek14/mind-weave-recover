@@ -120,24 +120,11 @@ $version$;
 
 -- Both overloads retain their output types but filter each source session
 -- through patient/assigned-clinician/caregiver authorization.
-CREATE OR REPLACE FUNCTION public.get_exercise_stats_last7d(uid uuid, slug text)
-RETURNS TABLE(avg_accuracy numeric, median_rt integer, trial_count bigint)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $stats$
-BEGIN
-  RETURN QUERY
-  SELECT
-    COALESCE(AVG(CASE WHEN e.score > 0 THEN 1.0 ELSE 0.0 END), 0),
-    COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY e.reaction_time_ms), 0)::integer,
-    COUNT(*)::bigint
-  FROM public.exercise_events e
-  JOIN public.sessions s ON s.id=e.session_id
-  WHERE s.user_id = uid AND e.exercise_slug = slug
-    AND s.started_at > now() - interval '7 days'
-    AND e.reaction_time_ms IS NOT NULL
-    AND private.can_access_stroke_patient(uid, s.profile_id, true);
-END;
-$stats$;
+-- Legacy two-argument overload conflicts with the three-argument RPC
+-- because pid already DEFAULTs to NULL. PostgreSQL rejects two-argument calls
+-- as ambiguous. The three-argument signature with default preserves both
+-- call shapes and authorization; DROP deliberately has no CASCADE.
+DROP FUNCTION IF EXISTS public.get_exercise_stats_last7d(uuid, text);
 
 CREATE OR REPLACE FUNCTION public.get_exercise_stats_last7d(uid uuid, slug text, pid uuid DEFAULT NULL)
 RETURNS TABLE(avg_accuracy numeric, median_rt integer, trial_count bigint)
