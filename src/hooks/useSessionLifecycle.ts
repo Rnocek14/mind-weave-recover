@@ -7,6 +7,7 @@ import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { computeSessionAccuracySummary, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
+import { sessionWriteApplied } from '@/lib/sessionWriteResult';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -148,6 +149,7 @@ export const useSessionLifecycle = ({
         });
 
         let updateError: { message?: string } | null = null;
+        let didPersist = false;
 
         // Canonical top-level accuracy (independent vs cue-assisted) computed
         // from the raw exercise_events for this session. Powers plateau /
@@ -170,12 +172,13 @@ export const useSessionLifecycle = ({
             ...accFields,
           };
 
-          const { error } = await (supabase as any).rpc('merge_session_summary', {
+          const { data, error } = await (supabase as any).rpc('merge_session_summary', {
             p_session_id: sid,
             p_summary_patch: summaryPatch,
             p_require_open: true,
           });
           updateError = error;
+          didPersist = sessionWriteApplied(data, error);
         } else {
           // Standalone exercise — close the session and merge this patch in one
           // database UPDATE so summary fields cannot be lost to a concurrent
@@ -187,13 +190,14 @@ export const useSessionLifecycle = ({
             ...accFields,
           };
 
-          const { error } = await (supabase as any).rpc('end_session_with_summary_patch', {
+          const { data, error } = await (supabase as any).rpc('end_session_with_summary_patch', {
             p_session_id: sid,
             p_summary_patch: summaryPatch,
             p_duration_sec: durationSec,
             p_ended_reason: reason,
           });
           updateError = error;
+          didPersist = sessionWriteApplied(data, error);
         }
 
         if (updateError) {
@@ -202,6 +206,11 @@ export const useSessionLifecycle = ({
           if (!updateError.message?.includes('0 rows')) {
             endedRef.current = false;
           }
+        } else if (!didPersist) {
+          // Closed/missing/inaccessible rows are not successful clinical writes.
+          // Keep the local end latch to prevent unmount/visibility retry loops,
+          // but do not log dose, mastery, achievements, or completion callbacks.
+          console.warn('[SessionLifecycle] No session row updated:', sid);
         } else {
           console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
           // Release standalone-session mutex once the session is closed
