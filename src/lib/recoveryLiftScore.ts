@@ -118,9 +118,14 @@ export function calculateRecoveryLift(turns: TurnSnapshot[]): RecoveryLiftResult
     cueDependencyLift * 0.20
   );
 
-  // Confidence based on data density
-  const confidence = turns.length >= 10 ? 'high' 
-    : turns.length >= 6 ? 'medium' 
+  // Confidence must reflect the observations actually used in the
+  // comparison, not unrelated middle turns. With fixed first-3 vs last-3
+  // windows this calculation currently analyzes six turns, so it cannot
+  // honestly claim the old "high" confidence merely because the session had
+  // additional middle turns.
+  const turnsAnalyzed = baseline.length + end.length;
+  const confidence = turnsAnalyzed >= 10 ? 'high'
+    : turnsAnalyzed >= 6 ? 'medium'
     : 'low';
 
   return {
@@ -132,7 +137,7 @@ export function calculateRecoveryLift(turns: TurnSnapshot[]): RecoveryLiftResult
     baselineAvg,
     endAvg,
     confidence,
-    turnsAnalyzed: turns.length,
+    turnsAnalyzed,
   };
 }
 
