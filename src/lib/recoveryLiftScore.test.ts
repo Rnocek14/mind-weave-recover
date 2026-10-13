@@ -66,4 +66,14 @@ describe('calculateRecoveryLift data integrity', () => {
       latencyLift: -25,
     });
   });
+
+  it('reports confidence and sample count from the six compared turns only', () => {
+    const turns = Array.from({ length: 10 }, () => turn());
+    const result = calculateRecoveryLift(turns);
+
+    expect(result).toMatchObject({
+      turnsAnalyzed: 6,
+      confidence: 'medium',
+    });
+  });
 });
