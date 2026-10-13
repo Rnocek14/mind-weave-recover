@@ -126,7 +126,7 @@ export const useExerciseTelemetry = (
     async (trial: TrialData) => {
       if (!sessionId) {
         console.warn('No session ID - trial not logged');
-        return;
+        return false;
       }
 
       try {
@@ -456,9 +456,13 @@ export const useExerciseTelemetry = (
         }
         if (insertError) {
           console.error('Error logging trial after retries:', insertError);
+          return false;
         }
+
+        return true;
       } catch (error) {
         console.error('Error logging trial:', error);
+        return false;
       }
     },
     [sessionId, exerciseSlug, trialNumber]
