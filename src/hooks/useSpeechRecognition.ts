@@ -346,6 +346,16 @@ export const useSpeechRecognition = (
           !manuallyStoppedRef.current) {
         const pending = pendingTranscriptRef.current;
         pendingTranscriptRef.current = '';
+
+        // This text came from an INTERIM hypothesis that the browser never
+        // finalized. Do not let confidence/alternatives from the previous
+        // utterance leak onto it. Consumers may still accept the transcript,
+        // but its engine metadata is explicitly unavailable.
+        lastRecognitionRef.current = {
+          transcript: pending,
+          confidence: null,
+          alternatives: [],
+        };
         
         if (discourseMode && pending) {
           // Accumulate the pending interim as a final segment
@@ -543,6 +553,7 @@ export const useSpeechRecognition = (
     pendingTranscriptRef.current = '';
     lastProcessedTranscriptRef.current = '';
     accumulatedTranscriptRef.current = [];
+    lastRecognitionRef.current = null;
     setTranscript('');
     setFullTranscript('');
   }, []);
