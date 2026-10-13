@@ -197,3 +197,19 @@ describe('useFixSentenceGame — L5 two-error trials with embedded matching', ()
     expect(aggregate!.phase2Fix).toBe(remaining);
   });
 });
+
+
+describe('reported real-session Fix Sentence examples', () => {
+  it.each([
+    ['fs_34', 'water', 'the fish swam in the water'],
+    ['fs_39', 'teeth', 'the dentist cleaned my teeth'],
+  ])('accepts bare and full-sentence repairs for %s without accepting an echo', async (id, fix, corrected) => {
+    const { FIX_SENTENCE_BANK } = await import('@/data/fixSentenceBank');
+    const { matchSpokenFix } = await import('@/hooks/useFixSentenceGame');
+    const trial = FIX_SENTENCE_BANK.find(t => t.id === id);
+    expect(trial, `Missing reported trial ${id}`).toBeDefined();
+    expect(matchSpokenFix(fix, trial!.acceptedFixes, trial!.fixAliases, trial!.sentence)).toBe(fix);
+    expect(matchSpokenFix(corrected, trial!.acceptedFixes, trial!.fixAliases, trial!.sentence)).toBe(fix);
+    expect(matchSpokenFix(trial!.sentence, trial!.acceptedFixes, trial!.fixAliases, trial!.sentence)).toBeNull();
+  });
+});
