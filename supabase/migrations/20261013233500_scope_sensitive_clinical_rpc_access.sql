@@ -253,6 +253,22 @@ BEGIN
 END;
 $summary$;
 
+-- Study enrollment exposes potentially sensitive research-participation
+-- status. The legacy RPC selected by arbitrary user UUID without checking
+-- whether the caller can see the specific enrolled patient profile.
+CREATE OR REPLACE FUNCTION public.get_active_study_enrollment(_user_id uuid)
+RETURNS public.study_enrollments
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $enrollment$
+  SELECT se.*
+  FROM public.study_enrollments se
+  WHERE se.user_id = _user_id
+    AND se.status IN ('consented', 'active')
+    AND private.can_access_stroke_patient(se.user_id, se.profile_id, true)
+  ORDER BY se.enrolled_at DESC NULLS LAST
+  LIMIT 1;
+$enrollment$;
+
 -- Never expose patient-scoped privileged functions to anonymous requests.
 DO $grants$
 DECLARE r record;
@@ -261,7 +277,7 @@ BEGIN
    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='public'
      AND p.proname IN (
-       'get_active_clinical_profile','create_profile_version',
+       'get_active_clinical_profile','get_active_study_enrollment','create_profile_version',
        'get_exercise_stats_last7d','get_session_summary',
        'close_stale_sessions','review_role_request',
        'get_cluster_assignments','get_cluster_learning_rates',
