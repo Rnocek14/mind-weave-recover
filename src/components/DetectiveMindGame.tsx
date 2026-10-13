@@ -29,6 +29,7 @@ import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isAudioUnlocked } from '@/lib/audioUnlock';
 import { useVoiceState } from '@/hooks/useVoiceState';
 import { voiceController } from '@/lib/voiceController';
+import { formatDetectiveOptionsForSpeech } from '@/lib/detectiveMindSpeech';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -263,9 +264,7 @@ export function DetectiveMindGame({
       // "Option C: …" instead of "C. …" — TTS normalization treats a bare
       // letter+period sentence as an initial/abbreviation and can skip it
       // (patients heard the last option read with no letter at all).
-      const optionsSpoken = displayedOptions
-        .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
-        .join('. ');
+      const optionsSpoken = formatDetectiveOptionsForSpeech(displayedOptions);
       try { await speak(`${currentCase.question} ${optionsSpoken}.`); } catch { void 0; }
       if (localSeq !== ttsSeqRef.current) return;
       setAutoReadDone(true);
@@ -818,9 +817,7 @@ export function DetectiveMindGame({
                 ttsSeqRef.current++;
                 // Same "Option C:" anchoring as the auto-read — a bare
                 // letter+period gets skipped by TTS normalization.
-                const optionsSpoken = displayedOptions
-                  .map((opt, i) => `Option ${String.fromCharCode(65 + i)}: ${opt}`)
-                  .join('. ');
+                const optionsSpoken = formatDetectiveOptionsForSpeech(displayedOptions);
                 speakDirect(`${currentCase.question} ${optionsSpoken}.`);
               }}
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 hover:text-foreground"
