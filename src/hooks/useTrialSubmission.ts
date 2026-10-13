@@ -132,7 +132,7 @@ export function useTrialSubmission(opts: Options) {
 
       // 1) exercise_events (raw clinical record) — always.
       try {
-        await logExerciseEvent({
+        const rawPersisted = await logExerciseEvent({
           correct: input.isCorrect,
           reactionTimeMs: input.latencyMs ?? undefined,
           cueLevel: input.cueLevel ?? undefined,
@@ -166,7 +166,10 @@ export function useTrialSubmission(opts: Options) {
           },
           validity: input.validity ?? undefined,
         } as any);
-        summary.routed.exerciseEvents = true;
+        summary.routed.exerciseEvents = rawPersisted === true;
+        if (!summary.routed.exerciseEvents) {
+          summary.ok = false;
+        }
       } catch (err) {
         summary.ok = false;
         console.warn('[submitTrial] exercise_events write failed', err);
@@ -180,7 +183,10 @@ export function useTrialSubmission(opts: Options) {
       // taskParameters.unified_route_adaptation_log = true, making this
       // pathway their single adaptation writer.
       try {
-        if (input.taskParameters?.unified_route_adaptation_log === true) {
+        if (
+          summary.routed.exerciseEvents &&
+          input.taskParameters?.unified_route_adaptation_log === true
+        ) {
           logAdaptationTrial({
             trialIndex: trialCountRef.current - 1,
             difficulty: input.level,
@@ -213,7 +219,11 @@ export function useTrialSubmission(opts: Options) {
       const validityAllowsProgression =
         !input.validity || applyValidityGate(input.validity).shouldFeedAdaptation;
       try {
-        if (opts.progression && validityAllowsProgression) {
+        if (
+          opts.progression &&
+          summary.routed.exerciseEvents &&
+          validityAllowsProgression
+        ) {
           opts.progression.recordTrialOutcome({
             correct: input.isCorrect,
             support: input.supportUsed,
