@@ -37,6 +37,28 @@ REVOKE ALL ON FUNCTION private.can_access_stroke_patient(uuid,uuid,boolean) FROM
 REVOKE ALL ON FUNCTION private.can_access_stroke_patient(uuid,uuid,boolean) FROM anon;
 REVOKE ALL ON FUNCTION private.can_access_stroke_patient(uuid,uuid,boolean) FROM authenticated;
 
+-- These legacy RPCs accept only a user ID and can affect/access multiple
+-- profiles owned by that user. An assigned clinician/caregiver for ONE profile
+-- must not gain permission to modify or read the other profiles.
+CREATE OR REPLACE FUNCTION private.can_access_stroke_user_scoped(p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $user_auth$
+  SELECT
+    session_user = 'postgres'
+    OR COALESCE(auth.jwt()->>'role' = 'service_role', false)
+    OR (
+      auth.uid() IS NOT NULL AND (
+        auth.uid() = p_user_id
+        OR COALESCE(public.has_role(auth.uid(), 'admin'::public.app_role), false)
+      )
+    );
+$user_auth$;
+
+REVOKE ALL ON FUNCTION private.can_access_stroke_user_scoped(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.can_access_stroke_user_scoped(uuid) FROM anon;
+REVOKE ALL ON FUNCTION private.can_access_stroke_user_scoped(uuid) FROM authenticated;
+
 -- Clinical profile JSON previously accepted an arbitrary user UUID.
 CREATE OR REPLACE FUNCTION public.get_active_clinical_profile(p_user_id uuid)
 RETURNS jsonb
@@ -46,7 +68,7 @@ AS $profile$
   FROM public.clinical_profile_versions v
   WHERE v.user_id = p_user_id
     AND v.is_active = true
-    AND private.can_access_stroke_patient(p_user_id, NULL, true)
+    AND private.can_access_stroke_user_scoped(p_user_id)
   ORDER BY v.version_number DESC
   LIMIT 1;
 $profile$;
@@ -69,7 +91,7 @@ DECLARE
   v_new_id uuid;
   v_previous_profile jsonb;
 BEGIN
-  IF NOT private.can_access_stroke_patient(p_user_id, NULL, false) THEN
+  IF NOT private.can_access_stroke_user_scoped(p_user_id) THEN
     RAISE EXCEPTION 'Not authorized to update clinical profile'
       USING ERRCODE = '42501';
   END IF;
