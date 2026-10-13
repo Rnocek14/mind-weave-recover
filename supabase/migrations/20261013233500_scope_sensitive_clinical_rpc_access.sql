@@ -189,16 +189,16 @@ BEGIN
  SELECT (inputs->'task_params'->>'difficulty_level')::integer
  INTO first_level
  FROM public.exercise_events
- WHERE session_id = p_session_id ORDER BY created_at ASC LIMIT 1;
+ WHERE session_id = p_session_id ORDER BY created_at ASC, round ASC, id ASC LIMIT 1;
 
  SELECT (inputs->'task_params'->>'difficulty_level')::integer
  INTO last_level
  FROM public.exercise_events
- WHERE session_id = p_session_id ORDER BY created_at DESC LIMIT 1;
+ WHERE session_id = p_session_id ORDER BY created_at DESC, round DESC, id DESC LIMIT 1;
 
  WITH trial_order AS (
    SELECT cue_level,
-     ROW_NUMBER() OVER (ORDER BY created_at) AS rn,
+     ROW_NUMBER() OVER (ORDER BY created_at ASC, round ASC, id ASC) AS rn,
      COUNT(*) OVER () AS total
    FROM public.exercise_events
    WHERE session_id = p_session_id
