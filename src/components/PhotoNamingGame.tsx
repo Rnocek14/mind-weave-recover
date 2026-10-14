@@ -2149,10 +2149,8 @@ export const PhotoNamingGame = ({
             cueLevel,
           })
         : mapPhotoNamingSupport({ inputMode, cueLevel });
-    progression.recordTrialOutcome({
-      correct: isCorrectAnswer,
-      support: supportLevel,
-    });
+    // Do not buffer this as clinical progression evidence until the event
+    // write is acknowledged. Otherwise a failed capture could advance mastery.
 
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
     // Previously bypassed, causing onGameComplete to always report score=0
@@ -2262,6 +2260,10 @@ export const PhotoNamingGame = ({
     }
 
     const advanceAfterSave = () => {
+      progression.recordTrialOutcome({
+        correct: isCorrectAnswer,
+        support: supportLevel,
+      });
       setClinicalSaveFailed(false);
       retryClinicalSaveRef.current = null;
       setShowFeedback(false);
