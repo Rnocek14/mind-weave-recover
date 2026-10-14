@@ -111,6 +111,8 @@ interface PhotoNamingGameProps {
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
+type PhotoNamingTrialReport = Parameters<NonNullable<PhotoNamingGameProps['onTrialComplete']>>[0];
+
 // Debounced mic status - only show "mic paused" after a fresh grace window for the current trial/start cycle
 const useDebouncedMicStatus = (
   isListening: boolean,
@@ -2208,18 +2210,8 @@ export const PhotoNamingGame = ({
     // Reset cue state for next trial
     setCueState(null);
 
-    // Auto-advance after 1.2 seconds (faster since feedback is instant)
-    setTimeout(() => {
-      setShowFeedback(false);
-      setFeedbackData(null);
-      processingResultRef.current = false;
-      resetAttempt();
-      advanceTrial(currentDifficulty);
-    }, 1200);
-
-    // =====================================================================
-    // BACKGROUND ANALYSIS: Fire-and-forget (doesn't block UI)
-    // =====================================================================
+    // Freeze the exact observed response before optional ASR, audio upload,
+    // semantic analysis, or the next trial can alter the current state.
     const capturedTrial = state.currentTrial;
     const capturedTrialNumber = state.trialNumber;
     const capturedDifficulty = currentDifficulty;
@@ -2227,7 +2219,78 @@ export const PhotoNamingGame = ({
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
-    
+    const capturedTrialMode = currentTrialModeRef.current;
+
+    // A conservative primary record is still a real observed attempt, never a
+    // claim that ASR verified something it didn't. Slow enrichment is stored
+    // separately under the same immutable attempt ID.
+    const fallbackPayload: PhotoNamingTrialReport = {
+      correct: isCorrectAnswer,
+      reactionTimeMs: reactionTime,
+      errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
+      difficultyLevel: capturedDifficulty,
+      cueLevel: capturedCueLevel,
+      browserTranscript: capturedBrowserTranscript,
+      attemptId: capturedAttemptId,
+      trialIndex: capturedTrialNumber,
+      trialMode: capturedTrialMode,
+      cueTypeGiven,
+      cueWasEffective,
+      timeToSuccessAfterCueMs,
+      latencyMs: capturedResponseLatency,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: capturedTrialNumber,
+    };
+    const primary = createAcknowledgedTrialReporter<PhotoNamingTrialReport>(
+      async (result) => {
+        // The parent returns TRUE only when exercise_events acknowledges the
+        // clinical write. A missing callback/row never counts as success.
+        if (!onTrialComplete) return false;
+        return (await onTrialComplete(result, capturedTrial)) === true;
+      },
+      fallbackPayload,
+      3000,
+    );
+
+    // Pure choice recognition has no optional expressive speech analysis to
+    // wait for. Persist the recognition attempt immediately.
+    if (capturedTrialMode === 'recognition') {
+      void primary.report(fallbackPayload);
+    }
+
+    const advanceAfterSave = () => {
+      setClinicalSaveFailed(false);
+      retryClinicalSaveRef.current = null;
+      setShowFeedback(false);
+      setFeedbackData(null);
+      processingResultRef.current = false;
+      resetAttempt();
+      advanceTrial(capturedDifficulty);
+    };
+
+    // Feedback remains immediate, but moving to the next trial and eventually
+    // completing a session requires an acknowledged clinical record.
+    setTimeout(() => {
+      void primary.acknowledgement.then((saved) => {
+        if (saved) {
+          advanceAfterSave();
+          return;
+        }
+        // A retry sends EXACTLY the same attempt ID and evidence; the shared
+        // telemetry writer verifies duplicates rather than inserting twice.
+        retryClinicalSaveRef.current = async () => {
+          const recovered = await primary.retry();
+          if (recovered) advanceAfterSave();
+          return recovered;
+        };
+        setClinicalSaveFailed(true);
+      });
+    }, 1200);
+
+    // BACKGROUND ANALYSIS: optional speech evidence; cannot prevent the
+    // primary save from starting by the 3-second safety deadline.
     // Run analysis in background without blocking
     (async () => {
       try {
