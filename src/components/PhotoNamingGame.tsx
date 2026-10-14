@@ -61,6 +61,8 @@ import {
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
+import { createAcknowledgedTrialReporter } from '@/lib/clinical/acknowledgedTrialReporter';
+import { resolvePhotoNamingTrialMode } from '@/lib/clinical/photoNamingAttemptModality';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -83,6 +85,7 @@ interface PhotoNamingGameProps {
     browserTranscript?: string;
     attemptId?: string;
     trialIndex?: number;
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -103,10 +106,12 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
-  }, trial: any) => void;
+  }, trial: any) => Promise<boolean> | boolean | void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
+
+type PhotoNamingTrialReport = Parameters<NonNullable<PhotoNamingGameProps['onTrialComplete']>>[0];
 
 // Debounced mic status - only show "mic paused" after a fresh grace window for the current trial/start cycle
 const useDebouncedMicStatus = (
@@ -200,7 +205,10 @@ export const PhotoNamingGame = ({
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
-  const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  const [processingAnswer, setProcessingAnswer] = useState(false);
+  const [clinicalSaveFailed, setClinicalSaveFailed] = useState(false);
+  const [retryingClinicalSave, setRetryingClinicalSave] = useState(false);
+  const retryClinicalSaveRef = useRef<(() => Promise<boolean>) | null>(null); // Visual: processing selected answer
   const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const [autoHintsEnabled, setAutoHintsEnabled] = useState(true); // Toggle for automatic hints
   
@@ -1867,6 +1875,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: pendingAttempt.attemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'production',
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
@@ -2097,7 +2106,9 @@ export const PhotoNamingGame = ({
       ? Date.now() - micStartTimeRef.current : undefined;
 
     // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
-    currentTrialModeRef.current = inputMode;
+    currentTrialModeRef.current = resolvePhotoNamingTrialMode(inputMode, productionAttemptedRef.current);
+    setClinicalSaveFailed(false);
+    retryClinicalSaveRef.current = null;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
@@ -2138,10 +2149,8 @@ export const PhotoNamingGame = ({
             cueLevel,
           })
         : mapPhotoNamingSupport({ inputMode, cueLevel });
-    progression.recordTrialOutcome({
-      correct: isCorrectAnswer,
-      support: supportLevel,
-    });
+    // Do not buffer this as clinical progression evidence until the event
+    // write is acknowledged. Otherwise a failed capture could advance mastery.
 
     // CRITICAL FIX: Call the hook's selectAnswer to update state.score
     // Previously bypassed, causing onGameComplete to always report score=0
@@ -2200,18 +2209,8 @@ export const PhotoNamingGame = ({
     // Reset cue state for next trial
     setCueState(null);
 
-    // Auto-advance after 1.2 seconds (faster since feedback is instant)
-    setTimeout(() => {
-      setShowFeedback(false);
-      setFeedbackData(null);
-      processingResultRef.current = false;
-      resetAttempt();
-      advanceTrial(currentDifficulty);
-    }, 1200);
-
-    // =====================================================================
-    // BACKGROUND ANALYSIS: Fire-and-forget (doesn't block UI)
-    // =====================================================================
+    // Freeze the exact observed response before optional ASR, audio upload,
+    // semantic analysis, or the next trial can alter the current state.
     const capturedTrial = state.currentTrial;
     const capturedTrialNumber = state.trialNumber;
     const capturedDifficulty = currentDifficulty;
@@ -2219,7 +2218,85 @@ export const PhotoNamingGame = ({
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
-    
+    const capturedTrialMode = currentTrialModeRef.current;
+
+    // A conservative primary record is still a real observed attempt, never a
+    // claim that ASR verified something it didn't. Slow enrichment is stored
+    // separately under the same immutable attempt ID.
+    const fallbackPayload: PhotoNamingTrialReport = {
+      correct: isCorrectAnswer,
+      reactionTimeMs: reactionTime,
+      errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
+      difficultyLevel: capturedDifficulty,
+      cueLevel: capturedCueLevel,
+      browserTranscript: capturedBrowserTranscript,
+      attemptId: capturedAttemptId,
+      trialIndex: capturedTrialNumber,
+      trialMode: capturedTrialMode,
+      cueTypeGiven,
+      cueWasEffective,
+      timeToSuccessAfterCueMs,
+      latencyMs: capturedResponseLatency,
+      consecutiveErrors: hookConsecutiveErrors,
+      frustrationLevel,
+      recentSuccessRate,
+      trialCount: capturedTrialNumber,
+    };
+    const primary = createAcknowledgedTrialReporter<PhotoNamingTrialReport>(
+      async (result) => {
+        // The parent returns TRUE only when exercise_events acknowledges the
+        // clinical write. A missing callback/row never counts as success.
+        if (!onTrialComplete) return false;
+        return (await onTrialComplete(result, capturedTrial)) === true;
+      },
+      fallbackPayload,
+      3000,
+    );
+
+    // Pure choice recognition has no optional expressive speech analysis to
+    // wait for. Persist the recognition attempt immediately.
+    if (capturedTrialMode === 'recognition') {
+      void primary.report(fallbackPayload);
+    }
+
+    let advanced = false;
+    const advanceAfterSave = () => {
+      if (advanced) return;
+      advanced = true;
+      progression.recordTrialOutcome({
+        correct: isCorrectAnswer,
+        support: supportLevel,
+      });
+      setClinicalSaveFailed(false);
+      retryClinicalSaveRef.current = null;
+      setShowFeedback(false);
+      setFeedbackData(null);
+      processingResultRef.current = false;
+      resetAttempt();
+      advanceTrial(capturedDifficulty);
+    };
+
+    // Feedback remains immediate, but moving to the next trial and eventually
+    // completing a session requires an acknowledged clinical record.
+    setTimeout(() => {
+      void primary.acknowledgement.then((saved) => {
+        if (saved) {
+          advanceAfterSave();
+          return;
+        }
+        // A retry sends EXACTLY the same attempt ID and evidence; the shared
+        // telemetry writer verifies duplicates rather than inserting twice.
+        retryClinicalSaveRef.current = async () => {
+          const recovered = await primary.retry();
+          if (recovered) advanceAfterSave();
+          return recovered;
+        };
+        setClinicalSaveFailed(true);
+      });
+    }, 1200);
+
+    // BACKGROUND ANALYSIS: optional speech evidence; cannot prevent the
+    // primary save from starting by the 3-second safety deadline.
     // Run analysis in background without blocking
     (async () => {
       try {
@@ -2336,7 +2413,7 @@ export const PhotoNamingGame = ({
         }
 
         // Log telemetry with unified analysis
-        onTrialComplete?.({
+        void primary.report({
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2351,6 +2428,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics,
           encouragementScore: speechEncouragementScore,
           effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
@@ -2364,7 +2442,7 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
-        }, capturedTrial);
+        });
 
         // Determine fluency availability
         const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
@@ -2462,7 +2540,7 @@ export const PhotoNamingGame = ({
         console.error('❌ [PhotoNaming] Background analysis error:', error);
 
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
-        onTrialComplete?.({
+        void primary.report({
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
@@ -2473,6 +2551,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics: undefined,
           encouragementScore: undefined,
           effortfulSpeech: false,
@@ -2486,7 +2565,7 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
-        }, capturedTrial);
+        });
       }
     })();
   };
@@ -2597,6 +2676,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: currentAttemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'scaffolded',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
@@ -2704,6 +2784,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: currentAttemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'production',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
@@ -3016,6 +3097,37 @@ export const PhotoNamingGame = ({
         <div className="mx-auto w-fit max-w-full flex items-center justify-center gap-1.5 px-3 py-1 bg-warning/10 border border-warning/30 rounded-full text-[11px] animate-fade-in shrink-0">
           <AlertCircle className="w-3 h-3 text-warning shrink-0" />
           <span className="text-warning truncate">{micErrorMessage}</span>
+        </div>
+      )}
+
+      {/* A score is not a clinical record until the database ACKs the write. */}
+      {clinicalSaveFailed && (
+        <div role="alert" className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+          <p className="text-sm font-medium text-destructive">
+            Your answer was not saved. We will stay on this response until it is safely recorded.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={retryingClinicalSave}
+            onClick={() => {
+              const retry = retryClinicalSaveRef.current;
+              if (!retry) return;
+              setRetryingClinicalSave(true);
+              void retry().then((saved) => {
+                if (!saved) {
+                  showToast({
+                    title: 'Still unable to save',
+                    description: 'Check your connection and use Retry saving again.',
+                    variant: 'destructive',
+                  });
+                }
+              }).finally(() => setRetryingClinicalSave(false));
+            }}
+          >
+            {retryingClinicalSave ? 'Saving…' : 'Retry saving response'}
+          </Button>
         </div>
       )}
 

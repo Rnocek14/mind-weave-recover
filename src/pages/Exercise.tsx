@@ -916,9 +916,10 @@ const Exercise = () => {
             />
           ) : exerciseId === 'photo-naming' ? (
             <PhotoNamingGame
+              sessionId={sessionId}
               totalTrials={totalRounds}
               initialDifficulty={level}
-              onTrialComplete={async (result) => {
+              onTrialComplete={async (result): Promise<boolean> => {
                 // Phase 1B — classify validity (incl. manual-confirm) BEFORE
                 // scoring so the lesson/targeted-practice flow stamps the same
                 // top-level validity columns + scoring axes as standalone.
@@ -932,7 +933,7 @@ const Exercise = () => {
                   asrVerified: result.asrVerified ?? undefined,
                   confirmationMode: result.confirmationMode ?? null,
                 });
-                await logTrial({
+                const saved = await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.cueLevel,
@@ -953,6 +954,7 @@ const Exercise = () => {
                     cue_level: result.cueLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
+                    trial_mode: result.trialMode ?? null,
                     // Phase 1B — manual-confirmation provenance
                     confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
                     confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
@@ -963,6 +965,14 @@ const Exercise = () => {
                   },
                 });
                 
+                if (!saved) {
+                  toast({
+                    title: 'Response not saved',
+                    description: 'The database did not confirm this attempt. Use Retry saving response.',
+                    variant: 'destructive',
+                  });
+                  return false;
+                }
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
                   if (result.correct) {
@@ -970,6 +980,7 @@ const Exercise = () => {
                   }
                   startTrial();
                 }
+                return true;
               }}
               onGameComplete={(finalScore) => {
                 setScore(finalScore);
