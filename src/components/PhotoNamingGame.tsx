@@ -61,6 +61,8 @@ import {
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
+import { createAcknowledgedTrialReporter } from '@/lib/clinical/acknowledgedTrialReporter';
+import { resolvePhotoNamingTrialMode } from '@/lib/clinical/photoNamingAttemptModality';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -83,6 +85,7 @@ interface PhotoNamingGameProps {
     browserTranscript?: string;
     attemptId?: string;
     trialIndex?: number;
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -103,7 +106,7 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
-  }, trial: any) => void;
+  }, trial: any) => Promise<boolean> | boolean | void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
@@ -200,7 +203,10 @@ export const PhotoNamingGame = ({
   const [playingChoice, setPlayingChoice] = useState<string | null>(null);
   const [stallDetected, setStallDetected] = useState(false); // Stall-based cue trigger
   const [lastHeardText, setLastHeardText] = useState<string | null>(null); // Last ASR result
-  const [processingAnswer, setProcessingAnswer] = useState(false); // Visual: processing selected answer
+  const [processingAnswer, setProcessingAnswer] = useState(false);
+  const [clinicalSaveFailed, setClinicalSaveFailed] = useState(false);
+  const [retryingClinicalSave, setRetryingClinicalSave] = useState(false);
+  const retryClinicalSaveRef = useRef<(() => Promise<boolean>) | null>(null); // Visual: processing selected answer
   const [micAutoStartPending, setMicAutoStartPending] = useState(false);
   const [autoHintsEnabled, setAutoHintsEnabled] = useState(true); // Toggle for automatic hints
   
@@ -2097,7 +2103,9 @@ export const PhotoNamingGame = ({
       ? Date.now() - micStartTimeRef.current : undefined;
 
     // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
-    currentTrialModeRef.current = inputMode;
+    currentTrialModeRef.current = resolvePhotoNamingTrialMode(inputMode, productionAttemptedRef.current);
+    setClinicalSaveFailed(false);
+    retryClinicalSaveRef.current = null;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
