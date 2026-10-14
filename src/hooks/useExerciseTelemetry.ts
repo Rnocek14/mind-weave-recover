@@ -14,6 +14,7 @@ import {
   shadowAgreesWithV1,
 } from '@/lib/voiceEngine/axisEngine';
 import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
+import { persistClinicalAttempt } from '@/lib/clinical/persistClinicalAttempt';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -130,6 +131,9 @@ export const useExerciseTelemetry = (
       }
 
       try {
+        // One stable attempt ID for all retries, even on legacy callers.
+        const attemptId = trial.attemptId || crypto.randomUUID();
+
         // ── Telemetry coverage guarantees ────────────────────────────────
         // 1. error_type is ALWAYS populated (never null) — clinicians/research
         //    need to distinguish "logged but unclassified" from "missing data".
@@ -207,6 +211,7 @@ export const useExerciseTelemetry = (
         const eventData: TablesInsert<'exercise_events'> = {
           session_id: sessionId,
           exercise_slug: exerciseSlug,
+          attempt_id: attemptId,
           round: trialNumber,
           score: trial.correct ? 100 : 0,
           reaction_time_ms: trial.reactionTimeMs,
@@ -279,9 +284,6 @@ export const useExerciseTelemetry = (
         // Session Review reads back as voice evidence.
         if (trial.browserTranscript) {
           eventData.browser_transcript = trial.browserTranscript;
-        }
-        if (trial.attemptId) {
-          eventData.attempt_id = trial.attemptId;
         }
         if (typeof trial.trialIndex === 'number') {
           eventData.trial_index = trial.trialIndex;
@@ -442,24 +444,39 @@ export const useExerciseTelemetry = (
         // their positive feedback (it used to only run after a successful insert).
         trackEncouragement(trial.correct, trial.reactionTimeMs, trial.cueLevel);
 
-        // Retry the write on transient failure so a momentary network drop does
-        // not silently lose the trial from the clinical record.
-        let insertError: any = null;
-        const backoffMs = [0, 700, 2000];
-        for (let attempt = 0; attempt < backoffMs.length; attempt++) {
-          if (backoffMs[attempt] > 0) {
-            await new Promise((r) => setTimeout(r, backoffMs[attempt]));
-          }
-          ({ error: insertError } = await supabase.from('exercise_events').insert(eventData));
-          if (!insertError) break;
-          console.warn(`⚠️ Trial write failed (attempt ${attempt + 1}/${backoffMs.length}):`, insertError?.message);
+        // An HTTP timeout may mean the row committed and only its ACK was
+        // lost. Confirm the exact persisted attempt before trying again.
+        const persisted = await persistClinicalAttempt(
+          {
+            attempt_id: attemptId,
+            session_id: sessionId,
+            exercise_slug: exerciseSlug,
+          },
+          {
+            insert: async () => {
+              const { error } = await supabase.from('exercise_events').insert(eventData);
+              return { error };
+            },
+            findByAttempt: async () => {
+              const { data, error } = await supabase
+                .from('exercise_events')
+                .select('attempt_id, session_id, exercise_slug')
+                .eq('attempt_id', attemptId)
+                .maybeSingle();
+              return { data, error };
+            },
+          },
+          {
+            onFailedAttempt: (attempt, message) =>
+              console.warn(`Trial save not yet acknowledged (attempt ${attempt}/3):`, message),
+          },
+        );
+        if (!persisted) {
+          console.error('Clinical trial could not be confirmed saved', {
+            sessionId, exerciseSlug, attemptId,
+          });
         }
-        if (insertError) {
-          console.error('Error logging trial after retries:', insertError);
-          return false;
-        }
-
-        return true;
+        return persisted;
       } catch (error) {
         console.error('Error logging trial:', error);
         return false;
