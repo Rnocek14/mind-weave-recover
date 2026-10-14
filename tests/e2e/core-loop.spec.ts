@@ -48,6 +48,18 @@ test.describe('Core loop — Photo Naming trials persist', () => {
   test('answer trials by chip tap and verify exercise_events are written', async ({ context }) => {
     test.slow(); // real backend round-trips
 
+    if (process.env.REQUIRE_THERAPY_E2E === 'true') {
+      // This test writes clinical events. Never run its mandatory mode against
+      // the live patient database, even when the caller forgets env overrides.
+      const productionRef = 'wjedbpjaiqdxhmjzkcxo';
+      if (PROJECT_REF === productionRef) {
+        throw new Error('Refusing to run write-capable therapy E2E against production Supabase');
+      }
+      if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Staging URL and publishable key must be explicitly supplied');
+      }
+    }
+
     const minted = await tryMintAnonSession();
     // A dedicated staging gate must never turn a skipped therapy journey into
     // a green result. Ordinary PR CI remains read-only and may skip.
