@@ -503,16 +503,24 @@ function PhotoNamingExerciseInner() {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
-  }, trial: PhotoTrial) => {
-    // Track recent accuracies for Live Analysis dots
-    setRecentAccuracies(prev => {
-      const next = [...prev, result.correct ? 1 : 0];
-      return next.length > 10 ? next.slice(-10) : next;
-    });
+  }, trial: PhotoTrial): Promise<boolean> => {
+    // Retrying an uncertain ACK must not double-count progression indicators
+    // or mid-session pivots. The database can still verify the same attempt.
+    const firstObservation = !result.attemptId
+      || !observedAttemptIdsRef.current.has(result.attemptId);
+    if (firstObservation && result.attemptId) {
+      observedAttemptIdsRef.current.add(result.attemptId);
+    }
+    if (firstObservation) {
+      setRecentAccuracies(prev => {
+        const next = [...prev, result.correct ? 1 : 0];
+        return next.length > 10 ? next.slice(-10) : next;
+      });
+    }
 
     const hasSession = Boolean(sessionId);
+    let clinicalWriteConfirmed = false;
 
-    // Record trial for mid-session pivot evaluation
     const pivotTrialData: RecentTrialData = {
       wasCorrect: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -521,7 +529,7 @@ function PhotoNamingExerciseInner() {
       exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
       domainSlug: 'lexical_retrieval',
     };
-    recordPivotTrial(pivotTrialData);
+    if (firstObservation) recordPivotTrial(pivotTrialData);
 
     const interactionMode = mode === 'caregiver' 
       ? 'caregiver_assisted' 
@@ -630,8 +638,10 @@ function PhotoNamingExerciseInner() {
         },
       });
 
+      clinicalWriteConfirmed = persistenceResult.routed.exerciseEvents;
+      
       // Log pivot telemetry if a pivot was recommended
-      if (hasPendingPivot && pivotRecommendation) {
+      if (firstObservation && hasPendingPivot && pivotRecommendation) {
         console.log('🔄 Mid-session pivot triggered:', {
           action: pivotRecommendation.action,
           reason: pivotRecommendation.reason,
@@ -679,6 +689,9 @@ function PhotoNamingExerciseInner() {
     } else {
       console.warn('[LiveAnalysis] sessionId missing; skipping persistence but updating live snapshot');
     }
+
+    // A duplicate ACK retry must not emit the patient trial twice in the UI.
+    if (!firstObservation) return clinicalWriteConfirmed;
 
     // ===== Push data to Live Analysis Panel =====
     const ua = result.utteranceAnalysis;
@@ -748,6 +761,7 @@ function PhotoNamingExerciseInner() {
       detail: result.whisperTranscript ? `Heard: "${result.whisperTranscript}"` : undefined,
       confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : undefined,
     });
+    return clinicalWriteConfirmed;
   };
 
   const handleSkipExercise = async () => {
@@ -1092,9 +1106,10 @@ function PhotoNamingExerciseInner() {
             totalTrials={trials.length}
             initialDifficulty={initialDifficulty}
             assistMode={mode === 'caregiver'}
-            onTrialComplete={(result, trial) => {
-              handleTrialComplete(result, trial);
-              startTrial(); // Start timing next trial
+            onTrialComplete={async (result, trial) => {
+              const saved = await handleTrialComplete(result, trial);
+              if (saved) startTrial();
+              return saved;
             }}
             onGameComplete={handleGameComplete}
             customTrials={trials}
