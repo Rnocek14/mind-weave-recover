@@ -17,9 +17,12 @@ class FakeRecognition {
   onresult: ((event: unknown) => void) | null = null;
   starts = 0;
   stops = 0;
+  deferredStop = false;
+  stopping = false;
   constructor() { FakeRecognition.instances.push(this); }
-  start() { this.starts++; this.onstart?.(); }
-  stop() { this.stops++; this.onend?.(); }
+  start() { if (this.stopping) throw new Error('recognizer is still stopping'); this.starts++; this.onstart?.(); }
+  stop() { this.stops++; if (this.deferredStop) { this.stopping = true; } else { this.onend?.(); } }
+  finishStop() { this.stopping = false; this.onend?.(); }
   emitError(error: string) { this.onerror?.({ error }); }
   end() { this.onend?.(); }
 }
@@ -87,6 +90,23 @@ describe('patient microphone lifecycle', () => {
     expect(recognition.stops).toBeGreaterThan(0);
     expect(result.current.isListening).toBe(false);
     act(() => voiceController.setSessionPaused(false));
+    expect(recognition.starts).toBeGreaterThan(1);
+    unmount();
+  });
+
+  it('recovers when resume happens before the browser finishes stopping', () => {
+    const { result, unmount } = renderHook(() => useSpeechRecognition({
+      onResult: vi.fn(), autoStart: true, patientMode: true,
+    }));
+    const recognition = FakeRecognition.instances[0];
+    recognition.deferredStop = true;
+    act(() => voiceController.setSessionPaused(true));
+    expect(recognition.stopping).toBe(true);
+    act(() => voiceController.setSessionPaused(false));
+    // A real browser can reject start() while stop() is still pending.
+    act(() => recognition.finishStop());
+    act(() => { vi.advanceTimersByTime(1500); });
+    expect(result.current.isListening).toBe(true);
     expect(recognition.starts).toBeGreaterThan(1);
     unmount();
   });
