@@ -9,6 +9,7 @@ export function createAcknowledgedTrialReporter<T>(
   write: (result: T) => Promise<boolean> | boolean,
   fallback: T,
   deadlineMs = 3000,
+  writeDeadlineMs = 25000,
 ): {
   report: (result: T) => Promise<boolean>;
   acknowledgement: Promise<boolean>;
@@ -22,17 +23,28 @@ export function createAcknowledgedTrialReporter<T>(
     resolveAck = resolve;
   });
 
+  const writeWithDeadline = async (result: T): Promise<boolean> => {
+    // Even a hung network request must eventually surface a retryable failure
+    // instead of trapping the patient on feedback forever.
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(() => write(result)).then((saved) => saved === true).catch(() => false),
+        new Promise<boolean>((resolve) => {
+          timeout = setTimeout(() => resolve(false), writeDeadlineMs);
+        }),
+      ]);
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
+  };
+
   const report = async (result: T): Promise<boolean> => {
     if (reported) return acknowledgement;
     reported = true;
     submitted = result;
     clearTimeout(deadline);
-    let persisted = false;
-    try {
-      persisted = (await write(result)) === true;
-    } catch {
-      persisted = false;
-    }
+    const persisted = await writeWithDeadline(result);
     resolveAck(persisted);
     return persisted;
   };
@@ -44,10 +56,7 @@ export function createAcknowledgedTrialReporter<T>(
   const retry = async (): Promise<boolean> => {
     if (!reported || submitted === undefined) return false;
     if (retryPending) return retryPending;
-    retryPending = Promise.resolve()
-      .then(() => write(submitted as T))
-      .then((ok) => ok === true)
-      .catch(() => false)
+    retryPending = writeWithDeadline(submitted)
       .finally(() => { retryPending = null; });
     return retryPending;
   };
