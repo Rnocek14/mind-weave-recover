@@ -1686,8 +1686,11 @@ export const PhotoNamingGame = ({
       const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
       const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
 
-      const finalize = () => {
-        completeSession();
+      const finalize = async () => {
+        // Wait for session close before notifying the parent, which may unmount
+        // this game immediately. Otherwise the lifecycle hook can race the
+        // parent navigation and leave an incomplete session summary.
+        await completeSession();
         onGameComplete(state.score);
       };
 
@@ -1710,7 +1713,7 @@ export const PhotoNamingGame = ({
           leveledUp: snapshot.leveledUp,
         });
       } else {
-        finalize();
+        void finalize();
       }
     })();
   }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs, kidsMode]);
