@@ -10,7 +10,7 @@ import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
-import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import { usePhotoNamingProgression, mapPhotoNamingSupport } from '@/hooks/usePhotoNamingProgression';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import {
   resolveEffectiveInitialDifficulty,
@@ -482,6 +482,7 @@ function PhotoNamingExerciseInner() {
     browserTranscript?: string;
     attemptId?: string;
     trialIndex?: number;
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -569,9 +570,16 @@ function PhotoNamingExerciseInner() {
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
         cueLevel: result.cueLevel ?? 0,
-        supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
+        supportUsed: result.trialMode === 'recognition'
+          ? mapPhotoNamingSupport({ inputMode: 'recognition', cueLevel: result.cueLevel ?? 0 })
+          : mapPhotoNamingSupport({
+              inputMode: 'production',
+              cueLevel: result.trialMode === 'scaffolded'
+                ? Math.max(1, result.cueLevel ?? 0)
+                : (result.cueLevel ?? 0),
+            }),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
+        trialMode: result.trialMode ?? 'production',
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
@@ -598,8 +606,12 @@ function PhotoNamingExerciseInner() {
           effortful_speech: result.effortfulSpeech,
 
           // Phase 1B — manual-confirmation provenance (queryable on exercise_events).
-          confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
-          confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+          confirmation_mode: result.trialMode === 'recognition'
+            ? 'recognition_choice'
+            : result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
+          confirmed_by: result.trialMode === 'recognition'
+            ? 'patient_choice'
+            : result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
           manual_confirmed: result.manualConfirmed ?? false,
           asr_verified: result.asrVerified ?? false,
 
