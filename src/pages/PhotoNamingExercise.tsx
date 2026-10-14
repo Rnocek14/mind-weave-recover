@@ -556,7 +556,7 @@ function PhotoNamingExerciseInner() {
         asrVerified: result.asrVerified ?? undefined,
         confirmationMode: result.confirmationMode ?? null,
       });
-      await submitTrial({
+      const persistenceResult = await submitTrial({
         profileId: activeProfile?.id,
         sessionId,
         gameId: 'photo_naming',
@@ -649,7 +649,20 @@ function PhotoNamingExerciseInner() {
         }
       }
       
-      console.log('✅ Trial logged successfully to exercise_events');
+      if (!persistenceResult.routed.exerciseEvents) {
+        // The UI may have already shown feedback, but a failed clinical write
+        // must never be reported as a recorded therapy trial.
+        console.error('[PhotoNaming] Clinical trial was NOT saved', {
+          sessionId,
+          attemptId: result.attemptId,
+          trialIndex: result.trialIndex,
+        });
+        toast.error('This practice response could not be saved. Check your connection before continuing.', {
+          duration: 10000,
+        });
+      } else {
+        console.log('✅ Trial logged successfully to exercise_events');
+      }
     } else {
       console.warn('[LiveAnalysis] sessionId missing; skipping persistence but updating live snapshot');
     }
