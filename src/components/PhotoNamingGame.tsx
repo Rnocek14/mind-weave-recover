@@ -2259,7 +2259,10 @@ export const PhotoNamingGame = ({
       void primary.report(fallbackPayload);
     }
 
+    let advanced = false;
     const advanceAfterSave = () => {
+      if (advanced) return;
+      advanced = true;
       progression.recordTrialOutcome({
         correct: isCorrectAnswer,
         support: supportLevel,
