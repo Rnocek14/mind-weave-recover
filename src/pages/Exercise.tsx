@@ -893,15 +893,6 @@ const Exercise = () => {
                 });
                 
                 // Move to next round
-                if (!saved) {
-                  toast({
-                    title: 'Response not saved',
-                    description: 'Your answer has not been recorded. Use Retry saving response.',
-                    variant: 'destructive',
-                  });
-                  return false;
-                }
-
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
                   if (result.correct) {
@@ -909,7 +900,6 @@ const Exercise = () => {
                   }
                   startTrial();
                 }
-                return true;
               }}
               onGameComplete={(finalScore) => {
                 setScore(finalScore);
@@ -975,6 +965,14 @@ const Exercise = () => {
                   },
                 });
                 
+                if (!saved) {
+                  toast({
+                    title: 'Response not saved',
+                    description: 'The database did not confirm this attempt. Use Retry saving response.',
+                    variant: 'destructive',
+                  });
+                  return false;
+                }
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
                   if (result.correct) {
@@ -982,6 +980,7 @@ const Exercise = () => {
                   }
                   startTrial();
                 }
+                return true;
               }}
               onGameComplete={(finalScore) => {
                 setScore(finalScore);
