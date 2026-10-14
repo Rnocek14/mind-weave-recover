@@ -2407,7 +2407,7 @@ export const PhotoNamingGame = ({
         }
 
         // Log telemetry with unified analysis
-        onTrialComplete?.({
+        void primary.report({
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2422,6 +2422,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics,
           encouragementScore: speechEncouragementScore,
           effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
@@ -2435,7 +2436,7 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
-        }, capturedTrial);
+        });
 
         // Determine fluency availability
         const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
@@ -2533,7 +2534,7 @@ export const PhotoNamingGame = ({
         console.error('❌ [PhotoNaming] Background analysis error:', error);
 
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
-        onTrialComplete?.({
+        void primary.report({
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
@@ -2544,6 +2545,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics: undefined,
           encouragementScore: undefined,
           effortfulSpeech: false,
@@ -2557,7 +2559,7 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
-        }, capturedTrial);
+        });
       }
     })();
   };
