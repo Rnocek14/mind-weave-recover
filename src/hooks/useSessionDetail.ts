@@ -2,7 +2,7 @@
  * Reusable hook to fetch trial-level data + audio for a given session.
  * Extracted from SessionDetailPanel logic.
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TrialData {
@@ -30,36 +30,61 @@ export interface TrialData {
   validity_reason?: string | null;
   counts_toward_score?: boolean | null;
   clinician_validity_override?: string | null;
-  /** Which underlying table the row came from — needed for clinician overrides. */
+  /** Which underlying table the row came from - needed for clinician overrides. */
   source_table?: 'utterance_analyses' | 'exercise_events';
-  // ── Voice Engine v2 shadow verdict (exercise_events, Phase 2) ──
-  // Merged in by attempt_id regardless of which table supplied the trial row.
-  // Non-authoritative: v1 still scores; these exist for the clinician evidence
-  // panel and the pre-flip shadow diff (docs/voice-engine-v2-spec.md §12).
+  // Shadow verdicts are persisted in exercise_events.outputs.shadow_v2.
+  // Joined by attempt_id; never authoritative for scoring or progression.
   axis_scores?: Record<string, { value: number; confidence: number; evidence: string[] }> | null;
   strategy_used?: string | null;
   measurement_confidence?: string | null;
   verdict_primary?: string | null;
   verdict_reason?: string | null;
   shadow_v1_agreement?: { v1_correct: boolean; v2_primary: string; agrees: boolean | null } | null;
-  // ── Voice Engine v2 advisory-axis evidence (Phase 3) ──
-  // Raw persisted evidence the display-time advisory axes derive from
-  // (Azure PA gop_data, pause/effort metrics). Never feeds scoring.
+  // Advisory evidence is displayed only; it never feeds scoring.
   gop_data?: any;
   pause_count?: number | null;
   effortful_speech?: boolean | null;
 }
 
+type ShadowEvidence = Pick<TrialData,
+  'axis_scores' | 'strategy_used' | 'measurement_confidence' |
+  'verdict_primary' | 'verdict_reason' | 'shadow_v1_agreement'>;
+
 export function useSessionDetail() {
   const [trials, setTrials] = useState<TrialData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const requestRef = useRef(0);
+  const audioRequestRef = useRef(0);
+
+  // Invalidate pending requests when the owner unmounts (including profile
+  // changes). A late result must not restart audio or publish old evidence.
+  useEffect(() => () => {
+    requestRef.current += 1;
+    audioRequestRef.current += 1;
+    audioRef.current?.pause();
+    audioRef.current = null;
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    audioRequestRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingId(null);
+  }, []);
 
   const fetchTrials = useCallback(async (sessionId: string) => {
+    const request = ++requestRef.current;
+    stopAudio();
+    setTrials([]);
+    setLoadedSessionId(null);
     setLoading(true);
     try {
-      // Try utterance_analyses first
+      // Try utterance_analyses first.
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
@@ -67,14 +92,13 @@ export function useSessionDetail() {
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
-
+      if (request !== requestRef.current) return;
       if (uaError) throw uaError;
 
       let rows: TrialData[];
       if (uaData && uaData.length > 0) {
         rows = uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const }));
       } else {
-        // Fallback to exercise_events
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
           .select(
@@ -82,7 +106,7 @@ export function useSessionDetail() {
           )
           .eq("session_id", sessionId)
           .order("created_at", { ascending: true });
-
+        if (request !== requestRef.current) return;
         if (eeError) throw eeError;
 
         const mapped: TrialData[] = (eeData ?? []).map((ev) => ({
@@ -101,7 +125,6 @@ export function useSessionDetail() {
           semantic_similarity: ev.semantic_similarity,
           phonological_similarity: ev.phonological_similarity,
           stuck_type: null,
-          // Fluency evidence lives in acoustic_metrics on this table.
           speech_rate_wpm: (ev as any).acoustic_metrics?.speechRateWpm ?? null,
           pause_count: (ev as any).acoustic_metrics?.pauseCount ?? null,
           effortful_speech: null,
@@ -118,57 +141,53 @@ export function useSessionDetail() {
         rows = mapped;
       }
 
-      // ── Voice Engine v2: merge shadow verdicts (Phase 2 columns) ──
-      // The shadow verdict lives on exercise_events regardless of which table
-      // supplied the trial rows above, so fetch it separately and join on
-      // attempt_id. Best-effort: a failure here must never break Session Review.
+      // Read the location actually written by useExerciseTelemetry. The old
+      // query selected nonexistent top-level columns and silently lost every
+      // shadow verdict. No schema change and no new scoring authority here.
       try {
-        const { data: shadowRows } = await (supabase.from("exercise_events") as any)
-          .select(
-            "attempt_id, axis_scores, strategy_used, measurement_confidence, verdict_primary, verdict_reason, shadow_v1_agreement"
-          )
-          .eq("session_id", sessionId)
-          .not("verdict_primary", "is", null);
-        if (shadowRows && shadowRows.length > 0) {
-          const byAttempt = new Map<string, any>(
-            shadowRows
-              .filter((s: any) => s.attempt_id)
-              .map((s: any) => [s.attempt_id as string, s])
-          );
-          rows = rows.map((t) => {
-            const s = byAttempt.get(t.attempt_id);
-            return s
-              ? {
-                  ...t,
-                  axis_scores: s.axis_scores ?? null,
-                  strategy_used: s.strategy_used ?? null,
-                  measurement_confidence: s.measurement_confidence ?? null,
-                  verdict_primary: s.verdict_primary ?? null,
-                  verdict_reason: s.verdict_reason ?? null,
-                  shadow_v1_agreement: s.shadow_v1_agreement ?? null,
-                }
-              : t;
-          });
+        const { data: shadowRows, error: shadowError } = await supabase
+          .from("exercise_events")
+          .select("attempt_id, outputs")
+          .eq("session_id", sessionId);
+        if (request !== requestRef.current) return;
+        if (shadowError) throw shadowError;
+        const byAttempt = new Map<string, ShadowEvidence>();
+        for (const row of shadowRows ?? []) {
+          const outputs = row.outputs as { shadow_v2?: ShadowEvidence | null } | null;
+          const shadow = outputs?.shadow_v2;
+          if (row.attempt_id && shadow && typeof shadow === 'object' && !Array.isArray(shadow)) {
+            byAttempt.set(row.attempt_id, shadow);
+          }
         }
+        rows = rows.map((t) => {
+          const s = byAttempt.get(t.attempt_id);
+          return s ? {
+            ...t,
+            axis_scores: s.axis_scores ?? null,
+            strategy_used: s.strategy_used ?? null,
+            measurement_confidence: s.measurement_confidence ?? null,
+            verdict_primary: s.verdict_primary ?? null,
+            verdict_reason: s.verdict_reason ?? null,
+            shadow_v1_agreement: s.shadow_v1_agreement ?? null,
+          } : t;
+        });
       } catch (shadowErr) {
+        if (request !== requestRef.current) return;
         console.warn("Shadow verdict merge failed (non-fatal):", shadowErr);
       }
 
+      if (request !== requestRef.current) return;
       setTrials(rows);
+      setLoadedSessionId(sessionId);
     } catch (err) {
+      if (request !== requestRef.current) return;
       console.error("Error fetching session trials:", err);
+      setTrials([]);
+      setLoadedSessionId(null);
     } finally {
-      setLoading(false);
+      if (request === requestRef.current) setLoading(false);
     }
-  }, []);
-
-  const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    setPlayingId(null);
-  }, []);
+  }, [stopAudio]);
 
   const playAudio = useCallback(async (path: string, attemptId: string) => {
     if (playingId === attemptId) {
@@ -176,23 +195,35 @@ export function useSessionDetail() {
       return;
     }
     stopAudio();
+    const request = audioRequestRef.current;
     try {
-      const { data } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from("session-recordings")
         .createSignedUrl(path, 60);
+      if (request !== audioRequestRef.current) return;
+      if (error) throw error;
       if (data?.signedUrl) {
         const audio = new Audio(data.signedUrl);
-        audio.onended = () => setPlayingId(null);
-        audio.onerror = () => setPlayingId(null);
+        const finish = () => {
+          if (request === audioRequestRef.current) {
+            audioRef.current = null;
+            setPlayingId(null);
+          }
+        };
+        audio.onended = finish;
+        audio.onerror = finish;
         audioRef.current = audio;
         setPlayingId(attemptId);
         await audio.play();
       }
     } catch (err) {
+      if (request !== audioRequestRef.current) return;
       console.error("Error playing audio:", err);
+      audioRef.current?.pause();
+      audioRef.current = null;
       setPlayingId(null);
     }
   }, [playingId, stopAudio]);
 
-  return { trials, loading, fetchTrials, playAudio, stopAudio, playingId };
+  return { trials, loading, loadedSessionId, fetchTrials, playAudio, stopAudio, playingId };
 }

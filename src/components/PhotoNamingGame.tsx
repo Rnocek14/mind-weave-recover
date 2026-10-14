@@ -366,6 +366,7 @@ export const PhotoNamingGame = ({
     startAttempt, 
     logBrowserTranscript, 
     logFinalAnalysis, 
+    captureAttempt,
     resetAttempt 
   } = useUtteranceLogger();
   
@@ -1740,6 +1741,9 @@ export const PhotoNamingGame = ({
 
   const handleTimeout = async () => {
     if (showFeedback || selectedAnswer || timedOut) return;
+    const pendingAttempt = captureAttempt();
+    const capturedResponseLatency = micStartTimeRef.current > 0
+      ? Date.now() - micStartTimeRef.current : undefined;
     
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
@@ -1861,12 +1865,12 @@ export const PhotoNamingGame = ({
       whisperTranscript,
       whisperConfidence,
       browserTranscript: lastHeardText ?? undefined,
-      attemptId: currentAttemptId ?? undefined,
+      attemptId: pendingAttempt.attemptId ?? undefined,
       trialIndex: state.trialNumber,
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
-      latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+      latencyMs: capturedResponseLatency,
       consecutiveErrors: hookConsecutiveErrors,
       frustrationLevel,
       recentSuccessRate,
@@ -1878,7 +1882,7 @@ export const PhotoNamingGame = ({
     const timeoutCueWasEffective = cueState ? false : null; // Had a cue but didn't help
 
     // Log final analysis for timeout (critical for pattern analysis!)
-    logFinalAnalysis({
+    void pendingAttempt.finalize({
       transcript: whisperTranscript,
       transcriptSource: whisperTranscript ? 'whisper' : 'browser',
       asrConfidence: whisperConfidence,
@@ -2085,6 +2089,13 @@ export const PhotoNamingGame = ({
   ) => {
     if (showFeedback || selectedAnswer || timedOut) return;
 
+    // Freeze response identity and recognition metadata before recording,
+    // upload, or analysis can yield to the next trial.
+    const pendingAttempt = captureAttempt();
+    const capturedRecognitionConfidence = getLastRecognition()?.confidence;
+    const capturedResponseLatency = micStartTimeRef.current > 0
+      ? Date.now() - micStartTimeRef.current : undefined;
+
     // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
     currentTrialModeRef.current = inputMode;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
@@ -2207,7 +2218,7 @@ export const PhotoNamingGame = ({
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
-    const capturedAttemptId = currentAttemptId ?? undefined;
+    const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
     
     // Run analysis in background without blocking
     (async () => {
@@ -2264,7 +2275,7 @@ export const PhotoNamingGame = ({
         const errorClassification = await classifySpeechError(
           word,
           capturedTrial.target,
-          getLastRecognition()?.confidence ?? whisperConfidence ?? 0.8,
+          capturedRecognitionConfidence ?? whisperConfidence ?? 0.8,
           {
             trialNumber: capturedTrialNumber,
             previousErrors: capturedErrorHistory.map(e => e.errorType),
@@ -2348,11 +2359,11 @@ export const PhotoNamingGame = ({
           cueTypeGiven,
           cueWasEffective,
           timeToSuccessAfterCueMs,
-          latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+          latencyMs: capturedResponseLatency,
           consecutiveErrors: hookConsecutiveErrors,
           frustrationLevel,
           recentSuccessRate,
-          trialCount: state.trialNumber,
+          trialCount: capturedTrialNumber,
         }, capturedTrial);
 
         // Determine fluency availability
@@ -2388,7 +2399,7 @@ export const PhotoNamingGame = ({
           }
         }
 
-        logFinalAnalysis({
+        void pendingAttempt.finalize({
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript ? 'whisper' : 'browser',
           asrConfidence: whisperConfidence,
@@ -2429,7 +2440,7 @@ export const PhotoNamingGame = ({
         // ── Secondary Live Analysis push: Azure PA scores ──
         // onTrialComplete fires before pronunciation analysis finishes,
         // so we push Azure PA data to the panel as soon as it arrives.
-        if (pronData) {
+        if (pronData && pendingAttempt.attemptId !== null && pendingAttempt.attemptId === captureAttempt().attemptId) {
           setLiveSnapshot({
             pronunciationScore: pronData.pronunciationScore,
             accuracyScore: pronData.accuracyScore,
@@ -2470,11 +2481,11 @@ export const PhotoNamingGame = ({
           cueTypeGiven,
           cueWasEffective,
           timeToSuccessAfterCueMs,
-          latencyMs: micStartTimeRef.current > 0 ? Date.now() - micStartTimeRef.current : undefined,
+          latencyMs: capturedResponseLatency,
           consecutiveErrors: hookConsecutiveErrors,
           frustrationLevel,
           recentSuccessRate,
-          trialCount: state.trialNumber,
+          trialCount: capturedTrialNumber,
         }, capturedTrial);
       }
     })();
