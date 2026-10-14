@@ -61,7 +61,9 @@ describe('acknowledged primary clinical trial', () => {
     await vi.advanceTimersByTimeAsync(100);
     await expect(reporter.acknowledgement).resolves.toBe(false);
     expect(await reporter.retry()).toBe(false);
-    it('does not trap the patient when a network write hangs indefinitely', async () => {
+  });
+
+  it('does not trap the patient when a network write hangs indefinitely', async () => {
     vi.useFakeTimers();
     const save = vi.fn(() => new Promise<boolean>(() => {}));
     const reporter = createAcknowledgedTrialReporter(save, { attemptId: 'x' }, 100, 250);
@@ -69,5 +71,4 @@ describe('acknowledged primary clinical trial', () => {
     await expect(reporter.acknowledgement).resolves.toBe(false);
     expect(save).toHaveBeenCalledTimes(1);
   });
-});
 });
