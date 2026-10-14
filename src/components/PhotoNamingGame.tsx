@@ -3092,6 +3092,37 @@ export const PhotoNamingGame = ({
         </div>
       )}
 
+      {/* A score is not a clinical record until the database ACKs the write. */}
+      {clinicalSaveFailed && (
+        <div role="alert" className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+          <p className="text-sm font-medium text-destructive">
+            Your answer was not saved. We will stay on this response until it is safely recorded.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={retryingClinicalSave}
+            onClick={() => {
+              const retry = retryClinicalSaveRef.current;
+              if (!retry) return;
+              setRetryingClinicalSave(true);
+              void retry().then((saved) => {
+                if (!saved) {
+                  showToast({
+                    title: 'Still unable to save',
+                    description: 'Check your connection and use Retry saving again.',
+                    variant: 'destructive',
+                  });
+                }
+              }).finally(() => setRetryingClinicalSave(false));
+            }}
+          >
+            {retryingClinicalSave ? 'Saving…' : 'Retry saving response'}
+          </Button>
+        </div>
+      )}
+
       {/* Answer choices */}
       {!assistMode ? (
         <div className="shrink-0">
