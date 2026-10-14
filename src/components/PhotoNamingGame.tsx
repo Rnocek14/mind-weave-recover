@@ -61,6 +61,7 @@ import {
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
+import { resolvePhotoNamingTrialMode } from '@/lib/clinical/photoNamingAttemptModality';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -83,6 +84,8 @@ interface PhotoNamingGameProps {
     browserTranscript?: string;
     attemptId?: string;
     trialIndex?: number;
+    /** Actual response channel; never infer production from a choice tap. */
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -1863,6 +1866,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: currentAttemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'production',
       acousticMetrics,
       encouragementScore: timeoutEncouragementScore,
       effortfulSpeech: timeoutEffortfulSpeech,
@@ -2086,7 +2090,10 @@ export const PhotoNamingGame = ({
     if (showFeedback || selectedAnswer || timedOut) return;
 
     // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
-    currentTrialModeRef.current = inputMode;
+    currentTrialModeRef.current = resolvePhotoNamingTrialMode(
+      inputMode,
+      productionAttemptedRef.current,
+    );
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
@@ -2208,6 +2215,7 @@ export const PhotoNamingGame = ({
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = currentAttemptId ?? undefined;
+    const capturedTrialMode = currentTrialModeRef.current;
     
     // Run analysis in background without blocking
     (async () => {
@@ -2340,6 +2348,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics,
           encouragementScore: speechEncouragementScore,
           effortfulSpeech: utteranceAnalysis.effortfulSpeech || false,
@@ -2462,6 +2471,7 @@ export const PhotoNamingGame = ({
           browserTranscript: capturedBrowserTranscript,
           attemptId: capturedAttemptId,
           trialIndex: capturedTrialNumber,
+          trialMode: capturedTrialMode,
           acousticMetrics: undefined,
           encouragementScore: undefined,
           effortfulSpeech: false,
@@ -2586,6 +2596,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: currentAttemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'scaffolded',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
@@ -2693,6 +2704,7 @@ export const PhotoNamingGame = ({
       browserTranscript: lastHeardText ?? undefined,
       attemptId: currentAttemptId ?? undefined,
       trialIndex: state.trialNumber,
+      trialMode: 'production',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       audioMimeType: mimeType,
