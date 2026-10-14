@@ -49,9 +49,16 @@ test.describe('Core loop — Photo Naming trials persist', () => {
     test.slow(); // real backend round-trips
 
     const minted = await tryMintAnonSession();
+    // A dedicated staging gate must never turn a skipped therapy journey into
+    // a green result. Ordinary PR CI remains read-only and may skip.
+    if (!minted && process.env.REQUIRE_THERAPY_E2E === 'true') {
+      throw new Error(
+        'Required staging therapy E2E could not authenticate. Enable anonymous sign-ins on the isolated staging project, never production.'
+      );
+    }
     test.skip(
       !minted,
-      'Anonymous sign-ins disabled in Supabase Auth — enable to arm this test'
+      'Anonymous sign-ins disabled in Supabase Auth — enable on isolated staging to arm this test'
     );
     const { session, client } = minted!;
 
