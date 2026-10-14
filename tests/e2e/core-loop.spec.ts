@@ -30,7 +30,16 @@ async function tryMintAnonSession(): Promise<{ session: Session; client: Supabas
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await client.auth.signInAnonymously();
-  if (error || !data.session) return null;
+  if (error || !data.session) {
+    const message = `${error?.code ?? ''} ${error?.message ?? ''}`.toLowerCase();
+    if (
+      message.includes('anonymous_provider_disabled') ||
+      message.includes('anonymous sign-ins are disabled')
+    ) {
+      return null;
+    }
+    throw new Error(`Anonymous E2E sign-in failed: ${error?.message ?? 'no session returned'}`);
+  }
   await client.auth.setSession(data.session);
   return { session: data.session, client };
 }
@@ -39,10 +48,29 @@ test.describe('Core loop — Photo Naming trials persist', () => {
   test('answer trials by chip tap and verify exercise_events are written', async ({ context }) => {
     test.slow(); // real backend round-trips
 
+    if (process.env.REQUIRE_THERAPY_E2E === 'true') {
+      // This test writes clinical events. Never run its mandatory mode against
+      // the live patient database, even when the caller forgets env overrides.
+      const productionRef = 'wjedbpjaiqdxhmjzkcxo';
+      if (PROJECT_REF === productionRef) {
+        throw new Error('Refusing to run write-capable therapy E2E against production Supabase');
+      }
+      if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error('Staging URL and publishable key must be explicitly supplied');
+      }
+    }
+
     const minted = await tryMintAnonSession();
+    // A dedicated staging gate must never turn a skipped therapy journey into
+    // a green result. Ordinary PR CI remains read-only and may skip.
+    if (!minted && process.env.REQUIRE_THERAPY_E2E === 'true') {
+      throw new Error(
+        'Required staging therapy E2E could not authenticate. Enable anonymous sign-ins on the isolated staging project, never production.'
+      );
+    }
     test.skip(
       !minted,
-      'Anonymous sign-ins disabled in Supabase Auth — enable to arm this test'
+      'Anonymous sign-ins disabled in Supabase Auth — enable on isolated staging to arm this test'
     );
     const { session, client } = minted!;
 
@@ -76,14 +104,23 @@ test.describe('Core loop — Photo Naming trials persist', () => {
     const speakerButtons = page.locator('button[aria-label^="Hear "]');
     await expect(speakerButtons.first()).toBeVisible({ timeout: 20_000 });
 
-    // Answer up to 3 trials by tapping the first chip of each. Correctness
-    // doesn't matter — a scored wrong answer exercises the same loop.
-    for (let trial = 0; trial < 3; trial++) {
+    // Answer exactly three trials. Do not silently pass a partial session.
+    // A wrong answer is fine, but each click must create one new clinical row.
+    const expectedTrials = 3;
+    const { count: initialCount, error: initialCountError } = await client
+      .from('exercise_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.user.id)
+      .gte('created_at', startedAt);
+    expect(initialCountError, 'baseline clinical event count must be readable').toBeNull();
+    const baselineCount = initialCount ?? 0;
+
+    for (let trial = 0; trial < expectedTrials; trial++) {
       const ready = await speakerButtons
         .first()
         .isVisible({ timeout: 10_000 })
         .catch(() => false);
-      if (!ready) break; // summary screen or trial-cap reached — fine
+      expect(ready, `trial ${trial + 1} of ${expectedTrials} never rendered`).toBe(true);
 
       const chip = page
         .locator('div.group', { has: page.locator('button[aria-label^="Hear "]') })
@@ -96,20 +133,22 @@ test.describe('Core loop — Photo Naming trials persist', () => {
       await page.waitForTimeout(2500);
     }
 
-    // Ground truth: the loop persisted clinical rows for this user.
+    // Ground truth: each attempted trial persisted. The old >0 assertion
+    // could pass even when trials 2 and 3 silently failed to save.
     await expect
       .poll(
         async () => {
-          const { count } = await client
+          const { count, error } = await client
             .from('exercise_events')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', session.user.id)
             .gte('created_at', startedAt);
-          return count ?? 0;
+          if (error) throw new Error(`Clinical event count query failed: ${error.message}`);
+          return (count ?? 0) - baselineCount;
         },
-        { timeout: 20_000, message: 'no exercise_events written by the core loop' }
+        { timeout: 20_000, message: 'each of three therapy trials must persist exactly once' }
       )
-      .toBeGreaterThan(0);
+      .toBe(expectedTrials);
 
     await page.close();
   });
