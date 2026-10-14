@@ -26,6 +26,7 @@ import { ConfidenceBoost } from "@/components/ConfidenceBoost";
 import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { classifyUtteranceValidity } from "@/lib/clinical/classifyUtteranceValidity";
+import { summarizeRecordedPractice } from "@/lib/clinical/todayPracticeSummary";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
@@ -126,12 +127,10 @@ const Exercise = () => {
         
         const { data: events } = await supabase
           .from('exercise_events')
-          .select('score')
+          .select('score, counts_toward_score, validity_label, clinician_validity_override, task_parameters, engagement_flags')
           .in('session_id', sessionIds);
         
-        const total = events?.length || 0;
-        const correct = events?.filter(e => e.score > 0).length || 0;
-        
+        const { correct, total } = summarizeRecordedPractice(events ?? []);
         setTodayStats(prev => ({ ...prev, correct, total }));
       } catch (error) {
         console.error('Error fetching stats:', error);
