@@ -61,6 +61,7 @@ import {
   resolvePhotoNamingChipSupport,
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
+import { resolvePhotoNamingTrialMode } from '@/lib/clinical/photoNamingAttemptModality';
 
 interface PhotoNamingGameProps {
   totalTrials?: number;
@@ -2089,9 +2090,10 @@ export const PhotoNamingGame = ({
     if (showFeedback || selectedAnswer || timedOut) return;
 
     // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
-    currentTrialModeRef.current = inputMode === 'production'
-      ? 'production'
-      : (productionAttemptedRef.current ? 'scaffolded' : 'recognition');
+    currentTrialModeRef.current = resolvePhotoNamingTrialMode(
+      inputMode,
+      productionAttemptedRef.current,
+    );
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
