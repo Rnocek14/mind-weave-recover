@@ -553,18 +553,19 @@ export function FixSentenceGame({
       setValidationHint(null);
 
       // Wait for intro speech to complete, then speak sentence, THEN start mic
+      const trialIdAtStart = game.currentTrial.id;
       const startTrialFlow = async () => {
         // Wait for intro if needed
         while (!introCompleteRef.current) {
           await new Promise(r => setTimeout(r, 200));
         }
-        if (!game.currentTrial || ttsAbortRef.current) return;
+        if (!game.currentTrial || ttsAbortRef.current || currentTrialRef.current?.id !== trialIdAtStart) return;
 
         // Speak the sentence and WAIT for it to finish
         await speak(game.currentTrial.sentence);
 
         // Only start mic AFTER TTS completes
-        if (ttsAbortRef.current) return;
+        if (ttsAbortRef.current || currentTrialRef.current?.id !== trialIdAtStart) return;
 
         // The mic opens whether or not the tiles are up, and whether or not the
         // session row exists yet. Both of those used to block it and this was
@@ -909,16 +910,28 @@ export function FixSentenceGame({
   };
 
   const handleSkip = useCallback(() => {
-    trialAnsweredRef.current = false;
+    // A score already being processed cannot be cancelled halfway through
+    // persistence. Disable skipping for that short checking window.
+    if (processingRef.current) return;
+    // Close the old attempt BEFORE advancing, and invalidate late callbacks.
+    trialAnsweredRef.current = true;
     if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+    if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
+    cancelPendingMayaCoaching();
+    stopGlobalTTS();
     stopListening();
     setIsListening(false);
-    if (isRecording) stopRecording();
+    if (isRecording) cancelRecording();
+    resetTranscript();
     resetAttempt();
+    setDisplayTranscript('');
+    setValidationHint(null);
+    setTypedAnswer('');
     game.nextTrial();
     setShowFeedback(false);
-  }, [stopListening, isRecording, stopRecording, resetAttempt, game]);
+  }, [stopListening, isRecording, cancelRecording, resetTranscript, resetAttempt, game]);
 
   const handleTryAgain = useCallback(() => {
     if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
@@ -1015,11 +1028,25 @@ export function FixSentenceGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction */}
-      <div className="text-center">
+      {/* Keep a safe escape above the sentence: the bottom control can be below
+          the fold in Minimal view + Extra Large text on smaller screens. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           🔧 Find the wrong word and say a better one
         </p>
+        {!showFeedback && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11 px-4"
+            aria-label="Skip this sentence"
+            onClick={handleSkip}
+            disabled={isProcessing}
+          >
+            <SkipForward className="h-4 w-4 mr-1" /> Skip sentence
+          </Button>
+        )}
       </div>
 
       {/* Sentence Card */}
@@ -1108,7 +1135,7 @@ export function FixSentenceGame({
                   <Button variant="outline" size="sm" onClick={handleTryAgain}>
                     <RotateCcw className="h-4 w-4 mr-1" /> Try Again
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={handleSkip}>
+                  <Button variant="ghost" size="sm" className="min-h-11" onClick={handleSkip} disabled={isProcessing}>
                     <SkipForward className="h-4 w-4 mr-1" /> Skip
                   </Button>
                 </div>
@@ -1212,7 +1239,7 @@ export function FixSentenceGame({
           {showTextInput ? 'Switch to speech' : 'Switch to typing'}
         </button>}
 
-        <Button variant="ghost" size="sm" onClick={handleSkip}>
+        <Button variant="ghost" size="sm" className="min-h-11" onClick={handleSkip} disabled={isProcessing}>
           <SkipForward className="h-4 w-4 mr-1" /> Skip
         </Button>
       </div>
