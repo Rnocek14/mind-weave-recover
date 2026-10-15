@@ -150,8 +150,8 @@ export function MayaSessionFrame({
   }, [stop, speak, text]);
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full text-center space-y-8 animate-in fade-in duration-500">
+    <div className="fixed inset-0 bg-background z-50 flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:p-6">
+      <div className="my-auto max-w-md w-full text-center space-y-8 animate-in fade-in duration-500">
         {/* Maya avatar */}
         <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
           <MessageCircle className="w-8 h-8 text-primary" />
@@ -197,12 +197,12 @@ export function MayaSessionFrame({
         )}
 
         {/* Action buttons */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           {isVoiceLed && (
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground"
+              className="min-h-11 text-muted-foreground"
               onClick={handleRepeat}
             >
               <Volume2 className="w-4 h-4 mr-1.5" />
@@ -212,7 +212,7 @@ export function MayaSessionFrame({
           <Button
             variant="ghost"
             size="sm"
-            className="text-muted-foreground"
+            className="min-h-11 text-muted-foreground"
             onClick={handleContinue}
           >
             Continue

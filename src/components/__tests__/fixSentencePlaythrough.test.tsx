@@ -387,4 +387,31 @@ describe("FixSentenceGame — played like a human (typed mode)", () => {
     expect(wrong.isPartialCredit).toBe(false);
     expect(wrong.semanticSimilarity).toBeNull();
   });
+  it("unanswered skips remain accessible and never create a scored trial", async () => {
+    const onTrialComplete = vi.fn();
+    const onGameComplete = vi.fn();
+    render(
+      <FixSentenceGame
+        trialCount={2}
+        clinicalLevel={1}
+        onTrialComplete={onTrialComplete}
+        onGameComplete={onGameComplete}
+      />
+    );
+    const skip = await screen.findByRole("button", { name: "Skip this sentence" });
+    expect(skip).toBeEnabled();
+    expect(skip).toHaveClass("min-h-11");
+
+    await act(async () => { fireEvent.click(skip); });
+    expect(onTrialComplete).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Skip this sentence" }));
+    });
+
+    await waitFor(() => expect(onGameComplete).toHaveBeenCalledTimes(1));
+    expect(onGameComplete.mock.calls[0][0]).toEqual([]);
+    expect(onTrialComplete).not.toHaveBeenCalled();
+    expect(screen.getByText("Practice skipped")).toBeInTheDocument();
+  });
+
 });
