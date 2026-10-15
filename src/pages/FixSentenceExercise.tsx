@@ -237,7 +237,7 @@ export default function FixSentenceExercise() {
   }
 
   return (
-    <div className="min-h-dvh bg-background flex flex-col">
+    <div className="h-dvh min-h-0 bg-background flex flex-col">
       {recap && (
         <ProgressionRecap
           gameTitle="Fix the Sentence"
@@ -268,7 +268,7 @@ export default function FixSentenceExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
+      <main aria-label="Fix the Sentence practice" className="container px-4 py-2 flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain pb-24">
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
