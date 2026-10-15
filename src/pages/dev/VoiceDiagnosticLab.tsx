@@ -43,7 +43,7 @@ export default function VoiceDiagnosticLab() {
         exact: transcript === null ? null : normalized(transcript) === normalized(reference),
         durationMs: Math.round(performance.now() - start),
       }, ...previous]);
-      if (!result.ok) setError(result.error.message);
+      if (result.ok === false) setError(result.error.message);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
@@ -71,7 +71,7 @@ export default function VoiceDiagnosticLab() {
   const exportJson = () => {
     const payload = runs.map(({ result, ...rest }) => ({
       ...rest,
-      azure: result.ok ? result.data : { error: result.error, timings: result.timingsMs },
+      azure: result.ok === true ? result.data : { error: result.error, timings: result.timingsMs },
     }));
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a'); link.href = url; link.download = 'voice-diagnostic-runs.json'; link.click();
@@ -116,7 +116,7 @@ export default function VoiceDiagnosticLab() {
             <p>Mapped target contains /r/: {wordContainsPhoneme(run.target, '/r/') ? 'Yes' : 'No / unmapped'}</p>
             <details><summary>Raw word and alignment evidence</summary><pre className="overflow-auto text-xs whitespace-pre-wrap">{JSON.stringify({ words: run.result.data.words, alignment: run.result.data.alignmentData, timings: run.result.timingsMs }, null, 2)}</pre></details>
           </div>}
-          {!run.result.ok && <p className="text-sm text-destructive">{run.result.error.stage}: {run.result.error.message}</p>}
+          {run.result.ok === false && <p className="text-sm text-destructive">{run.result.error.stage}: {run.result.error.message}</p>}
         </section>)}
       </div>
       <p className="text-xs text-muted-foreground">Warning: Azure reference-guided pronunciation output is not necessarily an independent transcription. Compare the known spoken text and recognized text; this lab does not yet test downstream adaptation or clinical leveling. No results persist after reload unless exported.</p>
