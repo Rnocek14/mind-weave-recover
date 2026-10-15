@@ -984,13 +984,18 @@ export function FixSentenceGame({
   }, [game.currentTrial, speak]);
 
   if (game.isComplete) {
-    const accuracy = game.totalTrials > 0 ? game.correctCount / game.totalTrials : 0;
-    const headline = accuracy >= 0.7
+    // Skipped prompts produce no result. They must not lower measured
+    // accuracy or trigger failure-themed feedback when nobody answered.
+    const measuredResponses = game.results.length;
+    const accuracy = measuredResponses > 0 ? game.correctCount / measuredResponses : null;
+    const headline = accuracy === null
+      ? 'Practice skipped'
+      : accuracy >= 0.7
       ? 'Nice work!'
       : accuracy >= 0.4
       ? 'Session complete'
       : 'Good effort — keep practicing';
-    const emoji = accuracy >= 0.7 ? '🎉' : '';
+    const emoji = accuracy !== null && accuracy >= 0.7 ? '🎉' : '';
     return (
       <div className="max-w-md mx-auto text-center space-y-6 py-8">
         {emoji && <div className="text-6xl">{emoji}</div>}
@@ -1006,9 +1011,12 @@ export function FixSentenceGame({
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-muted-foreground">{game.totalTrials}</div>
-            <div className="text-sm text-muted-foreground">Total</div>
+            <div className="text-sm text-muted-foreground">Prompts</div>
           </div>
         </div>
+        {accuracy === null && (
+          <p className="text-muted-foreground">No answers were scored. Skipped prompts are not counted as wrong.</p>
+        )}
       </div>
     );
   }
