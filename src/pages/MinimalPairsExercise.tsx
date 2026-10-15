@@ -113,7 +113,7 @@ export default function MinimalPairsExercise() {
     totalTrials: trialsRef.current,
     startTime: startTimeRef.current,
   }), []);
-  const { completeSession } = useSessionLifecycle({
+  const { completeSession, endWithReason } = useSessionLifecycle({
     sessionId,
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -164,19 +164,24 @@ export default function MinimalPairsExercise() {
     correctCount: number;
     incorrectCount: number;
     accuracy: number;
+    skippedCount: number;
   }) => {
     console.log('Minimal pairs exercise complete:', results);
 
-    // Feed final stats to the session-summary writer before closing.
-    scoreRef.current = Math.round(results.accuracy ?? results.score ?? 0);
-    trialsRef.current = results.correctCount + results.incorrectCount;
+    // Only answers actually selected are measured. Skipped sound pairs must
+    // never become incorrect trials or a manufactured 0% session score.
+    const measuredCount = results.correctCount + results.incorrectCount;
+    scoreRef.current = measuredCount > 0 ? Math.round(results.accuracy) : 0;
+    trialsRef.current = measuredCount;
 
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
     const commitResult = await commitSession();
 
-    // Close the session (standalone) or record the sub-exercise (lesson-owned)
-    // and stamp the accuracy summary + speech dose.
-    await completeSession();
+    // Entirely skipped: record a skipped exit, not a successful/failed scored
+    // exercise. The lifecycle writer omits score fields when no attempts exist.
+    // For lesson-owned sessions, the parent still owns the overall session.
+    if (measuredCount > 0) await completeSession();
+    else await endWithReason('skipped');
 
     const finalize = () => {
       if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -201,7 +206,7 @@ export default function MinimalPairsExercise() {
     } else {
       finalize();
     }
-  }, [fromLesson, navigate, returnTo, commitSession, completeSession]);
+  }, [fromLesson, navigate, returnTo, commitSession, completeSession, endWithReason]);
   
   const handleTrialComplete = useCallback((trialData: {
     targetWord: string;
