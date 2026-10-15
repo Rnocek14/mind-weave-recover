@@ -107,6 +107,7 @@ const MasteryConfidenceSimDev = lazy(() => import("./pages/dev/MasteryConfidence
 const LevelingContractDev = lazy(() => import("./pages/dev/LevelingContractDev"));
 const ProgressionStateDev = lazy(() => import("./pages/dev/ProgressionStateDev"));
 const QaRunbook = lazy(() => import("./pages/dev/QaRunbook"));
+const VoiceDiagnosticLab = lazy(() => import("./pages/dev/VoiceDiagnosticLab"));
 const UiVariantPreview = lazy(() => import("./pages/dev/UiVariantPreview"));
 const OnboardingPreviewDev = lazy(() => import("./pages/dev/OnboardingPreviewDev"));
 const ClinicianTrialDashboard = lazy(() => import("./pages/clinician/ClinicianTrialDashboard"));
@@ -249,6 +250,7 @@ const App = () => (
                   <Route path="/dev/leveling-contract" element={<AdminProtectedRoute><LevelingContractDev /></AdminProtectedRoute>} />
                   <Route path="/dev/progression-state" element={<AdminProtectedRoute><ProgressionStateDev /></AdminProtectedRoute>} />
                   <Route path="/dev/qa-runbook" element={<AdminProtectedRoute><QaRunbook /></AdminProtectedRoute>} />
+                  <Route path="/dev/voice-diagnostic" element={<AdminProtectedRoute><VoiceDiagnosticLab /></AdminProtectedRoute>} />
                   <Route path="/dev/ui-variants" element={<AdminProtectedRoute><UiVariantPreview /></AdminProtectedRoute>} />
                   <Route path="/dev/onboarding-preview" element={<AdminProtectedRoute><OnboardingPreviewDev /></AdminProtectedRoute>} />
 
