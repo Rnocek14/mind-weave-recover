@@ -42,6 +42,7 @@ export default function FixSentenceExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [wasSkipped, setWasSkipped] = useState(false);
   // Validation harness: ?validation=1 → 10 trials so adaptation can show both
   // UP and DOWN within one session. Production users still get 5.
   const validationTrialCount = useValidationTrialCount(5, 10);
@@ -104,7 +105,7 @@ export default function FixSentenceExercise() {
     startTime: startTimeRef.current,
   }), []);
 
-  const { completeSession } = useSessionLifecycle({
+  const { completeSession, endWithReason } = useSessionLifecycle({
     sessionId: activeSessionId,
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -186,9 +187,15 @@ export default function FixSentenceExercise() {
     // Unified commit: progression flush + mastery shadow flush in one call.
     const commitResult = await commitSession();
 
+    // A run with no actual responses is skipped, not a 0%-accuracy
+    // "completed" therapy session. The lifecycle omits score fields if
+    // no measured attempts exist.
+    const hadMeasuredAttempt = trialsRef.current > 0 || results.length > 0;
     const finalize = () => {
+      setWasSkipped(!hadMeasuredAttempt);
       setCompleted(true);
-      completeSession();
+      if (hadMeasuredAttempt) void completeSession();
+      else void endWithReason('skipped');
       if (fromLesson) {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('exercise-complete', {
@@ -211,7 +218,7 @@ export default function FixSentenceExercise() {
     } else {
       finalize();
     }
-  }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
+  }, [fromLesson, completeSession, endWithReason, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -271,9 +278,15 @@ export default function FixSentenceExercise() {
       <main aria-label="Fix the Sentence practice" className="container px-4 py-2 flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain pb-24">
         {completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
-            <div className="text-6xl">🎉</div>
-            <h2 className="text-2xl font-bold">Exercise Complete!</h2>
-            <p className="text-muted-foreground">{fromLesson ? 'Loading next exercise…' : 'Great job fixing those sentences!'}</p>
+            {!wasSkipped && <div className="text-6xl">🎉</div>}
+            <h2 className="text-2xl font-bold">{wasSkipped ? 'Practice skipped' : 'Exercise Complete!'}</h2>
+            <p className="text-muted-foreground">
+              {fromLesson
+                ? 'Loading next exercise…'
+                : wasSkipped
+                  ? 'No answers were scored.'
+                  : 'Great job fixing those sentences!'}
+            </p>
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : !progression.loaded ? (
