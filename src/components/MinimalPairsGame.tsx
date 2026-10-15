@@ -43,6 +43,7 @@ interface MinimalPairsGameProps {
     correctCount: number;
     incorrectCount: number;
     accuracy: number;
+    skippedCount: number;
   }) => void;
   onTrialComplete?: (trialData: {
     targetWord: string;
@@ -68,7 +69,7 @@ export function MinimalPairsGame({
   onComplete,
   onTrialComplete,
 }: MinimalPairsGameProps) {
-  const { state, selectAnswer, nextTrial, reset, setActiveDifficulty } = useMinimalPairsGame({
+  const { state, selectAnswer, nextTrial, skipTrial, reset, setActiveDifficulty } = useMinimalPairsGame({
     totalTrials,
     difficultyLevel: difficulty,
     focusPhonemes,
@@ -125,7 +126,7 @@ export function MinimalPairsGame({
   // Stall timer for voice reminder
   const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
+  const { currentTrial, trialIndex, score, correctCount, incorrectCount, skippedCount, showFeedback, isComplete } = state;
 
   // ============ Optional 'Say it' echo phase ============
   // Exposure, NOT evaluation. Never marks user wrong, never blocks progression.
@@ -224,6 +225,13 @@ export function MinimalPairsGame({
     setEchoStatus('skipped');
   }, [stopEcho]);
 
+  // A skipped discrimination prompt is NOT an incorrect speech/language trial.
+  // Stop any optional recognition before moving to the next stimulus.
+  const handleSkipUnanswered = useCallback(() => {
+    stopEcho();
+    skipTrial();
+  }, [stopEcho, skipTrial]);
+
   // Reset echo on each new trial
   useEffect(() => {
     stopEcho();
@@ -297,12 +305,13 @@ export function MinimalPairsGame({
   // Handle completion
   useEffect(() => {
     if (isComplete && onComplete) {
-      const accuracy = state.totalTrials > 0 
-        ? Math.round((correctCount / state.totalTrials) * 100) 
+      const answeredCount = correctCount + incorrectCount;
+      const accuracy = answeredCount > 0
+        ? Math.round((correctCount / answeredCount) * 100)
         : 0;
-      onComplete({ score, correctCount, incorrectCount, accuracy });
+      onComplete({ score, correctCount, incorrectCount, accuracy, skippedCount });
     }
-  }, [isComplete, onComplete, score, correctCount, incorrectCount, state.totalTrials]);
+  }, [isComplete, onComplete, score, correctCount, incorrectCount, skippedCount]);
   
   // Report trial data — fire once per trial. For incorrect, immediate; for
   // correct, wait until echo resolves so we can include echoAttempted as a cue signal.
@@ -388,18 +397,19 @@ export function MinimalPairsGame({
   }
   
   if (isComplete) {
-    const accuracy = state.totalTrials > 0 
-      ? Math.round((correctCount / state.totalTrials) * 100) 
+    const answeredCount = correctCount + incorrectCount;
+    const accuracy = answeredCount > 0
+      ? Math.round((correctCount / answeredCount) * 100)
       : 0;
     const accNorm = accuracy / 100;
     const maya = buildReflection(accNorm);
     
     const strengths: string[] = [];
     const weaknesses: string[] = [];
-    if (accuracy >= 80) strengths.push('Strong sound discrimination accuracy');
-    if (correctCount >= totalTrials * 0.6) strengths.push(`Got ${correctCount} of ${state.totalTrials} correct`);
-    if (accuracy < 60) weaknesses.push('Some similar sounds were hard to tell apart');
-    if (accuracy >= 60 && accuracy < 80) weaknesses.push('A few tricky sound pairs need more practice');
+    if (answeredCount > 0 && accuracy >= 80) strengths.push('Strong sound discrimination accuracy');
+    if (answeredCount > 0 && correctCount >= answeredCount * 0.6) strengths.push(`Got ${correctCount} of ${answeredCount} answered pairs correct`);
+    if (answeredCount > 0 && accuracy < 60) weaknesses.push('Some similar sounds were hard to tell apart');
+    if (answeredCount > 0 && accuracy >= 60 && accuracy < 80) weaknesses.push('A few tricky sound pairs need more practice');
     
     return (
       <div className="max-w-md mx-auto space-y-4">
@@ -409,10 +419,10 @@ export function MinimalPairsGame({
               <Trophy className="w-8 h-8 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Exercise Complete!</h2>
+              <h2 className="text-xl font-bold">{answeredCount > 0 ? "Exercise Complete!" : "Practice skipped"}</h2>
               <p className="text-muted-foreground mt-1 text-sm">Sound discrimination practice</p>
             </div>
-            <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+            {answeredCount > 0 && <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
               <div className="p-3 bg-muted rounded-lg">
                 <div className="text-xl font-bold text-primary">{score}</div>
                 <div className="text-xs text-muted-foreground">Score</div>
@@ -425,17 +435,27 @@ export function MinimalPairsGame({
                 <div className="text-xl font-bold">{accuracy}%</div>
                 <div className="text-xs text-muted-foreground">Accuracy</div>
               </div>
-            </div>
+            </div>}
+            {skippedCount > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {skippedCount} {skippedCount === 1 ? 'pair' : 'pairs'} skipped — not counted as incorrect.
+              </p>
+            )}
+            {answeredCount === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No sound discrimination answers were scored.
+              </p>
+            )}
           </div>
         </Card>
 
-        <StructuredFeedbackSummary
+        {answeredCount > 0 && <StructuredFeedbackSummary
           strengths={strengths}
           weaknesses={weaknesses}
           nextStep={maya.nextStep}
           mayaReflection={maya.reflection}
           realLifeLine={maya.realLifeLine}
-        />
+        />}
 
         {showRestart ? (
           <div className="text-center">
@@ -513,6 +533,25 @@ export function MinimalPairsGame({
         </div>
       )}
       
+      {/* Always expose an unscored escape BEFORE requiring an answer.
+          Keep it above the large images so extra-large text cannot hide it
+          under the viewport's lower edge. */}
+      {!showFeedback && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11 px-4"
+            aria-label="Skip this sound pair without scoring"
+            data-testid="skip-unanswered-pair"
+            onClick={handleSkipUnanswered}
+          >
+            Skip pair <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Side-by-side images — full-width, large touch targets. Width capped
           relative to viewport HEIGHT (tiles are square, so tile height =
           half the grid width): keeps both pictures + the say-it bar on
