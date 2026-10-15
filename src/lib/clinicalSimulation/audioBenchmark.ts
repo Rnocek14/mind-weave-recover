@@ -23,8 +23,8 @@ export type AudioBenchmarkResult = {
   speakerMismatch: boolean | null;
 };
 export function words(text: string): string[] {
-  return text.toLowerCase().normalize('NFKC').replace(/[^\\p{L}\\p{N}' ]/gu, ' ')
-    .trim().split(/\\s+/).filter(Boolean);
+  return text.toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}' ]/gu, ' ')
+    .trim().split(/\s+/).filter(Boolean);
 }
 export function alignWords(reference: string[], hypothesis: string[]) {
   type Counts = { substitutions: number; deletions: number; insertions: number };
