@@ -339,7 +339,7 @@ export default function MinimalPairsExercise() {
   }
   
   return (
-    <div className="min-h-dvh bg-background flex flex-col">
+    <div className="h-dvh min-h-0 bg-background flex flex-col">
       {recap && (
         <ProgressionRecap
           gameTitle="Minimal Pairs"
@@ -370,7 +370,7 @@ export default function MinimalPairsExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
 
-      <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
+      <main aria-label="Minimal Pairs practice" className="container px-4 py-2 flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain pb-24">
         <div className="max-w-2xl mx-auto">
           <MinimalPairsGame
             difficulty={difficulty}
