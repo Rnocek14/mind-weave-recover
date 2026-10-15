@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
-import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { useTextToSpeech, stopGlobalTTS } from '@/hooks/useTextToSpeech';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { echoLabelFor, echoIsDone, type EchoStatus } from '@/lib/minimalPairs/echoState';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy, Mic } from 'lucide-react';
@@ -229,6 +229,9 @@ export function MinimalPairsGame({
   // Stop any optional recognition before moving to the next stimulus.
   const handleSkipUnanswered = useCallback(() => {
     stopEcho();
+    // The previous stimulus may still be speaking; don't read two pairs over
+    // each other when the person moves on without choosing an answer.
+    stopGlobalTTS();
     skipTrial();
   }, [stopEcho, skipTrial]);
 
@@ -302,15 +305,22 @@ export function MinimalPairsGame({
     }
   }, [currentTrial, showFeedback, speak]);
   
-  // Handle completion
+  // The page callback can change identity after a commit/re-render. A finished
+  // game may only report completion once, or it can persist the same session
+  // twice and retrigger progression. Reset the latch when practice restarts.
+  const completionReportedRef = useRef(false);
   useEffect(() => {
-    if (isComplete && onComplete) {
-      const answeredCount = correctCount + incorrectCount;
-      const accuracy = answeredCount > 0
-        ? Math.round((correctCount / answeredCount) * 100)
-        : 0;
-      onComplete({ score, correctCount, incorrectCount, accuracy, skippedCount });
+    if (!isComplete) {
+      completionReportedRef.current = false;
+      return;
     }
+    if (!onComplete || completionReportedRef.current) return;
+    completionReportedRef.current = true;
+    const answeredCount = correctCount + incorrectCount;
+    const accuracy = answeredCount > 0
+      ? Math.round((correctCount / answeredCount) * 100)
+      : 0;
+    onComplete({ score, correctCount, incorrectCount, accuracy, skippedCount });
   }, [isComplete, onComplete, score, correctCount, incorrectCount, skippedCount]);
   
   // Report trial data — fire once per trial. For incorrect, immediate; for
