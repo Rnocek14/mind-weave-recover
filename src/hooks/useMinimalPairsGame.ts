@@ -21,6 +21,8 @@ export interface MinimalPairsGameState {
   score: number;
   correctCount: number;
   incorrectCount: number;
+  /** Skipped prompts are neither correct nor incorrect clinical observations. */
+  skippedCount: number;
   selectedIndex: number | null;
   isCorrect: boolean | null;
   isComplete: boolean;
@@ -114,6 +116,7 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     score: 0,
     correctCount: 0,
     incorrectCount: 0,
+    skippedCount: 0,
     selectedIndex: null,
     isCorrect: null,
     isComplete: false,
@@ -155,6 +158,37 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
         ...prev,
         currentTrial: prev.trials[nextIndex],
         trialIndex: nextIndex,
+        selectedIndex: null,
+        isCorrect: null,
+        showFeedback: false,
+      };
+    });
+  }, []);
+
+  /**
+   * Leave an unanswered pair without manufacturing an incorrect response.
+   * This intentionally does not call selectAnswer or open the feedback phase:
+   * scoring, adaptation, and the clinical trial writer only run for real taps.
+   */
+  const skipTrial = useCallback(() => {
+    setState(prev => {
+      if (!prev.currentTrial || prev.showFeedback || prev.isComplete) return prev;
+      const nextIndex = prev.trialIndex + 1;
+      if (nextIndex >= prev.trials.length) {
+        return {
+          ...prev,
+          skippedCount: prev.skippedCount + 1,
+          isComplete: true,
+          showFeedback: false,
+          selectedIndex: null,
+          isCorrect: null,
+        };
+      }
+      return {
+        ...prev,
+        currentTrial: prev.trials[nextIndex],
+        trialIndex: nextIndex,
+        skippedCount: prev.skippedCount + 1,
         selectedIndex: null,
         isCorrect: null,
         showFeedback: false,
@@ -222,6 +256,7 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
       score: 0,
       correctCount: 0,
       incorrectCount: 0,
+      skippedCount: 0,
       selectedIndex: null,
       isCorrect: null,
       isComplete: false,
@@ -234,6 +269,7 @@ export function useMinimalPairsGame(options: MinimalPairsGameOptions = {}) {
     state,
     selectAnswer,
     nextTrial,
+    skipTrial,
     reset,
     setActiveDifficulty,
   };
