@@ -109,6 +109,13 @@ const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
     heading: "Engine & Pipeline",
     items: [
       {
+        title: "Voice Diagnostic Lab",
+        description: "Test audio recordings with Azure and export QA results; no patient progression changes.",
+        href: "/dev/voice-diagnostic",
+        icon: Mic,
+        badge: "QA",
+      },
+      {
         title: "Engine Simulation",
         description: "Test lesson engine against clinical profiles",
         href: "/admin/engine-simulation",
