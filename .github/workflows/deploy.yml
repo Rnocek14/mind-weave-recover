@@ -52,7 +52,7 @@ env:
 jobs:
   build:
     name: Build and verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -95,7 +95,7 @@ jobs:
     needs: build
     # Skipped, not failed, while Pages is off. See the header.
     if: github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
