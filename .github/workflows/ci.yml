@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     name: Lint + Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +35,7 @@ jobs:
 
   e2e:
     name: Playwright E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Phase 1A scaffolding — runs the public-route smoke spec.
     # Authenticated journeys land in a follow-up PR.
     steps:
