@@ -10,7 +10,7 @@ import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
-import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
+import { usePhotoNamingProgression, mapPhotoNamingSupport } from '@/hooks/usePhotoNamingProgression';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import {
   resolveEffectiveInitialDifficulty,
@@ -186,6 +186,7 @@ function PhotoNamingExerciseInner() {
   const [mode, setMode] = useState<'independent' | 'caregiver'>('independent');
   const [caregiverNotes, setCaregiverNotes] = useState('');
   const [recentAccuracies, setRecentAccuracies] = useState<number[]>([]);
+  const observedAttemptIdsRef = useRef(new Set<string>());
   const sessionStartRef = useRef(Date.now());
   const trialsFrozenRef = useRef(false);
   const { kidsMode } = useKidsMode();
@@ -482,6 +483,7 @@ function PhotoNamingExerciseInner() {
     browserTranscript?: string;
     attemptId?: string;
     trialIndex?: number;
+    trialMode?: 'production' | 'recognition' | 'scaffolded';
     acousticMetrics?: any;
     encouragementScore?: number;
     effortfulSpeech?: boolean;
@@ -501,16 +503,24 @@ function PhotoNamingExerciseInner() {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
-  }, trial: PhotoTrial) => {
-    // Track recent accuracies for Live Analysis dots
-    setRecentAccuracies(prev => {
-      const next = [...prev, result.correct ? 1 : 0];
-      return next.length > 10 ? next.slice(-10) : next;
-    });
+  }, trial: PhotoTrial): Promise<boolean> => {
+    // Retrying an uncertain ACK must not double-count progression indicators
+    // or mid-session pivots. The database can still verify the same attempt.
+    const firstObservation = !result.attemptId
+      || !observedAttemptIdsRef.current.has(result.attemptId);
+    if (firstObservation && result.attemptId) {
+      observedAttemptIdsRef.current.add(result.attemptId);
+    }
+    if (firstObservation) {
+      setRecentAccuracies(prev => {
+        const next = [...prev, result.correct ? 1 : 0];
+        return next.length > 10 ? next.slice(-10) : next;
+      });
+    }
 
     const hasSession = Boolean(sessionId);
+    let clinicalWriteConfirmed = false;
 
-    // Record trial for mid-session pivot evaluation
     const pivotTrialData: RecentTrialData = {
       wasCorrect: result.correct,
       reactionTimeMs: result.reactionTimeMs,
@@ -519,7 +529,7 @@ function PhotoNamingExerciseInner() {
       exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
       domainSlug: 'lexical_retrieval',
     };
-    recordPivotTrial(pivotTrialData);
+    if (firstObservation) recordPivotTrial(pivotTrialData);
 
     const interactionMode = mode === 'caregiver' 
       ? 'caregiver_assisted' 
@@ -569,9 +579,16 @@ function PhotoNamingExerciseInner() {
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
         cueLevel: result.cueLevel ?? 0,
-        supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
+        supportUsed: result.trialMode === 'recognition'
+          ? mapPhotoNamingSupport({ inputMode: 'recognition', cueLevel: result.cueLevel ?? 0 })
+          : mapPhotoNamingSupport({
+              inputMode: 'production',
+              cueLevel: result.trialMode === 'scaffolded'
+                ? Math.max(1, result.cueLevel ?? 0)
+                : (result.cueLevel ?? 0),
+            }),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
+        trialMode: result.trialMode ?? 'production',
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
@@ -598,8 +615,12 @@ function PhotoNamingExerciseInner() {
           effortful_speech: result.effortfulSpeech,
 
           // Phase 1B — manual-confirmation provenance (queryable on exercise_events).
-          confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
-          confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+          confirmation_mode: result.trialMode === 'recognition'
+            ? 'recognition_choice'
+            : result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
+          confirmed_by: result.trialMode === 'recognition'
+            ? 'patient_choice'
+            : result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
           manual_confirmed: result.manualConfirmed ?? false,
           asr_verified: result.asrVerified ?? false,
 
@@ -617,8 +638,10 @@ function PhotoNamingExerciseInner() {
         },
       });
 
+      clinicalWriteConfirmed = persistenceResult.routed.exerciseEvents;
+      
       // Log pivot telemetry if a pivot was recommended
-      if (hasPendingPivot && pivotRecommendation) {
+      if (firstObservation && hasPendingPivot && pivotRecommendation) {
         console.log('🔄 Mid-session pivot triggered:', {
           action: pivotRecommendation.action,
           reason: pivotRecommendation.reason,
@@ -666,6 +689,9 @@ function PhotoNamingExerciseInner() {
     } else {
       console.warn('[LiveAnalysis] sessionId missing; skipping persistence but updating live snapshot');
     }
+
+    // A duplicate ACK retry must not emit the patient trial twice in the UI.
+    if (!firstObservation) return clinicalWriteConfirmed;
 
     // ===== Push data to Live Analysis Panel =====
     const ua = result.utteranceAnalysis;
@@ -735,6 +761,7 @@ function PhotoNamingExerciseInner() {
       detail: result.whisperTranscript ? `Heard: "${result.whisperTranscript}"` : undefined,
       confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : undefined,
     });
+    return clinicalWriteConfirmed;
   };
 
   const handleSkipExercise = async () => {
@@ -1079,9 +1106,10 @@ function PhotoNamingExerciseInner() {
             totalTrials={trials.length}
             initialDifficulty={initialDifficulty}
             assistMode={mode === 'caregiver'}
-            onTrialComplete={(result, trial) => {
-              handleTrialComplete(result, trial);
-              startTrial(); // Start timing next trial
+            onTrialComplete={async (result, trial) => {
+              const saved = await handleTrialComplete(result, trial);
+              if (saved) startTrial();
+              return saved;
             }}
             onGameComplete={handleGameComplete}
             customTrials={trials}
