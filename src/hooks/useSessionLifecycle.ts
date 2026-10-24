@@ -7,8 +7,9 @@ import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { computeSessionAccuracySummary, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
+import { mergeMeasuredExerciseScores } from '@/lib/clinical/exerciseScoreEligibility';
 
-type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
+type EndedReason = 'completed' | 'abandoned' | 'skipped' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
 interface SessionLifecycleOptions {
   /** Session ID to manage */
@@ -171,7 +172,9 @@ export const useSessionLifecycle = ({
 
           const mergedSummary = {
             ...existingSummary,
-            scores: { ...exerciseScores, [exerciseSlug]: stats.score },
+            // No measured attempts means NO score. Skipping an entire exercise
+            // must not create a fabricated 0% result in the clinician report.
+            scores: mergeMeasuredExerciseScores(exerciseScores, exerciseSlug, stats.score, stats.totalTrials),
             // Track per-exercise reps without clobbering totals owned by parent
             lastExerciseReps: stats.totalTrials,
             lastExerciseDurationSec: durationSec,
@@ -201,7 +204,8 @@ export const useSessionLifecycle = ({
           const mergedSummary = {
             ...existingSummary,
             durationSec,
-            scores: { ...existingScores, [exerciseSlug]: stats.score },
+            // An all-skipped exercise is not a measured incorrect response.
+            scores: mergeMeasuredExerciseScores(existingScores, exerciseSlug, stats.score, stats.totalTrials),
             reps: stats.totalTrials,
             ...accFields,
           };

@@ -151,8 +151,8 @@ export const ExerciseTransitionOverlay = ({
   // ═══════ Micro-pause (breathing break) ═══════
   if (type === 'micro-pause') {
     return (
-      <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="max-w-sm w-full text-center space-y-6 animate-in fade-in duration-500">
+      <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto overscroll-contain p-4">
+        <div className="my-auto max-w-sm w-full text-center space-y-6 animate-in fade-in duration-500">
           {/* Progress dots */}
           <div className="flex justify-center gap-2">
             {Array.from({ length: totalCount }).map((_, i) => (
@@ -192,16 +192,16 @@ export const ExerciseTransitionOverlay = ({
           )}
 
           <div className="flex flex-col gap-2">
-            <div className="flex gap-3">
-              <Button variant="ghost" size="lg" className="flex-1 text-muted-foreground" onClick={handleEnd}>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button variant="ghost" size="lg" className="w-full sm:flex-1 text-muted-foreground" onClick={handleEnd}>
                 End session
               </Button>
-              <Button size="lg" className="flex-1" onClick={handleSkipContinue}>
+              <Button size="lg" className="w-full sm:flex-1" onClick={handleSkipContinue}>
                 Continue
               </Button>
             </div>
             {!isPaused && (
-              <Button variant="ghost" size="sm" className="text-muted-foreground mx-auto" onClick={handleNeedMoreTime}>
+              <Button variant="ghost" size="sm" className="min-h-11 text-muted-foreground mx-auto" onClick={handleNeedMoreTime}>
                 <Clock className="w-4 h-4 mr-1.5" />
                 Need more time
               </Button>
@@ -214,8 +214,8 @@ export const ExerciseTransitionOverlay = ({
 
   // ═══════ Encouragement overlay — performance-aware ═══════
   return (
-    <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="max-w-sm w-full text-center space-y-5 animate-in fade-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto overscroll-contain p-4">
+      <div className="my-auto max-w-sm w-full text-center space-y-5 animate-in fade-in zoom-in-95 duration-300">
         {/* Progress */}
         <div className="flex justify-center gap-2">
           {Array.from({ length: totalCount }).map((_, i) => (
@@ -286,7 +286,7 @@ export const ExerciseTransitionOverlay = ({
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground mx-auto"
+              className="min-h-11 text-muted-foreground mx-auto"
               onClick={handleNeedMoreTime}
             >
               <Clock className="w-4 h-4 mr-1.5" />
