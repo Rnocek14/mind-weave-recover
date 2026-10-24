@@ -53,7 +53,7 @@ export const ConfidenceBoost = ({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-success" />
-                  <span className="font-medium">Today's Session</span>
+                  <span className="font-medium">Today's Recorded Practice</span>
                 </div>
                 <span className="text-2xl font-bold text-primary">
                   {stats.correct}/{stats.total}
@@ -61,7 +61,7 @@ export const ConfidenceBoost = ({
               </div>
               <Progress value={todayAccuracy} className="h-2" />
               <p className="text-sm text-muted-foreground mt-2">
-                {todayAccuracy}% accuracy today
+                {stats.total > 0 ? `${todayAccuracy}% of eligible recorded attempts scored correct` : 'No eligible recorded attempts yet'}
               </p>
             </CardContent>
           </Card>
@@ -80,7 +80,7 @@ export const ConfidenceBoost = ({
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Average accuracy this week
+                  Average recorded practice score this week
                 </p>
               </CardContent>
             </Card>

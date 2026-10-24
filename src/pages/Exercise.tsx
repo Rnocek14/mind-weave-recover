@@ -26,6 +26,7 @@ import { ConfidenceBoost } from "@/components/ConfidenceBoost";
 import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
 import { classifyUtteranceValidity } from "@/lib/clinical/classifyUtteranceValidity";
+import { summarizeRecordedPractice } from "@/lib/clinical/todayPracticeSummary";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
@@ -105,40 +106,39 @@ const Exercise = () => {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
-  // Fetch today's stats for confidence boost
+  // Fetch only this patient's active-profile practice, and discard stale requests.
   useEffect(() => {
+    let cancelled = false;
+    setTodayStats(prev => ({ ...prev, correct: 0, total: 0 }));
     const fetchStats = async () => {
-      if (!user?.id || !sessionId) return;
-      
+      if (!user?.id || !sessionId || !activeProfileId) return;
       try {
         const today = new Date().toISOString().split('T')[0];
-        let sessionsQuery = supabase
+        const { data: sessions, error: sessionsError } = await supabase
           .from('sessions')
           .select('id')
           .eq('user_id', user.id)
+          .eq('profile_id', activeProfileId)
           .gte('started_at', `${today}T00:00:00`)
           .lte('started_at', `${today}T23:59:59`);
-        if (activeProfileId) sessionsQuery = sessionsQuery.eq('profile_id', activeProfileId);
-        const { data: sessions } = await sessionsQuery;
-        
-        const sessionIds = sessions?.map(s => s.id) || [];
+        if (sessionsError) throw sessionsError;
+        if (cancelled) return;
+        const sessionIds = sessions?.map(s => s.id) ?? [];
         if (sessionIds.length === 0) return;
-        
-        const { data: events } = await supabase
+        const { data: events, error: eventsError } = await supabase
           .from('exercise_events')
-          .select('score')
+          .select('score, counts_toward_score, validity_label, clinician_validity_override, task_parameters, engagement_flags')
           .in('session_id', sessionIds);
-        
-        const total = events?.length || 0;
-        const correct = events?.filter(e => e.score > 0).length || 0;
-        
+        if (eventsError) throw eventsError;
+        if (cancelled) return;
+        const { correct, total } = summarizeRecordedPractice(events ?? []);
         setTodayStats(prev => ({ ...prev, correct, total }));
       } catch (error) {
-        console.error('Error fetching stats:', error);
+        if (!cancelled) console.error('Error fetching recorded practice:', error);
       }
     };
-    
-    fetchStats();
+    void fetchStats();
+    return () => { cancelled = true; };
   }, [user?.id, sessionId, currentRound, activeProfileId]);
 
   // Mock exercise data
