@@ -544,7 +544,23 @@ export const useSpeechRecognition = (
         // Already running, or the engine refused; the existing restart
         // machinery owns recovery from here.
         console.warn('🎤 Resume start failed:', err);
-        stateRef.current = 'IDLE';
+        // A browser can reject start() until its asynchronous stop() ends.
+        // Preserve the discourse transcript and retry rather than leaving
+        // the patient with a silently closed microphone.
+        stateRef.current = 'RESTARTING';
+        if (queuedStartTimeoutRef.current) clearTimeout(queuedStartTimeoutRef.current);
+        queuedStartTimeoutRef.current = setTimeout(() => {
+          queuedStartTimeoutRef.current = null;
+          if (manuallyStoppedRef.current || !enabledRef.current || permissionDeniedRef.current || voiceController.isMicLocked) return;
+          if (stateRef.current === 'LISTENING') return;
+          try {
+            stateRef.current = 'STARTING';
+            recognitionRef.current?.start();
+          } catch (retryError) {
+            console.warn('🎤 Resume retry failed:', retryError);
+            stateRef.current = 'RESTARTING';
+          }
+        }, COOLDOWN_MS + 150);
       }
     });
   }, []);
