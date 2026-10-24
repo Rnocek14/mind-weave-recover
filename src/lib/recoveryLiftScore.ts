@@ -150,66 +150,39 @@ export async function persistRecoveryLift(
   lift: RecoveryLiftResult
 ): Promise<boolean> {
   try {
-    // sessions.summary is shared with the accuracy/duration/reps writers
-    // (sessionTracking, useSessionLifecycle, sessionAccuracySummary), so this
-    // must merge into the existing JSON — a bare update wipes their fields.
-    const { data: existing, error: readError } = await supabase
-      .from('sessions')
-      .select('summary')
-      .eq('id', sessionId)
-      .maybeSingle();
+    // Atomic DB-side merge: sessions.summary is shared by accuracy, duration,
+    // per-exercise scores and recovery-lift writers. A client-side
+    // SELECT -> merge -> UPDATE can lose concurrent fields.
+    const patch = {
+      recovery_lift: {
+        // Self-describing so downstream readers (clinician reports,
+        // research export) cannot mistake this for an outcome measure.
+        measures: 'within_session_change_first3_vs_last3_turns',
+        score: lift.liftScore,
+        fluency_lift: lift.fluencyLift,
+        word_count_lift: lift.wordCountLift,
+        latency_lift: lift.latencyLift,
+        cue_dependency_lift: lift.cueDependencyLift,
+        baseline: lift.baselineAvg,
+        end: lift.endAvg,
+        confidence: lift.confidence,
+        turns_analyzed: lift.turnsAnalyzed,
+      },
+    };
 
-    if (readError) {
-      console.warn('[RecoveryLift] Failed to read existing summary:', readError.message);
+    const { data, error } = await (supabase as any).rpc('merge_session_summary', {
+      p_session_id: sessionId,
+      p_summary_patch: patch,
+      p_require_open: false,
+    });
+
+    if (error || data !== true) {
+      if (error) console.warn('[RecoveryLift] Failed to persist:', error);
       return false;
     }
-
-    const existingSummary =
-      existing?.summary && typeof existing.summary === 'object' && !Array.isArray(existing.summary)
-        ? (existing.summary as Record<string, unknown>)
-        : {};
-
-    const { error } = await supabase
-      .from('sessions')
-      .update({
-        summary: {
-          ...existingSummary,
-          recovery_lift: {
-            // Self-describing so downstream readers (clinician reports,
-            // research export) cannot mistake this for an outcome measure.
-            measures: 'within_session_change_first3_vs_last3_turns',
-            score: lift.liftScore,
-            fluency_lift: lift.fluencyLift,
-            word_count_lift: lift.wordCountLift,
-            latency_lift: lift.latencyLift,
-            cue_dependency_lift: lift.cueDependencyLift,
-            baseline: lift.baselineAvg,
-            end: lift.endAvg,
-            confidence: lift.confidence,
-            turns_analyzed: lift.turnsAnalyzed,
-          },
-        },
-      })
-      .eq('id', sessionId);
-
-    if (error) {
-      console.warn('[RecoveryLift] Failed to persist:', error.message);
-      return false;
-    }
-
-    if (import.meta.env.DEV) {
-      console.debug(
-        `[RecoveryLift] Session ${sessionId}: score=${lift.liftScore} ` +
-        `(fluency: ${lift.fluencyLift > 0 ? '+' : ''}${lift.fluencyLift}, ` +
-        `words: ${lift.wordCountLift > 0 ? '+' : ''}${lift.wordCountLift}, ` +
-        `latency: ${lift.latencyLift > 0 ? '+' : ''}${lift.latencyLift}, ` +
-        `cue: ${lift.cueDependencyLift > 0 ? '+' : ''}${lift.cueDependencyLift})`
-      );
-    }
-
     return true;
   } catch (err) {
-    console.warn('[RecoveryLift] Unexpected error:', err);
+    console.warn('[RecoveryLift] Persist error:', err);
     return false;
   }
 }
