@@ -49,7 +49,16 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
         const route = `/exercise/${game.slug}`;
         const gamePage = await context.newPage();
         const javascriptErrors: string[] = [];
+        const failedBackendRequests: string[] = [];
         gamePage.on('pageerror', error => javascriptErrors.push(error.message));
+        gamePage.on('requestfailed', request => {
+          try {
+            const url = new URL(request.url());
+            if (url.hostname.endsWith('.supabase.co')) {
+              failedBackendRequests.push(url.pathname + ': ' + (request.failure()?.errorText ?? 'failed'));
+            }
+          } catch { /* browser/internal scheme, no diagnostic needed */ }
+        });
         try {
           const response = await gamePage.goto(route, { waitUntil: 'domcontentloaded', timeout: 20_000 });
           expect(response?.ok(), `${route} document request failed`).toBe(true);
@@ -70,12 +79,44 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
           ).toBe(0);
         } catch (error) {
           const detail = error instanceof Error ? error.message.split('\\n').slice(0, 5).join(' ') : String(error);
-          failures.push(`${route}: ${detail}`);
+          const visible = (await gamePage.locator('body').innerText({ timeout: 2000 }).catch(() => '[body unavailable]'))
+            .replace(/\\s+/g, ' ').slice(0, 350);
+          failures.push(`${route}: ${detail}; visible=${visible}; failedBackendRequests=${failedBackendRequests.slice(0, 5).join(' | ') || 'none'}; pageErrors=${javascriptErrors.slice(0, 3).join(' | ') || 'none'}`);
         } finally {
           await gamePage.close();
         }
       }
       expect(failures, `Game entry failures:\n${failures.join('\n')}`).toEqual([]);
     });
+  });
+});
+
+test.describe('Audit: rapid repeated Two Clues start without false readiness', () => {
+  test('starts the actual puzzle on four separately opened pages for one synthetic account', async ({ anonPage: firstPage }) => {
+    test.setTimeout(125_000);
+    const context = firstPage.context();
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const page = await context.newPage();
+      try {
+        const failed: string[] = [];
+        page.on('requestfailed', request => {
+          try {
+            const url = new URL(request.url());
+            if (url.hostname.endsWith('.supabase.co')) failed.push(url.pathname + ': ' + (request.failure()?.errorText ?? 'failed'));
+          } catch { /* ignore non-HTTP schemes */ }
+        });
+        await page.goto('/exercise/two-clues', { waitUntil: 'domcontentloaded', timeout: 20_000 });
+        try {
+          await expect(page.getByText('What word connects these clues?', { exact: true }))
+            .toBeVisible({ timeout: 18_000 });
+          await expect(page.getByRole('button', { name: 'Hear clues' })).toBeVisible();
+        } catch (error) {
+          const visible = (await page.locator('body').innerText({ timeout: 2000 }).catch(() => '[body unavailable]')).replace(/\\s+/g, ' ').slice(0, 320);
+          throw new Error(`Two Clues attempt ${attempt}: ${String(error)}; visible=${visible}; backend failures=${failed.slice(0, 5).join(' | ') || 'none'}`);
+        }
+      } finally {
+        await page.close();
+      }
+    }
   });
 });
