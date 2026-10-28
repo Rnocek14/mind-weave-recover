@@ -9,7 +9,7 @@
  * intentionally NOT asserted here — they rely on app-level auth gating
  * rather than ClinicianProtectedRoute and are covered by auth-redirect.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/safeTest';
 
 test.describe('Clinician route boundary (unauthenticated)', () => {
   test('/clinician/trial does not expose trial dashboard content', async ({ page }) => {

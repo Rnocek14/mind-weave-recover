@@ -8,7 +8,7 @@
  * Asserts: /today mounts, shows a greeting/heading, no page errors.
  * Does NOT mutate clinical state, progression, or mastery tables.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/safeTest';
 
 test.describe('/today renders (offline mode)', () => {
   test.beforeEach(async ({ context }) => {

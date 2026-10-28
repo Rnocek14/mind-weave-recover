@@ -10,9 +10,14 @@
 1. **Automated**
    ```bash
    bun run qa
-   # = lint + vitest + tsc --noEmit + playwright e2e
+   # = test-environment guards + lint + vitest + typecheck + public browser checks
    ```
-2. **Manual (guided)** — open `/dev/qa-runbook`, set role + device, walk
+2. **Required before release** — use an explicitly isolated backend and run
+   `bun run qa:release`, or run the `Isolated therapy verification` workflow
+   on the revision being released. Missing prerequisites or skipped required
+   journeys are incomplete verification. Public checks do not verify saving.
+   See [regression workflow](docs/qa/regression-workflow.md) for configuration.
+3. **Manual (guided)** — open `/dev/qa-runbook`, set role + device, walk
    the scenarios, click Pass/Fail/Skip on each step, then `Save run` (to
    `qa_runs`) and/or `Download .md`.
 
@@ -23,14 +28,16 @@
 | Unit + per-slug contract tests | `src/**/*.test.ts(x)` | `bun run test` |
 | Per-game leveling contract registry | `src/lib/leveling/perGameContracts.ts` | `/dev/leveling-contract` |
 | Mastery shadow snapshot | `/dev/mastery-shadow` | live |
-| E2E smoke (public routes) | `tests/e2e/smoke.spec.ts` | `bun run test:e2e` |
+| Public UI and signed-out boundaries (inert backend) | `tests/e2e/*` public suite | `bun run test:e2e` |
+| Authenticated therapy and persistence (isolated backend) | `tests/e2e/core-loop.spec.ts` + authenticated journeys | `bun run test:e2e:staging` |
+| Test-environment isolation | `scripts/e2e-environment.test.mjs` | `bun run test:test-env` |
 | Guided manual runbook | `src/data/qaScenarios.ts` | `/dev/qa-runbook` |
 | Stroke-profile accessibility audit (Phase 2A) | `docs/accessibility/stroke-profile-audit.md` | manual |
 
 ## What QA does NOT touch
 
-By policy (per the approved Phase 1/2 plan), QA tooling and the upcoming
-accessibility work do **not** modify:
+The clinical freeze remains in force. Regression-test work does **not**
+authorize speculative changes to these production behaviors:
 
 - `src/hooks/use*Progression.ts`
 - `src/hooks/use*Game.ts`
@@ -39,5 +46,7 @@ accessibility work do **not** modify:
 - Smart Coach turn pipeline / drill triggers
 - Content banks (`src/data/*Bank.ts`)
 
-If you find a QA gap that would require touching one of those files,
-file a backlog note in `.lovable/backlog/` instead of patching directly.
+If a QA gap requires changing those behaviors, capture a reproduction and
+follow the clinical scope rules in `.lovable/qa-hardening.md`. Test fixtures may
+create synthetic records only in the explicitly isolated environment; never
+change production data or authentication settings to make a test run.

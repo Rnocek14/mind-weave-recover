@@ -5,7 +5,7 @@
  * land on /auth (or render the auth UI). Does NOT log in, does NOT mutate
  * any clinical/progression/mastery state.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/safeTest';
 
 const PROTECTED_PATHS = [
   '/admin',

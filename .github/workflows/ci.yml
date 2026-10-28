@@ -19,6 +19,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Test E2E environment isolation
+        run: bun run test:test-env
+
       - name: Lint
         run: bun run lint
 
@@ -31,13 +34,14 @@ jobs:
       # columns, a temporal-dead-zone crash and a duplicate object key all went
       # through this step green. Check the actual projects.
       - name: Type-check
-        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json
+        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json && bunx tsc --noEmit -p tsconfig.e2e.json
 
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-24.04
-    # Phase 1A scaffolding — runs the public-route smoke spec.
-    # Authenticated journeys land in a follow-up PR.
+    # Public UI/auth-boundary checks use an inert backend and cannot write data.
+    # The separate isolated therapy workflow is required before release;
+    # a green public suite does not verify authenticated persistence.
     steps:
       - uses: actions/checkout@v4
 
@@ -51,10 +55,18 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium webkit
 
-      - name: Run Playwright tests
-        run: bunx playwright test
+      - name: Run public browser checks
+        run: bun run test:e2e
         env:
           CI: 'true'
+          E2E_SUITE: public
+
+      - name: State verification scope
+        if: always()
+        run: |
+          echo '### Browser verification scope' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This job runs public UI/auth-boundary tests with an inert backend.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Authenticated therapy and saving journeys are NOT RUN here. Run the Isolated therapy verification workflow on this revision before release.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Playwright report
         if: always()

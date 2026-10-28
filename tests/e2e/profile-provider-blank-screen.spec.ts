@@ -10,7 +10,7 @@
  * gated, so unauthenticated visits redirect to /auth — but in NO case may
  * the app throw a provider error or paint a blank screen.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures/safeTest';
 
 // Routes that mount inside <ProfileProvider> + <AssessmentProviderWrapper>.
 // The caregiver portal and assessment-context-dependent pages are the ones

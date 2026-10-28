@@ -8,7 +8,7 @@
  * Off-limits: anything that mutates clinical state, progression, or
  * mastery shadow tables. Tests only navigate and assert.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/safeTest';
 
 test.describe('Public routes render', () => {
   test('landing page (/) loads', async ({ page }) => {
