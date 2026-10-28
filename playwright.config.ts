@@ -6,6 +6,7 @@ const settings = resolveE2EEnvironment();
 const stagingSpecs = [
   '**/core-loop.spec.ts',
   '**/audit-game-readiness.spec.ts',
+  '**/audit-meaning-match-flow.spec.ts',
   '**/pass-b-patient-journey.spec.ts',
   '**/exercise-session.spec.ts',
 ];
