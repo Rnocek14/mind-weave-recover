@@ -22,6 +22,9 @@ jobs:
       - name: Test E2E environment isolation
         run: bun run test:test-env
 
+      - name: Speech HTTP handler contracts (no credentials)
+        run: node --test scripts/speech-edge-handlers.test.mjs
+
       - name: Lint
         run: bun run lint
 
