@@ -1,0 +1,83 @@
+name: NeuroSpark audit source snapshot
+
+# Read-only capture of repository source, scoped to the dedicated audit PR.
+# No application deployment, Supabase credentials, or patient data.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Audit source snapshot
+    if: >-
+      github.repository == 'Rnocek14/mind-weave-recover' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'audit/comprehensive-neurospark-2026-10-28'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Package code-only audit source and file inventory
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess, zipfile
+
+          root = pathlib.Path('.')
+          output = pathlib.Path('/tmp/neurospark-audit-source.zip')
+          allowed_roots = (
+            'src/', 'scripts/', 'tests/e2e/',
+            'supabase/functions/', 'supabase/migrations/',
+            'docs/qa/', '.github/workflows/'
+          )
+          allowed_root_files = {
+            'AGENTS.md', 'QA_CHECKLIST.md', 'package.json', 'tsconfig.app.json',
+            'tsconfig.node.json', 'tsconfig.e2e.json', 'playwright.config.ts',
+            'vitest.config.ts', 'vite.config.ts', '.lovable/qa-hardening.md'
+          }
+          allowed_extensions = {'.ts','.tsx','.js','.mjs','.sql','.md','.json','.yml','.yaml'}
+          forbidden = ('secret', 'credential', 'password', 'token', '.env', 'service-role', 'private-key', 'patient-record')
+          tracked = subprocess.check_output(['git','ls-files','-z']).decode().split('\0')
+          records = []
+          total = 0
+          with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=7) as archive:
+            for name in tracked:
+              if not name:
+                continue
+              path = root / name
+              if (not name.startswith(allowed_roots) and name not in allowed_root_files) or path.suffix not in allowed_extensions:
+                continue
+              if any(part in name.lower() for part in forbidden) or '/assets/' in name or '/node_modules/' in name:
+                continue
+              if not path.is_file() or path.is_symlink() or path.stat().st_size > 180_000:
+                continue
+              data = path.read_bytes()
+              total += len(data)
+              records.append({'path': name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+              archive.writestr(name, data)
+            info = {
+              'revision': subprocess.check_output(['git','rev-parse','HEAD']).decode().strip(),
+              'captured': len(records),
+              'source_bytes': total,
+              'scope': 'Tracked code and QA docs only; no environment variables, secrets, recordings, user data or runtime files',
+              'files': records
+            }
+            archive.writestr('audit-inventory.json', json.dumps(info, indent=2))
+          print('Audit revision:', info['revision'])
+          print('Files:', len(records), 'Source bytes:', total, 'Zip bytes:', output.stat().st_size)
+          assert len(records) >= 200, 'unexpectedly narrow source inventory'
+          assert output.stat().st_size < 40_000_000, 'archive exceeds bounded audit size'
+          PY
+      - name: Upload temporary audit source (source code only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: neurospark-source-audit
+          path: /tmp/neurospark-audit-source.zip
+          retention-days: 1
+          if-no-files-found: error
