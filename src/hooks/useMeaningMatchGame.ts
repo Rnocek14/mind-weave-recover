@@ -17,6 +17,9 @@ export interface MeaningMatchTrialResult {
   correct: boolean;
   selectedIndex: number;
   correctIndex: number;
+  /** Exact displayed selections, not only a correctness flag or option letter. */
+  selectedOption: string;
+  correctOption: string;
   reactionTimeMs: number;
   tier: number;
   type: string;
@@ -34,12 +37,25 @@ export interface MeaningMatchTrialResult {
   };
 }
 
+/** Shuffle options with their original index, retaining the exact correct answer.
+ * The authored bank keeps answers in slot A; that order must not be presented
+ * to patients, or always choosing A can fabricate high comprehension scores.
+ * A fresh permutation is generated for each queued presentation. */
+function shuffleDisplayedOptions(item: MeaningMatchItem): MeaningMatchItem {
+  const order = shuffleArray(item.options.map((_, index) => index));
+  return {
+    ...item,
+    options: order.map(index => item.options[index]),
+    correctIndex: order.indexOf(item.correctIndex),
+  };
+}
+
 function buildPool(tier: MeaningMatchTier, seen: Set<string>): MeaningMatchItem[] {
   const primary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier && !seen.has(i.id));
   const adjacent = MEANING_MATCH_ITEMS.filter(i => Math.abs(i.tier - tier) === 1 && !seen.has(i.id));
   const fallbackPrimary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier);
   const pool = [...shuffleArray(primary), ...shuffleArray(adjacent)];
-  return pool.length > 0 ? pool : shuffleArray(fallbackPrimary);
+  return (pool.length > 0 ? pool : shuffleArray(fallbackPrimary)).map(shuffleDisplayedOptions);
 }
 
 export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: number = 1) {
@@ -80,8 +96,13 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
     setActiveTierState(prev => {
       if (prev === tier) return prev;
       setQueue(prevQueue => {
-        const past = prevQueue.slice(0, currentIndex);
-        const remainingNeeded = roundCount - currentIndex;
+        // The currently displayed item may already have been answered:
+        // adaptation.recordTrial changes tiers before the user taps Next.
+        // Keep that item intact so feedback and its explanation still match
+        // the actual answer; changes take effect only on subsequent items.
+        const preservedCount = Math.min(prevQueue.length, currentIndex + 1);
+        const past = prevQueue.slice(0, preservedCount);
+        const remainingNeeded = roundCount - preservedCount;
         const fresh = buildPool(tier, seenItemIdsRef.current).slice(0, remainingNeeded);
         return [...past, ...fresh];
       });
@@ -108,6 +129,8 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
       correct,
       selectedIndex,
       correctIndex: currentItem.correctIndex,
+      selectedOption: currentItem.options[selectedIndex],
+      correctOption: currentItem.options[currentItem.correctIndex],
       reactionTimeMs,
       tier: currentItem.tier,
       type: currentItem.type,
