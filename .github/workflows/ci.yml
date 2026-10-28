@@ -38,7 +38,7 @@ jobs:
       - name: Unit tests (including leveling and content contracts)
         run: bun run test
       - name: Type-check actual application, config, and test projects
-        run: bun run typecheck
+        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json && bunx tsc --noEmit -p tsconfig.e2e.json && bun run typecheck:harness
 
   e2e:
     name: Playwright E2E
