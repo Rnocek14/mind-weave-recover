@@ -187,7 +187,7 @@ export function MeaningMatchGame({
 
     if (!firstInteractionRef.current) {
       firstInteractionRef.current = true;
-      trialStartRef.current = Date.now();
+      // Keep the item-display timestamp: waiting or requesting a hint is still response time.
     }
 
     setSelectedOption(index);
@@ -216,7 +216,7 @@ export function MeaningMatchGame({
   const handleHint = useCallback(() => {
     if (!firstInteractionRef.current) {
       firstInteractionRef.current = true;
-      trialStartRef.current = Date.now();
+      // Keep the item-display timestamp: waiting or requesting a hint is still response time.
     }
     setUsedHint(true);
     setShowHint(true);
