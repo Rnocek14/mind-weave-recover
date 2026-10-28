@@ -36,6 +36,7 @@ describe('Meaning Match answer integrity (actual game state engine)', () => {
     act(() => { outcome = result.current.submitAnswer(item.correctIndex, 3000, false); });
     expect(outcome).toMatchObject({
       itemId: item.id,
+      trialIndex: 1,
       correct: true,
       selectedIndex: item.correctIndex,
       correctIndex: item.correctIndex,
@@ -62,4 +63,22 @@ describe('Meaning Match answer integrity (actual game state engine)', () => {
       points: 0,
     });
   });
+  it('retains the answered question through feedback when adaptation changes tier', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const { result } = renderHook(() => useMeaningMatchGame(3, 1));
+    const original = result.current.currentItem!;
+    expect(original.tier).toBe(1);
+    act(() => {
+      result.current.submitAnswer(original.correctIndex, 5000, false);
+    });
+    // The real component may adapt before Next. Feedback must still
+    // describe the item that was actually answered.
+    act(() => { result.current.setActiveTier(2); });
+    expect(result.current.currentItem!.id).toBe(original.id);
+    expect(result.current.currentItem!.options).toEqual(original.options);
+    act(() => { result.current.nextItem(); });
+    expect(result.current.currentItem!.tier).toBe(2);
+    expect(result.current.currentItem!.id).not.toBe(original.id);
+  });
+
 });
