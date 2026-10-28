@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveProfileId } from '@/hooks/useActiveProfileId';
+import { averageResponseTimeMs, readUtteranceResponseTimeMs } from '@/lib/speech/responseTiming';
 
 interface CorrelationInsight {
   factor: string;
@@ -90,7 +91,7 @@ export const useCapabilitySpeechCorrelation = (
           error_type,
           cue_type_given,
           cue_was_effective,
-          latency_ms,
+          audio_meta,
           speech_rate_wpm,
           effortful_speech,
           created_at,
@@ -150,15 +151,13 @@ export const useCapabilitySpeechCorrelation = (
         }
       }
 
-      // Calculate motor → latency correlation  
+      // Only an observed accepted-answer time can support a response-time
+      // comparison. Legacy latency_ms includes service/upload completion time.
       let motorLatencyCorrelation: CorrelationInsight | null = null;
       if (assessment?.motor_score !== undefined) {
-        const withLatency = utterances.filter(u => u.latency_ms);
-        const avgLatency = withLatency.length > 0 
-          ? withLatency.reduce((sum, u) => sum + (u.latency_ms || 0), 0) / withLatency.length 
-          : null;
+        const avgLatency = averageResponseTimeMs(utterances.map(u => readUtteranceResponseTimeMs(u.audio_meta)));
         
-        if (avgLatency && assessment.motor_score < 5 && avgLatency > 3000) {
+        if (avgLatency !== null && assessment.motor_score < 5 && avgLatency > 3000) {
           motorLatencyCorrelation = {
             factor: 'Motor → Response Time',
             correlation: 'negative',

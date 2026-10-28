@@ -13,6 +13,7 @@ import {
 import { SessionDetail } from "@/hooks/useSessionHistory";
 import { cn } from "@/lib/utils";
 import { AudioPlayback } from "@/components/AudioPlayback";
+import { averageResponseTimeMs, measuredResponseTimeMs } from "@/lib/speech/responseTiming";
 import {
   BarChart,
   Bar,
@@ -195,15 +196,7 @@ export const SessionHistoryTimeline = ({
               <div className="border-t bg-muted/30 p-6 space-y-6">
                 {session.exercises.map((exercise) => {
                   const errorDist = getErrorTypeDistribution(session, exercise.slug);
-                  const avgRT =
-                    exercise.trials.length > 0
-                      ? Math.round(
-                          exercise.trials.reduce(
-                            (sum, t) => sum + (t.reactionTimeMs || 0),
-                            0
-                          ) / exercise.trials.length
-                        )
-                      : 0;
+                  const avgRT = averageResponseTimeMs(exercise.trials.map(trial => trial.reactionTimeMs));
 
                   return (
                     <div key={exercise.slug} className="space-y-4">
@@ -227,11 +220,9 @@ export const SessionHistoryTimeline = ({
                           <span className="text-muted-foreground">
                             {exercise.totalTrials} trials
                           </span>
-                          {avgRT > 0 && (
-                            <span className="text-muted-foreground">
-                              Avg RT: {avgRT}ms
-                            </span>
-                          )}
+                          <span className="text-muted-foreground">
+                            Avg RT: {avgRT === null ? '—' : `${Math.round(avgRT)}ms`}
+                          </span>
                         </div>
                       </div>
 
@@ -284,7 +275,7 @@ export const SessionHistoryTimeline = ({
                                     )}
                                   </td>
                                   <td className="text-right py-2 px-3">
-                                    {trial.reactionTimeMs || "-"}
+                                    {measuredResponseTimeMs(trial.reactionTimeMs) ?? "—"}
                                   </td>
                                   <td className="py-2 px-3">
                                     {trial.errorType ? (

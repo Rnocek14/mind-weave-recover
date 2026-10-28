@@ -37,13 +37,14 @@ test('known controlled answer uses real audio and retains exact measured metrics
   expect(transport.pronunciationRequests[0].referenceText).toBe('apple');
 });
 
-test('delayed analysis is saved once to its original attempt without overwriting the next trial display', async ({ page, transport }) => {
+test('delayed analysis preserves original accepted-answer timing and attempt without overwriting the next trial display', async ({ page, transport }, testInfo) => {
   transport.holdSpeech = true;
   transport.holdPronunciation = true;
   await openGame(page);
   await emitRecognition(page, 'apple');
   await expect.poll(() => transport.pendingSpeech.length).toBe(1);
   await expect.poll(() => transport.pendingPronunciation.length).toBe(1);
+  const analysisHeldAt = await page.evaluate(() => Date.now());
   await waitForGameTrial(page, 2, 'cup');
   expect(transport.utterances).toHaveLength(0);
 
@@ -63,6 +64,9 @@ test('delayed analysis is saved once to its original attempt without overwriting
   const current = await readJson(page, 'live-snapshot');
   expect(current.pronunciationScore).toBeUndefined();
 
+  const heldAnalysisMs = await page.evaluate(() => Date.now()) - analysisHeldAt;
+  // This delay comes from completing later real trials, not an arbitrary sleep.
+  expect(heldAnalysisMs).toBeGreaterThan(1000);
   await fulfillJson(transport.pendingSpeech[0].route, knownSpeech);
   await fulfillJson(transport.pendingPronunciation[0].route, knownPronunciation);
   await expect.poll(() => transport.utterances.length).toBe(2);
@@ -74,6 +78,25 @@ test('delayed analysis is saved once to its original attempt without overwriting
   expect(first.attempt_id).not.toBe(second.attempt_id);
   expect(first.attempt_id).toBe(results[1].result.attemptId);
   expect(second.attempt_id).toBe(results[0].result.attemptId);
+  await testInfo.attach('accepted-answer-response-timing', {
+    body: JSON.stringify({ heldAnalysisMs, attempts: [
+      { trialIndex: 1, reactionTimeMs: results[1].result.reactionTimeMs,
+        latencyMs: first.latency_ms, audioMeta: first.audio_meta },
+      { trialIndex: 2, reactionTimeMs: results[0].result.reactionTimeMs,
+        latencyMs: second.latency_ms, audioMeta: second.audio_meta },
+    ] }, null, 2),
+    contentType: 'application/json',
+  });
+  for (const [saved, completed] of [[first, results[1]], [second, results[0]]] as const) {
+    expect(completed.result.reactionTimeMs).toEqual(expect.any(Number));
+    expect(saved).toMatchObject({ audio_meta: { responseTiming: {
+      version: 1, basis: 'trial_start_to_answer_acceptance',
+      elapsedMs: completed.result.reactionTimeMs,
+    } } });
+  }
+  // The old diagnostic includes analysis completion. The response measure must
+  // retain the captured answer-time value even when analysis arrives out of order.
+  expect(first.latency_ms).toBeGreaterThan((results[1].result.reactionTimeMs as number) + 1000);
   expect(first.audio_storage_path).toMatch(/\/trial-1-\d+\.webm$/);
   expect(second.audio_storage_path).toMatch(/\/trial-2-\d+\.webm$/);
   const after = await readJson(page, 'live-snapshot');

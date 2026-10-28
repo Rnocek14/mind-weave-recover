@@ -25,11 +25,12 @@
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:live": "node scripts/verify-live.mjs",
     "worksheets:pdf": "node scripts/generate-worksheet-pdf.mjs",
-    "test:speech": "vitest run src/lib/speech src/types/utteranceAnalysis.test.ts src/hooks/usePronunciationAnalysis.test.tsx src/hooks/__tests__/useUtteranceLogger.metrics.test.tsx src/contexts/LiveAnalysisContext.test.tsx src/components/live-analysis/SpeechAnalysisCard.test.tsx src/hooks/useSpeechRecognition.test.tsx src/hooks/__tests__/speechEndDetection.patience.test.ts src/hooks/useConversationSpeechAnalysis.test.tsx src/hooks/__tests__/pronunciationAnalytics.metrics.test.tsx src/components/PronunciationScoreCard.test.tsx src/components/PronunciationAnalyticsDashboard.test.tsx",
+    "test:speech": "vitest run src/lib/speech src/types/utteranceAnalysis.test.ts src/hooks/usePronunciationAnalysis.test.tsx src/hooks/__tests__/useUtteranceLogger.metrics.test.tsx src/contexts/LiveAnalysisContext.test.tsx src/components/live-analysis/SpeechAnalysisCard.test.tsx src/hooks/useSpeechRecognition.test.tsx src/hooks/__tests__/speechEndDetection.patience.test.ts src/hooks/useConversationSpeechAnalysis.test.tsx src/hooks/__tests__/pronunciationAnalytics.metrics.test.tsx src/components/PronunciationScoreCard.test.tsx src/components/PronunciationAnalyticsDashboard.test.tsx src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx",
     "test:e2e:speech": "E2E_SUITE=public PLAYWRIGHT_PORT=4175 playwright test --config tests/e2e/speech/playwright.config.ts",
     "test:speech:services:check-env": "node scripts/verify-speech-services.mjs --check-env",
     "test:speech:services": "node scripts/verify-speech-services.mjs --run",
-    "typecheck:harness": "tsc --noEmit -p tests/e2e/speech/tsconfig.harness.json"
+    "typecheck:harness": "tsc --noEmit -p tests/e2e/speech/tsconfig.harness.json",
+    "test:response-timing": "vitest run src/lib/speech/responseTiming.test.ts src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

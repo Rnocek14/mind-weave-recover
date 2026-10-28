@@ -20,6 +20,7 @@ do not upgrade the toolchain as part of an unrelated behavior change.
 | `bun run typecheck:e2e` | Type-check the Playwright configuration, fixtures, and browser tests. |
 | `bun run test:e2e` | Public UI and signed-out route boundaries, using an inert backend. |
 | `bun run test:speech` | Speech metric contracts, real hooks, mapping, aggregation, and display. |
+| `bun run test:response-timing` | Accepted-answer timing, legacy-data handling, history/CSV, and clinician evidence regressions. |
 | `bun run test:e2e:speech` | Chromium synthetic-microphone capture and controlled game/analysis integration. |
 | `bun run test:speech:services:check-env` | Validate the isolated live speech prerequisites without authentication or requests. |
 | `bun run test:speech:services` | At most four deployed speech-service checks using two synthetic recordings. |

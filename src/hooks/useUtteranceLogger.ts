@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesInsert, Json } from '@/integrations/supabase/types';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { parseResponseTiming, type ResponseTiming } from '@/lib/speech/responseTiming';
 
 /**
  * Attempt-scoped speech evidence. A late callback must never borrow the next
@@ -48,6 +49,8 @@ export interface MomentumComponents {
 export interface FinalAnalysisInput {
   /** Capture at recording/response time. Explicit missing/unknown IDs fail closed. */
   attemptId?: string | null;
+  /** Captured before recording/upload/analysis awaits; never inferred at save. */
+  responseTiming?: ResponseTiming | null;
   transcript?: string;
   transcriptSource: 'browser' | 'azure' | 'whisper' | 'manual';
   asrConfidence?: number | null;
@@ -139,6 +142,7 @@ function pronunciationMetric(value: unknown, fallback?: number | null): number |
 function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): TablesInsert<'utterance_analyses'> {
   const ctx = record.context;
   const diag = analysis.pronunciationDiagnostics;
+  const responseTiming = parseResponseTiming(analysis.responseTiming);
   const hasPronError = !!analysis.pronunciationError || diag?.pronunciationStatus === 'failed';
   const pronunciationStatus = analysis.gopData ? 'complete' : hasPronError ? 'failed' : 'skipped';
   // Untagged legacy game callers use Azure PA. Keep that compatibility, but
@@ -209,9 +213,15 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     pronunciation_error_stage: diag?.pronunciationErrorStage,
     pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
     pronunciation_timings_ms: diag?.pronunciationTimingsMs,
-    audio_meta: analysis.transcriptSource === 'azure'
-      ? { ...diag?.audioMeta, transcriptProvider: 'azure' }
-      : diag?.audioMeta,
+    audio_meta: diag?.audioMeta || analysis.transcriptSource === 'azure' || responseTiming
+      ? {
+        ...diag?.audioMeta,
+        ...(analysis.transcriptSource === 'azure' ? { transcriptProvider: 'azure' } : {}),
+        // Timing belongs to the captured answer, never to opaque diagnostics.
+        // JSON serialization omits this key when no valid measurement exists.
+        responseTiming: responseTiming ? { ...responseTiming } : undefined,
+      }
+      : undefined,
     evaluation_model: analysis.evaluationModel ?? 'test',
     did_speak: analysis.didSpeak,
     utterance_complete: analysis.utteranceComplete,

@@ -17,6 +17,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { analyzeSpeechRecording } from '@/lib/speech/analyzeSpeechRecording';
 import { pauseSecondsToMilliseconds } from '@/lib/speech/analysisResponse';
+import { makeResponseTiming } from '@/lib/speech/responseTiming';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -2125,6 +2126,7 @@ export const PhotoNamingGame = ({
         }
 
         void pendingAttempt.finalize({
+          responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
           asrConfidence: utteranceAnalysis.asrConfidence,

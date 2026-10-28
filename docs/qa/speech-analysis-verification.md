@@ -5,7 +5,12 @@ capture, controlled speech journeys, and tests of the production analysis,
 serialization, and aggregation code. It also corrects defects reproduced by
 those tests. It does not establish clinical validity or live provider accuracy.
 
-## Latest local results — 2026-10-28
+## Initial speech results — 2026-10-28
+
+These results describe the speech changes at
+`f12bc916969bcbca9bf04d429f99f4e5fac7a72f`. The subsequent response-time correction
+and its verification are documented in
+[response-time-verification.md](./response-time-verification.md).
 
 | Check | Result |
 |---|---|
@@ -184,10 +189,11 @@ deno check --no-config --no-lock \
   separate bounded conversion/provider design.
 - Staff retry jobs cannot currently transcode historical WebM/mp4 recordings.
   Those inputs now fail visibly instead of being sent with a false WAV label.
-- The separate historical `latency_ms` field records analysis-completion time.
-  Some session-history/clinician consumers treat it as response speed. That
-  semantic mismatch remains unresolved; this work does not claim those
-  response-time summaries are validated.
+- The historical `latency_ms` field records analysis-completion time. The
+  [response-time follow-up](./response-time-verification.md) separates accepted
+  answer timing and corrects its consumers. Untagged historical utterance rows
+  remain unavailable for response-time reporting; their timing is not guessed
+  or backfilled.
 - Physical iPhone/Safari/Android microphones, permission interruptions,
   Bluetooth routing, and speaker-to-microphone echo require real-device checks.
 

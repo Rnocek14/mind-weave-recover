@@ -21,6 +21,7 @@ import { generateSessionInsight, type SessionInsight } from "@/lib/sessionInsigh
 import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
+import { averageResponseTimeMs, measuredResponseTimeMs } from "@/lib/speech/responseTiming";
 
 function formatSlug(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -161,8 +162,9 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
             ex.trials++;
             if (e.score === 1 || e.score === 100) ex.correct++;
             if (e.audio_storage_path) ex.audio++;
-            if (e.reaction_time_ms && e.reaction_time_ms > 0) {
-              ex.rtSum += e.reaction_time_ms;
+            const responseTime = measuredResponseTimeMs(e.reaction_time_ms);
+            if (responseTime !== null) {
+              ex.rtSum += responseTime;
               ex.rtCount++;
             }
           });
@@ -179,8 +181,8 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
           const totalTrials = evts.length;
           const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
           const totalAudio = evts.filter((e) => e.audio_storage_path).length;
-          const allRt = evts.filter((e) => e.reaction_time_ms && e.reaction_time_ms > 0).map((e) => e.reaction_time_ms!);
-          const avgRtMs = allRt.length > 0 ? Math.round(allRt.reduce((a, b) => a + b, 0) / allRt.length) : null;
+          const meanResponseTime = averageResponseTimeMs(evts.map(event => event.reaction_time_ms));
+          const avgRtMs = meanResponseTime === null ? null : Math.round(meanResponseTime);
 
           metaMap.set(sid, {
             exercises,
@@ -290,7 +292,7 @@ function SessionCard({
         error_type: t.error_type,
         cue_type_given: t.cue_type_given,
         cue_was_effective: t.cue_was_effective,
-        reaction_time_ms: t.latency_ms,
+        reaction_time_ms: measuredResponseTimeMs(t.response_time_ms),
         audio_storage_path: t.audio_storage_path,
       })),
       adaptations
@@ -388,7 +390,7 @@ function SessionCard({
         )}
 
         {/* Row 4: Secondary signals */}
-        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs) && (
+        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs != null) && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {meta.adaptationCount > 0 && (
               <span className="flex items-center gap-1 text-primary">
@@ -400,7 +402,7 @@ function SessionCard({
                 <Mic className="w-3 h-3" />{meta.totalAudio} recordings
               </span>
             )}
-            {meta.avgRtMs && (
+            {meta.avgRtMs != null && (
               <span className="flex items-center gap-1">
                 <Timer className="w-3 h-3" />Avg {(meta.avgRtMs / 1000).toFixed(1)}s
               </span>
@@ -531,7 +533,7 @@ function SessionCard({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">{ex.trials} trials</span>
-                          {ex.avgLatencyMs && (
+                          {ex.avgLatencyMs != null && (
                             <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                               <Timer className="w-2.5 h-2.5" />{(ex.avgLatencyMs / 1000).toFixed(1)}s
                             </span>
@@ -558,7 +560,9 @@ function SessionCard({
                           )}
 
                           {/* Each trial row */}
-                          {exTrials.map((t, idx) => (
+                          {exTrials.map((t, idx) => {
+                            const responseTimeMs = measuredResponseTimeMs(t.response_time_ms);
+                            return (
                             <div key={t.attempt_id + idx} className="flex items-center gap-2 py-1 px-1.5 rounded text-xs hover:bg-muted/20">
                               {/* Correct/incorrect */}
                               {t.is_correct === true ? (
@@ -590,10 +594,10 @@ function SessionCard({
                                   {t.cue_was_effective === true ? " ✓" : t.cue_was_effective === false ? " ✗" : ""}
                                 </Badge>
                               )}
-                              {/* Latency */}
-                              {t.latency_ms != null && t.latency_ms > 0 && (
+                              {/* Measured answer time, excluding later analysis */}
+                              {responseTimeMs !== null && (
                                 <span className="text-xs text-muted-foreground shrink-0">
-                                  {(t.latency_ms / 1000).toFixed(1)}s
+                                  {(responseTimeMs / 1000).toFixed(1)}s
                                 </span>
                               )}
                               {/* Audio play */}
@@ -613,7 +617,8 @@ function SessionCard({
                                 </Button>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
