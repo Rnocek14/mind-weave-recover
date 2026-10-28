@@ -14,6 +14,8 @@ export type AnalysisSource = 'asr' | 'utterance_analyzer' | 'adaptation_engine' 
 
 // ===== Live snapshot: current-moment state =====
 export interface LiveSnapshot {
+  /** Identity of the recording/answer that may update these speech metrics. */
+  attemptId?: string;
   // Live Input
   transcript?: string;
   targetWord?: string;
@@ -102,9 +104,9 @@ interface LiveAnalysisContextValue {
   decisionChain: DecisionChain | null;
   isOpen: boolean;
 
-  setLiveSnapshot: (update: Partial<LiveSnapshot>) => void;
+  setLiveSnapshot: (update: Partial<LiveSnapshot>, expectedAttemptId?: string | null) => void;
   appendAuditEvent: (event: Omit<AuditEvent, 'id' | 'timestamp'>) => void;
-  setDecisionChain: (chain: DecisionChain | null) => void;
+  setDecisionChain: (chain: DecisionChain | null, expectedAttemptId?: string | null) => void;
   clearLiveAnalysis: () => void;
   setIsOpen: (open: boolean) => void;
 }
@@ -112,6 +114,19 @@ interface LiveAnalysisContextValue {
 const LiveAnalysisContext = createContext<LiveAnalysisContextValue | null>(null);
 
 const MAX_AUDIT_EVENTS = 20;
+
+// These values describe one utterance. Absence on a new attempt must never
+// inherit an earlier patient's answer/measurement through a partial merge.
+const EMPTY_SPEECH_SNAPSHOT: Partial<LiveSnapshot> = {
+  transcript: undefined, targetWord: undefined, targetPhrase: undefined,
+  asrConfidence: undefined, latencyMs: undefined, errorType: undefined,
+  phonologicalSimilarity: undefined, semanticSimilarity: undefined,
+  pronunciationScore: undefined, accuracyScore: undefined, fluencyScore: undefined,
+  completenessScore: undefined, prosodyScore: undefined, meaningAccuracy: undefined,
+  circumlocutionDetected: undefined, effortfulSpeech: undefined, reasoning: undefined,
+  classificationConfidence: undefined, encouragementScore: undefined,
+  encouragementLevel: undefined,
+};
 
 let auditCounter = 0;
 
@@ -124,10 +139,19 @@ export function LiveAnalysisProvider({ children }: { children: ReactNode }) {
   // Use ref for snapshot to avoid stale closures in rapid updates
   const snapshotRef = useRef<LiveSnapshot>({});
 
-  const setLiveSnapshot = useCallback((update: Partial<LiveSnapshot>) => {
-    const next = { ...snapshotRef.current, ...update, updatedAt: Date.now() };
+  const setLiveSnapshot = useCallback((update: Partial<LiveSnapshot>, expectedAttemptId?: string | null) => {
+    if (expectedAttemptId !== undefined &&
+      (!expectedAttemptId || snapshotRef.current.attemptId !== expectedAttemptId)) return;
+    const newAttempt = update.attemptId !== undefined && update.attemptId !== snapshotRef.current.attemptId;
+    const next = {
+      ...snapshotRef.current,
+      ...(newAttempt ? EMPTY_SPEECH_SNAPSHOT : {}),
+      ...update,
+      updatedAt: Date.now(),
+    };
     snapshotRef.current = next;
     setSnapshotState(next);
+    if (newAttempt) setDecisionChainState(null);
   }, []);
 
   const appendAuditEvent = useCallback((event: Omit<AuditEvent, 'id' | 'timestamp'>) => {
@@ -142,7 +166,9 @@ export function LiveAnalysisProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setDecisionChain = useCallback((chain: DecisionChain | null) => {
+  const setDecisionChain = useCallback((chain: DecisionChain | null, expectedAttemptId?: string | null) => {
+    if (expectedAttemptId !== undefined &&
+      (!expectedAttemptId || snapshotRef.current.attemptId !== expectedAttemptId)) return;
     setDecisionChainState(chain);
   }, []);
 

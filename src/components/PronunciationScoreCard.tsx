@@ -286,12 +286,12 @@ export function PronunciationScoreCard({ userId, daysBack = 7 }: PronunciationSc
   );
 }
 
-function ScoreItem({ icon: Icon, label, score }: { icon: React.ElementType; label: string; score: number }) {
-  const getScoreColor = (s: number) => {
+function ScoreItem({ icon: Icon, label, score }: { icon: React.ElementType; label: string; score: number | null }) {
+  const getScoreColor = (s: number | null) => {
+    if (s == null) return 'text-muted-foreground';
     if (s >= 80) return 'text-green-600';
     if (s >= 60) return 'text-amber-600';
-    if (s > 0) return 'text-red-500';
-    return 'text-muted-foreground';
+    return 'text-red-500';
   };
 
   return (
@@ -300,7 +300,7 @@ function ScoreItem({ icon: Icon, label, score }: { icon: React.ElementType; labe
       <div className="flex-1">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className={`text-sm font-semibold ${getScoreColor(score)}`}>
-          {score > 0 ? `${score}%` : '—'}
+          {score == null ? '—' : `${score}%`}
         </p>
       </div>
     </div>

@@ -9,7 +9,7 @@
  */
 
 const TARGET_SAMPLE_RATE = 16000;
-const MAX_AUDIO_DURATION_SEC = 10; // Cap to prevent edge function memory crashes
+const MAX_AUDIO_DURATION_SEC = 10; // Reject longer audio instead of emitting misleading partial evidence
 
 self.onmessage = async (e) => {
   const { arrayBuffer, id } = e.data;
@@ -85,25 +85,28 @@ self.onmessage = async (e) => {
     // =========================================================================
     // Step 2: RESAMPLE to 16kHz mono
     // =========================================================================
+    if (audioBuffer.duration > MAX_AUDIO_DURATION_SEC) {
+      fail('validation', 'Recording exceeds the 10-second analysis limit; partial audio was not analyzed', {
+        decodeMs: timings.decode,
+        durationSec: audioBuffer.duration,
+        maxDurationSec: MAX_AUDIO_DURATION_SEC,
+      });
+      return;
+    }
     console.log('[WAV Worker] Step 2: Resampling to', TARGET_SAMPLE_RATE);
     const resampleStart = performance.now();
     
     let samples;
     try {
       // Always use OfflineAudioContext for resampling - sized correctly to output
-      // Cap duration to prevent huge WAV files crashing edge functions
-      const cappedDuration = Math.min(audioBuffer.duration, MAX_AUDIO_DURATION_SEC);
-      const outputLength = Math.ceil(cappedDuration * TARGET_SAMPLE_RATE);
+      // Input was validated above; resample the complete supported recording.
+      const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
       const resampleCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
       
       const source = resampleCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(resampleCtx.destination);
       source.start(0);
-      if (cappedDuration < audioBuffer.duration) {
-        source.stop(cappedDuration);
-        console.log('[WAV Worker] Audio capped from', audioBuffer.duration.toFixed(1) + 's to', cappedDuration + 's');
-      }
       
       const resampledBuffer = await resampleCtx.startRendering();
       samples = resampledBuffer.getChannelData(0);

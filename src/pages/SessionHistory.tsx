@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSessionHistory } from "@/hooks/useSessionHistory";
 import { SessionHistoryTimeline } from "@/components/SessionHistoryTimeline";
 import { toast } from "sonner";
+import { averageResponseTimeMs } from "@/lib/speech/responseTiming";
 import {
   Sheet,
   SheetContent,
@@ -92,15 +93,7 @@ const SessionHistory = () => {
         : "N/A";
 
       session.exercises.forEach((exercise) => {
-        const avgRT =
-          exercise.trials.length > 0
-            ? Math.round(
-                exercise.trials.reduce(
-                  (sum, t) => sum + (t.reactionTimeMs || 0),
-                  0
-                ) / exercise.trials.length
-              )
-            : 0;
+        const avgRT = averageResponseTimeMs(exercise.trials.map(trial => trial.reactionTimeMs));
 
         const errorCount = exercise.trials.filter((t) => t.score !== 1).length;
 
@@ -111,7 +104,7 @@ const SessionHistory = () => {
           exercise.slug,
           exercise.totalTrials.toString(),
           exercise.accuracy.toString(),
-          avgRT.toString(),
+          avgRT === null ? '' : Math.round(avgRT).toString(),
           errorCount.toString()
         ]);
       });

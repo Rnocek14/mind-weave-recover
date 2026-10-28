@@ -4,62 +4,100 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
 
 jobs:
   test:
     name: Lint + Tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-
-      - name: Install dependencies
+          bun-version: '1.4.2'
+      - name: Install locked dependencies
         run: bun install --frozen-lockfile
-
+      - name: Verify staging runner configuration and workflow wiring (offline)
+        run: node --test scripts/staging-runner-config.test.mjs scripts/staging-workflow.test.mjs
+      - name: Verify test isolation and fail-closed gates
+        run: bun run test:test-env && bun run test:qa-gates
+      - name: Speech HTTP handler contracts (no credentials)
+        run: bun run test:speech:handlers
       - name: Lint
         run: bun run lint
-
-      - name: Unit tests (incl. leveling contract + content coverage)
-        run: bunx vitest run
-
-      # `tsc --noEmit` with no -p reads the ROOT tsconfig.json, which is a
-      # solution-style config: "files": [] and two project references. It
-      # therefore checks ZERO files and has always passed. Six phantom database
-      # columns, a temporal-dead-zone crash and a duplicate object key all went
-      # through this step green. Check the actual projects.
-      - name: Type-check
-        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json
+      - name: Unit tests (including leveling and content contracts)
+        run: bun run test
+      - name: Type-check actual application, config, and test projects
+        run: bunx tsc --noEmit -p tsconfig.app.json && bunx tsc --noEmit -p tsconfig.node.json && bunx tsc --noEmit -p tsconfig.e2e.json && bun run typecheck:harness
 
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-24.04
-    # Phase 1A scaffolding — runs the public-route smoke spec.
-    # Authenticated journeys land in a follow-up PR.
+    timeout-minutes: 15
+    # No backend credentials are supplied to this job.
     steps:
       - uses: actions/checkout@v4
-
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-
-      - name: Install dependencies
+          bun-version: '1.4.2'
+      - name: Install locked dependencies
         run: bun install --frozen-lockfile
-
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium webkit
-
-      - name: Run Playwright tests
-        run: bunx playwright test
-        env:
-          CI: 'true'
-
+      - name: Run public browser checks without skips or retry recovery
+        run: bun run test:e2e
+      - name: Run microphone and speech-metric browser checks
+        run: bun run test:e2e:speech
+      - name: State verification scope
+        if: always()
+        run: |
+          echo '### Browser verification scope' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Public UI/auth boundaries and real Chromium fake-mic recording/conversion with controlled recognition and backend responses.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'NOT verified here: live Azure accuracy, authenticated persistence, physical microphones, every game journey, or clinical validity.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report
+          path: |
+            playwright-report
+            test-results/speech-summary.json
+            test-results/speech-results.json
           retention-days: 7
+
+  bundle:
+    name: Production bundle evidence
+    uses: ./.github/workflows/evidence-verification.yml
+    permissions:
+      contents: read
+
+  gate:
+    name: Regression gate
+    if: always()
+    needs: [test, e2e, bundle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require every regression job to succeed
+        env:
+          QA_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/qa-gates.mjs test e2e bundle
+      - name: Record the tested revision and scope
+        if: always()
+        run: |
+          echo '### Regression gate' >> "$GITHUB_STEP_SUMMARY"
+          echo "Revision: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo 'This is the deterministic regression gate, not the live-service or clinical release sign-off.' >> "$GITHUB_STEP_SUMMARY"

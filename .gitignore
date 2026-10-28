@@ -29,6 +29,10 @@ dist-ssr
 *.sln
 *.sw?
 test-results/
+playwright-report/
+dist-e2e/
+dist-e2e-speech/
+evidence-test-results.json
 
 # Scratch scripts written by the runtime-verification harness (rt-README.md).
 # The harness itself is committed; individual one-off checks are not.

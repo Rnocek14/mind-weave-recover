@@ -14,10 +14,10 @@
  *
  *   We now:
  *     1. Return raw clamped cosine in [0, 1] (no rescale).
- *     2. Apply a lexical guard: if there's no shared substring (≥3 chars)
- *        and no alias overlap, cap returned similarity at 0.45 (forces
- *        "incorrect" regardless of embedding noise).
+ *     2. Apply a lexical guard to naming-answer validation.
  *     3. Short-circuit obvious nonsense / non-alphabetic input to 0.
+ *   Error-type analysis uses relationships, not naming correctness, and
+ *   explicitly opts out of the naming guard. Its result is not a correct answer.
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -187,10 +187,6 @@ function getRuleBasedSemanticSimilarity(
 }
 
 /**
- * Get semantic similarity between two words/phrases.
- * Returns a value in [0, 1] where 1 = identical and <0.45 = effectively unrelated.
- */
-/**
  * Which scorer produced a semantic similarity value. The embedding scorer
  * and the ~90-word rule-based fallback are NOT comparable — identical
  * answers can score differently depending on edge-function availability —
@@ -204,18 +200,18 @@ export interface SemanticSimilarityDetail {
 }
 
 /**
- * What kind of comparison this is.
+ * 'word_to_word' remains the default naming-answer validation mode and keeps
+ * the existing lexical guard and all numeric thresholds unchanged.
  *
- * 'word_to_word' (default, and every existing caller): the person was asked to
- * NAME something, so sharing no words with the target is evidence they said
- * something unrelated — the lexical guard below is correct.
+ * 'description_to_word' evaluates descriptions without requiring the target
+ * word to appear. It already bypasses the naming lexical guard.
  *
- * 'description_to_word': the person was asked to DESCRIBE something without
- * naming it. Sharing no words with the target is the success condition, not a
- * warning sign, so applying the guard capped every correct circumlocution at
- * 0.45 and put it below every threshold that reads this score.
+ * 'error_classification' determines whether an incorrect word is related to
+ * the target (e.g. cat/dog), not whether it is the correct naming answer.
+ * Sharing no letters must not erase that relationship. It uses the same raw
+ * scorer, retains provenance and nonsense checks, and never rescales scores.
  */
-export type SemanticComparison = 'word_to_word' | 'description_to_word';
+export type SemanticComparison = 'word_to_word' | 'description_to_word' | 'error_classification';
 
 export async function getSemanticSimilarityDetailed(
   spoken: string,
@@ -253,11 +249,8 @@ export async function getSemanticSimilarityDetailed(
     source = 'rule_based';
   }
 
-  // Lexical guard: if there's no morphological/token overlap and the embedding
-  // score is suspicious-but-not-clearly-correct, cap it. Prevents unrelated
-  // English words from drifting into the partial-credit band.
-  // Skipped for descriptions: see SemanticComparison. A circumlocution never
-  // contains its target, so this guard fired on every correct answer.
+  // Only naming-answer validation applies this guard. Description evaluation
+  // and error-type analysis require relationships without shared target words.
   if (comparison === 'word_to_word') {
     const overlap = hasLexicalOverlap(spoken, target);
     if (!overlap && raw < 0.78) {

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { HelpLabel } from "@/components/HelpTooltip";
+import { averageResponseTimeMs, measuredResponseTimeMs, readUtteranceResponseTimeMs } from "@/lib/speech/responseTiming";
 
 interface TrialData {
   attempt_id: string;
@@ -19,6 +20,7 @@ interface TrialData {
   is_correct: boolean | null;
   exercise_slug: string | null;
   latency_ms: number | null;
+  response_time_ms: number | null;
   error_type: string | null;
   cue_type_given: string | null;
   cue_was_effective: boolean | null;
@@ -68,7 +70,7 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, audio_meta, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -76,7 +78,9 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
       if (uaError) throw uaError;
 
       if (uaData && uaData.length > 0) {
-        setTrials(uaData);
+        setTrials(uaData.map(row => ({
+          ...row, response_time_ms: readUtteranceResponseTimeMs(row.audio_meta),
+        })));
       } else {
         // Fallback to exercise_events
         const { data: eeData, error: eeError } = await supabase
@@ -96,7 +100,8 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
           transcript: ev.whisper_transcript || ev.browser_transcript || null,
           is_correct: ev.score === 1 || ev.score === 100 ? true : ev.score === 0 ? false : null,
           exercise_slug: ev.exercise_slug,
-          latency_ms: ev.reaction_time_ms,
+          latency_ms: null,
+          response_time_ms: measuredResponseTimeMs(ev.reaction_time_ms),
           error_type: ev.error_type,
           cue_type_given: ev.cue_type_given,
           cue_was_effective: ev.cue_was_effective,
@@ -161,9 +166,7 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
   const totalTrials = trials.length;
   const correctTrials = trials.filter((t) => t.is_correct === true).length;
   const accuracy = totalTrials > 0 ? Math.round((correctTrials / totalTrials) * 100) : 0;
-  const avgLatency = totalTrials > 0
-    ? Math.round(trials.reduce((s, t) => s + (t.latency_ms ?? 0), 0) / totalTrials)
-    : 0;
+  const avgResponseTime = averageResponseTimeMs(trials.map(trial => trial.response_time_ms));
   const exercises = Array.from(new Set(trials.map((t) => t.exercise_slug).filter(Boolean))) as string[];
 
   // Error breakdown
@@ -246,7 +249,9 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
                 </Card>
                 <Card className="p-3 text-center">
                   <Zap className="w-4 h-4 mx-auto mb-1 text-amber-500" />
-                  <div className="text-2xl font-bold">{avgLatency}<span className="text-sm font-normal">ms</span></div>
+                  <div className="text-2xl font-bold">
+                    {avgResponseTime === null ? '—' : <>{Math.round(avgResponseTime)}<span className="text-sm font-normal">ms</span></>}
+                  </div>
                   <div className="text-xs text-muted-foreground"><HelpLabel term="Reaction Time">Avg RT</HelpLabel></div>
                 </Card>
                 <Card className="p-3 text-center">
@@ -381,11 +386,11 @@ export function SessionDetailPanel({ open, onOpenChange, session }: SessionDetai
                                       {errorTypeLabel(trial.error_type)}
                                     </span>
                                   )}
-                                  {trial.latency_ms != null && trial.latency_ms > 0 && (
+                                  {trial.response_time_ms != null && (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
-                                      {trial.latency_ms >= 1000
-                                        ? `${(trial.latency_ms / 1000).toFixed(1)}s`
-                                        : `${trial.latency_ms}ms`}
+                                      {trial.response_time_ms >= 1000
+                                        ? `${(trial.response_time_ms / 1000).toFixed(1)}s`
+                                        : `${trial.response_time_ms}ms`}
                                     </span>
                                   )}
                                   {trial.cue_type_given && trial.cue_type_given !== "none" && (

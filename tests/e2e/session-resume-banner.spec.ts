@@ -13,7 +13,7 @@
  * that path needs an authenticated fixture which is intentionally
  * out of scope for Phase 1B (no DB pollution).
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/safeTest';
 
 const KEY = 'lessonFlowState_resume';
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;

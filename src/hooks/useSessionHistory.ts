@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { measuredResponseTimeMs, readUtteranceResponseTimeMs } from "@/lib/speech/responseTiming";
 
 export interface TrialDetail {
   id: string;
@@ -99,7 +100,7 @@ export const useSessionHistory = (userId: string | undefined | null, profileId?:
       // utterance_analyses + adaptation_trial_logs, not exercise_events) still appear.
       const sessionIds = sessionsData.map((s) => s.id);
       const [{ data: utterances }, { data: trialLogs }] = await Promise.all([
-        supabase.from("utterance_analyses").select("session_id, exercise_slug, is_correct, latency_ms, created_at, id").in("session_id", sessionIds),
+        supabase.from("utterance_analyses").select("session_id, exercise_slug, is_correct, audio_meta, created_at, id").in("session_id", sessionIds),
         supabase.from("adaptation_trial_logs").select("session_id, exercise_slug, correct, reaction_time_ms, created_at, id, difficulty").in("session_id", sessionIds),
       ]);
 
@@ -115,7 +116,7 @@ export const useSessionHistory = (userId: string | undefined | null, profileId?:
               id: event.id,
               round: event.round,
               score: event.score,
-              reactionTimeMs: event.reaction_time_ms,
+              reactionTimeMs: measuredResponseTimeMs(event.reaction_time_ms),
               errorType: event.error_type,
               cueLevel: event.cue_level,
               taskParameters: event.task_parameters,
@@ -135,7 +136,9 @@ export const useSessionHistory = (userId: string | undefined | null, profileId?:
               exerciseMap[slug].push({
                 id: u.id, round: idx + 1,
                 score: u.is_correct ? 1 : 0,
-                reactionTimeMs: u.latency_ms ?? null,
+                // Legacy latency_ms includes upload/analysis time. Only explicit
+                // accepted-answer provenance establishes patient response time.
+                reactionTimeMs: readUtteranceResponseTimeMs(u.audio_meta),
                 errorType: null, cueLevel: null, taskParameters: {}, outputs: {},
                 createdAt: u.created_at || ""
               });
@@ -148,7 +151,7 @@ export const useSessionHistory = (userId: string | undefined | null, profileId?:
                 exerciseMap[slug].push({
                   id: t.id, round: idx + 1,
                   score: t.correct ? 1 : 0,
-                  reactionTimeMs: t.reaction_time_ms ?? null,
+                  reactionTimeMs: measuredResponseTimeMs(t.reaction_time_ms),
                   errorType: null, cueLevel: null,
                   taskParameters: { difficulty: t.difficulty }, outputs: {},
                   createdAt: t.created_at || ""

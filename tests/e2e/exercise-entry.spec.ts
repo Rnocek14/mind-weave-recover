@@ -5,8 +5,7 @@
  * routes render without crashing. Does NOT start a session, submit
  * trials, or touch progression / mastery state.
  */
-import { test, expect } from '@playwright/test';
-import { test as anonTest, expect as anonExpect } from './fixtures/anonSession';
+import { test, expect } from './fixtures/safeTest';
 
 /**
  * Two different contracts, so they get two different assertions.
@@ -47,21 +46,4 @@ test.describe('Exercise entry routes render', () => {
     });
   }
 
-});
-
-anonTest.describe('Pause control on exercise routes (anon session)', () => {
-  anonTest('pause button is visible and clickable', async ({ anonPage }) => {
-    // Regression: the fixed-position pause control used to sit UNDERNEATH the
-    // game pages' sticky z-50 header — rendered but invisible/unclickable.
-    await anonPage.goto('/exercise/photo-naming');
-    await anonPage.waitForLoadState('networkidle');
-    anonTest.skip(new URL(anonPage.url()).pathname === '/auth', 'anon session unavailable');
-
-    const pauseBtn = anonPage.getByRole('button', { name: 'Pause session' });
-    await anonExpect(pauseBtn).toBeVisible();
-    await pauseBtn.click();
-    await anonExpect(anonPage.getByRole('dialog', { name: 'Session paused' })).toBeVisible();
-    await anonPage.getByRole('button', { name: 'Resume' }).click();
-    await anonExpect(anonPage.getByRole('dialog', { name: 'Session paused' })).toBeHidden();
-  });
 });

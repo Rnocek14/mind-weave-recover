@@ -1,31 +1,33 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolveE2EEnvironment } from './scripts/e2e-environment.mjs';
 
-/**
- * Phase 1A — Playwright E2E config.
- *
- * Read-only against the running app. Does NOT modify clinical engines,
- * progression hooks, scoring, mastery routing, or content banks.
- *
- * Run locally:   bunx playwright test
- * CI:            see .github/workflows/ci.yml (e2e job)
- */
-const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 4173);
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
+// Validation happens before builds, browsers, or auth calls.
+const settings = resolveE2EEnvironment();
+const stagingSpecs = [
+  '**/core-loop.spec.ts',
+  '**/pass-b-patient-journey.spec.ts',
+  '**/exercise-session.spec.ts',
+];
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testMatch: settings.suite === 'staging' ? stagingSpecs : '**/*.spec.ts',
+  testIgnore: settings.suite === 'public' ? stagingSpecs : [],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: settings.suite === 'staging' ? 0 : process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: process.env.CI
-    ? [['github'], ['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
-    : 'list',
+  reporter: [
+    [process.env.CI ? 'github' : 'list'],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['./tests/e2e/support/coverageReporter.ts'],
+  ],
   timeout: 30_000,
   expect: { timeout: 5_000 },
   use: {
-    baseURL: BASE_URL,
-    trace: 'on-first-retry',
+    baseURL: settings.baseURL,
+    serviceWorkers: 'block',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
@@ -33,12 +35,18 @@ export default defineConfig({
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-safari', use: { ...devices['iPhone 13'] } },
   ],
-  webServer: process.env.PLAYWRIGHT_NO_SERVER
-    ? undefined
-    : {
-        command: `bun run build && bunx vite preview --port ${PORT} --strictPort`,
-        url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
-      },
+  webServer: {
+    // No production prerender script. The E2E-only transform preserves the
+    // generated client's behavior while substituting the guarded test backend.
+    command: `bunx vite build --config tests/e2e/vite.config.ts --outDir dist-e2e && bunx vite preview --config tests/e2e/vite.config.ts --outDir dist-e2e --host 127.0.0.1 --port ${settings.port} --strictPort`,
+    url: settings.baseURL,
+    reuseExistingServer: false,
+    timeout: 180_000,
+    env: {
+      E2E_SUITE: settings.suite,
+      VITE_SUPABASE_URL: settings.supabaseURL,
+      VITE_SUPABASE_PUBLISHABLE_KEY: settings.publishableKey,
+      VITE_SUPABASE_PROJECT_ID: settings.projectRef,
+    },
+  },
 });

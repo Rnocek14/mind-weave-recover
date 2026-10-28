@@ -2,6 +2,7 @@
  * Auto-generates per-session "Strengths / Struggles / Adaptation" summaries
  * from exercise_events + adaptation_events data.
  */
+import { averageResponseTimeMs } from '@/lib/speech/responseTiming';
 
 export interface SessionInsight {
   strengths: string[];
@@ -63,8 +64,8 @@ export function generateSessionInsight(
     const correct = exTrials.filter((t) => t.is_correct === true || (t.score != null && t.score > 0)).length;
     const accuracy = exTrials.length > 0 ? Math.round((correct / exTrials.length) * 100) : 0;
     
-    const latencies = exTrials.map((t) => t.reaction_time_ms).filter((v): v is number => v != null && v > 0);
-    const avgLatencyMs = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : null;
+    const observedAverage = averageResponseTimeMs(exTrials.map((t) => t.reaction_time_ms));
+    const avgLatencyMs = observedAverage === null ? null : Math.round(observedAverage);
 
     const errorTypes: Record<string, number> = {};
     exTrials.forEach((t) => {
@@ -113,7 +114,7 @@ export function generateSessionInsight(
     }
 
     // Latency insights
-    if (avgLatencyMs && avgLatencyMs < 2000 && accuracy >= 70) {
+    if (avgLatencyMs !== null && avgLatencyMs < 2000 && accuracy >= 70) {
       strengths.push(`Fast responses in ${label} (avg ${(avgLatencyMs / 1000).toFixed(1)}s)`);
     }
 

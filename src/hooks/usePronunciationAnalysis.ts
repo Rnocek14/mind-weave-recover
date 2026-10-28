@@ -9,6 +9,7 @@
 
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { AnalysisResponseError, readPronunciationMeasurements } from '@/lib/speech/analysisResponse';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ export type PronunciationSuccessResult = {
     fluencyScore: number;
     completenessScore: number;
     prosodyScore?: number;
+    duration?: number;
     transcript: string;
     words: any[];
     alignmentData?: {
@@ -35,7 +37,7 @@ export type PronunciationSuccessResult = {
 export type PronunciationErrorResult = {
   ok: false;
   error: {
-    stage: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'unexpected';
+    stage: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'parse' | 'unexpected';
     message: string;
     details?: any;
   };
@@ -181,7 +183,7 @@ export function usePronunciationAnalysis() {
       }
 
       // Success
-      const responseData = data.data || data;
+      const responseData = readPronunciationMeasurements(data);
       console.log('🎯 [Pronunciation] SUCCESS!', {
         pronRequestId,
         pronunciationScore: responseData.pronunciationScore,
@@ -194,13 +196,14 @@ export function usePronunciationAnalysis() {
       return {
         ok: true,
         data: {
-          pronunciationScore: responseData.pronunciationScore || 0,
-          accuracyScore: responseData.accuracyScore || 0,
-          fluencyScore: responseData.fluencyScore || 0,
-          completenessScore: responseData.completenessScore || 0,
+          pronunciationScore: responseData.pronunciationScore,
+          accuracyScore: responseData.accuracyScore,
+          fluencyScore: responseData.fluencyScore,
+          completenessScore: responseData.completenessScore,
           prosodyScore: responseData.prosodyScore,
-          transcript: responseData.transcript || '',
-          words: responseData.words || [],
+          duration: responseData.duration,
+          transcript: responseData.transcript,
+          words: responseData.words,
           alignmentData: responseData.alignmentData,
         },
         pronRequestId,
@@ -213,7 +216,7 @@ export function usePronunciationAnalysis() {
       return {
         ok: false,
         error: {
-          stage: 'unexpected',
+          stage: error instanceof AnalysisResponseError ? 'parse' : 'unexpected',
           message: error instanceof Error ? error.message : 'Unknown error',
           details: { errorType: (error as any)?.constructor?.name },
         },

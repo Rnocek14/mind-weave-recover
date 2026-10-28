@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import type { TrialData } from "@/hooks/useSessionDetail";
 import { cn } from "@/lib/utils";
+import { readUtteranceResponseTimeMs } from "@/lib/speech/responseTiming";
 
 interface AcrossTimeViewProps {
   /** Trials in the *currently selected* session — used to seed target options. */
@@ -34,7 +35,7 @@ interface AttemptRow {
   is_correct: boolean | null;
   error_type: string | null;
   cue_type_given: string | null;
-  latency_ms: number | null;
+  response_time_ms: number | null;
   audio_storage_path: string | null;
   recording_duration_ms: number | null;
 }
@@ -100,14 +101,16 @@ export function AcrossTimeView({
         const { data: rows } = await supabase
           .from("utterance_analyses")
           .select(
-            "attempt_id, session_id, created_at, target_word, transcript, is_correct, error_type, cue_type_given, latency_ms, audio_storage_path, recording_duration_ms"
+            "attempt_id, session_id, created_at, target_word, transcript, is_correct, error_type, cue_type_given, audio_meta, audio_storage_path, recording_duration_ms"
           )
           .in("session_id", sessionIds)
           .ilike("target_word", selectedWord)
           .order("created_at", { ascending: true });
 
         if (cancelled) return;
-        setAttempts((rows ?? []) as AttemptRow[]);
+        setAttempts((rows ?? []).map(row => ({
+          ...row, response_time_ms: readUtteranceResponseTimeMs(row.audio_meta),
+        })));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -303,9 +306,9 @@ export function AcrossTimeView({
                         cue: {a.cue_type_given}
                       </Badge>
                     )}
-                    {a.latency_ms != null && a.latency_ms > 0 && (
+                    {a.response_time_ms !== null && (
                       <Badge variant="outline" className="text-[10px]">
-                        {(a.latency_ms / 1000).toFixed(1)}s
+                        {(a.response_time_ms / 1000).toFixed(1)}s
                       </Badge>
                     )}
                   </div>

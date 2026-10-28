@@ -24,7 +24,7 @@ const ERROR_LABELS: Record<string, { label: string; color: string; patientLabel:
 };
 
 function ScoreBar({ label, value, max = 1 }: { label: string; value?: number; max?: number }) {
-  if (value == null) return null;
+  if (value == null || !Number.isFinite(value) || value < 0 || value > max) return null;
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-2 text-[11px]">

@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { measuredResponseTimeMs, readUtteranceResponseTimeMs } from "@/lib/speech/responseTiming";
 
 export interface TrialData {
   attempt_id: string;
@@ -12,6 +13,8 @@ export interface TrialData {
   is_correct: boolean | null;
   exercise_slug: string | null;
   latency_ms: number | null;
+  /** Observed answer timing, separate from raw analysis-completion diagnostics. */
+  response_time_ms?: number | null;
   error_type: string | null;
   cue_type_given: string | null;
   cue_was_effective: boolean | null;
@@ -88,7 +91,7 @@ export function useSessionDetail() {
       const { data: uaData, error: uaError } = await supabase
         .from("utterance_analyses")
         .select(
-          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, gop_data, pause_count, effortful_speech"
+          "attempt_id, target_word, transcript, is_correct, exercise_slug, latency_ms, audio_meta, error_type, cue_type_given, cue_was_effective, audio_storage_path, recording_duration_ms, pronunciation_status, semantic_similarity, phonological_similarity, stuck_type, speech_rate_wpm, created_at, validity_label, validity_reason, counts_toward_score, clinician_validity_override, gop_data, pause_count, effortful_speech"
         )
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -97,7 +100,10 @@ export function useSessionDetail() {
 
       let rows: TrialData[];
       if (uaData && uaData.length > 0) {
-        rows = uaData.map((r) => ({ ...r, source_table: 'utterance_analyses' as const }));
+        rows = uaData.map((r) => ({
+          ...r, response_time_ms: readUtteranceResponseTimeMs(r.audio_meta),
+          source_table: 'utterance_analyses' as const,
+        }));
       } else {
         const { data: eeData, error: eeError } = await supabase
           .from("exercise_events")
@@ -116,6 +122,7 @@ export function useSessionDetail() {
           is_correct: ev.score === 1 || ev.score === 100 ? true : ev.score === 0 ? false : null,
           exercise_slug: ev.exercise_slug,
           latency_ms: ev.reaction_time_ms,
+          response_time_ms: measuredResponseTimeMs(ev.reaction_time_ms),
           error_type: ev.error_type,
           cue_type_given: ev.cue_type_given,
           cue_was_effective: ev.cue_was_effective,

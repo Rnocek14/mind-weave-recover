@@ -30,10 +30,10 @@ interface DailyTrend {
 
 export interface PronunciationScoreAnalytics {
   overallScore: number;
-  accuracyScore: number;
-  fluencyScore: number;
-  completenessScore: number;
-  prosodyScore: number;
+  accuracyScore: number | null;
+  fluencyScore: number | null;
+  completenessScore: number | null;
+  prosodyScore: number | null;
   sampleCount: number;
   hardestPhonemes: PhonemeStats[];
   strongestPhonemes: PhonemeStats[];
@@ -45,20 +45,25 @@ export interface PronunciationScoreAnalytics {
 
 interface GopData {
   source?: string;
-  pronunciationScore?: number;
-  accuracyScore?: number;
-  fluencyScore?: number;
-  completenessScore?: number;
-  prosodyScore?: number;
+  pronunciationScore?: number | null;
+  accuracyScore?: number | null;
+  fluencyScore?: number | null;
+  completenessScore?: number | null;
+  prosodyScore?: number | null;
   words?: Array<{
     word?: string;
-    accuracyScore?: number;
+    accuracyScore?: number | null;
     phonemes?: Array<{
       phoneme?: string;
-      accuracyScore?: number;
+      accuracyScore?: number | null;
     }>;
   }>;
 }
+
+const isScore = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
+const averageScore = (values: number[]): number | null => values.length
+  ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : null;
 
 export function usePronunciationScoreAnalytics(userId: string | undefined, daysBack: number = 7) {
   const activeProfileId = useActiveProfileId();
@@ -100,9 +105,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         // Filter to only Azure data with valid pronunciation scores
         const azureData = (data || []).filter(row => {
           const gop = row.gop_data as GopData | null;
-          return gop?.source === 'azure' && 
-                 typeof gop?.pronunciationScore === 'number' && 
-                 gop.pronunciationScore > 0;
+          return gop?.source === 'azure' && isScore(gop.pronunciationScore);
         });
 
         setRawData(azureData.map(row => ({
@@ -127,11 +130,10 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
 
     // Aggregate overall scores
     let totalPronunciation = 0;
-    let totalAccuracy = 0;
-    let totalFluency = 0;
-    let totalCompleteness = 0;
-    let totalProsody = 0;
-    let prosodyCount = 0;
+    const accuracyScores: number[] = [];
+    const fluencyScores: number[] = [];
+    const completenessScores: number[] = [];
+    const prosodyScores: number[] = [];
 
     // Phoneme aggregation
     const phonemeMap = new Map<string, { total: number; count: number }>();
@@ -148,24 +150,23 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
 
     rawData.forEach(row => {
       const gop = row.gop_data;
-      if (!gop) return;
+      if (!gop || !isScore(gop.pronunciationScore)) return;
 
       // Overall scores
-      totalPronunciation += gop.pronunciationScore ?? 0;
-      totalAccuracy += gop.accuracyScore ?? 0;
-      totalFluency += gop.fluencyScore ?? 0;
-      totalCompleteness += gop.completenessScore ?? 0;
-      if (typeof gop.prosodyScore === 'number' && gop.prosodyScore > 0) {
-        totalProsody += gop.prosodyScore;
-        prosodyCount++;
-      }
+      totalPronunciation += gop.pronunciationScore;
+      // Each breakdown has its own measured sample count; an absent score is
+      // not a zero, while an actual zero remains part of the average.
+      if (isScore(gop.accuracyScore)) accuracyScores.push(gop.accuracyScore);
+      if (isScore(gop.fluencyScore)) fluencyScores.push(gop.fluencyScore);
+      if (isScore(gop.completenessScore)) completenessScores.push(gop.completenessScore);
+      if (isScore(gop.prosodyScore)) prosodyScores.push(gop.prosodyScore);
 
       // Word-level scores with multiple audio examples
       const targetWord = row.target_word?.toLowerCase();
       const score = gop.pronunciationScore;
       const hasAudio = !!row.audio_storage_path;
       
-      if (targetWord && score) {
+      if (targetWord && isScore(score)) {
         const existing = wordMap.get(targetWord);
         const newExample = hasAudio ? { 
           score, 
@@ -209,7 +210,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
         gop.words.forEach(word => {
           if (word.phonemes && Array.isArray(word.phonemes)) {
             word.phonemes.forEach(phoneme => {
-              if (phoneme.phoneme && typeof phoneme.accuracyScore === 'number') {
+              if (phoneme.phoneme && isScore(phoneme.accuracyScore)) {
                 const key = phoneme.phoneme.toLowerCase();
                 const existing = phonemeMap.get(key) || { total: 0, count: 0 };
                 phonemeMap.set(key, {
@@ -226,7 +227,7 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
       const dateKey = row.created_at.split('T')[0];
       const dayData = dailyMap.get(dateKey) || { total: 0, count: 0 };
       dailyMap.set(dateKey, {
-        total: dayData.total + (gop.pronunciationScore ?? 0),
+        total: dayData.total + gop.pronunciationScore,
         count: dayData.count + 1
       });
     });
@@ -290,10 +291,10 @@ export function usePronunciationScoreAnalytics(userId: string | undefined, daysB
 
     return {
       overallScore: Math.round(totalPronunciation / count),
-      accuracyScore: Math.round(totalAccuracy / count),
-      fluencyScore: Math.round(totalFluency / count),
-      completenessScore: Math.round(totalCompleteness / count),
-      prosodyScore: prosodyCount > 0 ? Math.round(totalProsody / prosodyCount) : 0,
+      accuracyScore: averageScore(accuracyScores),
+      fluencyScore: averageScore(fluencyScores),
+      completenessScore: averageScore(completenessScores),
+      prosodyScore: averageScore(prosodyScores),
       sampleCount: count,
       hardestPhonemes: phonemeStats.slice(0, 5),
       strongestPhonemes: phonemeStats.slice(-5).reverse(),

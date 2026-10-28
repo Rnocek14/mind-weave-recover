@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { TrialData } from "@/hooks/useSessionDetail";
 import { cn } from "@/lib/utils";
+import { measuredResponseTimeMs } from "@/lib/speech/responseTiming";
 
 interface VoiceEvidenceGridProps {
   trials: TrialData[];
@@ -61,11 +62,12 @@ function pickClips(trials: TrialData[]): ClipPick[] {
   const correct = withAudio.filter((t) => t.is_correct === true);
   const incorrect = withAudio.filter((t) => t.is_correct === false);
 
-  // Best: correct, no cue, fastest RT
+  // Preserve the correct/no-cue pool; rank only measured answer times.
   const bestPool = correct.filter((t) => !t.cue_type_given);
   const best = (bestPool.length ? bestPool : correct)
     .slice()
-    .sort((a, b) => (a.latency_ms ?? Infinity) - (b.latency_ms ?? Infinity))[0];
+    .sort((a, b) => (measuredResponseTimeMs(a.response_time_ms) ?? Infinity)
+      - (measuredResponseTimeMs(b.response_time_ms) ?? Infinity))[0];
 
   // Representative error: most-frequent error type
   const errorCounts = new Map<string, number>();
@@ -93,7 +95,10 @@ function pickClips(trials: TrialData[]): ClipPick[] {
   const picks: ClipPick[] = [];
   if (best) picks.push({
     kind: "best", label: "Best response",
-    description: "Correct, no cue, fastest", trial: best,
+    description: `${best.cue_type_given ? 'Correct' : 'Correct, no cue'}${
+      measuredResponseTimeMs(best.response_time_ms) === null
+        ? '; response time unavailable' : ', fastest measured response'}`,
+    trial: best,
   });
   if (repError) picks.push({
     kind: "error", label: "Representative error",
@@ -125,7 +130,7 @@ function ClipCard({
   const playing = playingId === t.attempt_id;
   const errorChip = t.error_type;
   const cueChip = t.cue_type_given;
-  const rt = t.latency_ms;
+  const rt = measuredResponseTimeMs(t.response_time_ms);
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
@@ -175,7 +180,7 @@ function ClipCard({
         ) : pick.kind === "best" ? (
           <Badge variant="outline" className="text-[10px]">no cue</Badge>
         ) : null}
-        {rt != null && rt > 0 && (
+        {rt !== null && (
           <Badge variant="outline" className="text-[10px]">
             {(rt / 1000).toFixed(1)}s
           </Badge>

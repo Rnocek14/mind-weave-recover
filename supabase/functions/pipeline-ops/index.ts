@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAzurePronunciation } from "./analyzeRetryAudio.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -291,7 +292,8 @@ serve(async (req) => {
             base64Audio,
             referenceText,
             azureKey,
-            azureRegion
+            azureRegion,
+            audioData.type
           );
 
           if (!pronunciationResponse.ok) {
@@ -368,87 +370,4 @@ async function markJobFailed(supabase: any, attemptId: string, errorMessage: str
       updated_at: new Date().toISOString(),
     })
     .eq("attempt_id", attemptId);
-}
-
-// Helper: Call Azure Pronunciation Assessment API
-async function callAzurePronunciation(
-  base64Audio: string,
-  referenceText: string,
-  azureKey: string,
-  azureRegion: string
-): Promise<{ ok: boolean; alignmentData?: any; gopData?: any; error?: string }> {
-  try {
-    // Decode base64 to binary
-    const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-
-    // Build pronunciation assessment config
-    const assessmentConfig = {
-      referenceText,
-      gradingSystem: "HundredMark",
-      granularity: "Phoneme",
-      dimension: "Comprehensive",
-      enableMiscue: true,
-    };
-
-    const configBase64 = btoa(JSON.stringify(assessmentConfig));
-
-    const response = await fetch(
-      `https://${azureRegion}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`,
-      {
-        method: "POST",
-        headers: {
-          "Ocp-Apim-Subscription-Key": azureKey,
-          "Content-Type": "audio/wav",
-          "Pronunciation-Assessment": configBase64,
-          "Accept": "application/json",
-        },
-        body: audioBytes,
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { ok: false, error: `Azure API ${response.status}: ${errorText}` };
-    }
-
-    const result = await response.json();
-
-    // Parse Azure response into our format
-    const nBest = result.NBest?.[0];
-    if (!nBest) {
-      return { ok: false, error: "No recognition result from Azure" };
-    }
-
-    const alignmentData = {
-      transcript: nBest.Display || nBest.Lexical || "",
-      confidence: nBest.Confidence || 0,
-      word_segments: nBest.Words?.map((w: any) => ({
-        word: w.Word,
-        start_time: w.Offset / 10000000, // Convert 100ns units to seconds
-        end_time: (w.Offset + w.Duration) / 10000000,
-        confidence: w.PronunciationAssessment?.AccuracyScore / 100 || 0,
-      })) || [],
-    };
-
-    const gopData = {
-      source: "azure",
-      overallScore: nBest.PronunciationAssessment?.PronScore || 0,
-      accuracyScore: nBest.PronunciationAssessment?.AccuracyScore || 0,
-      fluencyScore: nBest.PronunciationAssessment?.FluencyScore || 0,
-      completenessScore: nBest.PronunciationAssessment?.CompletenessScore || 0,
-      words: nBest.Words?.map((w: any) => ({
-        word: w.Word,
-        accuracyScore: w.PronunciationAssessment?.AccuracyScore || 0,
-        errorType: w.PronunciationAssessment?.ErrorType || "None",
-        phonemes: w.Phonemes?.map((p: any) => ({
-          phoneme: p.Phoneme,
-          accuracyScore: p.PronunciationAssessment?.AccuracyScore || 0,
-        })) || [],
-      })) || [],
-    };
-
-    return { ok: true, alignmentData, gopData };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
-  }
 }

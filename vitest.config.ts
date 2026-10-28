@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Use CLI file filters for local focus, not committed .only markers.
+    allowOnly: false,
+    passWithNoTests: false,
+    retry: 0,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

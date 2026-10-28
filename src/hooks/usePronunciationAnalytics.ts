@@ -3,51 +3,51 @@ import { supabase } from '@/integrations/supabase/client';
 import { startOfDay, format } from 'date-fns';
 
 interface AcousticMetrics {
-  speechRateWpm: number;
-  totalDurationSec: number;
-  wordCount: number;
-  pauseCount: number;
-  avgPauseDurationMs: number;
-  totalPauseDurationSec: number;
-  speechToPauseRatio: number;
+  speechRateWpm: number | null;
+  totalDurationSec: number | null;
+  wordCount: number | null;
+  pauseCount: number | null;
+  avgPauseDurationMs: number | null;
+  totalPauseDurationSec: number | null;
+  speechToPauseRatio: number | null;
   segmentCount: number;
 }
 
 interface AzureGopData {
-  pronunciationScore?: number;
-  accuracyScore?: number;
-  fluencyScore?: number;
-  completenessScore?: number;
-  prosodyScore?: number;
-  words?: any[];
+  pronunciationScore?: number | null;
+  accuracyScore?: number | null;
+  fluencyScore?: number | null;
+  completenessScore?: number | null;
+  prosodyScore?: number | null;
+  words?: unknown[];
   source?: string;
 }
 
 interface PronunciationDataPoint {
   date: string;
-  speechRate: number;
-  pauseFrequency: number;
-  avgPauseDuration: number;
-  confidence: number;
+  speechRate: number | null;
+  pauseFrequency: number | null;
+  avgPauseDuration: number | null;
+  confidence: number | null;
   trialCount: number;
   // Azure Pronunciation Assessment
-  pronunciationScore?: number;
-  accuracyScore?: number;
-  fluencyScore?: number;
-  completenessScore?: number;
+  pronunciationScore?: number | null;
+  accuracyScore?: number | null;
+  fluencyScore?: number | null;
+  completenessScore?: number | null;
 }
 
 interface PronunciationAnalytics {
   timeSeries: PronunciationDataPoint[];
   overallStats: {
-    avgSpeechRate: number;
-    avgPauseFrequency: number;
-    avgConfidence: number;
+    avgSpeechRate: number | null;
+    avgPauseFrequency: number | null;
+    avgConfidence: number | null;
     totalTrials: number;
     // Azure Pronunciation Assessment averages
-    avgPronunciationScore: number;
-    avgAccuracyScore: number;
-    avgFluencyScore: number;
+    avgPronunciationScore: number | null;
+    avgAccuracyScore: number | null;
+    avgFluencyScore: number | null;
     hasAzureData: boolean;
     improvementTrend: {
       speechRate: number;
@@ -58,6 +58,13 @@ interface PronunciationAnalytics {
   };
 }
 
+const measured = (value: unknown, max = Infinity): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max;
+// Each measurement has its own denominator. Zero is an observation; missing
+// evidence is not an observation and an empty series has no measured average.
+const avg = (values: number[]): number | null =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+
 export const usePronunciationAnalytics = (userId?: string, profileId?: string | null) => {
   return useQuery({
     queryKey: ['pronunciation-analytics', userId, profileId],
@@ -66,13 +73,13 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
         return {
           timeSeries: [],
           overallStats: {
-            avgSpeechRate: 0,
-            avgPauseFrequency: 0,
-            avgConfidence: 0,
+            avgSpeechRate: null,
+            avgPauseFrequency: null,
+            avgConfidence: null,
             totalTrials: 0,
-            avgPronunciationScore: 0,
-            avgAccuracyScore: 0,
-            avgFluencyScore: 0,
+            avgPronunciationScore: null,
+            avgAccuracyScore: null,
+            avgFluencyScore: null,
             hasAzureData: false,
             improvementTrend: { speechRate: 0, confidence: 0, pauseFrequency: 0, pronunciationScore: 0 }
           }
@@ -103,13 +110,13 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
           return {
             timeSeries: [],
             overallStats: {
-              avgSpeechRate: 0,
-              avgPauseFrequency: 0,
-              avgConfidence: 0,
+              avgSpeechRate: null,
+              avgPauseFrequency: null,
+              avgConfidence: null,
               totalTrials: 0,
-              avgPronunciationScore: 0,
-              avgAccuracyScore: 0,
-              avgFluencyScore: 0,
+              avgPronunciationScore: null,
+              avgAccuracyScore: null,
+              avgFluencyScore: null,
               hasAzureData: false,
               improvementTrend: { speechRate: 0, confidence: 0, pauseFrequency: 0, pronunciationScore: 0 }
             }
@@ -128,13 +135,13 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
           return {
             timeSeries: [],
             overallStats: {
-              avgSpeechRate: 0,
-              avgPauseFrequency: 0,
-              avgConfidence: 0,
+              avgSpeechRate: null,
+              avgPauseFrequency: null,
+              avgConfidence: null,
               totalTrials: 0,
-              avgPronunciationScore: 0,
-              avgAccuracyScore: 0,
-              avgFluencyScore: 0,
+              avgPronunciationScore: null,
+              avgAccuracyScore: null,
+              avgFluencyScore: null,
               hasAzureData: false,
               improvementTrend: { speechRate: 0, confidence: 0, pauseFrequency: 0, pronunciationScore: 0 }
             }
@@ -147,6 +154,7 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
 
       // Process utterance_analyses with Azure data
       const dailyData = new Map<string, {
+        trials: number;
         speechRates: number[];
         pauseFrequencies: number[];
         pauseDurations: number[];
@@ -162,10 +170,12 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
       utterances.forEach(ua => {
         const date = format(startOfDay(new Date(ua.created_at)), 'yyyy-MM-dd');
         const gopData = ua.gop_data as AzureGopData | null;
-        const durationMin = (ua.recording_duration_ms || 1000) / 60000; // Convert to minutes
+        const durationMin = measured(ua.recording_duration_ms) && ua.recording_duration_ms > 0
+          ? ua.recording_duration_ms / 60000 : null;
 
         if (!dailyData.has(date)) {
           dailyData.set(date, {
+            trials: 0,
             speechRates: [],
             pauseFrequencies: [],
             pauseDurations: [],
@@ -178,32 +188,32 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
         }
 
         const dayData = dailyData.get(date)!;
+        dayData.trials += 1;
         
-        if (ua.speech_rate_wpm) {
+        if (measured(ua.speech_rate_wpm)) {
           dayData.speechRates.push(ua.speech_rate_wpm);
         }
-        if (ua.pause_count !== null && durationMin > 0) {
+        if (measured(ua.pause_count) && durationMin !== null) {
           dayData.pauseFrequencies.push(ua.pause_count / durationMin);
         }
-        if (ua.avg_pause_duration_ms) {
+        if (measured(ua.avg_pause_duration_ms)) {
           dayData.pauseDurations.push(ua.avg_pause_duration_ms);
         }
-        if (ua.asr_confidence) {
+        if (measured(ua.asr_confidence, 1)) {
           dayData.confidences.push(ua.asr_confidence);
         }
 
         // Azure Pronunciation Assessment scores
         if (gopData?.source === 'azure') {
           hasAzureData = true;
-          if (gopData.pronunciationScore) dayData.pronunciationScores.push(gopData.pronunciationScore);
-          if (gopData.accuracyScore) dayData.accuracyScores.push(gopData.accuracyScore);
-          if (gopData.fluencyScore) dayData.fluencyScores.push(gopData.fluencyScore);
-          if (gopData.completenessScore) dayData.completenessScores.push(gopData.completenessScore);
+          if (measured(gopData.pronunciationScore, 100)) dayData.pronunciationScores.push(gopData.pronunciationScore);
+          if (measured(gopData.accuracyScore, 100)) dayData.accuracyScores.push(gopData.accuracyScore);
+          if (measured(gopData.fluencyScore, 100)) dayData.fluencyScores.push(gopData.fluencyScore);
+          if (measured(gopData.completenessScore, 100)) dayData.completenessScores.push(gopData.completenessScore);
         }
       });
 
       // Calculate daily averages
-      const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
       
       const timeSeries: PronunciationDataPoint[] = Array.from(dailyData.entries())
         .map(([date, data]) => ({
@@ -212,11 +222,11 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
           pauseFrequency: avg(data.pauseFrequencies),
           avgPauseDuration: avg(data.pauseDurations),
           confidence: avg(data.confidences),
-          trialCount: Math.max(data.speechRates.length, data.pronunciationScores.length, 1),
-          pronunciationScore: avg(data.pronunciationScores) || undefined,
-          accuracyScore: avg(data.accuracyScores) || undefined,
-          fluencyScore: avg(data.fluencyScores) || undefined,
-          completenessScore: avg(data.completenessScores) || undefined
+          trialCount: data.trials,
+          pronunciationScore: avg(data.pronunciationScores),
+          accuracyScore: avg(data.accuracyScores),
+          fluencyScore: avg(data.fluencyScores),
+          completenessScore: avg(data.completenessScores)
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -244,12 +254,13 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
 
       const calculateTrend = (key: keyof PronunciationDataPoint) => {
         if (firstHalf.length === 0 || secondHalf.length === 0) return 0;
-        const firstVals = firstHalf.map(d => d[key] as number).filter(v => v !== undefined && !isNaN(v));
-        const secondVals = secondHalf.map(d => d[key] as number).filter(v => v !== undefined && !isNaN(v));
+        const firstVals = firstHalf.map(d => d[key]).filter((value): value is number => measured(value));
+        const secondVals = secondHalf.map(d => d[key]).filter((value): value is number => measured(value));
         if (firstVals.length === 0 || secondVals.length === 0) return 0;
         const firstAvg = avg(firstVals);
         const secondAvg = avg(secondVals);
-        return firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
+        return firstAvg !== null && secondAvg !== null && firstAvg > 0
+          ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
       };
 
       return {
@@ -277,8 +288,11 @@ export const usePronunciationAnalytics = (userId?: string, profileId?: string | 
 };
 
 // Legacy processor for exercise_events fallback
-function processLegacyEvents(events: any[]): PronunciationAnalytics {
+function processLegacyEvents(events: Array<{
+  created_at: string; acoustic_metrics: unknown; whisper_confidence: number | null;
+}>): PronunciationAnalytics {
   const dailyData = new Map<string, {
+    trials: number;
     speechRates: number[];
     pauseFrequencies: number[];
     pauseDurations: number[];
@@ -288,22 +302,22 @@ function processLegacyEvents(events: any[]): PronunciationAnalytics {
   events.forEach(event => {
     const date = format(startOfDay(new Date(event.created_at)), 'yyyy-MM-dd');
     const metrics = event.acoustic_metrics as AcousticMetrics;
-    const confidence = event.whisper_confidence || 0;
+    const confidence = event.whisper_confidence;
 
     if (!dailyData.has(date)) {
-      dailyData.set(date, { speechRates: [], pauseFrequencies: [], pauseDurations: [], confidences: [] });
+      dailyData.set(date, { trials: 0, speechRates: [], pauseFrequencies: [], pauseDurations: [], confidences: [] });
     }
 
     const dayData = dailyData.get(date)!;
-    if (metrics?.speechRateWpm) dayData.speechRates.push(metrics.speechRateWpm);
-    if (metrics?.pauseCount && metrics?.totalDurationSec) {
+    dayData.trials += 1;
+    if (measured(metrics?.speechRateWpm)) dayData.speechRates.push(metrics.speechRateWpm);
+    if (measured(metrics?.pauseCount) && measured(metrics?.totalDurationSec) && metrics.totalDurationSec > 0) {
       dayData.pauseFrequencies.push(metrics.pauseCount / (metrics.totalDurationSec / 60));
     }
-    if (metrics?.avgPauseDurationMs) dayData.pauseDurations.push(metrics.avgPauseDurationMs);
-    dayData.confidences.push(confidence);
+    if (measured(metrics?.avgPauseDurationMs)) dayData.pauseDurations.push(metrics.avgPauseDurationMs);
+    if (measured(confidence, 1)) dayData.confidences.push(confidence);
   });
 
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
   const timeSeries = Array.from(dailyData.entries())
     .map(([date, data]) => ({
@@ -312,27 +326,25 @@ function processLegacyEvents(events: any[]): PronunciationAnalytics {
       pauseFrequency: avg(data.pauseFrequencies),
       avgPauseDuration: avg(data.pauseDurations),
       confidence: avg(data.confidences),
-      trialCount: data.speechRates.length
+      trialCount: data.trials
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const allSpeechRates = events.map(e => (e.acoustic_metrics as AcousticMetrics)?.speechRateWpm).filter(Boolean);
-  const allPauseFreqs = events.map(e => {
-    const m = e.acoustic_metrics as AcousticMetrics;
-    return m?.pauseCount && m?.totalDurationSec ? m.pauseCount / (m.totalDurationSec / 60) : null;
-  }).filter(Boolean) as number[];
-  const allConfidences = events.map(e => e.whisper_confidence || 0);
+  const days = Array.from(dailyData.values());
+  const allSpeechRates = days.flatMap(day => day.speechRates);
+  const allPauseFreqs = days.flatMap(day => day.pauseFrequencies);
+  const allConfidences = days.flatMap(day => day.confidences);
 
   return {
     timeSeries,
     overallStats: {
-      avgSpeechRate: avg(allSpeechRates as number[]),
+      avgSpeechRate: avg(allSpeechRates),
       avgPauseFrequency: avg(allPauseFreqs),
       avgConfidence: avg(allConfidences),
       totalTrials: events.length,
-      avgPronunciationScore: 0,
-      avgAccuracyScore: 0,
-      avgFluencyScore: 0,
+      avgPronunciationScore: null,
+      avgAccuracyScore: null,
+      avgFluencyScore: null,
       hasAzureData: false,
       improvementTrend: { speechRate: 0, confidence: 0, pauseFrequency: 0, pronunciationScore: 0 }
     }

@@ -11,6 +11,17 @@ SET stroke_date = (CURRENT_DATE - INTERVAL '45 days')::date,
 WHERE id = '5bec007d-744f-41a3-a7ad-a17c14e47b41';
 
 -- 2. Seed daily_readiness for last 14 days (realistic fatigue pattern)
+-- This historical backfill requires the original auth account and its matching profile.
+-- It must not create replacement users, profiles, or clinical data on a fresh install.
+DO $backfill$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.profiles AS p
+    JOIN auth.users AS u ON u.id = p.user_id
+    WHERE p.id = '5bec007d-744f-41a3-a7ad-a17c14e47b41'
+      AND u.id = '3a2ae857-680d-4ceb-af7c-095ae3036b2d'
+  ) THEN
 INSERT INTO daily_readiness (user_id, profile_id, checkin_date, fatigue_rating, mood_rating, sleep_quality, notes)
 VALUES
   ('3a2ae857-680d-4ceb-af7c-095ae3036b2d', '5bec007d-744f-41a3-a7ad-a17c14e47b41', CURRENT_DATE - 13, 3, 3, 3, NULL),
@@ -76,6 +87,9 @@ VALUES
   ('3a2ae857-680d-4ceb-af7c-095ae3036b2d', '5bec007d-744f-41a3-a7ad-a17c14e47b41', 'sustained_attention', 0.85, 'high', 110, CURRENT_DATE - 14, CURRENT_DATE - 7, '{"accuracy": 0.88, "speed": 0.82, "consistency": 0.85}'::jsonb, 'week'),
   ('3a2ae857-680d-4ceb-af7c-095ae3036b2d', '5bec007d-744f-41a3-a7ad-a17c14e47b41', 'sustained_attention', 0.86, 'high', 115, CURRENT_DATE - 7, CURRENT_DATE, '{"accuracy": 0.89, "speed": 0.83, "consistency": 0.86}'::jsonb, 'week')
 ON CONFLICT DO NOTHING;
+  END IF;
+END;
+$backfill$;
 
 -- 6. Update clinical profile with realistic aphasia data
 UPDATE profiles 

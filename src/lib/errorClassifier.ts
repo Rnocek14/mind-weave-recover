@@ -79,7 +79,8 @@ export const classifySpeechError = async (
     const semanticDetail = await getSemanticSimilarityDetailed(
       spokenWord.toLowerCase().trim(),
       targetWord.toLowerCase().trim(),
-      context.category
+      context.category,
+      'error_classification'
     );
 
     return {
@@ -173,11 +174,14 @@ export const classifySpeechError = async (
   // Step 4b: Calculate phoneme-level accuracy (v1)
   const phonemeAccuracy = getPhonemeAccuracy(normalized_spoken, normalized_target);
   
-  // Step 5: Calculate semantic similarity using embeddings
+  // Step 5: Diagnose the relationship, not whether the naming answer is correct.
+  // Applying the naming lexical cap here turned related substitutions into
+  // "unrelated" errors (for example cat/dog when embeddings are unavailable).
   const semanticDetail = await getSemanticSimilarityDetailed(
     normalized_spoken,
     normalized_target,
-    context.category
+    context.category,
+    'error_classification'
   );
   const semantic_sim = semanticDetail.score;
   const semantic_scorer = semanticDetail.source;
@@ -310,16 +314,15 @@ export const calculatePhonologicalSimilarity = (word1: string, word2: string): n
 };
 
 /**
- * DEPRECATED: Use getSemanticSimilarity from semanticSimilarity.ts instead
- * Kept for backward compatibility only
+ * Compatibility helper for error-classification relationship analysis.
+ * Naming-answer validation must use semanticSimilarity's default word_to_word mode.
  */
 export const calculateSemanticSimilarity = async (
   word1: string,
   word2: string,
   category: string
 ): Promise<number> => {
-  // Delegate to new embeddings-based implementation
-  return getSemanticSimilarity(word1, word2, category);
+  return getSemanticSimilarity(word1, word2, category, 'error_classification');
 };
 
 /**
@@ -344,8 +347,8 @@ export const levenshteinDistance = (str1: string, str2: string): number => {
       } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j] + 1,     // insertion
+          matrix[i][j - 1] + 1      // deletion
         );
       }
     }

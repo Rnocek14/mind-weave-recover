@@ -1,0 +1,144 @@
+name: Isolated therapy verification
+
+# Owner-started staging verification, never an automatic paid test on each draft edit.
+# ready_for_review works before this workflow is merged into the default branch.
+on:
+  pull_request:
+    branches: [main]
+    types: [ready_for_review]
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      E2E_SUPABASE_URL:
+        required: false
+      E2E_SUPABASE_PUBLISHABLE_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+# Serialize use of this shared test backend across ALL callers/revisions.
+concurrency:
+  group: neurospark-isolated-staging-stdiuaxigqttgdwiwbtp
+  cancel-in-progress: false
+
+jobs:
+  speech:
+    name: Four controlled live speech checks
+    if: >-
+      github.repository == 'Rnocek14/mind-weave-recover' &&
+      (github.event_name != 'pull_request' ||
+       (github.actor == 'Rnocek14' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.draft == false))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: neurospark-e2e
+    env:
+      CI: 'true'
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_SUPABASE_PROJECT_REF: ${{ vars.E2E_SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Configure only the approved staging backend (offline)
+        run: |
+          mkdir -p qa-evidence
+          git rev-parse HEAD > qa-evidence/candidate-revision.txt
+          node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
+      - name: Validate configured staging prerequisites
+        run: bun run test:speech:services:check-env
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Run all four bounded live Azure checks and retain their actual report
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-speech-services.mjs --run | tee qa-evidence/speech-services.json
+      - name: Upload sanitized speech evidence (no auth state or keys)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-speech-evidence
+          path: |
+            qa-evidence/candidate-revision.txt
+            qa-evidence/staging-config.json
+            qa-evidence/speech-services.json
+          retention-days: 7
+
+  therapy:
+    name: Required authenticated therapy journeys
+    if: >-
+      github.repository == 'Rnocek14/mind-weave-recover' &&
+      (github.event_name != 'pull_request' ||
+       (github.actor == 'Rnocek14' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.draft == false))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: neurospark-e2e
+    env:
+      CI: 'true'
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_SUPABASE_PROJECT_REF: ${{ vars.E2E_SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Configure only the approved staging backend (offline)
+        run: |
+          mkdir -p qa-evidence
+          git rev-parse HEAD > qa-evidence/candidate-revision.txt
+          node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
+      - name: Validate configured staging prerequisites
+        run: bun run test:e2e:check-env
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Install browsers
+        run: bunx playwright install --with-deps chromium webkit
+      - name: Run every selected authenticated journey without skips
+        run: bun run test:e2e:staging
+      - name: Upload sanitized therapy evidence (never browser session traces)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-therapy-evidence
+          path: |
+            qa-evidence/candidate-revision.txt
+            qa-evidence/staging-config.json
+            test-results/e2e-summary.json
+          retention-days: 7
+
+  gate:
+    name: Isolated therapy gate
+    if: always()
+    needs: [speech, therapy]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require actual speech and therapy verification
+        env:
+          QA_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/qa-gates.mjs speech therapy
+      - name: Record scope and exact candidate
+        if: always()
+        run: |
+          echo '### Isolated verification scope' >> "$GITHUB_STEP_SUMMARY"
+          echo "Candidate: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Staging only: stdiuaxigqttgdwiwbtp. No production deployment.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Four synthetic live-service checks and the selected authenticated therapy journeys. This is not a whole-app, physical-device or clinical-validity sign-off.' >> "$GITHUB_STEP_SUMMARY"
