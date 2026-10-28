@@ -174,4 +174,64 @@ describe('useTrialSubmission session-finalization barrier', () => {
     expect(adapter.flushAtSessionEnd).toHaveBeenCalledTimes(1);
     expect(order).toEqual(['buffered', 'flushed']);
   });
+  it('does not report a successful commit when a trial database write was rejected', async () => {
+    let completeRawSave!: (saved: boolean) => void;
+    mocks.logExerciseEvent.mockReturnValue(new Promise<boolean>(resolve => { completeRawSave = resolve; }));
+    const adapter = progression();
+    const { result } = renderHook(() => useTrialSubmission({
+      userId: 'user-1', profileId: 'profile-1', sessionId: 'session-1',
+      exerciseSlug: 'fix-sentence', progression: adapter, debug: false,
+    }));
+
+    let save!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    await act(async () => {
+      save = result.current.submitTrial(input);
+      commit = result.current.commitSession();
+    });
+    expect(adapter.flushAtSessionEnd).not.toHaveBeenCalled();
+
+    let summary!: UnifiedTrialSummary;
+    let committed!: Awaited<typeof commit>;
+    await act(async () => {
+      completeRawSave(false);
+      [summary, committed] = await Promise.all([save, commit]);
+    });
+    expect(summary.ok).toBe(false);
+    expect(committed.ok).toBe(false);
+    expect(committed.errors).toEqual(expect.arrayContaining([expect.stringMatching(/unconfirmed trial submissions/)]));
+    expect(adapter.recordTrialOutcome).not.toHaveBeenCalled();
+    expect(mocks.logAdaptationTrial).not.toHaveBeenCalled();
+  });
+
+  it('waits for two simultaneous saves before any session-end flush', async () => {
+    const resolvers: Array<(saved: boolean) => void> = [];
+    mocks.logExerciseEvent.mockImplementation(() => new Promise<boolean>(resolve => { resolvers.push(resolve); }));
+    const adapter = progression();
+    const { result } = renderHook(() => useTrialSubmission({
+      userId: 'user-1', profileId: 'profile-1', sessionId: 'session-1',
+      exerciseSlug: 'fix-sentence', progression: adapter, debug: false,
+    }));
+    let pending!: Array<Promise<UnifiedTrialSummary>>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    await act(async () => {
+      pending = [result.current.submitTrial(input), result.current.submitTrial({ ...input, trialIndex: 2 })];
+      commit = result.current.commitSession();
+    });
+    expect(resolvers).toHaveLength(2);
+    await act(async () => {
+      resolvers[0](true);
+      await pending[0];
+    });
+    expect(adapter.flushAtSessionEnd).not.toHaveBeenCalled();
+    await act(async () => {
+      resolvers[1](true);
+      const all = await Promise.all([...pending, commit]);
+      expect(all[2].ok).toBe(true);
+    });
+    expect(adapter.recordTrialOutcome).toHaveBeenCalledTimes(2);
+    expect(adapter.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(mocks.flushAdaptation).toHaveBeenCalledTimes(1);
+  });
+
 });
