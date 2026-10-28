@@ -14,6 +14,7 @@ import { shuffleArray } from '@/lib/shuffle';
 
 export interface MeaningMatchTrialResult {
   itemId: string;
+  trialIndex: number;
   correct: boolean;
   selectedIndex: number;
   correctIndex: number;
@@ -126,6 +127,7 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
 
     const result: MeaningMatchTrialResult = {
       itemId: currentItem.id,
+      trialIndex: currentIndex + 1,
       correct,
       selectedIndex,
       correctIndex: currentItem.correctIndex,
@@ -143,7 +145,7 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
     seenItemIdsRef.current.add(currentItem.id);
 
     return result;
-  }, [currentItem]);
+  }, [currentItem, currentIndex]);
 
   const nextItem = useCallback(() => {
     setCurrentIndex(prev => prev + 1);
