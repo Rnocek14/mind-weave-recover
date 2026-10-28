@@ -34,29 +34,32 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
     test(`group ${index + 1}: ${group.map(game => game.slug).join(', ')}`, async ({ anonPage: page }) => {
       test.setTimeout(180_000);
       const failures: string[] = [];
-      const javascriptErrors: string[] = [];
-      page.on('pageerror', error => javascriptErrors.push(error.message));
-      // Reuse one fresh anonymous user per group to avoid 36 sign-ups.
+      // Each route gets its own page, so WebKit does not attribute an
+      // aborted request from the previous route's teardown to the next game.
+      // We still fail on every uncaught exception in the game under test.
+      const context = page.context();
       for (const game of group) {
         const route = `/exercise/${game.slug}`;
-        javascriptErrors.length = 0;
+        const gamePage = await context.newPage();
+        const javascriptErrors: string[] = [];
+        gamePage.on('pageerror', error => javascriptErrors.push(error.message));
         try {
-          const response = await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+          const response = await gamePage.goto(route, { waitUntil: 'domcontentloaded', timeout: 20_000 });
           expect(response?.ok(), `${route} document request failed`).toBe(true);
-          await expect(page, `${route} redirected away from the selected game`)
+          await expect(gamePage, `${route} redirected away from the selected game`)
             .toHaveURL(new RegExp(`/exercise/${game.slug}$`), { timeout: 12_000 });
-          // A global Back/Pause button or the loading escape hatch must NOT pass.
-          await expect(game.ready(page).first(), `${route}: game-specific content never appeared`)
+          await expect(game.ready(gamePage).first(), `${route}: game-specific content never appeared`)
             .toBeVisible({ timeout: 18_000 });
-          await expect(page.getByText("We couldn't load your practice", { exact: true })).toHaveCount(0);
+          await expect(gamePage.getByText("We couldn't load your practice", { exact: true })).toHaveCount(0);
           expect(
             javascriptErrors.length,
             `${route} uncaught browser errors: ${javascriptErrors.slice(0, 4).map(message => message.slice(0, 280)).join(' | ')}`,
           ).toBe(0);
         } catch (error) {
-          // Inspect remaining routes even when one fails; fail the test at end.
-          const detail = error instanceof Error ? error.message.split('\n').slice(0, 5).join(' ') : String(error);
+          const detail = error instanceof Error ? error.message.split('\\n').slice(0, 5).join(' ') : String(error);
           failures.push(`${route}: ${detail}`);
+        } finally {
+          await gamePage.close();
         }
       }
       expect(failures, `Game entry failures:\n${failures.join('\n')}`).toEqual([]);
