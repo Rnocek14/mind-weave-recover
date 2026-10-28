@@ -49,7 +49,10 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
           await expect(game.ready(page).first(), `${route}: game-specific content never appeared`)
             .toBeVisible({ timeout: 18_000 });
           await expect(page.getByText("We couldn't load your practice", { exact: true })).toHaveCount(0);
-          expect(javascriptErrors, `${route} uncaught browser errors`).toEqual([]);
+          expect(
+            javascriptErrors.length,
+            `${route} uncaught browser errors: ${javascriptErrors.slice(0, 4).map(message => message.slice(0, 280)).join(' | ')}`,
+          ).toBe(0);
         } catch (error) {
           // Inspect remaining routes even when one fails; fail the test at end.
           const detail = error instanceof Error ? error.message.split('\n').slice(0, 5).join(' ') : String(error);
