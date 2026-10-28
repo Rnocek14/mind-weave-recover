@@ -170,8 +170,11 @@ export default function MeaningMatchExercise() {
       gameId: EXERCISE_SLUG,
       level: effectiveDifficulty ?? result.tier ?? difficultyLevel ?? 1,
       stimulusId: result.itemId,
-      expectedResponse: null,
-      userResponse: null,
+      // The patient selected a specific written meaning. Persist both sides
+      // of that evidence rather than only a binary correct flag.
+      trialIndex: result.trialIndex,
+      expectedResponse: result.correctOption,
+      userResponse: result.selectedOption,
       isCorrect: result.correct,
       accuracyScore: result.correct ? 1 : 0,
       cueLevel: result.usedHint ? 1 : 0,
@@ -183,6 +186,8 @@ export default function MeaningMatchExercise() {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
         unified_route_adaptation_log: true,
         item_id: result.itemId,
+        selected_index: result.selectedIndex,
+        correct_index: result.correctIndex,
         tier: result.tier,
         type: result.type,
         used_hint: result.usedHint,
