@@ -1,19 +1,21 @@
 name: Evidence and production bundle
 
+# Invoked by CI so the production build is part of its aggregate gate.
 on:
-  pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: evidence-${{ github.event.pull_request.number }}
+  group: evidence-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   evidence-build:
     name: Evidence regression suite and production bundle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +49,9 @@ jobs:
               if (assertion.status === 'failed') {
                 console.error(assertion.fullName, assertion.failureMessages?.join('\n'));
               }
+              if (['pending', 'skipped', 'todo'].includes(assertion.status)) {
+                console.log(`NOT VERIFIED ${file.name}: ${assertion.fullName}`);
+              }
             }
           }
           NODE
@@ -65,3 +70,10 @@ jobs:
           if [ "$status" -ne 0 ]; then exit "$status"; fi
           test -s dist/index.html
           echo 'Production bundle built. No deploy, live verification or prerender was run.'
+      - name: Retain unit evidence including skipped-test identities
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-evidence
+          path: evidence-test-results.json
+          retention-days: 7

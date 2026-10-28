@@ -19,8 +19,8 @@
     "is-it-live": "node scripts/is-it-live.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json && bun run typecheck:harness",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
-    "qa": "bun run test:test-env && bun run lint && bun run test && bun run typecheck && bun run test:e2e && bun run test:e2e:speech",
-    "qa:release": "bun run test:e2e:check-env && bun run qa && bun run test:e2e:staging && bun run test:speech:services",
+    "qa": "bun run test:qa-gates && bun run test:speech:handlers && bun run test:test-env && bun run lint && bun run test && bun run typecheck && bun run test:e2e && bun run test:e2e:speech",
+    "qa:release": "bun run test:e2e:check-env && bun run test:speech:services:check-env && bun run qa && bun run test:e2e:staging && bun run test:speech:services",
     "prerender": "node scripts/postbuild-seo.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:live": "node scripts/verify-live.mjs",
@@ -30,7 +30,9 @@
     "test:speech:services:check-env": "node scripts/verify-speech-services.mjs --check-env",
     "test:speech:services": "node scripts/verify-speech-services.mjs --run",
     "typecheck:harness": "tsc --noEmit -p tests/e2e/speech/tsconfig.harness.json",
-    "test:response-timing": "vitest run src/lib/speech/responseTiming.test.ts src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx"
+    "test:response-timing": "vitest run src/lib/speech/responseTiming.test.ts src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx",
+    "test:qa-gates": "node --test scripts/qa-gates.test.mjs",
+    "test:speech:handlers": "node --test scripts/speech-edge-handlers.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

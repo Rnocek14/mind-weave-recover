@@ -54,3 +54,26 @@ test('discovery is explicitly not run and does not claim verification', () => {
   assert.equal(result.summary.notRun, 1);
   assert.equal(result.incomplete, false);
 });
+
+for (const mode of ['public', 'staging']) {
+  for (const [name, results] of [
+    ['skipped', [{ status: 'skipped' }]],
+    ['unrun', []],
+    ['expected failure', [{ status: 'failed' }]],
+    ['retry recovery', [{ status: 'failed' }, { status: 'passed' }]],
+    ['unclassified status', [{ status: 'unknown' }]],
+    ['repeat execution', [{ status: 'passed' }, { status: 'passed' }]],
+  ]) {
+    test(`${mode}: ${name} cannot satisfy required browser verification`, () => {
+      const result = report([{ ...completedCore, results }], { mode });
+      assert.equal(result.finalStatus, 'failed');
+      assert.equal(result.incomplete, true);
+    });
+  }
+  test(`${mode}: an empty selection is not a passing suite`, () => {
+    assert.equal(report([], { mode }).finalStatus, 'failed');
+  });
+  test(`${mode}: a runner failure cannot be hidden by passing case results`, () => {
+    assert.equal(report([completedCore], { mode, runStatus: 'failed' }).finalStatus, 'failed');
+  });
+}

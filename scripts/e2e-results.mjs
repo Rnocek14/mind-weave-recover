@@ -17,8 +17,12 @@ export function summarizeE2EResults({ mode, runStatus, tests, listing = false })
       : mode === 'staging' ? 'selected' : 'NOT RUN: public smoke suite only',
   };
   const hasCoreLoop = tests.some((test) => /(?:^|[/\\])core-loop\.spec\.ts$/.test(test.file));
-  const incomplete = !listing && mode === 'staging'
-    && (!hasCoreLoop || summary.failed || summary.skipped || summary.notRun || summary.flaky || !tests.length);
+  // Every selected browser case must pass on its first execution. Public UI
+  // checks are also a required regression layer, not permission to skip cases.
+  const incomplete = !listing && (
+    !tests.length || summary.passed !== summary.selected || summary.retries > 0
+    || (mode === 'staging' && !hasCoreLoop)
+  );
   if (incomplete) summary.status = 'failed';
   return { summary, incomplete: Boolean(incomplete), finalStatus: incomplete ? 'failed' : runStatus };
 }

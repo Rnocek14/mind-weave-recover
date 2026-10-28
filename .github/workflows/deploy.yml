@@ -1,30 +1,6 @@
-# Build the real production artifact on every push, and publish it only when
-# there is somewhere to publish it to.
-#
-# WHAT WENT WRONG WITH THE FIRST VERSION OF THIS FILE: it claimed in a comment
-# that "the workflow enables GitHub Pages itself on first run" and passed
-# `enablement: true` to actions/configure-pages. That is not a thing the
-# default GITHUB_TOKEN is allowed to do — every run since has died on
-# "Create Pages site failed: Resource not accessible by integration", which
-# put a red X on main for five consecutive merges. A deploy check that is
-# always red is worse than no check, because it teaches you to ignore the one
-# signal that is supposed to mean something.
-#
-# WHAT IT DOES NOW:
-#   build   — every push to main. Builds the same artifact the live site would
-#             serve and refuses it (scripts/verify-dist.mjs) if it lost the
-#             brand, lost the downloadable pack, or baked a localhost origin
-#             into a canonical. CI runs lint/tests/type-check but never builds
-#             for production, so this is the only place a broken prerender or
-#             a bad SITE_URL would surface before a user hit it.
-#   publish — opt-in only. It runs when you dispatch it by hand, or when the
-#             repository variable PAGES_ENABLED is set to "true".
-#
-# TO ACTUALLY PUBLISH FROM HERE: Settings → Pages → Source: "GitHub Actions"
-# (this is a human step; no token in a workflow can do it), then either run
-# this workflow manually or set the PAGES_ENABLED variable to make it
-# automatic. Until then the domain keeps serving whatever it serves today and
-# nothing here touches it.
+# Build on main; publication is opt-in and requires same-revision verification.
+# This governs GitHub Pages only. Lovable/manual/other deployment routes must
+# be separately restricted before claiming there is no release bypass.
 name: Site artifact
 
 on:
@@ -34,68 +10,81 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Never let two publishes race; the newer commit is the one that should win.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 env:
-  # Canonical origin baked into the sitemap and the prerendered pages.
   SITE_URL: https://neurospark.co
-  # Written to dist/CNAME so Pages would serve the site at the domain root,
-  # which is what lets every asset path stay root-relative.
   CUSTOM_DOMAIN: neurospark.co
 
 jobs:
   build:
     name: Build and verify
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-
+          bun-version: '1.4.2'
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      # The prerender step drives a real browser. Without this it fails soft
-      # and the marketing pages ship as an empty shell to the AI-search
-      # crawlers they exist for.
-      - name: Install Chromium (for prerendering)
+      - name: Install Chromium for prerendering
         run: bunx playwright install --with-deps chromium
-
       - name: Build
         run: bun run build
-
-      # Pages serves a static tree, so any client-side route that has no file
-      # on disk (/today, /auth, /exercise/*) 404s unless the 404 page IS the
-      # app shell.
       - name: SPA fallback
         run: cp dist/index.html dist/404.html
-
       - name: Custom domain
         run: echo "${CUSTOM_DOMAIN}" > dist/CNAME
-
       - name: Verify the artifact before publishing
         run: node scripts/verify-dist.mjs
-
-      # Uploading is safe whether or not Pages is switched on — it is a plain
-      # artifact upload and touches no Pages API.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
+  regression:
+    name: Release regression verification
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true')
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  therapy:
+    name: Release isolated speech and persistence verification
+    needs: regression
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true')
+    uses: ./.github/workflows/therapy-e2e.yml
+    permissions:
+      contents: read
+    secrets:
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+
+  release-gate:
+    name: Release gate
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true')
+    needs: [build, regression, therapy]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse publishing without all required verification
+        env:
+          QA_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/qa-gates.mjs build regression therapy
+
   publish:
     name: Publish to GitHub Pages
-    needs: build
-    # Skipped, not failed, while Pages is off. See the header.
-    if: github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true'
+    needs: [build, release-gate]
+    if: github.ref == 'refs/heads/main' && needs.release-gate.result == 'success' && (github.event_name == 'workflow_dispatch' || vars.PAGES_ENABLED == 'true')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

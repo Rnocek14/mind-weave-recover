@@ -1,16 +1,21 @@
 name: Isolated therapy verification
 
-# Requires an isolated project with this repo's schema and anonymous auth enabled.
-# Public CI remains useful without these credentials; a public run is not a
-# completed release check. Run this required therapy check before release.
+# Protected environment must point to a verified synthetic-only test backend.
+# A missing credential or skipped case blocks this workflow; never use production.
 on:
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      E2E_SUPABASE_URL:
+        required: true
+      E2E_SUPABASE_PUBLISHABLE_KEY:
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: therapy-e2e-${{ github.ref }}
+  group: therapy-e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,13 +35,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'
-      - name: Validate isolated environment before installs or network tests
-        run: node --input-type=module -e "import { resolveE2EEnvironment } from './scripts/e2e-environment.mjs'; resolveE2EEnvironment();"
+      - name: Validate isolated environment before network tests
+        run: bun run test:e2e:check-env && bun run test:speech:services:check-env
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
       - name: Install browsers
         run: bunx playwright install --with-deps chromium webkit
-      - name: Run every authenticated journey without skips
+      - name: Run every selected authenticated journey without skips
         run: bun run test:e2e:staging
       - name: Verify deployed speech services with bounded synthetic recordings
         run: bun run test:speech:services
