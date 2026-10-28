@@ -74,7 +74,7 @@ test.describe('Audit: Meaning Match complete recognition exercise', () => {
     await page.getByRole('button', { name: /Highlight keywords|first letter hint/i }).click();
     await clickDisplayedOption(secondWrong);
     await expect(page.getByText('Not quite', { exact: true })).toBeVisible();
-    await expect(page.getByText(secondCorrect, { exact: true })).toBeVisible();
+    await expect(page.locator('p').filter({ hasText: 'Answer:' }).first()).toContainText(secondCorrect);
     await page.getByRole('button', { name: /Next/ }).click();
     await expect(page.getByRole('heading', { name: 'Arena Complete!' })).toBeVisible({ timeout: 25_000 });
     await expect.poll(readTrials, { timeout: 20_000 }).toHaveLength(2);
