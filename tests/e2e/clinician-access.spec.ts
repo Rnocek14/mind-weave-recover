@@ -14,21 +14,16 @@ import { test, expect } from './fixtures/safeTest';
 test.describe('Clinician route boundary (unauthenticated)', () => {
   test('/clinician/trial does not expose trial dashboard content', async ({ page }) => {
     await page.goto('/clinician/trial');
-    await page.waitForLoadState('networkidle');
-
-    const url = new URL(page.url());
-    const onAuth = url.pathname.startsWith('/auth');
-    const emailVisible = await page
-      .locator('input[type="email"]')
-      .first()
-      .isVisible()
-      .catch(() => false);
 
     // Must be gated: either redirected to /auth or showing the auth form.
-    expect(
-      onAuth || emailVisible,
-      `Expected /clinician/trial to be gated; got ${url.pathname}`
-    ).toBeTruthy();
+    // Auth effects can settle after the network becomes idle, so wait for the
+    // actual boundary rather than sampling the URL/form once.
+    await expect.poll(async () => {
+      const onAuth = new URL(page.url()).pathname.startsWith('/auth');
+      return onAuth || await page.locator('input[type="email"]').first().isVisible();
+    }, {
+      message: 'Expected /clinician/trial to redirect to /auth or show the sign-in form',
+    }).toBe(true);
 
     // The trial dashboard's distinctive copy must NOT be visible.
     const trialHeading = page.getByRole('heading', { name: /trial enrollment|enroll patient/i });

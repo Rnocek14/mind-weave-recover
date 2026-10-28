@@ -12,6 +12,13 @@ These results describe the speech changes at
 and its verification are documented in
 [response-time-verification.md](./response-time-verification.md).
 
+The later [isolated database verification](./isolated-database-verification.md)
+replayed all 171 migrations and completed the 14-case authenticated suite
+without failures, skips, unrun cases, retries, or flakes. Its real database
+assertions cover the tested chip-answer ownership and accepted-answer timing
+before and after reload. The initial results below remain the historical speech
+baseline; deployed Azure speech checks are still not run.
+
 | Check | Result |
 |---|---|
 | Full unit/hook/contract suite | 2,033 passed across 157 files; 25 existing skips; zero failures. |
@@ -116,10 +123,13 @@ speech verification pass. Discovery is reported as not run.
 ### Deployed speech-service verification
 
 The real-service command is prepared but was **not executed against a service**
-in this environment. The connected Supabase account did not permit access to
-the NeuroSpark project, and no isolated NeuroSpark backend was configured.
-The missing-configuration preflight was executed and correctly blocked before
-authentication or requests: four planned provider checks, zero executed.
+in this environment. At the initial speech-verification run, the connected
+Supabase account did not permit access to the NeuroSpark project, and no
+isolated NeuroSpark backend was configured. The missing-configuration preflight
+was executed and correctly blocked before authentication or requests: four
+planned provider checks, zero executed. The subsequent native local database
+setup verifies authenticated persistence, but leaves Functions disabled and
+has no Azure credentials; it does not change this provider-verification result.
 
 Use a verified disposable local instance or dedicated test project with:
 

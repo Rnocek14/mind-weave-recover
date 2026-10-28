@@ -5,29 +5,24 @@
  * Uses the anonSession fixture (real Supabase anonymous session) so the
  * SPA boots signed in and we can reach gated patient routes.
  *
- * Read-only: navigates and asserts render/no-dead-state. Does NOT submit
- * answers, mutate progression, mastery, or scoring rows.
+ * Creates real anonymous users only on the isolated test backend. The home
+ * journey uses Welcome's real skip control, which records onboarding completion.
+ * Does NOT submit exercise answers or mutate progression, mastery, or scoring.
  */
 import { test, expect } from './fixtures/anonSession';
 
 test.describe('Pass B — authenticated patient routes (anon session)', () => {
-  test('/today boots authenticated, not bounced to /auth', async ({ anonPage }) => {
+  test('/today boots authenticated after the fresh-user welcome flow', async ({ anonPage }) => {
     await anonPage.goto('/today');
-    await anonPage.waitForLoadState('networkidle');
-
-    expect(new URL(anonPage.url()).pathname).toBe('/today');
-
-    const hasHeading = await anonPage
-      .locator('h1, h2')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const hasButton = await anonPage
-      .locator('button')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    expect(hasHeading || hasButton).toBeTruthy();
+    // A new patient is intentionally sent to Welcome on their first landing.
+    // Complete that real UI path before requiring the patient home page.
+    await expect(anonPage).toHaveURL(/\/welcome$/);
+    await anonPage.getByRole('button', { name: 'Skip for now', exact: true }).click();
+    await expect(anonPage).toHaveURL(/\/today$/);
+    await expect(anonPage.getByRole('heading', {
+      level: 1, name: /^Good (morning|afternoon|evening)(?:,|$)/,
+    })).toBeVisible();
+    await expect(anonPage.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
   });
 
   // Patient exercise routes used by the stroke-archetype walkthrough.

@@ -118,6 +118,29 @@ behavior.
 
 ## Isolated backend status
 
+### Native local follow-up — 2026-10-28
+
+The subsequent [isolated database verification](./isolated-database-verification.md)
+applied all 171 migrations to a disposable native Supabase instance. After
+correcting the fresh-user test to complete the actual Welcome UI, the complete
+authenticated suite passed 14 cases with zero failures, skips, unrun cases,
+retries, or flakes. Its first run's 12 passes and two onboarding-fixture failures
+are retained in that report.
+
+Both browser core-loop cases now read back each of three accepted chip answers
+through the real local database. They require exact attempt/trial/session/user
+mapping, the versioned response-timing metadata, equality with the event's
+`reaction_time_ms`, and unchanged selected fields after reload. This establishes
+local persistence of the tested accepted-tap timing contract. It does not
+establish Azure speech behavior or physical-device timing.
+
+A separate public clinician-route test now waits for its existing auth-gate
+condition. Five repeated WebKit checks and the complete 38-case public suite
+passed without retries. That readiness correction changes no application
+permission or authentication behavior.
+
+### Hosted access and speech services
+
 The connected Supabase account lists projects but cannot access NeuroSpark's
 known project or its development branches. No hosted isolated endpoint or Azure
 Speech configuration is available in this runtime. Management access to hosted
@@ -138,5 +161,7 @@ An existing dedicated test project can unblock the prepared commands when its
 anonymous sign-in, speech functions, rate-limit RPC, and server-side Azure
 Speech settings. The production project remains denied by the test guards.
 
+The local database setup leaves Functions disabled and has no Azure credentials.
 The deployed-service preflight and bounded four-provider-check command remain
-separate from controlled local tests. No live speech success is claimed here.
+separate from the successful local database and controlled speech tests. No live
+speech success is claimed here.
