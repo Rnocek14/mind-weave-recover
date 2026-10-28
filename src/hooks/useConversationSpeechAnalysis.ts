@@ -11,7 +11,7 @@
 import { useCallback, useRef } from 'react';
 import { classifySpeechError, ErrorClassificationResult } from '@/lib/errorClassifier';
 import { deriveMicroFluency, MicroFluencyAnalysis } from '@/lib/microFluencyAnalyzer';
-import { supabase } from '@/integrations/supabase/client';
+import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { calculateRecoveryLift, type TurnSnapshot, type RecoveryLiftResult } from '@/lib/recoveryLiftScore';
 
 export interface ConversationUtteranceAnalysis {
@@ -54,20 +54,8 @@ export interface ConversationSpeechContext {
   bestCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
 
-// Helper to convert Blob to base64
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = (reader.result as string).split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 export function useConversationSpeechAnalysis(context: ConversationSpeechContext) {
+  const { analyzePronunciation } = usePronunciationAnalysis();
   const analysisHistoryRef = useRef<ConversationUtteranceAnalysis[]>([]);
   const sessionStartRef = useRef<number>(Date.now());
   const pendingPronunciationRef = useRef<{
@@ -223,24 +211,23 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
     (async () => {
       try {
         console.log('[SpeechAnalysis] Background pronunciation analysis starting');
-        const audioBase64 = await blobToBase64(audioBlob);
-        
-        const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
-          body: { 
-            audioBlob: audioBase64,
-            mimeType: audioBlob.type,
-            referenceText: transcript
-          }
-        });
-        
-        if (!error && data?.ok && data.data) {
+        // Share the real conversion and response validation used by the games.
+        // Sending the original WebM/mp4 container is unsupported by Azure's
+        // short-audio REST endpoint.
+        const result = await analyzePronunciation(audioBlob, transcript);
+
+        if (result.ok === true) {
+          const data = result.data;
           const phonemeAccuracy: { phoneme: string; score: number }[] = [];
           const challengingSounds: string[] = [];
           
-          if (data.data.words) {
-            for (const word of data.data.words) {
-              if (word.phonemes) {
+          if (data.words) {
+            for (const word of data.words) {
+              if (Array.isArray(word?.phonemes)) {
                 for (const p of word.phonemes) {
+                  // Null means no measurement, not a zero-accuracy phoneme.
+                  if (!p || typeof p.phoneme !== 'string' || typeof p.accuracyScore !== 'number'
+                    || !Number.isFinite(p.accuracyScore) || p.accuracyScore < 0 || p.accuracyScore > 100) continue;
                   phonemeAccuracy.push({ phoneme: p.phoneme, score: p.accuracyScore });
                   if (p.accuracyScore < 70 && !challengingSounds.includes(p.phoneme)) {
                     challengingSounds.push(p.phoneme);
@@ -252,7 +239,7 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
           
           // Cache for next turn
           pendingPronunciationRef.current = {
-            pronunciationScore: data.data.pronunciationScore,
+            pronunciationScore: data.pronunciationScore,
             phonemeAccuracy,
             challengingSounds,
           };
@@ -262,7 +249,7 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
         console.warn('[SpeechAnalysis] Background pronunciation failed:', err);
       }
     })();
-  }, []);
+  }, [analyzePronunciation]);
 
   /**
    * Legacy method - now just calls quick analysis + starts background pronunciation

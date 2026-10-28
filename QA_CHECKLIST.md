@@ -10,7 +10,7 @@
 1. **Automated**
    ```bash
    bun run qa
-   # = test-environment guards + lint + vitest + typecheck + public browser checks
+   # = environment guards + lint + vitest + typecheck + public and speech browser checks
    ```
 2. **Required before release** — use an explicitly isolated backend and run
    `bun run qa:release`, or run the `Isolated therapy verification` workflow
@@ -29,6 +29,9 @@
 | Per-game leveling contract registry | `src/lib/leveling/perGameContracts.ts` | `/dev/leveling-contract` |
 | Mastery shadow snapshot | `/dev/mastery-shadow` | live |
 | Public UI and signed-out boundaries (inert backend) | `tests/e2e/*` public suite | `bun run test:e2e` |
+| Microphone capture and controlled speech journeys | `tests/e2e/speech/*` | `bun run test:e2e:speech` |
+| Speech metrics and analysis contracts | `src/lib/speech/*` and speech hook/component tests | `bun run test:speech` |
+| Deployed speech services (isolated backend) | `scripts/verify-speech-services.mjs` | `bun run test:speech:services` |
 | Authenticated therapy and persistence (isolated backend) | `tests/e2e/core-loop.spec.ts` + authenticated journeys | `bun run test:e2e:staging` |
 | Test-environment isolation | `scripts/e2e-environment.test.mjs` | `bun run test:test-env` |
 | Guided manual runbook | `src/data/qaScenarios.ts` | `/dev/qa-runbook` |

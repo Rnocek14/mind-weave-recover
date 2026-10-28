@@ -47,8 +47,8 @@ export const PronunciationAnalyticsDashboard = ({ userId }: PronunciationAnalyti
 
   const { timeSeries, overallStats } = analytics;
 
-  const TrendIndicator = ({ value }: { value: number }) => {
-    if (Math.abs(value) < 1) return null;
+  const TrendIndicator = ({ value }: { value: number | null }) => {
+    if (value == null || !Number.isFinite(value) || Math.abs(value) < 1) return null;
     const isPositive = value > 0;
     return (
       <span className={`flex items-center gap-1 text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -73,7 +73,7 @@ export const PronunciationAnalyticsDashboard = ({ userId }: PronunciationAnalyti
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overallStats.avgSpeechRate.toFixed(0)} WPM</div>
+            <div className="text-2xl font-bold">{overallStats.avgSpeechRate == null ? '—' : `${overallStats.avgSpeechRate.toFixed(0)} WPM`}</div>
             <TrendIndicator value={overallStats.improvementTrend.speechRate} />
             <p className="text-xs text-muted-foreground mt-1">Words per minute</p>
           </CardContent>
@@ -85,9 +85,9 @@ export const PronunciationAnalyticsDashboard = ({ userId }: PronunciationAnalyti
             <Mic className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(overallStats.avgConfidence * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold">{overallStats.avgConfidence == null ? '—' : `${(overallStats.avgConfidence * 100).toFixed(0)}%`}</div>
             <TrendIndicator value={overallStats.improvementTrend.confidence} />
-            <p className="text-xs text-muted-foreground mt-1">Speech recognition accuracy</p>
+            <p className="text-xs text-muted-foreground mt-1">Confidence in the recognized words</p>
           </CardContent>
         </Card>
 
@@ -97,8 +97,8 @@ export const PronunciationAnalyticsDashboard = ({ userId }: PronunciationAnalyti
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overallStats.avgPauseFrequency.toFixed(1)}</div>
-            <TrendIndicator value={-overallStats.improvementTrend.pauseFrequency} />
+            <div className="text-2xl font-bold">{overallStats.avgPauseFrequency == null ? '—' : overallStats.avgPauseFrequency.toFixed(1)}</div>
+            <TrendIndicator value={overallStats.improvementTrend.pauseFrequency == null ? null : -overallStats.improvementTrend.pauseFrequency} />
             <p className="text-xs text-muted-foreground mt-1">Pauses per minute</p>
           </CardContent>
         </Card>
@@ -141,8 +141,8 @@ export const PronunciationAnalyticsDashboard = ({ userId }: PronunciationAnalyti
       {/* Confidence Score Over Time */}
       <Card>
         <CardHeader>
-          <CardTitle>Speech Clarity Trend</CardTitle>
-          <CardDescription>Whisper AI confidence in recognizing your speech</CardDescription>
+          <CardTitle>Recognition Confidence Trend</CardTitle>
+          <CardDescription>The speech recognizer's confidence in its transcript</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>

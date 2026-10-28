@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "generator": "ffmpeg/libflite",
+  "voice": "slt",
+  "audioFormat": {
+    "encoding": "PCM signed 16-bit little-endian WAV",
+    "sampleRate": 16000,
+    "channels": 1,
+    "bitsPerSample": 16
+  },
+  "limitations": [
+    "Generated locally from text; no patient voice or external speech service.",
+    "Expected transcripts identify the synthetic words; browser tests supply recognition events explicitly and do not measure native ASR accuracy.",
+    "The hesitant fixture contains a deliberately inserted pause, not a representative clinical speech sample.",
+    "Pronunciation/model accuracy and physical devices require separate evaluation; controlled metric responses are not ground-truth acoustic scores for these files."
+  ],
+  "fixtures": [
+    {
+      "id": "clear-answer",
+      "file": "clear-answer.wav",
+      "spokenText": "apple",
+      "expectedTranscripts": [
+        "apple"
+      ],
+      "target": "apple",
+      "durationMs": 3500,
+      "sha256": "7ffc555273f36036ef01321b67668873d300277bb550e27dc6cec4ca5a0d7aaf"
+    },
+    {
+      "id": "hesitant-answer",
+      "file": "hesitant-answer.wav",
+      "spokenText": "uh apple",
+      "expectedTranscripts": [
+        "uh apple",
+        "apple"
+      ],
+      "target": "apple",
+      "durationMs": 4500,
+      "sha256": "60bed6872f9569c30846249a71180d432de76f6d25595f40b8108498c9b2b8e6"
+    },
+    {
+      "id": "silence",
+      "file": "silence.wav",
+      "spokenText": "",
+      "expectedTranscripts": [
+        ""
+      ],
+      "target": null,
+      "durationMs": 3500,
+      "sha256": "e944042fd4103fa307da8beb67f580a415e5503a0417b2f75c271957e22f2e73"
+    },
+    {
+      "id": "over-limit-answer",
+      "file": "over-limit-answer.wav",
+      "spokenText": "apple",
+      "expectedTranscripts": [
+        "apple"
+      ],
+      "target": "apple",
+      "durationMs": 12000,
+      "sha256": "30c6b192fbfcbc2a9ef45ef7e5ddc4825fb57feb3931daa668712e555bd61576"
+    }
+  ]
+}

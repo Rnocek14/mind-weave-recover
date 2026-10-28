@@ -1,5 +1,10 @@
 # Regression workflow verification — 2026-10-28
 
+This records the initial regression-workflow work at commit
+`9817955c8fb6f0293d555400b550a2e861053b03`. The later speech changes, reproduced
+production defects, and updated results are recorded in
+[speech-analysis-verification.md](./speech-analysis-verification.md).
+
 Base revision: `11f083804f924a2da2989a6acdd1e1584ea47bdb`.
 These results describe local verification of this change. They are not a
 production deployment or a passing authenticated-backend run.

@@ -29,7 +29,7 @@ export type FluencyUnavailableReason =
 export interface PronunciationDiagnostics {
   pronRequestId?: string;
   pronunciationStatus?: 'pending' | 'complete' | 'failed' | 'skipped';
-  pronunciationErrorStage?: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'unexpected';
+  pronunciationErrorStage?: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'parse' | 'unexpected';
   pronunciationTimingsMs?: { wav?: number; base64?: number; edge?: number; total: number };
   audioMeta?: { originalMime: string; originalSize: number; wavSize?: number; base64Len?: number };
 }
@@ -49,32 +49,32 @@ export interface FinalAnalysisInput {
   /** Capture at recording/response time. Explicit missing/unknown IDs fail closed. */
   attemptId?: string | null;
   transcript?: string;
-  transcriptSource: 'browser' | 'whisper' | 'manual';
-  asrConfidence?: number;
+  transcriptSource: 'browser' | 'azure' | 'whisper' | 'manual';
+  asrConfidence?: number | null;
   isCorrect?: boolean | null;
   errorType?: string;
-  phonologicalSimilarity?: number;
+  phonologicalSimilarity?: number | null;
   semanticSimilarity?: number | null;
-  classificationConfidence?: number;
+  classificationConfidence?: number | null;
   reasoning?: string;
-  speechRateWpm?: number;
-  pauseCount?: number;
-  totalPauseMs?: number;
-  avgPauseDurationMs?: number;
-  effortfulSpeech?: boolean;
-  fluencyAvailable?: boolean;
+  speechRateWpm?: number | null;
+  pauseCount?: number | null;
+  totalPauseMs?: number | null;
+  avgPauseDurationMs?: number | null;
+  effortfulSpeech?: boolean | null;
+  fluencyAvailable?: boolean | null;
   fluencyUnavailableReason?: FluencyUnavailableReason;
   cueTypeGiven?: string;
-  cueWasEffective?: boolean;
-  timeToSuccessAfterCueMs?: number;
+  cueWasEffective?: boolean | null;
+  timeToSuccessAfterCueMs?: number | null;
   cueTrigger?: 'stall' | 'consecutive_errors' | 'user_request';
   audioStoragePath?: string;
-  recordingDurationMs?: number;
-  pronunciationScore?: number;
-  accuracyScore?: number;
-  fluencyScore?: number;
-  completenessScore?: number;
-  prosodyScore?: number;
+  recordingDurationMs?: number | null;
+  pronunciationScore?: number | null;
+  accuracyScore?: number | null;
+  fluencyScore?: number | null;
+  completenessScore?: number | null;
+  prosodyScore?: number | null;
   gopData?: any;
   alignmentData?: {
     word_segments: { word: string; start: number; end: number }[];
@@ -83,12 +83,12 @@ export interface FinalAnalysisInput {
   pronunciationError?: string;
   pronunciationDiagnostics?: PronunciationDiagnostics;
   evaluationModel?: EvaluationModel;
-  didSpeak?: boolean;
-  utteranceComplete?: boolean;
-  coherenceScore?: number;
-  momentumScore?: number;
-  latencyToFirstWordMs?: number;
-  narrowingLevelUsed?: number;
+  didSpeak?: boolean | null;
+  utteranceComplete?: boolean | null;
+  coherenceScore?: number | null;
+  momentumScore?: number | null;
+  latencyToFirstWordMs?: number | null;
+  narrowingLevelUsed?: number | null;
   narrowingTrigger?: 'auto_silence' | 'user_request';
   momentumComponents?: MomentumComponents;
   promptIntentType?: string;
@@ -125,12 +125,28 @@ interface UtteranceLoggerReturn {
   resetAttempt: () => void;
 }
 
-/** Preserve existing database columns and score semantics. */
+function measuredNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+// An explicit null means unavailable. Only an absent field may use the
+// equivalent top-level value; never convert missing evidence into a zero.
+function pronunciationMetric(value: unknown, fallback?: number | null): number | null {
+  return measuredNumber(value === undefined ? fallback : value);
+}
+
+/** Preserve existing database columns, units, and score semantics. */
 function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): TablesInsert<'utterance_analyses'> {
   const ctx = record.context;
   const diag = analysis.pronunciationDiagnostics;
   const hasPronError = !!analysis.pronunciationError || diag?.pronunciationStatus === 'failed';
   const pronunciationStatus = analysis.gopData ? 'complete' : hasPronError ? 'failed' : 'skipped';
+  // Untagged legacy game callers use Azure PA. Keep that compatibility, but
+  // never overwrite provenance explicitly supplied by a different analyzer.
+  const gopSource = analysis.gopData?.source === undefined ? 'azure' : analysis.gopData.source;
+  const gopSchema = analysis.gopData?.schemaVersion === undefined
+    ? (gopSource === 'azure' ? 'azure-pa-v2' : null)
+    : analysis.gopData.schemaVersion;
   const payload: TablesInsert<'utterance_analyses'> = {
     attempt_id: ctx.attemptId,
     user_id: ctx.userId,
@@ -142,7 +158,9 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     category: ctx.category,
     // An explicitly empty transcript is evidence too; do not replace it.
     transcript: analysis.transcript ?? record.browserTranscript,
-    transcript_source: analysis.transcriptSource,
+    // Historical database CHECK permits browser/whisper/manual. Azure STT uses
+    // that legacy wire slot; audio_meta carries the actual provider below.
+    transcript_source: analysis.transcriptSource === 'azure' ? 'whisper' : analysis.transcriptSource,
     asr_confidence: analysis.asrConfidence,
     is_correct: analysis.isCorrect,
     error_type: analysis.errorType,
@@ -165,16 +183,16 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     fluency_available: analysis.fluencyAvailable,
     fluency_unavailable_reason: analysis.fluencyUnavailableReason,
     gop_data: analysis.gopData ? {
-      schemaVersion: 'azure-pa-v2',
-      source: 'azure',
-      pronunciationScore: analysis.gopData.pronunciationScore ?? analysis.pronunciationScore ?? 0,
-      accuracyScore: analysis.gopData.accuracyScore ?? analysis.accuracyScore ?? 0,
-      fluencyScore: analysis.gopData.fluencyScore ?? analysis.fluencyScore ?? 0,
-      completenessScore: analysis.gopData.completenessScore ?? analysis.completenessScore ?? 0,
-      prosodyScore: analysis.gopData.prosodyScore ?? analysis.prosodyScore ?? 0,
+      schemaVersion: gopSchema,
+      source: gopSource,
+      pronunciationScore: pronunciationMetric(analysis.gopData.pronunciationScore, analysis.pronunciationScore),
+      accuracyScore: pronunciationMetric(analysis.gopData.accuracyScore, analysis.accuracyScore),
+      fluencyScore: pronunciationMetric(analysis.gopData.fluencyScore, analysis.fluencyScore),
+      completenessScore: pronunciationMetric(analysis.gopData.completenessScore, analysis.completenessScore),
+      prosodyScore: pronunciationMetric(analysis.gopData.prosodyScore, analysis.prosodyScore),
       words: analysis.gopData.words ?? [],
       transcript: analysis.gopData.transcript ?? '',
-      duration: analysis.gopData.duration ?? 0,
+      duration: measuredNumber(analysis.gopData.duration),
     } : null,
     alignment_data: analysis.alignmentData ?? (analysis.gopData?.alignmentData ? {
       word_segments: analysis.gopData.alignmentData.word_segments,
@@ -191,7 +209,9 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     pronunciation_error_stage: diag?.pronunciationErrorStage,
     pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
     pronunciation_timings_ms: diag?.pronunciationTimingsMs,
-    audio_meta: diag?.audioMeta,
+    audio_meta: analysis.transcriptSource === 'azure'
+      ? { ...diag?.audioMeta, transcriptProvider: 'azure' }
+      : diag?.audioMeta,
     evaluation_model: analysis.evaluationModel ?? 'test',
     did_speak: analysis.didSpeak,
     utterance_complete: analysis.utteranceComplete,
@@ -205,7 +225,7 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     prompt_theme: analysis.promptTheme,
     stuck_type: analysis.stuckType,
   };
-  if (typeof analysis.cueWasEffective === 'boolean') payload.cue_was_effective = analysis.cueWasEffective;
+  if (analysis.cueWasEffective !== undefined) payload.cue_was_effective = analysis.cueWasEffective;
   // Snapshot nested caller objects as they will be serialized by the SDK. An
   // asynchronous caller must not mutate an in-flight or retry payload.
   return JSON.parse(JSON.stringify(payload)) as TablesInsert<'utterance_analyses'>;

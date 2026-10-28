@@ -38,6 +38,7 @@ import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { LiveAnalysisPanel } from '@/components/LiveAnalysisPanel';
+import { photoNamingLiveSnapshot } from '@/lib/speech/photoNamingLiveSnapshot';
 import type { RecentTrialData } from '@/lib/midSessionPivot';
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
@@ -670,25 +671,7 @@ function PhotoNamingExerciseInner() {
     // ===== Push data to Live Analysis Panel =====
     const ua = result.utteranceAnalysis;
     setLiveSnapshot({
-      // Transcript: fallback to target word if ASR didn't return text (direct match short-circuit)
-      transcript: result.whisperTranscript || ua?.transcript || trial.target,
-      targetWord: trial.target,
-      asrConfidence: result.whisperConfidence ?? ua?.asrConfidence,
-      errorType: result.errorType || ua?.errorType,
-      phonologicalSimilarity: ua?.phonologicalSimilarity,
-      semanticSimilarity: ua?.semanticSimilarity,
-      pronunciationScore: ua?.pronunciationScore,
-      accuracyScore: ua?.accuracyScore,
-      fluencyScore: ua?.fluencyScore,
-      completenessScore: ua?.completenessScore,
-      prosodyScore: ua?.prosodyScore,
-      meaningAccuracy: ua?.meaningAccuracy,
-      circumlocutionDetected: ua?.circumlocutionDetected,
-      effortfulSpeech: result.effortfulSpeech,
-      reasoning: ua?.reasoning,
-      classificationConfidence: ua?.classificationConfidence,
-      encouragementScore: result.encouragementScore,
-      encouragementLevel: ua?.encouragementLevel,
+      ...photoNamingLiveSnapshot(result, trial.target),
       // Adaptation state
       currentDomain: 'lexical_retrieval',
       difficultyTier: result.difficultyLevel,
@@ -699,13 +682,11 @@ function PhotoNamingExerciseInner() {
       adaptationReasons: adaptation.adaptationReasons,
       profileConfidence: adaptation.profileConfidence,
       // Session state — now populated from in-game adaptation hook
-      trialIndex: pivotState.totalTrials,
       trialTotal: 10,
       consecutiveErrors: result.consecutiveErrors ?? 0,
       frustrationLevel: result.frustrationLevel ?? 'none',
       recentAccuracies: recentAccuracies,
       fatigueFlag: (result.consecutiveErrors ?? 0) >= 5 || (Date.now() - sessionStartRef.current) > 15 * 60 * 1000,
-      latencyMs: result.latencyMs,
       micState: 'processing',
       pivotRecommendation: pivotRecommendation ? {
         action: pivotRecommendation.action,
@@ -714,18 +695,18 @@ function PhotoNamingExerciseInner() {
       } : null,
       exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
       sessionId: sessionId || undefined,
-    });
+    }, result.attemptId ?? null);
 
     // Decision chain card
     setDecisionChain({
-      transcript: result.whisperTranscript || ua?.transcript || '(no speech)',
+      transcript: result.whisperTranscript ?? result.browserTranscript ?? ua?.transcript ?? '(no speech)',
       detected: result.errorType || 'unknown',
       confidence: ua?.classificationConfidence != null ? `${(ua.classificationConfidence * 100).toFixed(0)}%` : '—',
       cueChosen: result.cueTypeGiven || 'none',
       difficultyAction: `Level ${result.difficultyLevel}`,
       reason: adaptation.adaptationReasons[0] || 'Default settings',
       timestamp: Date.now(),
-    });
+    }, result.attemptId ?? null);
 
     // Audit event
     appendAuditEvent({

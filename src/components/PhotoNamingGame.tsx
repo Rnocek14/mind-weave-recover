@@ -14,6 +14,9 @@ import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
 import { selectOptimalCue as selectPersonalizedCue } from '@/lib/cueSelector';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
+import { analyzeSpeechRecording } from '@/lib/speech/analyzeSpeechRecording';
+import { pauseSecondsToMilliseconds } from '@/lib/speech/analysisResponse';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
@@ -159,6 +162,7 @@ export const PhotoNamingGame = ({
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const micStartTimeRef = useRef<number>(0); // For latency measurement
   const { setLiveSnapshot } = useLiveAnalysis();
+  const { analyzePronunciation } = usePronunciationAnalysis();
   const vg = useVoiceGuidance('photo-naming');
   const hasSpokenIntroRef = useRef(false);
   const { kidsMode } = useKidsMode();
@@ -216,6 +220,11 @@ export const PhotoNamingGame = ({
   // Don't score until transcript is stable (no changes for 750ms)
   const transcriptDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingTranscriptRef = useRef<string | null>(null);
+  // The debounced recognizer is intentionally stable across recording updates.
+  // Dispatch through the current handler so it sees the active recorder/user.
+  const answerHandlerRef = useRef<((word: string, inputMode?: 'production' | 'recognition', spokenTranscript?: string, expectedTrialNumber?: number) => Promise<void>) | null>(null);
+  const activeTrialNumberRef = useRef(state.trialNumber);
+  activeTrialNumberRef.current = state.trialNumber;
   const lastRetryToastTimeRef = useRef<number>(0);
   const lastSpokenFingerprintRef = useRef<{ trialNumber: number; transcript: string; at: number } | null>(null);
   // Counts deferred re-tries when scoring is briefly blocked by Maya's mic-lock,
@@ -826,6 +835,9 @@ export const PhotoNamingGame = ({
   
   // Helper: Debounced scoring logic (called after transcript stabilizes)
   const processStableTranscript = useCallback((transcript: string) => {
+    // Mic-lock retries can outlive their trial. Discard them before changing
+    // the next trial's processing state or matching its predecessor's choices.
+    if (state.trialNumber !== activeTrialNumberRef.current) return;
     // Maya's mic-lock (her speech + tail) is brief. Instead of silently dropping
     // a correct answer captured during that window, defer and retry for ~1.5s so
     // it still scores once the lock clears. This fixes "I said it, it shows
@@ -874,7 +886,7 @@ export const PhotoNamingGame = ({
       const targetChoice = state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(targetChoice, 'production');
+      void answerHandlerRef.current?.(targetChoice, 'production', transcript, state.trialNumber);
       return;
     }
 
@@ -948,7 +960,7 @@ export const PhotoNamingGame = ({
       console.log('✅ Matched choice:', matchedChoice);
       setUtteranceState('processing');
       setProcessingAnswer(true);
-      handleAnswerSelect(matchedChoice, 'production');
+      void answerHandlerRef.current?.(matchedChoice, 'production', transcript, state.trialNumber);
     } else {
       // ─── ASR-ALTERNATIVE RESCUE ─────────────────────────────────────────
       // Disordered speech is frequently mis-transcribed by the top hypothesis
@@ -973,7 +985,7 @@ export const PhotoNamingGame = ({
             state.choices.find((c) => c.toLowerCase() === targetWord) ?? targetWord;
           setUtteranceState('processing');
           setProcessingAnswer(true);
-          handleAnswerSelect(targetChoice, 'production');
+          void answerHandlerRef.current?.(targetChoice, 'production', transcript, state.trialNumber);
           return;
         }
       }
@@ -1167,298 +1179,6 @@ export const PhotoNamingGame = ({
   const timeLimit = 30; // seconds for hard mode
   const allowManualHints = currentDifficulty >= 6;
 
-  // Async speech analysis with Whisper (transcript + acoustic metrics)
-  const analyzeSpeechAsync = async (
-    audioBlob: Blob,
-    mimeType: string
-  ): Promise<{ transcript: string; confidence: number; acousticMetrics: any } | null> => {
-    try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          const base64Audio = result.split(',')[1];
-          resolve(base64Audio);
-        };
-      });
-      
-      reader.readAsDataURL(audioBlob);
-      const base64Audio = await base64Promise;
-
-      const { data, error } = await supabase.functions.invoke('analyze-speech', {
-        body: { audioBlob: base64Audio, mimeType },
-      });
-
-      if (error) {
-        console.error('Speech analysis error:', error);
-        return null;
-      }
-
-      console.log('Speech analysis complete:', {
-        transcript: data.transcript,
-        confidence: data.confidence,
-        metrics: data.acousticMetrics,
-      });
-
-      return {
-        transcript: data.transcript,
-        confidence: data.confidence,
-        acousticMetrics: data.acousticMetrics,
-      };
-    } catch (error) {
-      console.error('Failed to analyze speech:', error);
-      return null;
-    }
-  };
-
-  // =========================================================================
-  // Pronunciation Analysis Types - Explicit success/failure for bulletproof diagnostics
-  // =========================================================================
-  type PronunciationSuccessResult = {
-    ok: true;
-    data: {
-      pronunciationScore: number;
-      accuracyScore: number;
-      fluencyScore: number;
-      completenessScore: number;
-      prosodyScore?: number;
-      transcript: string;
-      words: any[];
-      alignmentData?: {
-        word_segments: { word: string; start: number; end: number }[];
-        phone_segments: { phone: string; start: number; end: number }[];
-      };
-    };
-    // Correlation ID + timings for debugging
-    pronRequestId: string;
-    timingsMs: { wav: number; base64: number; edge: number; total: number };
-    audioMeta: { originalMime: string; originalSize: number; wavSize: number; base64Len: number };
-  };
-
-  type PronunciationErrorResult = {
-    ok: false;
-    error: {
-      stage: 'wav_conversion' | 'base64_encoding' | 'edge_function' | 'azure_api' | 'unexpected';
-      message: string;
-      details?: any;
-    };
-    pronRequestId: string;
-    timingsMs: { wav?: number; base64?: number; edge?: number; total: number };
-    audioMeta: { originalMime: string; originalSize: number; wavSize?: number; base64Len?: number };
-  };
-
-  type PronunciationResult = PronunciationSuccessResult | PronunciationErrorResult;
-
-  // Azure Pronunciation Assessment (real pronunciation scores)
-  const analyzePronunciationAsync = async (
-    audioBlob: Blob,
-    _mimeType: string, // Original mimeType ignored - we convert to WAV
-    targetWord: string
-  ): Promise<PronunciationResult> => {
-    const pronRequestId = crypto.randomUUID();
-    const startTime = Date.now();
-    const audioMeta = { 
-      originalMime: audioBlob.type, 
-      originalSize: audioBlob.size, 
-      wavSize: 0 as number | undefined, 
-      base64Len: 0 as number | undefined 
-    };
-    const timings = { wav: 0, base64: 0, edge: 0, total: 0 };
-    
-    console.log('🎯 [Pronunciation] Starting analysis', { 
-      pronRequestId,
-      blobSize: audioBlob.size, 
-      blobType: audioBlob.type,
-      targetWord 
-    });
-    
-    try {
-      // Step 1: Convert to WAV format for Azure (WebM/Opus has poor phoneme support)
-      console.log('🎯 [Pronunciation] Step 1: Converting to WAV...', { pronRequestId });
-      const wavStartTime = Date.now();
-      
-      let wavBlob: Blob;
-      try {
-        const { convertBlobToWav } = await import('@/lib/convertToWav');
-        wavBlob = await convertBlobToWav(audioBlob);
-        timings.wav = Date.now() - wavStartTime;
-        audioMeta.wavSize = wavBlob.size;
-        console.log('🎯 [Pronunciation] WAV conversion success', { 
-          pronRequestId,
-          wavSize: wavBlob.size, 
-          durationMs: timings.wav 
-        });
-      } catch (wavError) {
-        timings.total = Date.now() - startTime;
-        console.error('🎯 [Pronunciation] WAV conversion FAILED:', { pronRequestId, error: wavError });
-        return { 
-          ok: false,
-          error: {
-            stage: 'wav_conversion',
-            message: wavError instanceof Error ? wavError.message : 'Unknown error',
-            details: { errorType: wavError?.constructor?.name }
-          },
-          pronRequestId,
-          timingsMs: { wav: Date.now() - wavStartTime, total: timings.total },
-          audioMeta: { originalMime: audioMeta.originalMime, originalSize: audioMeta.originalSize }
-        };
-      }
-      
-      // Step 2: Convert WAV blob to base64
-      console.log('🎯 [Pronunciation] Step 2: Encoding to base64...', { pronRequestId });
-      const base64StartTime = Date.now();
-      
-      let base64Audio: string;
-      try {
-        const reader = new FileReader();
-        base64Audio = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            const result = reader.result as string;
-            if (!result) {
-              reject(new Error('FileReader returned empty result'));
-              return;
-            }
-            const base64 = result.split(',')[1];
-            if (!base64) {
-              reject(new Error('Failed to extract base64 from data URL'));
-              return;
-            }
-            resolve(base64);
-          };
-          reader.onerror = () => reject(new Error(`FileReader error: ${reader.error?.message || 'Unknown'}`));
-          reader.readAsDataURL(wavBlob);
-        });
-        timings.base64 = Date.now() - base64StartTime;
-        audioMeta.base64Len = base64Audio.length;
-        console.log('🎯 [Pronunciation] Base64 encoding success', { 
-          pronRequestId,
-          base64Length: base64Audio.length,
-          durationMs: timings.base64 
-        });
-      } catch (encodeError) {
-        timings.total = Date.now() - startTime;
-        console.error('🎯 [Pronunciation] Base64 encoding FAILED:', { pronRequestId, error: encodeError });
-        return { 
-          ok: false,
-          error: {
-            stage: 'base64_encoding',
-            message: encodeError instanceof Error ? encodeError.message : 'Unknown error'
-          },
-          pronRequestId,
-          timingsMs: { wav: timings.wav, base64: Date.now() - base64StartTime, total: timings.total },
-          audioMeta: { originalMime: audioMeta.originalMime, originalSize: audioMeta.originalSize, wavSize: audioMeta.wavSize }
-        };
-      }
-
-      // Step 3: Call edge function
-      console.log('🎯 [Pronunciation] Step 3: Calling Azure edge function', { pronRequestId, targetWord });
-      const edgeStartTime = Date.now();
-
-      const { data, error } = await supabase.functions.invoke('analyze-pronunciation', {
-        body: { 
-          audioBlob: base64Audio, 
-          mimeType: 'audio/wav',
-          referenceText: targetWord,
-          pronRequestId // Pass correlation ID to edge function
-        },
-      });
-
-      timings.edge = Date.now() - edgeStartTime;
-      timings.total = Date.now() - startTime;
-
-      if (error) {
-        console.error('🎯 [Pronunciation] Edge function FAILED:', { pronRequestId, error });
-        return { 
-          ok: false,
-          error: {
-            stage: 'edge_function',
-            message: error.message || 'Unknown error',
-            details: { context: error.context }
-          },
-          pronRequestId,
-          timingsMs: timings,
-          audioMeta: audioMeta as any
-        };
-      }
-
-      // Check for structured error response from edge function
-      if (data?.ok === false) {
-        console.error('🎯 [Pronunciation] Azure API returned error:', { pronRequestId, error: data.error });
-        return { 
-          ok: false,
-          error: {
-            stage: data.error?.stage || 'azure_api',
-            message: data.error?.message || 'Unknown Azure error',
-            details: data.error?.details
-          },
-          pronRequestId,
-          timingsMs: timings,
-          audioMeta: audioMeta as any
-        };
-      }
-
-      // Legacy fallback: check for error string (backward compatibility)
-      if (data?.error && typeof data.error === 'string') {
-        console.error('🎯 [Pronunciation] Azure API returned legacy error:', { pronRequestId, error: data.error });
-        return { 
-          ok: false,
-          error: {
-            stage: 'azure_api',
-            message: data.error
-          },
-          pronRequestId,
-          timingsMs: timings,
-          audioMeta: audioMeta as any
-        };
-      }
-
-      console.log('🎯 [Pronunciation] SUCCESS!', {
-        pronRequestId,
-        pronunciationScore: data.pronunciationScore ?? data.data?.pronunciationScore,
-        accuracyScore: data.accuracyScore ?? data.data?.accuracyScore,
-        fluencyScore: data.fluencyScore ?? data.data?.fluencyScore,
-        transcript: data.transcript ?? data.data?.transcript,
-        timingsMs: timings,
-      });
-
-      // Handle both new structured response and legacy response
-      const responseData = data.data || data;
-
-      return {
-        ok: true,
-        data: {
-          pronunciationScore: responseData.pronunciationScore || 0,
-          accuracyScore: responseData.accuracyScore || 0,
-          fluencyScore: responseData.fluencyScore || 0,
-          completenessScore: responseData.completenessScore || 0,
-          prosodyScore: responseData.prosodyScore,
-          transcript: responseData.transcript || '',
-          words: responseData.words || [],
-          alignmentData: responseData.alignmentData,
-        },
-        pronRequestId,
-        timingsMs: timings,
-        audioMeta: audioMeta as any
-      };
-    } catch (error) {
-      timings.total = Date.now() - startTime;
-      console.error('🎯 [Pronunciation] Unexpected error:', { pronRequestId, error });
-      return { 
-        ok: false,
-        error: {
-          stage: 'unexpected',
-          message: error instanceof Error ? error.message : 'Unknown error',
-          details: { errorType: error?.constructor?.name }
-        },
-        pronRequestId,
-        timingsMs: timings,
-        audioMeta: audioMeta as any
-      };
-    }
-  };
-
-
   // =========================================================================
   // SEPARATE EFFECT: Reset cue state ONLY when trial number changes
   // This prevents the main trial effect from hiding cues on every re-render
@@ -1541,6 +1261,10 @@ export const PhotoNamingGame = ({
 
       attemptStartedTrialRef.current = state.trialNumber;
       currentPronRequestIdRef.current = pronRequestId;
+      setLiveSnapshot({
+        attemptId, targetWord: state.currentTrial.target, trialIndex: state.trialNumber,
+        sessionId: activeSessionId, exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+      });
       console.log('✅ [PhotoNaming] Attempt started:', { attemptId, pronRequestId });
     }
 
@@ -1568,7 +1292,7 @@ export const PhotoNamingGame = ({
         trialRecordingTimeoutRef.current = null;
       }
     };
-  }, [state.currentTrial, state.trialNumber, showFeedback, activeSessionId, user?.id, isRecordingSupported, startRecording, startAttempt]);
+  }, [state.currentTrial, state.trialNumber, showFeedback, activeSessionId, user?.id, isRecordingSupported, startRecording, startAttempt, setLiveSnapshot]);
 
   // Auto-start listening once per trial without retriggering trial initialization
   useEffect(() => {
@@ -1785,11 +1509,8 @@ export const PhotoNamingGame = ({
           uploadedPath = path;
         }
 
-        // Analyze speech with Whisper (async, but we await to include in telemetry)
-        const analysisResult = await analyzeSpeechAsync(
-          recordingResult.audioBlob,
-          recordingResult.mimeType
-        );
+        // Analyze recorded speech with Azure before attaching its measurements.
+        const analysisResult = await analyzeSpeechRecording(recordingResult.audioBlob);
         
         if (analysisResult) {
           whisperTranscript = analysisResult.transcript;
@@ -1884,13 +1605,13 @@ export const PhotoNamingGame = ({
     // Log final analysis for timeout (critical for pattern analysis!)
     void pendingAttempt.finalize({
       transcript: whisperTranscript,
-      transcriptSource: whisperTranscript ? 'whisper' : 'browser',
+      transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
       asrConfidence: whisperConfidence,
       isCorrect: false,
       errorType: 'timeout',
       speechRateWpm: acousticMetrics?.speechRateWpm,
       pauseCount: acousticMetrics?.pauseCount,
-      totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
+      totalPauseMs: pauseSecondsToMilliseconds(acousticMetrics?.totalPauseDurationSec),
       avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
       effortfulSpeech: timeoutEffortfulSpeech,
       cueTypeGiven: timeoutCueTypeGiven, // Always log, even 'none'
@@ -2086,7 +1807,10 @@ export const PhotoNamingGame = ({
   const handleAnswerSelect = async (
     word: string,
     inputMode: 'production' | 'recognition' = 'recognition',
+    spokenTranscript?: string,
+    expectedTrialNumber?: number,
   ) => {
+    if (expectedTrialNumber !== undefined && expectedTrialNumber !== state.trialNumber) return;
     if (showFeedback || selectedAnswer || timedOut) return;
 
     // Freeze response identity and recognition metadata before recording,
@@ -2217,7 +1941,7 @@ export const PhotoNamingGame = ({
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
-    const capturedBrowserTranscript = lastHeardText ?? pendingTranscriptRef.current ?? undefined;
+    const capturedBrowserTranscript = spokenTranscript ?? lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
     
     // Run analysis in background without blocking
@@ -2248,8 +1972,8 @@ export const PhotoNamingGame = ({
                 recordingResult.mimeType
               ),
               Promise.all([
-                analyzeSpeechAsync(recordingResult.audioBlob, recordingResult.mimeType),
-                analyzePronunciationAsync(recordingResult.audioBlob, recordingResult.mimeType, capturedTrial.target)
+                analyzeSpeechRecording(recordingResult.audioBlob),
+                analyzePronunciation(recordingResult.audioBlob, capturedTrial.target)
               ])
             ]);
             
@@ -2269,7 +1993,7 @@ export const PhotoNamingGame = ({
         
         // Advanced error classification with acoustic metrics.
         // Confidence: real ASR engine confidence when available (captured from
-        // the recognition result), else the speech-worker's whisper confidence,
+        // the recognition result), else the recorded Azure transcription confidence,
         // else the legacy 0.8 default — so the classifier's low-confidence
         // retry gate finally receives a real signal instead of a constant.
         const errorClassification = await classifySpeechError(
@@ -2298,10 +2022,11 @@ export const PhotoNamingGame = ({
         // Build unified UtteranceAnalysis object
         const speechEncouragementScore = calculateEncouragementScore(errorClassification.errorType as ExtendedErrorType);
         const utteranceAnalysis = toUtteranceAnalysis(
-          whisperTranscript || '',
+          whisperTranscript ?? capturedBrowserTranscript ?? '',
           errorClassification,
           speechEncouragementScore,
-          acousticMetrics
+          acousticMetrics,
+          whisperTranscript !== undefined ? whisperConfidence : capturedRecognitionConfidence
         );
 
         // Build ShadowEvent for future co-pilot integration
@@ -2367,7 +2092,7 @@ export const PhotoNamingGame = ({
         }, capturedTrial);
 
         // Determine fluency availability
-        const fluencyAvailable = !!acousticMetrics?.speechRateWpm;
+        const fluencyAvailable = acousticMetrics?.speechRateWpm !== undefined;
         let fluencyUnavailableReason: 'no_recording' | 'no_session' | 'not_authed' | 'analysis_error' | 'wav_conversion_failed' | 'azure_api_error' | undefined;
         if (!fluencyAvailable) {
           if (!user) fluencyUnavailableReason = 'not_authed';
@@ -2401,17 +2126,17 @@ export const PhotoNamingGame = ({
 
         void pendingAttempt.finalize({
           transcript: whisperTranscript,
-          transcriptSource: whisperTranscript ? 'whisper' : 'browser',
-          asrConfidence: whisperConfidence,
+          transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
+          asrConfidence: utteranceAnalysis.asrConfidence,
           isCorrect: correct,
           errorType: errorClassification.errorType,
-          phonologicalSimilarity: errorClassification.phonemeAccuracy,
+          phonologicalSimilarity: utteranceAnalysis.phonologicalSimilarity,
           semanticSimilarity: errorClassification.semantic_similarity,
           classificationConfidence: errorClassification.confidence,
           reasoning: errorClassification.reasoning,
           speechRateWpm: acousticMetrics?.speechRateWpm,
           pauseCount: acousticMetrics?.pauseCount,
-          totalPauseMs: acousticMetrics?.totalPauseDurationSec ? Math.round(acousticMetrics.totalPauseDurationSec * 1000) : undefined,
+          totalPauseMs: pauseSecondsToMilliseconds(acousticMetrics?.totalPauseDurationSec),
           avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
           effortfulSpeech: utteranceAnalysis.effortfulSpeech,
           fluencyAvailable,
@@ -2428,6 +2153,9 @@ export const PhotoNamingGame = ({
           completenessScore: pronData?.completenessScore,
           prosodyScore: pronData?.prosodyScore,
           gopData: pronData ? {
+            source: 'azure',
+            schemaVersion: 'azure-pa-v2',
+            duration: pronData.duration,
             words: pronData.words,
             transcript: pronData.transcript,
             alignmentData: pronData.alignmentData
@@ -2447,7 +2175,7 @@ export const PhotoNamingGame = ({
             fluencyScore: pronData.fluencyScore,
             completenessScore: pronData.completenessScore,
             prosodyScore: pronData.prosodyScore,
-          });
+          }, pendingAttempt.attemptId);
           console.log('🎯 [LiveAnalysis] Azure PA scores pushed to panel', {
             pronunciationScore: pronData.pronunciationScore,
             accuracyScore: pronData.accuracyScore,
@@ -2490,6 +2218,8 @@ export const PhotoNamingGame = ({
       }
     })();
   };
+
+  answerHandlerRef.current = handleAnswerSelect;
 
   const handleCaregiverResponse = async (responseType: 'looked' | 'tried' | 'said_roughly' | 'no_response') => {
     if (!state.currentTrial) return;

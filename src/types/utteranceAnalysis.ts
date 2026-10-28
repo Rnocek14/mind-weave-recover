@@ -39,7 +39,7 @@ export type EncouragementLevel = 'excellent' | 'good' | 'fair' | 'keep-trying';
 export interface UtteranceAnalysis {
   // ===== Raw Speech / ASR =====
   transcript: string;
-  asrConfidence?: number;          // 0-1, from Whisper or other ASR
+  asrConfidence?: number;          // 0-1, from the speech recognizer; absent when unavailable
 
   // ===== Meaning / Semantics =====
   errorType: ExtendedErrorType;
@@ -136,28 +136,44 @@ export interface ShadowEvent {
   recordingDurationMs?: number;
 }
 
-/**
- * Helper to convert legacy error classification to UtteranceAnalysis
- */
+/** Preserve missing observations without coercing null or strings to numbers. */
+function nonNegativeMeasurement(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value : undefined;
+}
+
+/** Convert classification and separately sourced speech evidence. */
 export function toUtteranceAnalysis(
   transcript: string,
   errorClassification: any,
   encouragementScore: number,
-  acousticMetrics?: any
+  acousticMetrics?: any,
+  asrConfidence?: number | null,
 ): UtteranceAnalysis {
+  const recognitionConfidence = nonNegativeMeasurement(asrConfidence);
+  const durationSeconds = nonNegativeMeasurement(acousticMetrics?.totalDurationSec);
+  const durationMs = durationSeconds !== undefined
+    ? nonNegativeMeasurement(durationSeconds * 1000)
+    : nonNegativeMeasurement(acousticMetrics?.totalDurationMs);
+
   const utteranceAnalysis: UtteranceAnalysis = {
     transcript,
-    asrConfidence: errorClassification.confidence,
+    // The classifier's certainty is a separate measurement, never a substitute
+    // for confidence reported by the actual recognizer.
+    asrConfidence: recognitionConfidence !== undefined && recognitionConfidence <= 1
+      ? recognitionConfidence : undefined,
     errorType: errorClassification.errorType,
     meaningAccuracy: errorClassification.meaningAccuracy,
     semanticSimilarity: errorClassification.semantic_similarity,
     circumlocutionDetected: errorClassification.circumlocutionDetected,
     phonologicalSimilarity: errorClassification.phonological_similarity,
     phonemeAccuracy: errorClassification.phonemeAccuracy,
-    speechRateWpm: acousticMetrics?.speechRateWpm,
-    pauseCount: acousticMetrics?.pauseCount,
-    avgPauseDurationMs: acousticMetrics?.avgPauseDurationMs,
-    totalDurationMs: acousticMetrics?.totalDurationMs,
+    // Missing/null acoustic data stays unmeasured. Real zeros retain their
+    // original units and must not be replaced through truthy fallbacks.
+    speechRateWpm: nonNegativeMeasurement(acousticMetrics?.speechRateWpm),
+    pauseCount: nonNegativeMeasurement(acousticMetrics?.pauseCount),
+    avgPauseDurationMs: nonNegativeMeasurement(acousticMetrics?.avgPauseDurationMs),
+    totalDurationMs: durationMs,
     effortfulSpeech: errorClassification.fluencyMetrics?.effortfulSpeech,
     encouragementScore,
     reasoning: errorClassification.reasoning,

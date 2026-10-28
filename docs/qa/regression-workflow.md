@@ -19,11 +19,15 @@ do not upgrade the toolchain as part of an unrelated behavior change.
 | `bun run test:test-env` | Verify test environment and client override guards without a backend. |
 | `bun run typecheck:e2e` | Type-check the Playwright configuration, fixtures, and browser tests. |
 | `bun run test:e2e` | Public UI and signed-out route boundaries, using an inert backend. |
+| `bun run test:speech` | Speech metric contracts, real hooks, mapping, aggregation, and display. |
+| `bun run test:e2e:speech` | Chromium synthetic-microphone capture and controlled game/analysis integration. |
+| `bun run test:speech:services:check-env` | Validate the isolated live speech prerequisites without authentication or requests. |
+| `bun run test:speech:services` | At most four deployed speech-service checks using two synthetic recordings. |
 | `bun run test:e2e:ui` | Inspect the public browser suite interactively. |
 | `bun run test:e2e:check-env` | Reject missing/unsafe isolated-backend configuration before a release run. |
 | `bun run test:e2e:staging` | Mandatory authenticated journeys against an isolated backend. |
-| `bun run qa` | Environment guards, lint, unit tests, type checks, public browser suite. |
-| `bun run qa:release` | Preflight, ordinary QA, then mandatory authenticated therapy suite. |
+| `bun run qa` | Environment guards, lint, unit tests, type checks, public and local speech browser suites. |
+| `bun run qa:release` | Preflight, ordinary QA, authenticated therapy, and deployed speech-service checks. |
 
 Install the configured browsers with
 `bunx playwright install --with-deps chromium webkit`. Browser failures retain
@@ -50,7 +54,12 @@ Do not delete or relax a failing expectation to hide a defect. When an intended
 requirement changes, explain why the expectation changes with it. Do not add
 large suites for simple prose or cosmetic edits.
 
-## Two browser suites, with explicit evidence limits
+## Browser suites, with explicit evidence limits
+
+The added speech suite and measurement corrections are documented in
+[speech analysis verification](speech-analysis-verification.md). It exercises
+real browser audio capture with controlled recognition and backend responses;
+it does not replace isolated therapy or deployed speech-service verification.
 
 ### Public suite
 

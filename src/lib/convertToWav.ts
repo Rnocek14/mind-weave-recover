@@ -9,7 +9,7 @@
  */
 
 const TARGET_SAMPLE_RATE = 16000;
-const MAX_AUDIO_DURATION_SEC = 10; // Cap audio to prevent edge function memory crashes
+const MAX_AUDIO_DURATION_SEC = 10; // Reject longer audio; never silently analyze a partial recording
 
 export interface WavConversionResult {
   ok: true;
@@ -77,7 +77,8 @@ function getWorker(): Worker {
           error: { 
             stage: 'wav_conversion',
             workerStage: typeof error === 'object' ? error.workerStage : 'unexpected',
-            message: typeof error === 'object' ? error.message : (error || 'Unknown error')
+            message: typeof error === 'object' ? error.message : (error || 'Unknown error'),
+            details: typeof error === 'object' ? error.details : undefined,
           },
           timingsMs
         });
@@ -146,6 +147,9 @@ export async function convertBlobToWavWithDiagnostics(blob: Blob): Promise<WavCo
   
   // Worker failed - fallback using ORIGINAL buffer (not detached)
   const workerError = workerResult as WavConversionError;
+  // An unsupported input is not a worker capability failure. Retrying it on
+  // another thread must not bypass the complete-recording validation.
+  if (workerError.error.workerStage === 'validation') return workerError;
   console.warn('🎵 [WAV] Worker conversion failed, falling back to main thread:', workerError.error);
   return await convertOnMainThread(arrayBuffer);
 }
@@ -246,21 +250,30 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
       };
     }
     
-    // Step 2: Resample to 16kHz using OfflineAudioContext
-    // Cap duration to MAX_AUDIO_DURATION_SEC to prevent memory issues in edge functions
-    const cappedDuration = Math.min(audioBuffer.duration, MAX_AUDIO_DURATION_SEC);
+    // Preserve the existing resource limit without silently dropping a late
+    // answer. A truncated WAV would make downstream metrics misleading.
+    if (audioBuffer.duration > MAX_AUDIO_DURATION_SEC) {
+      timings.total = Math.round(performance.now() - startTime);
+      return {
+        ok: false,
+        error: {
+          stage: 'wav_conversion', workerStage: 'validation',
+          message: 'Recording exceeds the 10-second analysis limit; partial audio was not analyzed',
+          details: { durationSec: audioBuffer.duration, maxDurationSec: MAX_AUDIO_DURATION_SEC },
+        },
+        timingsMs: timings,
+      };
+    }
+
+    // Step 2: Resample the complete recording to 16kHz using OfflineAudioContext.
     const resampleStart = performance.now();
-    const outputLength = Math.ceil(cappedDuration * TARGET_SAMPLE_RATE);
+    const outputLength = Math.ceil(audioBuffer.duration * TARGET_SAMPLE_RATE);
     const offlineCtx = new OfflineAudioContext(1, outputLength, TARGET_SAMPLE_RATE);
     
     const source = offlineCtx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(offlineCtx.destination);
     source.start(0);
-    // Stop source at cap to avoid rendering excess audio
-    if (cappedDuration < audioBuffer.duration) {
-      source.stop(cappedDuration);
-    }
     
     const resampledBuffer = await offlineCtx.startRendering();
     const samples = resampledBuffer.getChannelData(0);
@@ -269,7 +282,6 @@ async function convertOnMainThread(arrayBuffer: ArrayBuffer): Promise<WavConvers
     console.log('🎵 [WAV] Audio resampled', {
       originalSampleRate: audioBuffer.sampleRate,
       originalDuration: audioBuffer.duration.toFixed(2),
-      cappedDuration: cappedDuration.toFixed(2),
       outputSampleRate: resampledBuffer.sampleRate,
       outputSamples: samples.length,
       resampleMs: timings.resample
