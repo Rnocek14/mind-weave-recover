@@ -94,12 +94,17 @@ export function useTrialSubmission(opts: Options) {
   });
 
   const trialCountRef = useRef(0);
+  // Game pages sometimes fire submitTrial without awaiting its database write
+  // and call commitSession immediately after the last answer. A commit must
+  // never flush progression before those accepted trials have been persisted.
+  const inFlightSubmissionsRef = useRef(new Set<Promise<UnifiedTrialSummary>>());
+  const failedSubmissionCountRef = useRef(0);
 
   /**
    * One trial in. Fans out to all subsystems. Returns a routing summary so
    * call sites can prove (in dev) that every layer received the trial.
    */
-  const submitTrial = useCallback(
+  const performSubmitTrial = useCallback(
     async (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
       trialCountRef.current += 1;
       const summary: UnifiedTrialSummary = {
@@ -257,8 +262,26 @@ export function useTrialSubmission(opts: Options) {
 
       return summary;
     },
-    [canonicalSlug, debug, logAdaptationTrial, logExerciseEvent, opts.progression]
+    [canonicalSlug, debug, logAdaptationTrial, logExerciseEvent, opts.progression, opts.sessionId]
   );
+
+  const submitTrial = useCallback((input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
+    // Register the promise synchronously so a same-tick commit sees it,
+    // even if its raw event write is still waiting on the network.
+    const submission = performSubmitTrial(input);
+    inFlightSubmissionsRef.current.add(submission);
+    void submission.then(
+      (summary) => {
+        inFlightSubmissionsRef.current.delete(submission);
+        if (!summary.ok) failedSubmissionCountRef.current += 1;
+      },
+      () => {
+        inFlightSubmissionsRef.current.delete(submission);
+        failedSubmissionCountRef.current += 1;
+      },
+    );
+    return submission;
+  }, [performSubmitTrial]);
 
   /**
    * Flush all session-end work atomically:
@@ -271,6 +294,14 @@ export function useTrialSubmission(opts: Options) {
     let progressionSnapshot: { level: number; progressPct: number } | null = null;
     let recapSnapshot: CommitSessionResult['progressionSnapshot'] = null;
     let masteryFlushed = false;
+
+    // Wait for all previously accepted trial writes and in-memory progression
+    // buffers before committing. A failed raw write is not silently called
+    // a fully successful session even if unrelated flushes succeed.
+    await Promise.allSettled(Array.from(inFlightSubmissionsRef.current));
+    if (failedSubmissionCountRef.current > 0) {
+      errors.push(`unconfirmed trial submissions: ${failedSubmissionCountRef.current}`);
+    }
 
     try {
       await flushAdaptation();
