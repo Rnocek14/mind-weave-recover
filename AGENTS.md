@@ -1,9 +1,9 @@
 # NeuroSpark development and regression testing
 
 Use the existing React/Vite/TypeScript, Vitest, Playwright, and Bun setup.
-Read `QA_CHECKLIST.md` and `docs/qa/regression-workflow.md` for current commands
-and test boundaries. Inspect the actual code and test configuration before
-relying on older plans or counts.
+Read `QA_CHECKLIST.md`, `docs/qa/regression-workflow.md`, and the current
+`docs/qa/release-readiness.md` for commands, coverage gaps, and release boundaries.
+Inspect the actual code and test configuration before relying on older plans or counts.
 
 ## For meaningful behavior changes
 
@@ -22,14 +22,20 @@ relying on older plans or counts.
    Never describe a skipped or unexecuted critical journey as passing.
    Do not remove, weaken, or skip assertions merely to obtain green results;
    changed requirements must explain changed expectations.
+6. Work on a branch and preserve the Regression gate. Before any release,
+   verify isolated persistence and live speech on the candidate revision,
+   including the backend functions, and state the actual deployment path.
+   A workflow file or proposed ruleset is not proof that branch protection is active.
 
 ## Test and data boundaries
 
 - `bun run test:watch`: fast feedback while coding.
-- `bun run qa`: isolation checks, lint, unit/component tests, type checks,
-  and public browser checks. Public browser checks have no real backend.
-- `bun run qa:release`: the above plus mandatory authenticated therapy tests
-  against an explicitly isolated backend. Missing prerequisites fail the run.
+- `bun run qa`: gate/handler and isolation checks, lint, unit/component tests,
+  type checks, public browser and synthetic-microphone journeys. Public checks
+  have no real backend; controlled speech responses do not prove live Azure accuracy.
+- `bun run qa:release`: the above plus mandatory authenticated therapy and
+  deployed speech tests against an explicitly isolated backend. Missing
+  prerequisites fail the run. This is not a clinical or real-device sign-off.
 - Do not authenticate or write test data against production. Validate the
   test origin and key before creating a client, and keep the browser build and
   verification client on the same approved test backend.
