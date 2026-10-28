@@ -132,3 +132,46 @@ describe('useTrialSubmission persistence gate', () => {
     });
   });
 });
+
+describe('useTrialSubmission session-finalization barrier', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.flushAdaptation.mockResolvedValue(undefined);
+    mocks.flushMasteryShadow.mockResolvedValue(undefined);
+  });
+
+  it('must save the final in-flight trial and buffer it before flushing progression', async () => {
+    let completeRawSave!: (saved: boolean) => void;
+    const delayedRawSave = new Promise<boolean>(resolve => { completeRawSave = resolve; });
+    mocks.logExerciseEvent.mockReturnValue(delayedRawSave);
+    const adapter = progression();
+    const order: string[] = [];
+    adapter.recordTrialOutcome = vi.fn(() => { order.push('buffered'); });
+    adapter.flushAtSessionEnd = vi.fn(async () => { order.push('flushed'); return { ok: true }; });
+
+    const { result } = renderHook(() => useTrialSubmission({
+      userId: 'user-1', profileId: 'profile-1', sessionId: 'session-1',
+      exerciseSlug: 'fix-sentence', progression: adapter, debug: false,
+    }));
+
+    let save!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    await act(async () => {
+      save = result.current.submitTrial(input);
+      commit = result.current.commitSession();
+      await Promise.resolve();
+    });
+    // On the final frame a game may commit without awaiting its previous
+    // submitTrial; flushing first silently omits the final clinical attempt.
+    expect(adapter.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(mocks.flushAdaptation).not.toHaveBeenCalled();
+
+    await act(async () => {
+      completeRawSave(true);
+      await Promise.all([save, commit]);
+    });
+    expect(adapter.recordTrialOutcome).toHaveBeenCalledTimes(1);
+    expect(adapter.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['buffered', 'flushed']);
+  });
+});
