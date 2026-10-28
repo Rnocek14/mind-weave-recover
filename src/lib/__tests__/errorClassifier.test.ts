@@ -1,9 +1,21 @@
 /**
  * Unit tests for Error Classification System
  * Tests phonological similarity, semantic similarity, and error type classification
+ *
+ * Quarantine investigation baseline: all original expectations restored.
+ * The embedding transport is offline so this diagnostic never contacts a backend.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    functions: {
+      invoke: vi.fn(async () => ({ data: { fallback: true }, error: null })),
+    },
+  },
+}));
+
 import {
   classifySpeechError,
   calculatePhonologicalSimilarity,
@@ -14,9 +26,7 @@ import {
   type ErrorContext
 } from '../errorClassifier';
 
-// Quarantined: these tests predate recent work and have pre-existing failures.
-// TODO: investigate and fix separately.
-describe.skip('Phonological Similarity', () => {
+describe('Phonological Similarity', () => {
   it('should return 1.0 for identical words', () => {
     const similarity = calculatePhonologicalSimilarity('dog', 'dog');
     expect(similarity).toBe(1.0);
@@ -68,7 +78,7 @@ describe('Levenshtein Distance', () => {
   });
 });
 
-describe.skip('Semantic Similarity', () => {
+describe('Semantic Similarity', () => {
   it('should detect high similarity within same category', async () => {
     const similarity = await calculateSemanticSimilarity('cat', 'dog', 'animals');
     expect(similarity).toBeGreaterThan(0.55);
@@ -95,7 +105,7 @@ describe.skip('Semantic Similarity', () => {
   });
 });
 
-describe.skip('Word Validation', () => {
+describe('Word Validation', () => {
   it('should recognize common words', async () => {
     expect(await isValidWord('dog')).toBe(true);
     expect(await isValidWord('cat')).toBe(true);
@@ -113,7 +123,7 @@ describe.skip('Word Validation', () => {
   });
 });
 
-describe.skip('Error Classification', () => {
+describe('Error Classification', () => {
   const baseContext: ErrorContext = {
     trialNumber: 1,
     previousErrors: [],
@@ -159,10 +169,9 @@ describe.skip('Error Classification', () => {
   });
 
   it('should flag uncertain classifications for review', async () => {
-    // Borderline phonemic similarity
     const result = await classifySpeechError('dug', 'dog', 0.7, baseContext);
-    if (result.phonological_similarity && 
-        result.phonological_similarity > 0.45 && 
+    if (result.phonological_similarity &&
+        result.phonological_similarity > 0.45 &&
         result.phonological_similarity < 0.55) {
       expect(result.needs_review).toBe(true);
     }
@@ -171,7 +180,6 @@ describe.skip('Error Classification', () => {
   it('should handle ASR confidence in classification', async () => {
     const lowConfResult = await classifySpeechError('cat', 'dog', 0.4, baseContext);
     const highConfResult = await classifySpeechError('cat', 'dog', 0.95, baseContext);
-    
     expect(lowConfResult.needs_review || highConfResult.confidence > lowConfResult.confidence).toBe(true);
   });
 });
@@ -183,7 +191,6 @@ describe('Error Pattern Analysis', () => {
       { errorType: 'semantic_paraphasia' as const, confidence: 0.7, reasoning: '', needs_review: false },
       { errorType: 'correct' as const, confidence: 0.9, reasoning: '', needs_review: false },
     ];
-    
     const patterns = analyzeErrorPatterns(history);
     expect(patterns.predominantPattern).toBe('semantic');
     expect(patterns.semanticErrorCount).toBe(2);
@@ -195,7 +202,6 @@ describe('Error Pattern Analysis', () => {
       { errorType: 'phonemic_paraphasia' as const, confidence: 0.7, reasoning: '', needs_review: false },
       { errorType: 'neologism' as const, confidence: 0.6, reasoning: '', needs_review: false },
     ];
-    
     const patterns = analyzeErrorPatterns(history);
     expect(patterns.predominantPattern).toBe('phonemic');
     expect(patterns.phonemicErrorCount).toBe(2);
@@ -207,7 +213,6 @@ describe('Error Pattern Analysis', () => {
       { errorType: 'phonemic_paraphasia' as const, confidence: 0.7, reasoning: '', needs_review: false },
       { errorType: 'correct' as const, confidence: 0.9, reasoning: '', needs_review: false },
     ];
-    
     const patterns = analyzeErrorPatterns(history);
     expect(patterns.predominantPattern).toBe('mixed');
   });
@@ -221,9 +226,7 @@ describe('Error Pattern Analysis', () => {
       { errorType: 'phonemic_paraphasia' as const, confidence: 0.7, reasoning: '', needs_review: false },
       { errorType: 'phonemic_paraphasia' as const, confidence: 0.7, reasoning: '', needs_review: false },
     ];
-    
     const patterns = analyzeErrorPatterns(history);
-    // Should only look at last 5, which has 3 phonemic
     expect(patterns.predominantPattern).toBe('phonemic');
   });
 
@@ -231,13 +234,12 @@ describe('Error Pattern Analysis', () => {
     const history = [
       { errorType: 'correct' as const, confidence: 0.9, reasoning: '', needs_review: false },
     ];
-    
     const patterns = analyzeErrorPatterns(history);
     expect(patterns.predominantPattern).toBe('unknown');
   });
 });
 
-describe.skip('Edge Cases', () => {
+describe('Edge Cases', () => {
   it('should handle empty strings', () => {
     const similarity = calculatePhonologicalSimilarity('', '');
     expect(similarity).toBe(1.0);
@@ -257,7 +259,6 @@ describe.skip('Edge Cases', () => {
       previousErrors: [],
       category: 'animals'
     });
-    // Should still work with normalization
     expect(result.errorType).not.toBe('no_response');
   });
 
