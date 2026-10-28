@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node scripts/run-unit-tests.mjs",
     "test:watch": "vitest",
     "test:e2e": "E2E_SUITE=public playwright test",
     "test:e2e:staging": "E2E_SUITE=staging playwright test",
@@ -31,7 +31,7 @@
     "test:speech:services": "node scripts/verify-speech-services.mjs --run",
     "typecheck:harness": "tsc --noEmit -p tests/e2e/speech/tsconfig.harness.json",
     "test:response-timing": "vitest run src/lib/speech/responseTiming.test.ts src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx",
-    "test:qa-gates": "node --test scripts/qa-gates.test.mjs",
+    "test:qa-gates": "node --test scripts/qa-gates.test.mjs scripts/unit-results.test.mjs",
     "test:speech:handlers": "node --test scripts/speech-edge-handlers.test.mjs"
   },
   "dependencies": {
