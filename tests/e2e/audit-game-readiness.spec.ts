@@ -26,6 +26,13 @@ const games: GameEntry[] = [
   { slug: 'narrative-retell', ready: page => page.getByRole('heading', { level: 2, name: /📂/ }) },
   { slug: 'abstract-compare', ready: page => page.getByText('How are these two things similar?', { exact: true }) },
   { slug: 'thought-continuation', ready: page => page.getByRole('button', { name: 'Start Practice', exact: true }) },
+  // Additional practice-catalog routes missing from the previous 18-route audit.
+  { slug: 'functional-scenes', ready: page => page.getByRole('button', { name: 'Next scene', exact: true }) },
+  { slug: 'reach-tap', ready: page => page.getByRole('heading', { name: 'Reach & Tap', exact: true }) },
+  { slug: 'left-side-hunt', ready: page => page.getByRole('heading', { name: 'Left-Side Hunt', exact: true }) },
+  { slug: 'word-practice', ready: page => page.getByRole('heading', { name: 'Phrase Practice', exact: true }) },
+  { slug: 'conversation-partner', ready: page => page.getByRole('button', { name: 'Start Conversation', exact: true }) },
+  { slug: 'conversation-coach', ready: page => page.getByRole('heading', { name: 'Smart Conversation Practice', exact: true }) },
 ];
 const groups = Array.from({ length: Math.ceil(games.length / 4) }, (_, index) => games.slice(index * 4, index * 4 + 4));
 
@@ -50,6 +57,12 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
             .toHaveURL(new RegExp(`/exercise/${game.slug}$`), { timeout: 12_000 });
           await expect(game.ready(gamePage).first(), `${route}: game-specific content never appeared`)
             .toBeVisible({ timeout: 18_000 });
+          // Generic Exercise.tsx routes must also expose the actual play CTA,
+          // not merely render the correct title over an empty game shell.
+          if (['reach-tap', 'left-side-hunt', 'word-practice'].includes(game.slug)) {
+            await expect(gamePage.getByRole('button', { name: 'Start Exercise', exact: true }))
+              .toBeVisible({ timeout: 10_000 });
+          }
           await expect(gamePage.getByText("We couldn't load your practice", { exact: true })).toHaveCount(0);
           expect(
             javascriptErrors.length,
