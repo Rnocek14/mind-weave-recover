@@ -34,12 +34,17 @@ const games: GameEntry[] = [
   { slug: 'conversation-partner', ready: page => page.getByRole('button', { name: 'Start Conversation', exact: true }) },
   { slug: 'conversation-coach', ready: page => page.getByRole('heading', { name: 'Smart Conversation Practice', exact: true }) },
 ];
-const groups = Array.from({ length: Math.ceil(games.length / 4) }, (_, index) => games.slice(index * 4, index * 4 + 4));
+// Twelve routes per authenticated synthetic account, rather than four.
+// Assertions still run independently for EVERY route; failed routes accumulate.
+const GROUP_SIZE = 12;
+const groups = Array.from({ length: Math.ceil(games.length / GROUP_SIZE) }, (_, index) => games.slice(index * GROUP_SIZE, (index + 1) * GROUP_SIZE));
 
 test.describe('Audit: real game content becomes available on desktop and mobile', () => {
+  // Configured before fixtures start: applies to real anonymous auth + browser
+  // setup, not only the body. Per-game readiness remains capped at 18 seconds.
+  test.describe.configure({ timeout: 330_000 });
   groups.forEach((group, index) => {
     test(`group ${index + 1}: ${group.map(game => game.slug).join(', ')}`, async ({ anonPage: page }) => {
-      test.setTimeout(180_000);
       const failures: string[] = [];
       // Each route gets its own page, so WebKit does not attribute an
       // aborted request from the previous route's teardown to the next game.
@@ -92,6 +97,7 @@ test.describe('Audit: real game content becomes available on desktop and mobile'
 });
 
 test.describe('Audit: rapid repeated Two Clues start without false readiness', () => {
+  test.describe.configure({ timeout: 160_000 });
   test('starts the actual puzzle on four separately opened pages for one synthetic account', async ({ anonPage: firstPage }) => {
     test.setTimeout(125_000);
     const context = firstPage.context();

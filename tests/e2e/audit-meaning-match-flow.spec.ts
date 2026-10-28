@@ -12,6 +12,7 @@ import { resolveE2EEnvironment } from '../../scripts/e2e-environment.mjs';
 import { test, expect } from './fixtures/anonSession';
 
 test.describe('Audit: Meaning Match complete recognition exercise', () => {
+  test.describe.configure({ timeout: 155_000 });
   test('correct, wrong + hint, final commit, saved evidence, reload and cross-user denial', async ({
     anonPage: page, isolatedSession,
   }) => {

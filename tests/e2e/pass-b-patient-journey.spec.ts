@@ -12,6 +12,7 @@
 import { test, expect } from './fixtures/anonSession';
 
 test.describe('Pass B — authenticated patient routes (anon session)', () => {
+  test.describe.configure({ timeout: 130_000 });
   test('/today boots authenticated after the fresh-user welcome flow', async ({ anonPage }) => {
     await anonPage.goto('/today');
     // A new patient is intentionally sent to Welcome on their first landing.
@@ -33,7 +34,7 @@ test.describe('Pass B — authenticated patient routes (anon session)', () => {
     '/exercise/minimal-pairs',
   ];
 
-  // One authenticated account for all four *read-only* route assertions.
+  // One isolated account for all four no-answer-submission route assertions.
   // A separate signed-in user per route exhausted the isolated project's
   // anonymous-signin quota when the all-game and persistence suites expanded.
   // Keep a fresh page per route to avoid aborted requests leaking across games.

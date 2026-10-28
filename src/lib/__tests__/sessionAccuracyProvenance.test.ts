@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
+import { reduceAccuracy, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
+import { reduceAccuracy as reduceTimeoutAccuracy, accuracySummaryToSummaryFields as timeoutSummaryFields } from '../../../supabase/functions/_shared/sessionAccuracySummary';
 
 const tap = (score: number, cue = 0) => ({
   score, cue_level: cue, counts_toward_score: true,
@@ -60,4 +61,52 @@ describe('Session ASR provenance and stale-session parity', () => {
     expect(foreground).toContain("supabase/functions/_shared/sessionAccuracySummary");
     expect(sweeper).toContain("../_shared/sessionAccuracySummary.ts");
   });
+  it('requires explicit validity evidence rather than inferring ASR from a transcript alone', () => {
+    const r = reduceAccuracy([{
+      ...verifiedSpeech(100),
+      engagement_flags: {},
+      task_parameters: { trial_mode: 'production' },
+    }]);
+    expect(r.accuracy).toBe(100);
+    expect(r.asr_accuracy).toBeNull();
+    expect(r.asr_scored_trials).toBe(0);
+  });
+
+  it('accepts the explicitly recorded speech-validity gate on the real task_parameters axis', () => {
+    const speech = {
+      ...verifiedSpeech(100),
+      engagement_flags: {},
+      task_parameters: { trial_mode: 'production', speech_validity: { counts_toward_asr_accuracy: true } },
+    };
+    expect(reduceAccuracy([speech]).asr_accuracy).toBe(100);
+    expect(reduceAccuracy([speech]).asr_scored_trials).toBe(1);
+  });
+
+  it('never lets a manually-confirmed recognition trial fabricate ASR evidence', () => {
+    const manual = {
+      ...verifiedSpeech(100),
+      exercise_slug: 'meaning_match',
+      validity_label: 'manual_confirmed',
+      task_parameters: { trial_mode: 'recognition' },
+    };
+    const r = reduceAccuracy([manual]);
+    expect(r.asr_accuracy).toBeNull();
+    expect(r.practice_accuracy).toBe(100);
+  });
+
+  it('shares identical real return values between foreground and timeout writer', () => {
+    const rows = [tap(100), tap(0, 1), verifiedSpeech(100), verifiedSpeech(0)];
+    expect(reduceAccuracy(rows)).toEqual(reduceTimeoutAccuracy(rows));
+    expect(accuracySummaryToSummaryFields(reduceAccuracy(rows)))
+      .toEqual(timeoutSummaryFields(reduceTimeoutAccuracy(rows)));
+  });
+
+  it('clears previous accuracy fields instead of leaving stale data on an empty genuine session', () => {
+    const fields = accuracySummaryToSummaryFields(reduceAccuracy([]));
+    expect(fields.accuracy).toBeNull();
+    expect(fields.asr_accuracy).toBeNull();
+    expect(fields.asr_scored_trials).toBe(0);
+    expect(fields.scored_trials).toBe(0);
+  });
+
 });
