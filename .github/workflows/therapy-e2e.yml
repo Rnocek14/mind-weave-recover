@@ -49,9 +49,9 @@ jobs:
           bun-version: '1.4.2'
       - name: Configure only the approved staging backend (offline)
         run: |
-          mkdir -p test-results
-          git rev-parse HEAD > test-results/candidate-revision.txt
-          node scripts/staging-runner-config.mjs --github-env > test-results/staging-config.json
+          mkdir -p qa-evidence
+          git rev-parse HEAD > qa-evidence/candidate-revision.txt
+          node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
       - name: Validate configured staging prerequisites
         run: bun run test:speech:services:check-env
       - name: Install locked dependencies
@@ -60,16 +60,16 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          node scripts/verify-speech-services.mjs --run | tee test-results/speech-services.json
+          node scripts/verify-speech-services.mjs --run | tee qa-evidence/speech-services.json
       - name: Upload sanitized speech evidence (no auth state or keys)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: isolated-speech-evidence
           path: |
-            test-results/candidate-revision.txt
-            test-results/staging-config.json
-            test-results/speech-services.json
+            qa-evidence/candidate-revision.txt
+            qa-evidence/staging-config.json
+            qa-evidence/speech-services.json
           retention-days: 7
 
   therapy:
@@ -98,9 +98,9 @@ jobs:
           bun-version: '1.4.2'
       - name: Configure only the approved staging backend (offline)
         run: |
-          mkdir -p test-results
-          git rev-parse HEAD > test-results/candidate-revision.txt
-          node scripts/staging-runner-config.mjs --github-env > test-results/staging-config.json
+          mkdir -p qa-evidence
+          git rev-parse HEAD > qa-evidence/candidate-revision.txt
+          node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
       - name: Validate configured staging prerequisites
         run: bun run test:e2e:check-env
       - name: Install locked dependencies
@@ -115,8 +115,8 @@ jobs:
         with:
           name: isolated-therapy-evidence
           path: |
-            test-results/candidate-revision.txt
-            test-results/staging-config.json
+            qa-evidence/candidate-revision.txt
+            qa-evidence/staging-config.json
             test-results/e2e-summary.json
           retention-days: 7
 

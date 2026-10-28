@@ -21,7 +21,7 @@ test('both jobs keep the named GitHub environment and pin checkout identity', ()
     assert.match(job(name), /environment: neurospark-e2e/);
     assert.match(job(name), /ref: \$\{\{ github.event.pull_request.head.sha \|\| github.sha \}\}/);
     assert.match(job(name), /persist-credentials: false/);
-    assert.match(job(name), /git rev-parse HEAD > test-results\/candidate-revision.txt/);
+    assert.match(job(name), /git rev-parse HEAD > qa-evidence\/candidate-revision.txt/);
   }
 });
 test('each live job configures staging before dependencies, browsers or services', () => {
@@ -33,12 +33,12 @@ test('each live job configures staging before dependencies, browsers or services
 });
 test('speech checks are independent of browser installation and browser outcome', () => {
   assert.doesNotMatch(job('speech'), /needs:|playwright install/);
-  assert.match(job('speech'), /node scripts\/verify-speech-services.mjs --run \| tee test-results\/speech-services.json/);
+  assert.match(job('speech'), /node scripts\/verify-speech-services.mjs --run \| tee qa-evidence\/speech-services.json/);
   assert.match(job('speech'), /set -o pipefail/);
 });
 test('artifact uploads exclude browser traces, session state and all-file globs', () => {
   assert.doesNotMatch(workflow, /path: \|\s+playwright-report|\n\s+test-results\s*\n|storageState|\.env|\*\*/);
-  assert.match(workflow, /test-results\/speech-services.json/);
+  assert.match(workflow, /qa-evidence\/speech-services.json/);
   assert.match(workflow, /test-results\/e2e-summary.json/);
 });
 test('a real failure cannot become successful workflow completion', () => {
@@ -61,5 +61,12 @@ test('preflight runs in the following step, after GitHub imports GITHUB_ENV', ()
     const configureStep = job(name).split('- name: Configure only the approved staging backend (offline)')[1]?.split('\n      - name:')[0] ?? '';
     assert.doesNotMatch(configureStep, /bun run test:/, 'GITHUB_ENV is not visible to the step that writes it');
     assert.match(job(name), /- name: Validate configured staging prerequisites\s+run: bun run test:/);
+  }
+});
+test('candidate and setup evidence stay outside the browser-cleaned output directory', () => {
+  for (const name of ['speech', 'therapy']) {
+    assert.doesNotMatch(job(name), /test-results\/(candidate-revision\.txt|staging-config\.json)/);
+    assert.match(job(name), /qa-evidence\/candidate-revision.txt/);
+    assert.match(job(name), /qa-evidence\/staging-config.json/);
   }
 });
