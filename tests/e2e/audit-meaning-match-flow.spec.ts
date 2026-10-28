@@ -135,6 +135,8 @@ test.describe('Audit: Meaning Match complete recognition exercise', () => {
     const finishedSession = await readSession();
     expect(finishedSession.summary).toMatchObject({
       accuracy: 50,
+      asr_accuracy: null,
+      asr_scored_trials: 0,
       independent_accuracy: 100,
       cue_assisted_accuracy: 0,
       scored_trials: 2,
