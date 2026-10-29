@@ -75,7 +75,7 @@ export default function ClinicianReport() {
   const { activeProfile } = useProfile();
   const { isAtLeast } = useUiMode();
   
-  const { trends, loading: trendsLoading } = useWeeklyTrends();
+  const { trends, loading: trendsLoading, error: trendsError } = useWeeklyTrends();
   const { learningRates, isLoading: learningLoading } = useLearningRate(user?.id);
   const { analytics: errorAnalytics, isLoading: errorLoading } = useErrorPatternAnalytics(user?.id, { weeksBack: 1 });
   const { analytics: correlations, isLoading: correlationsLoading } = useCapabilitySpeechCorrelation(user?.id, { profileId: activeProfile?.id });
@@ -106,6 +106,18 @@ export default function ClinicianReport() {
     );
   }
   
+  // Never print a clinical report for an unspecified patient or from a
+  // partially failed evidence query. Missing data is not measured recovery.
+  if (!activeProfile?.id) {
+    return (
+      <div role="status" className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h2 className="text-xl font-semibold">Choose a patient first</h2>
+        <p className="text-muted-foreground">Select a patient to view their clinical report.</p>
+        <Button size="lg" onClick={() => navigate('/clinician/caseload')}>Go to Caseload</Button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-dvh bg-background p-4 md:p-6">
@@ -118,6 +130,19 @@ export default function ClinicianReport() {
     );
   }
   
+  if (trendsError) {
+    return (
+      <div role="alert" className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h2 className="text-xl font-semibold">Clinical metrics unavailable</h2>
+        <p className="text-muted-foreground">The report could not verify your patient's saved practice data.</p>
+        <Button size="lg" onClick={() => window.location.reload()}>Try again</Button>
+        <Button size="lg" variant="outline" onClick={() => navigate('/clinician/caseload')}>
+          Back to Caseload
+        </Button>
+      </div>
+    );
+  }
+
   // Map red flags to expected format
   const mappedFlags = redFlags.map(f => ({
     type: f.type,
@@ -179,6 +204,7 @@ export default function ClinicianReport() {
             </div>
             <CardDescription>
               {report.window.start} to {report.window.end} ({report.window.days} days)
+              <span className="block">Task accuracy reflects scorable practice, not speech-recognition quality.</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -193,11 +219,11 @@ export default function ClinicianReport() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {report.errors.distribution.find(e => e.type === 'Correct')?.rate 
-                    ? Math.round((report.errors.distribution.find(e => e.type === 'Correct')?.rate || 0) * 100) 
-                    : '—'}%
+                  {report.sample.taskAccuracyPct !== null
+                    ? `${Math.round(report.sample.taskAccuracyPct)}%`
+                    : '—'}
                 </p>
-                <p className="text-xs text-muted-foreground">Accuracy</p>
+                <p className="text-xs text-muted-foreground">Task Accuracy</p>
               </div>
               <div className="flex items-center justify-center gap-2">
                 <VerdictIcon verdict={report.recovery.verdict} />
