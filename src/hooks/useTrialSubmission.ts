@@ -93,20 +93,47 @@ export function useTrialSubmission(opts: Options) {
     enabled: true,
   });
 
+  const scopeKey = JSON.stringify([
+    opts.userId ?? null,
+    opts.profileId ?? null,
+    opts.sessionId,
+    canonicalSlug,
+  ]);
+  const scopeRef = useRef(scopeKey);
   const trialCountRef = useRef(0);
-  // Game pages sometimes fire submitTrial without awaiting its database write
-  // and call commitSession immediately after the last answer. A commit must
-  // never flush progression before those accepted trials have been persisted.
+  // Track the original input AND stable attempt identity for any unconfirmed
+  // answer. A counter alone cannot recover missing exercise_events rows.
+  const failedSubmissionsRef = useRef(new Map<string, {
+    input: UnifiedTrialInput;
+    trialOrdinal: number;
+  }>());
   const inFlightSubmissionsRef = useRef(new Set<Promise<UnifiedTrialSummary>>());
-  const failedSubmissionCountRef = useRef(0);
+  const retryInFlightRef = useRef<Promise<{
+    ok: boolean;
+    recovered: number;
+    remaining: number;
+  }> | null>(null);
+
+  // A hook may be reused for a different patient or session on navigation.
+  // Never offer a previous patient's unconfirmed answers to the new session.
+  if (scopeRef.current !== scopeKey) {
+    scopeRef.current = scopeKey;
+    trialCountRef.current = 0;
+    failedSubmissionsRef.current = new Map();
+    inFlightSubmissionsRef.current = new Set();
+    retryInFlightRef.current = null;
+  }
 
   /**
    * One trial in. Fans out to all subsystems. Returns a routing summary so
    * call sites can prove (in dev) that every layer received the trial.
    */
   const performSubmitTrial = useCallback(
-    async (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
-      trialCountRef.current += 1;
+    async (
+      input: UnifiedTrialInput,
+      trialOrdinal: number,
+      isRecovery: boolean,
+    ): Promise<UnifiedTrialSummary> => {
       const summary: UnifiedTrialSummary = {
         ok: true,
         routed: {
@@ -122,18 +149,20 @@ export function useTrialSubmission(opts: Options) {
       // report without any game needing to know the feature exists. Purely
       // in-memory and non-throwing — feedback must never be able to break a
       // practice session.
-      recordLastTrial({
-        exerciseSlug: canonicalSlug,
-        sessionId: opts.sessionId,
-        level: input.level,
-        trialIndex: typeof input.trialIndex === 'number' ? input.trialIndex : null,
-        stimulusId: input.stimulusId ?? null,
-        expected: input.expectedResponse ?? null,
-        userResponse: input.userResponse ?? null,
-        browserTranscript: input.browserTranscript ?? null,
-        isCorrect: input.isCorrect,
-        cueLevel: input.cueLevel ?? null,
-      });
+      if (!isRecovery) {
+        recordLastTrial({
+          exerciseSlug: canonicalSlug,
+          sessionId: opts.sessionId,
+          level: input.level,
+          trialIndex: typeof input.trialIndex === 'number' ? input.trialIndex : null,
+          stimulusId: input.stimulusId ?? null,
+          expected: input.expectedResponse ?? null,
+          userResponse: input.userResponse ?? null,
+          browserTranscript: input.browserTranscript ?? null,
+          isCorrect: input.isCorrect,
+          cueLevel: input.cueLevel ?? null,
+        });
+      }
 
       // 1) exercise_events (raw clinical record) — always.
       try {
@@ -180,6 +209,13 @@ export function useTrialSubmission(opts: Options) {
         console.warn('[submitTrial] exercise_events write failed', err);
       }
 
+      // A pending request can finish after the active patient/session changes.
+      // Do not feed its result to the new hook's progression or telemetry.
+      if (scopeRef.current !== scopeKey) {
+        summary.ok = false;
+        return summary;
+      }
+
       // 2) adaptation_trial_logs.
       // IMPORTANT: games that auto-wire this via useInGameAdaptation
       // (autoLog:true) or a hand-wired useAdaptationTrialLogger (PhotoNaming,
@@ -193,7 +229,7 @@ export function useTrialSubmission(opts: Options) {
           input.taskParameters?.unified_route_adaptation_log === true
         ) {
           logAdaptationTrial({
-            trialIndex: trialCountRef.current - 1,
+            trialIndex: trialOrdinal - 1,
             difficulty: input.level,
             cueLevel: input.cueLevel ?? null,
             correct: input.isCorrect,
@@ -262,26 +298,102 @@ export function useTrialSubmission(opts: Options) {
 
       return summary;
     },
-    [canonicalSlug, debug, logAdaptationTrial, logExerciseEvent, opts.progression, opts.sessionId]
+    [canonicalSlug, debug, logAdaptationTrial, logExerciseEvent, opts.progression, opts.sessionId, scopeKey]
   );
 
-  const submitTrial = useCallback((input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
-    // Register the promise synchronously so a same-tick commit sees it,
-    // even if its raw event write is still waiting on the network.
-    const submission = performSubmitTrial(input);
+  const enqueueSubmission = useCallback((
+    input: UnifiedTrialInput,
+    trialOrdinal: number,
+    isRecovery: boolean,
+  ): Promise<UnifiedTrialSummary> => {
+    // Register synchronously so commitSession cannot run past a final
+    // in-flight clinical write. Both retries and original saves use the
+    // identical attempt ID, which the database enforces as unique.
+    const submissionScope = scopeKey;
+    const submission = performSubmitTrial(input, trialOrdinal, isRecovery);
     inFlightSubmissionsRef.current.add(submission);
     void submission.then(
       (summary) => {
+        if (scopeRef.current !== submissionScope) return;
         inFlightSubmissionsRef.current.delete(submission);
-        if (!summary.ok) failedSubmissionCountRef.current += 1;
+        if (summary.ok) {
+          failedSubmissionsRef.current.delete(input.attemptId!);
+        } else {
+          failedSubmissionsRef.current.set(input.attemptId!, { input, trialOrdinal });
+        }
       },
       () => {
+        if (scopeRef.current !== submissionScope) return;
         inFlightSubmissionsRef.current.delete(submission);
-        failedSubmissionCountRef.current += 1;
+        failedSubmissionsRef.current.set(input.attemptId!, { input, trialOrdinal });
       },
     );
     return submission;
-  }, [performSubmitTrial]);
+  }, [performSubmitTrial, scopeKey]);
+
+  const submitTrial = useCallback((input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
+    // Generate the immutable attempt identity BEFORE the first network call.
+    // The lower telemetry layer otherwise allocates a new ID per call,
+    // making an explicit retry capable of writing a second clinical row.
+    const stableInput: UnifiedTrialInput = {
+      ...input,
+      attemptId: input.attemptId?.trim() || crypto.randomUUID(),
+    };
+    const trialOrdinal = ++trialCountRef.current;
+    return enqueueSubmission(stableInput, trialOrdinal, false);
+  }, [enqueueSubmission]);
+
+  const waitForPendingSubmissions = useCallback(async () => {
+    // Drain all writes, including those registered while an earlier one
+    // settles; don't rely on a single snapshot at the final-trial boundary.
+    while (inFlightSubmissionsRef.current.size > 0) {
+      await Promise.allSettled(Array.from(inFlightSubmissionsRef.current));
+    }
+  }, []);
+
+  const retryFailedSubmissions = useCallback((): Promise<{
+    ok: boolean;
+    recovered: number;
+    remaining: number;
+  }> => {
+    if (retryInFlightRef.current) return retryInFlightRef.current;
+    const retryScope = scopeKey;
+    const run = (async () => {
+      await waitForPendingSubmissions();
+      if (scopeRef.current !== retryScope) {
+        return { ok: false, recovered: 0, remaining: 0 };
+      }
+
+      let recovered = 0;
+      // Replay ONLY previously unconfirmed answers in original attempt order,
+      // with unchanged source fields and attempt IDs. No game scoring changes.
+      const failures = [...failedSubmissionsRef.current.values()]
+        .sort((a, b) => a.trialOrdinal - b.trialOrdinal);
+      for (const failed of failures) {
+        if (scopeRef.current !== retryScope) {
+          return { ok: false, recovered, remaining: 0 };
+        }
+        try {
+          const summary = await enqueueSubmission(
+            failed.input,
+            failed.trialOrdinal,
+            true,
+          );
+          if (summary.ok) recovered += 1;
+        } catch {
+          // The rejected attempt remains in the ledger for a later retry.
+        }
+      }
+      const remaining = failedSubmissionsRef.current.size;
+      return { ok: remaining === 0, recovered, remaining };
+    })();
+    retryInFlightRef.current = run;
+    void run.then(
+      () => { if (retryInFlightRef.current === run) retryInFlightRef.current = null; },
+      () => { if (retryInFlightRef.current === run) retryInFlightRef.current = null; },
+    );
+    return run;
+  }, [enqueueSubmission, scopeKey, waitForPendingSubmissions]);
 
   /**
    * Flush all session-end work atomically:
@@ -295,12 +407,23 @@ export function useTrialSubmission(opts: Options) {
     let recapSnapshot: CommitSessionResult['progressionSnapshot'] = null;
     let masteryFlushed = false;
 
-    // Wait for all previously accepted trial writes and in-memory progression
-    // buffers before committing. A failed raw write is not silently called
-    // a fully successful session even if unrelated flushes succeed.
-    await Promise.allSettled(Array.from(inFlightSubmissionsRef.current));
-    if (failedSubmissionCountRef.current > 0) {
-      errors.push(`unconfirmed trial submissions: ${failedSubmissionCountRef.current}`);
+    // Do NOT flush progression or mastery with missing clinical raw events.
+    // This prevents a partially logged session from being presented as saved.
+    await waitForPendingSubmissions();
+    if (scopeRef.current !== scopeKey) {
+      errors.push('session context changed during save');
+    }
+    if (failedSubmissionsRef.current.size > 0) {
+      errors.push(`unconfirmed trial submissions: ${failedSubmissionsRef.current.size}`);
+    }
+    if (errors.length > 0) {
+      return {
+        ok: false,
+        progression: null,
+        progressionSnapshot: null,
+        masteryFlushed: false,
+        errors,
+      };
     }
 
     try {
@@ -364,7 +487,7 @@ export function useTrialSubmission(opts: Options) {
       masteryFlushed,
       errors,
     };
-  }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId]);
+  }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId, scopeKey, waitForPendingSubmissions]);
 
-  return { submitTrial, commitSession, startTrial, calculateReactionTime };
+  return { submitTrial, retryFailedSubmissions, commitSession, startTrial, calculateReactionTime };
 }
