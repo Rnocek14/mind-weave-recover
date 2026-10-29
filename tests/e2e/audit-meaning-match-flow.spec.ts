@@ -292,7 +292,7 @@ test.describe('Audit: Meaning Match complete recognition exercise', () => {
     expect(simulatedLookupFailures).toBeGreaterThanOrEqual(3);
     expect(new Set(interceptedAttemptIds).size).toBe(1);
     expect(committedBeforeAckLost).toBe(true);
-    expect(page.getByRole('heading', { name: 'Arena Complete!' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Arena Complete!' })).toHaveCount(0);
 
     const rowsBeforeRecovery = await readTrials();
     expect(rowsBeforeRecovery).toHaveLength(2);
