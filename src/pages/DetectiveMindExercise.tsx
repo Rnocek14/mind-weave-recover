@@ -142,7 +142,7 @@ export default function DetectiveMindExercise() {
     trialIndexRef.current += 1;
     pivot.recordTrialResult({ wasCorrect: result.correct, reactionTimeMs: result.reactionTimeMs, cueLevel: result.usedHint ? 1 : 0 });
     // Offline practice has no clinical session; don't emit unsaved pseudo-trials.
-    if (!activeSessionId) return;
+    if (isOfflineMode || !activeSessionId) return;
 
     await submitTrial({
       profileId: activeProfile?.id,
