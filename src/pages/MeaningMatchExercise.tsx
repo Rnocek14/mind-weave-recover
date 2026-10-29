@@ -50,6 +50,9 @@ export default function MeaningMatchExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const lastResultsRef = useRef<MeaningMatchTrialResult[]>([]);
+  const completionInFlightRef = useRef(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -222,25 +225,42 @@ export default function MeaningMatchExercise() {
   ]);
 
   const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[]) => {
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    // No per-game progression snapshot yet (progression: null above).
-    await commitSession();
+    if (completionInFlightRef.current) return;
+    completionInFlightRef.current = true;
+    lastResultsRef.current = results;
+    setSaveState('saving');
 
-    setCompleted(true);
-    completeSession();
+    try {
+      // Both clinical trial persistence and the session's summary write MUST
+      // succeed before a patient sees "complete" or a lesson advances.
+      // commitSession also waits for outstanding trial writes.
+      const committed = await commitSession();
+      if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+      const sessionSaved = await completeSession();
+      if (!sessionSaved) throw new Error('Session closure was not confirmed');
 
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      dispatchTimeoutRef.current = window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: {
-            exerciseSlug: EXERCISE_SLUG,
-            results,
-            totalScore: results.reduce((sum, r) => sum + r.points, 0),
-          }
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+      setCompleted(true);
+      setSaveState('idle');
+
+      if (fromLesson && !exerciseCompleteSentRef.current) {
+        exerciseCompleteSentRef.current = true;
+        dispatchTimeoutRef.current = window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: {
+              exerciseSlug: EXERCISE_SLUG,
+              results,
+              totalScore: results.reduce((sum, r) => sum + r.points, 0),
+            }
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    } catch {
+      // Do not lie to the patient about the save. Preserve the game results
+      // in memory so an explicit retry can close the same session safely.
+      setSaveState('error');
+    } finally {
+      completionInFlightRef.current = false;
     }
   }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
 
@@ -284,7 +304,33 @@ export default function MeaningMatchExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'error' ? (
+          <div className="max-w-md mx-auto my-auto text-center space-y-5" role="alert">
+            <h2 className="text-2xl font-bold">Practice not saved</h2>
+            <p className="text-lg">
+              We couldn't save your practice. Try saving again.
+            </p>
+            <Button
+              size="lg"
+              className="min-h-14 w-full text-lg"
+              onClick={() => void handleGameComplete(lastResultsRef.current)}
+            >
+              Try saving again
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-h-14 w-full text-lg"
+              onClick={() => navigate('/today')}
+            >
+              Go to Today
+            </Button>
+          </div>
+        ) : saveState === 'saving' ? (
+          <div role="status" aria-live="polite" className="max-w-md mx-auto my-auto text-center text-lg">
+            Saving your answers...
+          </div>
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Arena Complete!</h2>
