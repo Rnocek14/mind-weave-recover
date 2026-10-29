@@ -94,7 +94,7 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
       accuracySlope: sessionStats.accuracySlope,
       recentTrialCount: sessionStats.trialCount,
       recentSessionCount: sessionStats.sessionCount,
-      priorTrialCount: sessionStats.trialCount,
+      priorTrialCount: sessionStats.priorTrialCount,
     };
   }, [sessionStats]);
 
