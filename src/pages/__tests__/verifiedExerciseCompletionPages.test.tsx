@@ -94,6 +94,45 @@ vi.mock('@/lib/progression/detectiveMindDifficultyBridge', () => ({
   }),
 }));
 vi.mock('@/lib/exerciseDetailsStore', () => ({ saveExerciseDetails: vi.fn() }));
+vi.mock('@/hooks/useDualLoadNamingProgression', () => ({
+  useDualLoadNamingProgression: () => ({
+    loaded: true, startingLevel: 1, state: null,
+  }),
+  mapDualLoadNamingSupport: () => 'independent',
+}));
+vi.mock('@/lib/progression/dualLoadNamingDifficultyBridge', () => ({
+  resolveEffectiveDualLoadNamingInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/hooks/useDynamicTier', () => ({
+  useDynamicTier: () => ({ currentTier: 1, recordTrial: vi.fn() }),
+}));
+vi.mock('@/hooks/useMultiStepPlanningProgression', () => ({
+  useMultiStepPlanningProgression: () => ({
+    loaded: true, startingLevel: 1, state: null,
+  }),
+  mapMultiStepPlanningSupport: () => 'independent',
+}));
+vi.mock('@/lib/progression/multiStepPlanningDifficultyBridge', () => ({
+  resolveEffectiveMultiStepPlanningInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/components/DualLoadNamingGame', () => ({
+  DualLoadNamingGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
+    <button onClick={() => onGameComplete([{ namingAccuracy: 1, recallAccuracy: 0.5 }])}>
+      Finish dual load
+    </button>
+  ),
+}));
+vi.mock('@/components/MultiStepPlanningGame', () => ({
+  MultiStepPlanningGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
+    <button onClick={() => onGameComplete([{ goalCoverage: 0.5, stepsFound: 2 }])}>
+      Finish planning
+    </button>
+  ),
+}));
 vi.mock('@/hooks/useFixSentenceProgression', () => ({
   useFixSentenceProgression: () => ({ loaded: true, startingLevel: 1, state: null }),
 }));
@@ -186,12 +225,16 @@ import DetectiveMindExercise from '../DetectiveMindExercise';
 import DescribeGuessExercise from '../DescribeGuessExercise';
 import MinimalPairsExercise from '../MinimalPairsExercise';
 import FixSentenceExercise from '../FixSentenceExercise';
+import DualLoadNamingExercise from '../DualLoadNamingExercise';
+import MultiStepPlanExercise from '../MultiStepPlanExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
   { title: 'Synonym Generator', component: SynonymGeneratorExercise, finishLabel: 'Finish synonyms' },
   { title: 'Detective Mind', component: DetectiveMindExercise, finishLabel: 'Finish detective' },
   { title: 'Describe & Guess', component: DescribeGuessExercise, finishLabel: 'Finish description' },
+  { title: 'Dual-Load Naming', component: DualLoadNamingExercise, finishLabel: 'Finish dual load' },
+  { title: 'Multi-Step Planning', component: MultiStepPlanExercise, finishLabel: 'Finish planning' },
 ];
 
 beforeEach(() => {
@@ -329,6 +372,35 @@ describe('patient completion and retry across actual exercise pages', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Finish sentence' }));
     expect(await screen.findByRole('button', { name: 'Continue verified recap' })).toBeVisible();
     expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('Dual-Load Naming retries a failed session close without re-committing progression', async () => {
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<MemoryRouter><DualLoadNamingExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish dual load' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Dual-Load Complete!' })).toBeVisible();
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('Multi-Step Planning keeps the lesson on the current game if the final save failed', async () => {
+    mocks.fromLesson = true;
+    mocks.commitSession.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });
+    const sent = vi.fn();
+    window.addEventListener('exercise-complete', sent);
+    try {
+      render(<MemoryRouter><MultiStepPlanExercise /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: 'Finish planning' }));
+      expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+      expect(sent).not.toHaveBeenCalled();
+      expect(mocks.completeSession).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+      expect(await screen.findByRole('heading', { name: 'Planning Complete!' })).toBeVisible();
+      expect(mocks.commitSession).toHaveBeenCalledTimes(2);
+      expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    } finally { window.removeEventListener('exercise-complete', sent); }
   });
 
   it('a failed lesson game must never dispatch the next-exercise event', async () => {
