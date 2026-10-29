@@ -56,7 +56,6 @@ export default function DescribeGuessExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -225,7 +224,6 @@ export default function DescribeGuessExercise() {
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
   const handleConfirmedCompletion = useCallback((results: DescribeGuessTrialResult[]) => {
-    setCompleted(true);
     if (fromLesson) {
       completionTimeoutRef.current = window.setTimeout(() => {
         resumeLessonFlow(results);
@@ -287,7 +285,7 @@ export default function DescribeGuessExercise() {
             onRetry={() => void retry()}
             onExit={() => navigate('/today')}
           />
-        ) : completed ? (
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
@@ -298,6 +296,7 @@ export default function DescribeGuessExercise() {
           </div>
         ) : (
           <DescribeGuessGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             trialCount={trialCount}
