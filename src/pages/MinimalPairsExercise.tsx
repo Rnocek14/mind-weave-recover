@@ -5,7 +5,7 @@
  * Now consumes shared adaptation contract for phoneme targeting + telemetry.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
@@ -48,7 +50,18 @@ export default function MinimalPairsExercise() {
   // Auto-start when launched from a lesson — no intro gate inside the flow.
   const [isStarted, setIsStarted] = useState(!!fromLesson);
   const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
-  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
+  const confirmedProgressionRef = useRef<CommitSessionResult['progressionSnapshot'] | null>(null);
+  const lessonAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (lessonAdvanceTimeoutRef.current !== null) clearTimeout(lessonAdvanceTimeoutRef.current);
+  }, []);
+  type MinimalPairsCompletion = {
+    score: number;
+    correctCount: number;
+    incorrectCount: number;
+    accuracy: number;
+  };
+  const [confirmedResults, setConfirmedResults] = useState<MinimalPairsCompletion | null>(null);
 
   // Session-summary stats for useSessionLifecycle (below). Previously this page
   // never closed its standalone session, so no ended_at / accuracy summary /
@@ -109,7 +122,7 @@ export default function MinimalPairsExercise() {
   });
 
   // Unified trial submission — now wired with progression hook (Phase 1 stub).
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
@@ -138,50 +151,52 @@ export default function MinimalPairsExercise() {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
   
-  const handleComplete = useCallback(async (results: {
-    score: number;
-    correctCount: number;
-    incorrectCount: number;
-    accuracy: number;
-  }) => {
-    console.log('Minimal pairs exercise complete:', results);
+  const commitWithRecap = useCallback(async () => {
+    const saved = await commitSession();
+    if (saved.ok) confirmedProgressionRef.current = saved.progressionSnapshot;
+    return saved;
+  }, [commitSession]);
 
-    // Feed final stats to the session-summary writer before closing.
+  const advanceLesson = useCallback((results: MinimalPairsCompletion) => {
+    if (!fromLesson || exerciseCompleteSentRef.current) return;
+    exerciseCompleteSentRef.current = true;
+    if (lessonAdvanceTimeoutRef.current !== null) {
+      clearTimeout(lessonAdvanceTimeoutRef.current);
+      lessonAdvanceTimeoutRef.current = null;
+    }
+    window.dispatchEvent(new CustomEvent('exercise-complete', {
+      detail: { exerciseSlug: 'minimal-pairs', results },
+    }));
+    navigate(returnTo, { state: { resuming: true }, replace: true });
+  }, [fromLesson, navigate, returnTo]);
+
+  const handleConfirmedCompletion = useCallback((results: MinimalPairsCompletion) => {
+    setConfirmedResults(results);
+    if (fromLesson) {
+      // The older game left the summary visible for 5 seconds, but only
+      // after we actually confirmed the session close may we advance it.
+      lessonAdvanceTimeoutRef.current = setTimeout(() => advanceLesson(results), 5000);
+    } else if (confirmedProgressionRef.current) {
+      setRecap(confirmedProgressionRef.current);
+    }
+  }, [fromLesson, advanceLesson]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<MinimalPairsCompletion>({
+    scope: user?.id && activeProfile?.id && sessionId
+      ? JSON.stringify([user.id, activeProfile.id, sessionId, 'minimal_pairs'])
+      : null,
+    commitSession: commitWithRecap,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleComplete = useCallback((results: MinimalPairsCompletion) => {
     scoreRef.current = Math.round(results.accuracy ?? results.score ?? 0);
     trialsRef.current = results.correctCount + results.incorrectCount;
+    void finish(results);
+  }, [finish]);
 
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    const commitResult = await commitSession();
-
-    // Close the session (standalone) or record the sub-exercise (lesson-owned)
-    // and stamp the accuracy summary + speech dose.
-    await completeSession();
-
-    const finalize = () => {
-      if (fromLesson && !exerciseCompleteSentRef.current) {
-        exerciseCompleteSentRef.current = true;
-        // Leave the score summary on screen long enough to actually read it —
-        // at 400ms the completion card flashed and vanished into the next
-        // exercise before the patient could see their result.
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('exercise-complete', {
-            detail: { exerciseSlug: 'minimal-pairs', results },
-          }));
-          navigate(returnTo, { state: { resuming: true }, replace: true });
-        }, 5000);
-      }
-    };
-
-    // Recap overlay only for standalone runs — mid-lesson it reads as the
-    // whole session ending (see FixSentenceExercise).
-    if (commitResult.progressionSnapshot && !fromLesson) {
-      finalizeAfterRecapRef.current = finalize;
-      setRecap(commitResult.progressionSnapshot);
-    } else {
-      finalize();
-    }
-  }, [fromLesson, navigate, returnTo, commitSession, completeSession]);
-  
   const handleTrialComplete = useCallback((trialData: {
     targetWord: string;
     selectedWord: string;
@@ -331,12 +346,7 @@ export default function MinimalPairsExercise() {
           prev={recap.prev}
           next={recap.next}
           leveledUp={recap.leveledUp}
-          onContinue={() => {
-            const fn = finalizeAfterRecapRef.current;
-            finalizeAfterRecapRef.current = null;
-            setRecap(null);
-            fn?.();
-          }}
+          onContinue={() => setRecap(null)}
         />
       )}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
@@ -353,8 +363,35 @@ export default function MinimalPairsExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
-        <div className="max-w-2xl mx-auto">
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
+          <div className="my-auto mx-auto max-w-md w-full text-center space-y-5 px-4">
+            <h2 className="text-2xl font-bold">Practice saved</h2>
+            <p className="text-lg">
+              {confirmedResults
+                ? `${confirmedResults.correctCount} of ${confirmedResults.correctCount + confirmedResults.incorrectCount} correct`
+                : 'Your practice is complete.'}
+            </p>
+            <Button
+              size="lg"
+              className="min-h-14 w-full text-lg"
+              onClick={() => {
+                if (fromLesson && confirmedResults) advanceLesson(confirmedResults);
+                else navigate('/today');
+              }}
+            >
+              {fromLesson ? 'Continue lesson' : 'Go to Today'}
+            </Button>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto">
           <MinimalPairsGame
+            key={JSON.stringify([user?.id, activeProfile?.id, sessionId])}
             difficulty={difficulty}
             sessionId={sessionId}
             totalTrials={Math.min(stats.total, 10)}
@@ -363,7 +400,8 @@ export default function MinimalPairsExercise() {
             onComplete={handleComplete}
             onTrialComplete={handleTrialComplete}
           />
-        </div>
+          </div>
+        )}
       </main>
       {fromLesson && <SessionSidePanel />}
     </div>
