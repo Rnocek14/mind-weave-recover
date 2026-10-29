@@ -163,7 +163,7 @@ describe('Two Clues: patient-visible completion requires confirmed persistence',
     expect(mocks.completeSession).not.toHaveBeenCalled();
   });
 
-  it('keeps results for an explicit retry after a failed session close', async () => {
+  it('retries a failed close without re-committing confirmed clinical progression', async () => {
     mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Finish Two Clues' }));
@@ -172,7 +172,7 @@ describe('Two Clues: patient-visible completion requires confirmed persistence',
 
     fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
     expect(await screen.findByRole('heading', { name: 'Exercise Complete!' })).toBeVisible();
-    expect(mocks.commitSession).toHaveBeenCalledTimes(2);
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
     expect(mocks.completeSession).toHaveBeenCalledTimes(2);
   });
 
