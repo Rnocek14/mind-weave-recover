@@ -93,6 +93,27 @@ vi.mock('@/lib/progression/detectiveMindDifficultyBridge', () => ({
   }),
 }));
 vi.mock('@/lib/exerciseDetailsStore', () => ({ saveExerciseDetails: vi.fn() }));
+vi.mock('@/data/minimalPairsBank', () => ({
+  getMinimalPairStats: () => ({ total: 10, byCategory: { phonemic: 10 } }),
+}));
+vi.mock('@/hooks/useMinimalPairsProgression', () => ({
+  useMinimalPairsProgression: () => ({
+    loaded: true, startingLevel: 1, state: null,
+  }),
+  mapMinimalPairsSupport: () => 'first_listen',
+}));
+vi.mock('@/lib/progression/minimalPairsDifficultyBridge', () => ({
+  resolveEffectiveMinimalPairsInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/components/MinimalPairsGame', () => ({
+  MinimalPairsGame: ({ onComplete }: {
+    onComplete: (r: { score: number; accuracy: number; correctCount: number; incorrectCount: number }) => void;
+  }) => <button onClick={() => onComplete({
+    score: 50, accuracy: 50, correctCount: 1, incorrectCount: 1,
+  })}>Finish minimal pairs</button>,
+}));
 vi.mock('@/components/InlineSessionProgress', () => ({ InlineSessionProgress: () => null }));
 vi.mock('@/components/SessionSidePanel', () => ({ SessionSidePanel: () => null }));
 vi.mock('@/components/CategoryFluencyGame', () => ({
@@ -130,6 +151,7 @@ import CategoryFluencyExercise from '../CategoryFluencyExercise';
 import SynonymGeneratorExercise from '../SynonymGeneratorExercise';
 import DetectiveMindExercise from '../DetectiveMindExercise';
 import DescribeGuessExercise from '../DescribeGuessExercise';
+import MinimalPairsExercise from '../MinimalPairsExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
@@ -192,6 +214,35 @@ describe('patient completion and retry across actual exercise pages', () => {
     expect(screen.getByText('This practice was not saved.')).toBeVisible();
     expect(mocks.commitSession).not.toHaveBeenCalled();
     expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
+  it('Minimal Pairs blocks false completion and has a large retry action', async () => {
+    mocks.commitSession.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });
+    render(<MemoryRouter><MinimalPairsExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Start Practice' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish minimal pairs' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
+    expect(screen.getByText('1 of 2 correct')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Go to Today' })).toBeVisible();
+    expect(mocks.retryFailedSubmissions).toHaveBeenCalledTimes(1);
+    expect(mocks.commitSession).toHaveBeenCalledTimes(2);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('Minimal Pairs close failure never repeats a successful progression commit', async () => {
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<MemoryRouter><MinimalPairsExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Start Practice' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish minimal pairs' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(2);
   });
 
   it('a failed lesson game must never dispatch the next-exercise event', async () => {
