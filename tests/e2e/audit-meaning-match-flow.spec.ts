@@ -200,4 +200,130 @@ test.describe('Audit: Meaning Match complete recognition exercise', () => {
     await expect(page.getByRole('heading', { name: 'Arena Complete!' })).toHaveCount(0);
   });
 
+
+  test('recovers an ACK-lost clinical attempt without duplicate rows after explicit retry', async ({
+    anonPage: page, isolatedSession,
+  }) => {
+    test.setTimeout(120_000);
+    const settings = resolveE2EEnvironment();
+    expect(settings.suite).toBe('staging');
+    const { client, session } = isolatedSession;
+
+    const readTrials = async () => {
+      const { data, error } = await client
+        .from('exercise_events')
+        .select('id, session_id, attempt_id, trial_index, score, task_parameters, sessions!inner(user_id)')
+        .eq('sessions.user_id', session.user.id)
+        .eq('exercise_slug', 'meaning_match')
+        .order('trial_index');
+      if (error) throw new Error('Could not verify isolated exercise_events: ' + error.message);
+      return data ?? [];
+    };
+    expect(await readTrials()).toHaveLength(0);
+
+    let loseAcknowledgement = false;
+    let enableRecovery = false;
+    let committedBeforeAckLost = false;
+    let simulatedPostFailures = 0;
+    let simulatedLookupFailures = 0;
+    const interceptedAttemptIds: string[] = [];
+
+    // This fault injection affects the patient's browser only. A separate,
+    // authenticated verification client reads the REAL isolated database.
+    // The second row is inserted once, but its browser acknowledgement and
+    // lookup are hidden, reproducing the "server saved / client unsure" case.
+    await page.route('**/rest/v1/exercise_events*', async route => {
+      const request = route.request();
+      if (new URL(request.url()).origin !== settings.supabaseURL) {
+        throw new Error('Refusing to intercept a non-isolated clinical backend');
+      }
+      if (!loseAcknowledgement || enableRecovery) {
+        return route.continue();
+      }
+      if (request.method() === 'POST') {
+        const payload = request.postDataJSON() as { attempt_id?: string };
+        expect(payload.attempt_id).toEqual(expect.any(String));
+        interceptedAttemptIds.push(payload.attempt_id!);
+        if (!committedBeforeAckLost) {
+          const upstream = await route.fetch();
+          expect(upstream.ok(), 'The synthetic patient answer must actually reach staging').toBe(true);
+          committedBeforeAckLost = true;
+        }
+        simulatedPostFailures++;
+      } else if (request.method() === 'GET') {
+        simulatedLookupFailures++;
+      } else {
+        return route.continue();
+      }
+      return route.fulfill({
+        status: 503,
+        headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          code: 'AUDIT_LOST_ACK',
+          message: 'Synthetic acknowledgement and lookup failure',
+        }),
+      });
+    });
+
+    await page.addInitScript(() => {
+      if (location.pathname === '/exercise/meaning-match') {
+        const state = history.state ?? {};
+        history.replaceState({
+          ...state,
+          usr: { ...(state.usr ?? {}), trialLimit: 2 },
+        }, '', location.href);
+      }
+    });
+    await page.goto('/exercise/meaning-match');
+    await expect(page.getByText('1 of 2', { exact: true })).toBeVisible({ timeout: 25_000 });
+    await page.getByRole('button', { name: /^A\./ }).click();
+    await page.getByRole('button', { name: /Next/ }).click();
+    await expect.poll(readTrials, { timeout: 20_000 }).toHaveLength(1);
+
+    // The second answer really enters exercise_events, but the client never
+    // receives confirmation. There must be NO false patient completion.
+    loseAcknowledgement = true;
+    await expect(page.getByText('2 of 2', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /^A\./ }).click();
+    await page.getByRole('button', { name: /Next/ }).click();
+    await expect(page.getByRole('heading', { name: 'Practice not saved' }))
+      .toBeVisible({ timeout: 25_000 });
+    expect(simulatedPostFailures).toBeGreaterThanOrEqual(3);
+    expect(simulatedLookupFailures).toBeGreaterThanOrEqual(3);
+    expect(new Set(interceptedAttemptIds).size).toBe(1);
+    expect(committedBeforeAckLost).toBe(true);
+    expect(page.getByRole('heading', { name: 'Arena Complete!' })).toHaveCount(0);
+
+    const rowsBeforeRecovery = await readTrials();
+    expect(rowsBeforeRecovery).toHaveLength(2);
+    expect(rowsBeforeRecovery[0].attempt_id).not.toBe(rowsBeforeRecovery[1].attempt_id);
+    expect(rowsBeforeRecovery[1].attempt_id).toBe(interceptedAttemptIds[0]);
+    const sessionId = rowsBeforeRecovery[1].session_id!;
+    const readSession = async () => {
+      const { data, error } = await client
+        .from('sessions')
+        .select('id, ended_at, summary')
+        .eq('id', sessionId)
+        .single();
+      if (error) throw new Error('Could not read isolated session: ' + error.message);
+      return data;
+    };
+    expect((await readSession()).ended_at).toBeNull();
+
+    // The explicit retry sends the SAME attempt_id. The database responds
+    // "duplicate", and the production verifier checks the existing row
+    // belongs to the same session/exercise under RLS before acknowledging it.
+    enableRecovery = true;
+    await page.getByRole('button', { name: 'Try saving again' }).click();
+    await expect(page.getByRole('heading', { name: 'Arena Complete!' }))
+      .toBeVisible({ timeout: 25_000 });
+    await expect.poll(async () => (await readSession()).ended_at, { timeout: 20_000 }).not.toBeNull();
+    const rowsAfterRecovery = await readTrials();
+    expect(rowsAfterRecovery).toEqual(rowsBeforeRecovery);
+    expect(new Set(rowsAfterRecovery.map(row => row.attempt_id)).size).toBe(2);
+    expect((await readSession()).summary).toMatchObject({ scored_trials: 2 });
+
+    await page.reload();
+    await expect.poll(readTrials, { timeout: 20_000 }).toEqual(rowsBeforeRecovery);
+  });
 });
