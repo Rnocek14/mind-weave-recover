@@ -77,6 +77,11 @@ describe('Minimal Pairs session-before-game patient-safety boundary', () => {
     });
 
     expect(mocks.startSession).toHaveBeenCalledTimes(1);
+    expect(mocks.startSession).toHaveBeenCalledWith(
+      'audit-user',
+      expect.anything(),
+      expect.objectContaining({ profileId: 'audit-profile', modality: 'listening' }),
+    );
     // The game must not accept a response that cannot be attributed to a
     // confirmed session ID. Prior implementation mounted the game immediately.
     expect(screen.queryByTestId('actual-minimal-pairs-game-mounted')).toBeNull();

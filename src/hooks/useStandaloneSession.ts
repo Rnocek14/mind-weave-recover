@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { normalizeExerciseSlug, type ExerciseModality } from '@/lib/exerciseSlugNormalizer';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -61,9 +61,10 @@ interface Scope {
   profileId: string;
   exerciseSlug: string;
   mode: 'standalone' | 'lesson' | 'smart_coach';
+  modality?: ExerciseModality;
 }
 function keyOf(scope: Scope): string {
-  return JSON.stringify([scope.userId, scope.profileId, scope.exerciseSlug, scope.mode]);
+  return JSON.stringify([scope.userId, scope.profileId, scope.exerciseSlug, scope.mode, scope.modality ?? null]);
 }
 
 function acquireSession(scope: Scope): Promise<string> {
@@ -94,7 +95,7 @@ function acquireSession(scope: Scope): Promise<string> {
       const created = await startSession(
         scope.userId,
         { blocks: [{ exercise: scope.exerciseSlug, duration: 10 }] },
-        { profileId: scope.profileId },
+        { profileId: scope.profileId, modality: scope.modality },
       );
       if (!created?.id) throw new Error('Missing session ID');
       if (
@@ -136,6 +137,8 @@ function acquireSession(scope: Scope): Promise<string> {
 interface UseStandaloneSessionOptions {
   disabled?: boolean;
   mode?: 'standalone' | 'lesson' | 'smart_coach';
+  /** Preserve exercise modality (e.g. Minimal Pairs is listening-only). */
+  modality?: ExerciseModality;
 }
 interface LocalSession {
   scope: string;
@@ -154,9 +157,9 @@ export const useStandaloneSession = (
   const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
   const { activeProfile } = useProfile();
   const profileId = activeProfile?.id;
-  const { disabled = false, mode = 'standalone' } = options;
+  const { disabled = false, mode = 'standalone', modality } = options;
   const scopeKey = userId && profileId
-    ? keyOf({ userId, profileId, exerciseSlug, mode })
+    ? keyOf({ userId, profileId, exerciseSlug, mode, modality })
     : null;
   const [local, setLocal] = useState<LocalSession | null>(null);
   const [retryCounter, setRetryCounter] = useState(0);
@@ -191,7 +194,7 @@ export const useStandaloneSession = (
 
     let cancelled = false;
     setLocal({ scope: scopeKey, id: null, creating: true, error: null });
-    void acquireSession({ userId, profileId, exerciseSlug, mode })
+    void acquireSession({ userId, profileId, exerciseSlug, mode, modality })
       .then(id => {
         if (!cancelled) setLocal({ scope: scopeKey, id, creating: false, error: null });
       })
@@ -206,7 +209,7 @@ export const useStandaloneSession = (
     // StrictMode remount/identity switch: old request may finish for old user
     // but MUST NOT publish its session ID to the new patient's hook.
     return () => { cancelled = true; };
-  }, [userId, profileId, exerciseSlug, mode, scopeKey, providedSessionId, disabled, retryCounter]);
+  }, [userId, profileId, exerciseSlug, mode, modality, scopeKey, providedSessionId, disabled, retryCounter]);
 
   const state = local?.scope === scopeKey ? local : null;
   return {

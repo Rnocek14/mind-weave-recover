@@ -5,7 +5,7 @@
  * Now consumes shared adaptation contract for phoneme targeting + telemetry.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
-import { startSession } from '@/lib/sessionTracking';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { ArrowLeft, Ear, Home, Info } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -45,7 +45,6 @@ export default function MinimalPairsExercise() {
   const lessonSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
   
-  const [sessionId, setSessionId] = useState<string | null>(null);
   // Auto-start when launched from a lesson — no intro gate inside the flow.
   const [isStarted, setIsStarted] = useState(!!fromLesson);
   const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
@@ -95,6 +94,20 @@ export default function MinimalPairsExercise() {
   // Get stats about available pairs
   const stats = getMinimalPairStats();
 
+  // A listening trial must never accept an answer before its session exists.
+  // Share the same identity-scoped acquisition/retry contract as the other
+  // standalone games. Wait for clinical progression before starting the
+  // session to preserve the opening difficulty floor.
+  const {
+    activeSessionId: sessionId,
+    isCreatingSession,
+    sessionError,
+    retrySession,
+  } = useStandaloneSession(user?.id, lessonSessionId, 'minimal_pairs', {
+    disabled: !isStarted || !progression.loaded,
+    modality: 'listening',
+  });
+
   // Unified trial submission — now wired with progression hook (Phase 1 stub).
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
@@ -121,40 +134,6 @@ export default function MinimalPairsExercise() {
     getSessionStats,
   });
   
-  // Initialize session — gated on Clinical Progression load.
-  // Wave 0 fix: without this gate the session and first trials can begin
-  // while `progression.loaded === false`, which means the difficulty bridge
-  // runs against `startingLevel = null` and the game opens at the engine
-  // default (typically L1) regardless of the patient's persisted clinical
-  // level. When state resolves a render later, the bridge recomputes but
-  // the patient has already seen lower-tier content for the opening trials.
-  useEffect(() => {
-    const initSession = async () => {
-      if (!user?.id) return;
-      if (!progression.loaded) return;
-
-      // Use lesson session if provided
-      if (fromLesson && lessonSessionId) {
-        setSessionId(lessonSessionId);
-        return;
-      }
-
-      const session = await startSession(
-        user.id,
-        { blocks: [{ exercise: 'minimal_pairs', duration: 10 }] },
-        { modality: 'listening' }
-      );
-
-      if (session) {
-        setSessionId(session.id);
-      }
-    };
-
-    if (isStarted) {
-      initSession();
-    }
-  }, [user?.id, isStarted, fromLesson, lessonSessionId, progression.loaded]);
-
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
@@ -250,8 +229,11 @@ export default function MinimalPairsExercise() {
   // Wait for the adaptation contract before mounting the game: the pair
   // pool snapshots focusPhonemes at mount, so starting early silently
   // discards the patient's targeted sounds.
-  if (isStarted && adaptation.loading) {
-    return <ExerciseLoading />;
+  if (isStarted && (adaptation.loading || !progression.loaded || isCreatingSession || !sessionId)) {
+    return <ExerciseLoading
+      error={sessionError}
+      onRetry={sessionError ? retrySession : undefined}
+    />;
   }
 
   if (!isStarted) {
