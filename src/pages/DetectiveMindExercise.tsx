@@ -51,9 +51,6 @@ export default function DetectiveMindExercise() {
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
   const [offlineFinished, setOfflineFinished] = useState(false);
-  useEffect(() => {
-    setOfflineFinished(false);
-  }, [user?.id, activeProfile?.id, activeSessionId]);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -89,6 +86,10 @@ export default function DetectiveMindExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  useEffect(() => {
+    setOfflineFinished(false);
+  }, [user?.id, activeProfile?.id, activeSessionId]);
 
   // Wave 2: Clinical Progression v1 — detective-mind L1–L8 ladder.
   // Receptive-safe: submitTrial emits trialMode:'recognition' and the
