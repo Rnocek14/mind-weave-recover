@@ -49,6 +49,7 @@ export default function TwoCluesExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const committedSessionIdRef = useRef<string | null>(null);
   const lastResultsRef = useRef<TwoCluesTrialResult[]>([]);
   const completionInFlightRef = useRef(false);
   const completionSucceededRef = useRef(false);
@@ -228,8 +229,11 @@ export default function TwoCluesExercise() {
         const recovered = await retryFailedSubmissions();
         if (!recovered.ok) throw new Error('Unconfirmed clinical attempts remain');
       }
-      const committed = await commitSession();
-      if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+      if (committedSessionIdRef.current !== activeSessionId) {
+        const committed = await commitSession();
+        if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+        committedSessionIdRef.current = activeSessionId;
+      }
       const sessionSaved = await completeSession();
       if (!sessionSaved) throw new Error('Session closure was not confirmed');
 
@@ -257,7 +261,7 @@ export default function TwoCluesExercise() {
     } finally {
       completionInFlightRef.current = false;
     }
-  }, [fromLesson, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
+  }, [fromLesson, activeSessionId, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
 
   // Navigation
   const handleBack = useCallback(() => {
