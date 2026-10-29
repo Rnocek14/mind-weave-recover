@@ -45,7 +45,6 @@ export default function SynonymGeneratorExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -190,7 +189,6 @@ export default function SynonymGeneratorExercise() {
   }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleConfirmedCompletion = useCallback((results: SynonymRoundResult[]) => {
-    setCompleted(true);
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       dispatchTimeoutRef.current = window.setTimeout(() => {
@@ -253,7 +251,7 @@ export default function SynonymGeneratorExercise() {
             onRetry={() => void retry()}
             onExit={() => navigate('/today')}
           />
-        ) : completed ? (
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Great Work!</h2>
@@ -266,6 +264,7 @@ export default function SynonymGeneratorExercise() {
           </div>
         ) : progression.loaded ? (
           <SynonymGeneratorGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
