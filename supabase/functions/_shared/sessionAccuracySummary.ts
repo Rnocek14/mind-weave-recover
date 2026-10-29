@@ -86,6 +86,19 @@ function hasAuditableSpeechEvidence(row: ScoredRow): boolean {
   );
 }
 
+/**
+ * The canonical "scorable task trial" predicate. Reuse this for clinician
+ * dashboard denominators instead of treating microphone noise, manual
+ * confirmation or conversation turns as failed clinical attempts.
+ */
+export function isScorableTaskAttempt(row: ScoredRow): boolean {
+  return typeof row.score === 'number'
+    && Number.isFinite(row.score)
+    && row.counts_toward_score !== false
+    && row.validity_label !== 'manual_confirmed'
+    && !(typeof row.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(row.exercise_slug));
+}
+
 /** One reducer for both the foreground session and Edge Function timeout path. */
 export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
   const mean = (values: number[]): number | null =>
@@ -97,9 +110,7 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
   const manual = (row: ScoredRow) => row.validity_label === 'manual_confirmed';
   const hasScore = (row: ScoredRow) =>
     typeof row.score === 'number' && Number.isFinite(row.score);
-  const scored = rows.filter(row =>
-    hasScore(row) && row.counts_toward_score !== false && !manual(row) && !excluded(row)
-  );
+  const scored = rows.filter(isScorableTaskAttempt);
   const manualRows = rows.filter(row => hasScore(row) && manual(row) && !excluded(row));
   const all = scored.map(row => row.score as number);
   const independent = scored.filter(row => (row.cue_level ?? 0) === 0).map(row => row.score as number);
