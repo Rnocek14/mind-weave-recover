@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { summarizeTimelineScore, type TimelineScoreEvidence } from '@/lib/clinical/timelineScoreEvidence';
 
 export interface SessionExercise {
   slug: string;
@@ -21,6 +22,8 @@ export interface DaySession {
   exercises: SessionExercise[];
   totalTrials: number;
   avgAccuracy: number;
+  /** Exact weighted total, not a rounded intermediate average. */
+  scoreTotalPct: number;
 }
 
 export interface DayGroup {
@@ -78,7 +81,6 @@ export function useWeeklySessionTimeline(
           .eq("profile_id", profileId)
           .not("ended_at", "is", null)
           .gte("ended_at", start.toISOString())
-          .gte("duration_sec", 30)
           .order("started_at", { ascending: true });
         if (cancelled) return;
         if (sessionError || !Array.isArray(sessions)) {
@@ -95,7 +97,7 @@ export function useWeeklySessionTimeline(
         // Fetch exercise events for these sessions
         const { data: events, error: eventError } = await supabase
           .from("exercise_events")
-          .select("session_id, exercise_slug, score, audio_storage_path, created_at, task_parameters, outputs, error_type, browser_transcript, whisper_transcript, attempt_id")
+          .select("session_id, exercise_slug, score, audio_storage_path, created_at, task_parameters, outputs, error_type, browser_transcript, whisper_transcript, attempt_id, counts_toward_score, validity_label, clinician_validity_override, engagement_flags")
           .in("session_id", sessionIds)
           .order("created_at", { ascending: true });
         if (cancelled) return;
@@ -154,37 +156,43 @@ export function useWeeklySessionTimeline(
           eventsBySession[ev.session_id]!.push(ev);
         });
 
-        // Build session objects
+        // Build session objects using the same read-side eligibility contract
+        // as the weekly clinician stats. Partial credit is a measured score,
+        // not an automatic failure. A noisy/no-response excluded event must
+        // not silently deflate a patient's demonstrated task accuracy.
         const sessionObjects: Record<string, DaySession> = {};
-        sessions.forEach((s) => {
-          const evts = eventsBySession[s.id] || [];
-          const exerciseMap: Record<string, { trials: number; correct: number; hasAudio: boolean }> = {};
-          evts.forEach((e) => {
-            const slug = e.exercise_slug || "unknown";
-            if (!exerciseMap[slug]) exerciseMap[slug] = { trials: 0, correct: 0, hasAudio: false };
-            exerciseMap[slug].trials++;
-            if (e.score === 1 || e.score === 100) exerciseMap[slug].correct++;
-            if (e.audio_storage_path) exerciseMap[slug].hasAudio = true;
-          });
+        sessions.forEach(session => {
+          const attempts = eventsBySession[session.id] || [];
+          const byExercise = new Map<string, typeof attempts>();
+          for (const attempt of attempts) {
+            const slug = attempt.exercise_slug || 'unknown';
+            const bucket = byExercise.get(slug) || [];
+            bucket.push(attempt);
+            byExercise.set(slug, bucket);
+          }
 
-          const exercises = Object.entries(exerciseMap).map(([slug, data]) => ({
-            slug,
-            trials: data.trials,
-            accuracy: data.trials > 0 ? Math.round((data.correct / data.trials) * 100) : 0,
-            hasAudio: data.hasAudio,
-          }));
+          const exercises: SessionExercise[] = [];
+          for (const [slug, exerciseEvents] of byExercise) {
+            const summary = summarizeTimelineScore(exerciseEvents as TimelineScoreEvidence[]);
+            if (summary.scoredTrials === 0) continue;
+            exercises.push({
+              slug,
+              trials: summary.scoredTrials,
+              accuracy: summary.accuracyPct ?? 0,
+              hasAudio: exerciseEvents.some(event => Boolean(event.audio_storage_path)),
+            });
+          }
 
-          const totalTrials = evts.length;
-          const correct = evts.filter((e) => e.score === 1 || e.score === 100).length;
-
-          sessionObjects[s.id] = {
-            id: s.id,
-            startedAt: s.started_at || "",
-            endedAt: s.ended_at || "",
-            durationMin: Math.round((s.duration_sec || 0) / 60),
+          const summary = summarizeTimelineScore(attempts as TimelineScoreEvidence[]);
+          sessionObjects[session.id] = {
+            id: session.id,
+            startedAt: session.started_at || '',
+            endedAt: session.ended_at || '',
+            durationMin: Math.round((session.duration_sec || 0) / 60),
             exercises,
-            totalTrials,
-            avgAccuracy: totalTrials > 0 ? Math.round((correct / totalTrials) * 100) : 0,
+            totalTrials: summary.scoredTrials,
+            avgAccuracy: summary.accuracyPct ?? 0,
+            scoreTotalPct: summary.scoreSumPct,
           };
         });
 
@@ -198,7 +206,7 @@ export function useWeeklySessionTimeline(
         const dayMap: Record<string, DaySession[]> = {};
 
         Object.values(sessionObjects).forEach((s) => {
-          const date = s.endedAt.slice(0, 10);
+          const date = localYYYYMMDD(new Date(s.endedAt));
           if (!dayMap[date]) dayMap[date] = [];
           dayMap[date].push(s);
         });
@@ -213,10 +221,7 @@ export function useWeeklySessionTimeline(
 
           const totalTrials = daySessions.reduce((s, ds) => s + ds.totalTrials, 0);
           const totalMinutes = daySessions.reduce((s, ds) => s + ds.durationMin, 0);
-          const allCorrect = daySessions.reduce((s, ds) => {
-            const c = Math.round((ds.avgAccuracy / 100) * ds.totalTrials);
-            return s + c;
-          }, 0);
+          const scoreTotalPct = daySessions.reduce((sum, session) => sum + session.scoreTotalPct, 0);
 
           groups.push({
             date: dateStr,
@@ -224,7 +229,7 @@ export function useWeeklySessionTimeline(
             sessions: daySessions,
             totalTrials,
             totalMinutes,
-            avgAccuracy: totalTrials > 0 ? Math.round((allCorrect / totalTrials) * 100) : null,
+            avgAccuracy: totalTrials > 0 ? Math.round(scoreTotalPct / totalTrials * 10) / 10 : null,
             isToday: dateStr === today,
           });
         }
@@ -277,11 +282,12 @@ export function useWeeklySessionTimeline(
     const totalSessions = dayGroups.reduce((s, d) => s + d.sessions.length, 0);
     const totalTrials = dayGroups.reduce((s, d) => s + d.totalTrials, 0);
     const totalMinutes = dayGroups.reduce((s, d) => s + d.totalMinutes, 0);
-    const allCorrect = dayGroups.reduce((s, d) => {
-      if (d.avgAccuracy !== null) return s + Math.round((d.avgAccuracy / 100) * d.totalTrials);
-      return s;
-    }, 0);
-    const avgAccuracy = totalTrials > 0 ? Math.round((allCorrect / totalTrials) * 100) : null;
+    const scoreTotalPct = dayGroups.reduce(
+      (total, day) => total + day.sessions.reduce(
+        (subTotal, session) => subTotal + session.scoreTotalPct, 0
+      ), 0
+    );
+    const avgAccuracy = totalTrials > 0 ? Math.round(scoreTotalPct / totalTrials * 10) / 10 : null;
     return { activeDays, totalSessions, totalTrials, totalMinutes, avgAccuracy };
   }, [dayGroups]);
 
