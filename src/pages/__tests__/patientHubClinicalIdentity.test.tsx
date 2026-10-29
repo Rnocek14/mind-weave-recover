@@ -201,7 +201,11 @@ describe('clinician PatientHub verified patient ownership boundary', () => {
     mount();
     expect(await screen.findByTestId('listen-identity')).toHaveTextContent('owner-patient-a:patient-a');
     screen.getByRole('link', { name: 'Switch to B' }).click();
-    expect(await screen.findByTestId('listen-identity')).toHaveTextContent('owner-patient-b:patient-b');
+    // The previously mounted patient's card already exists; wait for the
+    // router transition and new patient lookup rather than querying the old node.
+    await waitFor(() => {
+      expect(screen.getByTestId('listen-identity')).toHaveTextContent('owner-patient-b:patient-b');
+    });
     expect(screen.queryByText('Patient patient-a')).toBeNull();
     expect(screen.getByText('Patient patient-b')).toBeVisible();
   });
