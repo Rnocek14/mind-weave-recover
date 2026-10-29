@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { format, subDays } from 'date-fns';
 import { buildClinicianReport } from './clinicianReportBuilder';
 import type { DailyTrend } from '@/hooks/useWeeklyTrends';
