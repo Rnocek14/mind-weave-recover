@@ -107,6 +107,10 @@ export function useVerifiedExerciseCompletion<T>({
       }
       return true;
     } catch {
+      // Clear the in-flight mutex BEFORE showing the retry button. A patient
+      // (or fast screen reader tap) can otherwise see the error action while
+      // the previous attempt still reports pending and silently ignore it.
+      current.pending = false;
       if (mountedRef.current && current === stateRef.current && current.scope === scope) {
         setSaveState('error');
       }
