@@ -7,7 +7,7 @@
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FixSentenceGame } from '@/components/FixSentenceGame';
 import { FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
@@ -16,6 +16,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -41,12 +43,15 @@ export default function FixSentenceExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   // Validation harness: ?validation=1 → 10 trials so adaptation can show both
   // UP and DOWN within one session. Production users still get 5.
   const validationTrialCount = useValidationTrialCount(5, 10);
   const [recap, setRecap] = useState<CommitSessionResult['progressionSnapshot'] | null>(null);
-  const finalizeAfterRecapRef = useRef<(() => void) | null>(null);
+  const confirmedProgressionRef = useRef<CommitSessionResult['progressionSnapshot'] | null>(null);
+  const dispatchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (dispatchTimeoutRef.current !== null) clearTimeout(dispatchTimeoutRef.current);
+  }, []);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -115,7 +120,7 @@ export default function FixSentenceExercise() {
   // Unified trial submission — fans out to exercise_events,
   // adaptation_trial_logs (auto-wired in-game), clinical_progression_state,
   // and user_skill_mastery on commit.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -165,67 +170,64 @@ export default function FixSentenceExercise() {
     });
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
-  const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
-    // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
-    // auto-wired adaptation_trial_logs buffer BEFORE persisting progression
-    // and navigating, so the last trial isn't lost when the component unmounts.
-    try { await flushAdaptationLogsRef.current?.(); } catch (err) {
-      console.warn('[FixSentenceExercise] adaptation flush error', err);
+  const verifiedCommit = useCallback(async () => {
+    // FixSentenceGame owns an in-game adaptation log buffer; its final row
+    // must flush before we can claim a complete clinical session.
+    // A failed flush is recoverable on the same original result without
+    // falsely reporting a completed lesson.
+    try {
+      await flushAdaptationLogsRef.current?.();
+    } catch (error) {
+      console.warn('[FixSentenceExercise] Final adaptation log flush not confirmed', error);
+      return { ok: false };
     }
 
+    const saved = await commitSession();
+    if (saved.ok) confirmedProgressionRef.current = saved.progressionSnapshot;
+    return saved;
+  }, [commitSession]);
+
+  const handleConfirmedCompletion = useCallback((results: FixSentenceTrialResult[]) => {
+    if (fromLesson) {
+      dispatchTimeoutRef.current = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: EXERCISE_SLUG, results },
+        }));
+        navigate(returnTo, { state: { resuming: true }, replace: true });
+      }, 400);
+    } else if (confirmedProgressionRef.current) {
+      // The patient's progression recap is a reward for a verified save.
+      // Never show it after a partial commit or a failed session close.
+      setRecap(confirmedProgressionRef.current);
+    }
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<FixSentenceTrialResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession: verifiedCommit,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: FixSentenceTrialResult[]) => {
     if (import.meta.env.DEV) {
-      const buffered = (progression as any)?.__bufferedTrialCount?.();
-      console.groupCollapsed('[FixSentence][AccountingDiagnostic]');
-      console.log('expectedTrialCount:', validationTrialCount);
-      console.log('completedTrialResults:', results.length);
-      console.log('progressionBufferedTrials:', buffered ?? '(unavailable)');
-      console.log('clinicalFloor:', bridge.clinicalFloor, 'raised:', bridge.raised);
-      console.groupEnd();
+      console.info('[FixSentence] Finished trials, awaiting verified save', {
+        expectedTrialCount: validationTrialCount,
+        resultCount: results.length,
+        clinicalFloor: bridge.clinicalFloor,
+      });
     }
-
-    // Unified commit: progression flush + mastery shadow flush in one call.
-    const commitResult = await commitSession();
-
-    const finalize = () => {
-      setCompleted(true);
-      completeSession();
-      if (fromLesson) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('exercise-complete', {
-            detail: { exerciseSlug: EXERCISE_SLUG, results },
-          }));
-          navigate(returnTo, { state: { resuming: true }, replace: true });
-        }, 400);
-      }
-    };
-
-    // Show patient-facing progression recap when we have real movement data.
-    // If snapshot is missing (no buffered trials, persist failed, or already
-    // flushed), skip the overlay and finalize immediately to avoid dead state.
-    // Never mid-lesson: a "Session complete / Clinical Level" overlay between
-    // lesson games reads as the whole session ending. The lesson has its own
-    // closing summary; the recap is for standalone runs.
-    if (commitResult.progressionSnapshot && !fromLesson) {
-      finalizeAfterRecapRef.current = finalize;
-      setRecap(commitResult.progressionSnapshot);
-    } else {
-      finalize();
-    }
-  }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
+    void finish(results);
+  }, [bridge.clinicalFloor, finish, validationTrialCount]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
-  const handleContinue = useCallback(() => {
-    if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete', {
-        detail: { exerciseSlug: EXERCISE_SLUG },
-      }));
-    } else {
-      navigate('/today');
-    }
-  }, [fromLesson, navigate]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
   // Wait for the adaptation contract too: games snapshot their trial pool on
   // mount, so mounting before struggling-phoneme targeting resolves would
@@ -247,12 +249,7 @@ export default function FixSentenceExercise() {
           prev={recap.prev}
           next={recap.next}
           leveledUp={recap.leveledUp}
-          onContinue={() => {
-            const fn = finalizeAfterRecapRef.current;
-            finalizeAfterRecapRef.current = null;
-            setRecap(null);
-            fn?.();
-          }}
+          onContinue={() => setRecap(null)}
         />
       )}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
@@ -269,7 +266,13 @@ export default function FixSentenceExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
@@ -292,6 +295,7 @@ export default function FixSentenceExercise() {
                 return null;
               })()}
             <FixSentenceGame
+              key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
               onTrialComplete={handleTrialComplete}
               onGameComplete={handleGameComplete}
               trialCount={validationTrialCount}
