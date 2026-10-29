@@ -134,7 +134,7 @@ export default function MeaningMatchExercise() {
   // useMeaningMatchProgression — every submitTrial buffers a clinical trial
   // and commitSession flushes the L1–L8 ladder. trialMode stays 'recognition'
   // (receptive-safe routing; see comment above).
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -224,13 +224,17 @@ export default function MeaningMatchExercise() {
     presetId,
   ]);
 
-  const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[], retryUnconfirmed = false) => {
     if (completionInFlightRef.current) return;
     completionInFlightRef.current = true;
     lastResultsRef.current = results;
     setSaveState('saving');
 
     try {
+      if (retryUnconfirmed) {
+        const recovered = await retryFailedSubmissions();
+        if (!recovered.ok) throw new Error('Unconfirmed clinical attempts remain');
+      }
       // Both clinical trial persistence and the session's summary write MUST
       // succeed before a patient sees "complete" or a lesson advances.
       // commitSession also waits for outstanding trial writes.
@@ -262,7 +266,7 @@ export default function MeaningMatchExercise() {
     } finally {
       completionInFlightRef.current = false;
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  }, [fromLesson, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -313,7 +317,7 @@ export default function MeaningMatchExercise() {
             <Button
               size="lg"
               className="min-h-14 w-full text-lg"
-              onClick={() => void handleGameComplete(lastResultsRef.current)}
+              onClick={() => void handleGameComplete(lastResultsRef.current, true)}
             >
               Try saving again
             </Button>
