@@ -53,15 +53,18 @@ export function useWeeklySessionTimeline(
   const [recordings, setRecordings] = useState<WeeklyRecording[]>([]);
   const [exerciseSlugs, setExerciseSlugs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!profileId) {
-      setIsLoading(false);
-      return;
-    }
+    let cancelled = false;
+    setDayGroups([]);
+    setRecordings([]);
+    setExerciseSlugs([]);
+    setError(null);
+    setIsLoading(!!profileId);
+    if (!profileId) return () => { cancelled = true; };
 
     const load = async () => {
-      setIsLoading(true);
       try {
         const now = new Date();
         const start = new Date(now);
@@ -69,7 +72,7 @@ export function useWeeklySessionTimeline(
         start.setHours(0, 0, 0, 0);
 
         // Fetch sessions
-        const { data: sessions } = await supabase
+        const { data: sessions, error: sessionError } = await supabase
           .from("sessions")
           .select("id, started_at, ended_at, duration_sec, profile_id")
           .eq("profile_id", profileId)
@@ -77,29 +80,40 @@ export function useWeeklySessionTimeline(
           .gte("ended_at", start.toISOString())
           .gte("duration_sec", 30)
           .order("started_at", { ascending: true });
+        if (cancelled) return;
+        if (sessionError || !Array.isArray(sessions)) {
+          throw sessionError ?? new Error('Session history evidence unavailable');
+        }
 
-        if (!sessions?.length) {
+        if (!sessions.length) {
           buildEmptyDays(start, daysBack);
-          setIsLoading(false);
           return;
         }
 
         const sessionIds = sessions.map((s) => s.id);
 
         // Fetch exercise events for these sessions
-        const { data: events } = await supabase
+        const { data: events, error: eventError } = await supabase
           .from("exercise_events")
           .select("session_id, exercise_slug, score, audio_storage_path, created_at, task_parameters, outputs, error_type, browser_transcript, whisper_transcript, attempt_id")
           .in("session_id", sessionIds)
           .order("created_at", { ascending: true });
+        if (cancelled) return;
+        if (eventError || !Array.isArray(events)) {
+          throw eventError ?? new Error('Session trial evidence unavailable');
+        }
 
         // Also fetch utterance_analyses for audio
-        const { data: utterances } = await supabase
+        const { data: utterances, error: utteranceError } = await supabase
           .from("utterance_analyses")
           .select("attempt_id, session_id, exercise_slug, target_word, transcript, is_correct, error_type, audio_storage_path, created_at")
           .in("session_id", sessionIds)
           .not("audio_storage_path", "is", null)
           .order("created_at", { ascending: false });
+        if (cancelled) return;
+        if (utteranceError || !Array.isArray(utterances)) {
+          throw utteranceError ?? new Error('Speech review evidence unavailable');
+        }
 
         // Build recordings list
         const recs: WeeklyRecording[] = (utterances || []).map((u) => ({
@@ -131,7 +145,7 @@ export function useWeeklySessionTimeline(
           }
         });
 
-        setRecordings(recs);
+        if (!cancelled) setRecordings(recs);
 
         // Group events by session → exercise
         const eventsBySession: Record<string, typeof events> = {};
@@ -177,7 +191,7 @@ export function useWeeklySessionTimeline(
         // Collect all exercise slugs
         const allSlugs = new Set<string>();
         Object.values(sessionObjects).forEach((s) => s.exercises.forEach((e) => allSlugs.add(e.slug)));
-        setExerciseSlugs(Array.from(allSlugs).sort());
+        if (!cancelled) setExerciseSlugs(Array.from(allSlugs).sort());
 
         // Group by day
         const today = localYYYYMMDD();
@@ -215,11 +229,17 @@ export function useWeeklySessionTimeline(
           });
         }
 
-        setDayGroups(groups);
+        if (!cancelled) setDayGroups(groups);
       } catch (err) {
-        console.error("[useWeeklySessionTimeline] error:", err);
+        console.error("[useWeeklySessionTimeline] clinical evidence read failed:", err);
+        if (!cancelled) {
+          setError('Session history unavailable. Please retry.');
+          setDayGroups([]);
+          setRecordings([]);
+          setExerciseSlugs([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
@@ -240,12 +260,15 @@ export function useWeeklySessionTimeline(
           isToday: dateStr === today,
         });
       }
-      setDayGroups(groups);
-      setExerciseSlugs([]);
-      setRecordings([]);
+      if (!cancelled) {
+        setDayGroups(groups);
+        setExerciseSlugs([]);
+        setRecordings([]);
+      }
     };
 
-    load();
+    void load();
+    return () => { cancelled = true; };
   }, [profileId, daysBack]);
 
   // Summary stats
@@ -262,5 +285,5 @@ export function useWeeklySessionTimeline(
     return { activeDays, totalSessions, totalTrials, totalMinutes, avgAccuracy };
   }, [dayGroups]);
 
-  return { dayGroups, recordings, exerciseSlugs, summary, isLoading };
+  return { dayGroups, recordings, exerciseSlugs, summary, isLoading, error };
 }
