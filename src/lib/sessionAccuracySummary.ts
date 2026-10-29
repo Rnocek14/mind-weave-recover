@@ -18,7 +18,13 @@ import {
 export { reduceAccuracy, accuracySummaryToSummaryFields };
 export type { ScoredRow, SessionAccuracySummary };
 
-/** Fetch the session's scored trials and reduce them. Never throws. */
+/**
+ * Fetch the session's scored attempts and reduce them.
+ *
+ * A successful zero-row result is real insufficient data. A failed database
+ * read is NOT evidence of zero attempts; fail closed so the session-end writer
+ * cannot mark a clinical summary complete with invented empty metrics.
+ */
 export async function computeSessionAccuracySummary(
   sessionId: string | null,
 ): Promise<SessionAccuracySummary> {
@@ -28,9 +34,13 @@ export async function computeSessionAccuracySummary(
       .from('exercise_events')
       .select('score, cue_level, counts_toward_score, validity_label, exercise_slug, task_parameters, engagement_flags, whisper_transcript, browser_transcript')
       .eq('session_id', sessionId);
-    if (error || !data) return { ...EMPTY_SESSION_ACCURACY };
+    if (error || !Array.isArray(data)) {
+      throw new Error('Session accuracy evidence unavailable');
+    }
     return reduceAccuracy(data as ScoredRow[]);
   } catch {
-    return { ...EMPTY_SESSION_ACCURACY };
+    // Never treat an unverified read as an actual empty session. Do not
+    // include patient identifiers or provider errors in the public message.
+    throw new Error('Session accuracy evidence unavailable');
   }
 }
