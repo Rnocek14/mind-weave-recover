@@ -41,7 +41,6 @@ export default function CategoryFluencyExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -248,7 +247,6 @@ export default function CategoryFluencyExercise() {
       }, 400);
     } else {
       // Standalone mode: mark completed so the game summary stays visible with onFinish
-      setCompleted(true);
     }
   }, [fromLesson, navigate, returnTo, blockIndex]);
 
@@ -307,11 +305,12 @@ export default function CategoryFluencyExercise() {
           />
         ) : (
           <CategoryFluencyGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
-            onFinish={!fromLesson && completed ? handleFinish : undefined}
+            onFinish={!fromLesson && saveState === 'complete' ? handleFinish : undefined}
             roundCount={roundCount}
             autoStartFirst={fromLesson}
             userId={user?.id}
