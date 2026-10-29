@@ -165,4 +165,39 @@ test.describe('Audit: Meaning Match complete recognition exercise', () => {
       await other.auth.signOut();
     }
   });
+  test('does not celebrate or advance after a simulated session close failure', async ({ anonPage: page }) => {
+    test.setTimeout(120_000);
+    let rejectedClose = 0;
+    // The real game runs against isolated staging. Only the final persistence
+    // response is fault-injected; no permissions or patient records are altered.
+    await page.route('**/rest/v1/sessions?*', async route => {
+      const req = route.request();
+      if (req.method() === 'PATCH' && /"ended_at"\s*:/.test(req.postData() ?? '')) {
+        rejectedClose += 1;
+        return route.fulfill({
+          status: 503,
+          headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+          body: JSON.stringify({ code: 'AUDIT_SIMULATED_FAILURE', message: 'Synthetic save failure' }),
+        });
+      }
+      return route.continue();
+    });
+    await page.addInitScript(() => {
+      if (location.pathname === '/exercise/meaning-match') {
+        const state = history.state ?? {};
+        history.replaceState({ ...state, usr: { ...(state.usr ?? {}), trialLimit: 2 } }, '', location.href);
+      }
+    });
+    await page.goto('/exercise/meaning-match');
+    for (let i = 1; i <= 2; i++) {
+      await expect(page.getByText(i + ' of 2', { exact: true })).toBeVisible({ timeout: 25_000 });
+      await page.getByRole('button', { name: /^A\./ }).click();
+      await page.getByRole('button', { name: /Next/ }).click();
+    }
+    await expect.poll(() => rejectedClose, { timeout: 20_000 }).toBeGreaterThan(0);
+    await expect(page.getByRole('alert')).toContainText(/not saved|couldn't save|could not save/i, { timeout: 20_000 });
+    await expect(page.getByRole('button', { name: /try saving again/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Arena Complete!' })).toHaveCount(0);
+  });
+
 });
