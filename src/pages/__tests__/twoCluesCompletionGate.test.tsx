@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   commitSession: vi.fn(),
   completeSession: vi.fn(),
   submitTrial: vi.fn(),
+  retryFailedSubmissions: vi.fn(),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -50,6 +51,7 @@ vi.mock('@/lib/progression/twoCluesDifficultyBridge', () => ({
 vi.mock('@/hooks/useTrialSubmission', () => ({
   useTrialSubmission: () => ({
     submitTrial: mocks.submitTrial, commitSession: mocks.commitSession,
+    retryFailedSubmissions: mocks.retryFailedSubmissions,
   }),
 }));
 vi.mock('@/hooks/useExerciseMidSessionPivot', () => ({
@@ -94,6 +96,7 @@ beforeEach(() => {
   mocks.commitSession.mockResolvedValue({ ok: true });
   mocks.completeSession.mockResolvedValue(true);
   mocks.submitTrial.mockResolvedValue({ ok: true });
+  mocks.retryFailedSubmissions.mockResolvedValue({ ok: true, recovered: 0, remaining: 0 });
 });
 afterEach(() => { cleanup(); });
 
@@ -128,6 +131,36 @@ describe('Two Clues: patient-visible completion requires confirmed persistence',
     close.resolve(true);
     expect(await screen.findByRole('heading', { name: 'Exercise Complete!' })).toBeVisible();
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires explicit raw-trial recovery before retrying a failed commit', async () => {
+    mocks.commitSession.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });
+    mocks.retryFailedSubmissions.mockResolvedValue({ ok: true, recovered: 1, remaining: 0 });
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Two Clues' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.retryFailedSubmissions).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Exercise Complete!' })).toBeVisible();
+    expect(mocks.retryFailedSubmissions).toHaveBeenCalledTimes(1);
+    expect(mocks.retryFailedSubmissions.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.commitSession.mock.invocationCallOrder[1]);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('must not close the session if a failed clinical attempt cannot be recovered', async () => {
+    mocks.commitSession.mockResolvedValueOnce({ ok: false });
+    mocks.retryFailedSubmissions.mockResolvedValue({ ok: false, recovered: 0, remaining: 1 });
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Two Clues' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    await waitFor(() => expect(mocks.retryFailedSubmissions).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).not.toHaveBeenCalled();
   });
 
   it('keeps results for an explicit retry after a failed session close', async () => {
