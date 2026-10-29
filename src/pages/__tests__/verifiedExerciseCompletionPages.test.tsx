@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   completeSession: vi.fn(),
   retryFailedSubmissions: vi.fn(),
   submitTrial: vi.fn(),
+  flushAdaptationLogs: vi.fn(),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -93,6 +94,38 @@ vi.mock('@/lib/progression/detectiveMindDifficultyBridge', () => ({
   }),
 }));
 vi.mock('@/lib/exerciseDetailsStore', () => ({ saveExerciseDetails: vi.fn() }));
+vi.mock('@/hooks/useFixSentenceProgression', () => ({
+  useFixSentenceProgression: () => ({ loaded: true, startingLevel: 1, state: null }),
+}));
+vi.mock('@/lib/progression/fixSentenceDifficultyBridge', () => ({
+  resolveEffectiveFixSentenceInitialDifficulty: () => ({
+    clinicalFloor: 1, raised: false, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/hooks/useValidationTrialCount', () => ({
+  useValidationTrialCount: () => 5,
+}));
+vi.mock('@/components/ProgressionRecap', () => ({
+  ProgressionRecap: ({ onContinue }: { onContinue: () => void }) => (
+    <button onClick={onContinue}>Continue verified recap</button>
+  ),
+}));
+vi.mock('@/lib/progression/fixSentenceLevels', () => ({
+  getFixSentenceLevelSpec: () => ({ description: 'Synthetic clinical level' }),
+}));
+vi.mock('@/components/FixSentenceGame', () => ({
+  FixSentenceGame: ({ onGameComplete, registerFlush }: {
+    onGameComplete: (r: unknown[]) => void;
+    registerFlush: (fn: () => Promise<void>) => void;
+  }) => {
+    registerFlush(() => mocks.flushAdaptationLogs());
+    return (
+      <button onClick={() => onGameComplete([{ isCorrect: true, trialId: 'synthetic-fix' }])}>
+        Finish sentence
+      </button>
+    );
+  },
+}));
 vi.mock('@/data/minimalPairsBank', () => ({
   getMinimalPairStats: () => ({ total: 10, byCategory: { phonemic: 10 } }),
 }));
@@ -152,6 +185,7 @@ import SynonymGeneratorExercise from '../SynonymGeneratorExercise';
 import DetectiveMindExercise from '../DetectiveMindExercise';
 import DescribeGuessExercise from '../DescribeGuessExercise';
 import MinimalPairsExercise from '../MinimalPairsExercise';
+import FixSentenceExercise from '../FixSentenceExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
@@ -167,6 +201,7 @@ beforeEach(() => {
   mocks.completeSession.mockResolvedValue(true);
   mocks.retryFailedSubmissions.mockResolvedValue({ ok: true });
   mocks.submitTrial.mockResolvedValue({ ok: true });
+  mocks.flushAdaptationLogs.mockResolvedValue(undefined);
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -243,6 +278,57 @@ describe('patient completion and retry across actual exercise pages', () => {
     expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
     expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('Fix Sentence blocks completion when the final adaptation flush is unconfirmed', async () => {
+    mocks.flushAdaptationLogs.mockRejectedValueOnce(new Error('synthetic adaptation timeout'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      render(<MemoryRouter><FixSentenceExercise /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: 'Finish sentence' }));
+      expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+      expect(mocks.commitSession).not.toHaveBeenCalled();
+      expect(mocks.completeSession).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+      expect(await screen.findByRole('heading', { name: 'Exercise Complete!' })).toBeVisible();
+      expect(mocks.flushAdaptationLogs).toHaveBeenCalledTimes(2);
+      expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+      expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    } finally { warn.mockRestore(); }
+  });
+
+  it('Fix Sentence does not show a progression recap or advance a lesson before the database confirms session close', async () => {
+    mocks.fromLesson = true;
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const sent = vi.fn();
+    window.addEventListener('exercise-complete', sent);
+    try {
+      render(<MemoryRouter><FixSentenceExercise /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: 'Finish sentence' }));
+      expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+      expect(sent).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+      expect(await screen.findByRole('heading', { name: 'Exercise Complete!' })).toBeVisible();
+      expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+      expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+    } finally { window.removeEventListener('exercise-complete', sent); }
+  });
+
+  it('Fix Sentence only shows the clinical progression recap after successful persistence', async () => {
+    mocks.commitSession.mockResolvedValue({
+      ok: true,
+      progressionSnapshot: {
+        prev: { level: 1, progressPct: 1 },
+        next: { level: 2, progressPct: 0 },
+        leveledUp: true,
+      },
+    });
+    render(<MemoryRouter><FixSentenceExercise /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'Continue verified recap' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Finish sentence' }));
+    expect(await screen.findByRole('button', { name: 'Continue verified recap' })).toBeVisible();
+    expect(mocks.completeSession).toHaveBeenCalledTimes(1);
   });
 
   it('a failed lesson game must never dispatch the next-exercise event', async () => {
