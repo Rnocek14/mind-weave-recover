@@ -50,7 +50,8 @@ describe('verified exercise completion patient and clinical-save boundaries', ()
 
     await act(async () => { close.resolve(true); expect(await completion).toBe(true); });
     expect(result.current.saveState).toBe('complete');
-    expect(services.onConfirmed).toHaveBeenCalledExactlyOnceWith(['synthetic-answer']);
+    expect(services.onConfirmed).toHaveBeenCalledTimes(1);
+    expect(services.onConfirmed).toHaveBeenCalledWith(['synthetic-answer']);
   });
 
   it('fails closed before session close and downstream success when a raw commit failed', async () => {
@@ -77,7 +78,8 @@ describe('verified exercise completion patient and clinical-save boundaries', ()
     expect(services.retryFailedSubmissions).toHaveBeenCalledTimes(2);
     expect(services.commitSession).toHaveBeenCalledTimes(2);
     expect(services.completeSession).toHaveBeenCalledTimes(1);
-    expect(services.onConfirmed).toHaveBeenCalledExactlyOnceWith(['first-result']);
+    expect(services.onConfirmed).toHaveBeenCalledTimes(1);
+    expect(services.onConfirmed).toHaveBeenCalledWith(['first-result']);
   });
 
   it('retries a failed close without duplicating committed clinical progression', async () => {
@@ -109,7 +111,8 @@ describe('verified exercise completion patient and clinical-save boundaries', ()
       expect(await result.current.finish(['second'])).toBe(false);
     });
     expect(services.commitSession).toHaveBeenCalledTimes(1);
-    expect(services.onConfirmed).toHaveBeenCalledExactlyOnceWith(['answer']);
+    expect(services.onConfirmed).toHaveBeenCalledTimes(1);
+    expect(services.onConfirmed).toHaveBeenCalledWith(['answer']);
   });
 
   it('never closes or announces a stale patient when scope changes during a pending commit', async () => {
@@ -131,7 +134,8 @@ describe('verified exercise completion patient and clinical-save boundaries', ()
     expect(services.onConfirmed).not.toHaveBeenCalled();
     await act(async () => { expect(await result.current.finish(['patient-b'])).toBe(true); });
     expect(services.completeSession).toHaveBeenCalledTimes(1);
-    expect(services.onConfirmed).toHaveBeenCalledExactlyOnceWith(['patient-b']);
+    expect(services.onConfirmed).toHaveBeenCalledTimes(1);
+    expect(services.onConfirmed).toHaveBeenCalledWith(['patient-b']);
   });
 
   it('cannot claim an offline/unknown session is saved', async () => {
