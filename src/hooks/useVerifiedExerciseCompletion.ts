@@ -118,5 +118,10 @@ export function useVerifiedExerciseCompletion<T>({
 
   const finish = useCallback((results: T) => attempt(false, results), [attempt]);
   const retry = useCallback(() => attempt(true), [attempt]);
-  return { saveState, finish, retry };
+  // A scope may change between render and the effect that resets the retry
+  // ledger. Never render the previous patient's "complete" state even for
+  // that single frame.
+  const visibleSaveState: ExerciseSaveState =
+    stateRef.current.scope === scope ? saveState : 'idle';
+  return { saveState: visibleSaveState, finish, retry };
 }
