@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ profileId: 'profile-1', startSession: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ profileId: 'profile-1', startSession: vi.fn(), update: vi.fn(), lookup: vi.fn() }));
 vi.mock('@/lib/sessionTracking', () => ({ startSession: mocks.startSession }));
 vi.mock('@/hooks/useProfile', () => ({
   useProfile: () => ({ activeProfile: mocks.profileId ? { id: mocks.profileId } : null }),
@@ -10,8 +10,9 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: { from: () => ({
     update: (...args: unknown[]) => {
       mocks.update(...args);
-      return { eq: () => ({ is: async () => ({ error: null }) }) };
+      return { eq: () => ({ eq: () => ({ eq: () => ({ is: async () => ({ error: null }) }) }) }) };
     },
+    select: () => ({ eq: (_field: string, id: string) => ({ maybeSingle: () => mocks.lookup(id) }) }),
   }) },
 }));
 
@@ -31,6 +32,10 @@ beforeEach(() => {
   mocks.profileId = 'profile-1';
   mocks.startSession.mockReset();
   mocks.update.mockReset();
+  mocks.lookup.mockReset();
+  mocks.lookup.mockImplementation(async (id: string) => ({
+    data: { id, user_id: 'user-2', profile_id: 'profile-2', ended_at: null }, error: null,
+  }));
   sessionStorage.clear();
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
   vi.setSystemTime(new Date('2026-10-28T12:00:00Z'));
@@ -120,4 +125,58 @@ describe('useStandaloneSession identity and concurrency regression', () => {
     expect(again.result.current.activeSessionId).toBe('second-session');
     expect(mocks.startSession).toHaveBeenCalledTimes(2);
   });
+  it('reports failure and permits a patient to retry after network recovery', async () => {
+    mocks.startSession.mockRejectedValueOnce(new Error('synthetic network error'))
+      .mockResolvedValueOnce({ id: 'recovered-session' });
+    const { result } = renderHook(() => useStandaloneSession('user-1', null, 'two_clues'));
+    await flush();
+    expect(result.current.activeSessionId).toBeNull();
+    expect(result.current.isCreatingSession).toBe(false);
+    expect(result.current.sessionError).toMatch(/Could not start this exercise/);
+    await act(async () => { result.current.retrySession(); });
+    await flush();
+    expect(result.current.activeSessionId).toBe('recovered-session');
+    expect(result.current.sessionError).toBeNull();
+    expect(mocks.startSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('verifies that a cached session is still open before reusing it', async () => {
+    mocks.startSession.mockResolvedValueOnce({ id: 'already-ended' })
+      .mockResolvedValueOnce({ id: 'new-session' });
+    const first = renderHook(() => useStandaloneSession('user-1', null, 'two_clues'));
+    await flush();
+    first.unmount();
+    mocks.lookup.mockResolvedValueOnce({
+      data: { id: 'already-ended', user_id: 'user-1', profile_id: 'profile-1', ended_at: '2026-10-28T00:00:00Z' },
+      error: null,
+    });
+    const second = renderHook(() => useStandaloneSession('user-1', null, 'two_clues'));
+    await flush();
+    expect(mocks.lookup).toHaveBeenCalledWith('already-ended');
+    expect(second.result.current.activeSessionId).toBe('new-session');
+    expect(mocks.startSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails closed on an unverifiable cached session instead of creating a duplicate', async () => {
+    mocks.startSession.mockResolvedValueOnce({ id: 'unverified-session' });
+    const first = renderHook(() => useStandaloneSession('user-1', null, 'two_clues'));
+    await flush();
+    first.unmount();
+    mocks.lookup.mockResolvedValueOnce({ data: null, error: { message: 'synthetic API outage' } });
+    const second = renderHook(() => useStandaloneSession('user-1', null, 'two_clues'));
+    await flush();
+    expect(second.result.current.activeSessionId).toBeNull();
+    expect(second.result.current.sessionError).toMatch(/Could not start this exercise/);
+    expect(mocks.startSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('respects externally owned lesson sessions and disabled callers', async () => {
+    const lesson = renderHook(() => useStandaloneSession('user-1', 'lesson-session-1', 'two_clues'));
+    const blocked = renderHook(() => useStandaloneSession('user-1', null, 'two_clues', { disabled: true }));
+    await flush();
+    expect(lesson.result.current.activeSessionId).toBe('lesson-session-1');
+    expect(blocked.result.current.activeSessionId).toBeNull();
+    expect(mocks.startSession).not.toHaveBeenCalled();
+  });
+
 });
