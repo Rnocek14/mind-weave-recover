@@ -19,7 +19,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
