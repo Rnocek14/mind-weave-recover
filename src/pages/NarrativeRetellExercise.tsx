@@ -73,7 +73,7 @@ export default function NarrativeRetellExercise() {
     cueSensitive: true,  // narrative prompting can benefit from cue personalization
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -195,7 +195,7 @@ export default function NarrativeRetellExercise() {
   }, [fromLesson, navigate, resumeLessonFlow]);
 
   if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

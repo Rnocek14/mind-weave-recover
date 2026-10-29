@@ -112,7 +112,7 @@ export default function DescribeGuessExercise() {
     cueSensitive: true,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -251,7 +251,7 @@ export default function DescribeGuessExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

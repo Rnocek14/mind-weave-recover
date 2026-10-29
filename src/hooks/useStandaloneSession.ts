@@ -214,7 +214,7 @@ export const useStandaloneSession = (
     isCreatingSession: !providedSessionId && !disabled && !!scopeKey && (state?.creating ?? true),
     isStandaloneMode: !providedSessionId && !disabled,
     profileId,
-    sessionError: state?.error ?? null,
+    sessionError: providedSessionId || disabled ? null : state?.error ?? null,
     retrySession,
   };
 };

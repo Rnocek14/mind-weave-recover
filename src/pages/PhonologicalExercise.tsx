@@ -80,7 +80,7 @@ export default function PhonologicalExercise() {
   const trialIndexRef = useRef(0);
   const startTimeRef = useRef(Date.now());
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, lessonSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, lessonSessionId, EXERCISE_SLUG);
 
   // Wave 3: Clinical Progression v1 — phonological-awareness L1–L8 ladder.
   // Receptive-safe: submitTrial emits trialMode:'recognition' and the
@@ -258,7 +258,7 @@ export default function PhonologicalExercise() {
   }, [activeSessionId, user?.id, commitSession, completeSession, fromLesson, navigate, returnTo, toast]);
 
   if (isCreatingSession || !activeSessionId) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

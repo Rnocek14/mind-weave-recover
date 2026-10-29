@@ -42,7 +42,7 @@ export default function AbstractCompareExercise() {
   const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 4;
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Shared adaptation contract (session-static seed)
   const adaptation = useSessionAdaptation({
@@ -150,7 +150,7 @@ export default function AbstractCompareExercise() {
   }, [fromLesson, navigate]);
 
   if (isCreatingSession || !activeSessionId) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

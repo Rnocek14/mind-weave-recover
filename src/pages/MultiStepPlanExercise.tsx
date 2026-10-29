@@ -54,7 +54,7 @@ export default function MultiStepPlanExercise() {
   const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Safety: if we can't acquire a session within 12s, surface a recovery UI
   // instead of leaving users on a blank "Loading..." screen (clinical safety).
@@ -215,7 +215,7 @@ export default function MultiStepPlanExercise() {
         </div>
       );
     }
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

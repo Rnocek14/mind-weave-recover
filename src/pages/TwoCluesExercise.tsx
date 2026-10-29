@@ -75,7 +75,7 @@ export default function TwoCluesExercise() {
   });
 
   // Session management
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -255,7 +255,7 @@ export default function TwoCluesExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded && !adaptation.loading;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

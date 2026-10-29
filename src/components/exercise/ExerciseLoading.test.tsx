@@ -56,4 +56,25 @@ describe('ExerciseLoading patient-safe recovery', () => {
     act(() => { vi.advanceTimersByTime(4_999); });
     expect(screen.queryByRole('button')).toBeNull();
   });
+  it('shows a clear failure immediately, with a large retry button that invokes the supplied recovery', () => {
+    const retry = vi.fn();
+    render(
+      <MemoryRouter>
+        <ExerciseLoading error="Could not start this exercise. Check your connection and try again." onRetry={retry} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not start this exercise');
+    expect(screen.queryByRole('status')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Go to Today' })).toBeVisible();
+  });
+
+  it('never presents an inert retry button when a parent has no retry handler', () => {
+    render(<MemoryRouter><ExerciseLoading error="Session unavailable" /></MemoryRouter>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Session unavailable');
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Go to Today' })).toBeVisible();
+  });
+
 });

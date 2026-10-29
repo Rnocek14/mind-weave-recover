@@ -82,7 +82,7 @@ export default function MeaningMatchExercise() {
     cueSensitive: true,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -264,7 +264,7 @@ export default function MeaningMatchExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (

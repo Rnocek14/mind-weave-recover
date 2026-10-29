@@ -72,7 +72,7 @@ export default function DualLoadNamingExercise() {
     cueSensitive: false,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Wave 3: Clinical Progression v1 — dual-load-naming L1–L8 ladder.
   // Persistent Clinical Level supplies a FLOOR for the in-session engine
@@ -219,7 +219,7 @@ export default function DualLoadNamingExercise() {
   }, [fromLesson, navigate]);
 
   if (isCreatingSession || !activeSessionId || adaptation.loading) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
