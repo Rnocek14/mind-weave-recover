@@ -51,6 +51,7 @@ export default function MeaningMatchExercise() {
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const committedSessionIdRef = useRef<string | null>(null);
   const lastResultsRef = useRef<MeaningMatchTrialResult[]>([]);
   const completionInFlightRef = useRef(false);
   const exerciseCompleteSentRef = useRef(false);
@@ -238,8 +239,11 @@ export default function MeaningMatchExercise() {
       // Both clinical trial persistence and the session's summary write MUST
       // succeed before a patient sees "complete" or a lesson advances.
       // commitSession also waits for outstanding trial writes.
-      const committed = await commitSession();
-      if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+      if (committedSessionIdRef.current !== activeSessionId) {
+        const committed = await commitSession();
+        if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+        committedSessionIdRef.current = activeSessionId;
+      }
       const sessionSaved = await completeSession();
       if (!sessionSaved) throw new Error('Session closure was not confirmed');
 
@@ -266,7 +270,7 @@ export default function MeaningMatchExercise() {
     } finally {
       completionInFlightRef.current = false;
     }
-  }, [fromLesson, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
+  }, [fromLesson, activeSessionId, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
