@@ -16,7 +16,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TwoCluesGame } from '@/components/TwoCluesGame';
 import { TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
@@ -48,7 +48,19 @@ export default function TwoCluesExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
-  
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const lastResultsRef = useRef<TwoCluesTrialResult[]>([]);
+  const completionInFlightRef = useRef(false);
+  const completionSucceededRef = useRef(false);
+  const lessonCompletionSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dispatchTimeoutRef.current !== null) window.clearTimeout(dispatchTimeoutRef.current);
+    };
+  }, []);
+
   // Session stats for lifecycle management
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -199,30 +211,46 @@ export default function TwoCluesExercise() {
     }
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptation, adaptationTelemetry, pivot]);
 
-  // Handle game completion
+  // Do not present success or advance a lesson until BOTH the clinical trial
+  // writes and the session-close write are confirmed. A failed result stays
+  // available for explicit retry without restarting the patient's game.
   const handleGameComplete = useCallback(async (results: TwoCluesTrialResult[]) => {
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    await commitSession();
+    if (completionInFlightRef.current || completionSucceededRef.current) return;
+    completionInFlightRef.current = true;
+    lastResultsRef.current = results;
+    setSaveState('saving');
 
-    setCompleted(true);
-    completeSession();
+    try {
+      const committed = await commitSession();
+      if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+      const sessionSaved = await completeSession();
+      if (!sessionSaved) throw new Error('Session closure was not confirmed');
 
-    // Dispatch exercise complete event for lesson flow
-    if (fromLesson) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: {
-            exerciseSlug: EXERCISE_SLUG,
-            results,
-            totalScore: results.reduce((sum, r) => sum + r.score, 0),
-          }
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+      completionSucceededRef.current = true;
+      setCompleted(true);
+      setSaveState('idle');
+
+      if (fromLesson && !lessonCompletionSentRef.current) {
+        lessonCompletionSentRef.current = true;
+        dispatchTimeoutRef.current = window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: {
+              exerciseSlug: EXERCISE_SLUG,
+              results,
+              totalScore: results.reduce((sum, r) => sum + r.score, 0),
+            },
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    } catch {
+      // No false celebration, completion event, or navigation on failed save.
+      // Keep the completed answers in memory so close/flush can be retried.
+      setSaveState('error');
+    } finally {
+      completionInFlightRef.current = false;
     }
   }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
-
-
 
   // Navigation
   const handleBack = useCallback(() => {
@@ -279,7 +307,33 @@ export default function TwoCluesExercise() {
 
       {/* Main content */}
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'error' ? (
+          <div className="max-w-md mx-auto my-auto text-center space-y-5" role="alert">
+            <h2 className="text-2xl font-bold">Practice not saved</h2>
+            <p className="text-lg">
+              We couldn't confirm that your practice was saved. Try saving again.
+            </p>
+            <Button
+              size="lg"
+              className="min-h-14 w-full text-lg"
+              onClick={() => void handleGameComplete(lastResultsRef.current)}
+            >
+              Try saving again
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-h-14 w-full text-lg"
+              onClick={() => navigate('/today')}
+            >
+              Go to Today
+            </Button>
+          </div>
+        ) : saveState === 'saving' ? (
+          <div role="status" aria-live="polite" className="max-w-md mx-auto my-auto text-center text-lg">
+            Saving your answers...
+          </div>
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
