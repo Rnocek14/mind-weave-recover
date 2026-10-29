@@ -130,7 +130,7 @@ export default function TwoCluesExercise() {
   // useTwoCluesProgression — every submitTrial buffers a clinical trial,
   // commitSession flushes the L1–L8 ladder. TwoCluesGame's adaptation is
   // autoLog:false, so the page is the single writer.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -214,13 +214,20 @@ export default function TwoCluesExercise() {
   // Do not present success or advance a lesson until BOTH the clinical trial
   // writes and the session-close write are confirmed. A failed result stays
   // available for explicit retry without restarting the patient's game.
-  const handleGameComplete = useCallback(async (results: TwoCluesTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: TwoCluesTrialResult[], retryUnconfirmed = false) => {
     if (completionInFlightRef.current || completionSucceededRef.current) return;
     completionInFlightRef.current = true;
     lastResultsRef.current = results;
     setSaveState('saving');
 
     try {
+      if (retryUnconfirmed) {
+        // On the patient's explicit retry, reconcile the ORIGINAL clinical
+        // attempts first. Do not fabricate a completed session if any raw
+        // exercise_events row is still unconfirmed.
+        const recovered = await retryFailedSubmissions();
+        if (!recovered.ok) throw new Error('Unconfirmed clinical attempts remain');
+      }
       const committed = await commitSession();
       if (!committed.ok) throw new Error('Trial persistence was not confirmed');
       const sessionSaved = await completeSession();
@@ -250,7 +257,7 @@ export default function TwoCluesExercise() {
     } finally {
       completionInFlightRef.current = false;
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  }, [fromLesson, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
 
   // Navigation
   const handleBack = useCallback(() => {
@@ -316,7 +323,7 @@ export default function TwoCluesExercise() {
             <Button
               size="lg"
               className="min-h-14 w-full text-lg"
-              onClick={() => void handleGameComplete(lastResultsRef.current)}
+              onClick={() => void handleGameComplete(lastResultsRef.current, true)}
             >
               Try saving again
             </Button>
