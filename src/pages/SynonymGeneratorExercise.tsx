@@ -14,7 +14,7 @@
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SynonymGeneratorGame, type SynonymRoundResult } from '@/components/SynonymGeneratorGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
