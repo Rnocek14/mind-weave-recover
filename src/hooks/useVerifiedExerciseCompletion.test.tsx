@@ -138,6 +138,25 @@ describe('verified exercise completion patient and clinical-save boundaries', ()
     expect(services.onConfirmed).toHaveBeenCalledWith(['patient-b']);
   });
 
+  it('resets a confirmed completion when switching to a different patient session', async () => {
+    const { result, services, rerender } = setup();
+    await act(async () => {
+      expect(await result.current.finish(['patient-a'])).toBe(true);
+    });
+    expect(result.current.saveState).toBe('complete');
+
+    rerender({ scope: 'patient-b:session-b' });
+    expect(result.current.saveState).toBe('idle');
+
+    await act(async () => {
+      expect(await result.current.finish(['patient-b'])).toBe(true);
+    });
+    expect(services.commitSession).toHaveBeenCalledTimes(2);
+    expect(services.completeSession).toHaveBeenCalledTimes(2);
+    expect(services.onConfirmed).toHaveBeenNthCalledWith(1, ['patient-a']);
+    expect(services.onConfirmed).toHaveBeenNthCalledWith(2, ['patient-b']);
+  });
+
   it('cannot claim an offline/unknown session is saved', async () => {
     const { result, services } = setup(null);
     await act(async () => {
