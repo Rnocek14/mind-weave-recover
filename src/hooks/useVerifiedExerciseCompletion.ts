@@ -46,6 +46,11 @@ export function useVerifiedExerciseCompletion<T>({
     confirmed: false,
     results: null,
   });
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     // A component may remain mounted as a caregiver changes active profiles.
@@ -71,23 +76,25 @@ export function useVerifiedExerciseCompletion<T>({
 
     current.pending = true;
     setSaveState('saving');
+    const isCurrent = () =>
+      mountedRef.current && current === stateRef.current && current.scope === scope;
     try {
       if (retry && !current.committed) {
         const recovery = await retryFailedSubmissions();
+        if (!isCurrent()) return false;
         if (!recovery.ok) throw new Error('Unconfirmed trial writes remain');
       }
 
       if (!current.committed) {
         const commit = await commitSession();
+        if (!isCurrent()) return false;
         if (!commit.ok) throw new Error('Clinical trial commit was not confirmed');
         current.committed = true;
       }
 
       const closed = await completeSession();
+      if (!isCurrent()) return false;
       if (!closed) throw new Error('Session closure was not confirmed');
-
-      // An old outstanding request cannot celebrate or advance a new patient.
-      if (current !== stateRef.current || current.scope !== scope) return false;
       current.confirmed = true;
       setSaveState('complete');
 
@@ -100,7 +107,7 @@ export function useVerifiedExerciseCompletion<T>({
       }
       return true;
     } catch {
-      if (current === stateRef.current && current.scope === scope) {
+      if (mountedRef.current && current === stateRef.current && current.scope === scope) {
         setSaveState('error');
       }
       return false;
