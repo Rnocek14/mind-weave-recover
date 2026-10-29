@@ -9,13 +9,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import {
   reduceAccuracy,
+  isScorableTaskAttempt,
   accuracySummaryToSummaryFields,
   EMPTY_SESSION_ACCURACY,
   type ScoredRow,
   type SessionAccuracySummary,
 } from '../../supabase/functions/_shared/sessionAccuracySummary';
 
-export { reduceAccuracy, accuracySummaryToSummaryFields };
+export { reduceAccuracy, isScorableTaskAttempt, accuracySummaryToSummaryFields };
 export type { ScoredRow, SessionAccuracySummary };
 
 /**
