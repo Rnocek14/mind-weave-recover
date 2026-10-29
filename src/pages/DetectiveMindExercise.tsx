@@ -50,8 +50,10 @@ export default function DetectiveMindExercise() {
   const { user } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const [offlineFinished, setOfflineFinished] = useState(false);
+  useEffect(() => {
+    setOfflineFinished(false);
+  }, [user?.id, activeProfile?.id, activeSessionId]);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -184,7 +186,6 @@ export default function DetectiveMindExercise() {
   }, [activeSessionId, isOfflineMode, submitTrial, adaptationTelemetry, pivot, trialLimit, blockIndex, lessonSource, presetId, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleConfirmedCompletion = useCallback((results: DetectiveTrialResult[]) => {
-    setCompleted(true);
 
     // Reflection is optional but is never published before the raw attempts
     // and session summary have been confirmed saved.
@@ -285,7 +286,7 @@ export default function DetectiveMindExercise() {
               Go to Today
             </Button>
           </div>
-        ) : completed ? (
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🕵️</div>
             <h2 className="text-2xl font-bold">Investigation Complete!</h2>
@@ -300,6 +301,7 @@ export default function DetectiveMindExercise() {
           </div>
         ) : progression.loaded ? (
           <DetectiveMindGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
