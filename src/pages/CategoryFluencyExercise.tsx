@@ -5,7 +5,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CategoryFluencyGame, type CategoryFluencyResult } from '@/components/CategoryFluencyGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -245,8 +245,6 @@ export default function CategoryFluencyExercise() {
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
-    } else {
-      // Standalone mode: mark completed so the game summary stays visible with onFinish
     }
   }, [fromLesson, navigate, returnTo, blockIndex]);
 
