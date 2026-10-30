@@ -198,7 +198,7 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm">Voice enrollment: <strong>{status.replaceAll('_', ' ')}</strong></p>
+            <p className="text-sm">Voice enrollment: <strong>{status.replace(/_/g, ' ')}</strong></p>
             <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
               <RefreshCw className="h-4 w-4 mr-2" aria-hidden /> Refresh
             </Button>
@@ -239,7 +239,7 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
                     <div key={s.id} className="rounded-lg border p-3 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-sm">
-                          <strong>{s.status === 'pending' ? 'Verification pending' : (s.label ?? 'Uncertain').replaceAll('_', ' ')}</strong>
+                          <strong>{s.status === 'pending' ? 'Verification pending' : (s.label ?? 'Uncertain').replace(/_/g, ' ')}</strong>
                           <span className="text-muted-foreground ml-2">{new Date(s.createdAt).toLocaleString()}</span>
                         </div>
                         <Button variant="outline" size="sm" disabled={busy}
