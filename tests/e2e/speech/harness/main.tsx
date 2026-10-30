@@ -1,7 +1,7 @@
 import { useState, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
@@ -117,14 +117,22 @@ export function GameHarness() {
  * Real post-practice review component, seeded through its production word
  * queue. Browser tests run with a controlled microphone boundary and no DB.
  */
-export function ReviewHarness() {
+export function ReviewHarness({ scoped = false }: { scoped?: boolean }) {
   const [seeded, setSeeded] = useState(false);
+  const navigate = useNavigate();
   return <main>
     <h1 className="sr-only">Review chat regression harness</h1>
     {!seeded ? (
       <button onClick={() => {
-        recordPracticedWord('apple', 'food', true);
-        recordPracticedWord('cup', 'household', false);
+        const provenance = scoped ? { sessionId, sourceGame: 'photo_naming' as const } : {};
+        recordPracticedWord('apple', 'food', true, provenance);
+        recordPracticedWord('cup', 'household', false, provenance);
+        if (scoped) {
+          recordPracticedWord('banana', 'food', false, {
+            sessionId: 'another-synthetic-session', sourceGame: 'photo_naming',
+          });
+          navigate('/review-chat', { state: { sessionId } });
+        }
         setSeeded(true);
       }}>Seed practice</button>
     ) : <ReviewChatPage />}
@@ -137,6 +145,8 @@ createRoot(document.getElementById('root')!).render(
     <CoachingModeProvider><KidsModeProvider><LiveAnalysisProvider>
       {new URLSearchParams(location.search).get('view') === 'review'
         ? <ReviewHarness />
+        : new URLSearchParams(location.search).get('view') === 'review-scoped'
+        ? <ReviewHarness scoped />
         : new URLSearchParams(location.search).get('view') === 'game'
         ? <GameHarness />
         : <RecorderHarness />}
