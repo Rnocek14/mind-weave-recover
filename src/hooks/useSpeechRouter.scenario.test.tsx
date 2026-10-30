@@ -48,7 +48,8 @@ describe("Maya scenario speech ownership", () => {
 
     modeRef.current = "chat_listening";
     act(() => result.current.routeFinal("fresh conversation"));
-    expect(handlers.onChatTranscript).toHaveBeenCalledExactlyOnceWith("fresh conversation", true);
+    expect(handlers.onChatTranscript).toHaveBeenCalledTimes(1);
+    expect(handlers.onChatTranscript).toHaveBeenCalledWith("fresh conversation", true);
     expect(handlers.onScenarioTranscript).toHaveBeenCalledTimes(1);
   });
 
@@ -66,7 +67,8 @@ describe("Maya scenario speech ownership", () => {
 
     modeRef.current = "scenario_listening" as InputMode;
     act(() => result.current.routeFinal("water please"));
-    expect(handlers.onScenarioTranscript).toHaveBeenCalledExactlyOnceWith("water please", true);
+    expect(handlers.onScenarioTranscript).toHaveBeenCalledTimes(1);
+    expect(handlers.onScenarioTranscript).toHaveBeenCalledWith("water please", true);
     expect(handlers.onCardTranscript).toHaveBeenCalledTimes(1);
   });
 });
