@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   assessStagingRun, findExactStagingRun, waitForStagingEvidence,
@@ -131,4 +132,26 @@ test('missing auth, repo or head SHA cannot cause a network call', async () => {
     }), /required/);
   }
   assert.equal(requests, 0);
+});
+
+test('the protected regression gate wires exact-head staging status and read-only Actions access', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /name: Regression gate/);
+  assert.match(workflow, /actions: read/);
+  assert.match(workflow, /run: node scripts\/verify-staging-release\.mjs/);
+  assert.match(workflow, /PR_HEAD_SHA:\s+\$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+  assert.match(workflow, /PR_HEAD_REF:\s+\$\{\{ github\.event\.pull_request\.head\.ref \}\}/);
+  assert.match(workflow, /needs\.test\.result == 'success'/);
+  assert.match(workflow, /needs\.e2e\.result == 'success'/);
+  assert.match(workflow, /needs\.bundle\.result == 'success'/);
+  assert.doesNotMatch(workflow, /continue-on-error:\s+true/);
+});
+
+test('authenticated staging runs for every internal PR and excludes forks', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/neurospark-audit-staging.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
+  assert.doesNotMatch(workflow, /github\.event\.pull_request\.head\.ref ==/);
+  assert.match(workflow, /environment: neurospark-e2e/);
+  assert.match(workflow, /test:e2e:staging --workers=2 --retries=0/);
+  assert.doesNotMatch(workflow, /continue-on-error:\s+true/);
 });
