@@ -100,6 +100,26 @@ describe("active Conversation Coach: final patient-facing reply guard", () => {
     expect(reply.text).not.toBe(speechGate.approvedText);
   });
 
+  it("interrupts a loop of different generic questions after minimal answers", () => {
+    const output = guardCoachReply({
+      proposed: "What do you think about work?",
+      recentMaya: ["Tell me more about your day?", "Anything else?"],
+      patientReply: "I don't know",
+    });
+    expect(output.reason).toBe("generic_loop");
+    expect(output.text).not.toBe("What do you think about work?");
+  });
+
+  it("keeps a new generic question after a meaningful patient answer", () => {
+    const output = guardCoachReply({
+      proposed: "What do you think about work?",
+      recentMaya: ["Tell me more about your day?", "Anything else?"],
+      patientReply: "I went to the park yesterday",
+    });
+    expect(output.reason).toBeNull();
+    expect(output.text).toBe("What do you think about work?");
+  });
+
   it("preserves a safe, concise prompt unchanged", () => {
     const output = guardCoachReply({
       proposed: "  Tell me about your family. ",
