@@ -53,7 +53,9 @@ test('Sentence Construction: browser speech is accepted by the real grammar-game
   await expect(page.getByTestId('more-speech-game-name')).toHaveText('sentence-construction');
   await expect(page.getByText('Switch to word tiles')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__speechTest.recognition?.active), { timeout: 15_000 }).toBe(true);
-  const wordTokens = await page.locator('div[class*="bg-muted/50"] span').allTextContents();
+  // The visible word bank uses Badge divs, not span elements. Use its
+  // actual rendered options rather than introducing test-only words.
+  const wordTokens = await page.locator('div[class*="bg-muted/50"] > div').allTextContents();
   const selected = wordTokens.map(w => w.trim()).filter(w => /^[a-z]+$/i.test(w)).slice(0, 4);
   expect(selected.length).toBeGreaterThan(0);
   await emitRecognition(page, selected.join(' '));
