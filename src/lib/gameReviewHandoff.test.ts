@@ -102,6 +102,7 @@ describe("completed-game to bounded Maya practice handoff", () => {
       fixSentence({ phaseAdvance: true }),
       fixSentence({ isCorrect: false, matchedFix: null }),
       fixSentence({ isCorrect: true, matchedFix: null }),
+      fixSentence({ isCorrect: true, matchedFix: "not-a-repair" }),
     ], "lesson-1");
     expect(getTodaysPracticedWords({ sessionId: "lesson-1" })).toEqual([]);
   });
