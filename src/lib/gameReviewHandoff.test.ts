@@ -58,7 +58,9 @@ describe("completed-game to bounded Maya practice handoff", () => {
     ], "lesson-1")).toBe(2);
     const words = getTodaysPracticedWords({ sessionId: "lesson-1" });
     expect(words.map((w) => w.word)).toEqual(["bird", "sparrow"]);
-    expect(words.find((w) => w.word === "sparrow")?.responseMode).toBe("unknown");
+    expect(words.find((w) => w.word === "sparrow")).toMatchObject({
+      category: "animals", responseMode: "unknown",
+    });
     expect(words.find((w) => w.word === "bird")?.struggled).toBe(true);
   });
 
@@ -69,6 +71,9 @@ describe("completed-game to bounded Maya practice handoff", () => {
       twoClues({ tier: "strong", matchedWord: "bird", spokenWord: "" }),
       twoClues({ tier: "related", matchedWord: undefined, spokenWord: "cabbage" }),
       twoClues({ tier: "strong", matchedWord: "bird...", spokenWord: "bird" }),
+      twoClues({ tier: "strong", matchedWord: "cabbage", spokenWord: "cabbage" }),
+      twoClues({ tier: "related", matchedWord: "bird", spokenWord: "bird" }),
+      twoClues({ puzzleId: "nonexistent", matchedWord: "bird" }),
     ], "lesson-1");
     expect(getTodaysPracticedWords({ sessionId: "lesson-1" })).toEqual([]);
   });
