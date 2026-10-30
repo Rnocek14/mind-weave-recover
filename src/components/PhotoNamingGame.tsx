@@ -110,6 +110,10 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
+    /** Actual scored response modality, not an assumed speech attempt. */
+    responseMode?: 'production' | 'recognition' | 'scaffolded' | 'manual';
+    /** A spoken attempt can precede a recognition tap without converting it to ASR evidence. */
+    productionAttempted?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   /** Page-owned unified raw trial, adaptation, and mastery commit. */
@@ -1606,6 +1610,8 @@ export const PhotoNamingGame = ({
       frustrationLevel,
       recentSuccessRate,
       trialCount: state.trialNumber,
+      responseMode: 'production',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     // Compute cue efficacy for timeout (cue was NOT effective since user didn't respond)
@@ -1948,6 +1954,10 @@ export const PhotoNamingGame = ({
     // =====================================================================
     const capturedTrial = state.currentTrial;
     const capturedTrialNumber = state.trialNumber;
+    // The mode and mic state are frozen with the answer, not inferred later
+    // by a background ASR callback after the game has advanced.
+    const capturedResponseMode = inputMode;
+    const capturedProductionAttempted = productionAttemptedRef.current;
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
@@ -2099,6 +2109,8 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
         }, capturedTrial);
 
         // Determine fluency availability
@@ -2225,6 +2237,8 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
         }, capturedTrial);
       }
     })();
@@ -2353,6 +2367,8 @@ export const PhotoNamingGame = ({
       confirmedBy: 'caregiver',
       confirmationMode: 'caregiver',
       asrVerified: false,
+      responseMode: 'scaffolded',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
@@ -2454,6 +2470,8 @@ export const PhotoNamingGame = ({
       confirmedBy: 'user',
       confirmationMode: 'manual',
       asrVerified: false,
+      responseMode: 'manual',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     logFinalAnalysis({
