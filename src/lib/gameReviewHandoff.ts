@@ -8,6 +8,7 @@
  * offered as if their intended answer had been practiced.
  */
 import { FIX_SENTENCE_BANK } from "@/data/fixSentenceBank";
+import { TWO_CLUES_PUZZLES } from "@/data/twoCluesBank";
 import type { TwoCluesTrialResult } from "@/hooks/useTwoCluesGame";
 import type { FixSentenceTrialResult } from "@/hooks/useFixSentenceGame";
 import { recordPracticedWord } from "./reviewQueue";
@@ -28,7 +29,8 @@ const categoryMap: Record<string, string> = {
   animals: "animals", clothing: "clothing", nature: "nature", food: "food",
   home: "household", bathroom: "household", kitchen: "household",
   furniture: "household", household: "household",
-  driving: "transportation", transportation: "transportation",
+  driving: "transportation", transportation: "transportation", transport: "transportation",
+  weather: "nature", garden: "nature",
 };
 
 /**
@@ -48,7 +50,15 @@ export function recordTwoCluesReviewTargets(
     if (typeof result.spokenWord !== "string" || !result.spokenWord.trim()) continue;
     const target = reviewableTarget(result.matchedWord);
     if (!target) continue;
-    if (recordPracticedWord(target, "generic", result.attemptNumber > 1, {
+    // Semantic fallback scoring is NOT evidence of an explicitly matched
+    // vocabulary item. Only pass through a canonical answer that actually
+    // belongs to this puzzle's validated word graph and scoring tier.
+    const puzzle = TWO_CLUES_PUZZLES.find((p) => p.id === result.puzzleId);
+    if (!puzzle) continue;
+    const candidateSet = result.tier === "strong" ? puzzle.anchors : puzzle.cluster;
+    if (!candidateSet.some((word) => word.toLowerCase() === target)) continue;
+    if (recordPracticedWord(target, categoryMap[puzzle.category] ?? "generic",
+      result.attemptNumber > 1, {
       sessionId, sourceGame: "two_clues", responseMode: "unknown",
     })) accepted += 1;
   }
