@@ -578,7 +578,10 @@ function PhotoNamingExerciseInner() {
         cueLevel: result.cueLevel ?? 0,
         supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode,
+        // The unified trial schema uses "scaffolded" for manually confirmed
+        // responses. The exact patient/caregiver manual source remains in the
+        // more specific response_mode and confirmation_mode task metadata.
+        trialMode: trialMode === 'manual' ? 'scaffolded' : trialMode,
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
