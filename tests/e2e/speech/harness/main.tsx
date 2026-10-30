@@ -1,12 +1,18 @@
 import { useState, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
+import { KidsModeProvider } from '@/contexts/KidsModeContext';
+import { recordPracticedWord } from '@/lib/reviewQueue';
+import { recordTwoCluesReviewTargets, recordFixSentenceReviewTargets } from '@/lib/gameReviewHandoff';
+import type { TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
+import type { FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
+import ReviewChatPage from '@/pages/ReviewChatPage';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { voiceController } from '@/lib/voiceController';
 import '@/index.css';
@@ -110,11 +116,59 @@ export function GameHarness() {
   </main>;
 }
 
+/**
+ * Real post-practice review component, seeded through its production word
+ * queue. Browser tests run with a controlled microphone boundary and no DB.
+ */
+export function ReviewHarness({ scoped = false }: { scoped?: boolean }) {
+  const [seeded, setSeeded] = useState(false);
+  const navigate = useNavigate();
+  return <main>
+    <h1 className="sr-only">Review chat regression harness</h1>
+    {!seeded ? (
+      <button onClick={() => {
+        if (scoped) {
+          // Exercise the REAL non-clinical adapters, not a test reimplementation.
+          const twoCluesResult: TwoCluesTrialResult = {
+            puzzleId: 'tc-animals-1', clues: ['tweets', 'flies'],
+            anchors: ['bird'], spokenWord: 'bird', matchedWord: 'bird',
+            tier: 'strong', score: 100, reachedAnchor: true,
+            semanticSimilarity: 1, reactionTimeMs: 3000, attemptNumber: 1,
+          };
+          const fixResult: FixSentenceTrialResult = {
+            trialId: 'fs_8', sentence: 'She poured coffee into a shoe.',
+            wrongWord: 'shoe', spokenWord: 'cup', matchedFix: 'cup',
+            isCorrect: true, isPartialCredit: false, selfCorrected: false,
+            semanticSimilarity: 1, reactionTimeMs: 3500, attemptNumber: 1,
+            difficulty: 1, phonemeTargets: ['/k/'], support: 'choice_based',
+          };
+          recordTwoCluesReviewTargets([twoCluesResult], sessionId);
+          recordFixSentenceReviewTargets([fixResult], sessionId);
+          recordPracticedWord('banana', 'food', false, {
+            sessionId: 'another-synthetic-session', sourceGame: 'photo_naming',
+          });
+          navigate('/review-chat', { state: { sessionId } });
+        } else {
+          recordPracticedWord('apple', 'food', true);
+          recordPracticedWord('cup', 'household', false);
+        }
+        setSeeded(true);
+      }}>Seed practice</button>
+    ) : <ReviewChatPage />}
+  </main>;
+}
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById('root')!).render(
   <MemoryRouter><QueryClientProvider client={client}><ProfileContext.Provider value={profile}>
-    <CoachingModeProvider><LiveAnalysisProvider>
-      {new URLSearchParams(location.search).get('view') === 'game' ? <GameHarness /> : <RecorderHarness />}
-    </LiveAnalysisProvider></CoachingModeProvider>
+    <CoachingModeProvider><KidsModeProvider><LiveAnalysisProvider>
+      {new URLSearchParams(location.search).get('view') === 'review'
+        ? <ReviewHarness />
+        : new URLSearchParams(location.search).get('view') === 'review-scoped'
+        ? <ReviewHarness scoped />
+        : new URLSearchParams(location.search).get('view') === 'game'
+        ? <GameHarness />
+        : <RecorderHarness />}
+    </LiveAnalysisProvider></KidsModeProvider></CoachingModeProvider>
   </ProfileContext.Provider></QueryClientProvider></MemoryRouter>,
 );

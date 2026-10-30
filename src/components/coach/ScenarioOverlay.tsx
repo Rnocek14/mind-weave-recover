@@ -7,7 +7,7 @@
  * Design principles:
  * - Feels like a safe conversation, not a test
  * - "Maya whispers" for scaffolded cues
- * - Functional scoring, not accuracy %
+ * - Show observed practice/support; experimental score is NOT clinical readiness
  * - Progressive support hierarchy (Hint > Repeat > Help)
  */
 
@@ -15,19 +15,17 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { X, Mic, MicOff, ArrowRight, MessageCircle, RotateCcw, HelpCircle, Lightbulb, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ScenarioPracticeSummary } from './ScenarioPracticeSummary';
 import {
   type ScenarioDefinition,
   type ScenarioState,
-  type ScenarioPhase,
-  type ScenarioScore,
   createScenarioState,
-  computeScenarioScore,
 } from '@/lib/scenarioEngine';
 
 interface ScenarioOverlayProps {
   scenario: ScenarioDefinition;
   onClose: () => void;
-  onComplete: (score: ScenarioScore) => void;
+  onComplete: () => void;
   /** Speech recognition hook — parent provides */
   isListening: boolean;
   liveTranscript: string;
@@ -52,27 +50,73 @@ export function ScenarioOverlay({
   const [state, setState] = useState<ScenarioState>(() => createScenarioState(scenario.id));
   const [partnerText, setPartnerText] = useState('');
   const [whisperText, setWhisperText] = useState<string | null>(null);
-  const [score, setScore] = useState<ScenarioScore | null>(null);
-  const [reflectionAnswer, setReflectionAnswer] = useState<string | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
   const latestTranscriptRef = useRef<string>('');
+  // One accepted transcript per *listening turn*. A React state change after
+  // a user answer recreates handleUserTurn; without these guards the effect
+  // below can re-submit the SAME old ASR final into the NEXT scenario beat.
+  const listeningBeatRef = useRef<number | null>(null);
+  const processedBeatRef = useRef<number | null>(null);
+  // Budget automatic prompts per conversation beat, not globally. A patient
+  // who takes a long pause must never get an endless repeating whisper.
+  const automaticHintsByBeatRef = useRef<Record<number, number>>({});
+  // A delayed partner response/TTS continuation must never reopen the mic
+  // after a patient closes the overlay or switches away from roleplay.
+  const mountedRef = useRef(true);
+  const closingRef = useRef(false);
+  const pendingTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const scheduleWhileMounted = useCallback((callback: () => void, ms: number) => {
+    if (!mountedRef.current || closingRef.current) return;
+    const timer = setTimeout(() => {
+      pendingTimersRef.current.delete(timer);
+      if (mountedRef.current && !closingRef.current) callback();
+    }, ms);
+    pendingTimersRef.current.add(timer);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const pending = pendingTimersRef.current;
+    return () => {
+      mountedRef.current = false;
+      closingRef.current = true;
+      for (const timer of pending) clearTimeout(timer);
+      pending.clear();
+    };
+  }, []);
+
+  const closeScenario = useCallback(() => {
+    closingRef.current = true;
+    for (const timer of pendingTimersRef.current) clearTimeout(timer);
+    pendingTimersRef.current.clear();
+    onStopListening();
+    onClose();
+  }, [onClose, onStopListening]);
 
   // ===== Phase transitions =====
   
   const startScenario = useCallback(async () => {
     setState(prev => ({ ...prev, phase: 'live', startedAt: Date.now() }));
     setPartnerText(scenario.openingLine);
+    try {
+      await onSpeak(scenario.openingLine);
+    } catch (error) {
+      console.warn('[ScenarioOverlay] Could not play the opening line', error);
+    }
+    if (!mountedRef.current || closingRef.current) return;
+    // Response latency starts when the partner FINISHES speaking, not before.
     exchangeStartRef.current = Date.now();
-    await onSpeak(scenario.openingLine);
-    // Auto-start listening after partner speaks
-    setTimeout(() => onStartListening(), 300);
-  }, [scenario, onSpeak, onStartListening]);
+    // Auto-start listening after partner speaks, unless the user has exited.
+    scheduleWhileMounted(onStartListening, 300);
+  }, [scenario, onSpeak, onStartListening, scheduleWhileMounted]);
 
   // Handle user completing a turn
   const handleUserTurn = useCallback((transcript: string) => {
-    if (!transcript.trim()) return;
-    
+    if (closingRef.current || !transcript.trim() || processedBeatRef.current === state.currentBeatIndex) return;
+    processedBeatRef.current = state.currentBeatIndex;
+
     const currentBeat = scenario.beats[state.currentBeatIndex];
     const latencyMs = Date.now() - exchangeStartRef.current;
     
@@ -103,28 +147,29 @@ export function ScenarioOverlay({
 
     if (isLastBeat) {
       // Scenario complete
-      const finalState = {
-        ...state,
-        exchanges: [...state.exchanges, exchange],
-        completedAt: Date.now(),
-        phase: 'feedback' as ScenarioPhase,
-      };
-      const computed = computeScenarioScore(finalState, scenario);
-      setScore(computed);
+      // In-app roleplay participation is observable. The old heuristic
+      // cannot establish real-world readiness, so do not calculate it.
       setState(prev => ({ ...prev, phase: 'feedback', completedAt: Date.now() }));
     } else {
       // Next beat — partner responds
       const nextBeat = scenario.beats[nextBeatIndex];
-      setTimeout(async () => {
-        // Generate contextual partner response (for now, use beat action as prompt)
-        const response = generatePartnerResponse(nextBeat, transcript);
-        setPartnerText(response);
-        exchangeStartRef.current = Date.now();
-        await onSpeak(response);
-        setTimeout(() => onStartListening(), 300);
+      scheduleWhileMounted(() => {
+        void (async () => {
+          // Generate contextual partner response (for now, use beat action as prompt).
+          const response = generatePartnerResponse(nextBeat, transcript);
+          setPartnerText(response);
+          try {
+            await onSpeak(response);
+          } catch (error) {
+            console.warn('[ScenarioOverlay] Could not play partner reply', error);
+          }
+          if (!mountedRef.current || closingRef.current) return;
+          exchangeStartRef.current = Date.now();
+          scheduleWhileMounted(onStartListening, 300);
+        })();
       }, 500);
     }
-  }, [state, scenario, partnerText, onSpeak, onStartListening]);
+  }, [state, scenario, partnerText, onSpeak, onStartListening, scheduleWhileMounted]);
 
   // Keep transcript ref in sync so we always capture the latest value
   useEffect(() => {
@@ -133,21 +178,28 @@ export function ScenarioOverlay({
 
   // Silence detection → Maya whispers
   useEffect(() => {
-    if (state.phase !== 'live' || !isListening || isSpeaking) return;
+    if (state.phase !== 'live' || closingRef.current || !isListening || isSpeaking) return;
     
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    const currentBeat = scenario.beats[state.currentBeatIndex];
+    const beatIndex = state.currentBeatIndex;
+    const currentBeat = scenario.beats[beatIndex];
     if (!currentBeat) return;
 
-    // Only trigger whisper if user hasn't produced meaningful speech yet
+    // Offer at most two automatic supports on this beat, spaced far enough
+    // apart for aphasic word-finding. The Hint/Help buttons remain available.
+    const maxAutomaticHints = Math.min(2, currentBeat.whispers.length);
+    if ((automaticHintsByBeatRef.current[beatIndex] ?? 0) >= maxAutomaticHints) return;
     const hasSpoken = liveTranscript.trim().length > 0;
-    const silenceDelay = hasSpoken ? 12000 : 8000; // longer if they started speaking
+    const silenceDelay = hasSpoken ? 18000 : 12000;
 
     silenceTimerRef.current = setTimeout(() => {
-      const whisperIndex = Math.min(state.whispersTriggered, currentBeat.whispers.length - 1);
-      const whisper = currentBeat.whispers[whisperIndex];
+      if (closingRef.current || !mountedRef.current) return;
+      const delivered = automaticHintsByBeatRef.current[beatIndex] ?? 0;
+      if (delivered >= maxAutomaticHints) return;
+      const whisper = currentBeat.whispers[delivered];
       if (whisper) {
+        automaticHintsByBeatRef.current[beatIndex] = delivered + 1;
         setWhisperText(whisper);
         setState(prev => ({ ...prev, whispersTriggered: prev.whispersTriggered + 1 }));
       }
@@ -158,15 +210,25 @@ export function ScenarioOverlay({
     };
   }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats, liveTranscript]);
 
-  // When user stops speaking (transcript finalizes) — use ref to avoid stale closure
+  // A falling microphone edge may submit ONE answer for the beat that
+  // actually listened. Merely re-rendering a new beat with isListening=false
+  // must never re-score the previous transcript or skip another question.
   useEffect(() => {
-    if (!isListening && state.phase === 'live') {
-      const captured = latestTranscriptRef.current.trim();
-      if (captured) {
-        handleUserTurn(captured);
-      }
+    if (state.phase !== 'live' || closingRef.current) {
+      listeningBeatRef.current = null;
+      return;
     }
-  }, [isListening, state.phase, handleUserTurn]);
+    if (isSpeaking) return; // never interpret Maya's own audio as patient speech
+    if (isListening) {
+      listeningBeatRef.current = state.currentBeatIndex;
+      return;
+    }
+    if (listeningBeatRef.current !== state.currentBeatIndex) return;
+    const captured = latestTranscriptRef.current.trim();
+    if (!captured) return;
+    listeningBeatRef.current = null; // consume synchronously, before state updates
+    handleUserTurn(captured);
+  }, [isListening, isSpeaking, liveTranscript, state.phase, state.currentBeatIndex, handleUserTurn]);
 
   // ===== Support actions =====
   
@@ -201,7 +263,7 @@ export function ScenarioOverlay({
   return (
     <div className="fixed inset-0 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
       {/* Backdrop */}
-      <div className="h-[15%] bg-background/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="h-[15%] bg-background/60 backdrop-blur-sm" onClick={closeScenario} />
       
       {/* Overlay panel */}
       <div className="h-[85%] bg-background rounded-t-3xl border-t border-border/50 flex flex-col overflow-hidden shadow-2xl">
@@ -214,7 +276,7 @@ export function ScenarioOverlay({
               <span className="text-xs text-muted-foreground ml-2">with {scenario.partnerName}</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Close" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" aria-label="Close" className="h-8 w-8" onClick={closeScenario}>
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -239,16 +301,12 @@ export function ScenarioOverlay({
               onHelp={handleHelp}
             />
           )}
-          {state.phase === 'feedback' && score && (
+          {state.phase === 'feedback' && (
             <FeedbackView
               scenario={scenario}
-              score={score}
               state={state}
-              onReflection={(answer) => {
-                setReflectionAnswer(answer);
-                onComplete(score);
-              }}
-              onDone={() => onComplete(score)}
+              onReflection={() => onComplete()}
+              onDone={onComplete}
             />
           )}
         </div>
@@ -427,48 +485,25 @@ function LiveView({
 
 interface FeedbackViewProps {
   scenario: ScenarioDefinition;
-  score: ScenarioScore;
   state: ScenarioState;
   onReflection: (answer: string) => void;
   onDone: () => void;
 }
 
-function FeedbackView({ scenario, score, state, onReflection, onDone }: FeedbackViewProps) {
+function FeedbackView({ scenario, state, onReflection, onDone }: FeedbackViewProps) {
   const [showReflection, setShowReflection] = useState(false);
 
   return (
     <div className="flex flex-col h-full px-6 py-6 gap-5">
-      {/* Emotional headline */}
-      <div className="text-center space-y-2">
-        <span className="text-4xl">{score.overall >= 70 ? '🎉' : score.overall >= 40 ? '💪' : '🌱'}</span>
-        <p className="text-base font-medium text-foreground">{score.emotionalFeedback}</p>
-      </div>
-
-      {/* Readiness score */}
-      <div className="bg-muted/50 rounded-2xl px-5 py-4 text-center space-y-2">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">Real-World Readiness</p>
-        <p className="text-3xl font-bold text-foreground">{score.overall}<span className="text-lg text-muted-foreground">%</span></p>
-        <p className="text-xs text-muted-foreground">You're getting more confident in real conversations.</p>
-      </div>
-
-      {/* Functional summary */}
-      <div className="space-y-2">
-        <p className="text-sm text-foreground">{score.functionalSummary}</p>
-        
-        {/* Score pillars — compact */}
-        <div className="grid grid-cols-2 gap-2">
-          <ScorePill label="Intent" value={score.intentScore} />
-          <ScorePill label="Responsiveness" value={score.responsivenessScore} />
-          <ScorePill label="Independence" value={score.independenceScore} />
-          <ScorePill label="Naturalness" value={score.naturalnessScore} />
-        </div>
-      </div>
-
-      {/* Next improvement */}
-      <div className="bg-primary/5 rounded-xl px-4 py-3">
-        <p className="text-xs text-muted-foreground mb-0.5">Next time</p>
-        <p className="text-sm text-foreground">{score.nextImprovement}</p>
-      </div>
+      {/* Observed practice only. Never render the heuristic as readiness. */}
+      <ScenarioPracticeSummary
+        title={scenario.title}
+        exchangeCount={state.exchanges.length}
+        hintCount={state.hintsUsed}
+        repeatCount={state.repeatsUsed}
+        helpCount={state.helpsUsed}
+        automaticWhispers={state.whispersTriggered}
+      />
 
       {/* Micro-reflection */}
       {!showReflection ? (
@@ -501,17 +536,6 @@ function FeedbackView({ scenario, score, state, onReflection, onDone }: Feedback
       >
         Back to Maya
       </Button>
-    </div>
-  );
-}
-
-// ===== Helpers =====
-
-function ScorePill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-card/80 rounded-lg px-3 py-2 text-center">
-      <p className="text-lg font-semibold text-foreground">{value}<span className="text-xs text-muted-foreground">%</span></p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }

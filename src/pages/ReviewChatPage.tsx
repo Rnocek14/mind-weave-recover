@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Mic, MicOff, ThumbsUp, ThumbsDown, SkipForward, CheckCircle2 } from "lucide-react";
@@ -7,6 +7,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getTodaysPracticedWords, clearReviewedWords } from "@/lib/reviewQueue";
 import { recordTransferEvent, getCarryoverPriorityWords } from "@/lib/transferLedger";
+import { resolveReviewSessionId } from "@/lib/reviewRouteScope";
 import {
   startReview,
   onUserUtterance,
@@ -14,7 +15,7 @@ import {
   onSkipTopic,
   onFinishRequest,
   onSilence,
-  onCuedProduction,
+  onSelfReportedAttempt,
   summarize,
   type ReviewState,
   type ReviewEvent,
@@ -60,20 +61,29 @@ function speakLine(text: string, echoLockRef: { current: number }, kidVoice: boo
 
 export default function ReviewChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { kidsMode } = useKidsMode();
+  // An explicitly selected lesson may review ONLY its own practice. Direct
+  // /review-chat remains an optional daily/carryover conversation.
+  const reviewSessionId = resolveReviewSessionId(location.search, location.state);
 
   // CLOSED LOOP: today's practiced words + up to 2 carryover-priority words
   // (fading/lost per the transfer ledger) that need conversational retrieval
-  // even though they weren't practiced today. The re-practice signal is
-  // real-world usage decay, not quiz scores.
+  // even though they weren't practiced today. Priority comes from device-
+  // local IN-APP review history, never passive real-world monitoring.
   const practiced = useMemo(() => {
-    const todays = getTodaysPracticedWords();
+    const todays = getTodaysPracticedWords(
+      reviewSessionId !== undefined ? { sessionId: reviewSessionId } : {},
+    );
+    // Keep a lesson-specific review about THAT lesson. Do not pull fading
+    // words from a separate day/session into its result or clear their queue.
+    if (reviewSessionId !== undefined) return todays;
     const todaysSet = new Set(todays.map((p) => p.word));
     const carryover = getCarryoverPriorityWords(2)
       .filter((c) => !todaysSet.has(c.word))
       .map((c) => ({ word: c.word, category: c.category, struggled: c.status === "lost", day: "" }));
     return [...todays, ...carryover];
-  }, []);
+  }, [reviewSessionId]);
   const [engineState, setEngineState] = useState<ReviewState | null>(null);
   const [mayaLine, setMayaLine] = useState("");
   const [heard, setHeard] = useState<string | null>(null);
@@ -117,14 +127,17 @@ export default function ReviewChatPage() {
       const complete = turn.events.find((e) => e.type === "review_complete");
       if (complete && complete.type === "review_complete") {
         setSummary(complete.summary);
-        clearReviewedWords(turn.state.items.map((i) => i.word));
+        clearReviewedWords(
+          turn.state.items.map((i) => i.word),
+          reviewSessionId !== undefined ? { sessionId: reviewSessionId } : {},
+        );
       }
       if (turn.events.some((e) => e.type === "spontaneous_use")) {
         setCelebrating(true);
         window.setTimeout(() => setCelebrating(false), 2500);
       }
     },
-    [kidsMode],
+    [kidsMode, reviewSessionId],
   );
 
   // ── Speech in ────────────────────────────────────────────────────────────
@@ -220,7 +233,7 @@ export default function ReviewChatPage() {
         <div className="text-5xl" aria-hidden>💬</div>
         <h1 className="text-xl font-bold">Nothing to review yet</h1>
         <p className="text-muted-foreground max-w-xs">
-          Play a naming game first — then come back and we&apos;ll chat about the words you practiced.
+          Practice a naming or word game first — then come back and we&apos;ll chat about those words.
         </p>
         <Button onClick={() => navigate("/practice")}>Go to Practice</Button>
       </div>
@@ -294,16 +307,15 @@ export default function ReviewChatPage() {
             </div>
           )}
 
-          {/* Mic-blocked participation: say it aloud, then self-report. The
-              production is real speech we couldn't verify — scored as cued
-              (same honest tier as any modeled/unverified production). */}
+          {/* With no microphone, a self-reported attempt remains unverified.
+              Never count it as a verified word in transfer metrics. */}
           {micBlocked && !inRepair && engineState.activeItem >= 0 && (
             <Button
               size="lg"
               className="rounded-2xl text-lg font-bold gap-2 px-8"
-              onClick={() => stateRef.current && applyTurn(onCuedProduction(stateRef.current))}
+              onClick={() => stateRef.current && applyTurn(onSelfReportedAttempt(stateRef.current))}
             >
-              🗣️ I said “{engineState.items[engineState.activeItem]?.word}”
+              🗣️ I tried saying “{engineState.items[engineState.activeItem]?.word}”
             </Button>
           )}
 
@@ -311,7 +323,7 @@ export default function ReviewChatPage() {
           <div className="flex flex-col items-center gap-1.5">
             {micBlocked ? (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <MicOff className="w-4 h-4" /> Mic unavailable — say the words out loud, then tap
+                <MicOff className="w-4 h-4" /> Mic unavailable — try saying the word, then tap. This will not be scored.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -345,8 +357,7 @@ export default function ReviewChatPage() {
             {(summary ?? summarize(engineState)).spontaneous > 0 && (
               <p className="font-semibold text-secondary">
                 ⭐ {(summary ?? summarize(engineState)).spontaneous} word
-                {(summary ?? summarize(engineState)).spontaneous === 1 ? "" : "s"} used all on your own
-                — you found them without any help.
+                {(summary ?? summarize(engineState)).spontaneous === 1 ? "" : "s"} used without a hint in this chat.
               </p>
             )}
             {(summary ?? summarize(engineState)).elicited > 0 && (
@@ -354,6 +365,12 @@ export default function ReviewChatPage() {
             )}
             {(summary ?? summarize(engineState)).cued > 0 && (
               <p>🔤 {(summary ?? summarize(engineState)).cued} with a little help</p>
+            )}
+            {(summary ?? summarize(engineState)).unverified > 0 && (
+              <p className="text-muted-foreground">
+                🗣️ {(summary ?? summarize(engineState)).unverified} self-reported attempt
+                {(summary ?? summarize(engineState)).unverified === 1 ? "" : "s"} — not scored because the microphone was unavailable.
+              </p>
             )}
             {(summary ?? summarize(engineState)).released > 0 && (
               <p className="text-muted-foreground">

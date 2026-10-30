@@ -2,7 +2,9 @@
  * Real-World Scenario Engine — Core definitions & scoring
  * 
  * Phase 1 scenarios: Coffee Order, Doctor Call, Family Chat
- * Scoring: Real-World Readiness (Intent 40%, Responsiveness 25%, Independence 25%, Naturalness 10%)
+ * Internal prototype heuristic: intent keywords, word count, latency and
+ * cue use. NOT validated real-world readiness or clinical communication
+ * effectiveness. UI must show observed practice/support, not this number.
  */
 
 // ===== Scenario definitions =====
@@ -71,7 +73,7 @@ export interface ScenarioExchange {
 // ===== Scoring =====
 
 export interface ScenarioScore {
-  overall: number; // 0-100 "Real-World Readiness"
+  overall: number; // 0-100 experimental in-app heuristic; NOT clinical readiness
   intentScore: number; // 0-100
   responsivenessScore: number; // 0-100
   independenceScore: number; // 0-100

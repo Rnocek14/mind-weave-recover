@@ -33,6 +33,7 @@ import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { getFixSentenceLevelSpec } from '@/lib/progression/fixSentenceLevels';
 import type { CommitSessionResult } from '@/lib/trial/types';
 import { buildFixSentenceTaskParameters } from '@/lib/telemetry/fixSentenceTaskParams';
+import { recordFixSentenceReviewTargets } from '@/lib/gameReviewHandoff';
 
 const EXERCISE_SLUG = 'fix_sentence';
 
@@ -166,6 +167,10 @@ export default function FixSentenceExercise() {
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
   const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
+    // Feed ONLY matched lexical repairs into optional conversation practice;
+    // morphology and multi-error tasks are not disguised as word naming.
+    // This does not affect validity, accuracy, cue accounting, or progression.
+    recordFixSentenceReviewTargets(results, activeSessionId);
     // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
     // auto-wired adaptation_trial_logs buffer BEFORE persisting progression
     // and navigating, so the last trial isn't lost when the component unmounts.
@@ -211,7 +216,7 @@ export default function FixSentenceExercise() {
     } else {
       finalize();
     }
-  }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo]);
+  }, [fromLesson, completeSession, commitSession, progression, validationTrialCount, bridge, navigate, returnTo, activeSessionId]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
