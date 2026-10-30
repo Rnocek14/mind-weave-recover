@@ -8,6 +8,7 @@ import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { DiscourseGameHarness, discourseGames, type DiscourseGameKey } from './discourseHarness';
 import { RecognitionGameHarness, recognitionGames, type RecognitionGameKey } from './recognitionHarness';
 import { LexicalGameHarness, lexicalGames, type LexicalGameKey } from './lexicalHarness';
+import { PhraseSentenceHarness, phraseSentenceGames, type PhraseSentenceGameKey } from './phraseSentenceHarness';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
@@ -121,6 +122,11 @@ createRoot(document.getElementById('root')!).render(
         const search = new URLSearchParams(location.search);
         const view = search.get('view');
         if (view === 'game') return <GameHarness />;
+        if (view === 'phrase-sentence') {
+          const game = search.get('game');
+          if (!phraseSentenceGames.includes(game as PhraseSentenceGameKey)) throw new Error('Unknown phrase/sentence speech game');
+          return <PhraseSentenceHarness game={game as PhraseSentenceGameKey} />;
+        }
         if (view === 'lexical') {
           const game = search.get('game');
           if (!lexicalGames.includes(game as LexicalGameKey)) throw new Error('Unknown lexical speech game in QA harness');
