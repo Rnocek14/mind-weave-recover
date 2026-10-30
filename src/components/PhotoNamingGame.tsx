@@ -6,6 +6,8 @@ import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
@@ -109,6 +111,14 @@ interface PhotoNamingGameProps {
     asrVerified?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
+  /** Page-owned unified raw trial, adaptation, and mastery commit. */
+  commitParentSession?: () => Promise<{ ok: boolean }>;
+  /** Replay any missing raw attempts under their original attempt IDs. */
+  retryParentFailedSubmissions?: () => Promise<{ ok: boolean }>;
+  /** Verify caregiver notes, if provided, before session closure. */
+  persistCaregiverNotes?: () => Promise<boolean>;
+  /** LessonFlow owns ended_at. Child only verifies per-exercise summary. */
+  ownedByParentFlow?: boolean;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
@@ -147,6 +157,10 @@ export const PhotoNamingGame = ({
   sessionId,
   onTrialComplete,
   onGameComplete,
+  commitParentSession,
+  retryParentFailedSubmissions,
+  persistCaregiverNotes,
+  ownedByParentFlow,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
   const { state, currentLane, nextTrial: nextTrialData, advanceTrial, selectAnswer } = usePhotoNamingGame(
@@ -354,6 +368,7 @@ export const PhotoNamingGame = ({
     userId: user?.id,
     profileId: standaloneProfileId || activeProfile?.id,
     exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+    ownedByParentFlow,
     getSessionStats: useCallback(() => ({
       score: state.score,
       totalTrials: state.trialNumber,
@@ -431,7 +446,7 @@ export const PhotoNamingGame = ({
   const engagement = useEngagementMonitor(activeSessionId);
 
   // Phase 4 — live per-trial logging for real-world adaptive validation.
-  const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs } = useAdaptationTrialLogger({
+  const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs, flushVerified: flushAdaptationVerified } = useAdaptationTrialLogger({
     userId: user?.id,
     profileId: standaloneProfileId || activeProfile?.id,
     sessionId: activeSessionId,
@@ -1369,80 +1384,96 @@ export const PhotoNamingGame = ({
     }
   }, [isListening, speechError]);
 
-  // Handle game completion - end session properly
+  // The page owns unified raw attempts; the game owns its separate
+  // adaptation/progression buffers. Both sides must verify their writes before
+  // closing the patient session or displaying the recap. Preserve successful
+  // stages on retry to avoid applying clinical progression twice.
   const completionFiredRef = useRef(false);
-  const [recap, setRecap] = useState<{
+  const savedStagesRef = useRef({
+    rawCommitted: false,
+    adaptationCommitted: false,
+    notesCommitted: false,
+    progressionCommitted: false,
+  });
+  const progressionSnapshotRef = useRef<{
     prev: { level: number; progressPct: number };
     next: { level: number; progressPct: number };
     leveledUp: boolean;
   } | null>(null);
+  const [recap, setRecap] = useState<typeof progressionSnapshotRef.current>(null);
   const finalizeCompleteRef = useRef<(() => void) | null>(null);
 
+  const commitClinicalCompletion = useCallback(async (): Promise<{ ok: boolean }> => {
+    const stages = savedStagesRef.current;
+    if (!activeSessionId || !commitParentSession) return { ok: false };
+
+    // All raw patient attempts must be confirmed BEFORE interpreting them for
+    // progression. useTrialSubmission drains in-flight final-answer writes.
+    if (!stages.rawCommitted) {
+      const saved = await commitParentSession();
+      if (!saved.ok) return { ok: false };
+      stages.rawCommitted = true;
+    }
+    if (!stages.adaptationCommitted) {
+      if (!await flushAdaptationVerified()) return { ok: false };
+      stages.adaptationCommitted = true;
+    }
+    if (!stages.notesCommitted) {
+      if (persistCaregiverNotes && !await persistCaregiverNotes()) return { ok: false };
+      stages.notesCommitted = true;
+    }
+    if (!stages.progressionCommitted) {
+      const saved = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+      if (!saved.ok) return { ok: false };
+      stages.progressionCommitted = true;
+      if (saved.snapshot) {
+        progressionSnapshotRef.current = {
+          prev: saved.snapshot.prev,
+          next: saved.snapshot.next,
+          leveledUp: saved.snapshot.leveledUp,
+        };
+      }
+    }
+    return { ok: true };
+  }, [activeSessionId, commitParentSession, flushAdaptationVerified, persistCaregiverNotes, progression]);
+
+  const handleConfirmedCompletion = useCallback((finalScore: number) => {
+    const finalize = () => onGameComplete?.(finalScore);
+    if (kidsMode) {
+      finalizeCompleteRef.current = finalize;
+      return;
+    }
+    if (progressionSnapshotRef.current) {
+      finalizeCompleteRef.current = finalize;
+      setRecap(progressionSnapshotRef.current);
+      return;
+    }
+    finalize();
+  }, [kidsMode, onGameComplete]);
+
+  const completionScope = user?.id && (standaloneProfileId || activeProfile?.id) && activeSessionId
+    ? JSON.stringify([user.id, standaloneProfileId || activeProfile?.id, activeSessionId, CANONICAL_SLUGS.PHOTO_NAMING])
+    : null;
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<number>({
+    scope: completionScope,
+    commitSession: commitClinicalCompletion,
+    completeSession,
+    retryFailedSubmissions: retryParentFailedSubmissions ?? (async () => ({ ok: false })),
+    onConfirmed: handleConfirmedCompletion,
+  });
+
   useEffect(() => {
-    if (!state.isComplete) return;
-    if (completionFiredRef.current) return;
+    if (!state.isComplete || completionFiredRef.current) return;
     completionFiredRef.current = true;
-
-    console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
-      score: state.score,
-      gameType: 'PhotoNaming'
-    });
-
-    void (async () => {
-      // Force-flush per-trial adaptation logs BEFORE unmount/navigation so the
-      // final trial (and any others still in the 2.5s interval buffer) lands
-      // in adaptation_trial_logs. Avoids the "9 of 10 trials logged" leak.
-      try { await flushAdaptationLogs(); } catch (err) {
-        console.warn('[PhotoNamingGame] adaptation flush error', err);
-      }
-
-      // DEV accounting diagnostic — surfaces drift between expected vs.
-      // recorded trial counts across the three pipelines.
-      if (import.meta.env.DEV) {
-        const progressionBuffered = (progression as any)?.__bufferedTrialCount?.();
-        console.groupCollapsed('[PhotoNaming][AccountingDiagnostic]');
-        console.log('expectedTrialCount:', state.totalTrials);
-        console.log('displayedTrialNumber:', state.trialNumber);
-        console.log('progressionBufferedTrials:', progressionBuffered ?? '(unavailable)');
-        console.log('finalScore:', state.score);
-        console.groupEnd();
-      }
-
-      // Clinical Progression v1: persist updated level/progress for this profile.
-      const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
-      const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
-
-      const finalize = async () => {
-        // Wait for session close before notifying the parent, which may unmount
-        // this game immediately. Otherwise the lifecycle hook can race the
-        // parent navigation and leave an incomplete session summary.
-        await completeSession();
-        onGameComplete(state.score);
-      };
-
-      // Kids Mode: hold navigation behind the star-reward overlay (same
-      // deferred-finalize pattern as the recap below). The overlay's
-      // "Keep Going!" button runs finalize.
-      if (kidsMode) {
-        finalizeCompleteRef.current = finalize;
-        return;
-      }
-
-      // Show patient-facing progression recap when we have real movement data.
-      // If snapshot is missing (no buffered trials, persist failed, or already
-      // flushed), skip the overlay and finalize immediately to avoid dead state.
-      if (snapshot) {
-        finalizeCompleteRef.current = finalize;
-        setRecap({
-          prev: snapshot.prev,
-          next: snapshot.next,
-          leveledUp: snapshot.leveledUp,
-        });
-      } else {
-        void finalize();
-      }
-    })();
-  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs, kidsMode]);
+    if (import.meta.env.DEV) {
+      console.info('[PhotoNaming] Finished trials, awaiting verified save', {
+        expectedTrialCount: state.totalTrials,
+        completedTrialNumber: state.trialNumber,
+        bufferedProgressionTrials: progression.__bufferedTrialCount(),
+      });
+    }
+    void finish(state.score);
+  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, progression, finish]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
@@ -2463,6 +2494,16 @@ export const PhotoNamingGame = ({
     }, 2000);
   };
 
+  if (state.isComplete && (saveState === 'saving' || saveState === 'error')) {
+    return (
+      <ExerciseSaveFeedback
+        state={saveState}
+        onRetry={() => void retry()}
+        onExit={() => window.location.assign('/today')}
+      />
+    );
+  }
+
   if (!state.currentTrial) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -2474,7 +2515,7 @@ export const PhotoNamingGame = ({
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2 h-full">
       {/* Kids Mode session reward — holds navigation until "Keep Going!" */}
-      {kidsMode && state.isComplete && !kidsRewardDismissed && (
+      {kidsMode && state.isComplete && saveState === 'complete' && !kidsRewardDismissed && (
         <KidsSessionReward
           starsEarned={Math.floor(state.score / 100)}
           totalTrials={state.totalTrials}
