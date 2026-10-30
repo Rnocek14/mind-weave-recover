@@ -9,6 +9,7 @@
  */
 export interface PhotoNamingCommitStages {
   rawCommitted: boolean;
+  utterancesCommitted: boolean;
   adaptationCommitted: boolean;
   notesCommitted: boolean;
   progressionCommitted: boolean;
@@ -24,6 +25,8 @@ interface PhotoNamingCommitServices {
   sessionId: string | null;
   stages: PhotoNamingCommitStages;
   commitRaw: () => Promise<{ ok: boolean }>;
+  /** Audio/utterance evidence uses separate original attempt IDs. */
+  confirmUtterances: () => Promise<boolean>;
   retryAdaptation: () => Promise<boolean>;
   persistNotes: () => Promise<boolean>;
   commitProgression: (sessionId: string) => Promise<{
@@ -34,7 +37,7 @@ interface PhotoNamingCommitServices {
 }
 
 export async function commitPhotoNamingEvidence({
-  sessionId, stages, commitRaw, retryAdaptation, persistNotes,
+  sessionId, stages, commitRaw, confirmUtterances, retryAdaptation, persistNotes,
   commitProgression, onProgressionSnapshot,
 }: PhotoNamingCommitServices): Promise<{ ok: boolean }> {
   if (!sessionId) return { ok: false };
@@ -44,6 +47,13 @@ export async function commitPhotoNamingEvidence({
       const raw = await commitRaw();
       if (!raw.ok) return { ok: false };
       stages.rawCommitted = true;
+    }
+    // PhotoNamingGame owns utterance_analyses separately from the page's
+    // exercise_events. A scored task can save while its speech record fails;
+    // never advance the session/progression until both write paths confirm.
+    if (!stages.utterancesCommitted) {
+      if (!await confirmUtterances()) return { ok: false };
+      stages.utterancesCommitted = true;
     }
     if (!stages.adaptationCommitted) {
       if (!await retryAdaptation()) return { ok: false };
