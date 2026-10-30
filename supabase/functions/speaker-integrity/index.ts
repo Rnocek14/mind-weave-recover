@@ -416,7 +416,17 @@ serve(async (request) => {
           throw new Error("Recorded audio unavailable or outside size limit");
         }
         const bytes = new Uint8Array(await blob.arrayBuffer());
-        const mime = allowedMime(blob.type) ? blob.type : "audio/webm";
+        // Storage downloads may return application/octet-stream even when
+        // the uploaded file is real iOS MP4. Never rename MP4 bytes to WebM;
+        // infer only from a known extension, or fail with no identity result.
+        const extension = attempt.audio_storage_path.split(".").pop()?.toLowerCase();
+        const fromPath =
+          extension === "mp4" ? "audio/mp4" :
+          extension === "wav" ? "audio/wav" :
+          extension === "ogg" ? "audio/ogg" :
+          extension === "webm" ? "audio/webm" : null;
+        const mime = allowedMime(blob.type) ? blob.type : fromPath;
+        if (!mime) throw new Error("Unsupported recorded audio format");
         const media = await uploadMedia(bytes, mime);
         const voiceprint = await decryptVoiceprint(enrolled.voiceprint_ciphertext, enrolled.voiceprint_iv);
         const job = await provider("/identify", "POST", {
