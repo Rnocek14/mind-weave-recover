@@ -20,15 +20,13 @@ import {
   type ScenarioDefinition,
   type ScenarioState,
   type ScenarioPhase,
-  type ScenarioScore,
   createScenarioState,
-  computeScenarioScore,
 } from '@/lib/scenarioEngine';
 
 interface ScenarioOverlayProps {
   scenario: ScenarioDefinition;
   onClose: () => void;
-  onComplete: (score: ScenarioScore) => void;
+  onComplete: () => void;
   /** Speech recognition hook — parent provides */
   isListening: boolean;
   liveTranscript: string;
@@ -53,7 +51,6 @@ export function ScenarioOverlay({
   const [state, setState] = useState<ScenarioState>(() => createScenarioState(scenario.id));
   const [partnerText, setPartnerText] = useState('');
   const [whisperText, setWhisperText] = useState<string | null>(null);
-  const [score, setScore] = useState<ScenarioScore | null>(null);
   const [reflectionAnswer, setReflectionAnswer] = useState<string | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
@@ -66,12 +63,14 @@ export function ScenarioOverlay({
   // A delayed partner response/TTS continuation must never reopen the mic
   // after a patient closes the overlay or switches away from roleplay.
   const mountedRef = useRef(true);
+  const closingRef = useRef(false);
   const pendingTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const scheduleWhileMounted = useCallback((callback: () => void, ms: number) => {
+    if (!mountedRef.current || closingRef.current) return;
     const timer = setTimeout(() => {
       pendingTimersRef.current.delete(timer);
-      if (mountedRef.current) callback();
+      if (mountedRef.current && !closingRef.current) callback();
     }, ms);
     pendingTimersRef.current.add(timer);
   }, []);
@@ -86,6 +85,14 @@ export function ScenarioOverlay({
     };
   }, []);
 
+  const closeScenario = useCallback(() => {
+    closingRef.current = true;
+    for (const timer of pendingTimersRef.current) clearTimeout(timer);
+    pendingTimersRef.current.clear();
+    onStopListening();
+    onClose();
+  }, [onClose, onStopListening]);
+
   // ===== Phase transitions =====
   
   const startScenario = useCallback(async () => {
@@ -96,7 +103,7 @@ export function ScenarioOverlay({
     } catch (error) {
       console.warn('[ScenarioOverlay] Could not play the opening line', error);
     }
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || closingRef.current) return;
     // Response latency starts when the partner FINISHES speaking, not before.
     exchangeStartRef.current = Date.now();
     // Auto-start listening after partner speaks, unless the user has exited.
@@ -138,14 +145,8 @@ export function ScenarioOverlay({
 
     if (isLastBeat) {
       // Scenario complete
-      const finalState = {
-        ...state,
-        exchanges: [...state.exchanges, exchange],
-        completedAt: Date.now(),
-        phase: 'feedback' as ScenarioPhase,
-      };
-      const computed = computeScenarioScore(finalState, scenario);
-      setScore(computed);
+      // In-app roleplay participation is observable. The old heuristic
+      // cannot establish real-world readiness, so do not calculate it.
       setState(prev => ({ ...prev, phase: 'feedback', completedAt: Date.now() }));
     } else {
       // Next beat — partner responds
@@ -160,7 +161,7 @@ export function ScenarioOverlay({
           } catch (error) {
             console.warn('[ScenarioOverlay] Could not play partner reply', error);
           }
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || closingRef.current) return;
           exchangeStartRef.current = Date.now();
           scheduleWhileMounted(onStartListening, 300);
         })();
@@ -253,7 +254,7 @@ export function ScenarioOverlay({
   return (
     <div className="fixed inset-0 z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
       {/* Backdrop */}
-      <div className="h-[15%] bg-background/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="h-[15%] bg-background/60 backdrop-blur-sm" onClick={closeScenario} />
       
       {/* Overlay panel */}
       <div className="h-[85%] bg-background rounded-t-3xl border-t border-border/50 flex flex-col overflow-hidden shadow-2xl">
@@ -266,7 +267,7 @@ export function ScenarioOverlay({
               <span className="text-xs text-muted-foreground ml-2">with {scenario.partnerName}</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Close" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" aria-label="Close" className="h-8 w-8" onClick={closeScenario}>
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -291,15 +292,15 @@ export function ScenarioOverlay({
               onHelp={handleHelp}
             />
           )}
-          {state.phase === 'feedback' && score && (
+          {state.phase === 'feedback' && (
             <FeedbackView
               scenario={scenario}
               state={state}
               onReflection={(answer) => {
                 setReflectionAnswer(answer);
-                onComplete(score);
+                onComplete();
               }}
-              onDone={() => onComplete(score)}
+              onDone={onComplete}
             />
           )}
         </div>
