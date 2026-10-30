@@ -17,8 +17,7 @@ jobs:
     name: Audited game readiness (18 routes, desktop + mobile)
     if: >-
       github.repository == 'Rnocek14/mind-weave-recover' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'audit/comprehensive-neurospark-2026-10-28'
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: neurospark-e2e
