@@ -42,6 +42,16 @@ describe("active Conversation Coach: final patient-facing reply guard", () => {
     expect(output.reason).toBeNull();
   });
 
+  it("honors a patient's explicit request to repeat the question", () => {
+    const output = guardCoachReply({
+      proposed: "Where did you visit last weekend?",
+      recentMaya: ["Where did you visit last weekend?"],
+      patientReply: "Please repeat that",
+    });
+    expect(output.reason).toBeNull();
+    expect(output.text).toBe("Where did you visit last weekend?");
+  });
+
   it("allows a useful topic change instead of suppressing all questions", () => {
     const output = guardCoachReply({
       proposed: "Do you like music?",
