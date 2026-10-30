@@ -54,6 +54,8 @@ interface ConversationCoachGameProps {
     userAIRatio: number;
   }) => void;
   onExit?: () => void;
+  /** Verify captured speech evidence before declaring the session saved. */
+  registerEvidenceVerifier?: (verify: () => Promise<boolean>) => void;
 }
 
 export function ConversationCoachGame({
@@ -62,6 +64,7 @@ export function ConversationCoachGame({
   sessionId,
   onComplete,
   onExit,
+  registerEvidenceVerifier,
 }: ConversationCoachGameProps) {
   const [userTranscript, setUserTranscript] = useState('');
   const [cardTranscript, setCardTranscript] = useState('');
@@ -112,6 +115,7 @@ export function ConversationCoachGame({
     logFinalAnalysis,
     resetAttempt,
     currentAttemptId,
+    confirmFinalizedAttempts,
   } = useUtteranceLogger();
   
   const turnCountRef = useRef(0);
@@ -132,6 +136,10 @@ export function ConversationCoachGame({
     effortfulSpeechRate: speechProfile.effortful_speech_rate,
     commonSubstitutions: speechProfile.common_substitutions,
   } : null;
+
+  useEffect(() => {
+    registerEvidenceVerifier?.(confirmFinalizedAttempts);
+  }, [registerEvidenceVerifier, confirmFinalizedAttempts]);
 
   const { speak, speakStream, isLoading: ttsLoading, isSpeaking } = useTextToSpeech();
   
