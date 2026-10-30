@@ -74,6 +74,9 @@ export function ConversationCoachGame({
   const [showGamePicker, setShowGamePicker] = useState(false);
   const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
+  const [scenarioTranscript, setScenarioTranscript] = useState('');
+  // Synchronous guard for an already-scheduled chat turn during roleplay.
+  const scenarioActiveRef = useRef(false);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
@@ -103,6 +106,7 @@ export function ConversationCoachGame({
     isRecording, 
     startRecording, 
     stopRecording: stopAudioRecording,
+    cancelRecording,
     uploadRecording,
   } = useAudioRecorder();
   
@@ -293,6 +297,11 @@ export function ConversationCoachGame({
       // Popup exercises handle their own speech — this is a safety catch
       console.log('[SpeechRouter] Popup transcript received — popup handles its own mic');
     }, []),
+    onScenarioTranscript: useCallback((transcript: string, _isFinal: boolean) => {
+      // Unlike chat, roleplay input is never sent to the speech-end detector,
+      // discourse logging, or the general Maya response pipeline.
+      if (scenarioActiveRef.current) setScenarioTranscript(transcript);
+    }, []),
   });
 
   // ═══════════════════════════════════════════════════════════════
@@ -320,7 +329,7 @@ export function ConversationCoachGame({
   // PROCESS TURN AND RESPOND — Chat pipeline (only when mode = chat_listening)
   // ═══════════════════════════════════════════════════════════════
   const processTurnAndRespond = useCallback(async (transcript: string) => {
-    if (isProcessingRef.current) return;
+    if (scenarioActiveRef.current || isProcessingRef.current) return;
     
     // Guard: only process in chat mode
     if (inputModeRef.current !== 'chat_listening' && inputModeRef.current !== 'idle') {
@@ -333,6 +342,10 @@ export function ConversationCoachGame({
     stopListening();
     
     const recordingResult = await stopAudioRecording();
+    if (scenarioActiveRef.current) {
+      isProcessingRef.current = false;
+      return; // an already-started chat turn cannot invade the roleplay
+    }
     const audioBlob = recordingResult?.audioBlob || lastAudioBlobRef.current;
     lastAudioBlobRef.current = null;
 
@@ -369,6 +382,10 @@ export function ConversationCoachGame({
     }
 
     const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
+    if (scenarioActiveRef.current) {
+      isProcessingRef.current = false;
+      return;
+    }
     
     if (aiResponse) {
       setInputMode('tts_playing');
@@ -415,6 +432,7 @@ export function ConversationCoachGame({
   // START CONVERSATION TURN — Transitions to chat_listening mode
   // ═══════════════════════════════════════════════════════════════
   const startConversationTurn = useCallback(async () => {
+    if (scenarioActiveRef.current) return;
     console.log('[Coach] Starting conversation turn');
     setUserTranscript('');
     firstWordTimeRef.current = null;
@@ -437,6 +455,10 @@ export function ConversationCoachGame({
     });
     
     await startRecording();
+    if (scenarioActiveRef.current) {
+      cancelRecording();
+      return;
+    }
     
     // ATOMIC: Set mode, start detection, start listening
     setInputMode('chat_listening');
@@ -890,7 +912,19 @@ export function ConversationCoachGame({
           messages={messages}
           onCardComplete={handleCardDone}
           onMinimalPairSelect={handleMinimalPairSelect}
-          onScenarioStart={(scenarioId) => setActiveScenarioId(scenarioId)}
+          onScenarioStart={(scenarioId) => {
+            if (scenarioActiveRef.current || !getScenarioById(scenarioId)) return;
+            // PRE-START ownership is idle, not chat. Flush stale transcript,
+            // recording, and attempt data before mounting the roleplay.
+            scenarioActiveRef.current = true;
+            setInputMode('idle');
+            stopListening();
+            cancelRecording();
+            resetAttempt();
+            setUserTranscript('');
+            setScenarioTranscript('');
+            setActiveScenarioId(scenarioId);
+          }}
           isProcessing={isProcessing}
           cardTranscript={cardTranscript}
           isCardListening={isCardActive && isListening}
@@ -1148,7 +1182,14 @@ export function ConversationCoachGame({
         return (
           <ScenarioOverlay
             scenario={scenarioDef}
-            onClose={() => setActiveScenarioId(null)}
+            onClose={() => {
+              setInputMode('idle');
+              stopListening();
+              scenarioActiveRef.current = false;
+              setScenarioTranscript('');
+              setUserTranscript('');
+              setActiveScenarioId(null);
+            }}
             onComplete={() => {
               // Return to chat without laundering an experimental keyword/
               // word-count heuristic into clinical or real-life readiness.
@@ -1161,13 +1202,31 @@ export function ConversationCoachGame({
                 text: mayaReturn,
                 id: `scenario_return_${Date.now()}`,
               });
+              setInputMode('idle');
+              stopListening();
+              scenarioActiveRef.current = false;
+              setScenarioTranscript('');
+              setUserTranscript('');
               setActiveScenarioId(null);
             }}
             isListening={isListening}
-            liveTranscript={userTranscript}
-            onStartListening={startListening}
+            liveTranscript={scenarioTranscript}
+            onStartListening={() => {
+              if (!scenarioActiveRef.current) return;
+              setScenarioTranscript('');
+              // Atomically claim the mic BEFORE starting the recognizer.
+              setInputMode('scenario_listening');
+              startListening();
+            }}
             onStopListening={stopListening}
-            onSpeak={async (text) => { await speakStream(text); }}
+            onSpeak={async (text) => {
+              if (!scenarioActiveRef.current) return;
+              // Maya's own synthesized speech must never become a patient turn.
+              setInputMode('tts_playing');
+              stopListening();
+              setScenarioTranscript('');
+              await speakStream(text);
+            }}
             isSpeaking={isSpeaking}
           />
         );
