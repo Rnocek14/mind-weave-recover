@@ -1410,8 +1410,29 @@ export const PhotoNamingGame = ({
   } | null>(null);
   const [recap, setRecap] = useState<typeof progressionSnapshotRef.current>(null);
   const finalizeCompleteRef = useRef<(() => void) | null>(null);
+  // The last spoken answer can still be in asynchronous analysis when the
+  // 1.2s feedback timer completes. Do not close over an unresolved trial.
+  const pendingAnalysesRef = useRef(new Set<Promise<void>>());
+  const waitForPendingAnalyses = useCallback(async (): Promise<boolean> => {
+    const pending = [...pendingAnalysesRef.current];
+    if (!pending.length) return true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.allSettled(pending).then(() => true),
+        new Promise<false>(resolve => {
+          timeout = setTimeout(() => resolve(false), 15000);
+        }),
+      ]);
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
+  }, []);
 
-  const commitClinicalCompletion = useCallback(() => commitPhotoNamingEvidence({
+  const commitClinicalCompletion = useCallback(async () => {
+    // A hung speech analyzer shows a recoverable save error, never success.
+    if (!await waitForPendingAnalyses()) return { ok: false };
+    return commitPhotoNamingEvidence({
     sessionId: activeSessionId ?? null,
     stages: savedStagesRef.current,
     // Missing page ownership is not an acceptable success fallback.
@@ -1421,7 +1442,8 @@ export const PhotoNamingGame = ({
     persistNotes: persistCaregiverNotes ?? (async () => true),
     commitProgression: async (sessionId: string) => progression.flushAtSessionEnd({ sessionId }),
     onProgressionSnapshot: snapshot => { progressionSnapshotRef.current = snapshot; },
-  }), [activeSessionId, commitParentSession, confirmFinalizedAttempts, flushAdaptationVerified, persistCaregiverNotes, progression]);
+  });
+  }, [activeSessionId, commitParentSession, confirmFinalizedAttempts, flushAdaptationVerified, persistCaregiverNotes, progression, waitForPendingAnalyses]);
 
   const handleConfirmedCompletion = useCallback((finalScore: number) => {
     const finalize = () => onGameComplete?.(finalScore);
@@ -1975,9 +1997,51 @@ export const PhotoNamingGame = ({
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = spokenTranscript ?? lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
-    
-    // Run analysis in background without blocking
-    (async () => {
+
+    if (capturedResponseMode === 'recognition') {
+      // A choice tap has an observed task score without needing speech analysis.
+      // Commit the original response immediately, before feedback advances.
+      onTrialComplete?.({
+        correct: isCorrectAnswer,
+        reactionTimeMs: reactionTime,
+        errorType: isCorrectAnswer ? 'correct' : 'semantic_related',
+        difficultyLevel: capturedDifficulty,
+        cueLevel: capturedCueLevel,
+        attemptId: capturedAttemptId,
+        trialIndex: capturedTrialNumber,
+        cueTypeGiven,
+        cueWasEffective,
+        timeToSuccessAfterCueMs,
+        latencyMs: capturedResponseLatency,
+        consecutiveErrors: hookConsecutiveErrors,
+        frustrationLevel,
+        recentSuccessRate,
+        trialCount: capturedTrialNumber,
+        responseMode: 'recognition',
+        productionAttempted: capturedProductionAttempted,
+      }, capturedTrial);
+      void pendingAttempt.finalize({
+        transcriptSource: 'manual',
+        transcript: '',
+        responseMode: 'recognition',
+        countsTowardScore: false,
+        isCorrect: null,
+        didSpeak: false,
+        utteranceComplete: true,
+        errorType: 'recognition_selection',
+        responseTiming: makeResponseTiming(reactionTime),
+      });
+      if (isRecording) {
+        void stopRecording().catch(error => {
+          console.warn('[PhotoNaming] Could not stop recorder after a visual choice', error);
+        });
+      }
+      return;
+    }
+
+    // Spoken production still requires asynchronous analysis, but its
+    // completion is tracked before the session-close barrier.
+    const analysisPromise: Promise<void> = (async () => {
       try {
         let uploadedPath: string | undefined;
         let duration: number | undefined;
@@ -2214,7 +2278,7 @@ export const PhotoNamingGame = ({
         });
         const eligibleSpoken = capturedResponseMode === 'production'
           && speechProvenance.validity?.countsTowardScore === true;
-        void pendingAttempt.finalize({
+        await pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
@@ -2291,7 +2355,7 @@ export const PhotoNamingGame = ({
           transcript: capturedBrowserTranscript ?? null,
           recordingDurationMs: null,
         });
-        void pendingAttempt.finalize({
+        await pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: capturedBrowserTranscript,
           transcriptSource: 'browser',
@@ -2331,6 +2395,8 @@ export const PhotoNamingGame = ({
         }, capturedTrial);
       }
     })();
+    pendingAnalysesRef.current.add(analysisPromise);
+    void analysisPromise.finally(() => pendingAnalysesRef.current.delete(analysisPromise));
   };
 
   answerHandlerRef.current = handleAnswerSelect;
