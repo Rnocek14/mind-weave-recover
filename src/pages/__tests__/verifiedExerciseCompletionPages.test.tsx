@@ -126,6 +126,43 @@ vi.mock('@/components/DualLoadNamingGame', () => ({
     </button>
   ),
 }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({ single: async () => ({ data: { clinical_profile: {} }, error: null }) }),
+      }),
+    }),
+  },
+}));
+vi.mock('@/hooks/useExerciseConfig', () => ({
+  useExerciseConfig: () => ({
+    config: { startDifficulty: 1 },
+    hasCapabilityAdaptations: false,
+    bounds: { floor: 1, ceiling: 10 },
+  }),
+}));
+vi.mock('@/hooks/useExerciseGating', () => ({
+  useExerciseGating: () => ({ getAdaptations: () => ({}) }),
+}));
+vi.mock('@/hooks/usePhonologicalAwarenessProgression', () => ({
+  usePhonologicalAwarenessProgression: () => ({
+    loaded: true, startingLevel: 1, state: null,
+  }),
+  mapPhonologicalAwarenessSupport: () => 'recognition_only',
+}));
+vi.mock('@/lib/progression/phonologicalAwarenessDifficultyBridge', () => ({
+  resolveEffectivePhonologicalAwarenessInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/components/PhonologicalGame', () => ({
+  PhonologicalGame: ({ onGameComplete }: {
+    onGameComplete: (finalScore: number, totalTrials: number) => void,
+  }) => (
+    <button onClick={() => onGameComplete(4, 8)}>Finish phonological</button>
+  ),
+}));
 vi.mock('@/hooks/useSessionStallWatchdog', () => ({
   useSessionStallWatchdog: () => undefined,
 }));
@@ -248,6 +285,7 @@ import DualLoadNamingExercise from '../DualLoadNamingExercise';
 import MultiStepPlanExercise from '../MultiStepPlanExercise';
 import AbstractCompareExercise from '../AbstractCompareExercise';
 import NarrativeRetellExercise from '../NarrativeRetellExercise';
+import PhonologicalExercise from '../PhonologicalExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
@@ -258,6 +296,7 @@ const cases = [
   { title: 'Multi-Step Planning', component: MultiStepPlanExercise, finishLabel: 'Finish planning' },
   { title: 'Abstract Comparison', component: AbstractCompareExercise, finishLabel: 'Finish comparison' },
   { title: 'Narrative Retell', component: NarrativeRetellExercise, finishLabel: 'Finish narrative' },
+  { title: 'Phonological Awareness', component: PhonologicalExercise, finishLabel: 'Finish phonological' },
 ];
 
 beforeEach(() => {
@@ -459,6 +498,18 @@ describe('patient completion and retry across actual exercise pages', () => {
     expect(screen.getByText('This practice was not saved.')).toBeVisible();
     expect(mocks.completeSession).not.toHaveBeenCalled();
     expect(mocks.commitSession).not.toHaveBeenCalled();
+  });
+
+  it('Phonological Awareness waits for verified session close before reporting a saved session', async () => {
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<MemoryRouter><PhonologicalExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish phonological' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Practice saved' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(2);
   });
 
   it('a failed lesson game must never dispatch the next-exercise event', async () => {
