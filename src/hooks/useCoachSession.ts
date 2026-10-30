@@ -1375,6 +1375,7 @@ export function useCoachSession({
       const guarded = guardCoachReply({
         proposed: approved.approvedText,
         recentMaya: messages.filter(m => m.type === 'ai').map(m => m.text),
+        patientReply: transcript,
       });
       if (guarded.reason) {
         console.warn('[coach-reply-guard]', guarded.reason);
