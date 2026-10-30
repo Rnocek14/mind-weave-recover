@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS public.speaker_integrity_checks (
   observed_speaker_count integer,
   patient_speech_ms integer,
   other_or_unknown_speech_ms integer,
+  manual_review_label text CHECK (manual_review_label IN
+    ('patient', 'other', 'mixed', 'uncertain')),
+  manually_reviewed_at timestamptz,
+  manually_reviewed_by uuid REFERENCES auth.users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (profile_id, attempt_id)
