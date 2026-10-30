@@ -111,6 +111,30 @@ describe("post-practice review: bounded, evidence-honest dialogue", () => {
     expect(uncertain.events.some((e) => e.type === "elicited_use")).toBe(false);
   });
 
+  it("recognizes a complete short phrase from actual patient speech", () => {
+    const start = startReview([{ word: "ice cream", category: "food", struggled: false }]);
+    const found = onUserUtterance(start.state, "I had ice cream yesterday", [], 0.94);
+    expect(found.events).toContainEqual({ type: "elicited_use", word: "ice cream" });
+    expect(found.state.phase).toBe("done");
+  });
+
+  it("does not mistake one constituent of a phrase for producing the phrase", () => {
+    const start = startReview([{ word: "ice cream", category: "food", struggled: true }]);
+    const no = onUserUtterance(start.state, "I put some ice in my drink", [], 0.94);
+    expect(no.events.some((e) => e.type === "elicited_use" || e.type === "cued_use")).toBe(false);
+    expect(no.state.items[0].status).toBe("pending");
+  });
+
+  it("requires contiguous words in the right order, allowing simple inflections", () => {
+    const first = startReview([{ word: "steering wheel", category: "household", struggled: false }]);
+    const good = onUserUtterance(first.state, "I need steering wheels", [], 0.92);
+    expect(good.events).toContainEqual({ type: "elicited_use", word: "steering wheel" });
+
+    const next = startReview([{ word: "steering wheel", category: "household", struggled: false }]);
+    const wrongOrder = onUserUtterance(next.state, "The wheel is steering me", [], 0.94);
+    expect(wrongOrder.events.some((e) => e.type === "elicited_use")).toBe(false);
+  });
+
   it("does not count a word as independent if the patient needed a cue before ASR repair", () => {
     const start = startReview([apple]);
     const cued = onUserUtterance(start.state, "the thing I want");
