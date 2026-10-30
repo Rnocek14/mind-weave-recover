@@ -38,7 +38,7 @@ test.describe('Exercise entry routes render', () => {
         // contract instead of sampling a transient URL. This keeps the
         // signed-out authorization assertion strict and rejects a stuck route.
         await expect(page, `${path} should send a signed-out visitor to /auth`)
-          .toHaveURL(/\\/auth(?:[?#]|$)/);
+          .toHaveURL(/\/auth(?:[?#]|$)/);
       } else {
         const landed = new URL(page.url()).pathname;
         expect(landed, `${path} is public and must not bounce`).not.toBe('/auth');
