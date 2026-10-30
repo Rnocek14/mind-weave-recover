@@ -2131,7 +2131,7 @@ export const PhotoNamingGame = ({
           }
         }
 
-        const saved = await pendingAttempt.finalize({
+        void pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
@@ -2171,13 +2171,15 @@ export const PhotoNamingGame = ({
           alignmentData: pronData?.alignmentData,
           pronunciationError: pronError ? `${pronError.stage}: ${pronError.message}` : undefined,
           pronunciationDiagnostics,
+        }).then((saved) => {
+          // Deliberately do not await the database or identity job here:
+          // pronunciation UI and game continuation must not stall on matching.
+          if (uploadedPath && saved.status === 'persisted') {
+            void queueSpeakerIntegrityShadow(standaloneProfileId || activeProfile?.id, saved.attemptId);
+          }
+        }).catch((error) => {
+          console.warn('[PhotoNaming] Clinical attempt finalization failed', error);
         });
-
-        // Identity analysis is observational. Never use it for live feedback,
-        // support, progression, or automatic correctness decisions.
-        if (uploadedPath && saved.status === 'persisted') {
-          void queueSpeakerIntegrityShadow(standaloneProfileId || activeProfile?.id, saved.attemptId);
-        }
 
         // ── Secondary Live Analysis push: Azure PA scores ──
         // onTrialComplete fires before pronunciation analysis finishes,
