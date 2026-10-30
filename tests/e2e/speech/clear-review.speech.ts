@@ -88,3 +88,25 @@ test('patient can stop immediately despite unresolved practice words', async ({ 
   await expect(page.getByRole('heading', { name: 'Nice chat!' })).toBeVisible();
   await expect(page.getByText(/2 saved for next time/i)).toBeVisible();
 });
+
+test('review launched from a lesson shows and clears ONLY that lesson\'s targets', async ({ page }) => {
+  // Start a second real ReviewChatPage instance, this time with a session-scoped
+  // navigation state. The harness seeds a different-session banana too.
+  await page.goto('/?view=review-scoped');
+  await page.getByRole('button', { name: 'Seed practice' }).click();
+
+  await expect(page.getByText(/2 words, a few minutes/i)).toBeVisible();
+  await page.getByRole('button', { name: 'Start the chat' }).click();
+  await expect(page.getByRole('button', { name: 'New topic' })).toBeVisible();
+  await page.getByRole('button', { name: 'All done' }).click();
+  await expect(page.getByRole('heading', { name: 'Nice chat!' })).toBeVisible();
+
+  const remaining = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((k) => k.startsWith('reviewQueue_practicedWords::'));
+    if (!key) throw new Error('Review queue storage not present');
+    return JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{ word: string; sessionId?: string }>;
+  });
+  expect(remaining.some((row) => row.word === 'banana' &&
+    row.sessionId === 'another-synthetic-session')).toBe(true);
+  expect(remaining.some((row) => row.sessionId === '22222222-2222-4222-8222-222222222222')).toBe(false);
+});
