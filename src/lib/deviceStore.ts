@@ -79,6 +79,7 @@ export function scopedKey(base: string): string {
 const SENSITIVE_KEY_PREFIXES = [
   "transferLedger_v1",
   "reviewQueue_practicedWords",
+  "functionalScriptPractice_v1",
   "kidsMode_pet",
   "kidsMode_totalStars",
   "therapyPlatform_kidsMode",
