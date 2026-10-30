@@ -85,7 +85,7 @@ export function useTrialSubmission(opts: Options) {
   // adaptation hook is autoLog:false and the page owns the writer. Games
   // that auto-wire via useInGameAdaptation (autoLog:true) never pass the
   // flag, so there is no double insert.
-  const { logTrial: logAdaptationTrial, flush: flushAdaptation } = useAdaptationTrialLogger({
+  const { logTrial: logAdaptationTrial, flushVerified: flushAdaptationVerified } = useAdaptationTrialLogger({
     userId: opts.userId,
     profileId: opts.profileId,
     sessionId: opts.sessionId,
@@ -427,9 +427,22 @@ export function useTrialSubmission(opts: Options) {
     }
 
     try {
-      await flushAdaptation();
+      if (!await flushAdaptationVerified()) {
+        errors.push('adaptation rows were not confirmed persisted');
+      }
     } catch (err) {
       errors.push(`adaptation flush: ${(err as Error).message ?? err}`);
+    }
+    // A failed adaptation INSERT is a failed clinical commit. Do not advance
+    // the durable progression state or flush mastery from incomplete evidence.
+    if (errors.length > 0) {
+      return {
+        ok: false,
+        progression: null,
+        progressionSnapshot: null,
+        masteryFlushed: false,
+        errors,
+      };
     }
 
     if (opts.progression) {
@@ -487,7 +500,7 @@ export function useTrialSubmission(opts: Options) {
       masteryFlushed,
       errors,
     };
-  }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId, scopeKey, waitForPendingSubmissions]);
+  }, [canonicalSlug, debug, flushAdaptationVerified, opts.progression, opts.profileId, opts.sessionId, opts.userId, scopeKey, waitForPendingSubmissions]);
 
   return { submitTrial, retryFailedSubmissions, commitSession, startTrial, calculateReactionTime };
 }
