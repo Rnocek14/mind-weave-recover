@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,11 @@ import { useExerciseGating } from "@/hooks/useExerciseGating";
 import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
-import { startSession, endSession } from "@/lib/sessionTracking";
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { CANONICAL_SLUGS } from "@/lib/exerciseSlugNormalizer";
 import { toast } from "sonner";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
@@ -61,8 +65,13 @@ const SentenceConstructionExercise = () => {
     cueSensitive: false,  // grammar-focused, not cue-driven
   });
   
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionStartTime] = useState<number>(Date.now());
+  const sessionStartRef = useRef(Date.now());
+  const scoreRef = useRef(0);
+  const trialsRef = useRef(0);
+  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (advanceTimeoutRef.current !== null) clearTimeout(advanceTimeoutRef.current);
+  }, []);
   const [showSettings, setShowSettings] = useState(false);
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
   const [manualDifficulty, setManualDifficulty] = useState<number | null>(null);
@@ -94,6 +103,9 @@ const SentenceConstructionExercise = () => {
   
   const { getAdaptations } = useExerciseGating(user?.id, undefined);
   const { activeProfile } = useProfile();
+  const {
+    activeSessionId: sessionId, isCreatingSession, sessionError, retrySession,
+  } = useStandaloneSession(user?.id, lessonSessionId, 'sentence_construction');
 
   // Wave 2: Clinical Progression v1 — sentence-construction now has an
   // L1–L8 structural ladder. Persistent Clinical Level supplies a FLOOR
@@ -137,37 +149,13 @@ const SentenceConstructionExercise = () => {
   // clinical trial (correct + support), and commitSession flushes the L1–L8
   // ladder. adaptation_trial_logs come from the page (trialMode='production');
   // SentenceConstructionGame's useInGameAdaptation is autoLog:false.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
     exerciseSlug: 'sentence_construction',
     progression,
   });
-
-  useEffect(() => {
-    if (user) {
-      initSession();
-    }
-  }, [user]);
-
-  const initSession = async () => {
-    if (!user) return;
-
-    try {
-      if (fromLesson && lessonSessionId) {
-        setSessionId(lessonSessionId);
-      } else {
-        const session = await startSession(user.id, {
-          blocks: [{ exercise: "sentence-construction", duration: 600 }]
-        });
-        setSessionId(session.id);
-      }
-    } catch (error) {
-      console.error("Failed to start session:", error);
-      toast.error("Failed to start session");
-    }
-  };
 
   const handleTrialComplete = async (data: {
     correct: boolean;
@@ -179,6 +167,8 @@ const SentenceConstructionExercise = () => {
     difficulty: number;
   }) => {
     trialIndexRef.current += 1;
+    trialsRef.current++;
+    scoreRef.current += data.correct ? 100 : 0;
 
     // Feed adaptive controller (skip when manual override active)
     if (manualDifficulty === null) {
@@ -225,32 +215,40 @@ const SentenceConstructionExercise = () => {
     });
   };
 
-  const handleGameComplete = async (finalScore: number, totalTrials: number) => {
-    // Unified commit before session-end housekeeping — flushes mastery
-    // shadow + drains queued adaptation rows + persists the L1–L8 ladder.
-    await commitSession();
+  const getSessionStats = useCallback(() => ({
+    score: scoreRef.current,
+    totalTrials: trialsRef.current,
+    startTime: sessionStartRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId, userId: user?.id, profileId: activeProfile?.id,
+    exerciseSlug: 'sentence_construction', getSessionStats,
+  });
 
-    if (sessionId) {
-      const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-      const accuracy = Math.round((finalScore / totalTrials) * 100);
+  const onConfirmed = useCallback((results: { finalScore: number; totalTrials: number }) => {
+    if (!fromLesson) return;
+    advanceTimeoutRef.current = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'sentence_construction', results },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }, 400);
+  }, [fromLesson, navigate, returnTo]);
 
-      await endSession(sessionId, {
-        durationSec,
-        scores: { "sentence-construction": accuracy },
-        reps: totalTrials
-      });
-    }
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<{
+    finalScore: number; totalTrials: number;
+  }>({
+    scope: user?.id && activeProfile?.id && sessionId
+      ? JSON.stringify([user.id, activeProfile.id, sessionId, 'sentence_construction'])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed,
+  });
 
-    toast.success("Session completed!", {
-      description: `Score: ${finalScore}/${totalTrials}`
-    });
-    
-    if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      setTimeout(() => navigate('/today'), 2000);
-    }
+  const handleGameComplete = (finalScore: number, totalTrials: number) => {
+    void finish({ finalScore, totalTrials });
   };
 
   const handleSkipExercise = async () => {
@@ -289,6 +287,23 @@ const SentenceConstructionExercise = () => {
     toast.success(`Difficulty set to Level ${newLevel}`);
   };
 
+  if (isCreatingSession || !sessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
+  if (saveState === 'saving' || saveState === 'error') {
+    return <ExerciseSaveFeedback state={saveState} onRetry={() => void retry()} onExit={() => navigate('/today')} />;
+  }
+  if (saveState === 'complete') {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-5 p-6 text-center">
+        <h2 className="text-2xl font-bold">Practice saved</h2>
+        <Button className="min-h-14 w-full max-w-md text-lg" size="lg" onClick={() => navigate('/today')}>
+          Go to Today
+        </Button>
+      </div>
+    );
+  }
+
   if (fromLesson) {
     return (
       <div className="h-dvh flex flex-col bg-background overflow-hidden">
@@ -298,7 +313,6 @@ const SentenceConstructionExercise = () => {
         <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => {
-              window.dispatchEvent(new CustomEvent('exercise-complete'));
               navigate(returnTo, { state: { resuming: true } });
             }}>
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -322,7 +336,7 @@ const SentenceConstructionExercise = () => {
             floor is resolved so the engine starts at the right tier. */}
         <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
           {progression.loaded && !adaptation.loading ? (
-            <SentenceConstructionGame
+            <SentenceConstructionGame key={JSON.stringify([user?.id, activeProfile?.id, sessionId])}
               config={config}
               bounds={bounds}
               difficultyLevel={level}
@@ -388,7 +402,7 @@ const SentenceConstructionExercise = () => {
       {/* Game fills remaining space — load gate on clinical progression. */}
       <div className="flex-1 min-h-0 flex flex-col px-3 py-2">
         {progression.loaded && !adaptation.loading ? (
-          <SentenceConstructionGame
+          <SentenceConstructionGame key={JSON.stringify([user?.id, activeProfile?.id, sessionId])}
             config={config}
             bounds={bounds}
             difficultyLevel={level}
