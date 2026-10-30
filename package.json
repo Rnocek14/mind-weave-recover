@@ -32,7 +32,7 @@
     "typecheck:harness": "tsc --noEmit -p tests/e2e/speech/tsconfig.harness.json",
     "test:response-timing": "vitest run src/lib/speech/responseTiming.test.ts src/hooks/__tests__/useUtteranceLogger.timing.test.tsx src/hooks/__tests__/responseTiming.readers.test.tsx src/components/__tests__/sessionResponseTiming.test.tsx src/components/patient-hub/review/__tests__/responseTimingEvidence.test.tsx",
     "test:qa-gates": "node --test scripts/qa-gates.test.mjs scripts/unit-results.test.mjs",
-    "test:speech:handlers": "node --test scripts/speech-edge-handlers.test.mjs"
+    "test:speech:handlers": "node --test scripts/speech-edge-handlers.test.mjs scripts/speaker-integrity-handlers.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
