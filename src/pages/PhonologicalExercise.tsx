@@ -39,6 +39,8 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import {
   usePhonologicalAwarenessProgression,
   mapPhonologicalAwarenessSupport,
@@ -156,7 +158,7 @@ export default function PhonologicalExercise() {
   // Wave 3: unified trial submission (receptive-safe). PhonologicalGame
   // had useExerciseTelemetry.logTrial removed; this page is the single
   // writer for exercise_events + progression buffering.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -236,26 +238,35 @@ export default function PhonologicalExercise() {
     if (pivot.shouldStepDown) { console.log('[PhonologicalAwareness] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
   }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, activeProfile?.id, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback(async (finalScore: number, totalTrials: number) => {
-    if (!activeSessionId || !user?.id) return;
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
-    completeSession();
-
-    const accuracy = (finalScore / totalTrials) * 100;
+  const handleConfirmedCompletion = useCallback((result: { finalScore: number; totalTrials: number }) => {
+    const accuracy = result.totalTrials > 0 ? result.finalScore / result.totalTrials * 100 : 0;
     toast({
       title: 'Session saved!',
-      description: `You completed ${totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
+      description: `You completed ${result.totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
     });
-
     if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      setTimeout(() => navigate('/today'), 2000);
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: EXERCISE_SLUG, results: result },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
     }
-  }, [activeSessionId, user?.id, commitSession, completeSession, fromLesson, navigate, returnTo, toast]);
+  }, [fromLesson, navigate, returnTo, toast]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<{
+    finalScore: number; totalTrials: number;
+  }>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((finalScore: number, totalTrials: number) => {
+    void finish({ finalScore, totalTrials });
+  }, [finish]);
 
   if (isCreatingSession || !activeSessionId) {
     return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
@@ -283,6 +294,20 @@ export default function PhonologicalExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
+          <div className="my-auto mx-auto w-full max-w-md space-y-5 px-4 text-center">
+            <h2 className="text-2xl font-bold">Practice saved</h2>
+            <Button size="lg" className="min-h-14 w-full text-lg" onClick={() => navigate('/today')}>
+              Go to Today
+            </Button>
+          </div>
+        ) : (
         <div className="max-w-6xl mx-auto space-y-4">
           {lessonAdaptations && Object.keys(lessonAdaptations).length > 0 && (
             <div className="hidden sm:flex flex-wrap gap-1.5 mb-2">
@@ -319,6 +344,7 @@ export default function PhonologicalExercise() {
 
           {progression.loaded ? (
             <PhonologicalGame
+              key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
               totalTrials={10}
               config={effectiveConfig}
               bounds={bounds}
@@ -333,6 +359,7 @@ export default function PhonologicalExercise() {
             <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
           )}
         </div>
+        )}
       </main>
     </div>
   );
