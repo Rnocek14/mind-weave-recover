@@ -32,7 +32,7 @@ for (const scenario of [
       timeout: 12_000,
       message: `${scenario.game} has no active browser recognizer`,
     }).toBe(true);
-    let utterance = scenario.text;
+    let utterance: string = scenario.text;
     if (scenario.game === 'category-fluency') {
       const prompt = (await page.getByText(/^Name as many /i).last().innerText()).toLowerCase();
       const key = Object.keys(approvedCategoryWords).find(k => prompt.includes(k));

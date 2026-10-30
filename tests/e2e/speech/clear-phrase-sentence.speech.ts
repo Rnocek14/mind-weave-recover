@@ -1,7 +1,7 @@
 import { test, expect } from './support/speechTest';
 import { emitRecognition, microphoneState } from './support/browserControls';
 import { readJson } from './support/assertions';
-import { FIX_SENTENCE_BANK } from '../../../src/data/fixSentenceBank';
+
 
 test('Phrase Practice: recognized exact phrase travels through real recorder, pronunciation and utterance logger', async ({
   page, transport,
@@ -42,7 +42,8 @@ test('Fix the Sentence: spoken correct replacement, not a tile, enters actual re
   await page.goto('/?view=phrase-sentence&game=fix-sentence');
   await expect(page.getByTestId('phrase-sentence-game-name')).toHaveText('fix-sentence');
   const displayedSentence = (await page.locator('p.text-2xl').first().innerText()).trim();
-  const item = FIX_SENTENCE_BANK.find(x => x.sentence === displayedSentence);
+  const stimulusBank = await readJson<Array<{ sentence: string; acceptedFixes: string[] }>>(page, 'fix-sentence-bank');
+  const item = stimulusBank.find(x => x.sentence === displayedSentence);
   expect(item, 'Active sentence must match the actual clinical bank').toBeDefined();
 
   await expect.poll(() => page.evaluate(() => window.__speechTest.recognition?.active), {

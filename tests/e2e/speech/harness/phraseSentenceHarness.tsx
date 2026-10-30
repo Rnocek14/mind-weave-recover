@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PhrasePracticeGame } from '@/components/PhrasePracticeGame';
 import { FixSentenceGame } from '@/components/FixSentenceGame';
+import { FIX_SENTENCE_BANK } from '@/data/fixSentenceBank';
 
 /**
  * Real phrase and sentence games running with the synthetic browser session
@@ -31,6 +32,11 @@ export function PhraseSentenceHarness({ game }: { game: PhraseSentenceGameKey })
       sessionId={sessionId} userId={userId} profileId={profileId}
       onTrialComplete={capture} onGameComplete={(r) => setCompletions(prev => [...prev, r])}
     />}
+    {/* Pure stimulus lookup from the same production bank as the game.
+        This does not score or override any patient answer. */}
+    {game === 'fix-sentence' && <pre data-testid="fix-sentence-bank">
+      {JSON.stringify(FIX_SENTENCE_BANK.map(({ sentence, acceptedFixes }) => ({ sentence, acceptedFixes })))}
+    </pre>}
     <pre data-testid="phrase-sentence-results">{JSON.stringify(results)}</pre>
     <pre data-testid="phrase-sentence-completion">{JSON.stringify(completions)}</pre>
   </main>;
