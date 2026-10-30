@@ -27,6 +27,7 @@ import { useCoachSession, CoachSessionMetrics } from '@/hooks/useCoachSession';
 import { useSpeechEndDetection } from '@/hooks/useSpeechEndDetection';
 import { useUserSpeechProfile } from '@/hooks/useUserSpeechProfile';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { queueSpeakerIntegrityShadow } from '@/lib/speech/speakerIntegrityClient';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { CoachChatFeed } from '@/components/coach/CoachChatFeed';
 import { CoachSessionSummary } from '@/components/coach/CoachSessionSummary';
@@ -352,7 +353,7 @@ export function ConversationCoachGame({
     }
 
     if (currentAttemptId) {
-      await logFinalAnalysis({
+      const savedAttempt = await logFinalAnalysis({
         transcript: transcript || undefined,
         transcriptSource: 'browser',
         evaluationModel: 'flow',
@@ -366,6 +367,11 @@ export function ConversationCoachGame({
         fluencyUnavailableReason: 'discourse_task',
       });
       resetAttempt();
+      // Shadow identity review starts ONLY after an acknowledged, owned audio
+      // attempt. It never blocks a conversation or changes a clinical score.
+      if (audioStoragePath && savedAttempt.status === 'persisted') {
+        void queueSpeakerIntegrityShadow(profileId, savedAttempt.attemptId);
+      }
     }
 
     const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
@@ -405,7 +411,7 @@ export function ConversationCoachGame({
     setUserTranscript('');
     setShowHelpers(false);
     isProcessingRef.current = false;
-  }, [processUserTurn, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentAttemptId, logFinalAnalysis, resetAttempt, uploadRecording, userId, sessionId, setInputMode, speakStream]);
+  }, [processUserTurn, clearPendingAI, hasPendingCard, insertPendingCard, isComplete, stopListening, startListening, stopAudioRecording, autoListenEnabled, currentAttemptId, logFinalAnalysis, resetAttempt, uploadRecording, userId, profileId, sessionId, setInputMode, speakStream]);
 
   useEffect(() => {
     processTurnAndRespondRef.current = processTurnAndRespond;
