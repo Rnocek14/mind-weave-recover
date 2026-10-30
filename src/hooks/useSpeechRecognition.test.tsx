@@ -106,4 +106,29 @@ describe('useSpeechRecognition recognition metadata integrity', () => {
 
     expect(result.current.getLastRecognition()).toBeNull();
   });
+
+  it('accepts the same short utterance on a new scenario listening beat after transcript reset', () => {
+    const onResult = vi.fn();
+    const { result } = renderHook(() =>
+      useSpeechRecognition({ onResult, enabled: true })
+    );
+    const recognition = FakeSpeechRecognition.latest!;
+
+    act(() => {
+      recognition.onresult?.(speechEvent('help', true, 0.86));
+      recognition.onresult?.(speechEvent('help', true, 0.86));
+    });
+    // Duplicate ASR finals in ONE beat are correctly deduplicated.
+    expect(onResult).toHaveBeenCalledTimes(1);
+
+    // The coach now calls this before EACH scenario listening beat so that
+    // a legitimate repeated "help" or "yes" isn't lost on the next beat.
+    act(() => result.current.resetTranscript());
+    act(() => recognition.onresult?.(speechEvent('help', true, 0.91)));
+    expect(onResult).toHaveBeenCalledTimes(2);
+    expect(result.current.getLastRecognition()).toMatchObject({
+      transcript: 'help', confidence: 0.91,
+    });
+  });
+
 });
