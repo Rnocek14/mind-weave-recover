@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { canExportResearchData, RESEARCH_EXPORT_PAUSE_EXPLANATION } from '@/lib/researchExportPrivacyGate';
 
 import type { Database } from '@/integrations/supabase/types';
 
@@ -178,6 +179,13 @@ export const useResearchExport = () => {
   };
 
   const paginatedExport = async (table: TableName, selectCols: string, filename: string, formatter?: (data: any[]) => any[]) => {
+    // FAIL CLOSED: current CSV "de-identification" leaves raw session/record
+    // IDs, free text, and exact dates. No query or download may occur until a
+    // clinically approved, audited export pipeline replaces this one.
+    if (!canExportResearchData()) {
+      toast({ title: 'Research export unavailable', description: RESEARCH_EXPORT_PAUSE_EXPLANATION, variant: 'destructive' });
+      return;
+    }
     try {
       setLoading(true);
       const data = await fetchAllRows(table, selectCols);

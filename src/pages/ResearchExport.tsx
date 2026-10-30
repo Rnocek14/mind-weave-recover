@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useResearchExport } from '@/hooks/useResearchExport';
 import { DataDictionary } from '@/components/DataDictionary';
+import { canExportResearchData, RESEARCH_EXPORT_PAUSE_EXPLANATION } from '@/lib/researchExportPrivacyGate';
 import { 
   Database, Download, Users, Activity, Target, 
   FileText, TrendingUp, BarChart3, ShieldCheck, Loader2 
@@ -179,7 +180,7 @@ const ResearchExport = () => {
             Data Exports
           </CardTitle>
           <CardDescription>
-            Download de-identified datasets as CSV files. All exports remove direct identifiers (user IDs, names) while preserving linkage via hashed IDs.
+            {RESEARCH_EXPORT_PAUSE_EXPLANATION}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -188,7 +189,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportDemographics}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <Users className="w-5 h-5 mt-0.5" />
@@ -206,7 +207,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportSessions}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <Activity className="w-5 h-5 mt-0.5" />
@@ -224,7 +225,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportTrials}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <BarChart3 className="w-5 h-5 mt-0.5" />
@@ -242,7 +243,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportLearningRates}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <TrendingUp className="w-5 h-5 mt-0.5" />
@@ -260,7 +261,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportGoals}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <Target className="w-5 h-5 mt-0.5" />
@@ -278,7 +279,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4"
               onClick={exportGoalRatings}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <FileText className="w-5 h-5 mt-0.5" />
@@ -296,7 +297,7 @@ const ResearchExport = () => {
               variant="outline"
               className="justify-start h-auto py-4 md:col-span-2"
               onClick={exportAssessments}
-              disabled={loading}
+              disabled={loading || !canExportResearchData()}
             >
               <div className="flex items-start gap-3 w-full">
                 <FileText className="w-5 h-5 mt-0.5" />
@@ -316,8 +317,8 @@ const ResearchExport = () => {
           <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
             <p className="font-medium">⚠️ Data Use Guidelines</p>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>All exports use hashed IDs to preserve anonymity while enabling cross-table linkage</li>
-              <li>Free-text fields (goal descriptions, notes) may contain PII - review before external sharing</li>
+              <li>Previously generated files were pseudonymized inconsistently and may contain direct identifiers. Do not consider them de-identified.</li>
+              <li>CSV exports are paused until an approved privacy and data-governance review verifies the full dataset</li>
               <li>This data is for research purposes only - ensure IRB approval before publication</li>
               <li>Do not attempt to re-identify participants</li>
             </ul>
