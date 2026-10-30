@@ -13,7 +13,10 @@ describe("Maya scenario speech ownership", () => {
       onPopupTranscript: vi.fn(),
       onScenarioTranscript: vi.fn(),
     };
-    const { result } = renderHook(() => useSpeechRouter({ modeRef, ...handlers }));
+    const { result, rerender } = renderHook(() => useSpeechRouter({ modeRef, ...handlers }));
+    const originalRouter = result.current;
+    rerender();
+    expect(result.current).toBe(originalRouter); // no stale transcript replay on unrelated renders
 
     act(() => {
       result.current.route("cof", false);
