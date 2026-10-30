@@ -198,9 +198,17 @@ export function useAdaptationTrialLogger(opts: Options) {
 
   const consecutiveFailuresRef = useRef(0);
   const failureReportedRef = useRef(false);
+  // Explicit final-save callers need to know whether buffered adaptation
+  // evidence actually reached the database. The regular timer continues
+  // best-effort, but it must never race a final verified flush.
+  const flushInFlightRef = useRef<Promise<void> | null>(null);
+  const lastFlushFailedRef = useRef(false);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (): Promise<void> => {
+    if (flushInFlightRef.current) return flushInFlightRef.current;
     if (trialBuf.current.length === 0 && anomalyBuf.current.length === 0) return;
+
+    const run = async () => {
     const trials = trialBuf.current.splice(0, trialBuf.current.length);
     const anomalies = anomalyBuf.current.splice(0, anomalyBuf.current.length);
     // Backfill profile_id for rows buffered before the profile finished loading.
@@ -220,6 +228,7 @@ export function useAdaptationTrialLogger(opts: Options) {
     }
     let hadFailure = false;
     let trialsFailed = false;
+    let anomaliesFailed = false;
     try {
       if (trials.length > 0) {
         // No `as any` on either side. Both tables and every column they carry
@@ -239,13 +248,18 @@ export function useAdaptationTrialLogger(opts: Options) {
         const { error } = await supabase.from('adaptation_anomalies').insert(anomalies);
         if (error) {
           hadFailure = true;
+          anomaliesFailed = true;
           console.error('[adaptation_anomalies] insert failed', { error: error.message, count: anomalies.length });
         }
       }
     } catch (err) {
       hadFailure = true;
       trialsFailed = trials.length > 0;
+      anomaliesFailed = anomalies.length > 0;
       console.error('[adaptationLogger] flush threw', err);
+    }
+    if (anomaliesFailed) {
+      anomalyBuf.current.unshift(...anomalies.slice(-OUTBOX_CAP));
     }
     if (trialsFailed) {
       // Failed inserts go BACK into the buffer (front, preserving order) so
@@ -254,6 +268,7 @@ export function useAdaptationTrialLogger(opts: Options) {
       // outbox replayed on the next mount.
       trialBuf.current.unshift(...trials.slice(-OUTBOX_CAP));
     }
+    lastFlushFailedRef.current = hadFailure;
     if (hadFailure) {
       consecutiveFailuresRef.current += 1;
       // After 3 consecutive failed flushes within a session, emit one
@@ -286,7 +301,33 @@ export function useAdaptationTrialLogger(opts: Options) {
     } else {
       consecutiveFailuresRef.current = 0;
     }
+    };
+
+    const pending = run();
+    flushInFlightRef.current = pending;
+    try {
+      await pending;
+    } finally {
+      if (flushInFlightRef.current === pending) flushInFlightRef.current = null;
+    }
   }, [opts.userId, opts.sessionId, canonicalSlug]);
+
+  // Unlike the timer's best-effort flush, this explicitly tells completion
+  // gates whether all buffered rows were acknowledged. A failed insert stays
+  // buffered for a large patient-visible retry; no made-up analytics success.
+  const flushVerified = useCallback(async (): Promise<boolean> => {
+    try {
+      for (let pass = 0; pass < 3; pass++) {
+        await flush();
+        if (lastFlushFailedRef.current) return false;
+        if (trialBuf.current.length === 0 && anomalyBuf.current.length === 0) return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('[adaptationLogger] verified flush failed', error);
+      return false;
+    }
+  }, [flush]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -476,5 +517,5 @@ export function useAdaptationTrialLogger(opts: Options) {
     if (trialBuf.current.length >= MAX_BUFFER) void flush();
   }, [enabled, opts.userId, opts.sessionId, canonicalSlug, cueThreshold, minTrials, staleWindow, flush]);
 
-  return { logTrial, flush };
+  return { logTrial, flush, flushVerified };
 }
