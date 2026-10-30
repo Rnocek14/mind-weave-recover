@@ -55,6 +55,10 @@ export interface FinalAnalysisInput {
   transcriptSource: 'browser' | 'azure' | 'whisper' | 'manual';
   asrConfidence?: number | null;
   isCorrect?: boolean | null;
+  /** Only explicitly eligible speech may contribute to speech-profile correctness. */
+  countsTowardScore?: boolean;
+  /** The actual response modality: do not infer speech from a choice tap. */
+  responseMode?: 'production' | 'recognition' | 'scaffolded' | 'manual';
   errorType?: string;
   phonologicalSimilarity?: number | null;
   semanticSimilarity?: number | null;
@@ -169,6 +173,7 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     transcript_source: analysis.transcriptSource === 'azure' ? 'whisper' : analysis.transcriptSource,
     asr_confidence: analysis.asrConfidence,
     is_correct: analysis.isCorrect,
+    counts_toward_score: analysis.countsTowardScore,
     error_type: analysis.errorType,
     phonological_similarity: analysis.phonologicalSimilarity,
     semantic_similarity: analysis.semanticSimilarity,
@@ -215,9 +220,10 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     pronunciation_error_stage: diag?.pronunciationErrorStage,
     pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
     pronunciation_timings_ms: diag?.pronunciationTimingsMs,
-    audio_meta: diag?.audioMeta || analysis.transcriptSource === 'azure' || responseTiming
+    audio_meta: diag?.audioMeta || analysis.transcriptSource === 'azure' || responseTiming || analysis.responseMode
       ? {
         ...diag?.audioMeta,
+        ...(analysis.responseMode ? { responseMode: analysis.responseMode } : {}),
         ...(analysis.transcriptSource === 'azure' ? { transcriptProvider: 'azure' } : {}),
         // Timing belongs to the captured answer, never to opaque diagnostics.
         // JSON serialization omits this key when no valid measurement exists.
