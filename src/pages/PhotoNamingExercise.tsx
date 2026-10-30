@@ -12,6 +12,7 @@ import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import {
   resolveEffectiveInitialDifficulty,
   clinicalLevelToEngineFloor,
@@ -202,7 +203,9 @@ function PhotoNamingExerciseInner() {
   // Single owner of session creation: useStandaloneSession (mutex-protected,
   // StrictMode-safe, remount-safe). When fromLesson, lessonSessionId is forwarded
   // and standalone hook short-circuits via its `providedSessionId` branch.
-  const { activeSessionId } = useStandaloneSession(
+  const {
+    activeSessionId, isCreatingSession, sessionError, retrySession,
+  } = useStandaloneSession(
     user?.id,
     fromLesson ? lessonSessionId ?? null : null,
     CANONICAL_SLUGS.PHOTO_NAMING,
@@ -235,7 +238,9 @@ function PhotoNamingExerciseInner() {
   // Unified trial submission. progression:null because PhotoNamingGame owns
   // its own usePhotoNamingProgression instance and buffers there — passing
   // it again here would double-buffer trials.
-  const { startTrial, submitTrial, calculateReactionTime } = useTrialSubmission({
+  const {
+    startTrial, submitTrial, calculateReactionTime, commitSession, retryFailedSubmissions,
+  } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
@@ -750,52 +755,34 @@ function PhotoNamingExerciseInner() {
     navigate(returnTo, { state: { resuming: true } });
   };
 
-  const handleGameComplete = async () => {
-    // End session with caregiver notes.
-    // CRITICAL: When part of a lesson, LessonFlow owns the session lifecycle.
-    // We must NOT set ended_at here, otherwise the next exercise in the
-    // lesson is orphaned. Only persist caregiver_notes in that case.
-    if (sessionId) {
-      const updatePayload: Record<string, any> = {
-        caregiver_notes: caregiverNotes.trim() || null,
-      };
-      if (!fromLesson) {
-        updatePayload.ended_at = new Date().toISOString();
-        updatePayload.ended_reason = 'completed';
-
-        // Phase 1 data-integrity: standalone session-end must stamp the same
-        // canonical accuracy fields as the daily-session lifecycle so plateau /
-        // regression detectors and clinician analytics receive a value.
-        // (When part of a lesson, LessonFlow/useSessionLifecycle owns this.)
-        // computeSessionAccuracySummary never throws (returns EMPTY on error),
-        // so the accuracy fields are ALWAYS stamped even if the existing-summary
-        // read fails — preventing the "ended_at but no scored_trials" gap.
-        const { computeSessionAccuracySummary, accuracySummaryToSummaryFields } = await import('@/lib/sessionAccuracySummary');
-        let existingSummary: Record<string, any> = {};
-        try {
-          const { data: existing } = await supabase
-            .from('sessions')
-            .select('summary')
-            .eq('id', sessionId)
-            .maybeSingle();
-          existingSummary = (existing?.summary as Record<string, any> | null) ?? {};
-        } catch (err) {
-          console.warn('[PhotoNamingExercise] failed to read existing summary:', err);
-        }
-        const acc = await computeSessionAccuracySummary(sessionId);
-        updatePayload.summary = {
-          ...existingSummary,
-          ...accuracySummaryToSummaryFields(acc),
-        };
-      }
-      await supabase
+  // The game only invokes this after the unified raw trials, adaptation,
+  // notes, clinical progression AND session summary have been confirmed.
+  // No direct ended_at UPDATE here: the game owns one verified lifecycle close.
+  const persistCaregiverNotes = async (): Promise<boolean> => {
+    const notes = caregiverNotes.trim();
+    if (!notes) return true;
+    if (!sessionId || !user?.id || !activeProfile?.id) return false;
+    try {
+      const { data, error } = await supabase
         .from('sessions')
-        .update(updatePayload)
+        .update({ caregiver_notes: notes })
         .eq('id', sessionId)
-        .is('ended_at', null);
+        .eq('profile_id', activeProfile.id)
+        .eq('user_id', user.id)
+        .is('ended_at', null)
+        .select('id');
+      if (error || data?.length !== 1) {
+        console.warn('[PhotoNamingExercise] Caregiver notes not confirmed', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn('[PhotoNamingExercise] Caregiver notes write failed', error);
+      return false;
     }
+  };
 
-    
+  const handleGameComplete = () => {
     // Show post-practice summary for targeted practice
     const isPhonemeTargeted = lessonFocusPhonemes && lessonFocusPhonemes.length > 0;
     const isWordTargeted = targetedWords.length > 0 && !isPhonemeTargeted;
@@ -852,6 +839,9 @@ function PhotoNamingExerciseInner() {
   // progression has resolved. Otherwise `initialDifficulty` is captured at
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
+  if (isCreatingSession || !sessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
   if (customPhotosLoading || !progression.loaded || adaptation.loading) {
     return (
       <ExerciseLoadGate
@@ -1055,8 +1045,12 @@ function PhotoNamingExerciseInner() {
         <div className="flex-1 flex flex-col overflow-y-auto pb-16">
         {trials.length > 0 ? (
           <PhotoNamingGame
-            key={gameKey}
+            key={JSON.stringify([user?.id, activeProfile?.id, sessionId, gameKey])}
             sessionId={sessionId}
+            ownedByParentFlow={fromLesson}
+            commitParentSession={commitSession}
+            retryParentFailedSubmissions={retryFailedSubmissions}
+            persistCaregiverNotes={persistCaregiverNotes}
             totalTrials={trials.length}
             initialDifficulty={initialDifficulty}
             assistMode={mode === 'caregiver'}
