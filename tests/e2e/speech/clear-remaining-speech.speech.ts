@@ -23,7 +23,8 @@ test('Thought Continuation: real prompt accepts contentful speech and writes att
 
   const response = 'I would make a warm breakfast and then visit the garden with my family later today';
   await emitRecognition(page, response);
-  await expect(page.getByText(response, { exact: true })).toBeVisible({ timeout: 6_000 });
+  // Thought Continuation clears the visible transcript when it auto-commits.
+  // The captured clinical row and audio below are durable evidence.
   await expect.poll(() => transport.utterances.length, { timeout: 20_000, message: 'Real thought response not logged' }).toBe(1);
   const row = transport.utterances[0];
   expect(row).toMatchObject({ exercise_slug: 'thought_continuation', user_id: userId, session_id: sessionId });
@@ -46,7 +47,9 @@ test('Describe & Guess: contentful description passes the gate and persists a re
   await expect(page.getByText(/Describe this.*without.*saying the word/i)).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__speechTest.recognition?.active), { timeout: 15_000 }).toBe(true);
   await expect.poll(async () => (await microphoneState(page)).some(s => s.tracks.includes('live')), { timeout: 10_000 }).toBe(true);
-  await expect.poll(async () => Math.max(0, ...(await microphoneState(page)).filter(s => s.tracks.includes('live')).map(s => s.ageMs))).toBeGreaterThan(1100);
+  // The actual game requires 2s of listening before scoring a description.
+  // Test that clinical safety gate, not a premature click.
+  await expect.poll(async () => Math.max(0, ...(await microphoneState(page)).filter(s => s.tracks.includes('live')).map(s => s.ageMs))).toBeGreaterThan(2300);
 
   const answer = 'It has a smooth surface and a clear shape. You can find something like it around the house, and people use it in everyday life.';
   await emitRecognition(page, answer);
@@ -77,7 +80,8 @@ test('Conversation Coach: first turn uses actual recorder, yields one attributed
 
   const answer = 'I went to the market today to get some fresh vegetables for dinner';
   await emitRecognition(page, answer);
-  await expect(page.getByText(answer, { exact: true })).toBeVisible({ timeout: 7_000 });
+  // Coach clears its transient transcript during the automatic handoff;
+  // verify the attributed utterance instead of a fleeting UI frame.
   // The coach owns speech-end detection; do not simulate a second submission
   // by clicking Done after it already auto-advanced the turn.
   await expect.poll(() => transport.utterances.length, {

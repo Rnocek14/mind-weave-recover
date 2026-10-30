@@ -151,7 +151,14 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
       await fulfillJson(route, { message: 'Unconfigured local speech test transport' }, 503);
     });
     await context.routeWebSocket('**/*', (socket) => {
-      unexpected.push(`Unexpected WebSocket ${new URL(socket.url()).origin}`);
+      const target = new URL(socket.url());
+      const dev = new URL(baseURL);
+      // Vite's local HMR socket is not a clinical backend or third-party
+      // service. Keep it closed, but do not report it as data exfiltration.
+      // External WebSockets remain forbidden and fail the suite.
+      const isLocalHmr = target.hostname === dev.hostname && target.port === dev.port
+        && (target.protocol === 'ws:' || target.protocol === 'wss:');
+      if (!isLocalHmr) unexpected.push(`Unexpected WebSocket ${target.origin}`);
       socket.close();
     });
     await use(transport);

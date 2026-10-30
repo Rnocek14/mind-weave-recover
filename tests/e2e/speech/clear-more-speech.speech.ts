@@ -59,7 +59,10 @@ test('Sentence Construction: browser speech is accepted by the real grammar-game
   const selected = wordTokens.map(w => w.trim()).filter(w => /^[a-z]+$/i.test(w)).slice(0, 4);
   expect(selected.length).toBeGreaterThan(0);
   await emitRecognition(page, selected.join(' '));
-  await page.evaluate(() => window.__speechTest.recognition?.active && (window.__speechTest.recognition as unknown as {stop:()=>void}).stop());
+  // Patient stops listening through the real game's button. Directly
+  // stopping the synthetic browser recognizer bypasses the app's manual
+  // stop flag and deliberately triggers continuous-mode auto-restart.
+  await page.getByRole('button', { name: 'Stop speaking' }).click();
   await expect.poll(async () => (await readJson<unknown[]>(page, 'more-speech-results')).length, {
     timeout: 12_000, message: 'Actual spoken sentence did not commit a trial',
   }).toBe(1);

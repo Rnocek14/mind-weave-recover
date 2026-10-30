@@ -574,6 +574,7 @@ export const SentenceConstructionGame = ({
 
               <div className="flex flex-col items-center gap-3 py-4">
                 <button
+                  aria-label={isListening ? 'Stop speaking' : 'Start speaking'}
                   onClick={() => {
                     if (isListening) {
                       stopListening();
