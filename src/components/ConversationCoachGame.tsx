@@ -77,6 +77,9 @@ export function ConversationCoachGame({
   const [scenarioTranscript, setScenarioTranscript] = useState('');
   // Synchronous guard for an already-scheduled chat turn during roleplay.
   const scenarioActiveRef = useRef(false);
+  // Monotonic ownership epoch prevents an old async chat continuation from
+  // restarting after a roleplay has opened AND closed in the meantime.
+  const scenarioEpochRef = useRef(0);
   
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED INPUT MODE — Single source of truth for mic ownership
@@ -338,11 +341,13 @@ export function ConversationCoachGame({
     }
     
     isProcessingRef.current = true;
+    const ownerEpoch = scenarioEpochRef.current;
+    const superseded = () => scenarioActiveRef.current || ownerEpoch !== scenarioEpochRef.current;
     setInputMode('processing');
     stopListening();
     
     const recordingResult = await stopAudioRecording();
-    if (scenarioActiveRef.current) {
+    if (superseded()) {
       isProcessingRef.current = false;
       return; // an already-started chat turn cannot invade the roleplay
     }
@@ -382,7 +387,7 @@ export function ConversationCoachGame({
     }
 
     const aiResponse = await processUserTurn(transcript, latencyMs, totalDurationMs, audioBlob || undefined);
-    if (scenarioActiveRef.current) {
+    if (superseded()) {
       isProcessingRef.current = false;
       return;
     }
@@ -395,11 +400,19 @@ export function ConversationCoachGame({
       } catch (err) {
         console.warn('TTS failed, continuing:', err);
       }
+      if (superseded()) {
+        isProcessingRef.current = false;
+        return;
+      }
       
       clearPendingAI();
       
       if (hasPendingCard) {
         await new Promise(resolve => setTimeout(resolve, 600));
+        if (superseded()) {
+          isProcessingRef.current = false;
+          return;
+        }
         // ATOMIC: Set mode to card_listening BEFORE inserting card and starting mic
         setInputMode('card_listening');
         insertPendingCard();
@@ -433,6 +446,7 @@ export function ConversationCoachGame({
   // ═══════════════════════════════════════════════════════════════
   const startConversationTurn = useCallback(async () => {
     if (scenarioActiveRef.current) return;
+    const ownerEpoch = scenarioEpochRef.current;
     console.log('[Coach] Starting conversation turn');
     setUserTranscript('');
     firstWordTimeRef.current = null;
@@ -455,7 +469,7 @@ export function ConversationCoachGame({
     });
     
     await startRecording();
-    if (scenarioActiveRef.current) {
+    if (scenarioActiveRef.current || ownerEpoch !== scenarioEpochRef.current) {
       cancelRecording();
       return;
     }
@@ -916,6 +930,7 @@ export function ConversationCoachGame({
             if (scenarioActiveRef.current || !getScenarioById(scenarioId)) return;
             // PRE-START ownership is idle, not chat. Flush stale transcript,
             // recording, and attempt data before mounting the roleplay.
+            scenarioEpochRef.current += 1;
             scenarioActiveRef.current = true;
             setInputMode('idle');
             stopListening();
@@ -1185,6 +1200,7 @@ export function ConversationCoachGame({
             onClose={() => {
               setInputMode('idle');
               stopListening();
+              scenarioEpochRef.current += 1;
               scenarioActiveRef.current = false;
               setScenarioTranscript('');
               setUserTranscript('');
@@ -1204,6 +1220,7 @@ export function ConversationCoachGame({
               });
               setInputMode('idle');
               stopListening();
+              scenarioEpochRef.current += 1;
               scenarioActiveRef.current = false;
               setScenarioTranscript('');
               setUserTranscript('');
