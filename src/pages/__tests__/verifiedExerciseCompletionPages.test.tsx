@@ -46,7 +46,7 @@ vi.mock('@/hooks/useTrialSubmission', () => ({
 }));
 vi.mock('@/hooks/useSessionAdaptation', () => ({
   useSessionAdaptation: () => ({
-    loading: false, difficultyTier: 1, focusPhonemes: [],
+    loading: false, difficultyTier: 1, focusPhonemes: [], adaptationReasons: [],
     recommendedCueType: 'none',
   }),
 }));
