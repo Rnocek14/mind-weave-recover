@@ -23,9 +23,11 @@ describe("experimental functional communication transfer (not a clinical score)"
 
   it.each([
     ["need_help", "Help me please"],
+    ["need_help", "Need help"],
     ["need_help", "Could you please help"],
     ["need_help", "Can you carry this for me"],
     ["im_thirsty", "I'm thirsty"],
+    ["im_thirsty", "Water"],
     ["im_thirsty", "Could I have a glass of water"],
     ["need_more_time", "Please give me a minute"],
     ["need_more_time", "Just a second"],
