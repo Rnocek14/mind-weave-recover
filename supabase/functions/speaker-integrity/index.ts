@@ -132,6 +132,8 @@ function checkedRecord(row: Data) {
     patientSpeechMs: row.patient_speech_ms ?? null,
     otherOrUnknownSpeechMs: row.other_or_unknown_speech_ms ?? null,
     createdAt: row.created_at,
+    manualReviewLabel: row.manual_review_label ?? null,
+    manuallyReviewedAt: row.manually_reviewed_at ?? null,
     mode: "shadow_only",
     affectsScoring: false,
   };
@@ -281,11 +283,63 @@ serve(async (request) => {
 
     if (action === "history") {
       const { data, error } = await admin.from("speaker_integrity_checks")
-        .select("id, attempt_id, status, label, reason, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, created_at")
+        .select("id, attempt_id, status, label, reason, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, manual_review_label, manually_reviewed_at, created_at")
         .eq("profile_id", profileId).eq("user_id", caller.id)
         .order("created_at", { ascending: false }).limit(25);
       if (error) throw new Error("Shadow evidence unavailable");
       return jsonResponse({ checks: (data ?? []).map(checkedRecord) });
+    }
+
+    // The only route that issues a brief signed audio URL is scoped to an
+    // actual prior shadow check and its exact owned session.
+    if (action === "review_audio" || action === "review") {
+      const { checkId } = body;
+      if (!isUuid(checkId)) return jsonResponse({ error: "Invalid check" }, 400);
+      const { data: check, error: checkError } = await admin.from("speaker_integrity_checks")
+        .select("id, session_id, attempt_id")
+        .eq("id", checkId).eq("profile_id", profileId)
+        .eq("user_id", caller.id).maybeSingle();
+      if (checkError) throw new Error("Review lookup failed");
+      if (!check) return jsonResponse({ error: "Check not found" }, 404);
+      const { data: session, error: sessionError } = await admin.from("sessions")
+        .select("id").eq("id", check.session_id).eq("user_id", caller.id)
+        .eq("profile_id", profileId).maybeSingle();
+      if (sessionError || !session) return jsonResponse({ error: "Session inaccessible" }, 403);
+
+      if (action === "review") {
+        const { label } = body;
+        if (!["patient", "other", "mixed", "uncertain"].includes(label as string)) {
+          return jsonResponse({ error: "Invalid review label" }, 400);
+        }
+        const { error } = await admin.from("speaker_integrity_checks")
+          .update({
+            manual_review_label: label,
+            manually_reviewed_at: new Date().toISOString(),
+            manually_reviewed_by: caller.id,
+          })
+          .eq("id", check.id).eq("profile_id", profileId);
+        if (error) throw new Error("Review write failed");
+        return jsonResponse({ updated: true, affectsScoring: false });
+      }
+
+      let { data: audio } = await admin.from("utterance_analyses")
+        .select("audio_storage_path").eq("attempt_id", check.attempt_id)
+        .eq("session_id", session.id).eq("user_id", caller.id).maybeSingle();
+      if (!audio?.audio_storage_path) {
+        const alt = await admin.from("exercise_events")
+          .select("audio_storage_path").eq("attempt_id", check.attempt_id)
+          .eq("session_id", session.id).maybeSingle();
+        audio = alt.data;
+      }
+      const path = audio?.audio_storage_path;
+      if (typeof path !== "string" || !path.startsWith(caller.id + "/" + session.id + "/")) {
+        return jsonResponse({ error: "Audio unavailable" }, 404);
+      }
+      const { data: signed, error: signedError } = await admin.storage
+        .from("session-recordings").createSignedUrl(path, 90);
+      if (signedError || !signed?.signedUrl) return jsonResponse({ error: "Audio unavailable" }, 404);
+      // Short-lived authorization to this specific object, no public bucket.
+      return jsonResponse({ signedUrl: signed.signedUrl, expiresInSeconds: 90 });
     }
 
     // Both queue and poll require active enrollment.
@@ -378,7 +432,7 @@ serve(async (request) => {
       const { checkId } = body;
       if (!isUuid(checkId)) return jsonResponse({ error: "Invalid check" }, 400);
       const { data: check, error } = await admin.from("speaker_integrity_checks")
-        .select("id, attempt_id, status, label, reason, provider_job_id, enrollment_updated_at, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, created_at")
+        .select("id, attempt_id, status, label, reason, provider_job_id, enrollment_updated_at, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, manual_review_label, manually_reviewed_at, created_at")
         .eq("id", checkId).eq("profile_id", profileId).eq("user_id", caller.id).maybeSingle();
       if (error) throw new Error("Check lookup failed");
       if (!check) return jsonResponse({ error: "Check not found" }, 404);
@@ -408,7 +462,7 @@ serve(async (request) => {
           updated_at: new Date().toISOString(),
         }).eq("id", check.id).eq("status", "pending")
         .eq("enrollment_updated_at", enrolled.updated_at)
-        .select("id, attempt_id, status, label, reason, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, created_at").maybeSingle();
+         .select("id, attempt_id, status, label, reason, match_confidence, observed_speaker_count, patient_speech_ms, other_or_unknown_speech_ms, manual_review_label, manually_reviewed_at, created_at").maybeSingle();
       if (updateError) throw new Error("Cannot save shadow result");
       return jsonResponse({ check: updated ? checkedRecord(updated) : checkedRecord(check) });
     }
