@@ -41,6 +41,16 @@ test.describe('Hospital audit: actual exposed API rejects unauthorized clinical 
       _role: 'admin',
     });
     expect(publicRoleRead.error, 'anon cannot enumerate user role membership').toBeTruthy();
+
+    // Before the reviewed staging migration, this privileged RPC returned
+    // other patients' aggregate exercise metadata to ANY signed-in user.
+    // Test the actual PostgREST endpoint, not a mocked policy or SQL role.
+    const anonTelemetry = await anon.rpc('telemetry_bucketed', { _window: '24h' });
+    expect(anonTelemetry.error, 'anonymous caller must not access global clinical telemetry').toBeTruthy();
+    const unrelatedPatientTelemetry = await isolatedSession.client
+      .rpc('telemetry_bucketed', { _window: '24h' });
+    expect(unrelatedPatientTelemetry.error, 'ordinary patient must not access other patients\' telemetry').toBeTruthy();
+    expect(unrelatedPatientTelemetry.data).toBeNull();
   });
 
   test('owner reads five clinical sources; server-only writes denied; another user sees no rows', async ({
