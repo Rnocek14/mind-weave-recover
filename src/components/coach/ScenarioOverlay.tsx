@@ -78,6 +78,7 @@ export function ScenarioOverlay({
     const pending = pendingTimersRef.current;
     return () => {
       mountedRef.current = false;
+      closingRef.current = true;
       for (const timer of pending) clearTimeout(timer);
       pending.clear();
     };
@@ -110,7 +111,7 @@ export function ScenarioOverlay({
 
   // Handle user completing a turn
   const handleUserTurn = useCallback((transcript: string) => {
-    if (!transcript.trim() || processedBeatRef.current === state.currentBeatIndex) return;
+    if (closingRef.current || !transcript.trim() || processedBeatRef.current === state.currentBeatIndex) return;
     processedBeatRef.current = state.currentBeatIndex;
 
     const currentBeat = scenario.beats[state.currentBeatIndex];
@@ -174,7 +175,7 @@ export function ScenarioOverlay({
 
   // Silence detection → Maya whispers
   useEffect(() => {
-    if (state.phase !== 'live' || !isListening || isSpeaking) return;
+    if (state.phase !== 'live' || closingRef.current || !isListening || isSpeaking) return;
     
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
@@ -203,7 +204,7 @@ export function ScenarioOverlay({
   // actually listened. Merely re-rendering a new beat with isListening=false
   // must never re-score the previous transcript or skip another question.
   useEffect(() => {
-    if (state.phase !== 'live') {
+    if (state.phase !== 'live' || closingRef.current) {
       listeningBeatRef.current = null;
       return;
     }
