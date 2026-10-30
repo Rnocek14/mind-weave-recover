@@ -11,13 +11,15 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { useSessionStallWatchdog } from '@/hooks/useSessionStallWatchdog';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -31,7 +33,8 @@ export default function NarrativeRetellExercise() {
   const { user } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
+  const [offlineFinished, setOfflineFinished] = useState(false);
+  const trialIndexRef = useRef(0);
   const exerciseCompleteSentRef = useRef(false);
   const hasAdvancedLessonRef = useRef(false);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -84,7 +87,13 @@ export default function NarrativeRetellExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   // Watchdog: warn + log if no trial advances within 90s of session start
   useSessionStallWatchdog({
@@ -110,13 +119,30 @@ export default function NarrativeRetellExercise() {
       else errorType = 'low_event_coverage';
     }
 
-    logTrial({
-      correct: isCorrect,
-      reactionTimeMs: result.durationMs,
+    // Preserve the original story-level evidence and explicit support
+    // provenance. A failed attempt retains its original ID for recovery.
+    // The shared completion gate drains this async write before closing.
+    trialIndexRef.current += 1;
+    if (isOfflineMode) return; // Offline practice is never claimed as saved.
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: adaptation.difficultyTier ?? 1,
+      stimulusId: result.storyId,
+      trialIndex: trialIndexRef.current,
+      expectedResponse: result.allKeyEvents?.join(' | ') ?? null,
+      userResponse: result.transcript ?? null,
+      isCorrect,
+      accuracyScore: result.eventCoverage,
+      latencyMs: result.durationMs,
+      cueLevel: 0,
+      supportUsed: 'independent',
+      trialMode: 'production',
       errorType,
       taskParameters: {
+        unified_route_adaptation_log: true,
         story_id: result.storyId,
-        story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
         transcript: result.transcript ?? '',
         word_count: result.wordCount,
@@ -127,6 +153,13 @@ export default function NarrativeRetellExercise() {
         on_topic_score: result.onTopicScore,
         skipped: result.skipped,
         trial_limit: trialLimit,
+        explanation: {
+          coverageRatio: result.eventCoverage,
+          onTopicScore: result.onTopicScore,
+          conceptsFound: result.eventsFound,
+          conceptsTotal: result.eventsTotal,
+        },
+        depth: result.depthTelemetry,
         ...adaptationTelemetry,
         ...(result.visualSupport ? {
           visual_support_flag: result.visualSupport.flagEnabled,
@@ -138,17 +171,8 @@ export default function NarrativeRetellExercise() {
           visual_support_rescue_triggered: result.visualSupport.rescueTriggered,
         } : {}),
       },
-      trialOutputs: {
-        explanation: {
-          coverageRatio: result.eventCoverage,
-          onTopicScore: result.onTopicScore,
-          conceptsFound: result.eventsFound,
-          conceptsTotal: result.eventsTotal,
-        },
-        depth: result.depthTelemetry,
-      },
     });
-  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
+  }, [activeSessionId, isOfflineMode, submitTrial, activeProfile?.id, trialLimit, adaptationTelemetry, adaptation.difficultyTier]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -158,19 +182,17 @@ export default function NarrativeRetellExercise() {
       window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
     }
     navigate(returnTo, { state: { resuming: true }, replace: true });
-  }, [navigate]);
+  }, [navigate, returnTo]);
 
   useEffect(() => {
     return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
   }, []);
 
-  const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
-    setCompleted(true);
-    completeSession();
-
-    // Save structured details for reflection engine
+  const handleConfirmedCompletion = useCallback((results: NarrativeTrialResult[]) => {
+    // Reflection details are only published once the corresponding raw trials
+    // and session summary were actually acknowledged in the database.
     if (blockIndex != null && results.length > 0) {
-      const r = results[0]; // Typically 1 story per block
+      const r = results[0];
       saveExerciseDetails(blockIndex, 'narrative-retell', {
         structureBreakdown: r.structureBreakdown,
         eventCoverage: r.eventCoverage,
@@ -179,20 +201,31 @@ export default function NarrativeRetellExercise() {
         eventsTotal: r.eventsTotal,
       });
     }
-
     if (fromLesson) {
       completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex]);
+  }, [blockIndex, fromLesson, resumeLessonFlow]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<NarrativeTrialResult[]>({
+    scope: !isOfflineMode && user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
+    if (isOfflineMode) {
+      setOfflineFinished(true);
+      return;
+    }
+    void finish(results);
+  }, [isOfflineMode, finish]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
-  const handleContinue = useCallback(() => {
-    if (fromLesson) {
-      resumeLessonFlow();
-    } else {
-      navigate('/today');
-    }
-  }, [fromLesson, navigate, resumeLessonFlow]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
   if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
     return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
@@ -209,7 +242,19 @@ export default function NarrativeRetellExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : offlineFinished ? (
+          <div className="my-auto mx-auto max-w-md w-full space-y-5 px-4 text-center">
+            <h2 className="text-2xl font-bold">Offline practice finished</h2>
+            <p className="text-lg">This practice was not saved.</p>
+            <Button className="min-h-14 w-full text-lg" size="lg" onClick={handleContinue}>Go to Today</Button>
+          </div>
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📖</div>
             <h2 className="text-2xl font-bold">Stories Complete!</h2>
@@ -219,7 +264,7 @@ export default function NarrativeRetellExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
+          <NarrativeRetellGame key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])} userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
