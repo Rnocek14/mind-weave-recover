@@ -32,6 +32,9 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
   const [reviewLabel, setReviewLabel] = useState<'patient' | 'other' | 'mixed' | 'uncertain'>('uncertain');
   const startedAtRef = useRef<number | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timers must call the CURRENT recorder closure after React applies
+  // isRecording=true. Otherwise an old isRecording=false closure does nothing.
+  const finishSampleRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!profileId) return;
@@ -117,6 +120,8 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
     }
   };
 
+  finishSampleRef.current = finishSample;
+
   const startSample = async () => {
     if (!profileId || busy || !consent) return;
     setMessage('');
@@ -126,7 +131,7 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
     // Make it possible for a caregiver to stop early, but never allow a
     // runaway recording. ~15 seconds is friendlier than a 30s upper bound.
     autoStopRef.current = setTimeout(() => {
-      void finishSample();
+      void finishSampleRef.current();
     }, 15_000);
   };
 
