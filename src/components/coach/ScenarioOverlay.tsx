@@ -58,22 +58,29 @@ export function ScenarioOverlay({
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
   const latestTranscriptRef = useRef<string>('');
+  // One accepted transcript per *listening turn*. A React state change after
+  // a user answer recreates handleUserTurn; without these guards the effect
+  // below can re-submit the SAME old ASR final into the NEXT scenario beat.
+  const listeningBeatRef = useRef<number | null>(null);
+  const processedBeatRef = useRef<number | null>(null);
 
   // ===== Phase transitions =====
   
   const startScenario = useCallback(async () => {
     setState(prev => ({ ...prev, phase: 'live', startedAt: Date.now() }));
     setPartnerText(scenario.openingLine);
-    exchangeStartRef.current = Date.now();
     await onSpeak(scenario.openingLine);
+    // Response latency starts when the partner FINISHES speaking, not before.
+    exchangeStartRef.current = Date.now();
     // Auto-start listening after partner speaks
     setTimeout(() => onStartListening(), 300);
   }, [scenario, onSpeak, onStartListening]);
 
   // Handle user completing a turn
   const handleUserTurn = useCallback((transcript: string) => {
-    if (!transcript.trim()) return;
-    
+    if (!transcript.trim() || processedBeatRef.current === state.currentBeatIndex) return;
+    processedBeatRef.current = state.currentBeatIndex;
+
     const currentBeat = scenario.beats[state.currentBeatIndex];
     const latencyMs = Date.now() - exchangeStartRef.current;
     
@@ -120,8 +127,8 @@ export function ScenarioOverlay({
         // Generate contextual partner response (for now, use beat action as prompt)
         const response = generatePartnerResponse(nextBeat, transcript);
         setPartnerText(response);
-        exchangeStartRef.current = Date.now();
         await onSpeak(response);
+        exchangeStartRef.current = Date.now();
         setTimeout(() => onStartListening(), 300);
       }, 500);
     }
@@ -159,15 +166,25 @@ export function ScenarioOverlay({
     };
   }, [state.phase, state.currentBeatIndex, isListening, isSpeaking, state.whispersTriggered, scenario.beats, liveTranscript]);
 
-  // When user stops speaking (transcript finalizes) — use ref to avoid stale closure
+  // A falling microphone edge may submit ONE answer for the beat that
+  // actually listened. Merely re-rendering a new beat with isListening=false
+  // must never re-score the previous transcript or skip another question.
   useEffect(() => {
-    if (!isListening && state.phase === 'live') {
-      const captured = latestTranscriptRef.current.trim();
-      if (captured) {
-        handleUserTurn(captured);
-      }
+    if (state.phase !== 'live') {
+      listeningBeatRef.current = null;
+      return;
     }
-  }, [isListening, state.phase, handleUserTurn]);
+    if (isSpeaking) return; // never interpret Maya's own audio as patient speech
+    if (isListening) {
+      listeningBeatRef.current = state.currentBeatIndex;
+      return;
+    }
+    if (listeningBeatRef.current !== state.currentBeatIndex) return;
+    const captured = latestTranscriptRef.current.trim();
+    if (!captured) return;
+    listeningBeatRef.current = null; // consume synchronously, before state updates
+    handleUserTurn(captured);
+  }, [isListening, isSpeaking, liveTranscript, state.phase, state.currentBeatIndex, handleUserTurn]);
 
   // ===== Support actions =====
   
