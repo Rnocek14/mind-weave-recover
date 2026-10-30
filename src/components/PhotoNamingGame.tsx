@@ -6,6 +6,7 @@ import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { photoNamingTrialProvenance } from '@/lib/clinical/photoNamingTrialProvenance';
 import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
 import { commitPhotoNamingEvidence } from '@/lib/clinical/verifiedPhotoNamingCommit';
 import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
@@ -1619,11 +1620,19 @@ export const PhotoNamingGame = ({
     const timeoutCueWasEffective = cueState ? false : null; // Had a cue but didn't help
 
     // Log final analysis for timeout (critical for pattern analysis!)
+    const timedOutSpeech = photoNamingTrialProvenance({
+      responseMode: 'production',
+      transcript: whisperTranscript ?? lastHeardText ?? null,
+      recordingDurationMs: duration ?? null,
+      asrConfidence: whisperConfidence ?? null,
+    });
     void pendingAttempt.finalize({
       transcript: whisperTranscript,
       transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
       asrConfidence: whisperConfidence,
-      isCorrect: false,
+      responseMode: 'production',
+      countsTowardScore: timedOutSpeech.validity?.countsTowardScore ?? false,
+      isCorrect: timedOutSpeech.validity?.countsTowardScore ? false : null,
       errorType: 'timeout',
       speechRateWpm: acousticMetrics?.speechRateWpm,
       pauseCount: acousticMetrics?.pauseCount,
@@ -2146,13 +2155,25 @@ export const PhotoNamingGame = ({
           }
         }
 
+        const speechProvenance = photoNamingTrialProvenance({
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
+          transcript: whisperTranscript ?? capturedBrowserTranscript ?? null,
+          recordingDurationMs: duration ?? null,
+          asrConfidence: whisperConfidence ?? capturedRecognitionConfidence ?? null,
+        });
+        const eligibleSpoken = capturedResponseMode === 'production'
+          && speechProvenance.validity?.countsTowardScore === true;
         void pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
           asrConfidence: utteranceAnalysis.asrConfidence,
-          isCorrect: correct,
-          errorType: errorClassification.errorType,
+          responseMode: capturedResponseMode,
+          countsTowardScore: eligibleSpoken,
+          isCorrect: eligibleSpoken ? correct : null,
+          errorType: capturedResponseMode === 'production'
+            ? errorClassification.errorType : undefined,
           phonologicalSimilarity: utteranceAnalysis.phonologicalSimilarity,
           semanticSimilarity: errorClassification.semantic_similarity,
           classificationConfidence: errorClassification.confidence,
@@ -2212,6 +2233,24 @@ export const PhotoNamingGame = ({
       } catch (error) {
         console.error('❌ [PhotoNaming] Background analysis error:', error);
 
+        // Fallback: preserve the original selection/production modality
+        // despite the analysis service outage, without fabricating a result
+        // in the speech profile from a tapped answer.
+        const fallbackProvenance = photoNamingTrialProvenance({
+          responseMode: capturedResponseMode,
+          transcript: capturedBrowserTranscript ?? null,
+          recordingDurationMs: null,
+        });
+        void pendingAttempt.finalize({
+          responseTiming: makeResponseTiming(reactionTime),
+          transcript: capturedBrowserTranscript,
+          transcriptSource: 'browser',
+          responseMode: capturedResponseMode,
+          countsTowardScore: fallbackProvenance.validity?.countsTowardScore ?? false,
+          isCorrect: fallbackProvenance.validity?.countsTowardScore
+            ? isCorrectAnswer : null,
+          errorType: 'analysis_unavailable',
+        });
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
         onTrialComplete?.({
           correct: isCorrectAnswer,
@@ -2393,8 +2432,10 @@ export const PhotoNamingGame = ({
     
     logFinalAnalysis({
       transcriptSource: 'manual',
-      isCorrect: correct,
-      errorType: errorType || 'correct',
+      responseMode: 'scaffolded',
+      countsTowardScore: false,
+      isCorrect: null,
+      errorType: errorType || 'caregiver_observed',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       cueTypeGiven: caregiverCueTypeGiven,
@@ -2476,7 +2517,9 @@ export const PhotoNamingGame = ({
 
     logFinalAnalysis({
       transcriptSource: 'manual',
-      isCorrect: true,
+      responseMode: 'manual',
+      countsTowardScore: false,
+      isCorrect: null,
       errorType: 'manual_confirmed',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
