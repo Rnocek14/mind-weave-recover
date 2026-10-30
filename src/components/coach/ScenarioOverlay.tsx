@@ -63,18 +63,45 @@ export function ScenarioOverlay({
   // below can re-submit the SAME old ASR final into the NEXT scenario beat.
   const listeningBeatRef = useRef<number | null>(null);
   const processedBeatRef = useRef<number | null>(null);
+  // A delayed partner response/TTS continuation must never reopen the mic
+  // after a patient closes the overlay or switches away from roleplay.
+  const mountedRef = useRef(true);
+  const pendingTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const scheduleWhileMounted = useCallback((callback: () => void, ms: number) => {
+    const timer = setTimeout(() => {
+      pendingTimersRef.current.delete(timer);
+      if (mountedRef.current) callback();
+    }, ms);
+    pendingTimersRef.current.add(timer);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const pending = pendingTimersRef.current;
+    return () => {
+      mountedRef.current = false;
+      for (const timer of pending) clearTimeout(timer);
+      pending.clear();
+    };
+  }, []);
 
   // ===== Phase transitions =====
   
   const startScenario = useCallback(async () => {
     setState(prev => ({ ...prev, phase: 'live', startedAt: Date.now() }));
     setPartnerText(scenario.openingLine);
-    await onSpeak(scenario.openingLine);
+    try {
+      await onSpeak(scenario.openingLine);
+    } catch (error) {
+      console.warn('[ScenarioOverlay] Could not play the opening line', error);
+    }
+    if (!mountedRef.current) return;
     // Response latency starts when the partner FINISHES speaking, not before.
     exchangeStartRef.current = Date.now();
-    // Auto-start listening after partner speaks
-    setTimeout(() => onStartListening(), 300);
-  }, [scenario, onSpeak, onStartListening]);
+    // Auto-start listening after partner speaks, unless the user has exited.
+    scheduleWhileMounted(onStartListening, 300);
+  }, [scenario, onSpeak, onStartListening, scheduleWhileMounted]);
 
   // Handle user completing a turn
   const handleUserTurn = useCallback((transcript: string) => {
@@ -123,16 +150,23 @@ export function ScenarioOverlay({
     } else {
       // Next beat — partner responds
       const nextBeat = scenario.beats[nextBeatIndex];
-      setTimeout(async () => {
-        // Generate contextual partner response (for now, use beat action as prompt)
-        const response = generatePartnerResponse(nextBeat, transcript);
-        setPartnerText(response);
-        await onSpeak(response);
-        exchangeStartRef.current = Date.now();
-        setTimeout(() => onStartListening(), 300);
+      scheduleWhileMounted(() => {
+        void (async () => {
+          // Generate contextual partner response (for now, use beat action as prompt).
+          const response = generatePartnerResponse(nextBeat, transcript);
+          setPartnerText(response);
+          try {
+            await onSpeak(response);
+          } catch (error) {
+            console.warn('[ScenarioOverlay] Could not play partner reply', error);
+          }
+          if (!mountedRef.current) return;
+          exchangeStartRef.current = Date.now();
+          scheduleWhileMounted(onStartListening, 300);
+        })();
       }, 500);
     }
-  }, [state, scenario, partnerText, onSpeak, onStartListening]);
+  }, [state, scenario, partnerText, onSpeak, onStartListening, scheduleWhileMounted]);
 
   // Keep transcript ref in sync so we always capture the latest value
   useEffect(() => {
