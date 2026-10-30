@@ -14,7 +14,7 @@ import {
   onSkipTopic,
   onFinishRequest,
   onSilence,
-  onCuedProduction,
+  onSelfReportedAttempt,
   summarize,
   type ReviewState,
   type ReviewEvent,
@@ -294,16 +294,15 @@ export default function ReviewChatPage() {
             </div>
           )}
 
-          {/* Mic-blocked participation: say it aloud, then self-report. The
-              production is real speech we couldn't verify — scored as cued
-              (same honest tier as any modeled/unverified production). */}
+          {/* With no microphone, a self-reported attempt remains unverified.
+              Never count it as a verified word in transfer metrics. */}
           {micBlocked && !inRepair && engineState.activeItem >= 0 && (
             <Button
               size="lg"
               className="rounded-2xl text-lg font-bold gap-2 px-8"
-              onClick={() => stateRef.current && applyTurn(onCuedProduction(stateRef.current))}
+              onClick={() => stateRef.current && applyTurn(onSelfReportedAttempt(stateRef.current))}
             >
-              🗣️ I said “{engineState.items[engineState.activeItem]?.word}”
+              🗣️ I tried saying “{engineState.items[engineState.activeItem]?.word}”
             </Button>
           )}
 
@@ -311,7 +310,7 @@ export default function ReviewChatPage() {
           <div className="flex flex-col items-center gap-1.5">
             {micBlocked ? (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <MicOff className="w-4 h-4" /> Mic unavailable — say the words out loud, then tap
+                <MicOff className="w-4 h-4" /> Mic unavailable — try saying the word, then tap. This will not be scored.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -345,8 +344,7 @@ export default function ReviewChatPage() {
             {(summary ?? summarize(engineState)).spontaneous > 0 && (
               <p className="font-semibold text-secondary">
                 ⭐ {(summary ?? summarize(engineState)).spontaneous} word
-                {(summary ?? summarize(engineState)).spontaneous === 1 ? "" : "s"} used all on your own
-                — you found them without any help.
+                {(summary ?? summarize(engineState)).spontaneous === 1 ? "" : "s"} used without a hint in this chat.
               </p>
             )}
             {(summary ?? summarize(engineState)).elicited > 0 && (
@@ -354,6 +352,12 @@ export default function ReviewChatPage() {
             )}
             {(summary ?? summarize(engineState)).cued > 0 && (
               <p>🔤 {(summary ?? summarize(engineState)).cued} with a little help</p>
+            )}
+            {(summary ?? summarize(engineState)).unverified > 0 && (
+              <p className="text-muted-foreground">
+                🗣️ {(summary ?? summarize(engineState)).unverified} self-reported attempt
+                {(summary ?? summarize(engineState)).unverified === 1 ? "" : "s"} — not scored because the microphone was unavailable.
+              </p>
             )}
             {(summary ?? summarize(engineState)).released > 0 && (
               <p className="text-muted-foreground">
