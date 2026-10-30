@@ -164,6 +164,41 @@ vi.mock('@/components/PhonologicalGame', () => ({
     <button onClick={() => onGameComplete(4, 8)}>Finish phonological</button>
   ),
 }));
+vi.mock('@/components/PatternMatchGame', () => ({
+  PatternMatchGame: ({ onGameComplete }: { onGameComplete: (score: number) => void }) => (
+    <button onClick={() => onGameComplete(8)}>Finish patterns</button>
+  ),
+}));
+vi.mock('@/hooks/useSemanticFeaturesProgression', () => ({
+  useSemanticFeaturesProgression: () => ({ loaded: true, startingLevel: 1, state: null }),
+  mapSemanticFeaturesSupport: () => 'independent',
+}));
+vi.mock('@/lib/progression/semanticFeaturesDifficultyBridge', () => ({
+  resolveEffectiveSemanticFeaturesInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/components/SemanticFeatureGame', () => ({
+  SemanticFeatureGame: ({ onGameComplete }: {
+    onGameComplete: (score: number, trials: number) => void,
+  }) => <button onClick={() => onGameComplete(8, 10)}>Finish features</button>,
+}));
+vi.mock('@/hooks/useSentenceConstructionProgression', () => ({
+  useSentenceConstructionProgression: () => ({
+    loaded: true, startingLevel: 1, state: null,
+  }),
+  mapSentenceConstructionSupport: () => 'independent',
+}));
+vi.mock('@/lib/progression/sentenceConstructionDifficultyBridge', () => ({
+  resolveEffectiveSentenceConstructionInitialDifficulty: () => ({
+    effective: 1, clinicalFloor: 1, softRegressionScaffold: false,
+  }),
+}));
+vi.mock('@/components/SentenceConstructionGame', () => ({
+  SentenceConstructionGame: ({ onGameComplete }: {
+    onGameComplete: (score: number, trials: number) => void,
+  }) => <button onClick={() => onGameComplete(8, 10)}>Finish sentences</button>,
+}));
 vi.mock('@/hooks/useSessionStallWatchdog', () => ({
   useSessionStallWatchdog: () => undefined,
 }));
@@ -323,6 +358,9 @@ import MultiStepPlanExercise from '../MultiStepPlanExercise';
 import AbstractCompareExercise from '../AbstractCompareExercise';
 import NarrativeRetellExercise from '../NarrativeRetellExercise';
 import PhonologicalExercise from '../PhonologicalExercise';
+import PatternMatchExercise from '../PatternMatchExercise';
+import SemanticFeatureExercise from '../SemanticFeatureExercise';
+import SentenceConstructionExercise from '../SentenceConstructionExercise';
 import ThoughtContinuationExercise from '../ThoughtContinuationExercise';
 import ConversationPartnerExercise from '../ConversationPartnerExercise';
 import ConversationCoachExercise from '../ConversationCoachExercise';
@@ -337,6 +375,9 @@ const cases = [
   { title: 'Abstract Comparison', component: AbstractCompareExercise, finishLabel: 'Finish comparison' },
   { title: 'Narrative Retell', component: NarrativeRetellExercise, finishLabel: 'Finish narrative' },
   { title: 'Phonological Awareness', component: PhonologicalExercise, finishLabel: 'Finish phonological' },
+  { title: 'Pattern Match', component: PatternMatchExercise, finishLabel: 'Finish patterns' },
+  { title: 'Semantic Features', component: SemanticFeatureExercise, finishLabel: 'Finish features' },
+  { title: 'Sentence Construction', component: SentenceConstructionExercise, finishLabel: 'Finish sentences' },
 ];
 
 beforeEach(() => {
@@ -551,6 +592,33 @@ describe('patient completion and retry across actual exercise pages', () => {
     expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
     expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('Semantic Features cannot save fake progress when its final commit failed', async () => {
+    mocks.commitSession.mockResolvedValueOnce({ ok: false });
+    render(<MemoryRouter><SemanticFeatureExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish features' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
+  it('Sentence Construction in lesson mode cannot advance on a failed session close', async () => {
+    mocks.fromLesson = true;
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const onEvent = vi.fn();
+    window.addEventListener('exercise-complete', onEvent);
+    try {
+      render(<MemoryRouter><SentenceConstructionExercise /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: 'Finish sentences' }));
+      expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+      expect(onEvent).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+      expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
+      expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+      expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener('exercise-complete', onEvent);
+    }
   });
 
   const conversationCases = [
