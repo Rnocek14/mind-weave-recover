@@ -7,6 +7,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getTodaysPracticedWords, clearReviewedWords } from "@/lib/reviewQueue";
 import { recordTransferEvent, getCarryoverPriorityWords } from "@/lib/transferLedger";
+import { resolveReviewSessionId } from "@/lib/reviewRouteScope";
 import {
   startReview,
   onUserUtterance,
@@ -64,8 +65,7 @@ export default function ReviewChatPage() {
   const { kidsMode } = useKidsMode();
   // An explicitly selected lesson may review ONLY its own practice. Direct
   // /review-chat remains an optional daily/carryover conversation.
-  const reviewSessionId = typeof location.state?.sessionId === "string"
-    ? location.state.sessionId : undefined;
+  const reviewSessionId = resolveReviewSessionId(location.search, location.state);
 
   // CLOSED LOOP: today's practiced words + up to 2 carryover-priority words
   // (fading/lost per the transfer ledger) that need conversational retrieval
@@ -73,11 +73,11 @@ export default function ReviewChatPage() {
   // local IN-APP review history, never passive real-world monitoring.
   const practiced = useMemo(() => {
     const todays = getTodaysPracticedWords(
-      reviewSessionId ? { sessionId: reviewSessionId } : {},
+      reviewSessionId !== undefined ? { sessionId: reviewSessionId } : {},
     );
     // Keep a lesson-specific review about THAT lesson. Do not pull fading
     // words from a separate day/session into its result or clear their queue.
-    if (reviewSessionId) return todays;
+    if (reviewSessionId !== undefined) return todays;
     const todaysSet = new Set(todays.map((p) => p.word));
     const carryover = getCarryoverPriorityWords(2)
       .filter((c) => !todaysSet.has(c.word))
@@ -129,7 +129,7 @@ export default function ReviewChatPage() {
         setSummary(complete.summary);
         clearReviewedWords(
           turn.state.items.map((i) => i.word),
-          reviewSessionId ? { sessionId: reviewSessionId } : {},
+          reviewSessionId !== undefined ? { sessionId: reviewSessionId } : {},
         );
       }
       if (turn.events.some((e) => e.type === "spontaneous_use")) {
