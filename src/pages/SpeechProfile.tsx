@@ -14,6 +14,8 @@
 import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { SpeakerIntegrityPanel } from "@/components/speech/SpeakerIntegrityPanel";
+import { speakerIntegrityPilotEnabled } from "@/lib/speech/speakerIntegrityClient";
 import { useProfile } from "@/hooks/useProfile";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useUserSpeechProfile } from "@/hooks/useUserSpeechProfile";
@@ -171,6 +173,10 @@ export default function SpeechProfile() {
         </div>
         <FreshnessBadge freshness={freshness} />
       </div>
+
+      {showClinician && speakerIntegrityPilotEnabled && (
+        <SpeakerIntegrityPanel profileId={activeProfile?.id ?? null} />
+      )}
 
       <Tabs defaultValue="profile">
         <TabsList className="grid w-full grid-cols-3">
