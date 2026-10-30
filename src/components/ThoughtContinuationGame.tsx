@@ -92,6 +92,8 @@ interface ThoughtContinuationGameProps {
     completedThoughts: number;
   }) => void;
   onExit?: () => void;
+  /** Verify captured speech evidence before declaring the session saved. */
+  registerEvidenceVerifier?: (verify: () => Promise<boolean>) => void;
 }
 
 // =============================================================================
@@ -104,6 +106,7 @@ export function ThoughtContinuationGame({
   sessionId,
   onComplete,
   onExit,
+  registerEvidenceVerifier,
 }: ThoughtContinuationGameProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -166,6 +169,7 @@ export function ThoughtContinuationGame({
     logBrowserTranscript,
     logFinalAnalysis, 
     resetAttempt,
+    confirmFinalizedAttempts,
   } = useUtteranceLogger();
   const {
     isRecording,
@@ -186,11 +190,19 @@ export function ThoughtContinuationGame({
 
   // Phase 4 — per-trial logging into adaptation_trial_logs for real-world
   // adaptive validation. Discourse games log one row per spoken turn.
-  const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
+  const { logTrial: logAdaptationTrial, flushVerified: flushAdaptationVerified } = useAdaptationTrialLogger({
     userId,
     sessionId,
     exerciseSlug: 'thought_continuation',
   });
+
+  const verifySpeechAndAdaptation = useCallback(async () => {
+    if (!await confirmFinalizedAttempts()) return false;
+    return flushAdaptationVerified();
+  }, [confirmFinalizedAttempts, flushAdaptationVerified]);
+  useEffect(() => {
+    registerEvidenceVerifier?.(verifySpeechAndAdaptation);
+  }, [registerEvidenceVerifier, verifySpeechAndAdaptation]);
 
   // LLM-first clinical scorer (with local fallback). Replaces stuck-type-only
   // heuristics with semantic / target-achievement / error-type judgement.
