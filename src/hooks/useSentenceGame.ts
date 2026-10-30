@@ -158,12 +158,17 @@ export const useSentenceGame = (
     }));
   };
 
-  const submitAnswer = () => {
+  // An externally recognized speech answer needs to be scored against its
+  // explicit option indices in the *same* event. Otherwise the React state
+  // closure still contains the previous (often empty) tile answer.
+  const submitAnswer = (explicitAnswerIndices?: number[]) => {
     const trial = getCurrentTrial();
     if (!trial) return null;
 
     // Convert indices to actual words for comparison
-    const answerWords = getAnswerAsWords();
+    const answerWords = explicitAnswerIndices === undefined
+      ? getAnswerAsWords()
+      : explicitAnswerIndices.map(index => trial.options[index]).filter((word): word is string => typeof word === 'string');
     
     // Check correctness - compare arrays
     const isCorrect = 
@@ -191,6 +196,7 @@ export const useSentenceGame = (
 
       return {
         ...prev,
+        currentAnswer: explicitAnswerIndices === undefined ? prev.currentAnswer : explicitAnswerIndices,
         score: newScore,
         showFeedback: true,
         feedbackCorrect: isCorrect,
