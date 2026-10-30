@@ -7,7 +7,7 @@
  * Design principles:
  * - Feels like a safe conversation, not a test
  * - "Maya whispers" for scaffolded cues
- * - Functional scoring, not accuracy %
+ * - Show observed practice/support; experimental score is NOT clinical readiness
  * - Progressive support hierarchy (Hint > Repeat > Help)
  */
 
@@ -15,6 +15,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { X, Mic, MicOff, ArrowRight, MessageCircle, RotateCcw, HelpCircle, Lightbulb, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ScenarioPracticeSummary } from './ScenarioPracticeSummary';
 import {
   type ScenarioDefinition,
   type ScenarioState,
@@ -242,7 +243,6 @@ export function ScenarioOverlay({
           {state.phase === 'feedback' && score && (
             <FeedbackView
               scenario={scenario}
-              score={score}
               state={state}
               onReflection={(answer) => {
                 setReflectionAnswer(answer);
@@ -427,48 +427,25 @@ function LiveView({
 
 interface FeedbackViewProps {
   scenario: ScenarioDefinition;
-  score: ScenarioScore;
   state: ScenarioState;
   onReflection: (answer: string) => void;
   onDone: () => void;
 }
 
-function FeedbackView({ scenario, score, state, onReflection, onDone }: FeedbackViewProps) {
+function FeedbackView({ scenario, state, onReflection, onDone }: FeedbackViewProps) {
   const [showReflection, setShowReflection] = useState(false);
 
   return (
     <div className="flex flex-col h-full px-6 py-6 gap-5">
-      {/* Emotional headline */}
-      <div className="text-center space-y-2">
-        <span className="text-4xl">{score.overall >= 70 ? '🎉' : score.overall >= 40 ? '💪' : '🌱'}</span>
-        <p className="text-base font-medium text-foreground">{score.emotionalFeedback}</p>
-      </div>
-
-      {/* Readiness score */}
-      <div className="bg-muted/50 rounded-2xl px-5 py-4 text-center space-y-2">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">Real-World Readiness</p>
-        <p className="text-3xl font-bold text-foreground">{score.overall}<span className="text-lg text-muted-foreground">%</span></p>
-        <p className="text-xs text-muted-foreground">You're getting more confident in real conversations.</p>
-      </div>
-
-      {/* Functional summary */}
-      <div className="space-y-2">
-        <p className="text-sm text-foreground">{score.functionalSummary}</p>
-        
-        {/* Score pillars — compact */}
-        <div className="grid grid-cols-2 gap-2">
-          <ScorePill label="Intent" value={score.intentScore} />
-          <ScorePill label="Responsiveness" value={score.responsivenessScore} />
-          <ScorePill label="Independence" value={score.independenceScore} />
-          <ScorePill label="Naturalness" value={score.naturalnessScore} />
-        </div>
-      </div>
-
-      {/* Next improvement */}
-      <div className="bg-primary/5 rounded-xl px-4 py-3">
-        <p className="text-xs text-muted-foreground mb-0.5">Next time</p>
-        <p className="text-sm text-foreground">{score.nextImprovement}</p>
-      </div>
+      {/* Observed practice only. Never render the heuristic as readiness. */}
+      <ScenarioPracticeSummary
+        title={scenario.title}
+        exchangeCount={state.exchanges.length}
+        hintCount={state.hintsUsed}
+        repeatCount={state.repeatsUsed}
+        helpCount={state.helpsUsed}
+        automaticWhispers={state.whispersTriggered}
+      />
 
       {/* Micro-reflection */}
       {!showReflection ? (
@@ -501,17 +478,6 @@ function FeedbackView({ scenario, score, state, onReflection, onDone }: Feedback
       >
         Back to Maya
       </Button>
-    </div>
-  );
-}
-
-// ===== Helpers =====
-
-function ScorePill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-card/80 rounded-lg px-3 py-2 text-center">
-      <p className="text-lg font-semibold text-foreground">{value}<span className="text-xs text-muted-foreground">%</span></p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }
