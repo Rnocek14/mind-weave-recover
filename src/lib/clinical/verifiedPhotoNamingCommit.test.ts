@@ -13,11 +13,13 @@ const exampleSnapshot: PhotoNamingProgressionSnapshot = {
 function setup() {
   const stages: PhotoNamingCommitStages = {
     rawCommitted: false,
+    utterancesCommitted: false,
     adaptationCommitted: false,
     notesCommitted: false,
     progressionCommitted: false,
   };
   const raw = vi.fn(async () => ({ ok: true }));
+  const utterances = vi.fn(async () => true);
   const adaptation = vi.fn(async () => true);
   const notes = vi.fn(async () => true);
   const progression = vi.fn(async (_sessionId: string) => ({
@@ -30,12 +32,13 @@ function setup() {
     commitPhotoNamingEvidence({
       sessionId, stages,
       commitRaw: raw,
+      confirmUtterances: utterances,
       retryAdaptation: adaptation,
       persistNotes: notes,
       commitProgression: progression,
       onProgressionSnapshot: onSnapshot,
     });
-  return { stages, raw, adaptation, notes, progression, onSnapshot, commit };
+  return { stages, raw, utterances, adaptation, notes, progression, onSnapshot, commit };
 }
 
 beforeEach(() => vi.restoreAllMocks());
@@ -45,11 +48,12 @@ describe('Photo Naming staged clinical completion (production commit function)',
     const ctx = setup();
     const order: string[] = [];
     ctx.raw.mockImplementation(async () => { order.push('raw'); return { ok: true }; });
+    ctx.utterances.mockImplementation(async () => { order.push('utterances'); return true; });
     ctx.adaptation.mockImplementation(async () => { order.push('adaptation'); return true; });
     ctx.notes.mockImplementation(async () => { order.push('notes'); return true; });
     ctx.progression.mockImplementation(async () => { order.push('progression'); return { ok: true, snapshot: exampleSnapshot }; });
     expect(await ctx.commit()).toEqual({ ok: true });
-    expect(order).toEqual(['raw', 'adaptation', 'notes', 'progression']);
+    expect(order).toEqual(['raw', 'utterances', 'adaptation', 'notes', 'progression']);
     expect(ctx.progression).toHaveBeenCalledWith('patient-session');
     expect(ctx.onSnapshot).toHaveBeenCalledExactlyOnceWith(exampleSnapshot);
   });
@@ -65,6 +69,24 @@ describe('Photo Naming staged clinical completion (production commit function)',
     expect(await ctx.commit()).toEqual({ ok: true });
     expect(ctx.raw).toHaveBeenCalledTimes(2);
     expect(ctx.progression).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for all original utterance records and retries only incomplete evidence', async () => {
+    const ctx = setup();
+    ctx.utterances.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    expect(await ctx.commit()).toEqual({ ok: false });
+    expect(ctx.stages.rawCommitted).toBe(true);
+    expect(ctx.stages.utterancesCommitted).toBe(false);
+    expect(ctx.adaptation).not.toHaveBeenCalled();
+    expect(ctx.notes).not.toHaveBeenCalled();
+    expect(ctx.progression).not.toHaveBeenCalled();
+
+    expect(await ctx.commit()).toEqual({ ok: true });
+    expect(ctx.raw).toHaveBeenCalledTimes(1);
+    expect(ctx.utterances).toHaveBeenCalledTimes(2);
+    expect(ctx.adaptation).toHaveBeenCalledTimes(1);
+    expect(ctx.progression).toHaveBeenCalledTimes(1);
+    expect(ctx.stages.utterancesCommitted).toBe(true);
   });
 
   it('retries only incomplete stages after a buffered adaptation insert fails', async () => {
