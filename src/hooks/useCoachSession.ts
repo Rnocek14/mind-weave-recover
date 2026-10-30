@@ -78,6 +78,7 @@ import { createSessionPhaseState, evaluatePhaseTransition, applyPhaseTransition,
 import { createFeedbackTracker, recordTurnForFeedback, type FeedbackTracker } from '@/lib/microFeedback';
 import { generateGameIntro, generateGameReturn, type GameTransitionContext, type GameReturnContext } from '@/lib/gameTransitions';
 import { sanitizeMayaLine } from '@/lib/mayaSpeechGate';
+import { guardCoachReply } from '@/lib/coachReplyGuard';
 
 // Correction detection patterns
 const CORRECTION_PATTERNS = [
@@ -381,7 +382,7 @@ export function useCoachSession({
   });
 
   // Centralized addMessage with Maya Speech Gate for AI messages
-  const addMessage = useCallback((message: FeedMessage) => {
+  const addMessage = useCallback((message: FeedMessage): FeedMessage => {
     if (message.type === 'ai' && message.text) {
       const gateResult = sanitizeMayaLine({
         text: message.text,
@@ -396,6 +397,7 @@ export function useCoachSession({
       }
     }
     setMessages(prev => [...prev, message]);
+    return message;
   }, []);
 
   const startSession = useCallback((): string => {
@@ -1359,7 +1361,26 @@ export function useCoachSession({
         }
       }
 
-      addMessage({ type: 'ai', text: aiResponseText, id: generateId() });
+      // The active coach has a final deterministic anti-repetition gate.
+      // Run it AFTER therapeutic response validation, and use the SAME
+      // approved line for chat, TTS and the session word count.
+      const approved = sanitizeMayaLine({
+        text: aiResponseText,
+        activeTopic: orchestratorStateRef.current.currentTopic,
+        establishedFacts: establishedFactsRef.current,
+        userCorrectionActive: userCorrectionActiveRef.current,
+        pendingVisualAction: pendingVisualActionRef.current,
+        source: 'conversation_coach_final',
+      });
+      const guarded = guardCoachReply({
+        proposed: approved.approvedText,
+        recentMaya: messages.filter(m => m.type === 'ai').map(m => m.text),
+      });
+      if (guarded.reason) {
+        console.warn('[coach-reply-guard]', guarded.reason);
+      }
+      const delivered = addMessage({ type: 'ai', text: guarded.text, id: generateId() });
+      aiResponseText = delivered.type === 'ai' ? delivered.text : guarded.text;
       aiWordsRef.current += countWords(aiResponseText);
       
       orchestratorStateRef.current = updateState(
