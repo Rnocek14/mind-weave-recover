@@ -229,6 +229,8 @@ export function useAdaptationTrialLogger(opts: Options) {
     let hadFailure = false;
     let trialsFailed = false;
     let anomaliesFailed = false;
+    let trialsPersisted = false;
+    let anomaliesPersisted = false;
     try {
       if (trials.length > 0) {
         // No `as any` on either side. Both tables and every column they carry
@@ -242,6 +244,8 @@ export function useAdaptationTrialLogger(opts: Options) {
           // Phase 2: was dev-only. Promoted to error in all envs so prod
           // failures (RLS, schema drift) are visible.
           console.error('[adaptation_trial_logs] insert failed', { error: error.message, count: trials.length });
+        } else {
+          trialsPersisted = true;
         }
       }
       if (anomalies.length > 0) {
@@ -250,12 +254,16 @@ export function useAdaptationTrialLogger(opts: Options) {
           hadFailure = true;
           anomaliesFailed = true;
           console.error('[adaptation_anomalies] insert failed', { error: error.message, count: anomalies.length });
+        } else {
+          anomaliesPersisted = true;
         }
       }
     } catch (err) {
       hadFailure = true;
-      trialsFailed = trials.length > 0;
-      anomaliesFailed = anomalies.length > 0;
+      // If the first INSERT succeeded and a subsequent anomaly INSERT
+      // threw, do not requeue or duplicate already-confirmed patient trials.
+      trialsFailed = trials.length > 0 && !trialsPersisted;
+      anomaliesFailed = anomalies.length > 0 && !anomaliesPersisted;
       console.error('[adaptationLogger] flush threw', err);
     }
     if (anomaliesFailed) {
