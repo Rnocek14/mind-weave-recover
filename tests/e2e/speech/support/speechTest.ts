@@ -74,6 +74,11 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
         // the app's real browser-speech fallback remains in the execution path.
         return fulfillJson(route, { fallback: true, error: 'Synthetic test: use browser TTS' });
       }
+      if (url.pathname === '/functions/v1/get-embedding' && request.method() === 'POST') {
+        // Full semantic search is a model-validation task, not a public
+        // simulated-microphone test. Exercise the real no-embedding fallback.
+        return fulfillJson(route, { message: 'Synthetic embedding service unavailable' }, 503);
+      }
       if (url.pathname === '/functions/v1/score-discourse-turn' && request.method() === 'POST') {
         return fulfillJson(route, {
           successScore: 0.8, onTopicScore: 0.85, targetAchievementScore: 0.8,
@@ -115,7 +120,11 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
           // Category and Synonym games may read the optional UI profile.
           // The QA context deliberately has no profile or persisted settings.
           if (table === 'user_ui_profile') return fulfillJson(route, request.headers().accept?.includes('object') ? null : []);
-          if (['user_speech_profiles', 'user_capabilities', 'clinical_progression_state', 'profiles', 'sessions'].includes(table)) {
+          if ([
+            'user_speech_profiles', 'user_capabilities', 'clinical_progression_state',
+            'profiles', 'sessions', 'exercise_events', 'utterance_analyses',
+            'adaptation_trial_logs', 'coach_conversation_summaries',
+          ].includes(table)) {
             return fulfillJson(route, request.headers().accept?.includes('object') ? null : []);
           }
         }

@@ -20,6 +20,10 @@ Tests currently include:
   persistence in exercise_events, native ASR, story scoring quality or mobile
   hardware.
 
+- **Thought Continuation, Describe & Guess, Conversation Coach:** new
+  actual-component microphone/attempt journeys using synthetic speech and
+  controlled model services; each requires an exact-SHA CI pass before
+  being counted as verified.
 - **Phrase Practice, Fix the Sentence:** production speech components have
   new exact-phrase/correct-replacement WAV, pronunciation and utterance
   Playwright journeys (pending the required CI).
@@ -39,12 +43,12 @@ journeys exist and execute**:
 |---|---|---|
 | Phrase Practice | Speech + recorded audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
 | Two Clues | Speech + recorded audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
-| Describe & Guess | Speech + recorded audio | **NOT YET RUN** |
+| Describe & Guess | Speech + recorded audio | **NEW description-to-evidence Playwright (pending CI)** |
 | Fix the Sentence | Spoken or typed, pronunciation | **NEW spoken-response Playwright test (pending exact-SHA CI); tile/typing parity pending** |
-| Thought Continuation | Discourse recording | **NOT YET RUN** |
+| Thought Continuation | Discourse recording | **NEW discourse attempt Playwright (pending CI)** |
 | Dual Load Naming | Naming audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
 | Conversation Partner | Spoken discourse + AI dialogue | **NEW press-to-talk Playwright (pending CI)** |
-| Conversation Coach | Spoken discourse + AI coaching | **NOT YET RUN** |
+| Conversation Coach | Spoken discourse + AI coaching | **NEW speech turn and exit cleanup Playwright (pending CI)** |
 | Category Fluency | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
 | Synonym Generator | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
 | Detective Mind | Spoken selection, no recorder | **NEW Playwright test (pending exact-SHA CI)** |

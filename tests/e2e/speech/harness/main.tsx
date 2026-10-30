@@ -10,6 +10,7 @@ import { RecognitionGameHarness, recognitionGames, type RecognitionGameKey } fro
 import { LexicalGameHarness, lexicalGames, type LexicalGameKey } from './lexicalHarness';
 import { PhraseSentenceHarness, phraseSentenceGames, type PhraseSentenceGameKey } from './phraseSentenceHarness';
 import { MoreSpeechHarness, moreSpeechGames, type MoreSpeechGameKey } from './moreSpeechHarness';
+import { RemainingSpeechHarness, remainingSpeechGames, type RemainingSpeechGameKey } from './remainingSpeechHarness';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
@@ -123,6 +124,13 @@ createRoot(document.getElementById('root')!).render(
         const search = new URLSearchParams(location.search);
         const view = search.get('view');
         if (view === 'game') return <GameHarness />;
+        if (view === 'remaining-speech') {
+          const game = search.get('game');
+          if (!remainingSpeechGames.includes(game as RemainingSpeechGameKey)) {
+            throw new Error('Unknown remaining clinical speech game');
+          }
+          return <RemainingSpeechHarness game={game as RemainingSpeechGameKey} />;
+        }
         if (view === 'more-speech') {
           const game = search.get('game');
           if (!moreSpeechGames.includes(game as MoreSpeechGameKey)) throw new Error('Unknown additional speech game');
