@@ -20,6 +20,9 @@ Tests currently include:
   persistence in exercise_events, native ASR, story scoring quality or mobile
   hardware.
 
+- **Two Clues, Dual Load Naming:** production lexical components now have
+  microphone-to-pronunciation/utterance Playwright journeys with actual native
+  WAV capture and controlled recognition/HTTP fixtures (new tests require CI).
 - **Category Fluency, Synonym Generator, Detective Mind:** controlled
   Web Speech browser-event tests execute actual game components and their
   answer callbacks, without pretending that these games capture a WAV.
@@ -32,11 +35,11 @@ journeys exist and execute**:
 | Game | Input evidence | Mic/audio Playwright coverage |
 |---|---|---|
 | Phrase Practice | Speech + recorded audio + pronunciation | **NOT YET RUN** |
-| Two Clues | Speech + recorded audio + pronunciation | **NOT YET RUN** |
+| Two Clues | Speech + recorded audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
 | Describe & Guess | Speech + recorded audio | **NOT YET RUN** |
 | Fix the Sentence | Spoken or typed, pronunciation | **NOT YET RUN** |
 | Thought Continuation | Discourse recording | **NOT YET RUN** |
-| Dual Load Naming | Naming audio + pronunciation | **NOT YET RUN** |
+| Dual Load Naming | Naming audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
 | Conversation Partner | Spoken discourse + AI dialogue | **NOT YET RUN** |
 | Conversation Coach | Spoken discourse + AI coaching | **NOT YET RUN** |
 | Category Fluency | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
