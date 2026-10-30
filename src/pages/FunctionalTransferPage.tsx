@@ -141,6 +141,13 @@ export default function FunctionalTransferPage() {
     startListening();
   };
 
+  const stopReading = () => {
+    window.speechSynthesis?.cancel();
+    readingRef.current = false;
+    echoGuardUntilRef.current = Date.now() + 900;
+    setSpeaking(false);
+  };
+
   const onHint = () => {
     const s = stateRef.current;
     if (!s) return;
@@ -254,7 +261,12 @@ export default function FunctionalTransferPage() {
                   Microphone unavailable. Your practice still counts as participation.
                 </p>
               )}
-              {speaking && <p className="text-sm text-muted-foreground text-center">Maya is speaking…</p>}
+              {speaking && (
+                <Button variant="outline" size="lg" className="min-h-14"
+                  onClick={stopReading}>
+                  Stop Maya's voice
+                </Button>
+              )}
               <Button variant="outline" size="lg" className="min-h-14"
                 disabled={probe.supportLevel >= 2} onClick={onHint}>
                 <Lightbulb className="w-5 h-5 mr-2" />
