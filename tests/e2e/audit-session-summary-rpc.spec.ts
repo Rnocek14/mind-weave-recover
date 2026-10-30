@@ -106,7 +106,24 @@ test.describe('Hospital gate: persisted SQL session summary agrees with canonica
 
     // The same saved evidence is reduced by the production TS reducer and
     // by the database RPC: a graded 50/100 answer is NOT a binary 100%.
-    const expected = reduceAccuracy(written!);
+    const recordedJson = (value: unknown): Record<string, unknown> | null => {
+      if (value === null) return null;
+      if (typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Persisted clinical metadata is not an object');
+      }
+      return value as Record<string, unknown>;
+    };
+    const expected = reduceAccuracy(written!.map(row => ({
+      score: row.score,
+      cue_level: row.cue_level,
+      counts_toward_score: row.counts_toward_score,
+      validity_label: row.validity_label,
+      exercise_slug: row.exercise_slug,
+      task_parameters: recordedJson(row.task_parameters),
+      engagement_flags: recordedJson(row.engagement_flags),
+      whisper_transcript: row.whisper_transcript,
+      browser_transcript: row.browser_transcript,
+    })));
     expect(expected.accuracy).toBe(25);
     expect(expected.scored_trials).toBe(2);
     const { data: response, error: rpcError } = await owner.rpc('get_session_summary', {
