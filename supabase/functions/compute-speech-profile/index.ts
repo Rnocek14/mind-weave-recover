@@ -89,6 +89,10 @@ serve(async (req) => {
         queryErrorCode: verifiedProfileError?.code ?? null,
         recordFound: !!verifiedProfile,
         callerMatchesRequestedUser: caller.id === user_id,
+        // Detect an incorrectly wired staging Edge Function whose service-role
+        // client talks to a different Supabase project than the incoming
+        // request; compare hostnames only, never print tokens or identifiers.
+        backendMatchesRequestHost: new URL(supabaseUrl).hostname === new URL(req.url).hostname,
       });
       if (verifiedProfileError) {
         return jsonResponse({ error: 'Clinical profile verification unavailable' }, 503);
