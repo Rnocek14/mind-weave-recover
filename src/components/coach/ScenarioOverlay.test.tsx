@@ -44,6 +44,29 @@ describe("roleplay: one microphone turn = one conversation exchange", () => {
     unmount();
   });
 
+  it("does not nag a silent patient with the same automatic hint forever", async () => {
+    vi.useFakeTimers();
+    try {
+      const settings = props();
+      const { rerender, unmount } = render(<ScenarioOverlay {...settings} />);
+      fireEvent.click(screen.getByRole("button", { name: /i'm ready/i }));
+      await act(async () => { await Promise.resolve(); });
+      rerender(<ScenarioOverlay {...settings} isListening liveTranscript="" />);
+
+      act(() => vi.advanceTimersByTime(12_000));
+      expect(screen.getByText(coffee.beats[0].whispers[0])).toBeTruthy();
+      act(() => vi.advanceTimersByTime(12_000));
+      expect(screen.getByText(coffee.beats[0].whispers[1])).toBeTruthy();
+      // No third prompt/repeated last hint after the per-beat safety budget.
+      act(() => vi.advanceTimersByTime(60_000));
+      expect(screen.getByText(coffee.beats[0].whispers[1])).toBeTruthy();
+      expect(vi.getTimerCount()).toBe(0);
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not count an empty mic stop as a patient response", async () => {
     const settings = props();
     const { rerender, unmount } = render(<ScenarioOverlay {...settings} />);
