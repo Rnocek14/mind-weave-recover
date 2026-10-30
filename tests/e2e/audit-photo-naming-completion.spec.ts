@@ -22,7 +22,7 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
 
     const readEvents = async () => {
       const { data, error } = await client.from('exercise_events')
-        .select('id, session_id, trial_index, attempt_id, score, exercise_slug, sessions!inner(user_id)')
+        .select('id, session_id, trial_index, attempt_id, score, exercise_slug, validity_label, counts_toward_score, task_parameters, whisper_transcript, browser_transcript, sessions!inner(user_id)')
         .eq('sessions.user_id', session.user.id)
         .eq('exercise_slug', 'photo_naming')
         .order('trial_index');
@@ -103,6 +103,17 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
     expect(new Set(saved.map(row => row.attempt_id)).size).toBe(totalTrials);
     expect(new Set(saved.map(row => row.session_id)).size).toBe(1);
     expect(saved.every(row => row.sessions.user_id === session.user.id)).toBe(true);
+    // A patient tapped visible picture choices rather than speaking words.
+    // These are legitimate scored *recognition tasks*. A stale transcript,
+    // prior mic start, or absent audio must never turn them into ASR trials.
+    for (const row of saved) {
+      const params = row.task_parameters as Record<string, unknown> | null;
+      expect(params?.trial_mode).toBe('recognition');
+      expect(params?.response_mode).toBe('recognition');
+      expect(row.counts_toward_score).toBe(true);
+      expect(row.validity_label).toBeNull();
+      expect(params?.asr_verified).toBe(false);
+    }
     const id = saved[0].session_id!;
 
     const readSession = async () => {
@@ -132,7 +143,12 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
     await expect.poll(async () => (await readSession()).ended_at, { timeout: 25_000 }).not.toBeNull();
     const final = await readSession();
     expect(final.ended_reason).toBe('completed');
-    expect(final.summary).toMatchObject({ scored_trials: totalTrials });
+    expect(final.summary).toMatchObject({
+      scored_trials: totalTrials,
+      participation_trials: totalTrials,
+      asr_scored_trials: 0,
+      asr_accuracy: null,
+    });
     expect(await readEvents()).toEqual(saved);
 
     // Browser reload must not make two saves for the same original attempts.
