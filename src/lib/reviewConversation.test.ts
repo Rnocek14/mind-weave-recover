@@ -101,6 +101,16 @@ describe("post-practice review: bounded, evidence-honest dialogue", () => {
     expect(spokenAgain.state.phase).toBe("done");
   });
 
+  it("asks for verification when the recognizer has no confidence score", () => {
+    const start = startReview([apple]);
+    // Interim-final recovery may produce a transcript without confidence.
+    // Unknown quality must never be silently treated as confident retrieval.
+    const uncertain = onUserUtterance(start.state, "apple", [], null);
+    expect(uncertain.state.phase).toBe("repair");
+    expect(uncertain.events).toContainEqual({ type: "repair_started", word: "apple" });
+    expect(uncertain.events.some((e) => e.type === "elicited_use")).toBe(false);
+  });
+
   it("does not count a word as independent if the patient needed a cue before ASR repair", () => {
     const start = startReview([apple]);
     const cued = onUserUtterance(start.state, "the thing I want");
