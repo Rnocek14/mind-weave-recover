@@ -152,13 +152,17 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
     });
     await context.routeWebSocket('**/*', (socket) => {
       const target = new URL(socket.url());
-      const dev = new URL(baseURL);
-      // Vite's local HMR socket is not a clinical backend or third-party
-      // service. Keep it closed, but do not report it as data exfiltration.
-      // External WebSockets remain forbidden and fail the suite.
-      const isLocalHmr = target.hostname === dev.hostname && target.port === dev.port
-        && (target.protocol === 'ws:' || target.protocol === 'wss:');
-      if (!isLocalHmr) unexpected.push(`Unexpected WebSocket ${target.origin}`);
+      // This public-only harness rewrites the generated client to a synthetic
+      // 127.0.0.1:54329 Supabase origin. Some production components attempt a
+      // Realtime subscription. Deny that exact fake-backend WebSocket; do NOT
+      // pretend it was connected or mark it as an external vendor leak.
+      // All other WebSockets stay explicit hard failures.
+      const httpEquivalent = new URL(target.href);
+      if (target.protocol === 'ws:') httpEquivalent.protocol = 'http:';
+      if (target.protocol === 'wss:') httpEquivalent.protocol = 'https:';
+      if (!(settings.suite === 'public' && httpEquivalent.origin === settings.supabaseURL)) {
+        unexpected.push(`Unexpected WebSocket ${target.origin}`);
+      }
       socket.close();
     });
     await use(transport);

@@ -322,7 +322,10 @@ export function ConversationCoachGame({
     if (liveTranscript) {
       speechRouter.route(liveTranscript, false);
     }
-  }, [liveTranscript, speechRouter]);
+  // route is a stable callback. The wrapper speechRouter object changes each
+  // render; depending on it re-sent the same transcript as a new interim
+  // update and reset the patient's silence timer indefinitely.
+  }, [liveTranscript, speechRouter.route]);
 
   // ═══════════════════════════════════════════════════════════════
   // PROCESS TURN AND RESPOND — Chat pipeline (only when mode = chat_listening)
@@ -562,7 +565,10 @@ export function ConversationCoachGame({
         speechEndDetection.onStop();
       }
     }
-  }, [isListening, inputMode, speechEndDetection]);
+  // onStart/onStop are stable callbacks; the returned hook object is not.
+  // Re-running this effect on every transcript render reset the detector's
+  // lastTranscriptRef, preventing aphasic speech from ever being finalized.
+  }, [isListening, inputMode, speechEndDetection.onStart, speechEndDetection.onStop]);
 
   // ═══════════════════════════════════════════════════════════════
   // CARD COMPLETION — Transitions back from card_listening
