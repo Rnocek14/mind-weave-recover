@@ -258,11 +258,18 @@ export const __ALL_LINE_POOLS: string[][] = [
 // ─── Word detection across all hypotheses ──────────────────────────────────
 
 function utteranceContainsWord(transcript: string, word: string): boolean {
-  const target = stemWord(word.toLowerCase());
-  return transcript
-    .toLowerCase()
-    .split(/[^a-z']+/)
-    .some((w) => w && stemWord(w) === target);
+  // Naming banks include short phrases ("ice cream", "steering wheel").
+  // Match complete contiguous tokens, not a substring, AI semantic guess,
+  // or a single constituent such as "ice" standing in for "ice cream".
+  const tokens = (text: string) => text.toLowerCase()
+    .split(/[^a-z']+/).filter(Boolean).map(stemWord);
+  const target = tokens(word);
+  const heard = tokens(transcript);
+  if (target.length === 0 || target.length > heard.length) return false;
+  for (let i = 0; i <= heard.length - target.length; i += 1) {
+    if (target.every((part, j) => heard[i + j] === part)) return true;
+  }
+  return false;
 }
 
 export interface DetectionResult {
