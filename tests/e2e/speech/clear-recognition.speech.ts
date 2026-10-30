@@ -47,7 +47,7 @@ for (const scenario of [
       // not merely be echoed in the microphone transcript or example chips.
       await expect.poll(async () => {
         const indicator = await page.getByText('Words:', { exact: true }).locator('..').innerText();
-        return Number(indicator.match(/Words:\\s*(\\d+)/i)?.[1] ?? 0);
+        return Number(indicator.match(/Words:\s*(\d+)/i)?.[1] ?? 0);
       }, { message: 'Valid recognized category words were not scored', timeout: 8_000 }).toBeGreaterThan(0);
     } else {
       await expect(page.getByText(utterance.split(' ')[0], { exact: true }).first()).toBeVisible({ timeout: 8_000 });
