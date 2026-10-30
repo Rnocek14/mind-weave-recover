@@ -130,6 +130,33 @@ describe('useTrialSubmission: explicit idempotent recovery of unconfirmed clinic
     expect(services.flushMasteryShadow).toHaveBeenCalledTimes(1);
   });
 
+  it('does not flush clinical progression or mastery when adaptation evidence cannot be confirmed', async () => {
+    services.flushAdaptation.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const progression = adapter();
+    const { result } = hook(progression);
+    await act(async () => {
+      expect((await result.current.submitTrial(input(3))).ok).toBe(true);
+    });
+
+    await act(async () => {
+      const firstCommit = await result.current.commitSession();
+      expect(firstCommit.ok).toBe(false);
+      expect(firstCommit.errors).toEqual(expect.arrayContaining([
+        expect.stringMatching(/adaptation rows were not confirmed/),
+      ]));
+    });
+    expect(progression.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(services.flushMasteryShadow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      expect((await result.current.commitSession()).ok).toBe(true);
+    });
+    expect(services.logExerciseEvent).toHaveBeenCalledTimes(1);
+    expect(services.flushAdaptation).toHaveBeenCalledTimes(2);
+    expect(progression.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(services.flushMasteryShadow).toHaveBeenCalledTimes(1);
+  });
+
   it('remains blocked after unsuccessful explicit retry, then can recover later', async () => {
     services.logExerciseEvent
       .mockResolvedValueOnce(false)
