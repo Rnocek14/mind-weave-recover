@@ -81,6 +81,30 @@ describe("roleplay: one microphone turn = one conversation exchange", () => {
     }
   });
 
+  it("does not count stale speech when closing a live listening turn", async () => {
+    vi.useFakeTimers();
+    try {
+      const settings = props();
+      const { rerender, unmount } = render(<ScenarioOverlay {...settings} />);
+      fireEvent.click(screen.getByRole("button", { name: /i'm ready/i }));
+      await act(async () => { await Promise.resolve(); });
+
+      rerender(<ScenarioOverlay {...settings} isListening liveTranscript="coffee please" />);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      rerender(<ScenarioOverlay {...settings} isListening={false} liveTranscript="coffee please" />);
+      await act(async () => { await vi.runAllTimersAsync(); });
+
+      expect(settings.onStopListening).toHaveBeenCalledTimes(1);
+      expect(settings.onClose).toHaveBeenCalledTimes(1);
+      expect(settings.onSpeak).toHaveBeenCalledTimes(1);
+      expect(settings.onStartListening).not.toHaveBeenCalled();
+      expect(screen.queryByText(/roleplay practice complete/i)).toBeNull();
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not restart the microphone after the patient closes during TTS", async () => {
     vi.useFakeTimers();
     try {
