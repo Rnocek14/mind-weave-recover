@@ -2087,53 +2087,6 @@ export const PhotoNamingGame = ({
           }
         }
         
-        // A choice tap is recognition, never proof that the patient said
-        // the chosen word. Keep any actually recorded attempt for review,
-        // while excluding it from speech correctness and speech-error models.
-        if (capturedResponseMode === 'recognition') {
-          void pendingAttempt.finalize({
-            responseTiming: makeResponseTiming(reactionTime),
-            transcript: capturedProductionAttempted
-              ? whisperTranscript ?? capturedBrowserTranscript ?? ''
-              : '',
-            transcriptSource: capturedProductionAttempted && whisperTranscript
-              ? 'azure' : 'manual',
-            responseMode: 'recognition',
-            countsTowardScore: false,
-            isCorrect: null,
-            errorType: 'recognition_selection',
-            audioStoragePath: uploadedPath,
-            recordingDurationMs: duration,
-          });
-          onTrialComplete?.({
-            correct: isCorrectAnswer,
-            reactionTimeMs: reactionTime,
-            errorType: isCorrectAnswer ? undefined : 'recognition_selection_error',
-            difficultyLevel: capturedDifficulty,
-            cueLevel: capturedCueLevel,
-            audioStoragePath: uploadedPath,
-            recordingDurationMs: duration,
-            audioMimeType: mimeType,
-            browserTranscript: capturedProductionAttempted
-              ? capturedBrowserTranscript : undefined,
-            whisperTranscript: capturedProductionAttempted
-              ? whisperTranscript : undefined,
-            attemptId: capturedAttemptId,
-            trialIndex: capturedTrialNumber,
-            cueTypeGiven,
-            cueWasEffective,
-            timeToSuccessAfterCueMs,
-            latencyMs: capturedResponseLatency,
-            consecutiveErrors: hookConsecutiveErrors,
-            frustrationLevel,
-            recentSuccessRate,
-            trialCount: capturedTrialNumber,
-            responseMode: 'recognition',
-            productionAttempted: capturedProductionAttempted,
-          }, capturedTrial);
-          return;
-        }
-
         // Advanced error classification with acoustic metrics.
         // Confidence: real ASR engine confidence when available (captured from
         // the recognition result), else the recorded Azure transcription confidence,
