@@ -10,12 +10,12 @@
  *
  *  1. IN-APP REVIEW PRIORITY per word — was a target recognized in
  *     the optional Maya conversation, or is it worth revisiting? This does
- *     NOT measure actual everyday carryover or a validated forgetting curve.
+ *     NOT measure actual everyday carryover or a clinically established forgetting curve.
  *
  *  2. CLOSED-LOOP SCHEDULING — fading words are fed back into the next
  *     review conversation even when they weren't practiced today. The
  *     re-practice signal is past IN-APP review events, not observed real-life
- *     language use or independently validated clinical outcomes.
+ *     language use or independently measured clinical outcomes.
  *
  * Device-local (localStorage) by design. Experimental review history may
  * support product decisions, but must not be sent to clinician outcomes as
