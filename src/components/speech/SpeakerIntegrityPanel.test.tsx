@@ -59,9 +59,14 @@ afterEach(() => {
 });
 
 async function recordSample() {
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Record voice sample' })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole('checkbox')).toBeInTheDocument());
+  const recordButton = screen.getByRole('button', { name: 'Record voice sample' });
+  // Consent MUST precede recording. The test previously attempted to wait for
+  // an enabled button before checking consent, contrary to intended behavior.
+  expect(recordButton).toBeDisabled();
   fireEvent.click(screen.getByRole('checkbox'));
-  fireEvent.click(screen.getByRole('button', { name: 'Record voice sample' }));
+  await waitFor(() => expect(recordButton).toBeEnabled());
+  fireEvent.click(recordButton);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Stop voice sample' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Stop voice sample' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm patient-only voice and enroll' })).toBeEnabled());
