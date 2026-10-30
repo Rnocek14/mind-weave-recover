@@ -35,6 +35,8 @@ interface ConversationPartnerGameProps {
     userAIRatio: number;
   }) => void;
   onExit?: () => void;
+  /** Verify captured speech evidence before declaring the session saved. */
+  registerEvidenceVerifier?: (verify: () => Promise<boolean>) => void;
 }
 
 type Phase = 'ready' | 'ai_speaking' | 'listening' | 'processing' | 'complete';
@@ -44,7 +46,8 @@ export function ConversationPartnerGame({
   profileId,
   sessionId,
   onComplete,
-  onExit
+  onExit,
+  registerEvidenceVerifier
 }: ConversationPartnerGameProps) {
   const [phase, setPhase] = useState<Phase>('ready');
   const [currentAIText, setCurrentAIText] = useState<string>('');
@@ -64,6 +67,7 @@ export function ConversationPartnerGame({
     logFinalAnalysis,
     resetAttempt,
     currentAttemptId,
+    confirmFinalizedAttempts,
   } = useUtteranceLogger();
 
   const {
@@ -119,6 +123,10 @@ export function ConversationPartnerGame({
     patientMode: true,
     continuousListening: false
   });
+
+  useEffect(() => {
+    registerEvidenceVerifier?.(confirmFinalizedAttempts);
+  }, [registerEvidenceVerifier, confirmFinalizedAttempts]);
 
   // Hard-stop all voice + recognition when the user exits/unmounts so Maya
   // never keeps talking after the session is left.
