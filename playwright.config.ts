@@ -8,6 +8,7 @@ const stagingSpecs = [
   '**/audit-game-readiness.spec.ts',
   '**/audit-meaning-match-flow.spec.ts',
   '**/audit-photo-naming-completion.spec.ts',
+  '**/audit-clinical-rpc-access.spec.ts',
   '**/pass-b-patient-journey.spec.ts',
   '**/exercise-session.spec.ts',
 ];
