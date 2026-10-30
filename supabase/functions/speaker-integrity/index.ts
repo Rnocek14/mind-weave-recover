@@ -205,14 +205,23 @@ serve(async (request) => {
         return jsonResponse({ error: "Recording size outside enrollment limits" }, 400);
       }
       const now = new Date().toISOString();
-      const { error: saveError } = await admin.from("speaker_integrity_enrollments")
-        .upsert({
-          profile_id: profileId, user_id: caller.id, consent_version: "speaker-v1",
-          consent_by: caller.id, consent_at: now, status: "pending",
-          provider_job_id: null, voiceprint_ciphertext: null, voiceprint_iv: null,
-          updated_at: now, revoked_at: null,
-        }, { onConflict: "profile_id" });
-      if (saveError) throw new Error("Cannot register consent");
+      const nextEnrollment = {
+        profile_id: profileId, user_id: caller.id, consent_version: "speaker-v1",
+        consent_by: caller.id, consent_at: now, status: "pending",
+        provider_job_id: null, voiceprint_ciphertext: null, voiceprint_iv: null,
+        updated_at: now, revoked_at: null,
+      };
+      // Atomic state transition, not upsert-after-read: concurrent enrollment
+      // must never replace a ready or pending voiceprint or double-charge.
+      const registration = prior.data
+        ? await admin.from("speaker_integrity_enrollments")
+          .update(nextEnrollment).eq("profile_id", profileId)
+          .in("status", ["failed", "revoked"]).select("profile_id").maybeSingle()
+        : await admin.from("speaker_integrity_enrollments")
+          .insert(nextEnrollment).select("profile_id").maybeSingle();
+      if (registration.error || !registration.data) {
+        return jsonResponse({ error: "Enrollment already exists or is unavailable" }, 409);
+      }
       try {
         const media = await uploadMedia(bytes, mimeType);
         const job = await provider("/voiceprint", "POST", { url: media, model: "precision-2" });
@@ -240,7 +249,7 @@ serve(async (request) => {
         return jsonResponse({ ...getSummary(enrolled) });
       }
       const job = await provider("/jobs/" + enrolled.provider_job_id, "GET");
-      if (job.status === "failed") {
+      if (job.status === "failed" || job.status === "canceled") {
         await admin.from("speaker_integrity_enrollments")
           .update({ status: "failed", provider_job_id: null, updated_at: new Date().toISOString() })
           .eq("profile_id", profileId).eq("status", "pending")
@@ -250,7 +259,11 @@ serve(async (request) => {
       if (job.status !== "succeeded") return jsonResponse({ status: "pending" });
       const voiceprint = isRecord(job.output) ? job.output.voiceprint : null;
       if (typeof voiceprint !== "string" || voiceprint.length < 24 || voiceprint.length > 100_000) {
-        return jsonResponse({ status: "pending", warning: "Provider returned unusable evidence" });
+        await admin.from("speaker_integrity_enrollments")
+          .update({ status: "failed", provider_job_id: null, updated_at: new Date().toISOString() })
+          .eq("profile_id", profileId).eq("status", "pending")
+          .eq("provider_job_id", enrolled.provider_job_id);
+        return jsonResponse({ status: "failed" });
       }
       const encrypted = await encryptVoiceprint(voiceprint);
       // Atomic compare-and-swap: revocation while polling must win.
@@ -444,7 +457,7 @@ serve(async (request) => {
         return jsonResponse({ check: checkedRecord(check) });
       }
       const job = await provider("/jobs/" + check.provider_job_id, "GET");
-      if (job.status === "failed") {
+      if (job.status === "failed" || job.status === "canceled") {
         await admin.from("speaker_integrity_checks")
           .update({ status: "failed", label: "uncertain", reason: "provider_unavailable", updated_at: new Date().toISOString() })
           .eq("id", checkId).eq("status", "pending");
