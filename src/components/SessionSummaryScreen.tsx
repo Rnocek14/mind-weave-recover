@@ -541,7 +541,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               size="lg"
               variant="outline"
               className="w-full min-h-14 text-base"
-              onClick={() => navigate("/review-chat", { state: { sessionId } })}
+              onClick={() => sessionId && navigate(
+                `/review-chat?lesson=${encodeURIComponent(sessionId)}`,
+                { state: { sessionId } },
+              )}
             >
               <MessageCircle className="w-5 h-5 mr-2" />
               Practice these words with Maya
