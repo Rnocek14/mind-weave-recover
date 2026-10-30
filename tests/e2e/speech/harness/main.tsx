@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
+import { DiscourseGameHarness, discourseGames, type DiscourseGameKey } from './discourseHarness';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
@@ -114,7 +115,17 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }
 createRoot(document.getElementById('root')!).render(
   <MemoryRouter><QueryClientProvider client={client}><ProfileContext.Provider value={profile}>
     <CoachingModeProvider><LiveAnalysisProvider>
-      {new URLSearchParams(location.search).get('view') === 'game' ? <GameHarness /> : <RecorderHarness />}
+      {(() => {
+        const search = new URLSearchParams(location.search);
+        const view = search.get('view');
+        if (view === 'game') return <GameHarness />;
+        if (view === 'discourse') {
+          const game = search.get('game');
+          if (!discourseGames.includes(game as DiscourseGameKey)) throw new Error('Unknown speech game in QA harness');
+          return <DiscourseGameHarness game={game as DiscourseGameKey} />;
+        }
+        return <RecorderHarness />;
+      })()}
     </LiveAnalysisProvider></CoachingModeProvider>
   </ProfileContext.Provider></QueryClientProvider></MemoryRouter>,
 );
