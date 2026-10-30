@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   assessStagingRun, findExactStagingRun, waitForStagingEvidence,
-  REQUIRED_PATH, REQUIRED_WORKFLOW, REQUIRED_JOB,
+  REQUIRED_PATH, REQUIRED_WORKFLOW, REQUIRED_JOBS,
 } from './verify-staging-release.mjs';
 
 const sha = 'a'.repeat(40);
@@ -21,7 +21,9 @@ const baseRun = {
   status: 'completed',
   conclusion: 'success',
 };
-const successJob = { id: 41001, name: REQUIRED_JOB, status: 'completed', conclusion: 'success' };
+const successJobs = REQUIRED_JOBS.map((name, i) => ({
+  id: 41001 + i, name, status: 'completed', conclusion: 'success',
+}));
 const inputs = {
   repo,
   headSha: sha,
@@ -45,10 +47,15 @@ test('only exact PR head and real authenticated staging workflow count', () => {
 });
 
 test('successful workflow cannot hide a skipped or missing required clinical job', () => {
-  assert.equal(assessStagingRun(baseRun, [successJob]).state, 'success');
-  for (const jobs of [[], null, [{ ...successJob, conclusion: 'skipped' }],
-    [{ ...successJob, conclusion: 'failure' }], [{ ...successJob, status: 'in_progress' }],
-    [successJob, successJob]]) {
+  assert.equal(assessStagingRun(baseRun, successJobs).state, 'success');
+  for (const jobs of [
+    [], null,
+    [successJobs[0]],
+    [{ ...successJobs[0], conclusion: 'skipped' }, successJobs[1]],
+    [successJobs[0], { ...successJobs[1], conclusion: 'failure' }],
+    [{ ...successJobs[0], status: 'in_progress' }, successJobs[1]],
+    [successJobs[0], successJobs[0], successJobs[1]],
+  ]) {
     assert.equal(assessStagingRun(baseRun, jobs).state, 'failed');
   }
   assert.equal(assessStagingRun({ ...baseRun, conclusion: 'failure' }, null).state, 'failed');
@@ -68,7 +75,7 @@ test('required gate waits for an actual success on the same exact commit', async
     sleep: async ms => { clock += ms; },
     fetchImpl: async url => {
       urls.push(url);
-      if (url.includes('/jobs?')) return reply({ jobs: [successJob] });
+      if (url.includes('/jobs?')) return reply({ jobs: successJobs });
       calls++;
       const entry = calls === 1
         ? { ...baseRun, status: 'in_progress', conclusion: null }
@@ -152,6 +159,9 @@ test('authenticated staging runs for every internal PR and excludes forks', () =
   assert.match(workflow, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
   assert.doesNotMatch(workflow, /github\.event\.pull_request\.head\.ref ==/);
   assert.match(workflow, /environment: neurospark-e2e/);
-  assert.match(workflow, /test:e2e:staging --workers=2 --retries=0/);
+  assert.match(workflow, /playwright_project: chromium-desktop/);
+  assert.match(workflow, /playwright_project: mobile-safari/);
+  assert.match(workflow, /fail-fast: false/);
+  assert.match(workflow, /test:e2e:staging --workers=1 --retries=0 --project=/);
   assert.doesNotMatch(workflow, /continue-on-error:\s+true/);
 });
