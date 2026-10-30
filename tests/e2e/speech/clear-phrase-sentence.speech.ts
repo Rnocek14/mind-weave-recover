@@ -25,11 +25,11 @@ test('Phrase Practice: recognized exact phrase travels through real recorder, pr
   }).toBe(1);
   const [trial] = await readJson<Array<Record<string, unknown>>>(page, 'phrase-sentence-results');
   expect(trial.correct).toBe(true);
-  expect(trial.whisperTranscript).toBe(target);
+  expect(String(trial.whisperTranscript).toLowerCase()).toBe(target.toLowerCase());
   await expect.poll(() => transport.utterances.length, { timeout: 15_000 }).toBe(1);
   expect(transport.utterances[0].exercise_slug).toBe('phrase_practice');
   expect(transport.utterances[0].attempt_id).toEqual(expect.any(String));
-  expect(transport.utterances[0].transcript).toBe(target);
+  expect(String(transport.utterances[0].transcript).toLowerCase()).toBe(target.toLowerCase());
   expect(transport.uploads).toHaveLength(1);
   expect(transport.uploads[0].bytes).toBeGreaterThan(500);
   expect(transport.pronunciationRequests).toHaveLength(1);

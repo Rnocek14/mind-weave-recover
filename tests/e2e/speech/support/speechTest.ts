@@ -64,6 +64,12 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
         return route.abort('blockedbyclient');
       }
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204 });
+      if (url.pathname === '/functions/v1/text-to-speech-stream' && request.method() === 'POST') {
+        // The game must wait for its spoken instruction before opening the
+        // microphone. Disable remote/vendor TTS in this isolated harness;
+        // the app's real browser-speech fallback remains in the execution path.
+        return fulfillJson(route, { fallback: true, error: 'Synthetic test: use browser TTS' });
+      }
       if (url.pathname === '/functions/v1/analyze-speech') {
         const body = request.postDataJSON() as JsonObject;
         transport.speechRequests.push(body);
