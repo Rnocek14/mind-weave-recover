@@ -67,7 +67,7 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   // Review is an optional, local-only practice activity. Do not imply that
   // a completed lesson measured real-world communication or transfer.
   const hasPracticedWordsToReview = useMemo(
-    () => getTodaysPracticedWords().length > 0,
+    () => !!sessionId && getTodaysPracticedWords({ sessionId }).length > 0,
     [sessionId],
   );
   const { speak, stop } = useTextToSpeech();
@@ -541,10 +541,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               size="lg"
               variant="outline"
               className="w-full min-h-14 text-base"
-              onClick={() => navigate("/review-chat")}
+              onClick={() => navigate("/review-chat", { state: { sessionId } })}
             >
               <MessageCircle className="w-5 h-5 mr-2" />
-              Practice today's words with Maya
+              Practice these words with Maya
             </Button>
           )}
 
