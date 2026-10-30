@@ -1,20 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import FunctionalTransferPage from "./FunctionalTransferPage";
 import { setDeviceScope } from "@/lib/deviceStore";
 import { recordPresentedFunctionalScript } from "@/lib/scriptPracticeQueue";
 
+const speechHarness = vi.hoisted(() => ({
+  supported: false,
+  callback: null as null | ((transcript: string) => void),
+  transcript: "",
+  confidence: 0.8,
+}));
+
 vi.mock("@/hooks/useSpeechRecognition", () => ({
-  useSpeechRecognition: () => ({
-    isListening: false,
-    startListening: vi.fn(),
-    stopListening: vi.fn(),
-    resetTranscript: vi.fn(),
-    isSupported: false,
-    error: null,
-    getLastRecognition: () => null,
-  }),
+  useSpeechRecognition: ({ onResult }: { onResult: (transcript: string) => void }) => {
+    speechHarness.callback = onResult;
+    return {
+      isListening: false,
+      startListening: vi.fn(),
+      stopListening: vi.fn(),
+      resetTranscript: vi.fn(),
+      isSupported: speechHarness.supported,
+      error: null,
+      getLastRecognition: () => ({
+        transcript: speechHarness.transcript,
+        confidence: speechHarness.confidence,
+        alternatives: [],
+      }),
+    };
+  },
 }));
 
 function show(url: string) {
@@ -29,6 +43,10 @@ describe("functional practice screen (mic unavailable)", () => {
   beforeEach(() => {
     localStorage.clear();
     setDeviceScope("patient-transfer-test");
+    speechHarness.supported = false;
+    speechHarness.callback = null;
+    speechHarness.transcript = "";
+    speechHarness.confidence = 0.8;
   });
   afterEach(() => {
     localStorage.clear();
@@ -66,4 +84,33 @@ describe("functional practice screen (mic unavailable)", () => {
     expect(screen.getByRole("button", { name: /All hints shown/i })).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", { name: /^Back$/ })).toBeTruthy();
   });
+  it("does not advance from recognized speech until the patient verifies what Maya heard", () => {
+    speechHarness.supported = true;
+    recordPresentedFunctionalScript("need_help", "session-here");
+    show("/functional-transfer?lesson=session-here");
+    fireEvent.click(screen.getByRole("button", { name: /^Start$/ }));
+
+    act(() => {
+      speechHarness.transcript = "help me please";
+      speechHarness.callback?.("help me please");
+    });
+    expect(screen.getByText(/Did Maya hear you correctly/i)).toBeTruthy();
+
+    // A duplicate finalized recognition event cannot answer its own Yes/No.
+    act(() => speechHarness.callback?.("help me please"));
+    expect(screen.getByText(/Did Maya hear you correctly/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Yes$/ }));
+    expect(screen.getByText(/jar won't open/i)).toBeTruthy();
+
+    act(() => {
+      speechHarness.transcript = "the blue elephants ran";
+      speechHarness.callback?.("the blue elephants ran");
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Yes$/ }));
+    expect(screen.getByText(/Conversation practice complete/i)).toBeTruthy();
+    expect(screen.getByText(/1 possible responses matched before hints/i)).toBeTruthy();
+    expect(screen.getByText(/1 responses not classified/i)).toBeTruthy();
+  });
+
 });
