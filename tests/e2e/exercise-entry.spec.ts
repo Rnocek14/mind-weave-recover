@@ -32,11 +32,15 @@ test.describe('Exercise entry routes render', () => {
       expect(resp?.ok()).toBeTruthy();
       await page.waitForLoadState('networkidle');
 
-      const landed = new URL(page.url()).pathname;
       if (requiresAuth) {
-        // The guard firing IS the pass condition for a signed-out visitor.
-        expect(landed, `${path} should send a signed-out visitor to /auth`).toBe('/auth');
+        // Auth resolution is asynchronous on WebKit. A network-idle state can
+        // occur BEFORE RequireAuth navigates, so wait for the actual route
+        // contract instead of sampling a transient URL. This keeps the
+        // signed-out authorization assertion strict and rejects a stuck route.
+        await expect(page, `${path} should send a signed-out visitor to /auth`)
+          .toHaveURL(/\\/auth(?:[?#]|$)/);
       } else {
+        const landed = new URL(page.url()).pathname;
         expect(landed, `${path} is public and must not bounce`).not.toBe('/auth');
       }
       // Body present.
