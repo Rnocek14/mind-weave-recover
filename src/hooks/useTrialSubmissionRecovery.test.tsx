@@ -20,7 +20,7 @@ vi.mock('@/hooks/useExerciseTelemetry', () => ({
 vi.mock('@/hooks/useAdaptationTrialLogger', () => ({
   useAdaptationTrialLogger: () => ({
     logTrial: services.logAdaptationTrial,
-    flush: services.flushAdaptation,
+    flushVerified: services.flushAdaptation,
   }),
 }));
 vi.mock('@/lib/mastery/flushMasteryShadow', () => ({
@@ -82,7 +82,7 @@ function deferred<T>() {
 beforeEach(() => {
   vi.clearAllMocks();
   services.logExerciseEvent.mockResolvedValue(true);
-  services.flushAdaptation.mockResolvedValue(undefined);
+  services.flushAdaptation.mockResolvedValue(true);
   services.flushMasteryShadow.mockResolvedValue(undefined);
 });
 
