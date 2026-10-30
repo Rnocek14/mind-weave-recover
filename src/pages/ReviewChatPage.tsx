@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Mic, MicOff, ThumbsUp, ThumbsDown, SkipForward, CheckCircle2 } from "lucide-react";
@@ -60,20 +60,30 @@ function speakLine(text: string, echoLockRef: { current: number }, kidVoice: boo
 
 export default function ReviewChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { kidsMode } = useKidsMode();
+  // An explicitly selected lesson may review ONLY its own practice. Direct
+  // /review-chat remains an optional daily/carryover conversation.
+  const reviewSessionId = typeof location.state?.sessionId === "string"
+    ? location.state.sessionId : undefined;
 
   // CLOSED LOOP: today's practiced words + up to 2 carryover-priority words
   // (fading/lost per the transfer ledger) that need conversational retrieval
   // even though they weren't practiced today. The re-practice signal is
   // real-world usage decay, not quiz scores.
   const practiced = useMemo(() => {
-    const todays = getTodaysPracticedWords();
+    const todays = getTodaysPracticedWords(
+      reviewSessionId ? { sessionId: reviewSessionId } : {},
+    );
+    // Keep a lesson-specific review about THAT lesson. Do not pull fading
+    // words from a separate day/session into its result or clear their queue.
+    if (reviewSessionId) return todays;
     const todaysSet = new Set(todays.map((p) => p.word));
     const carryover = getCarryoverPriorityWords(2)
       .filter((c) => !todaysSet.has(c.word))
       .map((c) => ({ word: c.word, category: c.category, struggled: c.status === "lost", day: "" }));
     return [...todays, ...carryover];
-  }, []);
+  }, [reviewSessionId]);
   const [engineState, setEngineState] = useState<ReviewState | null>(null);
   const [mayaLine, setMayaLine] = useState("");
   const [heard, setHeard] = useState<string | null>(null);
@@ -117,14 +127,17 @@ export default function ReviewChatPage() {
       const complete = turn.events.find((e) => e.type === "review_complete");
       if (complete && complete.type === "review_complete") {
         setSummary(complete.summary);
-        clearReviewedWords(turn.state.items.map((i) => i.word));
+        clearReviewedWords(
+          turn.state.items.map((i) => i.word),
+          reviewSessionId ? { sessionId: reviewSessionId } : {},
+        );
       }
       if (turn.events.some((e) => e.type === "spontaneous_use")) {
         setCelebrating(true);
         window.setTimeout(() => setCelebrating(false), 2500);
       }
     },
-    [kidsMode],
+    [kidsMode, reviewSessionId],
   );
 
   // ── Speech in ────────────────────────────────────────────────────────────
@@ -220,7 +233,7 @@ export default function ReviewChatPage() {
         <div className="text-5xl" aria-hidden>💬</div>
         <h1 className="text-xl font-bold">Nothing to review yet</h1>
         <p className="text-muted-foreground max-w-xs">
-          Play a naming game first — then come back and we&apos;ll chat about the words you practiced.
+          Practice a naming or word game first — then come back and we&apos;ll chat about those words.
         </p>
         <Button onClick={() => navigate("/practice")}>Go to Practice</Button>
       </div>
