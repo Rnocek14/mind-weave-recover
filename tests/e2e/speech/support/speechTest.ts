@@ -87,6 +87,9 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
       if (url.pathname.startsWith('/rest/v1/')) {
         if (request.method() === 'GET') {
           if (table === 'user_roles') return fulfillJson(route, []);
+          // Category and Synonym games may read the optional UI profile.
+          // The QA context deliberately has no profile or persisted settings.
+          if (table === 'user_ui_profile') return fulfillJson(route, request.headers().accept?.includes('object') ? null : []);
           if (['user_speech_profiles', 'user_capabilities', 'clinical_progression_state', 'profiles', 'sessions'].includes(table)) {
             return fulfillJson(route, request.headers().accept?.includes('object') ? null : []);
           }
