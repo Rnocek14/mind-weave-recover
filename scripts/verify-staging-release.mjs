@@ -11,7 +11,10 @@ import { pathToFileURL } from 'node:url';
 
 export const REQUIRED_WORKFLOW = 'NeuroSpark audit authenticated game-entry matrix';
 export const REQUIRED_PATH = '.github/workflows/neurospark-audit-staging.yml';
-export const REQUIRED_JOB = 'Audited game readiness (18 routes, desktop + mobile)';
+export const REQUIRED_JOBS = [
+  'Audited game readiness (chromium-desktop)',
+  'Audited game readiness (mobile-safari)',
+];
 
 export function findExactStagingRun(runs, sha, headRef) {
   if (!Array.isArray(runs)) throw new Error('GitHub Actions returned no valid run list');
@@ -41,10 +44,15 @@ export function assessStagingRun(run, jobs) {
   if (!Array.isArray(jobs)) {
     return { state: 'failed', reason: 'Staging job evidence unavailable' };
   }
-  const required = jobs.filter(job => job.name === REQUIRED_JOB);
-  if (required.length !== 1 || required[0].status !== 'completed'
-    || required[0].conclusion !== 'success') {
-    return { state: 'failed', reason: 'Required authenticated staging job not successful' };
+  for (const requiredName of REQUIRED_JOBS) {
+    const required = jobs.filter(job => job.name === requiredName);
+    if (required.length !== 1 || required[0].status !== 'completed'
+      || required[0].conclusion !== 'success') {
+      return {
+        state: 'failed',
+        reason: 'Required authenticated desktop/mobile staging job not successful',
+      };
+    }
   }
   return { state: 'success', runId: run.id };
 }
