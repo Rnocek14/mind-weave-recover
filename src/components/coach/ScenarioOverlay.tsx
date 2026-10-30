@@ -19,7 +19,6 @@ import { ScenarioPracticeSummary } from './ScenarioPracticeSummary';
 import {
   type ScenarioDefinition,
   type ScenarioState,
-  type ScenarioPhase,
   createScenarioState,
 } from '@/lib/scenarioEngine';
 
@@ -51,7 +50,6 @@ export function ScenarioOverlay({
   const [state, setState] = useState<ScenarioState>(() => createScenarioState(scenario.id));
   const [partnerText, setPartnerText] = useState('');
   const [whisperText, setWhisperText] = useState<string | null>(null);
-  const [reflectionAnswer, setReflectionAnswer] = useState<string | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exchangeStartRef = useRef<number>(Date.now());
   const latestTranscriptRef = useRef<string>('');
@@ -296,10 +294,7 @@ export function ScenarioOverlay({
             <FeedbackView
               scenario={scenario}
               state={state}
-              onReflection={(answer) => {
-                setReflectionAnswer(answer);
-                onComplete();
-              }}
+              onReflection={() => onComplete()}
               onDone={onComplete}
             />
           )}
