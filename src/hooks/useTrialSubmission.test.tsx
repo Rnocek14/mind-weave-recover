@@ -22,7 +22,7 @@ vi.mock('@/hooks/useExerciseTelemetry', () => ({
 vi.mock('@/hooks/useAdaptationTrialLogger', () => ({
   useAdaptationTrialLogger: () => ({
     logTrial: mocks.logAdaptationTrial,
-    flush: mocks.flushAdaptation,
+    flushVerified: mocks.flushAdaptation,
   }),
 }));
 
@@ -62,7 +62,7 @@ function progression(): ProgressionAdapter {
 describe('useTrialSubmission persistence gate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.flushAdaptation.mockResolvedValue(undefined);
+    mocks.flushAdaptation.mockResolvedValue(true);
     mocks.flushMasteryShadow.mockResolvedValue(undefined);
   });
 
@@ -136,7 +136,7 @@ describe('useTrialSubmission persistence gate', () => {
 describe('useTrialSubmission session-finalization barrier', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.flushAdaptation.mockResolvedValue(undefined);
+    mocks.flushAdaptation.mockResolvedValue(true);
     mocks.flushMasteryShadow.mockResolvedValue(undefined);
   });
 
