@@ -35,17 +35,32 @@ test.describe('Clinical speech profile is restricted to the selected authorized 
 
     // Synthetic, controlled provenance. This is a database authorization
     // test, not evidence that a live recognition engine transcribed speech.
-    const { error: utteranceError } = await client.from('utterance_analyses').insert({
-      attempt_id: randomUUID(),
-      user_id: userId,
-      profile_id: sibling!.id,
-      target_word: 'synthetic language',
-      transcript: 'synthetic language',
-      transcript_source: 'browser',
-      counts_toward_score: true,
-      is_correct: true,
-      error_type: 'correct',
-    });
+    const { error: utteranceError } = await client.from('utterance_analyses').insert([
+      {
+        attempt_id: randomUUID(), user_id: userId, profile_id: sibling!.id,
+        target_word: 'synthetic spoken language', transcript: 'synthetic spoken language',
+        transcript_source: 'browser', counts_toward_score: true,
+        is_correct: true, error_type: 'correct',
+      },
+      {
+        attempt_id: randomUUID(), user_id: userId, profile_id: sibling!.id,
+        target_word: 'synthetic picture selection', transcript: null,
+        transcript_source: 'manual', counts_toward_score: false,
+        is_correct: null, error_type: 'recognition_selection',
+      },
+      {
+        attempt_id: randomUUID(), user_id: userId, profile_id: sibling!.id,
+        target_word: 'synthetic caregiver confirmed', transcript: 'unverified',
+        transcript_source: 'manual', counts_toward_score: false,
+        is_correct: null, error_type: 'manual_confirmed',
+      },
+      {
+        attempt_id: randomUUID(), user_id: userId, profile_id: sibling!.id,
+        target_word: 'synthetic legacy empty transcript', transcript: null,
+        transcript_source: 'browser', counts_toward_score: true,
+        is_correct: true, error_type: 'unknown',
+      },
+    ]);
     expect(utteranceError).toBeNull();
 
     // Both recomputes are made by the true owner. A service-role code path
