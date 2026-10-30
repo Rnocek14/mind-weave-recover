@@ -115,9 +115,16 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
 
     rejectSessionClose = false;
     await page.getByRole('button', { name: 'Try saving again' }).click();
-    const recap = page.getByRole('dialog', { name: 'Session progression summary' });
-    if (await recap.isVisible({ timeout: 12_000 }).catch(() => false)) {
-      await recap.getByRole('button', { name: 'Continue' }).click();
+    // Level-ups intentionally wait for a patient's explicit tap; do not
+    // assume the recap's optional timer will advance this session.
+    const recapContinue = page.getByRole('dialog', { name: 'Session progression summary' })
+      .getByRole('button', { name: 'Continue' });
+    try {
+      await recapContinue.waitFor({ state: 'visible', timeout: 12_000 });
+      await recapContinue.click();
+    } catch {
+      // A session without an eligible recap goes directly to Today.
+      await expect(page).toHaveURL(/\\/today$/, { timeout: 20_000 });
     }
     await expect(page).toHaveURL(/\/today$/, { timeout: 35_000 });
     await expect.poll(async () => (await readSession()).ended_at, { timeout: 25_000 }).not.toBeNull();
