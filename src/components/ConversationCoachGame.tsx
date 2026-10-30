@@ -519,7 +519,7 @@ export function ConversationCoachGame({
         return newVal;
       });
     }, 1000);
-  }, [speechEndDetection, startListening, startRecording, startAttempt, sessionId, userId, currentTopic, setInputMode]);
+  }, [speechEndDetection, startListening, startRecording, cancelRecording, startAttempt, sessionId, userId, currentTopic, setInputMode]);
   
   useEffect(() => {
     return () => {
