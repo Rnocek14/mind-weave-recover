@@ -81,6 +81,18 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .maybeSingle();
     if (verifiedProfileError || !verifiedProfile) {
+      // An internal query problem is not a permission denial. We log only
+      // bounded diagnostic codes (never patient IDs, transcript or JWTs)
+      // so a hospital audit can distinguish RLS/configuration errors from
+      // a legitimate foreign-profile request.
+      console.warn('[compute-speech-profile] Authorized-profile lookup failed', {
+        queryErrorCode: verifiedProfileError?.code ?? null,
+        recordFound: !!verifiedProfile,
+        callerMatchesRequestedUser: caller.id === user_id,
+      });
+      if (verifiedProfileError) {
+        return jsonResponse({ error: 'Clinical profile verification unavailable' }, 503);
+      }
       return jsonResponse({ error: 'Requested clinical profile unavailable' }, 403);
     }
 
