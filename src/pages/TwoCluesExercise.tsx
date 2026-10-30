@@ -27,6 +27,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
+import { handoffTwoCluesPractice } from '@/lib/practiceHandoff';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -159,6 +160,11 @@ export default function TwoCluesExercise() {
     const usedAnchor = !!result.reachedAnchor;
     const supportUsed = mapTwoCluesSupport(usedAnchor);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
+
+    // Optional conversation practice, separate from scoring/mastery.
+    // Only a known, matched lexical target is queued; an uncertain answer
+    // is NOT treated as successful production.
+    handoffTwoCluesPractice(result, activeSessionId);
 
     void submitTrial({
       profileId: activeProfile?.id,
