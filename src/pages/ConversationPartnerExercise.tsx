@@ -91,19 +91,6 @@ export default function ConversationPartnerExercise() {
     }
   }, [fromLesson, gameStarted, authLoading, profileLoading, user, activeSessionId]);
 
-  if (authLoading || profileLoading) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    navigate('/auth');
-    return null;
-  }
-
   const handleStart = () => {
     setGameStarted(true);
   };
@@ -149,6 +136,19 @@ export default function ConversationPartnerExercise() {
 
   // A fresh conversation must acquire a new session, not reuse a closed one.
   const handlePlayAgain = () => navigate('/today');
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    navigate('/auth');
+    return null;
+  }
 
   if (isCreatingSession || !activeSessionId) {
     return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
