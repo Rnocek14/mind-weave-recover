@@ -20,6 +20,7 @@ export type CoachReplyGuardReason =
   | "duplicate_reply"
   | "repeated_question"
   | "multiple_questions"
+  | "generic_loop"
   | null;
 
 export interface CoachReplyGuardResult {
@@ -70,6 +71,9 @@ const NON_LOOPING_REPAIRS = [
   "Let's keep this simple. You can describe it instead of naming it.",
 ];
 
+const GENERIC_PROMPT = /\b(tell me more|what else|anything else|say more|what do you think|what about that|what comes to mind|go on)\b/i;
+const MINIMAL_REPLY = /^(yes|yeah|no|nope|okay|ok|um+|uh+|hmm+|i don'?t know|not sure|pass|nothing|sorry)[.!?\s]*$/i;
+
 function chooseRepair(recentMaya: string[]): string {
   const recent = new Set(recentMaya.map(normalized));
   return NON_LOOPING_REPAIRS.find((line) => !recent.has(normalized(line)))
@@ -100,6 +104,14 @@ export function guardCoachReply({ proposed, recentMaya, patientReply = "" }: Coa
       text: chooseRepair(recent),
       reason: isDuplicate ? "duplicate_reply" : "repeated_question",
     };
+  }
+
+  // Several different generic follow-ups after repeated one-word replies
+  // are still a loop, even when lexical similarity is low.
+  const genericCount = recent.filter((line) => GENERIC_PROMPT.test(line)).length;
+  if (!explicitRepeatRequest && GENERIC_PROMPT.test(candidate) &&
+      MINIMAL_REPLY.test(patientReply.trim()) && genericCount >= 2) {
+    return { text: chooseRepair(recent), reason: "generic_loop" };
   }
 
   return { text: candidate, reason: multipleQuestions ? "multiple_questions" : null };
