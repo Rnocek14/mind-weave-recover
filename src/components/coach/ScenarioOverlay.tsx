@@ -58,6 +58,9 @@ export function ScenarioOverlay({
   // below can re-submit the SAME old ASR final into the NEXT scenario beat.
   const listeningBeatRef = useRef<number | null>(null);
   const processedBeatRef = useRef<number | null>(null);
+  // Budget automatic prompts per conversation beat, not globally. A patient
+  // who takes a long pause must never get an endless repeating whisper.
+  const automaticHintsByBeatRef = useRef<Record<number, number>>({});
   // A delayed partner response/TTS continuation must never reopen the mic
   // after a patient closes the overlay or switches away from roleplay.
   const mountedRef = useRef(true);
@@ -179,17 +182,24 @@ export function ScenarioOverlay({
     
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    const currentBeat = scenario.beats[state.currentBeatIndex];
+    const beatIndex = state.currentBeatIndex;
+    const currentBeat = scenario.beats[beatIndex];
     if (!currentBeat) return;
 
-    // Only trigger whisper if user hasn't produced meaningful speech yet
+    // Offer at most two automatic supports on this beat, spaced far enough
+    // apart for aphasic word-finding. The Hint/Help buttons remain available.
+    const maxAutomaticHints = Math.min(2, currentBeat.whispers.length);
+    if ((automaticHintsByBeatRef.current[beatIndex] ?? 0) >= maxAutomaticHints) return;
     const hasSpoken = liveTranscript.trim().length > 0;
-    const silenceDelay = hasSpoken ? 12000 : 8000; // longer if they started speaking
+    const silenceDelay = hasSpoken ? 18000 : 12000;
 
     silenceTimerRef.current = setTimeout(() => {
-      const whisperIndex = Math.min(state.whispersTriggered, currentBeat.whispers.length - 1);
-      const whisper = currentBeat.whispers[whisperIndex];
+      if (closingRef.current || !mountedRef.current) return;
+      const delivered = automaticHintsByBeatRef.current[beatIndex] ?? 0;
+      if (delivered >= maxAutomaticHints) return;
+      const whisper = currentBeat.whispers[delivered];
       if (whisper) {
+        automaticHintsByBeatRef.current[beatIndex] = delivered + 1;
         setWhisperText(whisper);
         setState(prev => ({ ...prev, whispersTriggered: prev.whispersTriggered + 1 }));
       }
