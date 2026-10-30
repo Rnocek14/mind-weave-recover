@@ -33,6 +33,7 @@ import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { getFixSentenceLevelSpec } from '@/lib/progression/fixSentenceLevels';
 import type { CommitSessionResult } from '@/lib/trial/types';
 import { buildFixSentenceTaskParameters } from '@/lib/telemetry/fixSentenceTaskParams';
+import { handoffFixSentencePractice } from '@/lib/practiceHandoff';
 import { recordFixSentenceReviewTargets } from '@/lib/gameReviewHandoff';
 
 const EXERCISE_SLUG = 'fix_sentence';
@@ -128,6 +129,10 @@ export default function FixSentenceExercise() {
     if (!activeSessionId) return;
     scoreRef.current += result.isCorrect ? 100 : (result.isPartialCredit ? 50 : 0);
     trialsRef.current += 1;
+
+    // The review queue is a practice suggestion only, never a clinical
+    // success signal. Skip incomplete two-error trials and unverified fixes.
+    handoffFixSentencePractice(result, activeSessionId);
 
     const focusSet = new Set(adaptation.focusPhonemes);
     const phonemeMatched = result.phonemeTargets.length > 0 &&
