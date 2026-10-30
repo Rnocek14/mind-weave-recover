@@ -565,6 +565,9 @@ describe('patient completion and retry across actual exercise pages', () => {
     mocks.verifySpeech.mockResolvedValueOnce(false);
     render(<MemoryRouter><Page /></MemoryRouter>);
     // Conversation Partner and Coach have intro screens before mounting games.
+    if (finishLabel === 'Finish thoughts') {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Practice' }));
+    }
     if (finishLabel === 'Finish partner') {
       fireEvent.click(screen.getByRole('button', { name: 'Start Conversation' }));
     }
@@ -575,8 +578,8 @@ describe('patient completion and retry across actual exercise pages', () => {
     expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
     expect(mocks.completeSession).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    await waitFor(() => expect(mocks.verifySpeech).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(mocks.completeSession).toHaveBeenCalledTimes(1));
-    expect(mocks.verifySpeech).toHaveBeenCalledTimes(2);
   });
 
   it('Conversation Partner retries an unconfirmed session close without losing speech evidence', async () => {
