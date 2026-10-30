@@ -126,6 +126,8 @@ interface UtteranceLoggerReturn {
   logFinalAnalysis: (analysis: FinalAnalysisInput) => Promise<FinalizationResult>;
   captureAttempt: () => CapturedAttempt;
   resetAttempt: () => void;
+  /** All captured attempts were acknowledged, including idempotent retries. */
+  confirmFinalizedAttempts: () => Promise<boolean>;
 }
 
 function measuredNumber(value: unknown): number | null {
@@ -327,6 +329,24 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     });
   }, [logFinalAnalysis]);
 
+  // Conversation/open-ended games have a separate utterance_analyses writer.
+  // Saving a session summary must never be treated as confirmation that its
+  // speech evidence also saved. Re-use the original immutable payload on a
+  // retry; never guess a transcript or reclassify an open attempt.
+  const confirmFinalizedAttempts = useCallback(async (): Promise<boolean> => {
+    const pending = [...attemptsRef.current.entries()];
+    if (!pending.length) return true; // Zero attempted turns: session/dose only.
+    for (const [attemptId, record] of pending) {
+      if (record.state === 'failed' && record.payload) {
+        const retry = await logFinalAnalysis({ attemptId, transcriptSource: 'browser' });
+        if (retry.status !== 'persisted') return false;
+      }
+      // Open and in-flight records must not be declared clinically saved.
+      if (record.state !== 'persisted') return false;
+    }
+    return true;
+  }, [logFinalAnalysis]);
+
   const resetAttempt = useCallback((): void => {
     activeAttemptRef.current = null;
     // Retain attempt records for callbacks already in flight. Their lifetime
@@ -337,5 +357,5 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     }
   }, []);
 
-  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, captureAttempt, resetAttempt };
+  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, captureAttempt, resetAttempt, confirmFinalizedAttempts };
 };
