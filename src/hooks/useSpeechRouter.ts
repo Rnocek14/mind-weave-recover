@@ -7,7 +7,7 @@
  * This replaces the scattered if/else branches in ConversationCoachGame.
  */
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import type { InputMode } from './useInputMode';
 
 interface SpeechRouterOptions {
@@ -98,5 +98,8 @@ export function useSpeechRouter({
     route(transcript, true);
   }, [route]);
 
-  return { route, routeFinal };
+  // Stable identity matters: ConversationCoachGame watches this value while
+  // mirroring interim transcript state. A fresh object every render replayed
+  // an old final as if it were new input on unrelated UI state updates.
+  return useMemo(() => ({ route, routeFinal }), [route, routeFinal]);
 }
