@@ -14,6 +14,7 @@ export type InputMode =
   | 'idle'           // No one owns mic — waiting for user action or session start
   | 'chat_listening' // Conversation pipeline owns mic — speech-end detection active
   | 'card_listening' // Card pipeline owns mic — transcript goes to card only
+  | 'scenario_listening' // Maya roleplay owns mic; never feed chat/card logging
   | 'popup_listening'// Popup exercise owns mic
   | 'tts_playing'    // TTS is speaking — mic input is ignored/buffered
   | 'processing';    // AI is thinking — no new turns should start
@@ -51,7 +52,7 @@ export function useInputMode(initialMode: InputMode = 'idle'): InputModeControll
 
   const isAnyListening = useCallback(() => {
     const m = modeRef.current;
-    return m === 'chat_listening' || m === 'card_listening' || m === 'popup_listening';
+    return m === 'chat_listening' || m === 'card_listening' || m === 'popup_listening' || m === 'scenario_listening';
   }, []);
 
   return {
