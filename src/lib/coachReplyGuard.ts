@@ -47,6 +47,11 @@ function lastQuestion(text: string): string | null {
 
 function sameQuestion(a: string, b: string): boolean {
   if (a === b) return true;
+  // An open question turning into a yes/no question can be intentional
+  // scaffolding, not repetition. Preserve that change in communication demand.
+  const questionType = (value: string) =>
+    value.match(/^(what|when|where|which|why|how|who|do|did|does|is|are|can|could|would|will)\b/)?.[1] ?? "";
+  if (questionType(a) !== questionType(b)) return false;
   const content = (value: string) =>
     new Set(value.split(" ").filter((word) => word.length > 2 && !STOPWORDS.has(word)));
   const left = content(a);
