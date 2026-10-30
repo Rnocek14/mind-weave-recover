@@ -25,8 +25,9 @@ const noImplicitProduction = () => {
 
 test.describe('Hospital gate: persisted SQL session summary agrees with canonical scoring', () => {
   test.describe.configure({ timeout: 120_000 });
+  test.beforeAll(() => { noImplicitProduction(); });
 
-  test('graded score, manual/invalid and voice-practice exclusions, cues, timings, levels and outsider denial', async ({
+  test('graded score, manual/invalid and conversation exclusions, cues, timings, levels and outsider denial', async ({
     isolatedSession,
   }) => {
     const settings = noImplicitProduction();
@@ -75,7 +76,7 @@ test.describe('Hospital gate: persisted SQL session summary agrees with canonica
         task_parameters: { trial_mode: 'production', difficulty_level: 10 },
       },
       {
-        exercise_slug: 'voice_practice', score: 100, cue_level: 0,
+        exercise_slug: 'conversation_partner', score: 100, cue_level: 0,
         reaction_time_ms: 6000, error_type: null,
         counts_toward_score: true, validity_label: null,
         task_parameters: { difficulty_level: 8 },
