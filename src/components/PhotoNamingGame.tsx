@@ -16,6 +16,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { analyzeSpeechRecording } from '@/lib/speech/analyzeSpeechRecording';
+import { queueSpeakerIntegrityShadow } from '@/lib/speech/speakerIntegrityClient';
 import { pauseSecondsToMilliseconds } from '@/lib/speech/analysisResponse';
 import { makeResponseTiming } from '@/lib/speech/responseTiming';
 import { useAuth } from '@/hooks/useAuth';
@@ -2170,6 +2171,14 @@ export const PhotoNamingGame = ({
           alignmentData: pronData?.alignmentData,
           pronunciationError: pronError ? `${pronError.stage}: ${pronError.message}` : undefined,
           pronunciationDiagnostics,
+        }).then((saved) => {
+          // Deliberately do not await the database or identity job here:
+          // pronunciation UI and game continuation must not stall on matching.
+          if (uploadedPath && saved.status === 'persisted') {
+            void queueSpeakerIntegrityShadow(standaloneProfileId || activeProfile?.id, saved.attemptId);
+          }
+        }).catch((error) => {
+          console.warn('[PhotoNaming] Clinical attempt finalization failed', error);
         });
 
         // ── Secondary Live Analysis push: Azure PA scores ──

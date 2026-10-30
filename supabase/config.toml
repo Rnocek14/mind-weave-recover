@@ -53,3 +53,7 @@ verify_jwt = false
 
 [functions.score-discourse-turn]
 verify_jwt = false
+
+# Explicit JWT authentication is performed by getAuthedUser inside this handler.
+[functions.speaker-integrity]
+verify_jwt = false
