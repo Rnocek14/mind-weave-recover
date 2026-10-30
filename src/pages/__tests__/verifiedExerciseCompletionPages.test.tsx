@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   retryFailedSubmissions: vi.fn(),
   submitTrial: vi.fn(),
   flushAdaptationLogs: vi.fn(),
+  verifySpeech: vi.fn(),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -174,6 +175,42 @@ vi.mock('@/components/NarrativeRetellGame', () => ({
     }])}>Finish narrative</button>
   ),
 }));
+vi.mock('@/components/ThoughtContinuationGame', () => ({
+  ThoughtContinuationGame: ({ onComplete, registerEvidenceVerifier }: {
+    onComplete: (summary: unknown) => void;
+    registerEvidenceVerifier: (verify: () => Promise<boolean>) => void;
+  }) => {
+    registerEvidenceVerifier(() => mocks.verifySpeech());
+    return <button onClick={() => onComplete({
+      totalPrompts: 3, promptsSpoken: 2,
+      avgMomentumScore: 0.6, completedThoughts: 1,
+    })}>Finish thoughts</button>;
+  },
+}));
+vi.mock('@/components/ConversationPartnerGame', () => ({
+  ConversationPartnerGame: ({ onComplete, registerEvidenceVerifier }: {
+    onComplete: (summary: unknown) => void;
+    registerEvidenceVerifier: (verify: () => Promise<boolean>) => void;
+  }) => {
+    registerEvidenceVerifier(() => mocks.verifySpeech());
+    return <button onClick={() => onComplete({
+      turnsCompleted: 2, avgLatencyMs: 2000,
+      completionRate: 70, userAIRatio: 50,
+    })}>Finish partner</button>;
+  },
+}));
+vi.mock('@/components/ConversationCoachGame', () => ({
+  ConversationCoachGame: ({ onComplete, registerEvidenceVerifier }: {
+    onComplete: (summary: unknown) => void;
+    registerEvidenceVerifier: (verify: () => Promise<boolean>) => void;
+  }) => {
+    registerEvidenceVerifier(() => mocks.verifySpeech());
+    return <button onClick={() => onComplete({
+      turnsCompleted: 2, cardsCompleted: 1,
+      avgLatencyMs: 2000, userAIRatio: 50,
+    })}>Finish coach</button>;
+  },
+}));
 vi.mock('@/components/AbstractCompareGame', () => ({
   AbstractCompareGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
     <button onClick={() => onGameComplete([{
@@ -286,6 +323,9 @@ import MultiStepPlanExercise from '../MultiStepPlanExercise';
 import AbstractCompareExercise from '../AbstractCompareExercise';
 import NarrativeRetellExercise from '../NarrativeRetellExercise';
 import PhonologicalExercise from '../PhonologicalExercise';
+import ThoughtContinuationExercise from '../ThoughtContinuationExercise';
+import ConversationPartnerExercise from '../ConversationPartnerExercise';
+import ConversationCoachExercise from '../ConversationCoachExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
@@ -307,6 +347,7 @@ beforeEach(() => {
   mocks.retryFailedSubmissions.mockResolvedValue({ ok: true });
   mocks.submitTrial.mockResolvedValue({ ok: true });
   mocks.flushAdaptationLogs.mockResolvedValue(undefined);
+  mocks.verifySpeech.mockResolvedValue(true);
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -509,6 +550,44 @@ describe('patient completion and retry across actual exercise pages', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
     expect(await screen.findByRole('heading', { name: 'Practice saved' })).toBeVisible();
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).toHaveBeenCalledTimes(2);
+  });
+
+  const conversationCases = [
+    { title: 'Thought Continuation', component: ThoughtContinuationExercise, finishLabel: 'Finish thoughts' },
+    { title: 'Conversation Partner', component: ConversationPartnerExercise, finishLabel: 'Finish partner' },
+    { title: 'Conversation Coach', component: ConversationCoachExercise, finishLabel: 'Finish coach' },
+  ];
+
+  it.each(conversationCases)('$title keeps speech results unsaved after failed utterance persistence', async ({
+    component: Page, finishLabel,
+  }) => {
+    mocks.verifySpeech.mockResolvedValueOnce(false);
+    render(<MemoryRouter><Page /></MemoryRouter>);
+    // Conversation Partner and Coach have intro screens before mounting games.
+    if (finishLabel === 'Finish partner') {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Conversation' }));
+    }
+    if (finishLabel === 'Finish coach') {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Practice' }));
+    }
+    fireEvent.click(await screen.findByRole('button', { name: finishLabel }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    await waitFor(() => expect(mocks.completeSession).toHaveBeenCalledTimes(1));
+    expect(mocks.verifySpeech).toHaveBeenCalledTimes(2);
+  });
+
+  it('Conversation Partner retries an unconfirmed session close without losing speech evidence', async () => {
+    mocks.completeSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<MemoryRouter><ConversationPartnerExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Start Conversation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish partner' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    expect(await screen.findByRole('heading', { name: 'Great conversation!' })).toBeVisible();
+    expect(mocks.verifySpeech).toHaveBeenCalledTimes(1);
     expect(mocks.completeSession).toHaveBeenCalledTimes(2);
   });
 
