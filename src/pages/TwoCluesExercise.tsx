@@ -20,6 +20,7 @@ import React, { useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TwoCluesGame } from '@/components/TwoCluesGame';
 import { TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
+import { recordTwoCluesReviewTargets } from '@/lib/gameReviewHandoff';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
@@ -201,6 +202,9 @@ export default function TwoCluesExercise() {
 
   // Handle game completion
   const handleGameComplete = useCallback(async (results: TwoCluesTrialResult[]) => {
+    // Optional conversation practice only: copy verified graph targets from
+    // the finished game, never alter clinical trial scoring or progression.
+    recordTwoCluesReviewTargets(results, activeSessionId);
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
     await commitSession();
 
@@ -220,7 +224,7 @@ export default function TwoCluesExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  }, [fromLesson, completeSession, commitSession, navigate, returnTo, activeSessionId]);
 
 
 
