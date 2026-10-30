@@ -124,7 +124,7 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
       await recapContinue.click();
     } catch {
       // A session without an eligible recap goes directly to Today.
-      await expect(page).toHaveURL(/\\/today$/, { timeout: 20_000 });
+      await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 });
     }
     await expect(page).toHaveURL(/\/today$/, { timeout: 35_000 });
     await expect.poll(async () => (await readSession()).ended_at, { timeout: 25_000 }).not.toBeNull();
