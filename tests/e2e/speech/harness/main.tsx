@@ -9,6 +9,9 @@ import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-con
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { KidsModeProvider } from '@/contexts/KidsModeContext';
 import { recordPracticedWord } from '@/lib/reviewQueue';
+import { recordTwoCluesReviewTargets, recordFixSentenceReviewTargets } from '@/lib/gameReviewHandoff';
+import type { TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
+import type { FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import ReviewChatPage from '@/pages/ReviewChatPage';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { voiceController } from '@/lib/voiceController';
@@ -124,14 +127,30 @@ export function ReviewHarness({ scoped = false }: { scoped?: boolean }) {
     <h1 className="sr-only">Review chat regression harness</h1>
     {!seeded ? (
       <button onClick={() => {
-        const provenance = scoped ? { sessionId, sourceGame: 'photo_naming' as const } : {};
-        recordPracticedWord('apple', 'food', true, provenance);
-        recordPracticedWord('cup', 'household', false, provenance);
         if (scoped) {
+          // Exercise the REAL non-clinical adapters, not a test reimplementation.
+          const twoCluesResult: TwoCluesTrialResult = {
+            puzzleId: 'tc-animals-1', clues: ['tweets', 'flies'],
+            anchors: ['bird'], spokenWord: 'bird', matchedWord: 'bird',
+            tier: 'strong', score: 100, reachedAnchor: true,
+            semanticSimilarity: 1, reactionTimeMs: 3000, attemptNumber: 1,
+          };
+          const fixResult: FixSentenceTrialResult = {
+            trialId: 'fs_8', sentence: 'She poured coffee into a shoe.',
+            wrongWord: 'shoe', spokenWord: 'cup', matchedFix: 'cup',
+            isCorrect: true, isPartialCredit: false, selfCorrected: false,
+            semanticSimilarity: 1, reactionTimeMs: 3500, attemptNumber: 1,
+            difficulty: 1, phonemeTargets: ['/k/'], support: 'choice_based',
+          };
+          recordTwoCluesReviewTargets([twoCluesResult], sessionId);
+          recordFixSentenceReviewTargets([fixResult], sessionId);
           recordPracticedWord('banana', 'food', false, {
             sessionId: 'another-synthetic-session', sourceGame: 'photo_naming',
           });
           navigate('/review-chat', { state: { sessionId } });
+        } else {
+          recordPracticedWord('apple', 'food', true);
+          recordPracticedWord('cup', 'household', false);
         }
         setSeeded(true);
       }}>Seed practice</button>
