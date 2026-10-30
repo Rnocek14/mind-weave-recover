@@ -7,6 +7,7 @@ import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { commitPhotoNamingEvidence } from '@/lib/clinical/verifiedPhotoNamingCommit';
 import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
@@ -1403,39 +1404,16 @@ export const PhotoNamingGame = ({
   const [recap, setRecap] = useState<typeof progressionSnapshotRef.current>(null);
   const finalizeCompleteRef = useRef<(() => void) | null>(null);
 
-  const commitClinicalCompletion = useCallback(async (): Promise<{ ok: boolean }> => {
-    const stages = savedStagesRef.current;
-    if (!activeSessionId || !commitParentSession) return { ok: false };
-
-    // All raw patient attempts must be confirmed BEFORE interpreting them for
-    // progression. useTrialSubmission drains in-flight final-answer writes.
-    if (!stages.rawCommitted) {
-      const saved = await commitParentSession();
-      if (!saved.ok) return { ok: false };
-      stages.rawCommitted = true;
-    }
-    if (!stages.adaptationCommitted) {
-      if (!await flushAdaptationVerified()) return { ok: false };
-      stages.adaptationCommitted = true;
-    }
-    if (!stages.notesCommitted) {
-      if (persistCaregiverNotes && !await persistCaregiverNotes()) return { ok: false };
-      stages.notesCommitted = true;
-    }
-    if (!stages.progressionCommitted) {
-      const saved = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
-      if (!saved.ok) return { ok: false };
-      stages.progressionCommitted = true;
-      if (saved.snapshot) {
-        progressionSnapshotRef.current = {
-          prev: saved.snapshot.prev,
-          next: saved.snapshot.next,
-          leveledUp: saved.snapshot.leveledUp,
-        };
-      }
-    }
-    return { ok: true };
-  }, [activeSessionId, commitParentSession, flushAdaptationVerified, persistCaregiverNotes, progression]);
+  const commitClinicalCompletion = useCallback(() => commitPhotoNamingEvidence({
+    sessionId: activeSessionId ?? null,
+    stages: savedStagesRef.current,
+    // Missing page ownership is not an acceptable success fallback.
+    commitRaw: commitParentSession ?? (async () => ({ ok: false })),
+    retryAdaptation: flushAdaptationVerified,
+    persistNotes: persistCaregiverNotes ?? (async () => true),
+    commitProgression: async (sessionId: string) => progression.flushAtSessionEnd({ sessionId }),
+    onProgressionSnapshot: snapshot => { progressionSnapshotRef.current = snapshot; },
+  }), [activeSessionId, commitParentSession, flushAdaptationVerified, persistCaregiverNotes, progression]);
 
   const handleConfirmedCompletion = useCallback((finalScore: number) => {
     const finalize = () => onGameComplete?.(finalScore);
