@@ -13,7 +13,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import { useUtteranceLogger } from './useUtteranceLogger';
 
-function begin(result: ReturnType<typeof renderHook<typeof useUtteranceLogger>>) {
+function begin(result: { result: { current: ReturnType<typeof useUtteranceLogger> } }) {
   let id!: string;
   act(() => {
     id = result.result.current.startAttempt({
