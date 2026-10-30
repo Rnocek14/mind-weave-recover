@@ -126,6 +126,25 @@ vi.mock('@/components/DualLoadNamingGame', () => ({
     </button>
   ),
 }));
+vi.mock('@/hooks/useSessionStallWatchdog', () => ({
+  useSessionStallWatchdog: () => undefined,
+}));
+vi.mock('@/components/NarrativeRetellGame', () => ({
+  NarrativeRetellGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
+    <button onClick={() => onGameComplete([{
+      storyId: 'synthetic-story', transcript: 'synthetic answer',
+      eventCoverage: 0.5, wordCount: 5, eventsFound: 2, eventsTotal: 4,
+    }])}>Finish narrative</button>
+  ),
+}));
+vi.mock('@/components/AbstractCompareGame', () => ({
+  AbstractCompareGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
+    <button onClick={() => onGameComplete([{
+      itemId: 'synthetic-abstract', wordA: 'cat', wordB: 'dog',
+      transcript: 'they are animals', coverageRatio: 0.5,
+    }])}>Finish comparison</button>
+  ),
+}));
 vi.mock('@/components/MultiStepPlanningGame', () => ({
   MultiStepPlanningGame: ({ onGameComplete }: { onGameComplete: (r: unknown[]) => void }) => (
     <button onClick={() => onGameComplete([{ goalCoverage: 0.5, stepsFound: 2 }])}>
@@ -227,6 +246,8 @@ import MinimalPairsExercise from '../MinimalPairsExercise';
 import FixSentenceExercise from '../FixSentenceExercise';
 import DualLoadNamingExercise from '../DualLoadNamingExercise';
 import MultiStepPlanExercise from '../MultiStepPlanExercise';
+import AbstractCompareExercise from '../AbstractCompareExercise';
+import NarrativeRetellExercise from '../NarrativeRetellExercise';
 
 const cases = [
   { title: 'Category Fluency', component: CategoryFluencyExercise, finishLabel: 'Finish category' },
@@ -235,6 +256,8 @@ const cases = [
   { title: 'Describe & Guess', component: DescribeGuessExercise, finishLabel: 'Finish description' },
   { title: 'Dual-Load Naming', component: DualLoadNamingExercise, finishLabel: 'Finish dual load' },
   { title: 'Multi-Step Planning', component: MultiStepPlanExercise, finishLabel: 'Finish planning' },
+  { title: 'Abstract Comparison', component: AbstractCompareExercise, finishLabel: 'Finish comparison' },
+  { title: 'Narrative Retell', component: NarrativeRetellExercise, finishLabel: 'Finish narrative' },
 ];
 
 beforeEach(() => {
@@ -401,6 +424,41 @@ describe('patient completion and retry across actual exercise pages', () => {
       expect(mocks.commitSession).toHaveBeenCalledTimes(2);
       expect(mocks.completeSession).toHaveBeenCalledTimes(1);
     } finally { window.removeEventListener('exercise-complete', sent); }
+  });
+
+  it('Narrative Retell cannot advance a lesson when story data failed to save', async () => {
+    mocks.fromLesson = true;
+    mocks.commitSession.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });
+    const dispatch = vi.fn();
+    window.addEventListener('exercise-complete', dispatch);
+    try {
+      render(<MemoryRouter><NarrativeRetellExercise /></MemoryRouter>);
+      fireEvent.click(screen.getByRole('button', { name: 'Finish narrative' }));
+      expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+      expect(dispatch).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+      expect(await screen.findByRole('heading', { name: 'Stories Complete!' })).toBeVisible();
+      expect(mocks.commitSession).toHaveBeenCalledTimes(2);
+      expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    } finally { window.removeEventListener('exercise-complete', dispatch); }
+  });
+
+  it('Abstract Comparison never closes a lesson after an unconfirmed trial save', async () => {
+    mocks.commitSession.mockResolvedValueOnce({ ok: false });
+    render(<MemoryRouter><AbstractCompareExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish comparison' }));
+    expect(await screen.findByRole('heading', { name: 'Practice not saved' })).toBeVisible();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
+  it('Narrative Retell offline mode is clearly not a clinical save', async () => {
+    localStorage.setItem('offlineMode', 'true');
+    render(<MemoryRouter><NarrativeRetellExercise /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish narrative' }));
+    expect(await screen.findByRole('heading', { name: 'Offline practice finished' })).toBeVisible();
+    expect(screen.getByText('This practice was not saved.')).toBeVisible();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+    expect(mocks.commitSession).not.toHaveBeenCalled();
   });
 
   it('a failed lesson game must never dispatch the next-exercise event', async () => {
