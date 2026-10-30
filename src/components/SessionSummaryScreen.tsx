@@ -19,6 +19,7 @@ import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/perform
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { getTodaysPracticedWords } from "@/lib/reviewQueue";
+import { getPresentedFunctionalScripts } from "@/lib/scriptPracticeQueue";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
 import { ProbeResultsCard } from "@/components/probe/ProbeResultsCard";
@@ -68,6 +69,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   // a completed lesson measured real-world communication or transfer.
   const hasPracticedWordsToReview = useMemo(
     () => !!sessionId && getTodaysPracticedWords({ sessionId }).length > 0,
+    [sessionId],
+  );
+  const hasFunctionalScripts = useMemo(
+    () => !!sessionId && getPresentedFunctionalScripts(sessionId).length > 0,
     [sessionId],
   );
   const { speak, stop } = useTextToSpeech();
@@ -548,6 +553,21 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
             >
               <MessageCircle className="w-5 h-5 mr-2" />
               Practice these words with Maya
+            </Button>
+          )}
+
+          {hasFunctionalScripts && (
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full min-h-14 text-base"
+              onClick={() => sessionId && navigate(
+                `/functional-transfer?lesson=${encodeURIComponent(sessionId)}`,
+                { state: { sessionId } },
+              )}
+            >
+              <MessageCircle className="w-5 h-5 mr-2" />
+              Try a practical conversation with Maya
             </Button>
           )}
 
