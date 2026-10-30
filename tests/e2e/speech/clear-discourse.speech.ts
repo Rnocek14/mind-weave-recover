@@ -11,7 +11,7 @@ import { readJson } from './support/assertions';
 const cases = [
   { game: 'narrative-retell', start: 'Tell it back now', slug: 'narrative_retell' },
   { game: 'abstract-compare', start: 'Explain similarities', slug: 'abstract_compare' },
-  { game: 'multi-step-plan', start: 'Start planning', slug: 'multi_step_plan' },
+  { game: 'multi-step-plan', start: 'Start planning', slug: 'multi_step_planning' },
 ] as const;
 
 for (const scenario of cases) {
