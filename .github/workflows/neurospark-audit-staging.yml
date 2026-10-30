@@ -14,11 +14,19 @@ concurrency:
 
 jobs:
   game-entry:
-    name: Audited game readiness (18 routes, desktop + mobile)
+    name: Audited game readiness (${{ matrix.playwright_project }})
     if: >-
       github.repository == 'Rnocek14/mind-weave-recover' &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - playwright_project: chromium-desktop
+            runner: ubuntu-24.04
+          - playwright_project: mobile-safari
+            runner: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     environment: neurospark-e2e
     env:
@@ -46,12 +54,12 @@ jobs:
       - name: Install real Chromium and WebKit browsers
         run: bunx playwright install --with-deps chromium webkit
       - name: Run all required existing and expanded staging journeys
-        run: bun run test:e2e:staging --workers=2 --retries=0
+        run: bun run test:e2e:staging --workers=1 --retries=0 --project=${{ matrix.playwright_project }}
       - name: Upload synthetic result counts (never browser traces or auth state)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: neurospark-audit-staging-summary
+          name: neurospark-audit-staging-summary-${{ matrix.playwright_project }}
           path: |
             qa-evidence/candidate-revision.txt
             qa-evidence/staging-config.json
