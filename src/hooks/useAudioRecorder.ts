@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -12,10 +12,28 @@ export const useAudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const unmountedRef = useRef(false);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
 
+  // Never leave a native microphone live when a patient exits a game.
+  // This also protects against getUserMedia resolving after an unmount.
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      const recorder = mediaRecorderRef.current;
+      mediaRecorderRef.current = null;
+      if (!recorder) return;
+      recorder.stream.getTracks().forEach(track => track.stop());
+      if (recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch { /* already stopped by the browser */ }
+      }
+    };
+  }, []);
+
   const startRecording = useCallback(async (): Promise<boolean> => {
+    let stream: MediaStream | null = null;
     try {
       // Check browser support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -24,8 +42,13 @@ export const useAudioRecorder = () => {
         return false;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (unmountedRef.current) {
+        // A delayed permission prompt can resolve after the patient leaves.
+        stream.getTracks().forEach(track => track.stop());
+        return false;
+      }
+
       // Choose best available MIME type
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -50,8 +73,11 @@ export const useAudioRecorder = () => {
       
       return true;
     } catch (error) {
+      // MediaRecorder construction/start can fail after getUserMedia succeeds.
+      // Reclaim the newly acquired mic even on that exceptional path.
+      stream?.getTracks().forEach(track => track.stop());
       console.error('Failed to start recording:', error);
-      toast.error('Could not start recording', {
+      if (!unmountedRef.current) toast.error('Could not start recording', {
         description: 'Please check microphone permissions',
         id: 'mic-error', // Dedupe: only show one mic error at a time
       });
@@ -75,7 +101,7 @@ export const useAudioRecorder = () => {
         // Stop all tracks
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
         
-        setIsRecording(false);
+        if (!unmountedRef.current) setIsRecording(false);
         mediaRecorderRef.current = null;
         
         resolve({
