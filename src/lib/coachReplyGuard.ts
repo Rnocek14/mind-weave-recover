@@ -12,6 +12,8 @@
 export interface CoachReplyGuardInput {
   proposed: string;
   recentMaya: string[];
+  /** A direct request to repeat is an accessibility accommodation, not a loop. */
+  patientReply?: string;
 }
 
 export type CoachReplyGuardReason =
@@ -75,7 +77,7 @@ function chooseRepair(recentMaya: string[]): string {
 }
 
 /** Call after Maya Speech Gate, before displaying, speaking, or logging text. */
-export function guardCoachReply({ proposed, recentMaya }: CoachReplyGuardInput): CoachReplyGuardResult {
+export function guardCoachReply({ proposed, recentMaya, patientReply = "" }: CoachReplyGuardInput): CoachReplyGuardResult {
   const text = proposed.trim();
   if (!text) return { text, reason: null };
 
@@ -91,7 +93,9 @@ export function guardCoachReply({ proposed, recentMaya }: CoachReplyGuardInput):
     return earlier !== null && sameQuestion(question, earlier);
   }));
 
-  if (isDuplicate || wasAsked) {
+  // Repeating a prompt because the patient ASKED to hear it again is allowed.
+  const explicitRepeatRequest = /^(please\s+)?(repeat( (that|the question))?|say (that|it) again|what did you say|i (didn't|did not|can't) hear( you)?|pardon|what)[?.!\s]*$/i.test(patientReply.trim());
+  if ((isDuplicate || wasAsked) && !explicitRepeatRequest) {
     return {
       text: chooseRepair(recent),
       reason: isDuplicate ? "duplicate_reply" : "repeated_question",
