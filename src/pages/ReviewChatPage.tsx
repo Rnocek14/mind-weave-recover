@@ -69,8 +69,8 @@ export default function ReviewChatPage() {
 
   // CLOSED LOOP: today's practiced words + up to 2 carryover-priority words
   // (fading/lost per the transfer ledger) that need conversational retrieval
-  // even though they weren't practiced today. The re-practice signal is
-  // real-world usage decay, not quiz scores.
+  // even though they weren't practiced today. Priority comes from device-
+  // local IN-APP review history, never passive real-world monitoring.
   const practiced = useMemo(() => {
     const todays = getTodaysPracticedWords(
       reviewSessionId ? { sessionId: reviewSessionId } : {},
