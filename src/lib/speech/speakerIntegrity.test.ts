@@ -89,6 +89,15 @@ describe('speaker integrity SHADOW classification', () => {
     }
   });
 
+  it('rejects contradictory patient-match evidence from the same provider response', () => {
+    const raw = patient();
+    raw.voiceprints[0].match = null as never;
+    expect(classifySpeakerIdentification(raw)).toMatchObject({
+      label: 'uncertain', reason: 'missing_or_invalid_provider_evidence',
+      clinicalScoringAllowed: false,
+    });
+  });
+
   it('retains a low-confidence possible patient as uncertain, never a clinical miss', () => {
     expect(classifySpeakerIdentification(patient(3, 59))).toMatchObject({
       label: 'uncertain', reason: 'low_match_confidence', matchConfidence: 59,
