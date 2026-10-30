@@ -16,6 +16,7 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { usePronunciationAnalysis } from '@/hooks/usePronunciationAnalysis';
 import { analyzeSpeechRecording } from '@/lib/speech/analyzeSpeechRecording';
+import { queueSpeakerIntegrityShadow } from '@/lib/speech/speakerIntegrityClient';
 import { pauseSecondsToMilliseconds } from '@/lib/speech/analysisResponse';
 import { makeResponseTiming } from '@/lib/speech/responseTiming';
 import { useAuth } from '@/hooks/useAuth';
@@ -2130,7 +2131,7 @@ export const PhotoNamingGame = ({
           }
         }
 
-        void pendingAttempt.finalize({
+        const saved = await pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
@@ -2171,6 +2172,12 @@ export const PhotoNamingGame = ({
           pronunciationError: pronError ? `${pronError.stage}: ${pronError.message}` : undefined,
           pronunciationDiagnostics,
         });
+
+        // Identity analysis is observational. Never use it for live feedback,
+        // support, progression, or automatic correctness decisions.
+        if (uploadedPath && saved.status === 'persisted') {
+          void queueSpeakerIntegrityShadow(standaloneProfileId || activeProfile?.id, saved.attemptId);
+        }
 
         // ── Secondary Live Analysis push: Azure PA scores ──
         // onTrialComplete fires before pronunciation analysis finishes,
