@@ -85,6 +85,10 @@ export function recordFixSentenceReviewTargets(
       trial.errorType === "morphology_error") continue;
     const target = reviewableTarget(result.matchedFix);
     if (!target) continue;
+    // Never turn an unapproved model/semantic match into a practice target.
+    // Use only a canonical repair explicitly accepted by the originating
+    // single-error lexical trial; no guesses from transcript length/similarity.
+    if (!trial.acceptedFixes.some((candidate) => candidate.toLowerCase() === target)) continue;
 
     const selected = result.support === "choice_based" ||
       result.support === "highlight_plus_choice";
