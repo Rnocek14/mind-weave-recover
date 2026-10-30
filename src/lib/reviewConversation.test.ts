@@ -91,6 +91,16 @@ describe("post-practice review: bounded, evidence-honest dialogue", () => {
     expect(verified.state.phase).toBe("done");
   });
 
+  it("accepts deliberate clear word repetition as an aphasia repair", () => {
+    const start = startReview([apple]);
+    const uncertain = onUserUtterance(start.state, "apple", [], 0.2);
+    expect(uncertain.state.phase).toBe("repair");
+    const spokenAgain = onUserUtterance(uncertain.state, "apple", [], 0.92);
+    expect(spokenAgain.events).toContainEqual({ type: "repair_confirmed", word: "apple" });
+    expect(spokenAgain.events).toContainEqual({ type: "elicited_use", word: "apple" });
+    expect(spokenAgain.state.phase).toBe("done");
+  });
+
   it("does not count a word as independent if the patient needed a cue before ASR repair", () => {
     const start = startReview([apple]);
     const cued = onUserUtterance(start.state, "the thing I want");
