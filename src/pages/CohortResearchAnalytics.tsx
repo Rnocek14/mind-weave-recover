@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCohortAnalytics } from "@/hooks/useCohortAnalytics";
+import { canExportResearchData, RESEARCH_EXPORT_PAUSE_EXPLANATION } from "@/lib/researchExportPrivacyGate";
 import { ArrowLeft, Download, Loader2, RefreshCw } from "lucide-react";
 import { GameEffectivenessSection } from "@/components/cohort/GameEffectivenessSection";
 import { CueEffectivenessSection } from "@/components/cohort/CueEffectivenessSection";
@@ -39,6 +40,9 @@ export default function CohortResearchAnalytics() {
   const [exporting, setExporting] = useState(false);
 
   const handleExport = async () => {
+    // The existing pseudonym and CSV serializer have not undergone the
+    // required privacy review. Prevent even fetching an export dataset.
+    if (!canExportResearchData()) return;
     setExporting(true);
     try {
       const rows = await generateExport();
@@ -97,7 +101,7 @@ export default function CohortResearchAnalytics() {
             <Button variant="outline" size="sm" onClick={refetch} className="gap-1">
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
-            <Button size="sm" onClick={handleExport} disabled={exporting} className="gap-1">
+            <Button size="sm" onClick={handleExport} disabled={exporting || !canExportResearchData()} className="gap-1">
               {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
               Export CSV
             </Button>
@@ -110,7 +114,11 @@ export default function CohortResearchAnalytics() {
           </Card>
         )}
 
-        {/* Data Sufficiency Indicator */}
+        {!canExportResearchData() && (
+        <p role="status" className="text-sm text-muted-foreground">{RESEARCH_EXPORT_PAUSE_EXPLANATION}</p>
+      )}
+
+      {/* Data Sufficiency Indicator */}
         <DataSufficiencyBar
           patientCount={phenotypeDistributions[0]?.counts.reduce((s, c) => s + c.count, 0) || 0}
           sessionCount={gameEffectiveness.reduce((s, r) => s + r.trialCount, 0)}

@@ -135,7 +135,8 @@ export function MinimalPairsGame({
   const echoActiveRef = useRef(false);
   const echoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const speech = useSpeechRecognition({
+  const { isListening: echoMicListening, isSupported: echoMicSupported,
+    startListening: startEchoListening, stopListening: stopEchoListening } = useSpeechRecognition({
     onResult: (t) => {
       if (!echoActiveRef.current) return;
       setEchoTranscript(t);
@@ -156,22 +157,22 @@ export function MinimalPairsGame({
    */
   useEffect(() => {
     if (echoStatus !== 'arming') return;
-    if (speech.isListening) { setEchoStatus('listening'); return; }
+    if (echoMicListening) { setEchoStatus('listening'); return; }
     const giveUp = setTimeout(() => {
       setEchoStatus((s) => (s === 'arming' ? 'unavailable' : s));
       echoActiveRef.current = false;
     }, 2500);
     return () => clearTimeout(giveUp);
-  }, [echoStatus, speech.isListening]);
+  }, [echoStatus, echoMicListening]);
 
   const stopEcho = useCallback(() => {
     echoActiveRef.current = false;
     if (echoTimerRef.current) { clearTimeout(echoTimerRef.current); echoTimerRef.current = null; }
-    try { speech.stopListening(); } catch {}
-  }, [speech]);
+    try { stopEchoListening(); } catch {}
+  }, [stopEchoListening]);
 
   const startEcho = useCallback(async () => {
-    if (!speech.isSupported) {
+    if (!echoMicSupported) {
       setEchoStatus('skipped');
       return;
     }
@@ -193,7 +194,7 @@ export function MinimalPairsGame({
     // permission denied — the person needs to be told, not left staring at a
     // label that claims the microphone is on.
     try {
-      speech.startListening();
+      startEchoListening();
     } catch (err) {
       console.warn('[MinimalPairs] echo mic failed to start', err);
       echoActiveRef.current = false;
@@ -212,7 +213,7 @@ export function MinimalPairsGame({
         setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
       }
     }, 7000);
-  }, [speech, stopEcho]);
+  }, [echoMicSupported, startEchoListening, stopEcho]);
 
   const handleEchoSaidIt = useCallback(() => {
     stopEcho();
@@ -224,6 +225,9 @@ export function MinimalPairsGame({
     setEchoStatus('skipped');
   }, [stopEcho]);
 
+  // Only a TRIAL transition may reset the optional echo. Depending on the
+  // changing SpeechRecognition result object here used to abort the live mic
+  // every time the status changed (arming/listening/heard).
   // Reset echo on each new trial
   useEffect(() => {
     stopEcho();
@@ -589,7 +593,7 @@ export function MinimalPairsGame({
                   Say "get ready" so the patient doesn't speak into a dead mic. */}
               {/* Derived, never asserted — see echoState.echoLabelFor. */}
               {(() => {
-                switch (echoLabelFor(echoStatus, speech.isListening)) {
+                switch (echoLabelFor(echoStatus, echoMicListening)) {
                   case 'get-ready':
                     return <>Get ready to say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>;
                   case 'one-moment':
@@ -613,7 +617,7 @@ export function MinimalPairsGame({
                   <Mic className="w-3.5 h-3.5" /> I said it
                 </Button>
               ) : echoStatus === 'idle' ? (
-                <Button onClick={startEcho} size="sm" variant="secondary" className="gap-1" disabled={!speech.isSupported}>
+                <Button onClick={startEcho} size="sm" variant="secondary" className="gap-1" disabled={!echoMicSupported}>
                   <Mic className="w-3.5 h-3.5" /> Say it
                 </Button>
               ) : null}
@@ -624,7 +628,7 @@ export function MinimalPairsGame({
               )}
             </div>
           </div>
-          {!speech.isSupported && echoStatus === 'idle' && (
+          {!echoMicSupported && echoStatus === 'idle' && (
             <p className="text-xs text-muted-foreground mt-1">Mic not available — tap Skip to continue.</p>
           )}
         </div>

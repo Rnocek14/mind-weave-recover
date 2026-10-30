@@ -22,7 +22,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { SemanticFeatureGame } from '@/components/SemanticFeatureGame';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { startSession, endSession } from '@/lib/sessionTracking';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -85,8 +89,16 @@ export default function SemanticFeatureExercise() {
   const targetedWords = searchParams.get('targets')?.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || [];
   const practiceSource = searchParams.get('source') || null;
   
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionStartTime] = useState(Date.now());
+  const sessionStartRef = useRef(Date.now());
+  const scoreRef = useRef(0);
+  const scoredTrialsRef = useRef(0);
+  const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (completeTimeoutRef.current !== null) clearTimeout(completeTimeoutRef.current);
+  }, []);
+  const {
+    activeSessionId: sessionId, isCreatingSession, sessionError, retrySession,
+  } = useStandaloneSession(user?.id, lessonSessionId, 'semantic_features');
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
   
   // Generate custom trials if targeted practice
@@ -179,25 +191,12 @@ export default function SemanticFeatureExercise() {
     navigate(returnTo, { state: { resuming: true } });
   };
 
-  const handleGameStart = async () => {
-    if (!user?.id) return;
-    
-    if (fromLesson && lessonSessionId) {
-      setSessionId(lessonSessionId);
-    } else {
-      const session = await startSession(user.id, {
-        blocks: [{ exercise: 'semantic-features', duration: 10 }],
-      });
-      setSessionId(session.id);
-    }
-  };
-
   // Unified trial submission (lexical axis). Progression is wired through
   // useSemanticFeaturesProgression so every submitTrial buffers a clinical
   // trial (correct + support), and commitSession flushes the L1–L8 ladder.
   // adaptation_trial_logs come from the page (trialMode='production');
   // SemanticFeatureGame's useInGameAdaptation is autoLog:false.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId,
@@ -210,6 +209,8 @@ export default function SemanticFeatureExercise() {
     trialIndexRef.current += 1;
     const cueLevel = typeof data?.cueLevel === 'number' ? data.cueLevel : 0;
     const isCorrect = !!data?.correct;
+    scoreRef.current += isCorrect ? 100 : (data?.retrievalCorrect ? 50 : 0);
+    scoredTrialsRef.current++;
     pivot.recordTrialResult({
       wasCorrect: isCorrect,
       reactionTimeMs: data?.reactionTime ?? 0,
@@ -249,39 +250,43 @@ export default function SemanticFeatureExercise() {
     if (pivot.shouldStepDown) pivot.acknowledge();
   }, [sessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
-  const handleGameComplete = async (finalScore: number, totalTrials: number) => {
-    if (!sessionId || !user?.id) return;
-
-    // Unified commit before session-end housekeeping — flushes mastery
-    // shadow + drains any queued adaptation rows.
-    await commitSession();
-
-    const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const accuracy = (finalScore / totalTrials) * 100;
-
-    await endSession(sessionId, {
-      durationSec,
-      scores: { 'semantic-features': accuracy },
-      reps: totalTrials,
-    });
-
-    toast({
-      title: 'Session saved!',
-      description: `You completed ${totalTrials} trials with ${accuracy.toFixed(0)}% accuracy.`,
-    });
-
+  const getSessionStats = useCallback(() => ({
+    score: scoreRef.current,
+    totalTrials: scoredTrialsRef.current,
+    startTime: sessionStartRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId, userId: user?.id, profileId: activeProfile?.id,
+    exerciseSlug: 'semantic_features', getSessionStats,
+  });
+  const onConfirmed = useCallback((results: { finalScore: number; totalTrials: number }) => {
     if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      setTimeout(() => navigate('/today'), 2000);
+      completeTimeoutRef.current = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'semantic_features', results },
+        }));
+        navigate(returnTo, { state: { resuming: true }, replace: true });
+      }, 400);
     }
+  }, [fromLesson, navigate, returnTo]);
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<{
+    finalScore: number; totalTrials: number;
+  }>({
+    scope: user?.id && activeProfile?.id && sessionId
+      ? JSON.stringify([user.id, activeProfile.id, sessionId, 'semantic_features'])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed,
+  });
+
+  const handleGameComplete = (finalScore: number, totalTrials: number) => {
+    void finish({ finalScore, totalTrials });
   };
 
-
-  // Start session on mount
-  if (!sessionId && user?.id) {
-    handleGameStart();
+  if (isCreatingSession || !sessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -306,6 +311,18 @@ export default function SemanticFeatureExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
+          <div className="my-auto mx-auto w-full max-w-md space-y-5 px-4 text-center">
+            <h2 className="text-2xl font-bold">Practice saved</h2>
+            <Button size="lg" className="min-h-14 w-full text-lg" onClick={() => navigate('/today')}>Go to Today</Button>
+          </div>
+        ) : (
         <div className="max-w-6xl mx-auto space-y-4">
 
         {/* Adaptation badges — desktop only */}
@@ -344,6 +361,7 @@ export default function SemanticFeatureExercise() {
             load gate from Wave 0. */}
         {progression.loaded ? (
           <SemanticFeatureGame
+            key={JSON.stringify([user?.id, activeProfile?.id, sessionId])}
             totalTrials={10}
             config={{ ...config, startDifficulty: effectiveStartDifficulty }}
             bounds={bounds}
@@ -358,6 +376,7 @@ export default function SemanticFeatureExercise() {
           <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}
       </div>
+        )}
       </main>
     </div>
   );

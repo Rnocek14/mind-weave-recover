@@ -30,7 +30,7 @@ jobs:
       - name: Install locked dependencies
         run: bun install --frozen-lockfile
       - name: Verify staging runner configuration and workflow wiring (offline)
-        run: node --test scripts/staging-runner-config.test.mjs scripts/staging-workflow.test.mjs
+        run: node --test scripts/staging-runner-config.test.mjs scripts/staging-workflow.test.mjs scripts/verify-staging-release.test.mjs
       - name: Verify test isolation and fail-closed gates
         run: bun run test:test-env && bun run test:qa-gates
       - name: Speech HTTP handler contracts (no credentials)
@@ -88,16 +88,30 @@ jobs:
     if: always()
     needs: [test, e2e, bundle]
     runs-on: ubuntu-24.04
-    timeout-minutes: 2
+    timeout-minutes: 22
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - name: Require every regression job to succeed
         env:
           QA_JOB_RESULTS: ${{ toJSON(needs) }}
         run: node scripts/qa-gates.mjs test e2e bundle
+      - name: Require isolated authenticated staging on the exact PR head SHA
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.test.result == 'success' &&
+          needs.e2e.result == 'success' &&
+          needs.bundle.result == 'success'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: node scripts/verify-staging-release.mjs
       - name: Record the tested revision and scope
         if: always()
         run: |
           echo '### Regression gate' >> "$GITHUB_STEP_SUMMARY"
           echo "Revision: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo 'This is the deterministic regression gate, not the live-service or clinical release sign-off.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Pull-request gate also requires exact-head isolated authenticated staging. Live speech, physical devices, and clinical sign-off remain separate release requirements.' >> "$GITHUB_STEP_SUMMARY"

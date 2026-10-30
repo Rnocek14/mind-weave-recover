@@ -14,7 +14,7 @@
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SynonymGeneratorGame, type SynonymRoundResult } from '@/components/SynonymGeneratorGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -30,6 +30,8 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import {
   useSynonymGeneratorProgression,
   mapSynonymGeneratorSupport,
@@ -43,7 +45,6 @@ export default function SynonymGeneratorExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -68,7 +69,7 @@ export default function SynonymGeneratorExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -111,7 +112,7 @@ export default function SynonymGeneratorExercise() {
   // Wave 3: unified trial submission (expressive axis). SynonymGeneratorGame
   // is autoLog:false; this page owns the writer and emits
   // trialMode:'production' so the adopted slug routes mastery correctly.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -187,13 +188,7 @@ export default function SynonymGeneratorExercise() {
     }
   }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback(async (results: SynonymRoundResult[]) => {
-    setCompleted(true);
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
-    completeSession();
-
+  const handleConfirmedCompletion = useCallback((results: SynonymRoundResult[]) => {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       dispatchTimeoutRef.current = window.setTimeout(() => {
@@ -207,7 +202,21 @@ export default function SynonymGeneratorExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<SynonymRoundResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: SynonymRoundResult[]) => {
+    void finish(results);
+  }, [finish]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -216,7 +225,7 @@ export default function SynonymGeneratorExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -236,7 +245,13 @@ export default function SynonymGeneratorExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Great Work!</h2>
@@ -249,6 +264,7 @@ export default function SynonymGeneratorExercise() {
           </div>
         ) : progression.loaded ? (
           <SynonymGeneratorGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             difficulty={difficultyLevel}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}

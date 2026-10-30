@@ -55,6 +55,10 @@ export interface FinalAnalysisInput {
   transcriptSource: 'browser' | 'azure' | 'whisper' | 'manual';
   asrConfidence?: number | null;
   isCorrect?: boolean | null;
+  /** Only explicitly eligible speech may contribute to speech-profile correctness. */
+  countsTowardScore?: boolean;
+  /** The actual response modality: do not infer speech from a choice tap. */
+  responseMode?: 'production' | 'recognition' | 'scaffolded' | 'manual';
   errorType?: string;
   phonologicalSimilarity?: number | null;
   semanticSimilarity?: number | null;
@@ -126,6 +130,8 @@ interface UtteranceLoggerReturn {
   logFinalAnalysis: (analysis: FinalAnalysisInput) => Promise<FinalizationResult>;
   captureAttempt: () => CapturedAttempt;
   resetAttempt: () => void;
+  /** All captured attempts were acknowledged, including idempotent retries. */
+  confirmFinalizedAttempts: (options?: { waitMs?: number }) => Promise<boolean>;
 }
 
 function measuredNumber(value: unknown): number | null {
@@ -167,6 +173,7 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     transcript_source: analysis.transcriptSource === 'azure' ? 'whisper' : analysis.transcriptSource,
     asr_confidence: analysis.asrConfidence,
     is_correct: analysis.isCorrect,
+    counts_toward_score: analysis.countsTowardScore,
     error_type: analysis.errorType,
     phonological_similarity: analysis.phonologicalSimilarity,
     semantic_similarity: analysis.semanticSimilarity,
@@ -213,9 +220,10 @@ function buildPayload(record: AttemptRecord, analysis: FinalAnalysisInput): Tabl
     pronunciation_error_stage: diag?.pronunciationErrorStage,
     pronunciation_error_message: analysis.pronunciationError || (diag?.pronunciationErrorStage ? `${diag.pronunciationErrorStage} failed` : null),
     pronunciation_timings_ms: diag?.pronunciationTimingsMs,
-    audio_meta: diag?.audioMeta || analysis.transcriptSource === 'azure' || responseTiming
+    audio_meta: diag?.audioMeta || analysis.transcriptSource === 'azure' || responseTiming || analysis.responseMode
       ? {
         ...diag?.audioMeta,
+        ...(analysis.responseMode ? { responseMode: analysis.responseMode } : {}),
         ...(analysis.transcriptSource === 'azure' ? { transcriptProvider: 'azure' } : {}),
         // Timing belongs to the captured answer, never to opaque diagnostics.
         // JSON serialization omits this key when no valid measurement exists.
@@ -327,6 +335,44 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     });
   }, [logFinalAnalysis]);
 
+  // Conversation/open-ended games have a separate utterance_analyses writer.
+  // Saving a session summary must never be treated as confirmation that its
+  // speech evidence also saved. Re-use the original immutable payload on a
+  // retry; never guess a transcript or reclassify an open attempt.
+  const confirmFinalizedAttempts = useCallback(async (
+    options?: { waitMs?: number },
+  ): Promise<boolean> => {
+    // Photo Naming's final spoken/recorded answer may still be undergoing
+    // asynchronous ASR/upload when the last game animation ends. Waiting a
+    // bounded interval on the existing records is normal save progress, not a
+    // patient-visible failure requiring troubleshooting. A true failed write
+    // is retried with its ORIGINAL payload, never an invented transcript.
+    const requestedWait = options?.waitMs ?? 8000;
+    const waitMs = Number.isFinite(requestedWait)
+      ? Math.min(15000, Math.max(0, requestedWait)) : 0;
+    const deadline = Date.now() + waitMs;
+    while (mountedRef.current) {
+      const captured = [...attemptsRef.current.entries()];
+      if (!captured.length) return true; // No attempt: do not invent speech.
+      let incomplete = false;
+      for (const [attemptId, record] of captured) {
+        if (record.state === 'failed') {
+          if (!record.payload) return false;
+          const retry = await logFinalAnalysis({ attemptId, transcriptSource: 'browser' });
+          if (retry.status !== 'persisted') return false;
+        }
+        if (record.state !== 'persisted') incomplete = true;
+      }
+      if (!incomplete) return true;
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) return false;
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, Math.min(150, remainingMs));
+      });
+    }
+    return false;
+  }, [logFinalAnalysis]);
+
   const resetAttempt = useCallback((): void => {
     activeAttemptRef.current = null;
     // Retain attempt records for callbacks already in flight. Their lifetime
@@ -337,5 +383,5 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
     }
   }, []);
 
-  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, captureAttempt, resetAttempt };
+  return { currentAttemptId, isFinalized, startAttempt, logBrowserTranscript, logFinalAnalysis, captureAttempt, resetAttempt, confirmFinalizedAttempts };
 };

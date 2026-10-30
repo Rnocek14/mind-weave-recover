@@ -5,6 +5,13 @@ import { resolveE2EEnvironment } from './scripts/e2e-environment.mjs';
 const settings = resolveE2EEnvironment();
 const stagingSpecs = [
   '**/core-loop.spec.ts',
+  '**/audit-game-readiness.spec.ts',
+  '**/audit-meaning-match-flow.spec.ts',
+  '**/audit-photo-naming-completion.spec.ts',
+  '**/audit-clinical-rpc-access.spec.ts',
+  '**/audit-session-summary-rpc.spec.ts',
+  '**/audit-speech-profile-scoping.spec.ts',
+  '**/audit-speech-profile-scope.spec.ts',
   '**/pass-b-patient-journey.spec.ts',
   '**/exercise-session.spec.ts',
 ];

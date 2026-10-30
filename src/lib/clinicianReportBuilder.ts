@@ -11,7 +11,7 @@ import { LearningRate, findSpeechLearningRate } from '@/hooks/useLearningRate';
 // Report types
 export interface ClinicianReport {
   window: { label: string; start: string; end: string; days: number };
-  sample: { trials: number; practiceDays: number };
+  sample: { trials: number; practiceDays: number; taskAccuracyPct: number | null };
   confidence: { level: 'low' | 'medium' | 'high'; reasons: string[] };
   recovery: { 
     verdict: string; 
@@ -122,35 +122,51 @@ export function buildClinicianReport(
   // Filter trends to window
   const windowTrends = trends.filter(t => new Date(t.date) >= windowStart);
   const totalTrials = windowTrends.reduce((sum, t) => sum + t.totalTrials, 0);
-  const practiceDays = windowTrends.filter(t => t.totalTrials > 0).length;
-  
+  const practiceTrends = windowTrends.filter(t => t.totalTrials > 0);
+  const practiceDays = practiceTrends.length;
+  const taskAccuracyPct = totalTrials > 0
+    ? Math.round(
+        windowTrends.reduce((sum, day) => sum + day.accuracy * day.totalTrials, 0)
+          / totalTrials * 10,
+      ) / 10
+    : null;
+
   // Calculate confidence
   const confidenceLevel = calculateConfidence(totalTrials);
   const confidenceReasons: string[] = [];
   if (totalTrials < 10) confidenceReasons.push('Limited sample size (<10 trials)');
   if (practiceDays < 3) confidenceReasons.push('Few practice days (<3 days)');
-  if (confidenceLevel === 'high') confidenceReasons.push('Sufficient data for reliable trends');
-  
-  // Recovery analysis
-  const recentDays = windowTrends.slice(-3);
-  const earlierDays = windowTrends.slice(0, Math.max(0, windowTrends.length - 3));
-  
-  const recentAccuracy = recentDays.length > 0 
-    ? recentDays.reduce((sum, d) => sum + d.accuracy, 0) / recentDays.length 
-    : 0;
-  const earlierAccuracy = earlierDays.length > 0
-    ? earlierDays.reduce((sum, d) => sum + d.accuracy, 0) / earlierDays.length
-    : 0;
-  const accuracyChange = recentAccuracy - earlierAccuracy;
+  if (confidenceLevel === 'high') confidenceReasons.push('30 or more scored attempts; trends still require separate practice periods');
+
+  // Compare observed practice, not empty calendar days (those have no
+  // measured accuracy and must not be interpreted as 0% performance).
+  const recentDays = practiceTrends.slice(-3);
+  const earlierDays = practiceTrends.slice(0, Math.max(0, practiceTrends.length - 3));
+  const weightedMean = (days: DailyTrend[]): number | null => {
+    const trials = days.reduce((sum, day) => sum + day.totalTrials, 0);
+    return trials > 0
+      ? days.reduce((sum, day) => sum + day.accuracy * day.totalTrials, 0) / trials
+      : null;
+  };
+  const recentAccuracy = weightedMean(recentDays);
+  const earlierAccuracy = weightedMean(earlierDays);
+  const accuracyChange = recentAccuracy === null || earlierAccuracy === null
+    ? null
+    : recentAccuracy - earlierAccuracy;
+  if (accuracyChange === null) {
+    confidenceReasons.push('Not enough distinct practice periods to measure change');
+  }
   
   let recoveryVerdict: string;
   let recoveryHeadline: string;
   let recoveryDetail: string;
   
-  if (totalTrials < 10) {
+  if (totalTrials < 10 || accuracyChange === null) {
     recoveryVerdict = 'insufficient_data';
     recoveryHeadline = 'Building baseline';
-    recoveryDetail = 'More sessions needed for reliable trend analysis.';
+    recoveryDetail = totalTrials < 10
+      ? 'More scored attempts needed to describe a trend.'
+      : 'Practice across more separate days is needed to compare performance.';
   } else if (accuracyChange > 5) {
     recoveryVerdict = 'improving';
     recoveryHeadline = 'Positive trajectory';
@@ -285,6 +301,7 @@ export function buildClinicianReport(
     sample: {
       trials: totalTrials,
       practiceDays,
+      taskAccuracyPct,
     },
     confidence: {
       level: confidenceLevel,

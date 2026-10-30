@@ -6,6 +6,10 @@ import { usePhotoNamingGame } from '@/hooks/usePhotoNamingGame';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { photoNamingTrialProvenance } from '@/lib/clinical/photoNamingTrialProvenance';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { commitPhotoNamingEvidence } from '@/lib/clinical/verifiedPhotoNamingCommit';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
@@ -107,8 +111,20 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
+    /** Actual scored response modality, not an assumed speech attempt. */
+    responseMode?: 'production' | 'recognition' | 'scaffolded' | 'manual';
+    /** A spoken attempt can precede a recognition tap without converting it to ASR evidence. */
+    productionAttempted?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
+  /** Page-owned unified raw trial, adaptation, and mastery commit. */
+  commitParentSession?: () => Promise<{ ok: boolean }>;
+  /** Replay any missing raw attempts under their original attempt IDs. */
+  retryParentFailedSubmissions?: () => Promise<{ ok: boolean }>;
+  /** Verify caregiver notes, if provided, before session closure. */
+  persistCaregiverNotes?: () => Promise<boolean>;
+  /** LessonFlow owns ended_at. Child only verifies per-exercise summary. */
+  ownedByParentFlow?: boolean;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
 
@@ -147,6 +163,10 @@ export const PhotoNamingGame = ({
   sessionId,
   onTrialComplete,
   onGameComplete,
+  commitParentSession,
+  retryParentFailedSubmissions,
+  persistCaregiverNotes,
+  ownedByParentFlow,
   onDifficultyChange,
 }: PhotoNamingGameProps) => {
   const { state, currentLane, nextTrial: nextTrialData, advanceTrial, selectAnswer } = usePhotoNamingGame(
@@ -354,6 +374,7 @@ export const PhotoNamingGame = ({
     userId: user?.id,
     profileId: standaloneProfileId || activeProfile?.id,
     exerciseSlug: CANONICAL_SLUGS.PHOTO_NAMING,
+    ownedByParentFlow,
     getSessionStats: useCallback(() => ({
       score: state.score,
       totalTrials: state.trialNumber,
@@ -375,7 +396,8 @@ export const PhotoNamingGame = ({
     isFinalized,
     startAttempt, 
     logBrowserTranscript, 
-    logFinalAnalysis, 
+    logFinalAnalysis,
+    confirmFinalizedAttempts,
     captureAttempt,
     resetAttempt 
   } = useUtteranceLogger();
@@ -431,7 +453,7 @@ export const PhotoNamingGame = ({
   const engagement = useEngagementMonitor(activeSessionId);
 
   // Phase 4 — live per-trial logging for real-world adaptive validation.
-  const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs } = useAdaptationTrialLogger({
+  const { logTrial: logAdaptationTrial, flush: flushAdaptationLogs, flushVerified: flushAdaptationVerified } = useAdaptationTrialLogger({
     userId: user?.id,
     profileId: standaloneProfileId || activeProfile?.id,
     sessionId: activeSessionId,
@@ -1369,80 +1391,97 @@ export const PhotoNamingGame = ({
     }
   }, [isListening, speechError]);
 
-  // Handle game completion - end session properly
+  // The page owns unified raw attempts; the game owns its separate
+  // adaptation/progression buffers. Both sides must verify their writes before
+  // closing the patient session or displaying the recap. Preserve successful
+  // stages on retry to avoid applying clinical progression twice.
   const completionFiredRef = useRef(false);
-  const [recap, setRecap] = useState<{
+  const savedStagesRef = useRef({
+    rawCommitted: false,
+    utterancesCommitted: false,
+    adaptationCommitted: false,
+    notesCommitted: false,
+    progressionCommitted: false,
+  });
+  const progressionSnapshotRef = useRef<{
     prev: { level: number; progressPct: number };
     next: { level: number; progressPct: number };
     leveledUp: boolean;
   } | null>(null);
+  const [recap, setRecap] = useState<typeof progressionSnapshotRef.current>(null);
   const finalizeCompleteRef = useRef<(() => void) | null>(null);
+  // The last spoken answer can still be in asynchronous analysis when the
+  // 1.2s feedback timer completes. Do not close over an unresolved trial.
+  const pendingAnalysesRef = useRef(new Set<Promise<void>>());
+  const waitForPendingAnalyses = useCallback(async (): Promise<boolean> => {
+    const pending = [...pendingAnalysesRef.current];
+    if (!pending.length) return true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.allSettled(pending).then(() => true),
+        new Promise<false>(resolve => {
+          timeout = setTimeout(() => resolve(false), 15000);
+        }),
+      ]);
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
+  }, []);
+
+  const commitClinicalCompletion = useCallback(async () => {
+    // A hung speech analyzer shows a recoverable save error, never success.
+    if (!await waitForPendingAnalyses()) return { ok: false };
+    return commitPhotoNamingEvidence({
+    sessionId: activeSessionId ?? null,
+    stages: savedStagesRef.current,
+    // Missing page ownership is not an acceptable success fallback.
+    commitRaw: commitParentSession ?? (async () => ({ ok: false })),
+    confirmUtterances: confirmFinalizedAttempts,
+    retryAdaptation: flushAdaptationVerified,
+    persistNotes: persistCaregiverNotes ?? (async () => true),
+    commitProgression: async (sessionId: string) => progression.flushAtSessionEnd({ sessionId }),
+    onProgressionSnapshot: snapshot => { progressionSnapshotRef.current = snapshot; },
+  });
+  }, [activeSessionId, commitParentSession, confirmFinalizedAttempts, flushAdaptationVerified, persistCaregiverNotes, progression, waitForPendingAnalyses]);
+
+  const handleConfirmedCompletion = useCallback((finalScore: number) => {
+    const finalize = () => onGameComplete?.(finalScore);
+    if (kidsMode) {
+      finalizeCompleteRef.current = finalize;
+      return;
+    }
+    if (progressionSnapshotRef.current) {
+      finalizeCompleteRef.current = finalize;
+      setRecap(progressionSnapshotRef.current);
+      return;
+    }
+    finalize();
+  }, [kidsMode, onGameComplete]);
+
+  const completionScope = user?.id && (standaloneProfileId || activeProfile?.id) && activeSessionId
+    ? JSON.stringify([user.id, standaloneProfileId || activeProfile?.id, activeSessionId, CANONICAL_SLUGS.PHOTO_NAMING])
+    : null;
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<number>({
+    scope: completionScope,
+    commitSession: commitClinicalCompletion,
+    completeSession,
+    retryFailedSubmissions: retryParentFailedSubmissions ?? (async () => ({ ok: false })),
+    onConfirmed: handleConfirmedCompletion,
+  });
 
   useEffect(() => {
-    if (!state.isComplete) return;
-    if (completionFiredRef.current) return;
+    if (!state.isComplete || completionFiredRef.current) return;
     completionFiredRef.current = true;
-
-    console.log('[PhotoNamingGame] ✅ onGameComplete firing', {
-      score: state.score,
-      gameType: 'PhotoNaming'
-    });
-
-    void (async () => {
-      // Force-flush per-trial adaptation logs BEFORE unmount/navigation so the
-      // final trial (and any others still in the 2.5s interval buffer) lands
-      // in adaptation_trial_logs. Avoids the "9 of 10 trials logged" leak.
-      try { await flushAdaptationLogs(); } catch (err) {
-        console.warn('[PhotoNamingGame] adaptation flush error', err);
-      }
-
-      // DEV accounting diagnostic — surfaces drift between expected vs.
-      // recorded trial counts across the three pipelines.
-      if (import.meta.env.DEV) {
-        const progressionBuffered = (progression as any)?.__bufferedTrialCount?.();
-        console.groupCollapsed('[PhotoNaming][AccountingDiagnostic]');
-        console.log('expectedTrialCount:', state.totalTrials);
-        console.log('displayedTrialNumber:', state.trialNumber);
-        console.log('progressionBufferedTrials:', progressionBuffered ?? '(unavailable)');
-        console.log('finalScore:', state.score);
-        console.groupEnd();
-      }
-
-      // Clinical Progression v1: persist updated level/progress for this profile.
-      const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
-      const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
-
-      const finalize = async () => {
-        // Wait for session close before notifying the parent, which may unmount
-        // this game immediately. Otherwise the lifecycle hook can race the
-        // parent navigation and leave an incomplete session summary.
-        await completeSession();
-        onGameComplete(state.score);
-      };
-
-      // Kids Mode: hold navigation behind the star-reward overlay (same
-      // deferred-finalize pattern as the recap below). The overlay's
-      // "Keep Going!" button runs finalize.
-      if (kidsMode) {
-        finalizeCompleteRef.current = finalize;
-        return;
-      }
-
-      // Show patient-facing progression recap when we have real movement data.
-      // If snapshot is missing (no buffered trials, persist failed, or already
-      // flushed), skip the overlay and finalize immediately to avoid dead state.
-      if (snapshot) {
-        finalizeCompleteRef.current = finalize;
-        setRecap({
-          prev: snapshot.prev,
-          next: snapshot.next,
-          leveledUp: snapshot.leveledUp,
-        });
-      } else {
-        void finalize();
-      }
-    })();
-  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, onGameComplete, completeSession, progression, activeSessionId, flushAdaptationLogs, kidsMode]);
+    if (import.meta.env.DEV) {
+      console.info('[PhotoNaming] Finished trials, awaiting verified save', {
+        expectedTrialCount: state.totalTrials,
+        completedTrialNumber: state.trialNumber,
+        bufferedProgressionTrials: progression.__bufferedTrialCount(),
+      });
+    }
+    void finish(state.score);
+  }, [state.isComplete, state.score, state.totalTrials, state.trialNumber, progression, finish]);
 
   // NOTE: Removed unmount cleanup for abandoned trials - it caused race conditions
   // where the cleanup would fire before handleAnswerSelect could complete.
@@ -1597,6 +1636,8 @@ export const PhotoNamingGame = ({
       frustrationLevel,
       recentSuccessRate,
       trialCount: state.trialNumber,
+      responseMode: 'production',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     // Compute cue efficacy for timeout (cue was NOT effective since user didn't respond)
@@ -1604,11 +1645,19 @@ export const PhotoNamingGame = ({
     const timeoutCueWasEffective = cueState ? false : null; // Had a cue but didn't help
 
     // Log final analysis for timeout (critical for pattern analysis!)
+    const timedOutSpeech = photoNamingTrialProvenance({
+      responseMode: 'production',
+      transcript: whisperTranscript ?? lastHeardText ?? null,
+      recordingDurationMs: duration ?? null,
+      asrConfidence: whisperConfidence ?? null,
+    });
     void pendingAttempt.finalize({
       transcript: whisperTranscript,
       transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
       asrConfidence: whisperConfidence,
-      isCorrect: false,
+      responseMode: 'production',
+      countsTowardScore: timedOutSpeech.validity?.countsTowardScore ?? false,
+      isCorrect: timedOutSpeech.validity?.countsTowardScore ? false : null,
       errorType: 'timeout',
       speechRateWpm: acousticMetrics?.speechRateWpm,
       pauseCount: acousticMetrics?.pauseCount,
@@ -1939,14 +1988,60 @@ export const PhotoNamingGame = ({
     // =====================================================================
     const capturedTrial = state.currentTrial;
     const capturedTrialNumber = state.trialNumber;
+    // The mode and mic state are frozen with the answer, not inferred later
+    // by a background ASR callback after the game has advanced.
+    const capturedResponseMode = inputMode;
+    const capturedProductionAttempted = productionAttemptedRef.current;
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
     const capturedBrowserTranscript = spokenTranscript ?? lastHeardText ?? pendingTranscriptRef.current ?? undefined;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
-    
-    // Run analysis in background without blocking
-    (async () => {
+
+    if (capturedResponseMode === 'recognition') {
+      // A choice tap has an observed task score without needing speech analysis.
+      // Commit the original response immediately, before feedback advances.
+      onTrialComplete?.({
+        correct: isCorrectAnswer,
+        reactionTimeMs: reactionTime,
+        errorType: isCorrectAnswer ? 'correct' : 'semantic_related',
+        difficultyLevel: capturedDifficulty,
+        cueLevel: capturedCueLevel,
+        attemptId: capturedAttemptId,
+        trialIndex: capturedTrialNumber,
+        cueTypeGiven,
+        cueWasEffective,
+        timeToSuccessAfterCueMs,
+        latencyMs: capturedResponseLatency,
+        consecutiveErrors: hookConsecutiveErrors,
+        frustrationLevel,
+        recentSuccessRate,
+        trialCount: capturedTrialNumber,
+        responseMode: 'recognition',
+        productionAttempted: capturedProductionAttempted,
+      }, capturedTrial);
+      void pendingAttempt.finalize({
+        transcriptSource: 'manual',
+        transcript: '',
+        responseMode: 'recognition',
+        countsTowardScore: false,
+        isCorrect: null,
+        didSpeak: false,
+        utteranceComplete: true,
+        errorType: 'recognition_selection',
+        responseTiming: makeResponseTiming(reactionTime),
+      });
+      if (isRecording) {
+        void stopRecording().catch(error => {
+          console.warn('[PhotoNaming] Could not stop recorder after a visual choice', error);
+        });
+      }
+      return;
+    }
+
+    // Spoken production still requires asynchronous analysis, but its
+    // completion is tracked before the session-close barrier.
+    const analysisPromise: Promise<void> = (async () => {
       try {
         let uploadedPath: string | undefined;
         let duration: number | undefined;
@@ -2090,6 +2185,8 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
         }, capturedTrial);
 
         // Determine fluency availability
@@ -2125,13 +2222,25 @@ export const PhotoNamingGame = ({
           }
         }
 
-        void pendingAttempt.finalize({
+        const speechProvenance = photoNamingTrialProvenance({
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
+          transcript: whisperTranscript ?? capturedBrowserTranscript ?? null,
+          recordingDurationMs: duration ?? null,
+          asrConfidence: whisperConfidence ?? capturedRecognitionConfidence ?? null,
+        });
+        const eligibleSpoken = capturedResponseMode === 'production'
+          && speechProvenance.validity?.countsTowardScore === true;
+        await pendingAttempt.finalize({
           responseTiming: makeResponseTiming(reactionTime),
           transcript: whisperTranscript,
           transcriptSource: whisperTranscript !== undefined ? 'azure' : 'browser',
           asrConfidence: utteranceAnalysis.asrConfidence,
-          isCorrect: correct,
-          errorType: errorClassification.errorType,
+          responseMode: capturedResponseMode,
+          countsTowardScore: eligibleSpoken,
+          isCorrect: eligibleSpoken ? correct : null,
+          errorType: capturedResponseMode === 'production'
+            ? errorClassification.errorType : undefined,
           phonologicalSimilarity: utteranceAnalysis.phonologicalSimilarity,
           semanticSimilarity: errorClassification.semantic_similarity,
           classificationConfidence: errorClassification.confidence,
@@ -2191,6 +2300,24 @@ export const PhotoNamingGame = ({
       } catch (error) {
         console.error('❌ [PhotoNaming] Background analysis error:', error);
 
+        // Fallback: preserve the original selection/production modality
+        // despite the analysis service outage, without fabricating a result
+        // in the speech profile from a tapped answer.
+        const fallbackProvenance = photoNamingTrialProvenance({
+          responseMode: capturedResponseMode,
+          transcript: capturedBrowserTranscript ?? null,
+          recordingDurationMs: null,
+        });
+        await pendingAttempt.finalize({
+          responseTiming: makeResponseTiming(reactionTime),
+          transcript: capturedBrowserTranscript,
+          transcriptSource: 'browser',
+          responseMode: capturedResponseMode,
+          countsTowardScore: fallbackProvenance.validity?.countsTowardScore ?? false,
+          isCorrect: fallbackProvenance.validity?.countsTowardScore
+            ? isCorrectAnswer : null,
+          errorType: 'analysis_unavailable',
+        });
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
         onTrialComplete?.({
           correct: isCorrectAnswer,
@@ -2216,9 +2343,16 @@ export const PhotoNamingGame = ({
           frustrationLevel,
           recentSuccessRate,
           trialCount: capturedTrialNumber,
+          responseMode: capturedResponseMode,
+          productionAttempted: capturedProductionAttempted,
         }, capturedTrial);
       }
     })();
+    pendingAnalysesRef.current.add(analysisPromise);
+    void analysisPromise.then(
+      () => { pendingAnalysesRef.current.delete(analysisPromise); },
+      () => { pendingAnalysesRef.current.delete(analysisPromise); },
+    );
   };
 
   answerHandlerRef.current = handleAnswerSelect;
@@ -2344,6 +2478,8 @@ export const PhotoNamingGame = ({
       confirmedBy: 'caregiver',
       confirmationMode: 'caregiver',
       asrVerified: false,
+      responseMode: 'scaffolded',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     // FIX: Log final analysis for caregiver mode too (critical for pattern analysis!)
@@ -2368,8 +2504,10 @@ export const PhotoNamingGame = ({
     
     logFinalAnalysis({
       transcriptSource: 'manual',
-      isCorrect: correct,
-      errorType: errorType || 'correct',
+      responseMode: 'scaffolded',
+      countsTowardScore: false,
+      isCorrect: null,
+      errorType: errorType || 'caregiver_observed',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
       cueTypeGiven: caregiverCueTypeGiven,
@@ -2445,11 +2583,15 @@ export const PhotoNamingGame = ({
       confirmedBy: 'user',
       confirmationMode: 'manual',
       asrVerified: false,
+      responseMode: 'manual',
+      productionAttempted: productionAttemptedRef.current,
     }, state.currentTrial);
 
     logFinalAnalysis({
       transcriptSource: 'manual',
-      isCorrect: true,
+      responseMode: 'manual',
+      countsTowardScore: false,
+      isCorrect: null,
       errorType: 'manual_confirmed',
       audioStoragePath: uploadedPath,
       recordingDurationMs: duration,
@@ -2463,6 +2605,16 @@ export const PhotoNamingGame = ({
     }, 2000);
   };
 
+  if (state.isComplete && (saveState === 'saving' || saveState === 'error')) {
+    return (
+      <ExerciseSaveFeedback
+        state={saveState}
+        onRetry={() => void retry()}
+        onExit={() => window.location.assign('/today')}
+      />
+    );
+  }
+
   if (!state.currentTrial) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -2474,7 +2626,7 @@ export const PhotoNamingGame = ({
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2 h-full">
       {/* Kids Mode session reward — holds navigation until "Keep Going!" */}
-      {kidsMode && state.isComplete && !kidsRewardDismissed && (
+      {kidsMode && state.isComplete && saveState === 'complete' && !kidsRewardDismissed && (
         <KidsSessionReward
           starsEarned={Math.floor(state.score / 100)}
           totalTrials={state.totalTrials}

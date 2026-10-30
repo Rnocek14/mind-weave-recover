@@ -38,14 +38,16 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
     );
   }
 
-  const difficultyChange = summary.endDifficulty - summary.startDifficulty;
-  // accuracy can be null/NaN when the session had no ASR-verifiable trials.
+  const difficultyChange = summary.startDifficulty === null || summary.endDifficulty === null
+    ? null
+    : summary.endDifficulty - summary.startDifficulty;
+  // Task accuracy can be unavailable even when the patient practiced.
   // Rendering that as 0% + "Keep practicing!" is false discouragement — show a
   // neutral "not enough data" state instead.
   const hasAccuracy =
     summary.accuracy != null && Number.isFinite(summary.accuracy as number);
   const accuracyPercent = hasAccuracy ? Math.round((summary.accuracy as number) * 100) : null;
-  const avgRtSeconds = (summary.avgRtMs / 1000).toFixed(1);
+  const avgRtSeconds = summary.avgRtMs === null ? null : (summary.avgRtMs / 1000).toFixed(1);
 
   return (
     <Card className="p-6 mb-6 shadow-glow">
@@ -70,35 +72,35 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
           <div className="flex items-center justify-center mb-2">
             <Clock className="w-5 h-5 text-primary" />
           </div>
-          <div className="text-2xl font-bold">{avgRtSeconds}s</div>
+          <div className="text-2xl font-bold">{avgRtSeconds === null ? "—" : `${avgRtSeconds}s`}</div>
           <div className="text-xs text-muted-foreground mt-1">Avg Response</div>
         </div>
 
         {/* Difficulty Progress */}
         <div className="bg-muted/50 rounded-lg p-4 text-center">
           <div className="flex items-center justify-center mb-2">
-            {difficultyChange > 0 ? (
+            {difficultyChange !== null && difficultyChange > 0 ? (
               <TrendingUp className="w-5 h-5 text-success" />
-            ) : difficultyChange < 0 ? (
+            ) : difficultyChange !== null && difficultyChange < 0 ? (
               <TrendingDown className="w-5 h-5 text-warning" />
             ) : (
               <BarChart3 className="w-5 h-5 text-muted-foreground" />
             )}
           </div>
           <div className="text-2xl font-bold">
-            {summary.startDifficulty} → {summary.endDifficulty}
+            {difficultyChange === null ? '—' : `${summary.startDifficulty} → ${summary.endDifficulty}`}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            Difficulty {difficultyChange > 0 ? 'Up' : difficultyChange < 0 ? 'Down' : 'Stable'}
+            Difficulty {difficultyChange === null ? 'Unavailable' : difficultyChange > 0 ? 'Up' : difficultyChange < 0 ? 'Down' : 'Stable'}
           </div>
         </div>
 
         {/* Cue Usage */}
         <div className="bg-muted/50 rounded-lg p-4 text-center">
           <div className="flex items-center justify-center mb-2">
-            <Lightbulb className={`w-5 h-5 ${summary.avgCueLevel < 1 ? 'text-success' : 'text-accent'}`} />
+            <Lightbulb className={`w-5 h-5 ${summary.avgCueLevel !== null && summary.avgCueLevel < 1 ? 'text-success' : 'text-accent'}`} />
           </div>
-          <div className="text-2xl font-bold">{summary.avgCueLevel.toFixed(1)}</div>
+          <div className="text-2xl font-bold">{summary.avgCueLevel === null ? '—' : summary.avgCueLevel.toFixed(1)}</div>
           <div className="text-xs text-muted-foreground mt-1">Avg Cues/Trial</div>
         </div>
       </div>
@@ -106,7 +108,7 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
       {/* Insights */}
       <div className="space-y-3">
         {/* Independence Progress */}
-        {summary.cueReduction > 0.5 && (
+        {summary.cueReduction !== null && summary.cueReduction > 0.5 && (
           <div className="flex items-start gap-3 p-3 bg-success/10 rounded-lg border border-success/20">
             <CheckCircle2 className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
             <div>
@@ -119,7 +121,7 @@ export const SessionSummaryCard = ({ sessionId }: SessionSummaryCardProps) => {
         )}
 
         {/* Difficulty Adaptation */}
-        {difficultyChange > 0 && (
+        {difficultyChange !== null && difficultyChange > 0 && (
           <div className="flex items-start gap-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
             <TrendingUp className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
             <div>

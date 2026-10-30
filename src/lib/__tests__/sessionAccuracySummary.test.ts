@@ -8,6 +8,7 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(r.independent_accuracy).toBeNull();
     expect(r.cue_assisted_accuracy).toBeNull();
     expect(r.scored_trials).toBe(0);
+    expect(r.asr_scored_trials).toBe(0);
   });
 
   it('computes overall accuracy as mean of scores (0..100)', () => {
@@ -65,21 +66,22 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
   // ── Phase 1B: manual_confirmed handling ──
   it('excludes manual_confirmed from clean accuracy / independent / asr', () => {
     const r = reduceAccuracy([
-      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
-      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt', browser_transcript: 'spoken word', engagement_flags: { counts_toward_asr_accuracy: true } },
+      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt', browser_transcript: 'spoken word', engagement_flags: { counts_toward_asr_accuracy: true } },
       // manual-confirmed correct — must NOT touch clean accuracy
       { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
     ]);
     expect(r.accuracy).toBe(50); // only the 2 ASR-verified trials
     expect(r.asr_accuracy).toBe(50);
+    expect(r.asr_scored_trials).toBe(2);
     expect(r.independent_accuracy).toBe(50);
     expect(r.scored_trials).toBe(2);
   });
 
   it('includes manual_confirmed in practice accuracy + participation', () => {
     const r = reduceAccuracy([
-      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
-      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt' },
+      { score: 100, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt', browser_transcript: 'spoken word', engagement_flags: { counts_toward_asr_accuracy: true } },
+      { score: 0, cue_level: 0, counts_toward_score: true, validity_label: 'valid_attempt', browser_transcript: 'spoken word', engagement_flags: { counts_toward_asr_accuracy: true } },
       { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
       { score: 100, cue_level: 0, counts_toward_score: false, validity_label: 'manual_confirmed' },
     ]);

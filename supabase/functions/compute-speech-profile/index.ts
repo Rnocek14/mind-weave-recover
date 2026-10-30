@@ -70,7 +70,37 @@ serve(async (req) => {
       profile_id = activeProfile.id;
     }
 
-    console.log(`Using profile_id: ${profile_id}`);
+    // This endpoint uses a service-role client. A supplied profile_id must
+    // belong to the authenticated subject, or privileged writes could scope
+    // another person's recordings into their report. Return the same response
+    // for missing and foreign IDs to avoid patient enumeration.
+    const { data: verifiedProfile, error: verifiedProfileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', profile_id)
+      .eq('user_id', user_id)
+      .maybeSingle();
+    if (verifiedProfileError || !verifiedProfile) {
+      // An internal query problem is not a permission denial. We log only
+      // bounded diagnostic codes (never patient IDs, transcript or JWTs)
+      // so a hospital audit can distinguish RLS/configuration errors from
+      // a legitimate foreign-profile request.
+      console.warn('[compute-speech-profile] Authorized-profile lookup failed', {
+        queryErrorCode: verifiedProfileError?.code ?? null,
+        recordFound: !!verifiedProfile,
+        callerMatchesRequestedUser: caller.id === user_id,
+        // Detect an incorrectly wired staging Edge Function whose service-role
+        // client talks to a different Supabase project than the incoming
+        // request; compare hostnames only, never print tokens or identifiers.
+        backendMatchesRequestHost: new URL(supabaseUrl).hostname === new URL(req.url).hostname,
+      });
+      if (verifiedProfileError) {
+        return jsonResponse({ error: 'Clinical profile verification unavailable' }, 503);
+      }
+      return jsonResponse({ error: 'Requested clinical profile unavailable' }, 403);
+    }
+
+    console.log('Computing a patient-scoped speech profile');
 
     // First, check if speech profile exists and if we have enough new trials to justify recompute
     const { data: existingProfile, error: profileError } = await supabase
@@ -106,6 +136,17 @@ serve(async (req) => {
         gop_data
       `)
       .eq('user_id', user_id)
+      .eq('profile_id', profile_id)
+      // Recognition selections, clinician-entered approximations, noise,
+      // and missing-ASR trials are not verified spoken production.
+      .eq('counts_toward_score', true)
+      .neq('transcript_source', 'manual')
+      // An attempted or partially recorded trial with no actual recognized
+      // words is NOT a measured spoken-language sample. Preserve the event
+      // elsewhere for participation/technical-error review, but never feed it
+      // into speech fluency, difficulty maps or patient recovery trends.
+      .not('transcript', 'is', null)
+      .neq('transcript', '')
       .order('created_at', { ascending: false });
 
     if (fetchError) {

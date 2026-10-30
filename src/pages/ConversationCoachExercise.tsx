@@ -13,6 +13,9 @@ import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 
 const EXERCISE_SLUG = 'conversation_coach';
 
@@ -33,8 +36,17 @@ export default function ConversationCoachExercise() {
   const { fromLesson, returnTo } = restored;
   const providedSessionId = restored.sessionId;
   const exerciseCompleteSentRef = useRef(false);
+  const verifierRef = useRef<(() => Promise<boolean>) | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const registerEvidenceVerifier = useCallback((verify: () => Promise<boolean>) => {
+    verifierRef.current = verify;
+  }, []);
+  useEffect(() => () => {
+    if (completionTimeoutRef.current !== null) clearTimeout(completionTimeoutRef.current);
+  }, []);
   
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } =
+    useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Close the session we open. Without this, standalone conversation sessions
   // were only ever ended by the stale-session sweeper (ended_reason
@@ -75,7 +87,55 @@ export default function ConversationCoachExercise() {
     }
   }, [user, authLoading, navigate]);
 
-  if (authLoading) {
+  const handleStart = () => {
+    setGameStarted(true);
+    setSessionSummary(null);
+  };
+
+  const commitSpeechEvidence = useCallback(async () => ({
+    ok: verifierRef.current ? await verifierRef.current() : false,
+  }), []);
+  const retrySpeechEvidence = useCallback(async () => ({ ok: true }), []);
+
+  const onConfirmed = useCallback((metrics: SessionSummary) => {
+    setSessionSummary(metrics);
+    setGameStarted(false);
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      completionTimeoutRef.current = setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('exercise-complete', {
+          detail: { exerciseSlug: 'conversation-coach', results: metrics },
+        }));
+        navigate(returnTo, { state: { resuming: true }, replace: true });
+      }, 400);
+    }
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<SessionSummary>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession: commitSpeechEvidence,
+    completeSession,
+    retryFailedSubmissions: retrySpeechEvidence,
+    onConfirmed,
+  });
+
+  const handleComplete = (metrics: SessionSummary) => {
+    turnsRef.current = metrics.turnsCompleted;
+    void finish(metrics);
+  };
+
+  const handleExit = () => {
+    navigate(fromLesson ? returnTo : '/dashboard');
+  };
+
+  const handleContinue = () => navigate('/today');
+
+  // Never restart into a previously closed patient session.
+  const handlePlayAgain = () => navigate('/today');
+
+    if (authLoading) {
     return (
       <div className="min-h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -87,49 +147,17 @@ export default function ConversationCoachExercise() {
     return null;
   }
 
-  const handleStart = () => {
-    setGameStarted(true);
-    setSessionSummary(null);
-  };
+  if (isCreatingSession || !activeSessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
 
-  const handleComplete = (metrics: SessionSummary) => {
-    setSessionSummary(metrics);
-    turnsRef.current = metrics.turnsCompleted;
-    void completeSession();
-
-    // Auto-return to lesson flow
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: { exerciseSlug: 'conversation-coach', results: metrics },
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
-    }
-  };
-
-  const handleExit = () => {
-    navigate(fromLesson ? returnTo : '/dashboard');
-  };
-
-  const handleContinue = () => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', {
-        detail: { exerciseSlug: 'conversation-coach' },
-      }));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      navigate('/today');
-    }
-  };
-
-  const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
-    setTimeout(() => setGameStarted(true), 100);
-  };
+  if (saveState === 'saving' || saveState === 'error') {
+    return <ExerciseSaveFeedback
+      state={saveState}
+      onRetry={() => void retry()}
+      onExit={() => navigate('/today')}
+    />;
+  }
 
   // Summary screen
   if (sessionSummary && !gameStarted) {
@@ -184,7 +212,7 @@ export default function ConversationCoachExercise() {
               ) : (
                 <>
                   <Button size="lg" onClick={handlePlayAgain} className="w-full">
-                    Practice Again
+                    Go to Today
                   </Button>
                   <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
                     Back to Home
@@ -271,6 +299,8 @@ export default function ConversationCoachExercise() {
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full">
         <ConversationCoachGame
+          key={JSON.stringify([user.id, activeProfile?.id, activeSessionId])}
+          registerEvidenceVerifier={registerEvidenceVerifier}
           userId={user.id}
           profileId={activeProfile?.id || ''}
           sessionId={activeSessionId}

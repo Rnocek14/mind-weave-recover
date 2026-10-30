@@ -11,7 +11,7 @@
  */
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MultiStepPlanningGame } from '@/components/MultiStepPlanningGame';
 import { PlanningTrialResult } from '@/hooks/useMultiStepPlanningGame';
@@ -28,6 +28,8 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import {
   useMultiStepPlanningProgression,
   mapMultiStepPlanningSupport,
@@ -41,8 +43,11 @@ export default function MultiStepPlanExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (dispatchTimeoutRef.current !== null) clearTimeout(dispatchTimeoutRef.current);
+  }, []);
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const trialIndexRef = useRef(0);
@@ -54,7 +59,7 @@ export default function MultiStepPlanExercise() {
   const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 3;
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Safety: if we can't acquire a session within 12s, surface a recovery UI
   // instead of leaving users on a blank "Loading..." screen (clinical safety).
@@ -105,7 +110,7 @@ export default function MultiStepPlanExercise() {
   // Wave 2: unified trial submission (expressive axis). MSP game component
   // is autoLog:false; this page owns the writer and emits
   // trialMode: 'production' so the adopted slug routes mastery correctly.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -173,28 +178,33 @@ export default function MultiStepPlanExercise() {
     });
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, pivot, activeProfile?.id, effectiveTier, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback(async (results: PlanningTrialResult[]) => {
-    setCompleted(true);
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
-    completeSession();
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
-    }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  const handleConfirmedCompletion = useCallback((results: PlanningTrialResult[]) => {
+    if (!fromLesson || exerciseCompleteSentRef.current) return;
+    exerciseCompleteSentRef.current = true;
+    dispatchTimeoutRef.current = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: EXERCISE_SLUG, results },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }, 400);
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<PlanningTrialResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: PlanningTrialResult[]) => {
+    void finish(results);
+  }, [finish]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson, returnTo]);
-  const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/today');
-  }, [fromLesson, navigate]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
   if (isCreatingSession || !activeSessionId) {
     if (loadTimedOut) {
@@ -215,7 +225,7 @@ export default function MultiStepPlanExercise() {
         </div>
       );
     }
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -229,7 +239,13 @@ export default function MultiStepPlanExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📋</div>
             <h2 className="text-2xl font-bold">Planning Complete!</h2>
@@ -237,7 +253,7 @@ export default function MultiStepPlanExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : progression.loaded ? (
-          <MultiStepPlanningGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={effectiveTier} autoStart={fromLesson} />
+          <MultiStepPlanningGame key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])} userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={effectiveTier} autoStart={fromLesson} />
         ) : (
           <ExerciseLoadGate inline loadingLabel="Loading your progression…" />
         )}

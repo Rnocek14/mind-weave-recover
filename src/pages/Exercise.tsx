@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { RestPrompt } from "@/components/RestPrompt";
 import { useAuth } from "@/hooks/useAuth";
 import { useExerciseDifficulty } from "@/hooks/useExerciseDifficulty";
-import { useExerciseTelemetry } from "@/hooks/useExerciseTelemetry";
+import { useVerifiedLegacyTrialTelemetry } from '@/hooks/useVerifiedLegacyTrialTelemetry';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { useEngagementMonitor } from "@/hooks/useEngagementMonitor";
 import { startSession } from "@/lib/sessionTracking";
 import { PhotoNamingGame } from "@/components/PhotoNamingGame";
@@ -25,7 +29,7 @@ import { GeneralizationProbe } from "@/components/GeneralizationProbe";
 import { ConfidenceBoost } from "@/components/ConfidenceBoost";
 import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
-import { classifyUtteranceValidity } from "@/lib/clinical/classifyUtteranceValidity";
+import { buildEmbeddedPhotoNamingEvidence } from "@/lib/clinical/embeddedPhotoNamingEvidence";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
@@ -64,6 +68,7 @@ const Exercise = () => {
   const phraseGameRef = useRef<PhrasePracticeGameHandle>(null);
   const [currentRound, setCurrentRound] = useState(1);
   const [score, setScore] = useState(0);
+  const verifiedScoreRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [showRestPrompt, setShowRestPrompt] = useState(false);
@@ -85,9 +90,14 @@ const Exercise = () => {
   const { doseCap, refresh: refreshDoseCap } = useDoseCap(user?.id);
   
   const { level, stepDown, saveLevel } = useExerciseDifficulty(user?.id, undefined, exerciseId || "photo-naming");
-  const { startTrial, logTrial, calculateReactionTime, reset: resetTelemetry } = useExerciseTelemetry(
+  const {
+    startTrial, logTrial, calculateReactionTime, reset: resetTelemetry,
+    commitSession, retryFailedSubmissions,
+  } = useVerifiedLegacyTrialTelemetry(
     sessionId,
-    exerciseId || "photo-naming"
+    exerciseId || 'photo-naming',
+    user?.id,
+    activeProfileId
   );
   const { 
     recordTrial, 
@@ -104,6 +114,45 @@ const Exercise = () => {
     defaultErrorType: 'no_response',
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
+
+  // Reach & Tap, Left-Side Hunt and Phrase Practice require confirmed
+  // raw event attempts before the UI or lesson may claim success.
+  const getSessionStats = useCallback(() => ({
+    score: verifiedScoreRef.current,
+    totalTrials: totalRounds,
+    startTime: sessionStartTime ?? Date.now(),
+  }), [sessionStartTime]);
+  const { completeSession } = useSessionLifecycle({
+    sessionId, userId: user?.id, profileId: activeProfileId,
+    exerciseSlug: exerciseId || 'generic',
+    getSessionStats,
+  });
+  const onVerifiedCompletion = useCallback((finalScore: number) => {
+    verifiedScoreRef.current = finalScore;
+    setScore(finalScore);
+    setIsPlaying(false);
+    setShowResult(true);
+  }, []);
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<number>({
+    scope: user?.id && activeProfileId && sessionId
+      ? JSON.stringify([user.id, activeProfileId, sessionId, exerciseId])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: onVerifiedCompletion,
+  });
+  const handleEmbeddedGameComplete = (finalScore: number) => {
+    verifiedScoreRef.current = finalScore;
+    setScore(finalScore);
+    setIsPlaying(false);
+    if (exerciseId === 'photo-naming') {
+      // PhotoNamingGame already verified both trial ledgers and closed once.
+      setShowResult(true);
+    } else {
+      void finish(finalScore);
+    }
+  };
 
   // Fetch today's stats for confidence boost
   useEffect(() => {
@@ -290,6 +339,7 @@ const Exercise = () => {
 
     // Deterministic score from the actual outcome — never a fabricated value.
     const roundScore = wasCorrect ? 100 : 0;
+    verifiedScoreRef.current += roundScore;
     setScore(prev => prev + roundScore);
     
     // Engagement interventions disabled - were interrupting sessions
@@ -298,12 +348,7 @@ const Exercise = () => {
     
     if (currentRound >= totalRounds) {
       setIsPlaying(false);
-      setShowResult(true);
-      
-      toast({
-        title: "Exercise Complete! 🎉",
-        description: `Great job! You scored ${score + roundScore} points`
-      });
+      void finish(verifiedScoreRef.current);
     } else {
       setCurrentRound(prev => prev + 1);
       setProgress(0);
@@ -477,7 +522,7 @@ const Exercise = () => {
     }
     
     await refreshDoseCap();
-    setShowResult(true);
+    void finish(verifiedScoreRef.current);
   };
 
   const handleProbeComplete = async (results: ProbeResult[]) => {
@@ -568,6 +613,7 @@ const Exercise = () => {
     setIsPlaying(false);
     setCurrentRound(1);
     setScore(0);
+    verifiedScoreRef.current = 0;
     setProgress(0);
     setShowResult(false);
     setSessionStartTime(null);
@@ -610,6 +656,21 @@ const Exercise = () => {
     window.dispatchEvent(new CustomEvent('exercise-complete'));
     navigate(returnTo, { state: { resuming: true } });
   };
+
+  if (saveState === 'saving' || saveState === 'error') {
+    return (
+      <ExerciseSaveFeedback
+        state={saveState}
+        onRetry={() => void retry()}
+        onExit={() => navigate('/today')}
+      />
+    );
+  }
+
+  // The patient cannot record a trial until the session INSERT is confirmed.
+  if (isPlaying && !sessionId) {
+    return <ExerciseLoading />;
+  }
 
   // Unknown exercise slug — show a safe "not available" screen instead of the
   // placeholder that fabricated telemetry. Real games are served by their own
@@ -659,7 +720,7 @@ const Exercise = () => {
         }}
         onEnd={() => {
           setShowRestPrompt(false);
-          setShowResult(true);
+          void finish(verifiedScoreRef.current);
         }}
       />
     );
@@ -741,7 +802,7 @@ const Exercise = () => {
         }}
         onEndSession={() => {
           logIntervention('fatigue', 'break_prompt', 'end_session');
-          setShowResult(true);
+          void finish(verifiedScoreRef.current);
         }}
       />
 
@@ -901,11 +962,7 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
-                setScore(finalScore);
-                setIsPlaying(false);
-                setShowResult(true);
-              }}
+              onGameComplete={handleEmbeddedGameComplete}
               onDifficultyChange={(newLevel, reason) => {
                 toast({
                   title: "Difficulty Adjusted",
@@ -916,14 +973,20 @@ const Exercise = () => {
             />
           ) : exerciseId === 'photo-naming' ? (
             <PhotoNamingGame
+              commitParentSession={commitSession}
+              retryParentFailedSubmissions={retryFailedSubmissions}
+              ownedByParentFlow={fromLesson}
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
-                // Phase 1B — classify validity (incl. manual-confirm) BEFORE
-                // scoring so the lesson/targeted-practice flow stamps the same
-                // top-level validity columns + scoring axes as standalone.
-                const validity = classifyUtteranceValidity({
-                  transcript: result.whisperTranscript,
+                // Match the standalone path: the scored modality is the
+                // final answer, not an earlier microphone attempt. Tapped
+                // choices must stay valid recognition evidence without
+                // entering speech/ASR denominators.
+                const evidence = buildEmbeddedPhotoNamingEvidence({
+                  responseMode: result.responseMode,
+                  productionAttempted: result.productionAttempted,
+                  transcript: result.whisperTranscript || result.browserTranscript || null,
                   asrConfidence: result.whisperConfidence ?? null,
                   recordingDurationMs: result.recordingDurationMs ?? null,
                   acousticMetrics: result.acousticMetrics ?? null,
@@ -947,17 +1010,15 @@ const Exercise = () => {
                   audioStoragePath: result.audioStoragePath,
                   audioMimeType: result.audioMimeType,
                   recordingDurationMs: result.recordingDurationMs,
-                  validity,
+                  validity: evidence.validity,
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
-                    // Phase 1B — manual-confirmation provenance
-                    confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
-                    confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
-                    manual_confirmed: result.manualConfirmed ?? false,
-                    asr_verified: result.asrVerified ?? false,
+                    // Explicit clinical modality, confirmation and ASR
+                    // provenance (including a tap after attempted speech).
+                    ...evidence.taskParameters,
                     is_targeted_practice: !!lessonFocusWords?.length,
                     targeted_words: lessonFocusWords?.length ? lessonFocusWords : null,
                   },
@@ -971,11 +1032,7 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
-                setScore(finalScore);
-                setIsPlaying(false);
-                setShowResult(true);
-              }}
+              onGameComplete={handleEmbeddedGameComplete}
               onDifficultyChange={(newLevel, reason) => {
                 toast({
                   title: "Difficulty Adjusted",
@@ -1014,11 +1071,7 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
-                setScore(finalScore);
-                setIsPlaying(false);
-                setShowResult(true);
-              }}
+              onGameComplete={handleEmbeddedGameComplete}
               onDifficultyChange={(newLevel) => {
                 saveLevel(newLevel);
                 // Toast already shown by useInGameAdaptation inside PhrasePracticeGame
@@ -1057,11 +1110,7 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
-                setScore(finalScore);
-                setIsPlaying(false);
-                setShowResult(true);
-              }}
+              onGameComplete={handleEmbeddedGameComplete}
               onDifficultyChange={(newLevel, reason) => {
                 toast({
                   title: "Difficulty Adjusted",

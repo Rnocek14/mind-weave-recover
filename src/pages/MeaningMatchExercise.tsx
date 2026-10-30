@@ -50,6 +50,10 @@ export default function MeaningMatchExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const committedSessionIdRef = useRef<string | null>(null);
+  const lastResultsRef = useRef<MeaningMatchTrialResult[]>([]);
+  const completionInFlightRef = useRef(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -82,7 +86,7 @@ export default function MeaningMatchExercise() {
     cueSensitive: true,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -131,7 +135,7 @@ export default function MeaningMatchExercise() {
   // useMeaningMatchProgression — every submitTrial buffers a clinical trial
   // and commitSession flushes the L1–L8 ladder. trialMode stays 'recognition'
   // (receptive-safe routing; see comment above).
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -170,8 +174,11 @@ export default function MeaningMatchExercise() {
       gameId: EXERCISE_SLUG,
       level: effectiveDifficulty ?? result.tier ?? difficultyLevel ?? 1,
       stimulusId: result.itemId,
-      expectedResponse: null,
-      userResponse: null,
+      // The patient selected a specific written meaning. Persist both sides
+      // of that evidence rather than only a binary correct flag.
+      trialIndex: result.trialIndex,
+      expectedResponse: result.correctOption,
+      userResponse: result.selectedOption,
       isCorrect: result.correct,
       accuracyScore: result.correct ? 1 : 0,
       cueLevel: result.usedHint ? 1 : 0,
@@ -183,6 +190,8 @@ export default function MeaningMatchExercise() {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
         unified_route_adaptation_log: true,
         item_id: result.itemId,
+        selected_index: result.selectedIndex,
+        correct_index: result.correctIndex,
         tier: result.tier,
         type: result.type,
         used_hint: result.usedHint,
@@ -216,28 +225,52 @@ export default function MeaningMatchExercise() {
     presetId,
   ]);
 
-  const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[]) => {
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    // No per-game progression snapshot yet (progression: null above).
-    await commitSession();
+  const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[], retryUnconfirmed = false) => {
+    if (completionInFlightRef.current) return;
+    completionInFlightRef.current = true;
+    lastResultsRef.current = results;
+    setSaveState('saving');
 
-    setCompleted(true);
-    completeSession();
+    try {
+      if (retryUnconfirmed) {
+        const recovered = await retryFailedSubmissions();
+        if (!recovered.ok) throw new Error('Unconfirmed clinical attempts remain');
+      }
+      // Both clinical trial persistence and the session's summary write MUST
+      // succeed before a patient sees "complete" or a lesson advances.
+      // commitSession also waits for outstanding trial writes.
+      if (committedSessionIdRef.current !== activeSessionId) {
+        const committed = await commitSession();
+        if (!committed.ok) throw new Error('Trial persistence was not confirmed');
+        committedSessionIdRef.current = activeSessionId;
+      }
+      const sessionSaved = await completeSession();
+      if (!sessionSaved) throw new Error('Session closure was not confirmed');
 
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      dispatchTimeoutRef.current = window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', {
-          detail: {
-            exerciseSlug: EXERCISE_SLUG,
-            results,
-            totalScore: results.reduce((sum, r) => sum + r.points, 0),
-          }
-        }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
+      setCompleted(true);
+      setSaveState('idle');
+
+      if (fromLesson && !exerciseCompleteSentRef.current) {
+        exerciseCompleteSentRef.current = true;
+        dispatchTimeoutRef.current = window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('exercise-complete', {
+            detail: {
+              exerciseSlug: EXERCISE_SLUG,
+              results,
+              totalScore: results.reduce((sum, r) => sum + r.points, 0),
+            }
+          }));
+          navigate(returnTo, { state: { resuming: true }, replace: true });
+        }, 400);
+      }
+    } catch {
+      // Do not lie to the patient about the save. Preserve the game results
+      // in memory so an explicit retry can close the same session safely.
+      setSaveState('error');
+    } finally {
+      completionInFlightRef.current = false;
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  }, [fromLesson, activeSessionId, completeSession, commitSession, retryFailedSubmissions, navigate, returnTo]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -259,7 +292,7 @@ export default function MeaningMatchExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -279,7 +312,33 @@ export default function MeaningMatchExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'error' ? (
+          <div className="max-w-md mx-auto my-auto text-center space-y-5" role="alert">
+            <h2 className="text-2xl font-bold">Practice not saved</h2>
+            <p className="text-lg">
+              We couldn't save your practice. Try saving again.
+            </p>
+            <Button
+              size="lg"
+              className="min-h-14 w-full text-lg"
+              onClick={() => void handleGameComplete(lastResultsRef.current, true)}
+            >
+              Try saving again
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="min-h-14 w-full text-lg"
+              onClick={() => navigate('/today')}
+            >
+              Go to Today
+            </Button>
+          </div>
+        ) : saveState === 'saving' ? (
+          <div role="status" aria-live="polite" className="max-w-md mx-auto my-auto text-center text-lg">
+            Saving your answers...
+          </div>
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🏆</div>
             <h2 className="text-2xl font-bold">Arena Complete!</h2>

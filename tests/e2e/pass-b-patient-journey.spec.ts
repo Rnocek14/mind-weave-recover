@@ -12,6 +12,7 @@
 import { test, expect } from './fixtures/anonSession';
 
 test.describe('Pass B — authenticated patient routes (anon session)', () => {
+  test.describe.configure({ timeout: 130_000 });
   test('/today boots authenticated after the fresh-user welcome flow', async ({ anonPage }) => {
     await anonPage.goto('/today');
     // A new patient is intentionally sent to Welcome on their first landing.
@@ -33,28 +34,32 @@ test.describe('Pass B — authenticated patient routes (anon session)', () => {
     '/exercise/minimal-pairs',
   ];
 
-  for (const route of EXERCISE_ROUTES) {
-    test(`${route} reaches a non-dead state within 12s`, async ({ anonPage }) => {
+  // One isolated account for all four no-answer-submission route assertions.
+  // A separate signed-in user per route exhausted the isolated project's
+  // anonymous-signin quota when the all-game and persistence suites expanded.
+  // Keep a fresh page per route to avoid aborted requests leaking across games.
+  test('all four patient exercise routes reach a non-dead state without weakening auth', async ({ anonPage }) => {
+    test.setTimeout(110_000);
+    const failures: string[] = [];
+    for (const route of EXERCISE_ROUTES) {
+      const page = await anonPage.context().newPage();
       const errors: string[] = [];
-      anonPage.on('pageerror', (e) => errors.push(e.message));
-
-      await anonPage.goto(route);
-      await anonPage.waitForLoadState('networkidle');
-
-      // Should not be kicked to /auth.
-      expect(new URL(anonPage.url()).pathname).not.toBe('/auth');
-
-      // Either the exercise renders OR the ExerciseLoadGate escape hatch
-      // appears — both are valid non-dead states. An infinite bare spinner
-      // with no escape would be the failure we are guarding against.
-      const settled = await anonPage
-        .locator('button, h1, h2, [role="img"], img')
-        .first()
-        .isVisible({ timeout: 12_000 })
-        .catch(() => false);
-      expect(settled, `no interactive/escape content on ${route}`).toBeTruthy();
-
-      expect(errors, errors.join('\n')).toEqual([]);
-    });
-  }
+      page.on('pageerror', error => errors.push(error.message));
+      try {
+        await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+        await page.waitForLoadState('networkidle', { timeout: 12_000 });
+        expect(new URL(page.url()).pathname, `${route} redirected to sign-in`).not.toBe('/auth');
+        // Preserve the existing non-dead-state assertion per exercise, rather
+        // than passing the suite if only one of the four routes works.
+        await expect(page.locator('button, h1, h2, [role="img"], img').first(),
+          `no interactive/escape content on ${route}`).toBeVisible({ timeout: 12_000 });
+        expect(errors, `uncaught errors on ${route}: ${errors.join(' | ')}`).toEqual([]);
+      } catch (error) {
+        failures.push(`${route}: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        await page.close();
+      }
+    }
+    expect(failures, `All routes must be checked and pass:\n${failures.join('\n')}`).toEqual([]);
+  });
 });

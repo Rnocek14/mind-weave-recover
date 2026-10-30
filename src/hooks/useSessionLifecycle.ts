@@ -97,7 +97,7 @@ export const useSessionLifecycle = ({
   const getStatsRef = useRef(getSessionStats);
   
   // Race condition prevention: track pending end promise
-  const pendingEndPromiseRef = useRef<Promise<void> | null>(null);
+  const pendingEndPromiseRef = useRef<Promise<boolean> | null>(null);
   
   // Update refs when values change
   useEffect(() => {
@@ -110,13 +110,13 @@ export const useSessionLifecycle = ({
   /**
    * End session with reason tracking - idempotent and race-safe
    */
-  const endSessionWithReason = useCallback(async (reason: EndedReason): Promise<void> => {
+  const endSessionWithReason = useCallback(async (reason: EndedReason): Promise<boolean> => {
     const sid = sessionRef.current;
     
     // Guard: already ended or no session
     if (endedRef.current || !sid) {
       console.log(`[SessionLifecycle] Skip end - already ended: ${endedRef.current}, sessionId: ${sid}`);
-      return;
+      return false;
     }
     
     // Race prevention: if end is already in progress, reuse the same promise
@@ -126,7 +126,7 @@ export const useSessionLifecycle = ({
     }
     
     // Create the end promise
-    const endPromise = (async () => {
+    const endPromise = (async (): Promise<boolean> => {
       // Mark as ended immediately to prevent new calls
       endedRef.current = true;
       
@@ -180,12 +180,16 @@ export const useSessionLifecycle = ({
             ...accFields,
           };
 
-          const { error } = await supabase
+          const { data: confirmed, error } = await supabase
             .from('sessions')
             .update({ summary: mergedSummary as any })
             .eq('id', sid)
-            .is('ended_at', null);
-          updateError = error;
+            .is('ended_at', null)
+            .select('id');
+          // PostgREST can return an error-free zero-row UPDATE when an RLS
+          // policy denies a write or a sweeper already ended the session.
+          // Only an observed updated row counts as a committed session.
+          updateError = error ?? (confirmed?.length === 1 ? null : { message: 'Session close was not confirmed' });
         } else {
           // Standalone exercise — we own the session, close it.
           // Merge into existing summary so prior metadata (mode, etc.) survives.
@@ -206,7 +210,7 @@ export const useSessionLifecycle = ({
             ...accFields,
           };
 
-          const { error } = await supabase
+          const { data: confirmed, error } = await supabase
             .from('sessions')
             .update({
               ended_at: new Date().toISOString(),
@@ -215,20 +219,22 @@ export const useSessionLifecycle = ({
               ended_reason: reason,
             })
             .eq('id', sid)
-            .is('ended_at', null);
-          updateError = error;
+            .is('ended_at', null)
+            .select('id');
+          // PostgREST can return an error-free zero-row UPDATE when an RLS
+          // policy denies a write or a sweeper already ended the session.
+          // Only an observed updated row counts as a committed session.
+          updateError = error ?? (confirmed?.length === 1 ? null : { message: 'Session close was not confirmed' });
         }
 
         if (updateError) {
-          console.error(`[SessionLifecycle] Failed to end session:`, updateError);
-          // Reset flag to allow retry, but only if it was a real failure
-          if (!updateError.message?.includes('0 rows')) {
-            endedRef.current = false;
-          }
+          console.error('[SessionLifecycle] Session update failed or was not confirmed:', updateError.message);
+          endedRef.current = false;
+          return false;
         } else {
           console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
           // Release standalone-session mutex once the session is closed
-          if (!isOwnedByParent) clearStandaloneSessionMutex();
+          if (!isOwnedByParent) clearStandaloneSessionMutex(sid);
 
           
           // Auto-populate speech dose into recovery spine
@@ -269,11 +275,19 @@ export const useSessionLifecycle = ({
               .catch(err => console.warn('[SessionLifecycle] Mastery flush failed:', err));
           }
           
-          onSessionEnded?.(reason);
+          try {
+            onSessionEnded?.(reason);
+          } catch (callbackError) {
+            // Clinical persistence has already succeeded. An optional UI
+            // callback must not falsely reset the completed session state.
+            console.warn('[SessionLifecycle] Session callback failed:', callbackError);
+          }
+          return true;
         }
       } catch (err) {
         console.error(`[SessionLifecycle] Error ending session:`, err);
         endedRef.current = false;
+        return false;
       } finally {
         pendingEndPromiseRef.current = null;
       }
@@ -286,19 +300,20 @@ export const useSessionLifecycle = ({
   /**
    * Complete session normally (user finished all trials)
    */
-  const completeSession = useCallback(async () => {
-    await endSessionWithReason('completed');
+  const completeSession = useCallback(async (): Promise<boolean> => {
+    const confirmed = await endSessionWithReason('completed');
     // Funnel event for standalone-exercise completions (lesson/coach flows
     // report via sessionTracking.endSession). Parent-owned sessions skip —
     // the parent flow owns the completion event too. Mirror the ownership
     // resolution endSessionWithReason uses (explicit option ?? auto-detect).
     const isOwnedByParent = ownedByParentFlow ?? detectParentOwnership(sessionRef.current);
-    if (!isOwnedByParent && sessionRef.current) {
+    if (confirmed && !isOwnedByParent && sessionRef.current) {
       trackEvent(FUNNEL_EVENTS.SESSION_COMPLETED, {
         session_id: sessionRef.current,
         exercise_slug: exerciseSlug,
       });
     }
+    return confirmed;
   }, [endSessionWithReason, exerciseSlug, ownedByParentFlow]);
   
   /**

@@ -4,26 +4,32 @@ import { scoredEventPercentages } from "@/lib/clinical/scoredEvidence";
 
 interface WeeklySessionStats {
   trialCount: number;
+  priorTrialCount: number;
   sessionCount: number;
   avgAccuracy: number | null;
   priorAvgAccuracy: number | null;
   accuracySlope: number | null;
   isLoading: boolean;
+  error: string | null;
 }
 
 const emptyStats = (isLoading: boolean): WeeklySessionStats => ({
   trialCount: 0,
+  priorTrialCount: 0,
   sessionCount: 0,
   avgAccuracy: null,
   priorAvgAccuracy: null,
   accuracySlope: null,
   isLoading,
+  error: null,
 });
 
 /**
  * Fetches aggregated session/trial stats for the last 7 and prior 7 days.
  * Used by the progress note generator. Keeps the existing window, score units,
- * and minimum session duration; excludes explicitly non-scorable evidence.
+ * and excludes explicitly non-scorable evidence. No minimum duration
+ * filter: an authenticated 15-second practice with valid saved answers
+ * must not disappear from the clinician's review.
  */
 export function useWeeklySessionStats(profileId: string | undefined): WeeklySessionStats {
   // Bind the visible result to its profile. An effect-only reset would still
@@ -51,9 +57,8 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
           .select("id, ended_at, duration_sec")
           .eq("profile_id", profileId)
           .not("ended_at", "is", null)
-          .gte("ended_at", fmt(sevenAgo))
-          .gte("duration_sec", 60);
-        if (recentError) throw recentError;
+          .gte("ended_at", fmt(sevenAgo));
+        if (recentError || !Array.isArray(recentSessions)) throw recentError ?? new Error('Recent sessions unavailable');
         if (cancelled) return;
 
         const sessionIds = (recentSessions || []).map((s) => s.id);
@@ -64,9 +69,9 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
             .select("score, session_id, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
             .in("session_id", sessionIds)
             .not("score", "is", null);
-          if (error) throw error;
+          if (error || !Array.isArray(events)) throw error ?? new Error('Recent events unavailable');
           if (cancelled) return;
-          recentScores = scoredEventPercentages(events || []);
+          recentScores = scoredEventPercentages(events);
         }
 
         const { data: priorSessions, error: priorError } = await supabase
@@ -75,9 +80,8 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
           .eq("profile_id", profileId)
           .not("ended_at", "is", null)
           .gte("ended_at", fmt(fourteenAgo))
-          .lt("ended_at", fmt(sevenAgo))
-          .gte("duration_sec", 60);
-        if (priorError) throw priorError;
+          .lt("ended_at", fmt(sevenAgo));
+        if (priorError || !Array.isArray(priorSessions)) throw priorError ?? new Error('Prior sessions unavailable');
         if (cancelled) return;
 
         let priorScores: number[] = [];
@@ -88,9 +92,9 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
             .select("score, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
             .in("session_id", priorIds)
             .not("score", "is", null);
-          if (error) throw error;
+          if (error || !Array.isArray(priorEvents)) throw error ?? new Error('Prior events unavailable');
           if (cancelled) return;
-          priorScores = scoredEventPercentages(priorEvents || []);
+          priorScores = scoredEventPercentages(priorEvents);
         }
 
         const { data: lrData, error: learningError } = await supabase
@@ -99,7 +103,7 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
           .eq("profile_id", profileId)
           .order("calculated_at", { ascending: false })
           .limit(1);
-        if (learningError) throw learningError;
+        if (learningError || !Array.isArray(lrData)) throw learningError ?? new Error('Learning rate read unavailable');
         if (cancelled) return;
 
         const avgAcc = recentScores.length > 0
@@ -111,17 +115,22 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
 
         setState({ profileId, stats: {
           trialCount: recentScores.length,
+          priorTrialCount: priorScores.length,
           sessionCount: sessionIds.length,
           avgAccuracy: avgAcc,
           priorAvgAccuracy: priorAvg,
           accuracySlope: lrData?.[0]?.accuracy_slope ?? null,
           isLoading: false,
+          error: null,
         } });
       } catch (err) {
         if (cancelled) return;
         console.error("[useWeeklySessionStats] error:", err);
         // Never present stale patient metrics as the result of a failed load.
-        setState({ profileId, stats: emptyStats(false) });
+        setState({ profileId, stats: {
+          ...emptyStats(false),
+          error: 'Clinical session metrics unavailable. Please retry.',
+        } });
       }
     };
 

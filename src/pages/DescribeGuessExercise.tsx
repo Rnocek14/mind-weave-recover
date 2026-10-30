@@ -19,7 +19,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DescribeGuessGame } from '@/components/DescribeGuessGame';
@@ -29,6 +29,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -54,7 +56,6 @@ export default function DescribeGuessExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -112,7 +113,7 @@ export default function DescribeGuessExercise() {
     cueSensitive: true,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -135,7 +136,7 @@ export default function DescribeGuessExercise() {
   // Unified trial submission (lexical axis). No per-game progression hook
   // yet — progression:null keeps the progression buffer + commit flush as
   // no-ops; exercise_events + mastery shadow still write.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -163,7 +164,7 @@ export default function DescribeGuessExercise() {
     }));
 
     navigate(returnTo, { state: { resuming: true }, replace: true });
-  }, [fromLesson, navigate]);
+  }, [fromLesson, navigate, returnTo]);
 
   useEffect(() => {
     return () => {
@@ -222,19 +223,27 @@ export default function DescribeGuessExercise() {
     if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
-  const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    await commitSession();
-    setCompleted(true);
-    completeSession();
-
+  const handleConfirmedCompletion = useCallback((results: DescribeGuessTrialResult[]) => {
     if (fromLesson) {
       completionTimeoutRef.current = window.setTimeout(() => {
         resumeLessonFlow(results);
       }, 400);
     }
-  }, [fromLesson, completeSession, commitSession, resumeLessonFlow]);
+  }, [fromLesson, resumeLessonFlow]);
 
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<DescribeGuessTrialResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: DescribeGuessTrialResult[]) => {
+    void finish(results);
+  }, [finish]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -251,7 +260,7 @@ export default function DescribeGuessExercise() {
   const isReady = !isCreatingSession && !!activeSessionId;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -270,7 +279,13 @@ export default function DescribeGuessExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>
@@ -281,6 +296,7 @@ export default function DescribeGuessExercise() {
           </div>
         ) : (
           <DescribeGuessGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             trialCount={trialCount}

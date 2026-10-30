@@ -11,7 +11,7 @@
  */
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DualLoadNamingGame } from '@/components/DualLoadNamingGame';
 import { DualLoadTrialResult } from '@/hooks/useDualLoadNamingGame';
@@ -30,6 +30,8 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import {
   useDualLoadNamingProgression,
   mapDualLoadNamingSupport,
@@ -43,7 +45,6 @@ export default function DualLoadNamingExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
   const scoreRef = useRef(0);
@@ -72,7 +73,7 @@ export default function DualLoadNamingExercise() {
     cueSensitive: false,
   });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Wave 3: Clinical Progression v1 — dual-load-naming L1–L8 ladder.
   // Persistent Clinical Level supplies a FLOOR for the in-session engine
@@ -120,7 +121,7 @@ export default function DualLoadNamingExercise() {
   // Wave 3: unified trial submission (expressive axis). DualLoadNamingGame
   // is autoLog:false; this page owns the writer and emits trialMode:'production'
   // so the adopted slug routes mastery correctly.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -195,31 +196,36 @@ export default function DualLoadNamingExercise() {
     if (pivot.shouldStepDown) { console.log('[DualLoad] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback(async (results: DualLoadTrialResult[]) => {
-    setCompleted(true);
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
-    completeSession();
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      dispatchTimeoutRef.current = window.setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
-    }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo]);
+  const handleConfirmedCompletion = useCallback((results: DualLoadTrialResult[]) => {
+    if (!fromLesson || exerciseCompleteSentRef.current) return;
+    exerciseCompleteSentRef.current = true;
+    dispatchTimeoutRef.current = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: EXERCISE_SLUG, results },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }, 400);
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<DualLoadTrialResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: DualLoadTrialResult[]) => {
+    void finish(results);
+  }, [finish]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson, returnTo]);
-  const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/today');
-  }, [fromLesson, navigate]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
   if (isCreatingSession || !activeSessionId || adaptation.loading) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -233,7 +239,13 @@ export default function DualLoadNamingExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🧠</div>
             <h2 className="text-2xl font-bold">Dual-Load Complete!</h2>
@@ -242,6 +254,7 @@ export default function DualLoadNamingExercise() {
           </div>
         ) : progression.loaded ? (
           <DualLoadNamingGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}

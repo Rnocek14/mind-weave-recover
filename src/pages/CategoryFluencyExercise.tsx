@@ -5,7 +5,7 @@
  */
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CategoryFluencyGame, type CategoryFluencyResult } from '@/components/CategoryFluencyGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -13,6 +13,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { tierToLevel } from '@/lib/gameLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -39,7 +41,6 @@ export default function CategoryFluencyExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
   const dispatchTimeoutRef = useRef<number | null>(null);
 
@@ -65,7 +66,7 @@ export default function CategoryFluencyExercise() {
   const difficultyLevel = adaptation.difficultyTier;
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
@@ -106,7 +107,7 @@ export default function CategoryFluencyExercise() {
   }
   const effectiveTier = bridge.effective;
 
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -193,20 +194,22 @@ export default function CategoryFluencyExercise() {
     }
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor, effectiveTier]);
 
-  const handleGameComplete = useCallback(async (results: CategoryFluencyResult[]) => {
-    // Unified commit: flushes mastery shadow + per-game progression ladder.
-    await commitSession();
-    completeSession();
-
+  const handleConfirmedCompletion = useCallback((results: CategoryFluencyResult[]) => {
+    // Only write coach reflection and advance a lesson after persistence was
+    // acknowledged. A retry of session close does not repeat progression.
     // Save structured details for reflection engine
     if (blockIndex != null) {
       const totalWords = results.reduce((sum, r) => sum + r.uniqueWordCount, 0);
       const lastAnalysis = results[results.length - 1]?.analysis;
-      saveExerciseDetails(blockIndex, 'category-fluency', {
-        totalWords,
-        clusters: lastAnalysis?.clusterCount ?? 0,
-        switches: lastAnalysis?.switchCount ?? 0,
-      });
+      try {
+        saveExerciseDetails(blockIndex, 'category-fluency', {
+          totalWords,
+          clusters: lastAnalysis?.clusterCount ?? 0,
+          switches: lastAnalysis?.switchCount ?? 0,
+        });
+      } catch (error) {
+        console.warn('[CategoryFluency] Could not store optional reflection', error);
+      }
     }
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -218,13 +221,17 @@ export default function CategoryFluencyExercise() {
       const allWords = results.flatMap(r => r.words).slice(0, 10);
       
       // Store results for SmartCoach to read on restore (avoids event race condition)
-      sessionStorage.setItem('smartCoachExerciseResult', JSON.stringify({
-        exerciseSlug: EXERCISE_SLUG,
-        score,
-        accuracy: score,
-        targetWords: allWords,
-        difficultyReached: results[results.length - 1]?.difficulty ?? 1,
-      }));
+      try {
+        sessionStorage.setItem('smartCoachExerciseResult', JSON.stringify({
+          exerciseSlug: EXERCISE_SLUG,
+          score,
+          accuracy: score,
+          targetWords: allWords,
+          difficultyReached: results[results.length - 1]?.difficulty ?? 1,
+        }));
+      } catch (error) {
+        console.warn('[CategoryFluency] Could not store optional coach recap', error);
+      }
       
       dispatchTimeoutRef.current = window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
@@ -238,11 +245,22 @@ export default function CategoryFluencyExercise() {
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
-    } else {
-      // Standalone mode: mark completed so the game summary stays visible with onFinish
-      setCompleted(true);
     }
-  }, [fromLesson, completeSession, commitSession, navigate, returnTo, blockIndex]);
+  }, [fromLesson, navigate, returnTo, blockIndex]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<CategoryFluencyResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: CategoryFluencyResult[]) => {
+    void finish(results);
+  }, [finish]);
 
   const handleFinish = useCallback(() => {
     navigate('/today');
@@ -257,7 +275,7 @@ export default function CategoryFluencyExercise() {
   const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -277,17 +295,26 @@ export default function CategoryFluencyExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : (
           <CategoryFluencyGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             difficulty={effectiveTier}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}
-            onFinish={!fromLesson ? handleFinish : undefined}
+            onFinish={!fromLesson && saveState === 'complete' ? handleFinish : undefined}
             roundCount={roundCount}
             autoStartFirst={fromLesson}
             userId={user?.id}
             sessionId={activeSessionId}
           />
+        )}
       </main>
 
       {fromLesson && <SessionSidePanel />}

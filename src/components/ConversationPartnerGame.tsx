@@ -35,6 +35,8 @@ interface ConversationPartnerGameProps {
     userAIRatio: number;
   }) => void;
   onExit?: () => void;
+  /** Verify captured speech evidence before declaring the session saved. */
+  registerEvidenceVerifier?: (verify: () => Promise<boolean>) => void;
 }
 
 type Phase = 'ready' | 'ai_speaking' | 'listening' | 'processing' | 'complete';
@@ -44,9 +46,11 @@ export function ConversationPartnerGame({
   profileId,
   sessionId,
   onComplete,
-  onExit
+  onExit,
+  registerEvidenceVerifier
 }: ConversationPartnerGameProps) {
   const [phase, setPhase] = useState<Phase>('ready');
+  const [conversationStarted, setConversationStarted] = useState(false);
   const [currentAIText, setCurrentAIText] = useState<string>('');
   const [userTranscript, setUserTranscript] = useState<string>('');
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -64,6 +68,7 @@ export function ConversationPartnerGame({
     logFinalAnalysis,
     resetAttempt,
     currentAttemptId,
+    confirmFinalizedAttempts,
   } = useUtteranceLogger();
 
   const {
@@ -120,6 +125,10 @@ export function ConversationPartnerGame({
     continuousListening: false
   });
 
+  useEffect(() => {
+    registerEvidenceVerifier?.(confirmFinalizedAttempts);
+  }, [registerEvidenceVerifier, confirmFinalizedAttempts]);
+
   // Hard-stop all voice + recognition when the user exits/unmounts so Maya
   // never keeps talking after the session is left.
   useEffect(() => {
@@ -138,6 +147,7 @@ export function ConversationPartnerGame({
   // Start conversation with opener
   const startConversation = useCallback(async () => {
     const opener = getRandomOpener();
+    setConversationStarted(true);
     setCurrentAIText(opener);
     setPhase('ai_speaking');
     
@@ -387,7 +397,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn === 0 && (
+          {phase === 'ready' && !conversationStarted && (
             <div className="text-center py-8">
               <Button
                 size="lg"
@@ -408,7 +418,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn > 0 && (
+          {phase === 'ready' && conversationStarted && (
             <div className="text-center py-4">
               <Button
                 size="lg"

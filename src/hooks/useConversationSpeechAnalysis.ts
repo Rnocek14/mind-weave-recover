@@ -165,8 +165,9 @@ export function useConversationSpeechAnalysis(context: ConversationSpeechContext
         meaningAccuracy: 0.8,
         fluencyMetrics: {
           speechRateWpm: speechRateWpm ?? undefined,
-          pauseCount: filledPauseCount,
-          avgPauseDurationMs: latencyToFirstWordMs ?? undefined,
+          // Spoken filler words and pre-word response latency are NOT
+          // measured silent pauses. Do not fabricate acoustic pause fields
+          // unless a time-aligned audio analysis actually supplies them.
           effortfulSpeech,
         }
       } : null,

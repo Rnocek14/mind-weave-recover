@@ -5,7 +5,7 @@
  * No right or wrong answers - only momentum and continuation.
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -17,6 +17,9 @@ import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -36,8 +39,17 @@ export default function ThoughtContinuationExercise() {
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
+  const verifiedSpeechRef = useRef<(() => Promise<boolean>) | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const registerEvidenceVerifier = useCallback((verify: () => Promise<boolean>) => {
+    verifiedSpeechRef.current = verify;
+  }, []);
+  useEffect(() => () => {
+    if (completionTimeoutRef.current !== null) clearTimeout(completionTimeoutRef.current);
+  }, []);
   
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } =
+    useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
@@ -78,27 +90,45 @@ export default function ThoughtContinuationExercise() {
     setGameStarted(true);
   };
 
-  const handleComplete = (summary: {
+  type ThoughtSummary = {
     totalPrompts: number;
     promptsSpoken: number;
     avgMomentumScore: number;
     completedThoughts: number;
-  }) => {
+  };
+
+  const commitSpeechEvidence = useCallback(async () => ({
+    ok: verifiedSpeechRef.current ? await verifiedSpeechRef.current() : false,
+  }), []);
+  const retrySpeechEvidence = useCallback(async () => ({ ok: true }), []);
+
+  const onConfirmed = useCallback((summary: ThoughtSummary) => {
     setSessionSummary(summary);
     setGameStarted(false);
-    promptsRef.current = summary.promptsSpoken;
-    void completeSession();
-
-    // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
+      completionTimeoutRef.current = setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'thought-continuation', results: summary },
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<ThoughtSummary>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession: commitSpeechEvidence,
+    completeSession,
+    retryFailedSubmissions: retrySpeechEvidence,
+    onConfirmed,
+  });
+
+  const handleComplete = (summary: ThoughtSummary) => {
+    promptsRef.current = summary.promptsSpoken;
+    void finish(summary);
   };
 
   const handleExit = () => {
@@ -109,22 +139,11 @@ export default function ThoughtContinuationExercise() {
     navigate(fromLesson ? returnTo : '/dashboard');
   }, [navigate, fromLesson]);
 
-  const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', {
-        detail: { exerciseSlug: 'thought-continuation' },
-      }));
-      navigate(returnTo, { state: { resuming: true } });
-    } else if (!fromLesson) {
-      navigate('/today');
-    }
-  }, [fromLesson, navigate]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
-  const handlePlayAgain = () => {
-    setSessionSummary(null);
-    setGameStarted(true);
-  };
+  // A second session requires a fresh database session ID. Never practice
+  // into the ended session simply by resetting local game state.
+  const handlePlayAgain = () => navigate('/today');
 
   // Not logged in
   if (!user?.id || !activeProfile?.id) {
@@ -140,6 +159,18 @@ export default function ThoughtContinuationExercise() {
         </Card>
       </div>
     );
+  }
+
+  if (isCreatingSession || !activeSessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
+
+  if (saveState === 'saving' || saveState === 'error') {
+    return <ExerciseSaveFeedback
+      state={saveState}
+      onRetry={() => void retry()}
+      onExit={() => navigate('/today')}
+    />;
   }
 
   // Show summary after completion
@@ -224,6 +255,8 @@ export default function ThoughtContinuationExercise() {
         
         <main className="pt-6">
           <ThoughtContinuationGame
+            key={JSON.stringify([user.id, activeProfile.id, activeSessionId])}
+            registerEvidenceVerifier={registerEvidenceVerifier}
             userId={user.id}
             profileId={activeProfile.id}
             sessionId={activeSessionId}

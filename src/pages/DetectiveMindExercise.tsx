@@ -16,7 +16,7 @@
 
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DetectiveMindGame } from '@/components/DetectiveMindGame';
 import { DetectiveTrialResult } from '@/hooks/useDetectiveMindGame';
@@ -34,6 +34,8 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import {
   useDetectiveMindProgression,
   mapDetectiveMindSupport,
@@ -48,8 +50,15 @@ export default function DetectiveMindExercise() {
   const { user } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
+  const [offlineFinished, setOfflineFinished] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (dispatchTimeoutRef.current !== null) window.clearTimeout(dispatchTimeoutRef.current);
+    };
+  }, []);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -72,11 +81,15 @@ export default function DetectiveMindExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     EXERCISE_SLUG
   );
+
+  useEffect(() => {
+    setOfflineFinished(false);
+  }, [user?.id, activeProfile?.id, activeSessionId]);
 
   // Wave 2: Clinical Progression v1 — detective-mind L1–L8 ladder.
   // Receptive-safe: submitTrial emits trialMode:'recognition' and the
@@ -115,7 +128,7 @@ export default function DetectiveMindExercise() {
   // Wave 2: unified trial submission (receptive-safe). DetectiveMindGame
   // is autoLog:false; this page owns the writer and emits
   // trialMode:'recognition'. Progression is buffered + flushed on commit.
-  const { submitTrial, commitSession } = useTrialSubmission({
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
     sessionId: activeSessionId,
@@ -131,6 +144,8 @@ export default function DetectiveMindExercise() {
     trialsRef.current += 1;
     trialIndexRef.current += 1;
     pivot.recordTrialResult({ wasCorrect: result.correct, reactionTimeMs: result.reactionTimeMs, cueLevel: result.usedHint ? 1 : 0 });
+    // Offline practice has no clinical session; don't emit unsaved pseudo-trials.
+    if (isOfflineMode || !activeSessionId) return;
 
     await submitTrial({
       profileId: activeProfile?.id,
@@ -171,23 +186,23 @@ export default function DetectiveMindExercise() {
     if (pivot.shouldStepDown) { console.log('[DetectiveMind] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
   }, [activeSessionId, isOfflineMode, submitTrial, adaptationTelemetry, pivot, trialLimit, blockIndex, lessonSource, presetId, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
-  const handleGameComplete = useCallback(async (results: DetectiveTrialResult[]) => {
-    setCompleted(true);
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
-    completeSession();
+  const handleConfirmedCompletion = useCallback((results: DetectiveTrialResult[]) => {
 
-    // Save structured details for reflection engine
+    // Reflection is optional but is never published before the raw attempts
+    // and session summary have been confirmed saved.
     if (blockIndex != null) {
-      saveExerciseDetails(blockIndex, 'detective-mind', {
-        results: results.map(r => ({ questionType: r.questionType, correct: r.correct })),
-      });
+      try {
+        saveExerciseDetails(blockIndex, 'detective-mind', {
+          results: results.map(r => ({ questionType: r.questionType, correct: r.correct })),
+        });
+      } catch (error) {
+        console.warn('[DetectiveMind] Could not store optional reflection', error);
+      }
     }
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
+      dispatchTimeoutRef.current = window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: {
             exerciseSlug: EXERCISE_SLUG,
@@ -198,7 +213,27 @@ export default function DetectiveMindExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession, commitSession, blockIndex, navigate, returnTo]);
+  }, [fromLesson, blockIndex, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<DetectiveTrialResult[]>({
+    scope: !isOfflineMode && user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed: handleConfirmedCompletion,
+  });
+
+  const handleGameComplete = useCallback((results: DetectiveTrialResult[]) => {
+    if (isOfflineMode) {
+      // Deliberate offline practice cannot be called a saved clinical session.
+      // Never advance a lesson or fabricate metrics without a database session.
+      setOfflineFinished(true);
+      return;
+    }
+    void finish(results);
+  }, [isOfflineMode, finish]);
 
   const handleBack = useCallback(() => {
     navigate(fromLesson ? returnTo : '/dashboard');
@@ -218,7 +253,7 @@ export default function DetectiveMindExercise() {
   const isReady = isOfflineMode || (!isCreatingSession && !!activeSessionId);
 
   if (!isReady) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -238,7 +273,21 @@ export default function DetectiveMindExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : offlineFinished ? (
+          <div className="max-w-md mx-auto my-auto text-center space-y-5">
+            <h2 className="text-2xl font-bold">Offline practice finished</h2>
+            <p className="text-lg">This practice was not saved.</p>
+            <Button size="lg" className="min-h-14 w-full text-lg" onClick={() => navigate('/today')}>
+              Go to Today
+            </Button>
+          </div>
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🕵️</div>
             <h2 className="text-2xl font-bold">Investigation Complete!</h2>
@@ -253,6 +302,7 @@ export default function DetectiveMindExercise() {
           </div>
         ) : progression.loaded ? (
           <DetectiveMindGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}

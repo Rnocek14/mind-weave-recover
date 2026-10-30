@@ -329,14 +329,12 @@ export const SentenceConstructionGame = ({
       if (bestIdx >= 0) { mappedIndices.push(bestIdx); usedIndices.add(bestIdx); }
     }
 
-    if (mappedIndices.length > 0) {
-      clearAnswer();
-      mappedIndices.forEach(idx => selectWord(idx));
-    }
-
-    setTimeout(() => {
-      const result = submitAnswer();
-      if (!result) return;
+    // Score the actual recognized word sequence atomically. setState +
+    // a delayed submitAnswer previously read the OLD render's currentAnswer,
+    // so a spoken sentence could be silently scored as an empty tile answer.
+    // An unmapped transcript is an explicit empty answer, never a stale tile.
+    const result = submitAnswer(mappedIndices);
+    if (!result) return;
       const reactionTime = Date.now() - trialStartTime;
       if (trial?.modelAudio) speak(trial.modelAudio);
       handleKidsResult(result.correct);
@@ -356,8 +354,7 @@ export const SentenceConstructionGame = ({
           difficulty: currentDifficulty,
         });
       }
-    }, 300);
-  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial]);
+  }, [trial, spokenSentence, stopListening, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial]);
 
   useEffect(() => {
     if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
@@ -577,6 +574,7 @@ export const SentenceConstructionGame = ({
 
               <div className="flex flex-col items-center gap-3 py-4">
                 <button
+                  aria-label={isListening ? 'Stop speaking' : 'Start speaking'}
                   onClick={() => {
                     if (isListening) {
                       stopListening();

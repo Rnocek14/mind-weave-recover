@@ -22,6 +22,8 @@ import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 import { averageResponseTimeMs, measuredResponseTimeMs } from "@/lib/speech/responseTiming";
+import { summarizeTimelineScore, type TimelineScoreEvidence } from '@/lib/clinical/timelineScoreEvidence';
+import { isScoredClinicalEvidence } from '@/lib/clinical/scoredEvidence';
 
 function formatSlug(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -81,6 +83,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionMeta, setSessionMeta] = useState<Map<string, SessionMeta>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Build sparkline data from timeline
@@ -95,17 +98,18 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
   }, [timeline]);
 
   useEffect(() => {
-    if (!profileId) {
-      setSessions([]);
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
+    setSessions([]);
+    setSessionMeta(new Map());
+    setReadError(null);
+    setLoading(!!profileId);
+    if (!profileId) return () => { cancelled = true; };
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - windowSize);
 
     const fetchAll = async () => {
-      setLoading(true);
-      const { data } = await supabase
+      try {
+      const { data, error: sessionError } = await supabase
         .from("sessions")
         .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary, user_id, profile_id")
         .eq("profile_id", profileId)
@@ -113,9 +117,13 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         .gte("started_at", cutoff.toISOString())
         .order("started_at", { ascending: false })
         .limit(50);
-      
-      const sessionRows = (data ?? []) as SessionRow[];
-      setSessions(sessionRows);
+      if (cancelled) return;
+      if (sessionError || !Array.isArray(data)) {
+        throw sessionError ?? new Error('Session list could not be verified');
+      }
+
+      const sessionRows = data as SessionRow[];
+      // Show the list only after the linked clinical evidence is verified.
 
       if (sessionRows.length > 0) {
         const sessionIds = sessionRows.map((s) => s.id);
@@ -124,7 +132,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         const [eventsRes, adaptRes] = await Promise.all([
           supabase
             .from("exercise_events")
-            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
+            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms, counts_toward_score, validity_label, clinician_validity_override, task_parameters, engagement_flags")
             .in("session_id", sessionIds),
           supabase
             .from("adaptation_events")
@@ -132,8 +140,11 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
             .in("session_id", sessionIds),
         ]);
 
-        const events = eventsRes.data ?? [];
-        const adaptations = (adaptRes.data ?? []) as any[];
+        if (eventsRes.error || adaptRes.error || !Array.isArray(eventsRes.data) || !Array.isArray(adaptRes.data)) {
+          throw new Error('Patient session events or adaptation evidence unavailable');
+        }
+        const events = eventsRes.data;
+        const adaptations = adaptRes.data as any[];
 
         // Build per-session meta
         const metaMap = new Map<string, SessionMeta>();
@@ -153,53 +164,64 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
         sessionIds.forEach((sid) => {
           const evts = bySession.get(sid) || [];
-          const exMap = new Map<string, { trials: number; correct: number; audio: number; rtSum: number; rtCount: number }>();
+          const byExercise = new Map<string, typeof evts>();
+          for (const event of evts) {
+            const slug = event.exercise_slug || 'unknown';
+            const bucket = byExercise.get(slug) ?? [];
+            bucket.push(event);
+            byExercise.set(slug, bucket);
+          }
 
-          evts.forEach((e) => {
-            const slug = e.exercise_slug || "unknown";
-            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, correct: 0, audio: 0, rtSum: 0, rtCount: 0 });
-            const ex = exMap.get(slug)!;
-            ex.trials++;
-            if (e.score === 1 || e.score === 100) ex.correct++;
-            if (e.audio_storage_path) ex.audio++;
-            const responseTime = measuredResponseTimeMs(e.reaction_time_ms);
-            if (responseTime !== null) {
-              ex.rtSum += responseTime;
-              ex.rtCount++;
-            }
-          });
+          const exercises: ExerciseSummary[] = [];
+          for (const [slug, eventsForExercise] of byExercise) {
+            const scored = summarizeTimelineScore(eventsForExercise as TimelineScoreEvidence[]);
+            if (scored.scoredTrials === 0) continue;
+            const valid = eventsForExercise.filter(event =>
+              event.score != null && isScoredClinicalEvidence(event)
+            );
+            const meanResponseTime = averageResponseTimeMs(valid.map(event => event.reaction_time_ms));
+            exercises.push({
+              slug,
+              trialCount: scored.scoredTrials,
+              correctCount: scored.fullyCorrectTrials,
+              accuracy: Math.round(scored.accuracyPct ?? 0),
+              audioCount: eventsForExercise.filter(event => event.audio_storage_path).length,
+              avgRtMs: meanResponseTime === null ? null : Math.round(meanResponseTime),
+            });
+          }
 
-          const exercises: ExerciseSummary[] = Array.from(exMap.entries()).map(([slug, d]) => ({
-            slug,
-            trialCount: d.trials,
-            correctCount: d.correct,
-            accuracy: d.trials > 0 ? Math.round((d.correct / d.trials) * 100) : 0,
-            audioCount: d.audio,
-            avgRtMs: d.rtCount > 0 ? Math.round(d.rtSum / d.rtCount) : null,
-          }));
-
-          const totalTrials = evts.length;
-          const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
-          const totalAudio = evts.filter((e) => e.audio_storage_path).length;
-          const meanResponseTime = averageResponseTimeMs(evts.map(event => event.reaction_time_ms));
+          const scored = summarizeTimelineScore(evts as TimelineScoreEvidence[]);
+          const valid = evts.filter(event => event.score != null && isScoredClinicalEvidence(event));
+          const meanResponseTime = averageResponseTimeMs(valid.map(event => event.reaction_time_ms));
           const avgRtMs = meanResponseTime === null ? null : Math.round(meanResponseTime);
 
           metaMap.set(sid, {
             exercises,
-            totalTrials,
-            overallAccuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : 0,
-            totalAudio,
+            totalTrials: scored.scoredTrials,
+            overallAccuracy: scored.accuracyPct === null ? 0 : Math.round(scored.accuracyPct),
+            totalAudio: evts.filter(event => event.audio_storage_path).length,
             avgRtMs,
             adaptationCount: adaptCounts.get(sid) || 0,
           });
         });
 
-        setSessionMeta(metaMap);
+        if (!cancelled) setSessionMeta(metaMap);
       }
 
-      setLoading(false);
+      if (!cancelled) setSessions(sessionRows);
+      } catch (error) {
+        console.error('[SessionsTab] Could not verify clinical session detail', error);
+        if (!cancelled) {
+          setSessions([]);
+          setSessionMeta(new Map());
+          setReadError('Clinical session details unavailable. Please retry.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-    fetchAll();
+    void fetchAll();
+    return () => { cancelled = true; };
   }, [profileId, windowSize]);
 
   // Build per-session accuracy for sparkline
@@ -220,6 +242,16 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
     return (
       <div className="space-y-3 mt-4">
         {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
+      </div>
+    );
+  }
+
+  if (readError) {
+    return (
+      <div role="alert" className="mt-4 space-y-3 rounded-lg border p-6 text-center">
+        <p className="font-semibold">Clinical session details unavailable</p>
+        <p className="text-sm text-muted-foreground">We could not verify all saved trial evidence.</p>
+        <Button size="lg" className="min-h-14" onClick={() => window.location.reload()}>Try again</Button>
       </div>
     );
   }
@@ -358,8 +390,8 @@ function SessionCard({
             <>
               <span className="flex items-center gap-1">
                 <Target className="w-3 h-3" />
-                <span className={cn("font-semibold", meta.overallAccuracy >= 80 ? "text-success" : meta.overallAccuracy >= 50 ? "text-amber-500" : "text-destructive")}>
-                  {meta.overallAccuracy}%
+                <span className={cn("font-semibold", meta.totalTrials === 0 ? "text-muted-foreground" : meta.overallAccuracy >= 80 ? "text-success" : meta.overallAccuracy >= 50 ? "text-amber-500" : "text-destructive")}>
+                  {meta.totalTrials > 0 ? `${meta.overallAccuracy}%` : '—'}
                 </span>
               </span>
               <span>{meta.totalTrials} trials</span>

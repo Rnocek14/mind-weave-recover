@@ -2,7 +2,7 @@
  * Abstract Comparison Exercise Page — wrapper with session lifecycle.
  */
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AbstractCompareGame } from '@/components/AbstractCompareGame';
 import { AbstractCompareTrialResult } from '@/hooks/useAbstractCompareGame';
@@ -10,8 +10,9 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
-import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -30,8 +31,12 @@ export default function AbstractCompareExercise() {
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  const [completed, setCompleted] = useState(false);
   const exerciseCompleteSentRef = useRef(false);
+  const dispatchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trialIndexRef = useRef(0);
+  useEffect(() => () => {
+    if (dispatchTimeoutRef.current !== null) clearTimeout(dispatchTimeoutRef.current);
+  }, []);
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
@@ -42,7 +47,7 @@ export default function AbstractCompareExercise() {
   const lessonAdaptations = restored.adaptations;
   const trialLimit = Number(location.state?.trialLimit) || 4;
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
 
   // Shared adaptation contract (session-static seed)
   const adaptation = useSessionAdaptation({
@@ -73,7 +78,13 @@ export default function AbstractCompareExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    sessionId: activeSessionId,
+    exerciseSlug: EXERCISE_SLUG,
+    progression: null,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'semantic_depth', fromLesson });
 
@@ -96,19 +107,33 @@ export default function AbstractCompareExercise() {
       errorType: wasCorrect ? undefined : 'low_coverage',
     });
 
-    logTrial({
-      correct: wasCorrect,
-      reactionTimeMs: result.durationMs,
+    trialIndexRef.current++;
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId: activeSessionId,
+      gameId: EXERCISE_SLUG,
+      level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
+      stimulusId: result.itemId,
+      trialIndex: trialIndexRef.current,
+      expectedResponse: `${result.wordA} / ${result.wordB}`,
+      userResponse: result.transcript ?? null,
+      isCorrect: wasCorrect,
+      accuracyScore: result.coverageRatio,
+      latencyMs: result.durationMs,
+      cueLevel: 0,
+      supportUsed: 'independent',
+      trialMode: 'production',
+      errorType: wasCorrect ? undefined : 'low_coverage',
       taskParameters: {
-        item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
-        abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
+        unified_route_adaptation_log: true,
+        item_id: result.itemId,
+        word_a: result.wordA,
+        word_b: result.wordB,
+        abstraction_level: result.abstractionLevel,
+        trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
-        // Universal 1–10 GameLevel for analytics + UI consistency
         game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
-        ...adaptationTelemetry,
-      },
-      adaptationsActive: dynamicTier.getAdaptationsActive(),
-      trialOutputs: {
+        skipped: result.skipped,
         explanation: {
           coverageRatio: result.coverageRatio,
           onTopicScore: result.onTopicScore,
@@ -116,21 +141,35 @@ export default function AbstractCompareExercise() {
           conceptsTotal: result.conceptsTotal,
         },
         depth: result.depthTelemetry,
+        ...adaptationTelemetry,
       },
     });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot]);
+
+  const onConfirmed = useCallback((results: AbstractCompareTrialResult[]) => {
+    if (!fromLesson || exerciseCompleteSentRef.current) return;
+    exerciseCompleteSentRef.current = true;
+    dispatchTimeoutRef.current = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: EXERCISE_SLUG, results },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }, 400);
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<AbstractCompareTrialResult[]>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, EXERCISE_SLUG])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed,
+  });
 
   const handleGameComplete = useCallback((results: AbstractCompareTrialResult[]) => {
-    setCompleted(true);
-    completeSession();
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG, results } }));
-        navigate(returnTo, { state: { resuming: true }, replace: true });
-      }, 400);
-    }
-  }, [fromLesson, completeSession]);
+    void finish(results);
+  }, [finish]);
 
   const handleBack = useCallback(() => {
     if (fromLesson) {
@@ -142,15 +181,10 @@ export default function AbstractCompareExercise() {
       navigate('/today');
     }
   }, [fromLesson, navigate]);
-  const handleContinue = useCallback(() => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', { detail: { exerciseSlug: EXERCISE_SLUG } }));
-    } else if (!fromLesson) navigate('/today');
-  }, [fromLesson, navigate]);
+  const handleContinue = useCallback(() => navigate('/today'), [navigate]);
 
   if (isCreatingSession || !activeSessionId) {
-    return <ExerciseLoading />;
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
   }
 
   return (
@@ -164,7 +198,13 @@ export default function AbstractCompareExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback
+            state={saveState}
+            onRetry={() => void retry()}
+            onExit={() => navigate('/today')}
+          />
+        ) : saveState === 'complete' ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>
             <h2 className="text-2xl font-bold">Comparisons Complete!</h2>
@@ -174,7 +214,9 @@ export default function AbstractCompareExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
+          <AbstractCompareGame
+            key={JSON.stringify([user?.id, activeProfile?.id, activeSessionId])}
+            onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

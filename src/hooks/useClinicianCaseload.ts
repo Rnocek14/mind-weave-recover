@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { summarizeCaseloadClinicalTrials } from "@/lib/clinicianCaseloadScoring";
+import type { ScoredRow } from "@/lib/sessionAccuracySummary";
 
 export interface CaseloadPatient {
   profileId: string;
@@ -76,7 +78,7 @@ export function useClinicianCaseload() {
         if (profileErr) throw profileErr;
         if (!profiles || profiles.length === 0) {
           setPatients([]);
-          setIsLoading(false);
+          setLastUpdatedAt(new Date());
           return;
         }
 
@@ -94,13 +96,17 @@ export function useClinicianCaseload() {
         const fourteenAgoStr = localYYYYMMDD(fourteenAgoDate);
 
         // Step 2: Batch fetch 14d sessions for all profiles
-        const { data: sessions14d } = await supabase
+        const { data: sessions14d, error: sessionsError } = await supabase
           .from("sessions")
           .select("id, profile_id, ended_at, duration_sec")
           .in("profile_id", profileIds)
           .not("ended_at", "is", null)
-          .gte("ended_at", fourteenAgoDate.toISOString())
-          .gte("duration_sec", 60);
+          .gte("ended_at", fourteenAgoDate.toISOString());
+        if (sessionsError || !Array.isArray(sessions14d)) {
+          throw new Error("Clinician sessions could not be verified");
+        }
+        // Short but valid completed practice still counts when it has scorable
+        // events. Duration alone must not erase clinical trial evidence.
 
         // Group sessions by profile + window using date string comparison
         const sessionsByProfile = new Map<string, { recent: any[]; prior: any[] }>();
@@ -121,7 +127,7 @@ export function useClinicianCaseload() {
 
         // Step 3: Batch fetch events for all sessions
         const allSessionIds = (sessions14d || []).map(s => s.id);
-        const eventsBySession = new Map<string, number[]>();
+        const eventsBySession = new Map<string, ScoredRow[]>();
 
         if (allSessionIds.length > 0) {
           const chunks: string[][] = [];
@@ -129,29 +135,41 @@ export function useClinicianCaseload() {
             chunks.push(allSessionIds.slice(i, i + 100));
           }
           for (const chunk of chunks) {
-            const { data: events } = await supabase
-              .from("exercise_events")
-              .select("session_id, score")
-              .in("session_id", chunk)
-              .not("score", "is", null);
-
-            for (const e of events || []) {
-              if (!eventsBySession.has(e.session_id)) {
-                eventsBySession.set(e.session_id, []);
+            // PostgREST defaults can truncate a large 14-day dataset at 1,000
+            // rows. Read ALL event pages before advertising clinician metrics.
+            const pageSize = 500;
+            for (let start = 0; ; start += pageSize) {
+              const { data: events, error: eventError } = await supabase
+                .from("exercise_events")
+                .select("id, session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug, task_parameters, engagement_flags, whisper_transcript, browser_transcript")
+                .in("session_id", chunk)
+                .not("score", "is", null)
+                .order("id", { ascending: true })
+                .range(start, start + pageSize - 1);
+              if (eventError || !Array.isArray(events)) {
+                throw new Error("Clinician trial evidence could not be verified");
               }
-              const s = e.score!;
-              const normalized = s <= 1 ? s * 100 : s;
-              eventsBySession.get(e.session_id)!.push(Math.max(0, Math.min(100, normalized)));
+              for (const event of events) {
+                if (!event.session_id) continue;
+                if (!eventsBySession.has(event.session_id)) {
+                  eventsBySession.set(event.session_id, []);
+                }
+                eventsBySession.get(event.session_id)!.push(event as unknown as ScoredRow);
+              }
+              if (events.length < pageSize) break;
             }
           }
         }
 
         // Step 4: Batch fetch unresolved alerts
-        const { data: alertsRaw } = await (supabase as any)
+        const { data: alertsRaw, error: alertError } = await (supabase as any)
           .from("recovery_alerts")
           .select("profile_id, severity")
           .in("profile_id", profileIds)
           .is("resolved_at", null);
+        if (alertError || !Array.isArray(alertsRaw)) {
+          throw new Error("Clinician alerts could not be verified");
+        }
 
         const alertsByProfile = new Map<string, { total: number; critical: number }>();
         for (const a of alertsRaw || []) {
@@ -164,12 +182,15 @@ export function useClinicianCaseload() {
         }
 
         // Step 5: Batch fetch dose_logs for adherence + last active (dose side)
-        const { data: doseLogs } = await supabase
+        const { data: doseLogs, error: doseError } = await supabase
           .from("dose_logs")
           .select("profile_id, log_date")
           .in("profile_id", profileIds)
           .gte("log_date", fourteenAgoStr)
           .order("log_date", { ascending: false });
+        if (doseError || !Array.isArray(doseLogs)) {
+          throw new Error("Clinician adherence evidence could not be verified");
+        }
 
         const lastDoseDateByProfile = new Map<string, string>();
         const activeDaysByProfile = new Map<string, Set<string>>();
@@ -212,19 +233,21 @@ export function useClinicianCaseload() {
           const recentSessionIds = (bucket?.recent || []).map((s: any) => s.id);
           const priorSessionIds = (bucket?.prior || []).map((s: any) => s.id);
 
-          // Aggregate scores
-          const recentScores = recentSessionIds.flatMap(id => eventsBySession.get(id) || []);
-          const priorScores = priorSessionIds.flatMap(id => eventsBySession.get(id) || []);
+          // Same clinical denominator as the saved session accuracy report.
+          // No-response/invalid speech attempts are NOT false 0%-accuracy
+          // trials and manual confirmation is not ASR-scored accuracy.
+          const recent = summarizeCaseloadClinicalTrials(
+            recentSessionIds.flatMap(id => eventsBySession.get(id) || []),
+          );
+          const prior = summarizeCaseloadClinicalTrials(
+            priorSessionIds.flatMap(id => eventsBySession.get(id) || []),
+          );
 
-          const avgAcc = recentScores.length > 0
-            ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length
-            : null;
-          const priorAvg = priorScores.length > 0
-            ? priorScores.reduce((a, b) => a + b, 0) / priorScores.length
-            : null;
+          const avgAcc = recent.taskAccuracyPct;
+          const priorAvg = prior.taskAccuracyPct;
 
-          // Gate accuracy delta on sufficient trial count (≥10 in both windows)
-          const hasSufficientTrials = recentScores.length >= 10 && priorScores.length >= 10;
+          // Gate accuracy delta on sufficient scorable trial count (≥10 each).
+          const hasSufficientTrials = recent.scoredTrials >= 10 && prior.scoredTrials >= 10;
           const delta = hasSufficientTrials && avgAcc !== null && priorAvg !== null
             ? Math.round(avgAcc - priorAvg)
             : null;
@@ -250,8 +273,8 @@ export function useClinicianCaseload() {
             laterality: (p as any).laterality || null,
             chronicity: (p as any).chronicity_tag || null,
             strokeMechanism: (p as any).stroke_mechanism_tag || null,
-            trials7d: recentScores.length,
-            priorTrials7d: priorScores.length,
+            trials7d: recent.scoredTrials,
+            priorTrials7d: prior.scoredTrials,
             adherenceDays7d: adherenceDays,
             avgAccuracy7d: avgAcc !== null ? Math.round(avgAcc) : null,
             accuracyDelta7d: delta,
@@ -266,7 +289,11 @@ export function useClinicianCaseload() {
         setLastUpdatedAt(new Date());
       } catch (err) {
         console.error("[useClinicianCaseload] error:", err);
-        setError("Failed to load caseload");
+        // Never display last refresh's patient metrics as if they were
+        // successfully refreshed or default failed queries to "zero".
+        setPatients([]);
+        setLastUpdatedAt(null);
+        setError("Clinical metrics unavailable. Please retry.");
       } finally {
         setIsLoading(false);
         loadingRef.current = false;

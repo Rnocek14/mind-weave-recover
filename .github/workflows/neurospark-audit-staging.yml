@@ -1,0 +1,67 @@
+name: NeuroSpark audit authenticated game-entry matrix
+
+# Review-only, isolated testing. Never deploys or reaches production backend.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neurospark-isolated-staging-stdiuaxigqttgdwiwbtp
+  cancel-in-progress: false
+
+jobs:
+  game-entry:
+    name: Audited game readiness (${{ matrix.playwright_project }})
+    if: >-
+      github.repository == 'Rnocek14/mind-weave-recover' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - playwright_project: chromium-desktop
+            runner: ubuntu-24.04
+          - playwright_project: mobile-safari
+            runner: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    environment: neurospark-e2e
+    env:
+      CI: 'true'
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_SUPABASE_PROJECT_REF: ${{ vars.E2E_SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Validate staging-only target before auth or network traffic
+        run: |
+          mkdir -p qa-evidence
+          git rev-parse HEAD > qa-evidence/candidate-revision.txt
+          node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Verify runtime staging target
+        run: bun run test:e2e:check-env
+      - name: Install real Chromium and WebKit browsers
+        run: bunx playwright install --with-deps chromium webkit
+      - name: Run all required existing and expanded staging journeys
+        run: bun run test:e2e:staging --workers=1 --retries=0 --project=${{ matrix.playwright_project }}
+      - name: Upload synthetic result counts (never browser traces or auth state)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neurospark-audit-staging-summary-${{ matrix.playwright_project }}
+          path: |
+            qa-evidence/candidate-revision.txt
+            qa-evidence/staging-config.json
+            test-results/e2e-summary.json
+          retention-days: 7

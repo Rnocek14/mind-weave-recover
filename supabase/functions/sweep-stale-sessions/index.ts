@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { reduceAccuracy, accuracySummaryToSummaryFields, type ScoredRow } from '../_shared/sessionAccuracySummary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,53 +24,6 @@ const corsHeaders = {
  *   when there are no scored trials (never faked to 0%).
  */
 
-// Canonical accuracy reducer — mirrors src/lib/sessionAccuracySummary.ts
-// (reduceAccuracy + accuracySummaryToSummaryFields). Kept in sync manually.
-interface ScoredRow {
-  score: number | null;
-  cue_level: number | null;
-  counts_toward_score: boolean | null;
-  validity_label?: string | null;
-  exercise_slug?: string | null;
-}
-
-// Keep in sync with ACCURACY_EXCLUDED_SLUGS in src/lib/sessionAccuracySummary.ts.
-const ACCURACY_EXCLUDED_SLUGS = new Set([
-  'conversation_partner',
-  'conversation_coach',
-  'conversation_turn',
-]);
-
-function accuracySummaryFields(rows: ScoredRow[]): Record<string, number | null> {
-  const mean = (xs: number[]) =>
-    xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
-  const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
-  const isExcludedSlug = (r: ScoredRow) =>
-    typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
-
-  const scored = rows.filter(
-    (r) => typeof r.score === 'number' && r.counts_toward_score !== false && !isManual(r) && !isExcludedSlug(r),
-  );
-  const manual = rows.filter((r) => typeof r.score === 'number' && isManual(r) && !isExcludedSlug(r));
-
-  const all = scored.map((r) => r.score as number);
-  const independent = scored.filter((r) => (r.cue_level ?? 0) === 0).map((r) => r.score as number);
-  const cued = scored.filter((r) => (r.cue_level ?? 0) > 0).map((r) => r.score as number);
-  const practice = [...all, ...manual.map((r) => r.score as number)];
-
-  const accuracy = mean(all);
-
-  return {
-    ...(accuracy != null ? { accuracy } : {}),
-    independent_accuracy: mean(independent),
-    cue_assisted_accuracy: mean(cued),
-    asr_accuracy: accuracy,
-    practice_accuracy: mean(practice),
-    scored_trials: all.length,
-    manual_confirmed_trials: manual.length,
-    participation_trials: all.length + manual.length,
-  };
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -171,11 +125,18 @@ Deno.serve(async (req) => {
     // being actively worked on, however long it has been open).
     const { data: events, error: eventsError } = await supabase
       .from('exercise_events')
-      .select('session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug, created_at')
+      .select('session_id, score, cue_level, counts_toward_score, validity_label, exercise_slug, task_parameters, engagement_flags, whisper_transcript, browser_transcript, created_at')
       .in('session_id', candidateIds);
 
     if (eventsError) {
+      // The trial query supplies BOTH summary accuracy and last activity.
+      // Never sweep patients with unknown activity or stamp null summaries
+      // as though their attempts were absent.
       console.error('[SessionSweeper] Error fetching exercise_events:', eventsError);
+      return new Response(
+        JSON.stringify({ error: 'Unable to verify recent session activity' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     const eventsBySession = new Map<string, ScoredRow[]>();
@@ -206,7 +167,7 @@ Deno.serve(async (req) => {
     let updateFailures = 0;
     for (const s of sessionsToSweep) {
       const existingSummary = (s.summary as Record<string, unknown> | null) ?? {};
-      const accFields = accuracySummaryFields(eventsBySession.get(s.id) ?? []);
+      const accFields = accuracySummaryToSummaryFields(reduceAccuracy(eventsBySession.get(s.id) ?? []));
       const mergedSummary = {
         ...existingSummary,
         ...accFields,

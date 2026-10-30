@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PatternMatchGame } from '@/components/PatternMatchGame';
 import { useAuth } from '@/hooks/useAuth';
-import { startSession, endSession } from '@/lib/sessionTracking';
+import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, SkipForward } from 'lucide-react';
@@ -20,7 +25,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
-import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
@@ -34,11 +39,18 @@ export default function PatternMatchExercise() {
   const { fromLesson, returnTo } = restored;
   const lessonSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionStartTime] = useState(Date.now());
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
-  // Guards handleGameStart so exactly one session is created per play start.
-  const sessionStartedRef = useRef(false);
+  const {
+    activeSessionId: sessionId, isCreatingSession, sessionError, retrySession,
+  } = useStandaloneSession(user?.id, lessonSessionId, 'pattern_match');
+  const scoreRef = useRef(0);
+  const trialsRef = useRef(0);
+  const trialIndexRef = useRef(0);
+  const sessionStartRef = useRef(Date.now());
+  const lessonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (lessonTimerRef.current !== null) clearTimeout(lessonTimerRef.current);
+  }, []);
 
   // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
   // difficulty emitted by PatternMatchGame and a rolling success rate derived
@@ -57,10 +69,12 @@ export default function PatternMatchExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
 
-  // Per-trial clinical telemetry (exercise_events). pattern-match was previously
-  // "dark" — its onTrialComplete only console.logged, so no per-trial rows were
-  // ever written. Wire the shared telemetry hook so each trial is persisted.
-  const { logTrial: logPatternTrial } = useExerciseTelemetry(sessionId, 'pattern-match');
+  // A named attempt ID and the unified clinical pipeline preserve retries,
+  // task accuracy and adaptation evidence without duplicate score rows.
+  const { submitTrial, commitSession, retryFailedSubmissions } = useTrialSubmission({
+    userId: user?.id, profileId: activeProfile?.id, sessionId,
+    exerciseSlug: 'pattern_match', progression: null,
+  });
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'pattern-match', domainSlug: 'executive_function', fromLesson });
   // Fetch clinical profile
@@ -129,63 +143,78 @@ export default function PatternMatchExercise() {
     navigate(returnTo, { state: { resuming: true } });
   };
 
-  const handleGameStart = async () => {
-    if (!user?.id) return;
-    // Idempotency guard: startSession is async, so the previous render-body
-    // call pattern could fire repeatedly before sessionId state settled,
-    // creating ~8 empty duplicate sessions in <1s. Latch on first invocation.
-    if (sessionStartedRef.current) return;
-    sessionStartedRef.current = true;
+  const getSessionStats = useCallback(() => ({
+    score: scoreRef.current,
+    totalTrials: trialsRef.current,
+    startTime: sessionStartRef.current,
+  }), []);
+  const { completeSession } = useSessionLifecycle({
+    sessionId, userId: user?.id, profileId: activeProfile?.id,
+    exerciseSlug: 'pattern_match', getSessionStats,
+  });
 
-    try {
-      if (fromLesson && lessonSessionId) {
-        setSessionId(lessonSessionId);
-      } else {
-        const session = await startSession(user.id, {
-          blocks: [{ exercise: 'pattern-match', duration: 8 }],
-        });
-        setSessionId(session.id);
-      }
-    } catch (error) {
-      // Allow a retry if session creation failed
-      sessionStartedRef.current = false;
-      console.error('Error starting pattern-match session:', error);
-    }
+  const onConfirmed = useCallback((finalScore: number) => {
+    if (!fromLesson) return;
+    lessonTimerRef.current = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'pattern_match', finalScore },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }, 400);
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<number>({
+    scope: user?.id && activeProfile?.id && sessionId
+      ? JSON.stringify([user.id, activeProfile.id, sessionId, 'pattern_match'])
+      : null,
+    commitSession,
+    completeSession,
+    retryFailedSubmissions,
+    onConfirmed,
+  });
+
+  const handleGameComplete = (finalScore: number) => {
+    void finish(finalScore);
   };
 
-  const handleGameComplete = async (finalScore: number) => {
-    if (!sessionId || !user?.id) return;
-    
-    const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const totalTrials = 10;
-    const accuracy = (finalScore / totalTrials) * 100;
-    
-    await endSession(sessionId, {
-      durationSec,
-      scores: { 'pattern-match': accuracy },
-      reps: totalTrials,
+  const handleTrialComplete = (data: {
+    correct: boolean;
+    difficultyLevel: number;
+    reactionTimeMs: number;
+    patternSize: number;
+  }) => {
+    if (!sessionId) return;
+    trialIndexRef.current++;
+    trialsRef.current++;
+    scoreRef.current += data.correct ? 100 : 0;
+    setCurrentChallenge(data.difficultyLevel);
+    setRecentResults(previous => [...previous, data.correct].slice(-5));
+    void submitTrial({
+      profileId: activeProfile?.id,
+      sessionId,
+      gameId: 'pattern_match',
+      level: data.difficultyLevel,
+      stimulusId: `pattern_trial_${trialIndexRef.current}`,
+      trialIndex: trialIndexRef.current,
+      isCorrect: data.correct,
+      accuracyScore: data.correct ? 1 : 0,
+      cueLevel: 0,
+      supportUsed: 'recognition_only',
+      latencyMs: data.reactionTimeMs,
+      trialMode: 'recognition',
+      errorType: data.correct ? undefined : 'pattern_mismatch',
+      taskParameters: {
+        unified_route_adaptation_log: true,
+        difficulty_level: data.difficultyLevel,
+        pattern_size: data.patternSize,
+        ...adaptationTelemetry,
+      },
     });
-    
-    toast({
-      title: 'Session saved!',
-      description: `You matched ${finalScore}/${totalTrials} patterns (${accuracy.toFixed(0)}% accuracy).`,
-    });
-    
-    if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      setTimeout(() => navigate('/today'), 2000);
-    }
   };
 
-  // Start session on mount (guarded so only one session is ever created)
-  useEffect(() => {
-    if (!sessionId && user?.id) {
-      handleGameStart();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  if (isCreatingSession || !sessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
@@ -209,6 +238,14 @@ export default function PatternMatchExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+        {saveState === 'saving' || saveState === 'error' ? (
+          <ExerciseSaveFeedback state={saveState} onRetry={() => void retry()} onExit={() => navigate('/today')} />
+        ) : saveState === 'complete' ? (
+          <div className="my-auto mx-auto w-full max-w-md space-y-5 px-4 text-center">
+            <h2 className="text-2xl font-bold">Practice saved</h2>
+            <Button size="lg" className="min-h-14 w-full text-lg" onClick={() => navigate('/today')}>Go to Today</Button>
+          </div>
+        ) : (
         <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-center space-y-4">
 
         {/* Capability Adaptation Banner */}
@@ -221,32 +258,18 @@ export default function PatternMatchExercise() {
 
         {/* Game */}
         <PatternMatchGame
+          key={JSON.stringify([user?.id, activeProfile?.id, sessionId])}
           totalTrials={10}
           initialDifficulty={config.startDifficulty || 3}
           bounds={bounds}
           slowMode={true}
           onGameComplete={handleGameComplete}
-          onTrialComplete={(data) => {
-            // UX1B presentation-only: mirror live difficulty + rolling success.
-            setCurrentChallenge(data.difficultyLevel);
-            setRecentResults((prev) => [...prev, data.correct].slice(-5));
-            void logPatternTrial({
-              correct: data.correct,
-              reactionTimeMs: data.reactionTimeMs,
-              cueLevel: 0,
-              errorType: data.correct ? undefined : 'pattern_mismatch',
-              taskParameters: {
-                difficulty_level: data.difficultyLevel,
-                pattern_size: data.patternSize,
-                trial_mode: 'recognition',
-                ...adaptationTelemetry,
-              },
-            });
-          }}
+          onTrialComplete={handleTrialComplete}
           userId={user?.id}
           sessionId={sessionId}
         />
         </div>
+        )}
       </main>
     </div>
   );

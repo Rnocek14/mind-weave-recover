@@ -59,3 +59,23 @@ describe('Conversation pronunciation uses the supported shared contract', () => 
     expect(next.phonemeAccuracy).toEqual([]);
   });
 });
+
+
+describe('Conversation analysis evidence provenance', () => {
+  it('does not label pre-word response latency or spoken fillers as measured silent pauses', async () => {
+    const { result } = renderHook(() => useConversationSpeechAnalysis(context));
+    let analysis!: Awaited<ReturnType<typeof result.current.analyzeUtterance>>;
+    await act(async () => {
+      analysis = await result.current.analyzeUtterance('the thing um', 4500, 3000);
+    });
+    expect(analysis.circumlocutionDetected).toBe(true);
+    expect(analysis.filledPauseCount).toBe(1);
+    expect(analysis.latencyToFirstWordMs).toBe(4500);
+    expect(analysis.errorPattern?.fluencyMetrics?.speechRateWpm).toBe(60);
+    // Without time-aligned pauses, neither a silent pause count nor its
+    // average duration is measured. A 4.5 s first-word latency is NOT a
+    // 4.5 s average inter-word pause, and an audible \"um\" is NOT silence.
+    expect(analysis.errorPattern?.fluencyMetrics?.pauseCount).toBeUndefined();
+    expect(analysis.errorPattern?.fluencyMetrics?.avgPauseDurationMs).toBeUndefined();
+  });
+});
