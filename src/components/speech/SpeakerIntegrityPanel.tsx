@@ -24,6 +24,8 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
   const [status, setStatus] = useState<EnrollmentStatus>('unavailable');
   const [enabled, setEnabled] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [pendingSample, setPendingSample] = useState<{ blob: Blob; durationMs: number } | null>(null);
+  const [pendingSampleUrl, setPendingSampleUrl] = useState<string | null>(null);
   const [samples, setSamples] = useState<SpeakerIntegrityCheck[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,6 +58,7 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
   useEffect(() => {
     setStatus('unavailable');
     setEnabled(false);
+    setPendingSample(null);
     setSamples([]);
     setPlayingCheck(null);
     setAudioUrl(null);
@@ -65,6 +68,18 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
       cancelRecording();
     };
   }, [load, cancelRecording]);
+
+  // The enrollment recording remains device-local until reviewed and
+  // explicitly submitted. Revoke the temporary URL on discard/profile change.
+  useEffect(() => {
+    if (!pendingSample) {
+      setPendingSampleUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pendingSample.blob);
+    setPendingSampleUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingSample]);
 
   useEffect(() => {
     if (!profileId || status !== 'pending') return;
@@ -105,25 +120,41 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
     if (!profileId || !isRecording || busy) return;
     if (autoStopRef.current) clearTimeout(autoStopRef.current);
     const result = await stopRecording();
-    if (!result) { setMessage('No sample captured.'); return; }
+    if (!result) {
+      setMessage('No sample captured.');
+      return;
+    }
+    if (result.duration < 5000 || result.duration > 30000) {
+      setPendingSample(null);
+      setMessage('The voice sample must be at least 5 and at most 30 seconds. Please try again.');
+      return;
+    }
+    // Do not send patient audio to a provider just because recording stopped.
+    setPendingSample({ blob: result.audioBlob, durationMs: result.duration });
+    setMessage('Listen to the recording and make sure only the patient is speaking before submission.');
+    startedAtRef.current = null;
+  };
+
+  const submitReviewedSample = async () => {
+    if (!profileId || busy || !consent || !pendingSample || isRecording) return;
     setBusy(true);
-    setMessage('Preparing voice enrollment…');
+    setMessage('Submitting the confirmed patient voice sample…');
     try {
-      await enrollSpeakerSample(profileId, result.audioBlob, result.duration, consent);
+      await enrollSpeakerSample(profileId, pendingSample.blob, pendingSample.durationMs, true);
+      setPendingSample(null);
       setStatus('pending');
       setMessage('Sample submitted. Speaker enrollment is pending.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not enroll voice.');
     } finally {
       setBusy(false);
-      startedAtRef.current = null;
     }
   };
 
   finishSampleRef.current = finishSample;
 
   const startSample = async () => {
-    if (!profileId || busy || !consent) return;
+    if (!profileId || busy || !consent || pendingSample) return;
     setMessage('');
     const ok = await startRecording();
     if (!ok) { setMessage('Microphone unavailable.'); return; }
@@ -215,15 +246,32 @@ export function SpeakerIntegrityPanel({ profileId }: Props) {
                 <Checkbox checked={consent} onCheckedChange={(value) => setConsent(value === true)} />
                 <span>I confirm consent or legal authorization for biometric voice analysis, and that the sample contains only this patient.</span>
               </label>
-              <Button
-                onClick={() => void (isRecording ? finishSample() : startSample())}
-                disabled={busy || (!isRecording && !consent)}
-                variant={isRecording ? 'destructive' : 'default'}
-              >
-                {isRecording ? <><Square className="mr-2 h-4 w-4" aria-hidden /> Stop voice sample</> :
-                  <><Mic className="mr-2 h-4 w-4" aria-hidden /> Record voice sample</>}
-              </Button>
-              {isRecording && <p role="status" className="text-sm">Recording only the patient's voice. Stop after 5–15 seconds.</p>}
+              {!pendingSample && (
+                <Button
+                  onClick={() => void (isRecording ? finishSample() : startSample())}
+                  disabled={busy || (!isRecording && !consent)}
+                  variant={isRecording ? 'destructive' : 'default'}
+                >
+                  {isRecording ? <><Square className="mr-2 h-4 w-4" aria-hidden /> Stop voice sample</> :
+                    <><Mic className="mr-2 h-4 w-4" aria-hidden /> Record voice sample</>}
+                </Button>
+              )}
+              {isRecording && <p role="status" className="text-sm">Record only the patient. Stop after 5–15 seconds.</p>}
+              {pendingSample && (
+                <div className="rounded-lg border p-3 space-y-3">
+                  <p className="text-sm font-medium">Review before sending the voice sample</p>
+                  <p className="text-xs text-muted-foreground">Play the entire clip. Does it contain only this patient's voice, without Maya, a caregiver, television, or another speaker?</p>
+                  {pendingSampleUrl && <audio controls src={pendingSampleUrl} className="w-full" aria-label="Review local enrollment voice sample" />}
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled={busy || !consent || !pendingSampleUrl} onClick={() => void submitReviewedSample()}>
+                      Confirm patient-only voice and enroll
+                    </Button>
+                    <Button variant="outline" disabled={busy} onClick={() => { setPendingSample(null); setMessage('Sample discarded. Record again when ready.'); }}>
+                      Discard and rerecord
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {status === 'pending' && <p role="status" className="text-sm">Voiceprint processing. Refresh if it does not complete automatically.</p>}
