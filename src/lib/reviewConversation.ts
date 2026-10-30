@@ -434,13 +434,19 @@ export function onUserUtterance(
   const trimmed = transcript.trim();
   if (!trimmed || !/[a-z]/i.test(trimmed)) return { state, mayaLine: "", events: [] };
 
-  // Reject duplicate recognition finals before interpreting a confirmation.
-  // Otherwise an ASR replay of a low-confidence word can silently count as
-  // a second, confirming patient utterance. Intentional word repetitions
-  // cannot be distinguished without a new audio-turn identifier; patients
-  // can explicitly say "yes" or use the large confirmation buttons instead.
+  // A person with aphasia may deliberately SAY THE SAME WORD AGAIN when Maya
+  // asks "Did I hear you right?". Never ban that genuine repair behavior.
+  // But a second low-confidence copy of the identical ASR final must not be
+  // treated as confirmation. The recognition hook also deduplicates identical
+  // final events; large Yes/No buttons remain available if speech is unclear.
   const isDuplicate = state.lastTranscript === trimmed.toLowerCase();
-  if (isDuplicate) return { state, mayaLine: "", events: [] };
+  const clearRepeatInRepair =
+    state.phase === "repair" &&
+    confidence !== null &&
+    confidence >= REPAIR_CONFIDENCE_THRESHOLD;
+  if (isDuplicate && !clearRepeatInRepair) {
+    return { state, mayaLine: "", events: [] };
+  }
   state.lastTranscript = trimmed.toLowerCase();
 
   if (state.phase === "repair") {
