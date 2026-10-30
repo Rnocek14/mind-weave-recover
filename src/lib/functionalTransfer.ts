@@ -121,13 +121,13 @@ export function containsFunctionalIntentCandidate(scriptId: FunctionalScriptId, 
   switch (scriptId) {
     case "need_help":
       if (/\b(don't|do not|no) (need|want) (any |your )?help\b/.test(text)) return false;
-      return /\b(help me|help please|i need help|some help|assistance|assist me|lend me a hand|give me a hand)\b/.test(text) ||
+      return /\b(help me|help please|need help|some help|assistance|assist me|lend me a hand|give me a hand)\b/.test(text) ||
         /\b(can|could|would|will) you (please )?(help|open|carry|lift|hold|move|fix)\b/.test(text) ||
         /\b(open|carry|lift|hold|move|fix) (it|this|that) (for me|please)\b/.test(text) ||
-        /^help[.! ]*$/.test(text);
+        /^help$/.test(text);
     case "im_thirsty":
       if (/\b(not thirsty|don't want (any )?(water|a drink)|no water)\b/.test(text)) return false;
-      return /\b(thirsty|water please|drink please|something to drink|some water|a glass of water|a drink|a juice|water for me|could i have water|can i have water)\b/.test(text);
+      return /^water$/.test(text) || /\b(thirsty|water please|drink please|something to drink|some water|a glass of water|a drink|a juice|water for me|could i have water|can i have water)\b/.test(text);
     case "need_more_time":
       if (/\b(don't wait|no need to wait|i have enough time)\b/.test(text)) return false;
       return /\b(more time|hold on|wait please|one moment|a moment please|give me a (second|minute|moment)|need (a|one) (second|minute|moment)|not yet|slow down|just a second|wait a minute)\b/.test(text);
