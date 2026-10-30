@@ -42,10 +42,37 @@ describe('verified speech evidence for conversation and open-ended completion', 
     const result = renderHook(() => useUtteranceLogger());
     const attemptId = begin(result);
     await act(async () => {
-      expect(await result.result.current.confirmFinalizedAttempts()).toBe(false);
+      expect(await result.result.current.confirmFinalizedAttempts({ waitMs: 0 })).toBe(false);
     });
     expect(writes.upsert).not.toHaveBeenCalled();
     expect(attemptId).toEqual(expect.any(String));
+  });
+
+  it('waits for the acknowledged last utterance instead of falsely reporting a save error', async () => {
+    const result = renderHook(() => useUtteranceLogger());
+    const attemptId = begin(result, 'photo_naming');
+    let release!: (data: { error: null }) => void;
+    writes.upsert.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    let saving!: Promise<{ status: string }>;
+    let verifying!: Promise<boolean>;
+    await act(async () => {
+      saving = result.result.current.logFinalAnalysis({
+        attemptId,
+        transcriptSource: 'browser',
+        responseMode: 'recognition',
+        countsTowardScore: false,
+        isCorrect: null,
+        transcript: '',
+      });
+      verifying = result.result.current.confirmFinalizedAttempts({ waitMs: 1500 });
+      await Promise.resolve();
+    });
+    await act(async () => {
+      release({ error: null });
+      expect((await saving).status).toBe('persisted');
+      expect(await verifying).toBe(true);
+    });
+    expect(writes.upsert).toHaveBeenCalledTimes(1);
   });
 
   it('retries a failed original utterance payload without a second clinical attempt ID', async () => {
