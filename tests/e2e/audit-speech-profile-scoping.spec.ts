@@ -89,7 +89,7 @@ test.describe('Clinical speech profile is restricted to the selected authorized 
     if (otherLoginError || !other.session) throw new Error('Second isolated patient account not available');
     try {
       const { data: otherProfile, error: otherProfileError } = await foreign
-        .from('profiles').select('id').eq('user_id', other.user.id)
+        .from('profiles').select('id').eq('user_id', other.session.user.id)
         .limit(1).single();
       expect(otherProfileError).toBeNull();
 
