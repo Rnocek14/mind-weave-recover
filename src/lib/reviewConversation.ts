@@ -287,7 +287,9 @@ export function detectPendingWord(
     if (item.status !== "pending") continue;
 
     if (utteranceContainsWord(transcript, item.word)) {
-      const lowConfidence = confidence !== null && confidence < REPAIR_CONFIDENCE_THRESHOLD;
+      // An unavailable confidence is not evidence of a reliable transcript.
+      // Confirm with the patient rather than silently crediting the word.
+      const lowConfidence = confidence === null || confidence < REPAIR_CONFIDENCE_THRESHOLD;
       return { itemIndex: i, needsRepair: lowConfidence };
     }
     for (const alt of alternatives) {
