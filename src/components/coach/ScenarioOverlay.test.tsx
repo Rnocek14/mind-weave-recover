@@ -56,6 +56,31 @@ describe("roleplay: one microphone turn = one conversation exchange", () => {
     unmount();
   });
 
+  it("cancels a delayed mic restart when the patient taps Close before TTS ends", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveSpeech!: () => void;
+      const settings = props({
+        onSpeak: vi.fn(() => new Promise<void>((resolve) => { resolveSpeech = resolve; })),
+      });
+      const { unmount } = render(<ScenarioOverlay {...settings} />);
+      fireEvent.click(screen.getByRole("button", { name: /i'm ready/i }));
+      expect(settings.onSpeak).toHaveBeenCalledTimes(1);
+
+      // Keep mounted intentionally: the parent route may not unmount
+      // synchronously after onClose, so cancellation cannot rely on cleanup.
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(settings.onClose).toHaveBeenCalledTimes(1);
+      expect(settings.onStopListening).toHaveBeenCalledTimes(1);
+      await act(async () => { resolveSpeech(); await Promise.resolve(); });
+      act(() => vi.runOnlyPendingTimers());
+      expect(settings.onStartListening).not.toHaveBeenCalled();
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not restart the microphone after the patient closes during TTS", async () => {
     vi.useFakeTimers();
     try {
