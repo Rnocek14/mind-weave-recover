@@ -60,7 +60,7 @@ function parseSegment(value: unknown): Segment | null {
     !(match === null || typeof match === 'string') ||
     !(diarizationSpeaker === undefined || diarizationSpeaker === null || typeof diarizationSpeaker === 'string')
   ) return null;
-  return { start, end, speaker, match, diarizationSpeaker: typeof diarizationSpeaker === 'string' ? diarizationSpeaker : null };
+  return { start, end, speaker, match: match as string | null, diarizationSpeaker: typeof diarizationSpeaker === 'string' ? diarizationSpeaker : null };
 }
 
 function confidenceForPatient(output: Record<string, unknown>, segments: readonly Segment[]): number | null {
