@@ -29,7 +29,7 @@ import { GeneralizationProbe } from "@/components/GeneralizationProbe";
 import { ConfidenceBoost } from "@/components/ConfidenceBoost";
 import { BreakPrompt } from "@/components/BreakPrompt";
 import { ClinicalProfile } from "@/lib/clinicalProfileMapper";
-import { classifyUtteranceValidity } from "@/lib/clinical/classifyUtteranceValidity";
+import { buildEmbeddedPhotoNamingEvidence } from "@/lib/clinical/embeddedPhotoNamingEvidence";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldRunProbe } from "@/data/probeWords";
 import type { ProbeResult } from "@/hooks/useGeneralizationProbe";
@@ -979,11 +979,14 @@ const Exercise = () => {
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
-                // Phase 1B — classify validity (incl. manual-confirm) BEFORE
-                // scoring so the lesson/targeted-practice flow stamps the same
-                // top-level validity columns + scoring axes as standalone.
-                const validity = classifyUtteranceValidity({
-                  transcript: result.whisperTranscript,
+                // Match the standalone path: the scored modality is the
+                // final answer, not an earlier microphone attempt. Tapped
+                // choices must stay valid recognition evidence without
+                // entering speech/ASR denominators.
+                const evidence = buildEmbeddedPhotoNamingEvidence({
+                  responseMode: result.responseMode,
+                  productionAttempted: result.productionAttempted,
+                  transcript: result.whisperTranscript || result.browserTranscript || null,
                   asrConfidence: result.whisperConfidence ?? null,
                   recordingDurationMs: result.recordingDurationMs ?? null,
                   acousticMetrics: result.acousticMetrics ?? null,
@@ -1007,17 +1010,15 @@ const Exercise = () => {
                   audioStoragePath: result.audioStoragePath,
                   audioMimeType: result.audioMimeType,
                   recordingDurationMs: result.recordingDurationMs,
-                  validity,
+                  validity: evidence.validity,
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
                     cue_level: result.cueLevel,
                     round: currentRound,
                     exercise_type: 'photo-naming',
-                    // Phase 1B — manual-confirmation provenance
-                    confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
-                    confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
-                    manual_confirmed: result.manualConfirmed ?? false,
-                    asr_verified: result.asrVerified ?? false,
+                    // Explicit clinical modality, confirmation and ASR
+                    // provenance (including a tap after attempted speech).
+                    ...evidence.taskParameters,
                     is_targeted_practice: !!lessonFocusWords?.length,
                     targeted_words: lessonFocusWords?.length ? lessonFocusWords : null,
                   },
