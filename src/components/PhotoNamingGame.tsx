@@ -1850,7 +1850,12 @@ export const PhotoNamingGame = ({
 
     // Feed the review-conversation queue (device-local): every practiced word
     // becomes a candidate for the post-session transfer chat.
-    recordPracticedWord(state.currentTrial.target, state.currentTrial.category, !isCorrectAnswer);
+    recordPracticedWord(state.currentTrial.target, state.currentTrial.category, !isCorrectAnswer, {
+      sessionId: activeSessionId,
+      sourceGame: "photo_naming",
+      // This contextual mode is NOT verification that speech was understood.
+      responseMode: inputMode === "production" ? "speech" : "selection",
+    });
 
     // Clinical Progression v1: buffer this trial's outcome for session-end flush.
     // Bug fix: a chip tap (inputMode='recognition') after an attempted spoken
