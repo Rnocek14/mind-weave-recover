@@ -310,7 +310,7 @@ export function ConversationCoachGame({
   // ═══════════════════════════════════════════════════════════════
   // SPEECH RECOGNITION — One mic, routed through the unified router
   // ═══════════════════════════════════════════════════════════════
-  const { isListening, transcript: liveTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
+  const { isListening, transcript: liveTranscript, resetTranscript, startListening, stopListening, isSupported, error: speechError } = useSpeechRecognition({
     onResult: (transcript) => {
       console.log('🎤 Received final transcript:', transcript);
       // Route through unified router — it reads inputModeRef to decide destination
@@ -1231,6 +1231,9 @@ export function ConversationCoachGame({
             onStartListening={() => {
               if (!scenarioActiveRef.current) return;
               setScenarioTranscript('');
+              // Clear ASR's per-turn dedupe so repeating the same short answer
+              // in a NEW scenario beat remains valid, without carrying stale text.
+              resetTranscript();
               // Atomically claim the mic BEFORE starting the recognizer.
               setInputMode('scenario_listening');
               startListening();
