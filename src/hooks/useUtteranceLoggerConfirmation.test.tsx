@@ -13,13 +13,16 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import { useUtteranceLogger } from './useUtteranceLogger';
 
-function begin(result: { result: { current: ReturnType<typeof useUtteranceLogger> } }) {
+function begin(
+  result: { result: { current: ReturnType<typeof useUtteranceLogger> } },
+  exerciseSlug = 'conversation_partner',
+) {
   let id!: string;
   act(() => {
     id = result.result.current.startAttempt({
       sessionId: 'synthetic-session',
       userId: 'synthetic-owner',
-      exerciseSlug: 'conversation_partner',
+      exerciseSlug,
       trialIndex: 1,
       attemptNumber: 1,
       targetWord: 'synthetic-prompt',
@@ -104,6 +107,53 @@ describe('verified speech evidence for conversation and open-ended completion', 
       });
       expect(writes.upsert).toHaveBeenCalledTimes(3);
     } finally { warn.mockRestore(); }
+  });
+
+  it('persists picture-choice provenance without fabricating spoken correctness', async () => {
+    const result = renderHook(() => useUtteranceLogger());
+    const attemptId = begin(result, 'photo_naming');
+    await act(async () => {
+      const saved = await result.result.current.logFinalAnalysis({
+        attemptId,
+        transcriptSource: 'browser',
+        transcript: undefined,
+        isCorrect: null,
+        responseMode: 'recognition',
+        countsTowardScore: false,
+      });
+      expect(saved.status).toBe('persisted');
+    });
+    expect(writes.upsert).toHaveBeenCalledTimes(1);
+    const payload = writes.upsert.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      attempt_id: attemptId,
+      exercise_slug: 'photo_naming',
+      is_correct: null,
+      counts_toward_score: false,
+      audio_meta: { responseMode: 'recognition' },
+    });
+    expect(payload.transcript).toBeNull();
+  });
+
+  it('keeps real measured speech eligible when the caller explicitly verified it', async () => {
+    const result = renderHook(() => useUtteranceLogger());
+    const attemptId = begin(result, 'photo_naming');
+    await act(async () => {
+      const saved = await result.result.current.logFinalAnalysis({
+        attemptId,
+        transcriptSource: 'browser',
+        transcript: 'apple',
+        isCorrect: true,
+        responseMode: 'production',
+        countsTowardScore: true,
+      });
+      expect(saved.status).toBe('persisted');
+    });
+    expect(writes.upsert.mock.calls[0][0]).toMatchObject({
+      is_correct: true,
+      counts_toward_score: true,
+      audio_meta: { responseMode: 'production' },
+    });
   });
 
   it('treats a session with no captured attempts as dose-only, never fabricated speech accuracy', async () => {
