@@ -2396,7 +2396,10 @@ export const PhotoNamingGame = ({
       }
     })();
     pendingAnalysesRef.current.add(analysisPromise);
-    void analysisPromise.finally(() => pendingAnalysesRef.current.delete(analysisPromise));
+    void analysisPromise.then(
+      () => { pendingAnalysesRef.current.delete(analysisPromise); },
+      () => { pendingAnalysesRef.current.delete(analysisPromise); },
+    );
   };
 
   answerHandlerRef.current = handleAnswerSelect;
