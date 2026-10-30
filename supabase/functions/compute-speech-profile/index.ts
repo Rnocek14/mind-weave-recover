@@ -125,6 +125,12 @@ serve(async (req) => {
       // and missing-ASR trials are not verified spoken production.
       .eq('counts_toward_score', true)
       .neq('transcript_source', 'manual')
+      // An attempted or partially recorded trial with no actual recognized
+      // words is NOT a measured spoken-language sample. Preserve the event
+      // elsewhere for participation/technical-error review, but never feed it
+      // into speech fluency, difficulty maps or patient recovery trends.
+      .not('transcript', 'is', null)
+      .neq('transcript', '')
       .order('created_at', { ascending: false });
 
     if (fetchError) {
