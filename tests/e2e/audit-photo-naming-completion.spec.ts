@@ -68,7 +68,9 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
 
     const trialCounter = page.getByText('Trial', { exact: true }).locator('..');
     await expect(trialCounter).toContainText(/^Trial\s*1\s*\/\s*\d+$/, { timeout: 20_000 });
-    const openingCounter = (await trialCounter.innerText()).replace(/\s+/g, ' ').trim();
+    // textContent is the same backing value Playwright's toContainText
+    // assertion checks. innerText may omit visually-hidden "Trial" labels.
+    const openingCounter = ((await trialCounter.textContent()) ?? '').replace(/\s+/g, ' ').trim();
     const totalTrials = Number(openingCounter.match(/Trial\s*1\s*\/\s*(\d+)/)?.[1]);
     expect(Number.isInteger(totalTrials)).toBe(true);
     expect(totalTrials).toBeGreaterThanOrEqual(3);
