@@ -2,23 +2,24 @@
  * Transfer Ledger — longitudinal memory for the transfer pipeline.
  *
  * Records every word-level event across days:
- *   practice   — produced in a drill (photo naming etc.)
+ *   practice   — target presented/practiced in a drill (not necessarily spoken)
  *   spontaneous / elicited / cued — produced in the review conversation
  *   released   — offered in conversation but didn't come
  *
  * From this history it derives the two things that didn't exist before:
  *
- *  1. CARRYOVER STATUS per word — is a practiced word actually surviving
- *     into conversation, or fading from use? (the per-word forgetting curve
- *     for real-world language, measured passively)
+ *  1. IN-APP REVIEW PRIORITY per word — was a target recognized in
+ *     the optional Maya conversation, or is it worth revisiting? This does
+ *     NOT measure actual everyday carryover or a validated forgetting curve.
  *
  *  2. CLOSED-LOOP SCHEDULING — fading words are fed back into the next
  *     review conversation even when they weren't practiced today. The
- *     re-practice signal is real-world usage decay, not quiz scores.
+ *     re-practice signal is past IN-APP review events, not observed real-life
+ *     language use or independently validated clinical outcomes.
  *
- * Device-local (localStorage) by design: this is the validation substrate
- * for the transfer metric. Promotion to server telemetry comes after the
- * metric earns trust (and, for minors, after the consent architecture).
+ * Device-local (localStorage) by design. Experimental review history may
+ * support product decisions, but must not be sent to clinician outcomes as
+ * proven generalization without independent validation and consent.
  * All computation is pure with injectable dates for testability.
  */
 
