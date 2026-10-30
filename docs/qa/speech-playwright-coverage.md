@@ -20,6 +20,11 @@ Tests currently include:
   persistence in exercise_events, native ASR, story scoring quality or mobile
   hardware.
 
+- **Category Fluency, Synonym Generator, Detective Mind:** controlled
+  Web Speech browser-event tests execute actual game components and their
+  answer callbacks, without pretending that these games capture a WAV.
+  These are browser-recognition tests, *not* native audio/ASR-quality tests.
+
 Other speech-enabled games **must not be described as having passed the
 Photo Naming-style browser mic test until their own selected Playwright
 journeys exist and execute**:
@@ -34,9 +39,9 @@ journeys exist and execute**:
 | Dual Load Naming | Naming audio + pronunciation | **NOT YET RUN** |
 | Conversation Partner | Spoken discourse + AI dialogue | **NOT YET RUN** |
 | Conversation Coach | Spoken discourse + AI coaching | **NOT YET RUN** |
-| Category Fluency | Browser recognition, no recorder | **NOT YET RUN** |
-| Synonym Generator | Browser recognition, no recorder | **NOT YET RUN** |
-| Detective Mind | Spoken selection, no recorder | **NOT YET RUN** |
+| Category Fluency | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
+| Synonym Generator | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
+| Detective Mind | Spoken selection, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
 | Sentence Construction | Spoken or tiles, no recorder | **NOT YET RUN** |
 | Minimal Pairs | Optional spoken echo after receptive choice | **NOT YET RUN** |
 

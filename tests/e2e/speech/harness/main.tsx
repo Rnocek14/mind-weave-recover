@@ -6,6 +6,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { DiscourseGameHarness, discourseGames, type DiscourseGameKey } from './discourseHarness';
+import { RecognitionGameHarness, recognitionGames, type RecognitionGameKey } from './recognitionHarness';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
@@ -119,6 +120,11 @@ createRoot(document.getElementById('root')!).render(
         const search = new URLSearchParams(location.search);
         const view = search.get('view');
         if (view === 'game') return <GameHarness />;
+        if (view === 'recognition') {
+          const game = search.get('game');
+          if (!recognitionGames.includes(game as RecognitionGameKey)) throw new Error('Unknown recognition game in QA harness');
+          return <RecognitionGameHarness game={game as RecognitionGameKey} />;
+        }
         if (view === 'discourse') {
           const game = search.get('game');
           if (!discourseGames.includes(game as DiscourseGameKey)) throw new Error('Unknown speech game in QA harness');
