@@ -43,7 +43,7 @@ test.describe('Hospital audit: actual exposed API rejects unauthorized clinical 
     expect(publicRoleRead.error, 'anon cannot enumerate user role membership').toBeTruthy();
   });
 
-  test('owner writes five synthetic evidence rows; a different user reads none through PostgREST', async ({
+  test('owner reads five clinical sources; server-only writes denied; another user sees no rows', async ({
     isolatedSession,
   }) => {
     const settings = isolatedSettings();
@@ -101,8 +101,20 @@ test.describe('Hospital audit: actual exposed API rejects unauthorized clinical 
 
     for (const entry of rows) {
       const result = await entry.create();
-      expect(result.error, `owner cannot save synthetic ${entry.table}`).toBeNull();
-      expect(result.data).toHaveLength(1);
+      if (['dose_logs', 'daily_readiness', 'physical_daily_metrics'].includes(entry.table)) {
+        // These are server-owned measurement tables: authenticated users
+        // deliberately lack INSERT privilege even if they own the profile.
+        // Our new clinician policy is SELECT-only and must not grant writes.
+        expect(result.error?.code, `non-service INSERT unexpectedly allowed into ${entry.table}`)
+          .toBe('42501');
+      } else {
+        expect(result.error, `owner cannot save synthetic ${entry.table}`).toBeNull();
+        expect(result.data).toHaveLength(1);
+      }
+      // Confirm that every source is readable to its owner through the API,
+      // regardless of whether raw measurement inserts are server-managed.
+      const ownerRead = await owner.from(entry.table).select('id').eq('profile_id', profileId);
+      expect(ownerRead.error, `owner cannot read ${entry.table}`).toBeNull();
     }
 
     const outsider = createClient<Database>(settings.supabaseURL, settings.publishableKey, {
