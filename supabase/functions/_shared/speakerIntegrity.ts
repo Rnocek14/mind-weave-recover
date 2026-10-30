@@ -72,7 +72,9 @@ function confidenceForPatient(output: Record<string, unknown>, segments: readonl
   const confidences: number[] = [];
   for (const candidate of output.voiceprints) {
     if (!isRecord(candidate) || typeof candidate.speaker !== 'string' || !matched.has(candidate.speaker)) continue;
-    if (!isRecord(candidate.confidence)) return null;
+    // The segment label and the enrolled voiceprint's own match must agree.
+    // Contradictory provider fields are not independent patient evidence.
+    if (candidate.match !== 'patient' || !isRecord(candidate.confidence)) return null;
     const value = candidate.confidence.patient;
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) return null;
     confidences.push(value);
