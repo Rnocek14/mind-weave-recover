@@ -720,7 +720,7 @@ const Exercise = () => {
         }}
         onEnd={() => {
           setShowRestPrompt(false);
-          setShowResult(true);
+          void finish(verifiedScoreRef.current);
         }}
       />
     );
