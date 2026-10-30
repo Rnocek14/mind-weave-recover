@@ -434,10 +434,13 @@ export function onUserUtterance(
   const trimmed = transcript.trim();
   if (!trimmed || !/[a-z]/i.test(trimmed)) return { state, mayaLine: "", events: [] };
 
-  // Duplicate-final guard: ASR sometimes re-finalizes the same text. Only a
-  // NON-MATCHING duplicate is ignored (repeating the target on purpose is
-  // fine — it matches and is handled below).
+  // Reject duplicate recognition finals before interpreting a confirmation.
+  // Otherwise an ASR replay of a low-confidence word can silently count as
+  // a second, confirming patient utterance. Intentional word repetitions
+  // cannot be distinguished without a new audio-turn identifier; patients
+  // can explicitly say "yes" or use the large confirmation buttons instead.
   const isDuplicate = state.lastTranscript === trimmed.toLowerCase();
+  if (isDuplicate) return { state, mayaLine: "", events: [] };
   state.lastTranscript = trimmed.toLowerCase();
 
   if (state.phase === "repair") {
@@ -453,11 +456,6 @@ export function onUserUtterance(
   }
 
   const detection = detectPendingWord(state, trimmed, alternatives, confidence);
-
-  if (!detection && isDuplicate) {
-    // Same non-matching text twice — don't burn a cue on an ASR hiccup.
-    return { state, mayaLine: "", events: [] };
-  }
 
   if (!detection && state.phase === "frame" && isBareAcknowledgment(trimmed)) {
     // "Yes." / "Fine." / "Dunno." — the guarded user. This is ENGAGEMENT in
@@ -559,19 +557,20 @@ function progressActiveItem(state: ReviewState): EngineTurn {
 }
 
 /**
- * After a cue, the patient repeating the word counts as CUED use (real
- * production, lowest transfer tier). The UI calls this when the active
- * word is detected right after a cue was given.
+ * The microphone was unavailable. A patient's self-report is meaningful
+ * participation, but not machine-verified word production or transfer.
+ * Advance without adding a scored event to the transfer ledger.
  */
-export function onCuedProduction(state: ReviewState): EngineTurn {
+export function onSelfReportedAttempt(state: ReviewState): EngineTurn {
   const idx = state.activeItem;
   if (state.phase !== "frame" || idx < 0 || state.items[idx].status !== "pending") {
     return { state, mayaLine: "", events: [] };
   }
   const item = state.items[idx];
-  item.status = "cued";
-  const praise = pickLine(CELEBRATE_ELICITED, state.usedLines);
-  return advanceToNextFrame(state, praise, [{ type: "cued_use", word: item.word }]);
+  item.status = "unverified";
+  return advanceToNextFrame(state, "Thanks for trying.", [
+    { type: "self_reported_attempt", word: item.word },
+  ]);
 }
 
 /** Yes/no answer to a repair question. */
