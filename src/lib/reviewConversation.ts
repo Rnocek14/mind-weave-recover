@@ -33,7 +33,7 @@ export interface ReviewItem {
   category: string;
   /** Whether the patient struggled with this word during practice. */
   struggled: boolean;
-  status: "pending" | "spontaneous" | "elicited" | "cued" | "released";
+  status: "pending" | "spontaneous" | "elicited" | "cued" | "released" | "unverified";
   attempts: number;
 }
 
@@ -82,6 +82,7 @@ export type ReviewEvent =
   | { type: "elicited_use"; word: string }
   | { type: "cued_use"; word: string }
   | { type: "item_released"; word: string }
+  | { type: "self_reported_attempt"; word: string }
   | { type: "repair_started"; word: string }
   | { type: "repair_confirmed"; word: string }
   | { type: "repair_rejected"; word: string }
@@ -92,6 +93,8 @@ export interface ReviewSummary {
   elicited: number;
   cued: number;
   released: number;
+  /** Self-reported attempts without verifiable speech; never count as produced words. */
+  unverified: number;
   total: number;
 }
 
@@ -117,31 +120,31 @@ const GREET_LINES = [
  */
 const FRAME_TEMPLATES: Record<string, string[]> = {
   food: [
-    "You said {word} really well earlier. Do you like {word}?",
-    "Earlier we saw a {word}. When did you last have {word}?",
+    "We practiced {word} earlier. Do you like {word}?",
+    "We saw {word} earlier. When did you last have {word}?",
   ],
   animals: [
-    "You named the {word} earlier. Do you like animals?",
+    "We practiced {word} earlier. Do you like animals?",
     "We saw a {word} today. Have you ever had a pet?",
   ],
   household: [
-    "You said {word} earlier. Is there a {word} in your home?",
+    "We practiced {word} earlier. Is there a {word} in your home?",
     "We practiced {word}. Where do you keep yours?",
   ],
   clothing: [
-    "You named {word} earlier. What do you like to wear?",
+    "We practiced {word} earlier. What do you like to wear?",
     "We practiced the word {word}. Do you have a favorite {word}?",
   ],
   nature: [
-    "You said {word} nicely today. Do you enjoy being outside?",
+    "We practiced {word} today. Do you enjoy being outside?",
     "We saw a {word} earlier. Do you like nature?",
   ],
   transportation: [
-    "You named the {word} earlier. How do you like to get around?",
+    "We practiced {word} earlier. How do you like to get around?",
     "We practiced {word}. Have you traveled anywhere lately?",
   ],
   generic: [
-    "You said {word} really well earlier. Tell me about a {word} you know.",
+    "We practiced {word} earlier. Tell me about a {word} you know.",
     "We practiced the word {word}. What comes to mind about {word}?",
   ],
 };
@@ -301,15 +304,23 @@ export function detectPendingWord(
 export function startReview(
   practiced: Array<{ word: string; category: string; struggled: boolean }>,
 ): EngineTurn {
-  // Struggled words first — they benefit most from conversational retrieval.
+  // Same word may arrive from today's practice and the carryover list.
+  // Deduplicate before limiting so patients never get the same item twice.
+  const seen = new Set<string>();
   const ordered = [...practiced].sort((a, b) => Number(b.struggled) - Number(a.struggled));
-  const items: ReviewItem[] = ordered.slice(0, MAX_REVIEW_ITEMS).map((p) => ({
-    word: p.word,
-    category: p.category,
-    struggled: p.struggled,
-    status: "pending",
-    attempts: 0,
-  }));
+  const items: ReviewItem[] = [];
+  for (const p of ordered) {
+    const word = p.word.trim().toLowerCase();
+    if (!word || !/[a-z]/i.test(word)) continue;
+    const key = stemWord(word);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({
+      word, category: p.category || "generic", struggled: p.struggled,
+      status: "pending", attempts: 0,
+    });
+    if (items.length >= MAX_REVIEW_ITEMS) break;
+  }
 
   const state: ReviewState = {
     items,
@@ -396,6 +407,7 @@ export function summarize(state: ReviewState): ReviewSummary {
     elicited: count("elicited"),
     cued: count("cued"),
     released: count("released"),
+    unverified: count("unverified"),
     total: state.items.length,
   };
 }
@@ -575,23 +587,22 @@ export function onRepairAnswer(state: ReviewState, confirmed: boolean): EngineTu
 
   if (confirmed) {
     const spontaneous = repairedIdx !== state.activeItem;
-    item.status = spontaneous ? "spontaneous" : "elicited";
+    const cued = !spontaneous && state.cueGivenForActive;
+    item.status = spontaneous ? "spontaneous" : cued ? "cued" : "elicited";
     const praise = pickLine(spontaneous ? CELEBRATE_SPONTANEOUS : CELEBRATE_ELICITED, state.usedLines);
     return advanceToNextFrame(state, praise, [
       { type: "repair_confirmed", word: item.word },
       spontaneous
         ? { type: "spontaneous_use", word: item.word }
-        : { type: "elicited_use", word: item.word },
+        : cued
+          ? { type: "cued_use", word: item.word }
+          : { type: "elicited_use", word: item.word },
     ]);
   }
 
-  // Rejected: not what they said. Continue the active frame without penalty.
-  return progressActiveItem(withEvents(state, [{ type: "repair_rejected", word: item.word }]));
-}
-
-// tiny helper so the rejected-repair event isn't lost
-function withEvents(state: ReviewState, _events: ReviewEvent[]): ReviewState {
-  return state;
+  // Rejected: not what they said. Keep the audit event while moving forward.
+  const turn = progressActiveItem(state);
+  return { ...turn, events: [{ type: "repair_rejected", word: item.word }, ...turn.events] };
 }
 
 /** Escape hatch: patient taps "new topic" — release the active item, move on. */
