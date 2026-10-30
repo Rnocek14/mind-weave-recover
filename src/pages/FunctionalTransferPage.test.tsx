@@ -51,6 +51,7 @@ describe("functional practice screen (mic unavailable)", () => {
   afterEach(() => {
     localStorage.clear();
     setDeviceScope(null);
+    vi.unstubAllGlobals();
   });
 
   it("shows no different-session or unscoped patient data", () => {
@@ -111,6 +112,28 @@ describe("functional practice screen (mic unavailable)", () => {
     expect(screen.getByText(/Conversation practice complete/i)).toBeTruthy();
     expect(screen.getByText(/1 possible responses matched before hints/i)).toBeTruthy();
     expect(screen.getByText(/1 responses not classified/i)).toBeTruthy();
+  });
+
+  it("lets the patient stop a hanging Maya TTS prompt without trapping the microphone", () => {
+    speechHarness.supported = true;
+    const cancel = vi.fn();
+    const speak = vi.fn(); // The synthetic voice never calls onend/onerror.
+    vi.stubGlobal("speechSynthesis", { cancel, speak });
+    vi.stubGlobal("SpeechSynthesisUtterance", class {
+      rate = 1;
+      onend: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(public text: string) {}
+    });
+
+    recordPresentedFunctionalScript("need_help", "session-here");
+    show("/functional-transfer?lesson=session-here");
+    fireEvent.click(screen.getByRole("button", { name: /^Start$/ }));
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /^Speak$/ })).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByRole("button", { name: /Stop Maya's voice/i }));
+    expect(cancel).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /^Speak$/ })).toHaveProperty("disabled", false);
   });
 
 });
