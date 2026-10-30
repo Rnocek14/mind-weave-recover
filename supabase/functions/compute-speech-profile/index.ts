@@ -70,7 +70,21 @@ serve(async (req) => {
       profile_id = activeProfile.id;
     }
 
-    console.log(`Using profile_id: ${profile_id}`);
+    // This endpoint uses a service-role client. A supplied profile_id must
+    // belong to the authenticated subject, or privileged writes could scope
+    // another person's recordings into their report. Return the same response
+    // for missing and foreign IDs to avoid patient enumeration.
+    const { data: verifiedProfile, error: verifiedProfileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', profile_id)
+      .eq('user_id', user_id)
+      .maybeSingle();
+    if (verifiedProfileError || !verifiedProfile) {
+      return jsonResponse({ error: 'Requested clinical profile unavailable' }, 403);
+    }
+
+    console.log('Computing a patient-scoped speech profile');
 
     // First, check if speech profile exists and if we have enough new trials to justify recompute
     const { data: existingProfile, error: profileError } = await supabase
@@ -106,6 +120,11 @@ serve(async (req) => {
         gop_data
       `)
       .eq('user_id', user_id)
+      .eq('profile_id', profile_id)
+      // Recognition selections, clinician-entered approximations, noise,
+      // and missing-ASR trials are not verified spoken production.
+      .eq('counts_toward_score', true)
+      .neq('transcript_source', 'manual')
       .order('created_at', { ascending: false });
 
     if (fetchError) {
