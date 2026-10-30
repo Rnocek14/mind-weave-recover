@@ -7,6 +7,9 @@ import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
+import { KidsModeProvider } from '@/contexts/KidsModeContext';
+import { recordPracticedWord } from '@/lib/reviewQueue';
+import ReviewChatPage from '@/pages/ReviewChatPage';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
 import { voiceController } from '@/lib/voiceController';
 import '@/index.css';
@@ -110,11 +113,33 @@ export function GameHarness() {
   </main>;
 }
 
+/**
+ * Real post-practice review component, seeded through its production word
+ * queue. Browser tests run with a controlled microphone boundary and no DB.
+ */
+export function ReviewHarness() {
+  const [seeded, setSeeded] = useState(false);
+  return <main>
+    <h1 className="sr-only">Review chat regression harness</h1>
+    {!seeded ? (
+      <button onClick={() => {
+        recordPracticedWord('apple', 'food', true);
+        recordPracticedWord('cup', 'household', false);
+        setSeeded(true);
+      }}>Seed practice</button>
+    ) : <ReviewChatPage />}
+  </main>;
+}
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById('root')!).render(
   <MemoryRouter><QueryClientProvider client={client}><ProfileContext.Provider value={profile}>
-    <CoachingModeProvider><LiveAnalysisProvider>
-      {new URLSearchParams(location.search).get('view') === 'game' ? <GameHarness /> : <RecorderHarness />}
-    </LiveAnalysisProvider></CoachingModeProvider>
+    <CoachingModeProvider><KidsModeProvider><LiveAnalysisProvider>
+      {new URLSearchParams(location.search).get('view') === 'review'
+        ? <ReviewHarness />
+        : new URLSearchParams(location.search).get('view') === 'game'
+        ? <GameHarness />
+        : <RecorderHarness />}
+    </LiveAnalysisProvider></KidsModeProvider></CoachingModeProvider>
   </ProfileContext.Provider></QueryClientProvider></MemoryRouter>,
 );
