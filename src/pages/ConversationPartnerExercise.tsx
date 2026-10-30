@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +8,9 @@ import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
+import { useVerifiedExerciseCompletion } from '@/hooks/useVerifiedExerciseCompletion';
+import { ExerciseSaveFeedback } from '@/components/exercise/ExerciseSaveFeedback';
+import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
@@ -36,10 +39,18 @@ export default function ConversationPartnerExercise() {
   const providedSessionId = restored.sessionId;
   const lessonAdaptations = restored.adaptations;
   const exerciseCompleteSentRef = useRef(false);
+  const verifierRef = useRef<(() => Promise<boolean>) | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const registerEvidenceVerifier = useCallback((verify: () => Promise<boolean>) => {
+    verifierRef.current = verify;
+  }, []);
+  useEffect(() => () => {
+    if (completionTimeoutRef.current !== null) clearTimeout(completionTimeoutRef.current);
+  }, []);
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: 'conversation-partner', domainSlug: 'discourse_organization', fromLesson });
 
-  const { activeSessionId, isCreatingSession } = useStandaloneSession(
+  const { activeSessionId, isCreatingSession, sessionError, retrySession } = useStandaloneSession(
     user?.id,
     providedSessionId,
     'conversation-partner'
@@ -97,43 +108,59 @@ export default function ConversationPartnerExercise() {
     setGameStarted(true);
   };
 
-  const handleComplete = (summary: SessionSummary) => {
-    setSessionSummary(summary);
-    turnsRef.current = summary.turnsCompleted;
-    void completeSession();
+  const commitSpeechEvidence = useCallback(async () => ({
+    ok: verifierRef.current ? await verifierRef.current() : false,
+  }), []);
+  const retrySpeechEvidence = useCallback(async () => ({ ok: true }), []);
 
-    // Auto-return to lesson flow
+  const onConfirmed = useCallback((summary: SessionSummary) => {
+    setSessionSummary(summary);
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
-      setTimeout(() => {
+      completionTimeoutRef.current = setTimeout(() => {
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-partner', results: summary },
         }));
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
+  }, [fromLesson, navigate, returnTo]);
+
+  const { saveState, finish, retry } = useVerifiedExerciseCompletion<SessionSummary>({
+    scope: user?.id && activeProfile?.id && activeSessionId
+      ? JSON.stringify([user.id, activeProfile.id, activeSessionId, 'conversation_partner'])
+      : null,
+    commitSession: commitSpeechEvidence,
+    completeSession,
+    retryFailedSubmissions: retrySpeechEvidence,
+    onConfirmed,
+  });
+
+  const handleComplete = (summary: SessionSummary) => {
+    turnsRef.current = summary.turnsCompleted;
+    void finish(summary);
   };
 
   const handleExit = () => {
     navigate(fromLesson ? returnTo : '/dashboard');
   };
 
-  const handleContinue = () => {
-    if (fromLesson && !exerciseCompleteSentRef.current) {
-      exerciseCompleteSentRef.current = true;
-      window.dispatchEvent(new CustomEvent('exercise-complete', {
-        detail: { exerciseSlug: 'conversation-partner' },
-      }));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      navigate('/today');
-    }
-  };
+  const handleContinue = () => navigate('/today');
 
-  const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
-  };
+  // A fresh conversation must acquire a new session, not reuse a closed one.
+  const handlePlayAgain = () => navigate('/today');
+
+  if (isCreatingSession || !activeSessionId) {
+    return <ExerciseLoading error={sessionError} onRetry={sessionError ? retrySession : undefined} />;
+  }
+
+  if (saveState === 'saving' || saveState === 'error') {
+    return <ExerciseSaveFeedback
+      state={saveState}
+      onRetry={() => void retry()}
+      onExit={() => navigate('/today')}
+    />;
+  }
 
   // Summary screen
   if (sessionSummary) {
@@ -287,6 +314,8 @@ export default function ConversationPartnerExercise() {
       <main className="flex-1 p-4 flex flex-col overflow-y-auto pb-16">
         <div className="max-w-md mx-auto">
           <ConversationPartnerGame
+            key={JSON.stringify([user.id, activeProfile?.id, activeSessionId])}
+            registerEvidenceVerifier={registerEvidenceVerifier}
             userId={user.id}
             profileId={activeProfile?.id || ''}
             sessionId={activeSessionId}
