@@ -131,7 +131,7 @@ interface UtteranceLoggerReturn {
   captureAttempt: () => CapturedAttempt;
   resetAttempt: () => void;
   /** All captured attempts were acknowledged, including idempotent retries. */
-  confirmFinalizedAttempts: () => Promise<boolean>;
+  confirmFinalizedAttempts: (options?: { waitMs?: number }) => Promise<boolean>;
 }
 
 function measuredNumber(value: unknown): number | null {
@@ -339,18 +339,38 @@ export const useUtteranceLogger = (): UtteranceLoggerReturn => {
   // Saving a session summary must never be treated as confirmation that its
   // speech evidence also saved. Re-use the original immutable payload on a
   // retry; never guess a transcript or reclassify an open attempt.
-  const confirmFinalizedAttempts = useCallback(async (): Promise<boolean> => {
-    const pending = [...attemptsRef.current.entries()];
-    if (!pending.length) return true; // Zero attempted turns: session/dose only.
-    for (const [attemptId, record] of pending) {
-      if (record.state === 'failed' && record.payload) {
-        const retry = await logFinalAnalysis({ attemptId, transcriptSource: 'browser' });
-        if (retry.status !== 'persisted') return false;
+  const confirmFinalizedAttempts = useCallback(async (
+    options?: { waitMs?: number },
+  ): Promise<boolean> => {
+    // Photo Naming's final spoken/recorded answer may still be undergoing
+    // asynchronous ASR/upload when the last game animation ends. Waiting a
+    // bounded interval on the existing records is normal save progress, not a
+    // patient-visible failure requiring troubleshooting. A true failed write
+    // is retried with its ORIGINAL payload, never an invented transcript.
+    const requestedWait = options?.waitMs ?? 8000;
+    const waitMs = Number.isFinite(requestedWait)
+      ? Math.min(15000, Math.max(0, requestedWait)) : 0;
+    const deadline = Date.now() + waitMs;
+    while (mountedRef.current) {
+      const captured = [...attemptsRef.current.entries()];
+      if (!captured.length) return true; // No attempt: do not invent speech.
+      let incomplete = false;
+      for (const [attemptId, record] of captured) {
+        if (record.state === 'failed') {
+          if (!record.payload) return false;
+          const retry = await logFinalAnalysis({ attemptId, transcriptSource: 'browser' });
+          if (retry.status !== 'persisted') return false;
+        }
+        if (record.state !== 'persisted') incomplete = true;
       }
-      // Open and in-flight records must not be declared clinically saved.
-      if (record.state !== 'persisted') return false;
+      if (!incomplete) return true;
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) return false;
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, Math.min(150, remainingMs));
+      });
     }
-    return true;
+    return false;
   }, [logFinalAnalysis]);
 
   const resetAttempt = useCallback((): void => {
