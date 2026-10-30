@@ -20,6 +20,7 @@ const ENTRY_ROUTES: Array<{ path: string; requiresAuth: boolean }> = [
   { path: '/games', requiresAuth: false },
   { path: '/games/photo-naming/about', requiresAuth: false },
   { path: '/exercise/photo-naming', requiresAuth: true },
+  { path: '/functional-transfer?lesson=synthetic-session', requiresAuth: true },
 ];
 
 test.describe('Exercise entry routes render', () => {

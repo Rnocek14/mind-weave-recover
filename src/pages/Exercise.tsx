@@ -36,6 +36,7 @@ import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useActiveProfileId } from "@/hooks/useActiveProfileId";
+import { getPresentedFunctionalScripts } from "@/lib/scriptPracticeQueue";
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -704,6 +705,21 @@ const Exercise = () => {
                 <RotateCcw className="w-5 h-5 mr-2" />
                 Try Again
               </Button>
+              {exerciseId === "word-practice" && sessionId &&
+                getPresentedFunctionalScripts(sessionId).length > 0 && (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full min-h-14 text-base"
+                  onClick={() => navigate(
+                    `/functional-transfer?lesson=${encodeURIComponent(sessionId)}`,
+                    { state: { sessionId } },
+                  )}
+                >
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  Practice a real-life conversation with Maya
+                </Button>
+              )}
               <ExerciseBackButton 
                 defaultTo="/dashboard"
                 className="w-full"

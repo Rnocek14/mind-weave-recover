@@ -27,6 +27,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
+import { recordPresentedFunctionalScript } from '@/lib/scriptPracticeQueue';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -304,6 +305,14 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   }, [initialDifficulty, totalTrials, user]);
 
   const currentTrial = trials[currentTrialIndex] || null;
+
+  // Experimental device-only handoff: a phrase was PRESENTED, not verified
+  // spoken or mastered. Never touches the clinical scorer or adaptation.
+  useEffect(() => {
+    if (currentTrial?.id && activeSessionId) {
+      recordPresentedFunctionalScript(currentTrial.id, activeSessionId);
+    }
+  }, [currentTrial?.id, activeSessionId]);
 
   useEffect(() => {
     currentAttemptIdRef.current = currentAttemptId;
