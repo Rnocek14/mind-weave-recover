@@ -9,6 +9,7 @@ import { DiscourseGameHarness, discourseGames, type DiscourseGameKey } from './d
 import { RecognitionGameHarness, recognitionGames, type RecognitionGameKey } from './recognitionHarness';
 import { LexicalGameHarness, lexicalGames, type LexicalGameKey } from './lexicalHarness';
 import { PhraseSentenceHarness, phraseSentenceGames, type PhraseSentenceGameKey } from './phraseSentenceHarness';
+import { MoreSpeechHarness, moreSpeechGames, type MoreSpeechGameKey } from './moreSpeechHarness';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisContext';
@@ -122,6 +123,11 @@ createRoot(document.getElementById('root')!).render(
         const search = new URLSearchParams(location.search);
         const view = search.get('view');
         if (view === 'game') return <GameHarness />;
+        if (view === 'more-speech') {
+          const game = search.get('game');
+          if (!moreSpeechGames.includes(game as MoreSpeechGameKey)) throw new Error('Unknown additional speech game');
+          return <MoreSpeechHarness game={game as MoreSpeechGameKey} />;
+        }
         if (view === 'phrase-sentence') {
           const game = search.get('game');
           if (!phraseSentenceGames.includes(game as PhraseSentenceGameKey)) throw new Error('Unknown phrase/sentence speech game');

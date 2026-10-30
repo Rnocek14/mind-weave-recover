@@ -43,13 +43,13 @@ journeys exist and execute**:
 | Fix the Sentence | Spoken or typed, pronunciation | **NEW spoken-response Playwright test (pending exact-SHA CI); tile/typing parity pending** |
 | Thought Continuation | Discourse recording | **NOT YET RUN** |
 | Dual Load Naming | Naming audio + pronunciation | **NEW Playwright test (pending exact-SHA CI)** |
-| Conversation Partner | Spoken discourse + AI dialogue | **NOT YET RUN** |
+| Conversation Partner | Spoken discourse + AI dialogue | **NEW press-to-talk Playwright (pending CI)** |
 | Conversation Coach | Spoken discourse + AI coaching | **NOT YET RUN** |
 | Category Fluency | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
 | Synonym Generator | Browser recognition, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
 | Detective Mind | Spoken selection, no recorder | **NEW Playwright test (pending exact-SHA CI)** |
-| Sentence Construction | Spoken or tiles, no recorder | **NOT YET RUN** |
-| Minimal Pairs | Optional spoken echo after receptive choice | **NOT YET RUN** |
+| Sentence Construction | Spoken or tiles, no recorder | **NEW voice and non-spoken tile Playwright (pending CI); persisted mode validation remains open** |
+| Minimal Pairs | Optional spoken echo after receptive choice | **NEW echo Playwright (pending CI), explicitly not ASR-scored** |
 
 **Release gate:** These missing cases remain hospital-readiness blockers. Add
 representative valid speech, disfluency, silence, noise, mic-denied, pause/stop,

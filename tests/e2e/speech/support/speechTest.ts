@@ -10,6 +10,8 @@ export interface MockTransport {
   pronunciationRequests: JsonObject[];
   uploads: Array<{ path: string; bytes: number; contentType: string }>;
   utterances: JsonObject[];
+  eventWrites: JsonObject[];
+  ttsRequests: JsonObject[];
   speechResponse: JsonObject;
   pronunciationResponse: JsonObject;
   holdSpeech: boolean;
@@ -47,6 +49,7 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
     const unexpected: string[] = [];
     const transport: MockTransport = {
       speechRequests: [], pronunciationRequests: [], uploads: [], utterances: [],
+      eventWrites: [], ttsRequests: [],
       speechResponse: structuredClone(knownSpeech), pronunciationResponse: structuredClone(knownPronunciation),
       holdSpeech: false, holdPronunciation: false, pendingSpeech: [], pendingPronunciation: [],
       uploadStatus: 200,
@@ -65,10 +68,25 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
       }
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204 });
       if (url.pathname === '/functions/v1/text-to-speech-stream' && request.method() === 'POST') {
+        transport.ttsRequests.push(request.postDataJSON() as JsonObject);
         // The game must wait for its spoken instruction before opening the
         // microphone. Disable remote/vendor TTS in this isolated harness;
         // the app's real browser-speech fallback remains in the execution path.
         return fulfillJson(route, { fallback: true, error: 'Synthetic test: use browser TTS' });
+      }
+      if (url.pathname === '/functions/v1/score-discourse-turn' && request.method() === 'POST') {
+        return fulfillJson(route, {
+          successScore: 0.8, onTopicScore: 0.85, targetAchievementScore: 0.8,
+          responseQualityScore: 0.82, confidence: 0.83, errorType: 'fluent_correct',
+          recommendedAdaptation: 'hold', reasoning: 'Synthetic test fixture',
+          source: 'llm', model: 'synthetic-playwright',
+        });
+      }
+      if (url.pathname === '/functions/v1/conversation-partner' && request.method() === 'POST') {
+        return fulfillJson(route, { fallbackType: 'tell_more' });
+      }
+      if (url.pathname === '/functions/v1/conversation-coach-ai' && request.method() === 'POST') {
+        return fulfillJson(route, { response: 'Tell me a little more about that.', text: 'Tell me a little more about that.' });
       }
       if (url.pathname === '/functions/v1/analyze-speech') {
         const body = request.postDataJSON() as JsonObject;
@@ -92,7 +110,8 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
       const table = url.pathname.replace('/rest/v1/', '');
       if (url.pathname.startsWith('/rest/v1/')) {
         if (request.method() === 'GET') {
-          if (table === 'user_roles') return fulfillJson(route, []);
+          if (['clinician_overrides','user_roles'].includes(table)) return fulfillJson(route, []);
+
           // Category and Synonym games may read the optional UI profile.
           // The QA context deliberately has no profile or persisted settings.
           if (table === 'user_ui_profile') return fulfillJson(route, request.headers().accept?.includes('object') ? null : []);
@@ -101,6 +120,12 @@ export const test = base.extend<{ transport: MockTransport; browserControls: voi
           }
         }
         if (['POST', 'PATCH'].includes(request.method())) {
+          if (table === 'exercise_events') {
+            const payload = request.postDataJSON() as JsonObject | JsonObject[];
+            transport.eventWrites.push(...(Array.isArray(payload) ? payload : [payload]));
+            return fulfillJson(route, null);
+          }
+          if (table === 'thought_decision_logs') return fulfillJson(route, null);
           if (table === 'utterance_analyses') {
             const payload = request.postDataJSON() as JsonObject | JsonObject[];
             transport.utterances.push(...(Array.isArray(payload) ? payload : [payload]));
