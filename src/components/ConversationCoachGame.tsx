@@ -1149,23 +1149,13 @@ export function ConversationCoachGame({
           <ScenarioOverlay
             scenario={scenarioDef}
             onClose={() => setActiveScenarioId(null)}
-            onComplete={(score) => {
-              // Return-to-chat: scenario-specific warm summary
-              const scenarioName = scenarioDef.title.toLowerCase();
-              const readinessLine = score.overall >= 70
-                ? `Your real-world readiness is at ${score.overall}% — you're getting there.`
-                : score.overall >= 40
-                ? `Real-world readiness: ${score.overall}%. Every practice counts.`
-                : `You showed up and tried — that's what matters. Readiness: ${score.overall}%.`;
-              
-              const mayaReturn = [
-                score.emotionalFeedback,
-                `You practiced ${scenarioName} — and that takes courage.`,
-                readinessLine,
-                '',
-                `💡 ${score.nextImprovement}`,
-              ].join('\n');
-
+            onComplete={() => {
+              // Return to chat without laundering an experimental keyword/
+              // word-count heuristic into clinical or real-life readiness.
+              // This roleplay is practice, not a validated transfer test.
+              const mayaReturn =
+                `We practiced ${scenarioDef.title.toLowerCase()} together. ` +
+                "You can try another situation or finish for today.";
               addMessage({
                 type: 'ai',
                 text: mayaReturn,
