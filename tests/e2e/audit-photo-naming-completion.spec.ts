@@ -115,6 +115,14 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
       expect(params?.asr_verified).toBe(false);
     }
     const id = saved[0].session_id!;
+    const readSpeechEvidence = async () => {
+      const { data, error } = await client.from('utterance_analyses')
+        .select('attempt_id, is_correct, counts_toward_score, audio_meta, transcript_source')
+        .eq('session_id', id)
+        .order('trial_index');
+      if (error) throw new Error('Photo Naming original utterance read failed: ' + error.message);
+      return data ?? [];
+    };
 
     const readSession = async () => {
       const { data, error } = await client.from('sessions')
@@ -143,6 +151,17 @@ test.describe('Photo Naming final session: no false success or duplicate attempt
     await expect.poll(async () => (await readSession()).ended_at, { timeout: 25_000 }).not.toBeNull();
     const final = await readSession();
     expect(final.ended_reason).toBe('completed');
+    // The child game must not close the session until its separate
+    // utterance_analyses writer acknowledges ALL original attempt IDs.
+    const speechRows = await readSpeechEvidence();
+    expect(speechRows).toHaveLength(totalTrials);
+    expect(new Set(speechRows.map(row => row.attempt_id)).size).toBe(totalTrials);
+    for (const row of speechRows) {
+      expect(row.is_correct).toBeNull();
+      expect(row.counts_toward_score).toBe(false);
+      expect((row.audio_meta as Record<string, unknown> | null)?.responseMode)
+        .toBe('recognition');
+    }
     expect(final.summary).toMatchObject({
       scored_trials: totalTrials,
       participation_trials: totalTrials,
