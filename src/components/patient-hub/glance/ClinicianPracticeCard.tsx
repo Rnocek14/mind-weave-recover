@@ -29,7 +29,6 @@ export function ClinicianPracticeCard({
   timeline,
   trialCount,
   sessionCount,
-  prescribedDaysPerWeek = 5,
   streak,
 }: ClinicianPracticeCardProps) {
   const last7 = timeline.slice(-7);
@@ -39,17 +38,9 @@ export function ClinicianPracticeCard({
     [last7]
   );
 
-  const adherencePct = Math.min(100, Math.round((activeDays / prescribedDaysPerWeek) * 100));
-  const adherenceColor =
-    adherencePct >= 100
-      ? "text-emerald-600"
-      : adherencePct >= 60
-      ? "text-amber-600"
-      : "text-destructive";
-
   const dots = useMemo(() => {
     return last7.map((d, i) => {
-      const date = new Date(d.date);
+      const date = new Date(d.date.slice(0, 10) + "T12:00:00");
       const isToday = i === last7.length - 1;
       return {
         label: ["S", "M", "T", "W", "T", "F", "S"][date.getDay()],
@@ -60,18 +51,18 @@ export function ClinicianPracticeCard({
   }, [last7]);
 
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between mb-3">
+    <Card className="p-4 sm:p-5 min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
         <div>
           <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-            Practice · Dose
+            Practice · Last 7 days
           </div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-2">
             <div className="text-2xl font-bold text-foreground leading-tight">
-              {activeDays}/{prescribedDaysPerWeek}
+              {activeDays}/7
             </div>
-            <span className={`text-sm font-semibold ${adherenceColor}`}>
-              {adherencePct}% adherence
+            <span className="text-sm text-muted-foreground">
+              days with recorded activity
             </span>
           </div>
         </div>
@@ -115,9 +106,12 @@ export function ClinicianPracticeCard({
         </div>
         <div>
           <div className="text-base font-bold text-foreground">{Math.round(minutes)}</div>
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Minutes</div>
+          <div className="text-xs text-muted-foreground">Minutes (7d)</div>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+        Recorded practice days are not a prescribed therapy-dose target. No adherence target is configured in this card.
+      </p>
     </Card>
   );
 }
