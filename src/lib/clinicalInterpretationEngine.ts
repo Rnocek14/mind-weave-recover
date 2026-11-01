@@ -175,7 +175,7 @@ function generateHeadline(
 // ── Evidence Paragraph ───────────────────────────────────────────────
 
 function generateEvidence(
-  state: PatientWeekState,
+  _state: PatientWeekState,
   inputs: InterpretationInputs
 ): string {
   const { current, prior, hasPriorData } = inputs;
