@@ -100,7 +100,7 @@ describe('sparse speech-practice trends', () => {
     expect(summarizeRecentPracticeAccuracy([])).toEqual({ accuracyPct: null, eligible: 0, activeDays: 0 });
   });
 
-  it('uses the user's local calendar day, not the UTC date substring', () => {
+  it("uses the user's local calendar day, not the UTC date substring", () => {
     const local = new Date(2026, 9, 31, 22);
     expect(localDateKey(local)).toBe('2026-10-31');
     expect(buildDailyPracticeAccuracy([
