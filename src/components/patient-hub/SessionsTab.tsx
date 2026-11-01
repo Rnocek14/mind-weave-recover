@@ -81,7 +81,7 @@ interface SessionMeta {
   adaptationCount: number;
 }
 
-export function SessionsTab({ userId, profileId, windowSize, timeline }: SessionsTabProps) {
+export function SessionsTab({ userId, profileId, windowSize }: SessionsTabProps) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionMeta, setSessionMeta] = useState<Map<string, SessionMeta>>(new Map());
   const [loading, setLoading] = useState(true);
