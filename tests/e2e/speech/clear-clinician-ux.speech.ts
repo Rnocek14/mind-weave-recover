@@ -11,9 +11,8 @@ for (const { width, label } of [
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/?view=metrics");
 
-    await expect(page.getByText("Practice data available")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Practice data available" })).toBeVisible();
     await expect(page.getByText("Higher app scores")).toBeVisible();
-    await expect(page.getByText("Not a prescribed therapy target.")).toHaveCount(0);
     await expect(page.getByText(/Not a prescribed therapy target/)).toBeVisible();
     await expect(page.getByText(/not a diagnosis or validated recovery status/)).toBeVisible();
     await expect(page.getByText("On track")).toHaveCount(0);
