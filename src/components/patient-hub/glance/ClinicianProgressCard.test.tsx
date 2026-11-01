@@ -53,7 +53,7 @@ describe('ClinicianProgressCard patient-scoped and honest evidence', () => {
     expect(sessions?.eq).toHaveBeenCalledWith('profile_id', 'opened-patient');
     expect(speech?.eq).toHaveBeenCalledWith('user_id', 'actual-patient-owner');
     expect(speech?.in).toHaveBeenCalledWith('session_id', ['patient-session']);
-    expect(screen.getByRole('img', { name: /gaps? in the line mean no scored answers/i })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Breaks in the line mean no scored answers/i })).toBeInTheDocument();
   });
 
   it('never calls an account-wide speech query without an opened patient profile', async () => {
