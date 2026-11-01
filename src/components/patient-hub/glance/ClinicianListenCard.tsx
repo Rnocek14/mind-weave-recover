@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import { isScoredClinicalEvidence } from "@/lib/clinical/scoredEvidence";
 
 interface Props {
   userId: string;
@@ -117,8 +118,9 @@ function ClipRow({ clip, label, tone }: { clip: Clip | null; label: string; tone
             {label}
           </span>
           {clip.confidence !== null && (
-            <Badge variant="outline" className="text-[10px] font-normal">
-              ASR {Math.round((clip.confidence || 0) * 100)}%
+            <Badge variant="outline" className="text-xs font-normal"
+              title="Speech transcription confidence; not patient voice verification">
+              Transcription: {Math.round((clip.confidence || 0) * 100)}%
             </Badge>
           )}
           {!clip.isCorrect && clip.errorType && (
@@ -148,20 +150,30 @@ function ClipRow({ clip, label, tone }: { clip: Clip | null; label: string; tone
 export function ClinicianListenCard({ userId, profileId }: Props) {
   const [clips, setClips] = useState<{ best: Clip | null; struggle: Clip | null }>({ best: null, struggle: null });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    setClips({ best: null, struggle: null });
+    setLoadError(false);
+    setLoading(true);
+    if (!userId || !profileId) {
+      setLoading(false);
+      return () => { mounted = false; };
+    }
     const run = async () => {
+      try {
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
       let sessionIds: string[] | null = null;
       if (profileId) {
-        const { data: sessRows } = await supabase
+        const { data: sessRows, error: sessionError } = await supabase
           .from("sessions")
           .select("id")
           .eq("user_id", userId)
           .eq("profile_id", profileId)
           .gte("started_at", since);
+        if (sessionError || !sessRows) throw new Error("Voice session history unavailable");
         sessionIds = (sessRows || []).map((s) => s.id);
         if (sessionIds.length === 0) {
           if (mounted) { setClips({ best: null, struggle: null }); setLoading(false); }
@@ -172,7 +184,7 @@ export function ClinicianListenCard({ userId, profileId }: Props) {
       let q = supabase
         .from("utterance_analyses")
         .select(
-          "id, session_id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type"
+          "id, session_id, target_word, transcript, audio_storage_path, created_at, is_correct, asr_confidence, recording_duration_ms, did_speak, error_type, validity_label, counts_toward_score, clinician_validity_override"
         )
         .eq("user_id", userId)
         .gte("created_at", since)
@@ -181,12 +193,13 @@ export function ClinicianListenCard({ userId, profileId }: Props) {
         .order("created_at", { ascending: false })
         .limit(120);
       if (sessionIds) q = q.in("session_id", sessionIds);
-      const { data } = await q;
-
+      const { data, error: clipsError } = await q;
+      if (clipsError || !data) throw new Error("Voice examples unavailable");
       if (!mounted) return;
-      const rows = (data || []) as any[];
+      const rows = data;
 
       const meaningful = rows.filter((r) => {
+        if (!isScoredClinicalEvidence(r) || typeof r.is_correct !== "boolean") return false;
         const len = (r.transcript || "").trim().length;
         const dur = r.recording_duration_ms ?? 0;
         if (r.did_speak === false) return false;
@@ -226,28 +239,39 @@ export function ClinicianListenCard({ userId, profileId }: Props) {
           : null;
 
       setClips({ best: toClip(bestPool[0] || null), struggle: toClip(strugglePool[0] || null) });
-      setLoading(false);
+      } catch {
+        if (mounted) {
+          setLoadError(true);
+          setClips({ best: null, struggle: null });
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
-    run();
+    void run();
     return () => { mounted = false; };
   }, [userId, profileId]);
 
 
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5 min-w-0">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-3">
         Voice Evidence
       </div>
       {loading ? (
         <div className="text-sm text-muted-foreground py-4 text-center">Loading clips…</div>
+      ) : loadError ? (
+        <div role="alert" className="text-sm text-muted-foreground py-4 text-center">
+          Voice examples could not be loaded. Nothing is shown.
+        </div>
       ) : !clips.best && !clips.struggle ? (
         <div className="text-sm text-muted-foreground py-4 text-center">
           No qualifying recordings in the last 7 days.
         </div>
       ) : (
         <div className="divide-y divide-border">
-          <ClipRow clip={clips.best} label="Best performance" tone="good" />
-          <ClipRow clip={clips.struggle} label="Representative error" tone="struggle" />
+          <ClipRow clip={clips.best} label="Clear response example" tone="good" />
+          <ClipRow clip={clips.struggle} label="Example to review" tone="struggle" />
         </div>
       )}
     </Card>
