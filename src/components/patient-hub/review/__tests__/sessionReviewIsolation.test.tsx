@@ -98,6 +98,19 @@ describe('Session Review patient isolation', () => {
     expect(backend.from.mock.calls.filter(([table]) => table === 'utterance_analyses')).toHaveLength(1);
   });
 
+  it('displays unavailable rates when all responses were unscored, rather than 0% performance', async () => {
+    backend.from.mockImplementation((table: string) => {
+      if (table === 'sessions') return query(ok([session('a')]));
+      if (table === 'utterance_analyses') return query(ok([
+        { ...trial('silent'), is_correct: null, validity_label: 'no_response', counts_toward_score: false },
+        { ...trial('noise'), is_correct: false, validity_label: 'background_noise', counts_toward_score: false },
+      ]));
+      return query(ok([]));
+    });
+    render(<SessionReviewTab profileId="patient-a" />);
+    await waitFor(() => expect(screen.getByTestId('review-summary').textContent).toBe('accuracy=null;cues=null'));
+  });
+
   it('does not mistake none for a cue or discard genuine errors', async () => {
     backend.from.mockImplementation((table: string) => {
       if (table === 'sessions') return query(ok([session('a')]));
