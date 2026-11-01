@@ -124,7 +124,7 @@ export default function PatientHub() {
       accuracySlope: sessionStats.accuracySlope,
       recentTrialCount: sessionStats.trialCount,
       recentSessionCount: sessionStats.sessionCount,
-      priorTrialCount: sessionStats.trialCount,
+      priorTrialCount: sessionStats.priorTrialCount,
     };
   }, [sessionStats]);
   const { alerts, unacknowledgedCount } = useRecoveryAlerts(
@@ -193,13 +193,21 @@ export default function PatientHub() {
     );
   }
 
+  if (targetProfileId && !subject) {
+    return (
+      <div role="alert" className="container mx-auto max-w-4xl p-5 text-sm text-muted-foreground">
+        This patient profile could not be loaded or is not accessible. No patient measurements are shown.
+      </div>
+    );
+  }
+
   const patientName = subject?.profile_name || "Patient";
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6 pb-24 space-y-4 print:py-0">
       <DashboardTour tourId="patient-hub" ready={!!subject} />
       {/* Header */}
-      <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
+      <div data-tour="ph-header" className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" aria-label="Back to dashboard" onClick={() => navigate("/clinician/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
@@ -209,7 +217,7 @@ export default function PatientHub() {
               <Stethoscope className="h-4 w-4 text-primary shrink-0" />
               <span className="truncate">{patientName}</span>
             </h1>
-            <p className="text-[11px] text-muted-foreground">Patient Hub</p>
+            <p className="text-sm text-muted-foreground">Clinical practice review · Patient-specific evidence</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -225,7 +233,7 @@ export default function PatientHub() {
             </Button>
           )}
           <Select value={String(windowSize)} onValueChange={(v) => setWindowSize(Number(v) as WindowSize)}>
-            <SelectTrigger className="w-24 h-8 text-xs">
+            <SelectTrigger aria-label="Detailed review window" className="w-28 min-h-11 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -248,6 +256,38 @@ export default function PatientHub() {
         }}
       />
 
+      <section aria-label="Practice evidence quality" className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-semibold text-base">Evidence quality · Last 7 days</h2>
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground tabular-nums">{sessionStats.trialCount} of {sessionStats.recordedEventCount}</strong>
+              {" "}recorded task results included in score summaries.
+              {sessionStats.unscoredEventCount > 0 && (
+                <span> {sessionStats.unscoredEventCount} unscored — not necessarily wrong answers.</span>
+              )}
+            </p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Scores are app practice observations; speaker identity and real-world communication are not independently verified.
+              Comparisons may reflect task difficulty, cueing, or task mix.
+            </p>
+          </div>
+          <Button
+            variant="outline" className="min-h-11 shrink-0 w-full sm:w-auto"
+            onClick={() => {
+              setDetailOpen(true);
+              setActiveTab("review");
+              requestAnimationFrame(() =>
+                document.getElementById("review-session")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              );
+            }}
+          >
+            <Headphones aria-hidden className="mr-2 h-4 w-4" />
+            Review recordings
+          </Button>
+        </div>
+      </section>
+
       {/* Responsive clinical glance: one column on phones, two on tablets,
           then a 3+2 grouping on wide desktops. */}
       <div key={profileId ?? "no-profile"} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -260,6 +300,13 @@ export default function PatientHub() {
           accuracySlope={sessionStats.accuracySlope}
           activeDays={activeDays}
           lastActiveDate={lastActiveLabel}
+          scoredRecent={sessionStats.trialCount}
+          scoredPrior={sessionStats.priorTrialCount}
+          practiceDeltaPp={
+            sessionStats.avgAccuracy !== null && sessionStats.priorAvgAccuracy !== null
+              ? Math.round(sessionStats.avgAccuracy - sessionStats.priorAvgAccuracy)
+              : null
+          }
         />
       </div>
 
