@@ -1,167 +1,189 @@
 /**
- * Clinician Glance — Card 4: Progress / Trajectory
- * Answers: "Which way is this patient trending and how confident am I?"
- *
- * Sparkline of accuracy + slope number + volume context. Uses
- * sessionStats.accuracySlope (already computed upstream) so we don't double-count.
+ * Observed speech practice, NOT a clinical recovery diagnosis. Every point is
+ * read from the opened patient's owned sessions and scored evidence, rather
+ * than from the clinician/viewer's own account. No observed answer => gap.
  */
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  buildDailyPracticeAccuracy, localDateKey, summarizeRecentPracticeAccuracy,
+  formatPracticePercent, type DailyPracticeAccuracy, type PracticeObservation,
+} from "@/lib/clinical/metricsPresentation";
 
 interface Props {
   userId: string;
   profileId?: string;
-  /** Slope in % accuracy / week, computed in PatientHub. */
-  accuracySlope: number | null;
-  recentTrials: number;
-  priorTrials: number;
+  // Kept for existing callers; this card deliberately does not mix summary
+  // slopes or volume windows into its independently sourced accuracy chart.
+  accuracySlope?: number | null;
+  recentTrials?: number;
+  priorTrials?: number;
 }
 
-interface DayPoint { date: string; accuracy: number; count: number; }
+const CHART_WIDTH = 280;
+const CHART_HEIGHT = 64;
 
-export function ClinicianProgressCard({ userId, profileId, accuracySlope, recentTrials, priorTrials }: Props) {
-  const [points, setPoints] = useState<DayPoint[]>([]);
+function chartDateKeys() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Array.from({ length: 28 }, (_, i) => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - (27 - i));
+    return localDateKey(date);
+  });
+}
+
+function chartSegments(days: readonly DailyPracticeAccuracy[]): string[] {
+  const step = CHART_WIDTH / 27;
+  const segments: string[] = [];
+  let current = "";
+  days.forEach((day, index) => {
+    if (day.accuracy === null) {
+      if (current) segments.push(current);
+      current = "";
+      return;
+    }
+    const x = index * step;
+    const y = CHART_HEIGHT - (day.accuracy / 100) * CHART_HEIGHT;
+    current += (current ? " L " : "M ") + x.toFixed(2) + " " + y.toFixed(2);
+  });
+  if (current) segments.push(current);
+  return segments;
+}
+
+export function ClinicianProgressCard({ userId, profileId }: Props) {
+  const [points, setPoints] = useState<DailyPracticeAccuracy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      const since = new Date(Date.now() - 28 * 86_400_000).toISOString();
-
-      let sessionIds: string[] | null = null;
-      if (profileId) {
-        const { data: sessRows } = await supabase
-          .from("sessions")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("profile_id", profileId)
-          .gte("started_at", since);
-        sessionIds = (sessRows || []).map((s) => s.id);
-        if (sessionIds.length === 0) {
-          if (mounted) { setPoints([]); setLoading(false); }
-          return;
-        }
-      }
-
-      let q = supabase
-        .from("utterance_analyses")
-        .select("created_at, is_correct")
-        .eq("user_id", userId)
-        .gte("created_at", since)
-        .not("is_correct", "is", null);
-      if (sessionIds) q = q.in("session_id", sessionIds);
-      const { data } = await q;
-
-      if (!mounted) return;
-      const buckets: Record<string, { c: number; t: number }> = {};
-      for (const r of (data || []) as any[]) {
-        const d = new Date(r.created_at);
-        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        if (!buckets[key]) buckets[key] = { c: 0, t: 0 };
-        buckets[key].t += 1;
-        if (r.is_correct) buckets[key].c += 1;
-      }
-      const today = new Date(); today.setHours(0,0,0,0);
-      const series: DayPoint[] = [];
-      for (let i = 27; i >= 0; i--) {
-        const d = new Date(today); d.setDate(d.getDate() - i);
-        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        const b = buckets[key];
-        series.push({ date: key, accuracy: b ? Math.round((b.c / b.t) * 100) : 0, count: b?.t ?? 0 });
-      }
-      setPoints(series);
+    let active = true;
+    setPoints([]);
+    setError(false);
+    if (!userId || !profileId) {
       setLoading(false);
+      return () => { active = false; };
+    }
+    setLoading(true);
+    const run = async () => {
+      const dates = chartDateKeys();
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 27);
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("profile_id", profileId)
+        .gte("started_at", start.toISOString())
+        .limit(1000);
+      if (sessionsError) throw sessionsError;
+      if (!sessions || sessions.length >= 1000) throw new Error("Session sample exceeds verified bounds");
+      if (sessions.length === 0) return buildDailyPracticeAccuracy([], dates);
+
+      const ids = sessions.map(session => session.id);
+      const { data, error: attemptsError } = await supabase
+        .from("utterance_analyses")
+        .select("created_at, is_correct, validity_label, counts_toward_score, clinician_validity_override")
+        .eq("user_id", userId)
+        .in("session_id", ids)
+        .gte("created_at", start.toISOString())
+        .limit(1000);
+      if (attemptsError || !data || data.length >= 1000) {
+        throw attemptsError ?? new Error("Attempt sample exceeds verified bounds");
+      }
+      return buildDailyPracticeAccuracy(data as PracticeObservation[], dates);
     };
-    run();
-    return () => { mounted = false; };
+    void run().then(days => {
+      if (active) {
+        setPoints(days);
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (active) {
+        setPoints([]);
+        setError(true);
+        setLoading(false);
+      }
+    });
+    return () => { active = false; };
   }, [userId, profileId]);
 
-
-  const { thisWeekAvg, hasData } = useMemo(() => {
-    const last7 = points.slice(-7).filter((p) => p.count > 0);
-    const avg = last7.length === 0 ? null : Math.round(last7.reduce((s, p) => s + p.accuracy, 0) / last7.length);
-    return { thisWeekAvg: avg, hasData: last7.length > 0 };
-  }, [points]);
-
-  const trend = accuracySlope === null
-    ? "flat"
-    : accuracySlope >= 3 ? "up"
-    : accuracySlope <= -3 ? "down"
-    : "flat";
-
-  const ts = {
-    up: { Icon: TrendingUp, color: "text-emerald-600", label: "Improving" },
-    down: { Icon: TrendingDown, color: "text-amber-600", label: "Regression" },
-    flat: { Icon: Minus, color: "text-muted-foreground", label: "Plateau" },
-  }[trend];
-
-  // Minimal trial-volume confidence note
-  const volumeNote = useMemo(() => {
-    if (recentTrials === 0) return "No trials this window";
-    if (recentTrials < 20) return `Low n (${recentTrials} trials) — interpret with caution`;
-    const diff = recentTrials - priorTrials;
-    if (diff >= 10) return `n=${recentTrials} (+${diff} vs prior)`;
-    if (diff <= -10) return `n=${recentTrials} (${diff} vs prior)`;
-    return `n=${recentTrials}`;
-  }, [recentTrials, priorTrials]);
-
-  // Sparkline geometry
-  const W = 280; const H = 56;
-  const path = useMemo(() => {
-    if (points.length === 0) return "";
-    const step = W / Math.max(points.length - 1, 1);
-    return points.map((p, i) => {
-      const x = i * step;
-      const y = H - (p.accuracy / 100) * H;
-      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    }).join(" ");
-  }, [points]);
+  const last7 = useMemo(() => summarizeRecentPracticeAccuracy(points.slice(-7)), [points]);
+  const prior7 = useMemo(() => summarizeRecentPracticeAccuracy(points.slice(-14, -7)), [points]);
+  const delta = last7.accuracyPct !== null && prior7.accuracyPct !== null
+    ? last7.accuracyPct - prior7.accuracyPct : null;
+  const hasObservations = points.some(point => point.count > 0);
+  const paths = useMemo(() => chartSegments(points), [points]);
 
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between mb-3 gap-3">
+    <Card className="p-4 sm:p-5 min-w-0" aria-label="Recent practice accuracy">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-            Trajectory
-          </div>
-          <div className={`text-2xl font-bold leading-tight ${ts.color}`}>
-            {ts.label}
-          </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {accuracySlope !== null
-              ? `${accuracySlope > 0 ? "+" : ""}${Math.round(accuracySlope)}%/wk`
-              : "slope unavailable"}
-            {hasData && <span> · {thisWeekAvg}% this week</span>}
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Speech practice · last 7 days</p>
+          <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+            {loading ? "…" : formatPracticePercent(last7.accuracyPct)}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {loading ? "Loading measured responses" : error
+              ? "Could not read practice data"
+              : last7.eligible === 0
+                ? "No eligible scored answers this week"
+                : String(last7.eligible) + " scored answers across " + last7.activeDays + " active days"}
+          </p>
         </div>
-        <div className={`flex items-center justify-center w-9 h-9 rounded-full bg-muted/40 ${ts.color} shrink-0`}>
-          <ts.Icon className="w-4 h-4" />
-        </div>
+        <BarChart3 aria-hidden="true" className="w-5 h-5 shrink-0 mt-1 text-muted-foreground" />
       </div>
-      {loading ? (
-        <div className="h-14 bg-muted/40 rounded animate-pulse" />
-      ) : !hasData ? (
-        <div className="h-14 flex items-center justify-center text-xs text-muted-foreground">
-          Insufficient data — need active trials.
-        </div>
-      ) : (
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-14" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="clFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={`${path} L ${W} ${H} L 0 ${H} Z`} fill="url(#clFill)" />
-          <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+
+      {!loading && !error && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {delta === null
+            ? "Previous 7-day comparison unavailable"
+            : (delta > 0 ? "+" : "") + delta + " percentage points vs previous 7 days"}
+        </p>
       )}
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1.5">
-        <span>Last 28 days</span>
-        <span>{volumeNote}</span>
+
+      <div className="mt-4">
+        {loading ? (
+          <div className="h-16 rounded bg-muted/40 animate-pulse" role="status" aria-label="Loading practice trend" />
+        ) : error ? (
+          <p role="alert" className="text-sm text-muted-foreground py-4">Practice trend could not be loaded. No estimate is shown.</p>
+        ) : !hasObservations ? (
+          <p className="text-sm text-muted-foreground py-4">No scored speech attempts in the last 28 days.</p>
+        ) : (
+          <svg
+            role="img"
+            aria-label="Observed practice accuracy across 28 days. Breaks in the line mean no scored answers, not zero accuracy."
+            viewBox={"0 0 " + CHART_WIDTH + " " + CHART_HEIGHT}
+            preserveAspectRatio="none"
+            className="w-full h-16 overflow-visible"
+          >
+            <path
+              d={"M 0 " + CHART_HEIGHT + " L " + CHART_WIDTH + " " + CHART_HEIGHT}
+              stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="2 4"
+              fill="none"
+            />
+            {paths.map((path, i) => (
+              <path key={i} d={path} stroke="hsl(var(--primary))"
+                strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            ))}
+            {points.map((point, index) => point.accuracy === null ? null : (
+              <circle
+                key={point.date}
+                cx={index * CHART_WIDTH / 27}
+                cy={CHART_HEIGHT - (point.accuracy / 100) * CHART_HEIGHT}
+                r="2.7" fill="hsl(var(--primary))"
+              />
+            ))}
+          </svg>
+        )}
       </div>
+      <p className="text-xs leading-relaxed text-muted-foreground mt-2">
+        Last 28 calendar days · gaps mean no eligible answers. Percentages use app-scored attempts
+        and do not establish clinical improvement or verify who spoke.
+      </p>
     </Card>
   );
 }
