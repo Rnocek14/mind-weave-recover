@@ -46,7 +46,7 @@ describe('ClinicianProgressCard patient-scoped and honest evidence', () => {
     });
     render(<ClinicianProgressCard userId="actual-patient-owner" profileId="opened-patient" />);
     await waitFor(() => expect(screen.getByText('50%')).toBeInTheDocument());
-    expect(screen.getByText(/2 scored answers across 1 active days/)).toBeInTheDocument();
+    expect(screen.getByText(/2 scored answers across 1 active day/)).toBeInTheDocument();
     const sessions = activeQueries.find(q => q.table === 'sessions');
     const speech = activeQueries.find(q => q.table === 'utterance_analyses');
     expect(sessions?.eq).toHaveBeenCalledWith('user_id', 'actual-patient-owner');
