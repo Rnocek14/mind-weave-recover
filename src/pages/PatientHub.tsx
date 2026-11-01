@@ -39,7 +39,7 @@ import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useWeeklySessionTimeline } from "@/hooks/useWeeklySessionTimeline";
 import { useWeeklySessionStats } from "@/hooks/useWeeklySessionStats";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
-import { calculateStreak } from "@/hooks/useStreakCalculation";
+
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
@@ -98,7 +98,11 @@ export default function PatientHub() {
 
   // The subject of this hub: the opened patient (clinician view) or the viewer's
   // own profile (self view).
-  const subject = targetProfileId ? patientProfile : activeProfile;
+  // On a profile switch, never show the previous patient's records while
+  // the newly selected profile is still being fetched.
+  const subject = targetProfileId
+    ? (patientProfile?.id === targetProfileId ? patientProfile : null)
+    : activeProfile;
   const profileId = subject?.id;
   const patientUserId = subject?.user_id || (targetProfileId ? "" : user?.id) || "";
 
@@ -106,7 +110,6 @@ export default function PatientHub() {
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
   const [activeTab, setActiveTab] = useState("overview");
   const [detailOpen, setDetailOpen] = useState(false);
-  const [streak, setStreak] = useState(0);
 
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
     useWeeklyRecoverySnapshot(profileId, windowSize);
@@ -131,10 +134,6 @@ export default function PatientHub() {
   );
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
-
-  useEffect(() => {
-    if (user?.id) calculateStreak(user.id).then(setStreak);
-  }, [user?.id]);
 
   // Engagement + flag breakdown for the cards
   const recent7 = timeline.slice(-7);
@@ -185,7 +184,7 @@ export default function PatientHub() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto max-w-3xl px-4 py-6 space-y-4">
+      <div className="container mx-auto max-w-6xl px-4 py-6 space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-32 w-full" />
@@ -197,7 +196,7 @@ export default function PatientHub() {
   const patientName = subject?.profile_name || "Patient";
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-6 pb-24 space-y-4 print:py-0">
+    <div className="container mx-auto max-w-6xl px-4 py-6 pb-24 space-y-4 print:py-0">
       <DashboardTour tourId="patient-hub" ready={!!subject} />
       {/* Header */}
       <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
@@ -249,8 +248,10 @@ export default function PatientHub() {
         }}
       />
 
-      {/* === The five Glance Cards === */}
-      <div data-tour="ph-status">
+      {/* Responsive clinical glance: one column on phones, two on tablets,
+          then a 3+2 grouping on wide desktops. */}
+      <div key={profileId ?? "no-profile"} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 sm:gap-4">
+      <div data-tour="ph-status" className="min-w-0 xl:col-span-3">
         <ClinicianStatusCard
           patientName={patientName}
           redFlagCount={redFlagCount}
@@ -262,33 +263,27 @@ export default function PatientHub() {
         />
       </div>
 
-      <div data-tour="ph-practice">
+      <div data-tour="ph-practice" className="min-w-0 xl:col-span-3">
         <ClinicianPracticeCard
           timeline={timeline as any}
           trialCount={sessionStats.trialCount}
           sessionCount={sessionStats.sessionCount}
-          streak={streak}
+          streak={0}
         />
       </div>
 
-      <div data-tour="ph-listen">
-        <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+      <div data-tour="ph-listen" className="min-w-0 xl:col-span-2">
+        <ClinicianListenCard userId={patientUserId} profileId={profileId} />
       </div>
 
-      <div data-tour="ph-progress">
-        <ClinicianProgressCard
-          userId={user?.id || ""}
-          profileId={profileId}
-          accuracySlope={sessionStats.accuracySlope}
-          recentTrials={sessionStats.trialCount}
-          priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
-        />
+      <div data-tour="ph-progress" className="min-w-0 xl:col-span-2">
+        <ClinicianProgressCard userId={patientUserId} profileId={profileId} />
       </div>
 
-      <div data-tour="ph-levels">
-        <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+      <div data-tour="ph-levels" className="min-w-0 xl:col-span-2">
+        <ClinicianLevelsCard userId={patientUserId} profileId={profileId} />
       </div>
-
+      </div>
 
       {/* === One drawer: everything deeper === */}
       <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
@@ -333,7 +328,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Sessions</h3>
                     <span className="text-[11px] text-muted-foreground">Recent activity & accuracy</span>
                   </div>
-                  <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+                  <SessionsTab key={profileId ?? "no-profile"} userId={patientUserId} profileId={profileId} windowSize={windowSize} timeline={timeline} />
                 </section>
 
                 <section id="overview-intel" className="scroll-mt-4 border-t border-border pt-5">
@@ -342,7 +337,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Intelligence</h3>
                     <span className="text-[11px] text-muted-foreground">Learning rate, cohort, predictions</span>
                   </div>
-                  <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <IntelligenceTab key={profileId ?? "no-profile"} userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -375,7 +370,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Speech Profile</h3>
                     <span className="text-[11px] text-muted-foreground">Phoneme patterns & fade trajectory</span>
                   </div>
-                  <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <SpeechProfileTab key={profileId ?? "no-profile"} userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -394,7 +389,7 @@ export default function PatientHub() {
                     <Target className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold text-foreground">Patient Plan</h3>
                   </div>
-                  <PatientInfoTab userId={patientUserId} profileId={profileId} timeline={timeline} />
+                  <PatientInfoTab key={profileId ?? "no-profile"} userId={patientUserId} profileId={profileId} timeline={timeline} />
                 </section>
               </TabsContent>
             </Tabs>
@@ -404,7 +399,7 @@ export default function PatientHub() {
 
       {/* Sticky Documentation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border shadow-lg print:hidden">
-        <div className="container mx-auto max-w-3xl px-4 py-2.5 flex items-center justify-between gap-2">
+        <div className="container mx-auto max-w-6xl px-4 py-2.5 flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground hidden sm:block">
             <FileText className="w-3 h-3 inline mr-1" />
             Documentation

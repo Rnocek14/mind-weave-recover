@@ -13,8 +13,8 @@ vi.mock('@/components/ui/select', () => ({
   SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('../SessionSummaryStrip', () => ({
-  SessionSummaryStrip: ({ accuracyPct, cueDependencyPct }: { accuracyPct: number; cueDependencyPct: number }) => (
-    <div data-testid="review-summary">accuracy={accuracyPct};cues={cueDependencyPct}</div>
+  SessionSummaryStrip: ({ accuracyPct, cueDependencyPct }: { accuracyPct: number | null; cueDependencyPct: number | null }) => (
+    <div data-testid="review-summary">accuracy={String(accuracyPct)};cues={String(cueDependencyPct)}</div>
   ),
 }));
 vi.mock('../VoiceEvidenceGrid', () => ({
@@ -96,6 +96,19 @@ describe('Session Review patient isolation', () => {
     await act(async () => { pendingA.resolve(ok([session('a')])); });
     expect(screen.getByText('patient-b-word')).toBeTruthy();
     expect(backend.from.mock.calls.filter(([table]) => table === 'utterance_analyses')).toHaveLength(1);
+  });
+
+  it('displays unavailable rates when all responses were unscored, rather than 0% performance', async () => {
+    backend.from.mockImplementation((table: string) => {
+      if (table === 'sessions') return query(ok([session('a')]));
+      if (table === 'utterance_analyses') return query(ok([
+        { ...trial('silent'), is_correct: null, validity_label: 'no_response', counts_toward_score: false },
+        { ...trial('noise'), is_correct: false, validity_label: 'background_noise', counts_toward_score: false },
+      ]));
+      return query(ok([]));
+    });
+    render(<SessionReviewTab profileId="patient-a" />);
+    await waitFor(() => expect(screen.getByTestId('review-summary').textContent).toBe('accuracy=null;cues=null'));
   });
 
   it('does not mistake none for a cue or discard genuine errors', async () => {

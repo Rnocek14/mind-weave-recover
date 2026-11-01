@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useSessionDetail, type TrialData } from "@/hooks/useSessionDetail";
-import { hasDeliveredCue, isScoredClinicalEvidence } from "@/lib/clinical/scoredEvidence";
+import { isScoredClinicalEvidence } from "@/lib/clinical/scoredEvidence";
+import { summarizePresentationTrials } from "@/lib/clinical/metricsPresentation";
 import { SessionSummaryStrip } from "./review/SessionSummaryStrip";
 import { VoiceEvidenceGrid } from "./review/VoiceEvidenceGrid";
 import { ErrorPatternBreakdown, categoryOfTrial } from "./review/ErrorPatternBreakdown";
@@ -116,39 +117,18 @@ function ProfileSessionReview({ profileId }: SessionReviewTabProps) {
   );
 
   const metrics = useMemo(() => {
-    const scored = trials.filter(isScoredClinicalEvidence);
-    const total = scored.length;
-    const correct = scored.filter((t) => t.is_correct === true).length;
-    const slugs = new Set(scored.map((t) => t.exercise_slug || "").filter(Boolean));
-    const cued = scored.filter((t) => hasDeliveredCue(t.cue_type_given)).length;
-    const levels = scored
+    const summary = summarizePresentationTrials(trials);
+    const levels = trials
+      .filter(t => typeof t.is_correct === "boolean" && isScoredClinicalEvidence(t))
       .map((t) => {
-        const tp = t.taskParameters as any;
-        return Number(tp?.difficulty ?? tp?.level ?? 0) || 0;
+        const params = t.taskParameters as Record<string, unknown> | undefined;
+        const level = params?.difficulty ?? params?.level;
+        return typeof level === "number" && Number.isFinite(level) && level > 0 ? level : null;
       })
-      .filter((n) => n > 0);
-
-    const buckets = { valid: 0, filler: 0, silence: 0, noise: 0, flagged: 0 };
-    for (const t of trials) {
-      if (isScoredClinicalEvidence(t)) { buckets.valid += 1; continue; }
-      const label = t.clinician_validity_override || t.validity_label || "";
-      switch (label) {
-        case "filler":
-        case "filler_only": buckets.filler += 1; break;
-        case "no_response": buckets.silence += 1; break;
-        case "noise":
-        case "background_noise": buckets.noise += 1; break;
-        case "low_confidence":
-        case "not_patient": buckets.flagged += 1; break;
-        default: buckets.flagged += 1; break;
-      }
-    }
+      .filter((level): level is number => level !== null);
     return {
-      gamesPlayed: slugs.size,
-      accuracyPct: total > 0 ? Math.round((correct / total) * 100) : 0,
-      cueDependencyPct: total > 0 ? Math.round((cued / total) * 100) : 0,
+      ...summary,
       highestLevel: levels.length > 0 ? Math.max(...levels) : null,
-      validityBuckets: buckets,
     };
   }, [trials]);
 
@@ -184,10 +164,10 @@ function ProfileSessionReview({ profileId }: SessionReviewTabProps) {
 
   return (
     <div className="space-y-5 p-1">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-muted-foreground">Reviewing session:</span>
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+        <span className="text-sm text-muted-foreground shrink-0">Reviewing session:</span>
         <Select value={selectedId ?? undefined} onValueChange={setSelectedId}>
-          <SelectTrigger className="w-auto min-w-[220px] h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Choose a session to review" className="w-full sm:w-auto sm:min-w-[220px] max-w-full min-w-0 h-11 sm:h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
             {sessions.map((s) => (
               <SelectItem key={s.id} value={s.id}>
@@ -224,6 +204,8 @@ function ProfileSessionReview({ profileId }: SessionReviewTabProps) {
             accuracyPct={metrics.accuracyPct}
             highestLevel={metrics.highestLevel}
             cueDependencyPct={metrics.cueDependencyPct}
+            attemptedCount={metrics.attempted}
+            eligibleCount={metrics.eligible}
             validityBuckets={metrics.validityBuckets}
           />
           <Section title="Voice evidence" description="Curated clips from this session, or hear the same target across time.">

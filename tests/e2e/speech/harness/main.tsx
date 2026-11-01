@@ -5,6 +5,8 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
+import { SessionSummaryStrip } from '@/components/patient-hub/review/SessionSummaryStrip';
+import { ClinicianPracticeCard } from '@/components/patient-hub/glance/ClinicianPracticeCard';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { KidsModeProvider } from '@/contexts/KidsModeContext';
@@ -158,11 +160,44 @@ export function ReviewHarness({ scoped = false }: { scoped?: boolean }) {
   </main>;
 }
 
+/**
+ * Real responsive evidence components rendered with synthetic fixed values.
+ * No patient database reads, login, speaker matching or clinical writes.
+ */
+export function MetricsHarness() {
+  const hasMeasured = new URLSearchParams(location.search).get('mode') === 'scored-zero';
+  const days = Array.from({ length: 7 }, (_, i) => ({
+    date: new Date(2026, 9, 24 + i, 12).toISOString(),
+    hasAnySignal: i === 0 || i === 3 || i === 6,
+    trialCount: i === 0 || i === 3 || i === 6 ? 2 : 0,
+    sessionMinutes: i === 0 || i === 3 || i === 6 ? 6 : 0,
+  }));
+  return (
+    <main className="min-h-screen w-full min-w-0 bg-background px-3 py-5 sm:p-6">
+      <div className="mx-auto w-full max-w-6xl min-w-0 space-y-5">
+        <h1 className="text-xl font-semibold">Clinical metrics responsive verification</h1>
+        <SessionSummaryStrip
+          startedAt="2026-10-30T15:00:00Z" durationSec={180} gamesPlayed={2}
+          accuracyPct={hasMeasured ? 0 : null} cueDependencyPct={hasMeasured ? 0 : null}
+          highestLevel={3} attemptedCount={hasMeasured ? 2 : 3}
+          eligibleCount={hasMeasured ? 2 : 0}
+          validityBuckets={{ valid: hasMeasured ? 2 : 0, filler: 1, silence: 1, noise: 0, flagged: 1 }}
+        />
+        <div className="w-full max-w-md">
+          <ClinicianPracticeCard timeline={days} trialCount={6} sessionCount={3} streak={0} />
+        </div>
+      </div>
+    </main>
+  );
+}
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById('root')!).render(
   <MemoryRouter><QueryClientProvider client={client}><ProfileContext.Provider value={profile}>
     <CoachingModeProvider><KidsModeProvider><LiveAnalysisProvider>
-      {new URLSearchParams(location.search).get('view') === 'review'
+      {new URLSearchParams(location.search).get('view') === 'metrics'
+        ? <MetricsHarness />
+        : new URLSearchParams(location.search).get('view') === 'review'
         ? <ReviewHarness />
         : new URLSearchParams(location.search).get('view') === 'review-scoped'
         ? <ReviewHarness scoped />
