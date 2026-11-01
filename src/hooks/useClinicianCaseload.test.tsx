@@ -61,7 +61,7 @@ function configure({ failEvents = false }: { failEvents?: boolean } = {}) {
   });
 }
 
-beforeEach(() => backend.from.mockReset());
+beforeEach(() => { backend.from.mockReset(); });
 
 describe("caseload aggregations use the SAME validity policy as patient review", () => {
   it("excludes noise, non-patient, manually confirmed and non-comparable data", async () => {
