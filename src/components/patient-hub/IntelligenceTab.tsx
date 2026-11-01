@@ -223,7 +223,14 @@ export function IntelligenceTab({ userId, profileId, windowSize }: IntelligenceT
               </p>
             ) : null}
 
-            <OutcomePredictionCard userId={userId} profileId={profileId} />
+            {import.meta.env.VITE_CLINICAL_OUTCOME_PREDICTIONS === "true" && (
+              <div className="space-y-2">
+                <p role="note" className="text-xs leading-relaxed text-muted-foreground px-3">
+                  Experimental model output. Not validated for prognosis, discharge decisions or therapy changes.
+                </p>
+                <OutcomePredictionCard userId={userId} profileId={profileId} />
+              </div>
+            )}
 
             <p role="note" className="text-xs text-muted-foreground px-3">
               App practice does not establish readiness for discharge or reduced therapy.

@@ -49,7 +49,7 @@ export function CaseloadFilters({
             placeholder="Search patients..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 h-9"
+            className="pl-9 min-h-11 text-sm"
           />
         </div>
         <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -64,7 +64,7 @@ export function CaseloadFilters({
         <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
 
         <Select value={riskFilter} onValueChange={(v) => onRiskFilterChange(v as RiskFilter)}>
-          <SelectTrigger className="w-[130px] h-8 text-xs">
+          <SelectTrigger className="w-[150px] min-h-11 text-sm">
             <SelectValue placeholder="Risk" />
           </SelectTrigger>
           <SelectContent>
@@ -76,25 +76,25 @@ export function CaseloadFilters({
         </Select>
 
         <Select value={engagementFilter} onValueChange={(v) => onEngagementFilterChange(v as EngagementFilter)}>
-          <SelectTrigger className="w-[140px] h-8 text-xs">
+          <SelectTrigger className="w-[150px] min-h-11 text-sm">
             <SelectValue placeholder="Engagement" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All engagement</SelectItem>
+            <SelectItem value="all">All activity</SelectItem>
             <SelectItem value="inactive_3d">Inactive ≥3d</SelectItem>
             <SelectItem value="inactive_5d">Inactive ≥5d</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={sortPreset} onValueChange={(v) => onSortPresetChange(v as SortPreset)}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="w-[180px] min-h-11 text-sm">
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="needs_attention">Needs attention</SelectItem>
             <SelectItem value="most_inactive">Most inactive</SelectItem>
-            <SelectItem value="declining">Declining performance</SelectItem>
-            <SelectItem value="improving">Most improved</SelectItem>
+            <SelectItem value="declining">Lower app scores</SelectItem>
+            <SelectItem value="improving">Higher app scores</SelectItem>
             <SelectItem value="alpha">Alphabetical</SelectItem>
           </SelectContent>
         </Select>

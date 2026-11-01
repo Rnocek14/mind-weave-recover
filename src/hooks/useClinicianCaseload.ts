@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { isComparableScoredEvent } from "@/lib/clinical/metricsPresentation";
 
 export interface CaseloadPatient {
   profileId: string;
@@ -20,7 +21,7 @@ export interface CaseloadPatient {
   // 7-day aggregates
   trials7d: number;
   priorTrials7d: number;
-  adherenceDays7d: number; // 0–7
+  adherenceDays7d: number; // Observed days of practice, NOT prescribed adherence
   avgAccuracy7d: number | null;
   accuracyDelta7d: number | null; // vs prior 7d — null if insufficient trials
 
@@ -89,18 +90,20 @@ export function useClinicianCaseload() {
         const fourteenAgoDate = new Date(now);
         fourteenAgoDate.setDate(fourteenAgoDate.getDate() - 14);
 
-        const todayStr = localYYYYMMDD(now);
         const sevenAgoStr = localYYYYMMDD(sevenAgoDate);
         const fourteenAgoStr = localYYYYMMDD(fourteenAgoDate);
 
         // Step 2: Batch fetch 14d sessions for all profiles
-        const { data: sessions14d } = await supabase
+        const { data: sessions14d, error: sessionsErr } = await supabase
           .from("sessions")
           .select("id, profile_id, ended_at, duration_sec")
           .in("profile_id", profileIds)
           .not("ended_at", "is", null)
           .gte("ended_at", fourteenAgoDate.toISOString())
           .gte("duration_sec", 60);
+        if (sessionsErr || !sessions14d || sessions14d.length >= 1000) {
+          throw new Error("Caseload session evidence unavailable or incomplete");
+        }
 
         // Group sessions by profile + window using date string comparison
         const sessionsByProfile = new Map<string, { recent: any[]; prior: any[] }>();
@@ -129,29 +132,34 @@ export function useClinicianCaseload() {
             chunks.push(allSessionIds.slice(i, i + 100));
           }
           for (const chunk of chunks) {
-            const { data: events } = await supabase
+            const { data: events, error: eventsErr } = await supabase
               .from("exercise_events")
-              .select("session_id, score")
-              .in("session_id", chunk)
-              .not("score", "is", null);
+              .select("session_id, score, exercise_slug, counts_toward_score, validity_label, clinician_validity_override, task_parameters, engagement_flags")
+              .in("session_id", chunk);
+            if (eventsErr || !events || events.length >= 1000) {
+              throw new Error("Caseload score evidence unavailable or incomplete");
+            }
 
-            for (const e of events || []) {
-              if (!eventsBySession.has(e.session_id)) {
-                eventsBySession.set(e.session_id, []);
-              }
-              const s = e.score!;
-              const normalized = s <= 1 ? s * 100 : s;
-              eventsBySession.get(e.session_id)!.push(Math.max(0, Math.min(100, normalized)));
+            for (const event of events) {
+              // Identical read-side validity rules to the patient-specific
+              // review. Never restore invalid caregiver/noise/assisted samples
+              // by averaging raw scores in the caseload.
+              if (!isComparableScoredEvent(event)) continue;
+              const scores = eventsBySession.get(event.session_id) ?? [];
+              const score = event.score!;
+              scores.push(score <= 1 ? score * 100 : score);
+              eventsBySession.set(event.session_id, scores);
             }
           }
         }
 
         // Step 4: Batch fetch unresolved alerts
-        const { data: alertsRaw } = await (supabase as any)
+        const { data: alertsRaw, error: alertsErr } = await (supabase as any)
           .from("recovery_alerts")
           .select("profile_id, severity")
           .in("profile_id", profileIds)
           .is("resolved_at", null);
+        if (alertsErr || !alertsRaw) throw new Error("Caseload alert evidence unavailable");
 
         const alertsByProfile = new Map<string, { total: number; critical: number }>();
         for (const a of alertsRaw || []) {
@@ -164,12 +172,15 @@ export function useClinicianCaseload() {
         }
 
         // Step 5: Batch fetch dose_logs for adherence + last active (dose side)
-        const { data: doseLogs } = await supabase
+        const { data: doseLogs, error: doseErr } = await supabase
           .from("dose_logs")
           .select("profile_id, log_date")
           .in("profile_id", profileIds)
           .gte("log_date", fourteenAgoStr)
           .order("log_date", { ascending: false });
+        if (doseErr || !doseLogs || doseLogs.length >= 1000) {
+          throw new Error("Caseload activity data unavailable or incomplete");
+        }
 
         const lastDoseDateByProfile = new Map<string, string>();
         const activeDaysByProfile = new Map<string, Set<string>>();
@@ -266,7 +277,10 @@ export function useClinicianCaseload() {
         setLastUpdatedAt(new Date());
       } catch (err) {
         console.error("[useClinicianCaseload] error:", err);
-        setError("Failed to load caseload");
+        // Never leave prior/potentially wrong patients on screen after an
+        // incomplete load. A missing response is not a clean zero.
+        setPatients([]);
+        setError("Caseload evidence could not be loaded reliably");
       } finally {
         setIsLoading(false);
         loadingRef.current = false;

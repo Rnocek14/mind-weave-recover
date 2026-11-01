@@ -65,8 +65,8 @@ function classifyState(inputs: InterpretationInputs): {
 
   // 1. Low engagement (highest precedence)
   if (current.activeDays <= 2 && current.totalSessions <= 1) {
-    drivers.push("very low activity");
-    if (current.totalSessions === 0) drivers.push("no sessions recorded");
+    drivers.push("limited recorded practice activity");
+    if (current.totalSessions === 0) drivers.push("no app sessions recorded");
     else drivers.push(`only ${current.activeDays} active day${current.activeDays !== 1 ? "s" : ""}`);
     return { state: "low_engagement", drivers };
   }
@@ -85,7 +85,7 @@ function classifyState(inputs: InterpretationInputs): {
 
   // 3. Declining
   if (hasPriorData && accDelta !== null && accDelta <= -5) {
-    drivers.push(`accuracy dropped ${Math.abs(accDelta)}%`);
+    drivers.push(`app score decreased ${Math.abs(accDelta)} percentage points`);
     if (trialsDelta !== null && trialsDelta < 0) drivers.push("practice volume also decreased");
     if (fatigueDelta !== null && fatigueDelta > 0.3) drivers.push("fatigue trending higher");
     return { state: "declining", drivers };
@@ -93,7 +93,7 @@ function classifyState(inputs: InterpretationInputs): {
 
   // 4. Improving
   if (hasPriorData && accDelta !== null && accDelta >= 5) {
-    drivers.push(`accuracy improved +${accDelta}%`);
+    drivers.push(`app score increased ${accDelta} percentage points`);
     if (trialsDelta !== null && trialsDelta > 0) drivers.push("practice volume increased");
     if (current.avgFatigue !== null && current.avgFatigue <= 3) drivers.push("fatigue manageable");
     return { state: "improving", drivers };
@@ -107,7 +107,7 @@ function classifyState(inputs: InterpretationInputs): {
       unresolvedAlerts.length === 0;
 
     if (isStable) {
-      drivers.push("accuracy within ±4%");
+      drivers.push("app task scores within 4 percentage points");
       drivers.push("practice volume roughly stable");
       return { state: "stable", drivers };
     }
@@ -157,25 +157,25 @@ function generateHeadline(
   switch (state) {
     case "low_engagement":
       return inputs.current.totalSessions === 0
-        ? `${name} had no therapy sessions this period.`
-        : `${name} showed minimal engagement with only ${inputs.current.activeDays} active day${inputs.current.activeDays !== 1 ? "s" : ""}.`;
+        ? `No app practice sessions were recorded for ${name} this period.`
+        : `Only ${inputs.current.activeDays} day${inputs.current.activeDays !== 1 ? "s" : ""} of app practice ${inputs.current.activeDays !== 1 ? "were" : "was"} recorded for ${name}.`;
     case "high_fatigue_risk":
-      return `${name}'s fatigue is elevated, which may be limiting practice quality.`;
+      return `Higher fatigue ratings were reported in ${name}'s app check-ins.`;
     case "declining":
-      return `Performance declined this week, with lower accuracy and reduced practice effectiveness.`;
+      return `App practice scores were lower than in the previous review period.`;
     case "improving":
-      return `Meaningful improvement this week, with accuracy trending upward.`;
+      return `App practice scores were higher than in the previous review period.`;
     case "stable":
-      return `Recovery is stable, with consistent practice and no major new concerns.`;
+      return `No clear directional change was identified in the app practice summary.`;
     case "mixed":
-      return `Mixed signals this week — some metrics improved while others softened.`;
+      return `App practice measurements changed in different directions.`;
   }
 }
 
 // ── Evidence Paragraph ───────────────────────────────────────────────
 
 function generateEvidence(
-  state: PatientWeekState,
+  _state: PatientWeekState,
   inputs: InterpretationInputs
 ): string {
   const { current, prior, hasPriorData } = inputs;
@@ -194,13 +194,13 @@ function generateEvidence(
   if (accDelta !== null && hasPriorData) {
     if (Math.abs(accDelta) > 2) {
       parts.push(
-        `Accuracy ${accDelta > 0 ? "rose" : "fell"} from ${prior.avgAccuracy}% to ${current.avgAccuracy}%`
+        `App task score ${accDelta > 0 ? "rose" : "fell"} from ${prior.avgAccuracy}% to ${current.avgAccuracy}%`
       );
     } else {
-      parts.push(`Accuracy held steady at ${current.avgAccuracy}%`);
+      parts.push(`App task score was similar at ${current.avgAccuracy}%`);
     }
   } else if (current.avgAccuracy !== null) {
-    parts.push(`Current accuracy is ${current.avgAccuracy}%`);
+    parts.push(`App task score was ${current.avgAccuracy}%`);
   }
 
   // Volume
@@ -221,25 +221,15 @@ function generateEvidence(
   if (current.avgFatigue !== null) {
     if (fatigueDelta !== null && Math.abs(fatigueDelta) > 0.3) {
       parts.push(
-        `fatigue ${fatigueDelta > 0 ? "rose" : "improved"} to ${current.avgFatigue}/5`
+        `reported fatigue ${fatigueDelta > 0 ? "increased" : "decreased"} to ${current.avgFatigue}/5`
       );
     } else if (current.avgFatigue >= 3.5) {
-      parts.push(`fatigue remains elevated at ${current.avgFatigue}/5`);
+      parts.push(`reported fatigue averaged ${current.avgFatigue}/5`);
     }
   }
 
-  // Contextual modifier
-  if (state === "declining" && current.avgFatigue !== null && current.avgFatigue >= 3.5) {
-    parts.push(
-      "which may indicate reduced tolerance rather than isolated regression"
-    );
-  }
-  if (state === "improving" && current.activeDays >= 5) {
-    parts.push("supported by consistent daily engagement");
-  }
-  if (state === "low_engagement") {
-    parts.push("consider barriers to practice or need for outreach");
-  }
+  // Do not infer recovery, adherence, treatment tolerance or the cause of a
+  // score change from app telemetry alone. Keep those as clinician questions.
 
   if (parts.length === 0) {
     return "Insufficient data to generate a detailed evidence summary for this period.";
@@ -255,23 +245,21 @@ function generateEvidence(
 
 function generateRecommendation(
   state: PatientWeekState,
-  inputs: InterpretationInputs
+  _inputs: InterpretationInputs
 ): string {
   switch (state) {
     case "low_engagement":
-      return "Schedule outreach and assign structured home practice to address low engagement.";
+      return "Check the patient's planned practice schedule and barriers before deciding whether outreach is needed.";
     case "high_fatigue_risk":
-      return "Consider reducing session length or difficulty and monitoring fatigue closely over the next week.";
+      return "Review the fatigue ratings with the patient or caregiver and assess session context before adjusting the plan.";
     case "declining":
-      return "Lower difficulty one level, prioritize shorter high-success sessions, and review cueing strategy.";
+      return "Compare tasks, support levels, recording quality and examples before deciding whether a clinical change occurred.";
     case "improving":
-      return inputs.current.avgAccuracy !== null && inputs.current.avgAccuracy >= 85
-        ? "Consider advancing difficulty or reducing cue support to maintain challenge."
-        : "Maintain current plan and continue monitoring — trajectory is positive.";
+      return "Review independent responses and real-world communication goals before deciding whether to change difficulty or cues.";
     case "stable":
-      return "Maintain current exercise regimen. Consider adjusting task variety if progress has plateaued.";
+      return "Review skill-specific evidence and communication goals; similar app scores do not establish stable neurological function.";
     case "mixed":
-      return "Monitor closely over the next 2–3 sessions before adjusting. Review individual exercise performance for specific patterns.";
+      return "Review individual activities, their recording quality and support requirements before changing the therapy plan.";
   }
 }
 
