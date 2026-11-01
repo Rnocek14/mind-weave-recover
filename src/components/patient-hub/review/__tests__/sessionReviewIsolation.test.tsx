@@ -13,8 +13,8 @@ vi.mock('@/components/ui/select', () => ({
   SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('../SessionSummaryStrip', () => ({
-  SessionSummaryStrip: ({ accuracyPct, cueDependencyPct }: { accuracyPct: number; cueDependencyPct: number }) => (
-    <div data-testid="review-summary">accuracy={accuracyPct};cues={cueDependencyPct}</div>
+  SessionSummaryStrip: ({ accuracyPct, cueDependencyPct }: { accuracyPct: number | null; cueDependencyPct: number | null }) => (
+    <div data-testid="review-summary">accuracy={String(accuracyPct)};cues={String(cueDependencyPct)}</div>
   ),
 }));
 vi.mock('../VoiceEvidenceGrid', () => ({
