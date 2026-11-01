@@ -7,6 +7,9 @@ import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { SessionSummaryStrip } from '@/components/patient-hub/review/SessionSummaryStrip';
 import { ClinicianPracticeCard } from '@/components/patient-hub/glance/ClinicianPracticeCard';
+import { ClinicianStatusCard } from '@/components/patient-hub/glance/ClinicianStatusCard';
+import { PatientCard } from '@/components/clinician/PatientCard';
+import type { CaseloadPatient } from '@/hooks/useClinicianCaseload';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
 import { CoachingModeProvider } from '@/contexts/CoachingModeContext';
 import { KidsModeProvider } from '@/contexts/KidsModeContext';
@@ -165,6 +168,7 @@ export function ReviewHarness({ scoped = false }: { scoped?: boolean }) {
  * No patient database reads, login, speaker matching or clinical writes.
  */
 export function MetricsHarness() {
+  const [openedPatient, setOpenedPatient] = useState<string | null>(null);
   const hasMeasured = new URLSearchParams(location.search).get('mode') === 'scored-zero';
   const days = Array.from({ length: 7 }, (_, i) => ({
     date: new Date(2026, 9, 24 + i, 12).toISOString(),
@@ -183,9 +187,29 @@ export function MetricsHarness() {
           eligibleCount={hasMeasured ? 2 : 0}
           validityBuckets={{ valid: hasMeasured ? 2 : 0, filler: 1, silence: 1, noise: 0, flagged: 1 }}
         />
-        <div className="w-full max-w-md">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ClinicianStatusCard patientName="Synthetic Patient" redFlagCount={0} orangeFlagCount={0}
+            unacknowledgedAlerts={0} accuracySlope={null} activeDays={3} lastActiveDate="yesterday"
+            scoredRecent={16} scoredPrior={18} practiceDeltaPp={5} />
           <ClinicianPracticeCard timeline={days} trialCount={6} sessionCount={3} streak={0} />
         </div>
+        <div className="w-full max-w-xl">
+          <PatientCard
+            patient={{
+              profileId: 'synthetic-patient', userId: 'synthetic-owner',
+              name: 'Synthetic Patient', strokeDate: null, daysPostStroke: null,
+              aphasiaLabel: null, aphasiaType: null, laterality: null, chronicity: null,
+              strokeMechanism: null, trials7d: 16, priorTrials7d: 18,
+              adherenceDays7d: 3, avgAccuracy7d: 72, accuracyDelta7d: 5,
+              activeAlertCount: 0, criticalAlertCount: 0,
+              lastActiveDate: '2026-10-30', trend: 'up',
+            } satisfies CaseloadPatient}
+            onClick={setOpenedPatient}
+          />
+        </div>
+        <p role="status" className="text-sm text-muted-foreground">
+          {openedPatient ? 'Opened ' + openedPatient : 'No patient selected'}
+        </p>
       </div>
     </main>
   );
