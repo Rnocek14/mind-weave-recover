@@ -12,9 +12,10 @@ interface WeeklySessionStats {
   priorAvgAccuracy: number | null;
   accuracySlope: number | null;
   isLoading: boolean;
+  readError: boolean;
 }
 
-const emptyStats = (isLoading: boolean): WeeklySessionStats => ({
+const emptyStats = (isLoading: boolean, readError = false): WeeklySessionStats => ({
   trialCount: 0,
   priorTrialCount: 0,
   recordedEventCount: 0,
@@ -24,6 +25,7 @@ const emptyStats = (isLoading: boolean): WeeklySessionStats => ({
   priorAvgAccuracy: null,
   accuracySlope: null,
   isLoading,
+  readError,
 });
 
 /**
@@ -133,12 +135,13 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
           priorAvgAccuracy: priorAvg,
           accuracySlope: lrData?.[0]?.accuracy_slope ?? null,
           isLoading: false,
+          readError: false,
         } });
       } catch (err) {
         if (cancelled) return;
         console.error("[useWeeklySessionStats] error:", err);
         // Never present stale patient metrics as the result of a failed load.
-        setState({ profileId, stats: emptyStats(false) });
+        setState({ profileId, stats: emptyStats(false, true) });
       }
     };
 
