@@ -131,7 +131,7 @@ export function ClinicianProgressCard({ userId, profileId }: Props) {
               ? "Could not read practice data"
               : last7.eligible === 0
                 ? "No eligible scored answers this week"
-                : String(last7.eligible) + " scored answers across " + last7.activeDays + " active days"}
+                : String(last7.eligible) + " scored answers across " + last7.activeDays + (last7.activeDays === 1 ? " active day" : " active days")}
           </p>
         </div>
         <BarChart3 aria-hidden="true" className="w-5 h-5 shrink-0 mt-1 text-muted-foreground" />
