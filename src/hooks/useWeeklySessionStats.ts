@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { scoredEventPercentages } from "@/lib/clinical/scoredEvidence";
+import { isComparableScoredEvent } from "@/lib/clinical/metricsPresentation";
 
 interface WeeklySessionStats {
   trialCount: number;
+  priorTrialCount: number;
+  recordedEventCount: number;
+  unscoredEventCount: number;
   sessionCount: number;
   avgAccuracy: number | null;
   priorAvgAccuracy: number | null;
@@ -13,6 +16,9 @@ interface WeeklySessionStats {
 
 const emptyStats = (isLoading: boolean): WeeklySessionStats => ({
   trialCount: 0,
+  priorTrialCount: 0,
+  recordedEventCount: 0,
+  unscoredEventCount: 0,
   sessionCount: 0,
   avgAccuracy: null,
   priorAvgAccuracy: null,
@@ -58,15 +64,20 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
 
         const sessionIds = (recentSessions || []).map((s) => s.id);
         let recentScores: number[] = [];
+        let recordedEventCount = 0;
         if (sessionIds.length > 0) {
           const { data: events, error } = await supabase
             .from("exercise_events")
-            .select("score, session_id, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
-            .in("session_id", sessionIds)
-            .not("score", "is", null);
-          if (error) throw error;
+            .select("score, session_id, exercise_slug, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
+            .in("session_id", sessionIds);
+          if (error || !events || events.length >= 1000) {
+            throw error ?? new Error("Incomplete recent speech metrics");
+          }
           if (cancelled) return;
-          recentScores = scoredEventPercentages(events || []);
+          recordedEventCount = events.length;
+          recentScores = events.filter(isComparableScoredEvent).map(event =>
+            event.score! <= 1 ? event.score! * 100 : event.score!
+          );
         }
 
         const { data: priorSessions, error: priorError } = await supabase
@@ -85,12 +96,15 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
         if (priorIds.length > 0) {
           const { data: priorEvents, error } = await supabase
             .from("exercise_events")
-            .select("score, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
-            .in("session_id", priorIds)
-            .not("score", "is", null);
-          if (error) throw error;
+            .select("score, exercise_slug, validity_label, counts_toward_score, clinician_validity_override, task_parameters, engagement_flags")
+            .in("session_id", priorIds);
+          if (error || !priorEvents || priorEvents.length >= 1000) {
+            throw error ?? new Error("Incomplete comparison metrics");
+          }
           if (cancelled) return;
-          priorScores = scoredEventPercentages(priorEvents || []);
+          priorScores = priorEvents.filter(isComparableScoredEvent).map(event =>
+            event.score! <= 1 ? event.score! * 100 : event.score!
+          );
         }
 
         const { data: lrData, error: learningError } = await supabase
@@ -111,6 +125,9 @@ export function useWeeklySessionStats(profileId: string | undefined): WeeklySess
 
         setState({ profileId, stats: {
           trialCount: recentScores.length,
+          priorTrialCount: priorScores.length,
+          recordedEventCount,
+          unscoredEventCount: Math.max(0, recordedEventCount - recentScores.length),
           sessionCount: sessionIds.length,
           avgAccuracy: avgAcc,
           priorAvgAccuracy: priorAvg,
