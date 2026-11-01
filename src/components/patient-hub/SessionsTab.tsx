@@ -85,40 +85,37 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionMeta, setSessionMeta] = useState<Map<string, SessionMeta>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Build sparkline data from timeline
-  const sparkData = useMemo(() => {
-    if (!timeline) return [];
-    return timeline.map((d) => ({
-      date: d.date,
-      accuracy: d.totalMinutes > 0 ? null : null, // will be overridden
-      fatigueRating: d.fatigueRating,
-      trials: 0,
-    }));
-  }, [timeline]);
-
   useEffect(() => {
-    if (!profileId) {
-      setSessions([]);
+    let active = true;
+    setSessions([]);
+    setSessionMeta(new Map());
+    setExpandedId(null);
+    setLoadError(false);
+    if (!profileId || !userId) {
       setLoading(false);
-      return;
+      return () => { active = false; };
     }
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - windowSize);
 
     const fetchAll = async () => {
       setLoading(true);
-      const { data } = await supabase
+      try {
+      const { data, error: sessionsError } = await supabase
         .from("sessions")
         .select("id, started_at, ended_at, duration_sec, summary, plan, mood_rating, caregiver_notes, engagement_summary, user_id, profile_id")
         .eq("profile_id", profileId)
+        .eq("user_id", userId)
         .not("ended_at", "is", null)
         .gte("started_at", cutoff.toISOString())
         .order("started_at", { ascending: false })
         .limit(50);
-      
-      const sessionRows = (data ?? []) as SessionRow[];
+      if (sessionsError || !data) throw new Error("Session list unavailable");
+      if (!active) return;
+      const sessionRows = data as SessionRow[];
       setSessions(sessionRows);
 
       if (sessionRows.length > 0) {
@@ -136,8 +133,15 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
             .in("session_id", sessionIds),
         ]);
 
-        const events = eventsRes.data ?? [];
-        const adaptations = (adaptRes.data ?? []) as any[];
+        if (eventsRes.error || adaptRes.error || !eventsRes.data || !adaptRes.data) {
+          throw new Error("Session measurements unavailable");
+        }
+        // A capped API response cannot be presented as a complete denominator.
+        if (eventsRes.data.length >= 1000 || adaptRes.data.length >= 1000) {
+          throw new Error("Session measurement range incomplete");
+        }
+        const events = eventsRes.data;
+        const adaptations = adaptRes.data as any[];
 
         // Build per-session meta
         const metaMap = new Map<string, SessionMeta>();
@@ -198,13 +202,21 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
           });
         });
 
-        setSessionMeta(metaMap);
+        if (active) setSessionMeta(metaMap);
       }
-
-      setLoading(false);
+      } catch {
+        if (active) {
+          setLoadError(true);
+          setSessions([]);
+          setSessionMeta(new Map());
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     };
-    fetchAll();
-  }, [profileId, windowSize]);
+    void fetchAll();
+    return () => { active = false; };
+  }, [profileId, userId, windowSize]);
 
   // Build per-session accuracy for sparkline
   const sessionSparkData = useMemo(() => {
@@ -231,6 +243,14 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
       <div className="space-y-3 mt-4">
         {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card role="alert" className="mt-4 p-5 text-sm text-muted-foreground">
+        Session measurements could not be loaded reliably. No scores are shown.
+      </Card>
     );
   }
 
