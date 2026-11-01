@@ -78,7 +78,7 @@ export default function ClinicianPanel() {
     };
   }, [patients]);
 
-  // Needs attention patients
+  // Records with app observations worth reviewing, not clinical deterioration.
   const needsAttention = useMemo(() => {
     const now = new Date();
     const threeDaysAgo = localYYYYMMDD(new Date(now.getTime() - 3 * 86400000));
@@ -101,20 +101,20 @@ export default function ClinicianPanel() {
     const avgAccuracy = withAccuracy.length > 0
       ? Math.round(withAccuracy.reduce((s, p) => s + p.avgAccuracy7d!, 0) / withAccuracy.length)
       : null;
-    const avgAdherence = patients.length > 0
+    const avgRecordedDays = patients.length > 0
       ? Math.round(patients.reduce((s, p) => s + p.adherenceDays7d, 0) / patients.length * 10) / 10
       : null;
 
     const issueCounts: Record<string, number> = {};
     for (const p of patients) {
-      if (p.trend === "down") issueCounts["Declining"] = (issueCounts["Declining"] || 0) + 1;
-      if (p.criticalAlertCount > 0) issueCounts["Critical alerts"] = (issueCounts["Critical alerts"] || 0) + 1;
+      if (p.trend === "down") issueCounts["Lower app scores"] = (issueCounts["Lower app scores"] || 0) + 1;
+      if (p.criticalAlertCount > 0) issueCounts["High-priority app alerts"] = (issueCounts["High-priority app alerts"] || 0) + 1;
       if (!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000)))
-        issueCounts["Low adherence"] = (issueCounts["Low adherence"] || 0) + 1;
+        issueCounts["No recent recording"] = (issueCounts["No recent recording"] || 0) + 1;
     }
     const topIssue = Object.entries(issueCounts).sort((a, b) => b[1] - a[1])[0];
 
-    return { avgAccuracy, avgAdherence, topIssue: topIssue ? `${topIssue[0]} (${topIssue[1]})` : "None" };
+    return { avgAccuracy, scoredPatients: withAccuracy.length, avgRecordedDays, topIssue: topIssue ? `${topIssue[0]} (${topIssue[1]})` : "No flagged categories" };
   }, [patients]);
 
   const handlePatientClick = useCallback((profileId: string) => {
@@ -132,10 +132,10 @@ export default function ClinicianPanel() {
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
       <DashboardTour role="clinician" ready={!isLoading} />
       {/* Header */}
-      <div data-tour="cl-header" className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div data-tour="cl-header" className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
-          <h1 className="text-xl font-bold">Clinician Dashboard</h1>
+          <h1 className="text-xl font-bold">Clinician Caseload</h1>
           <Badge variant="secondary" className="text-xs">{patients.length} patients</Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -144,7 +144,7 @@ export default function ClinicianPanel() {
             variant="outline"
             size="sm"
             onClick={() => navigate("/clinician/trial")}
-            className="h-7 gap-1.5 text-xs"
+            className="min-h-11 gap-1.5 text-sm"
           >
             <ClipboardList className="w-3.5 h-3.5" />
             Trial
@@ -158,7 +158,7 @@ export default function ClinicianPanel() {
             type="button"
             onClick={refetch}
             disabled={isLoading}
-            className="p-1 rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+            className="min-w-11 min-h-11 flex items-center justify-center rounded-md hover:bg-muted transition-colors disabled:opacity-50"
             aria-label="Refresh caseload"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -166,14 +166,16 @@ export default function ClinicianPanel() {
         </div>
       </div>
 
-      {/* Needs Attention Section — PRIMARY, visually dominant */}
+      <p className="text-sm leading-relaxed text-muted-foreground">Overview of app-recorded practice. Scores and alert flags require clinical review; changes are not proof of neurological recovery or deterioration.</p>
+
+      {/* Review queue: alerts and activity gaps are observations, not diagnoses. */}
       {!isLoading && needsAttention.length > 0 && (
-        <Card data-tour="cl-attention" className="border-l-4 border-l-destructive/60 shadow-md">
+        <Card data-tour="cl-attention" className="border-l-4 border-l-muted-foreground/30">
           <CardHeader className="pb-3 pt-4">
             <CardTitle className="text-base font-bold flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              Needs Attention
-              <Badge variant="destructive" className="text-xs">{needsAttention.length}</Badge>
+              <AlertTriangle aria-hidden="true" className="w-5 h-5 text-muted-foreground" />
+              Records to review
+              <Badge variant="secondary" className="text-xs">{needsAttention.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-4">
@@ -181,24 +183,24 @@ export default function ClinicianPanel() {
               {needsAttention.map(p => {
                 // Build reason string
                 const reasons: string[] = [];
-                if (p.criticalAlertCount > 0) reasons.push(`${p.criticalAlertCount} critical alert${p.criticalAlertCount > 1 ? "s" : ""}`);
-                if (p.trend === "down") reasons.push("declining accuracy");
+                if (p.criticalAlertCount > 0) reasons.push(`${p.criticalAlertCount} high-priority app alert${p.criticalAlertCount > 1 ? "s" : ""}`);
+                if (p.trend === "down") reasons.push("lower app task scores");
                 if (!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000)))
-                  reasons.push("inactive ≥3d");
+                  reasons.push("no recording in 3+ days");
                 if (p.activeAlertCount > 0 && p.criticalAlertCount === 0) reasons.push(`${p.activeAlertCount} alert${p.activeAlertCount > 1 ? "s" : ""}`);
 
                 return (
                   <button
                     key={p.profileId}
                     onClick={() => handlePatientClick(p.profileId)}
-                    className="w-full flex items-center justify-between text-sm p-3 rounded-lg hover:bg-muted/60 transition-colors text-left border border-border/50"
+                    className="w-full flex flex-wrap items-center justify-between gap-2 text-sm min-h-11 p-3 rounded-lg hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-primary transition-colors text-left border border-border/50"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="font-semibold truncate">{p.name}</span>
                       {p.aphasiaLabel && <span className="text-xs text-muted-foreground shrink-0">{p.aphasiaLabel}</span>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-muted-foreground">{reasons.join(" · ")}</span>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="text-xs text-muted-foreground break-words">{reasons.join(" · ")}</span>
                       <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                     </div>
                   </button>
@@ -213,23 +215,29 @@ export default function ClinicianPanel() {
       {!isLoading && patients.length > 0 && (
         <div data-tour="cl-cohort" className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Mean patient task score</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAccuracy != null ? `${cohortSnapshot.avgAccuracy}%` : "—"}</div>
+            <p className="text-xs text-muted-foreground">{cohortSnapshot.scoredPatients} patients with scores · 7d</p>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Adherence</div>
-            <div className="text-lg font-bold">{cohortSnapshot.avgAdherence != null ? `${cohortSnapshot.avgAdherence}d/wk` : "—"}</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Avg recorded days</div>
+            <div className="text-lg font-bold">{cohortSnapshot.avgRecordedDays != null ? `${cohortSnapshot.avgRecordedDays} of 7` : "—"}</div>
+            <p className="text-xs text-muted-foreground">Not a prescribed dose target</p>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Top Issue</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Most common review flag</div>
             <div className="text-sm font-medium mt-0.5">{cohortSnapshot.topIssue}</div>
           </Card>
-          <Card className="p-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate("/admin/cohort-research")}>
+          <button type="button" aria-label="Open cohort research analytics"
+            className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => navigate("/admin/cohort-research")}>
+          <Card className="p-3 hover:bg-muted/30 transition-colors">
             <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
               Research <ExternalLink className="w-2.5 h-2.5" />
             </div>
-            <div className="text-sm font-medium mt-0.5 text-primary">Cohort Analytics →</div>
+            <div className="text-sm font-medium mt-0.5 text-primary">Cohort analytics</div>
           </Card>
+          </button>
         </div>
       )}
 
@@ -303,7 +311,7 @@ export default function ClinicianPanel() {
                   setLateralityFilter("all");
                   setChronicityFilter("all");
                 }}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto sm:ml-0"
+                className="min-h-11 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors ml-auto sm:ml-0"
               >
                 <X className="w-3 h-3" />
                 <span>Clear filters</span>
