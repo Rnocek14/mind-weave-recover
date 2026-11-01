@@ -22,6 +22,8 @@ import { AccuracySparkline } from "@/components/clinician/AccuracySparkline";
 import { cn } from "@/lib/utils";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 import { averageResponseTimeMs, measuredResponseTimeMs } from "@/lib/speech/responseTiming";
+import { summarizePresentationEvents, summarizePresentationTrials, formatPracticePercent, localDateKey } from "@/lib/clinical/metricsPresentation";
+import { isScoredClinicalEvidence } from "@/lib/clinical/scoredEvidence";
 
 function formatSlug(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -62,8 +64,8 @@ interface SessionRow {
 interface ExerciseSummary {
   slug: string;
   trialCount: number;
-  correctCount: number;
-  accuracy: number;
+  scoredCount: number;
+  accuracy: number | null;
   audioCount: number;
   avgRtMs: number | null;
 }
@@ -71,7 +73,9 @@ interface ExerciseSummary {
 interface SessionMeta {
   exercises: ExerciseSummary[];
   totalTrials: number;
-  overallAccuracy: number;
+  overallAccuracy: number | null;
+  scoredTrials: number;
+  unscoredTrials: number;
   totalAudio: number;
   avgRtMs: number | null;
   adaptationCount: number;
@@ -124,7 +128,7 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
         const [eventsRes, adaptRes] = await Promise.all([
           supabase
             .from("exercise_events")
-            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms")
+            .select("session_id, exercise_slug, score, audio_storage_path, reaction_time_ms, counts_toward_score, validity_label, clinician_validity_override")
             .in("session_id", sessionIds),
           supabase
             .from("adaptation_events")
@@ -153,41 +157,41 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
         sessionIds.forEach((sid) => {
           const evts = bySession.get(sid) || [];
-          const exMap = new Map<string, { trials: number; correct: number; audio: number; rtSum: number; rtCount: number }>();
-
-          evts.forEach((e) => {
-            const slug = e.exercise_slug || "unknown";
-            if (!exMap.has(slug)) exMap.set(slug, { trials: 0, correct: 0, audio: 0, rtSum: 0, rtCount: 0 });
-            const ex = exMap.get(slug)!;
-            ex.trials++;
-            if (e.score === 1 || e.score === 100) ex.correct++;
-            if (e.audio_storage_path) ex.audio++;
-            const responseTime = measuredResponseTimeMs(e.reaction_time_ms);
-            if (responseTime !== null) {
-              ex.rtSum += responseTime;
-              ex.rtCount++;
-            }
+          const byExercise = new Map<string, typeof evts>();
+          for (const event of evts) {
+            const slug = event.exercise_slug || "unknown";
+            const group = byExercise.get(slug) ?? [];
+            group.push(event);
+            byExercise.set(slug, group);
+          }
+          const exercises: ExerciseSummary[] = Array.from(byExercise.entries()).map(([slug, group]) => {
+            const scored = summarizePresentationEvents(group);
+            const times = group.map(event => measuredResponseTimeMs(event.reaction_time_ms))
+              .filter((value): value is number => value !== null);
+            return {
+              slug,
+              trialCount: group.length,
+              scoredCount: scored.eligible,
+              accuracy: scored.averagePct,
+              audioCount: group.filter(event => !!event.audio_storage_path).length,
+              avgRtMs: times.length > 0
+                ? Math.round(times.reduce((total, value) => total + value, 0) / times.length)
+                : null,
+            };
           });
 
-          const exercises: ExerciseSummary[] = Array.from(exMap.entries()).map(([slug, d]) => ({
-            slug,
-            trialCount: d.trials,
-            correctCount: d.correct,
-            accuracy: d.trials > 0 ? Math.round((d.correct / d.trials) * 100) : 0,
-            audioCount: d.audio,
-            avgRtMs: d.rtCount > 0 ? Math.round(d.rtSum / d.rtCount) : null,
-          }));
-
+          const scored = summarizePresentationEvents(evts);
           const totalTrials = evts.length;
-          const totalCorrect = evts.filter((e) => e.score === 1 || e.score === 100).length;
-          const totalAudio = evts.filter((e) => e.audio_storage_path).length;
+          const totalAudio = evts.filter(event => !!event.audio_storage_path).length;
           const meanResponseTime = averageResponseTimeMs(evts.map(event => event.reaction_time_ms));
           const avgRtMs = meanResponseTime === null ? null : Math.round(meanResponseTime);
 
           metaMap.set(sid, {
             exercises,
             totalTrials,
-            overallAccuracy: totalTrials > 0 ? Math.round((totalCorrect / totalTrials) * 100) : 0,
+            overallAccuracy: scored.averagePct,
+            scoredTrials: scored.eligible,
+            unscoredTrials: scored.unscored,
             totalAudio,
             avgRtMs,
             adaptationCount: adaptCounts.get(sid) || 0,
@@ -204,17 +208,23 @@ export function SessionsTab({ userId, profileId, windowSize, timeline }: Session
 
   // Build per-session accuracy for sparkline
   const sessionSparkData = useMemo(() => {
-    if (sessions.length === 0) return [];
     return sessions
-      .filter((s) => s.summary?.accuracy != null)
+      .filter(session => {
+        const meta = sessionMeta.get(session.id);
+        return meta !== undefined && meta.overallAccuracy !== null && meta.scoredTrials > 0;
+      })
+      .slice()
       .reverse()
-      .map((s) => ({
-        date: new Date(s.started_at).toISOString().slice(0, 10),
-        accuracy: Math.round(s.summary.accuracy),
-        fatigueRating: null as number | null,
-        trials: s.summary?.trials || 0,
-      }));
-  }, [sessions]);
+      .map(session => {
+        const meta = sessionMeta.get(session.id)!;
+        return {
+          date: localDateKey(new Date(session.started_at)),
+          accuracy: meta.overallAccuracy,
+          fatigueRating: null as number | null,
+          trials: meta.scoredTrials,
+        };
+      });
+  }, [sessions, sessionMeta]);
 
   if (loading) {
     return (
@@ -284,9 +294,10 @@ function SessionCard({
   }, [isExpanded, session.id]);
 
   const insight = useMemo<SessionInsight | null>(() => {
-    if (trials.length === 0) return null;
+    const eligible = trials.filter(t => typeof t.is_correct === 'boolean' && isScoredClinicalEvidence(t));
+    if (eligible.length === 0) return null;
     return generateSessionInsight(
-      trials.map((t) => ({
+      eligible.map((t) => ({
         exercise_slug: t.exercise_slug,
         is_correct: t.is_correct,
         error_type: t.error_type,
@@ -298,6 +309,8 @@ function SessionCard({
       adaptations
     );
   }, [trials, adaptations]);
+
+  const reviewMetrics = useMemo(() => summarizePresentationTrials(trials), [trials]);
 
   // Group trials by exercise for drill-down
   const trialsByExercise = useMemo(() => {
@@ -313,8 +326,8 @@ function SessionCard({
   // Curated audio: best (correct) and worst (incorrect) picks
   const curatedAudio = useMemo(() => {
     const withAudio = trials.filter((t) => t.audio_storage_path);
-    const best = withAudio.find((t) => t.is_correct === true);
-    const worst = withAudio.find((t) => t.is_correct === false);
+    const best = withAudio.find((t) => t.is_correct === true && isScoredClinicalEvidence(t));
+    const worst = withAudio.find((t) => t.is_correct === false && isScoredClinicalEvidence(t));
     return { best, worst };
   }, [trials]);
 
@@ -352,18 +365,18 @@ function SessionCard({
         </div>
 
         {/* Row 2: Key metrics */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{durationMin}m</span>
           {meta && (
             <>
               <span className="flex items-center gap-1">
                 <Target className="w-3 h-3" />
-                <span className={cn("font-semibold", meta.overallAccuracy >= 80 ? "text-success" : meta.overallAccuracy >= 50 ? "text-amber-500" : "text-destructive")}>
-                  {meta.overallAccuracy}%
+                <span className="font-semibold text-foreground tabular-nums">
+                  {formatPracticePercent(meta.overallAccuracy)}
                 </span>
               </span>
-              <span>{meta.totalTrials} trials</span>
-              <span>{meta.exercises.length} exercises</span>
+              <span>{meta.scoredTrials} scored / {meta.totalTrials} attempts</span>
+              <span>{meta.exercises.length} activities</span>
             </>
           )}
         </div>
@@ -374,24 +387,19 @@ function SessionCard({
             {meta.exercises.map((ex) => (
               <span
                 key={ex.slug}
-                className={cn(
-                  "text-xs px-2 py-0.5 rounded-full font-medium border",
-                  ex.accuracy >= 80
-                    ? "bg-success/10 text-success border-success/30"
-                    : ex.accuracy >= 50
-                    ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                    : "bg-destructive/10 text-destructive border-destructive/30"
-                )}
+                className="text-xs px-2.5 py-1 rounded-full font-medium border border-border text-foreground bg-muted/40 max-w-full break-words"
               >
-                {formatSlug(ex.slug)} {ex.accuracy}%
+                {formatSlug(ex.slug)} · {formatPracticePercent(ex.accuracy)}
+                <span className="text-muted-foreground ml-1">({ex.scoredCount} scored)</span>
               </span>
             ))}
           </div>
         )}
 
         {/* Row 4: Secondary signals */}
-        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs != null) && (
+        {meta && (meta.adaptationCount > 0 || meta.totalAudio > 0 || meta.avgRtMs != null || meta.unscoredTrials > 0) && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {meta.unscoredTrials > 0 && <span>{meta.unscoredTrials} unscored (not incorrect)</span>}
             {meta.adaptationCount > 0 && (
               <span className="flex items-center gap-1 text-primary">
                 <Zap className="w-3 h-3" />{meta.adaptationCount} adaptations
@@ -422,18 +430,18 @@ function SessionCard({
           ) : insight ? (
             <>
               {/* Key metrics */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-center p-2 rounded-lg bg-muted/30">
-                  <div className="text-xl font-bold text-primary">{insight.overallAccuracy}%</div>
-                  <div className="text-xs text-muted-foreground">Accuracy</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="text-center p-3 rounded-lg bg-muted/30">
+                  <div className="text-xl font-bold text-foreground tabular-nums">{formatPracticePercent(reviewMetrics.accuracyPct)}</div>
+                  <div className="text-xs text-muted-foreground">Correct responses</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-muted/30">
-                  <div className="text-xl font-bold">{trials.length}</div>
-                  <div className="text-xs text-muted-foreground">Trials</div>
+                <div className="text-center p-3 rounded-lg bg-muted/30">
+                  <div className="text-xl font-bold tabular-nums">{reviewMetrics.eligible}/{reviewMetrics.attempted}</div>
+                  <div className="text-xs text-muted-foreground">Scored / attempts</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-muted/30">
+                <div className="text-center p-3 rounded-lg bg-muted/30 col-span-2 sm:col-span-1">
                   <div className="text-xl font-bold">{insight.exerciseBreakdown.length}</div>
-                  <div className="text-xs text-muted-foreground">Exercises</div>
+                  <div className="text-xs text-muted-foreground">Activities with measured answers</div>
                 </div>
               </div>
 
@@ -538,8 +546,8 @@ function SessionCard({
                               <Timer className="w-2.5 h-2.5" />{(ex.avgLatencyMs / 1000).toFixed(1)}s
                             </span>
                           )}
-                          <Badge variant={ex.accuracy >= 80 ? "default" : ex.accuracy >= 50 ? "secondary" : "destructive"} className="text-xs">
-                            {ex.accuracy}%
+                          <Badge variant="outline" className="text-xs tabular-nums">
+                            {formatPracticePercent(summarizePresentationTrials(exTrials).accuracyPct)}
                           </Badge>
                         </div>
                       </button>
@@ -563,7 +571,7 @@ function SessionCard({
                           {exTrials.map((t, idx) => {
                             const responseTimeMs = measuredResponseTimeMs(t.response_time_ms);
                             return (
-                            <div key={t.attempt_id + idx} className="flex items-center gap-2 py-1 px-1.5 rounded text-xs hover:bg-muted/20">
+                            <div key={t.attempt_id + idx} className="flex flex-wrap items-center gap-2 py-2 px-2 rounded text-sm hover:bg-muted/20 min-w-0">
                               {/* Correct/incorrect */}
                               {t.is_correct === true ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
@@ -606,7 +614,7 @@ function SessionCard({
                                   variant="ghost"
                                   size="icon"
                                   aria-label="Play recording"
-                                  className="h-5 w-5 shrink-0 ml-auto"
+                                  className="h-10 w-10 shrink-0 ml-auto"
                                   onClick={() => playAudio(t.audio_storage_path!, t.attempt_id)}
                                 >
                                   {playingId === t.attempt_id ? (
@@ -659,7 +667,7 @@ function SessionCard({
               <ClinicianNoteSection sessionId={session.id} userId={session.user_id || ""} profileId={session.profile_id} />
             </>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">No trial data for this session.</p>
+            <p className="text-sm text-muted-foreground text-center py-4">No eligible scored answers in this session. Practice may still have happened; unscored responses are not failures.</p>
           )}
         </CardContent>
       )}
