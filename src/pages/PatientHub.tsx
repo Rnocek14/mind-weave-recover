@@ -117,7 +117,7 @@ export default function PatientHub() {
   const sessionStats = useWeeklySessionStats(profileId);
 
   const alertSessionStats = useMemo(() => {
-    if (sessionStats.isLoading) return undefined;
+    if (sessionStats.isLoading || sessionStats.readError) return undefined;
     return {
       recentAvgAccuracy: sessionStats.avgAccuracy,
       priorAvgAccuracy: sessionStats.priorAvgAccuracy,
@@ -157,7 +157,7 @@ export default function PatientHub() {
   }, [lastActiveDate]);
 
   const progressNote = useMemo(() => {
-    if (isLoading) return null;
+    if (isLoading || sessionStats.readError) return null;
     return generateProgressNote({
       timeline, flags: flags || [], alerts, lastActiveDate, engagement,
       accuracySlope: sessionStats.accuracySlope,
@@ -260,13 +260,19 @@ export default function PatientHub() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1">
             <h2 className="font-semibold text-base">Evidence quality · Last 7 days</h2>
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground tabular-nums">{sessionStats.trialCount} of {sessionStats.recordedEventCount}</strong>
-              {" "}recorded task results included in score summaries.
-              {sessionStats.unscoredEventCount > 0 && (
-                <span> {sessionStats.unscoredEventCount} unscored — not necessarily wrong answers.</span>
-              )}
-            </p>
+            {sessionStats.readError ? (
+              <p role="alert" className="text-sm text-muted-foreground">
+                Practice measurements could not be loaded reliably. No score summary is shown.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <strong className="text-foreground tabular-nums">{sessionStats.trialCount} of {sessionStats.recordedEventCount}</strong>
+                {" "}recorded task results included in score summaries.
+                {sessionStats.unscoredEventCount > 0 && (
+                  <span> {sessionStats.unscoredEventCount} unscored — not necessarily wrong answers.</span>
+                )}
+              </p>
+            )}
             <p className="text-xs leading-relaxed text-muted-foreground">
               Scores are app practice observations; speaker identity and real-world communication are not independently verified.
               Comparisons may reflect task difficulty, cueing, or task mix.
@@ -300,10 +306,10 @@ export default function PatientHub() {
           accuracySlope={sessionStats.accuracySlope}
           activeDays={activeDays}
           lastActiveDate={lastActiveLabel}
-          scoredRecent={sessionStats.trialCount}
-          scoredPrior={sessionStats.priorTrialCount}
+          scoredRecent={sessionStats.readError ? 0 : sessionStats.trialCount}
+          scoredPrior={sessionStats.readError ? 0 : sessionStats.priorTrialCount}
           practiceDeltaPp={
-            sessionStats.avgAccuracy !== null && sessionStats.priorAvgAccuracy !== null
+            !sessionStats.readError && sessionStats.avgAccuracy !== null && sessionStats.priorAvgAccuracy !== null
               ? Math.round(sessionStats.avgAccuracy - sessionStats.priorAvgAccuracy)
               : null
           }
