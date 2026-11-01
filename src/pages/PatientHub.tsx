@@ -39,7 +39,7 @@ import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
 import { useWeeklySessionTimeline } from "@/hooks/useWeeklySessionTimeline";
 import { useWeeklySessionStats } from "@/hooks/useWeeklySessionStats";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
-import { calculateStreak } from "@/hooks/useStreakCalculation";
+
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
@@ -106,7 +106,6 @@ export default function PatientHub() {
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
   const [activeTab, setActiveTab] = useState("overview");
   const [detailOpen, setDetailOpen] = useState(false);
-  const [streak, setStreak] = useState(0);
 
   const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
     useWeeklyRecoverySnapshot(profileId, windowSize);
@@ -131,10 +130,6 @@ export default function PatientHub() {
   );
 
   const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
-
-  useEffect(() => {
-    if (user?.id) calculateStreak(user.id).then(setStreak);
-  }, [user?.id]);
 
   // Engagement + flag breakdown for the cards
   const recent7 = timeline.slice(-7);
@@ -267,26 +262,24 @@ export default function PatientHub() {
           timeline={timeline as any}
           trialCount={sessionStats.trialCount}
           sessionCount={sessionStats.sessionCount}
-          streak={streak}
+          streak={0}
         />
       </div>
 
       <div data-tour="ph-listen">
-        <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+        <ClinicianListenCard userId={patientUserId} profileId={profileId} />
       </div>
 
       <div data-tour="ph-progress">
         <ClinicianProgressCard
-          userId={user?.id || ""}
+          userId={patientUserId}
           profileId={profileId}
-          accuracySlope={sessionStats.accuracySlope}
-          recentTrials={sessionStats.trialCount}
-          priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
+
         />
       </div>
 
       <div data-tour="ph-levels">
-        <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
+        <ClinicianLevelsCard userId={patientUserId} profileId={profileId} />
       </div>
 
 
@@ -333,7 +326,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Sessions</h3>
                     <span className="text-[11px] text-muted-foreground">Recent activity & accuracy</span>
                   </div>
-                  <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+                  <SessionsTab userId={patientUserId} profileId={profileId} windowSize={windowSize} timeline={timeline} />
                 </section>
 
                 <section id="overview-intel" className="scroll-mt-4 border-t border-border pt-5">
@@ -342,7 +335,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Intelligence</h3>
                     <span className="text-[11px] text-muted-foreground">Learning rate, cohort, predictions</span>
                   </div>
-                  <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <IntelligenceTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -375,7 +368,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Speech Profile</h3>
                     <span className="text-[11px] text-muted-foreground">Phoneme patterns & fade trajectory</span>
                   </div>
-                  <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <SpeechProfileTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
