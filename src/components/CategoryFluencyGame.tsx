@@ -38,7 +38,7 @@ import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { pickEncouragement } from '@/lib/feedbackPolicy';
-import { COMPARABLE_FLUENCY_SECONDS, categoryTierIndexForDifficulty, getFluencyInputMode, getFluencyCueLevel, type FluencyInputMode } from '@/lib/categoryFluency/clinicalRoundEvidence';
+import { COMPARABLE_FLUENCY_SECONDS, categoryTierIndexForDifficulty, getFluencyInputMode, getFluencyCueLevel, classifyFluencyRoundEvidence, type FluencyInputMode } from '@/lib/categoryFluency/clinicalRoundEvidence';
 
 // Categories ordered by difficulty
 const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
@@ -396,13 +396,24 @@ export function CategoryFluencyGame({
     const fluencyCueLevel = getFluencyCueLevel(examplesVisibleRef.current, exampleSwapCountRef.current);
     const inputMode = getFluencyInputMode(spokenValidWordsRef.current, typedValidWordsRef.current);
 
-    // Feed adaptive engine
-    const prevDiff = currentDifficulty;
-    adaptation.recordTrial({
-      correct: wasSuccessful,
-      reactionTimeMs: Math.round(durationSec * 1000),
-      cueWasShown: fluencyCueLevel > 0,
+    // Early stops, typed practice and mixed-input rounds are still worthwhile
+    // practice but cannot calibrate spoken-task difficulty as though the
+    // full one-minute speech probe was completed.
+    const clinicalEvidence = classifyFluencyRoundEvidence({
+      mode: inputMode,
+      cueLevelUsed: fluencyCueLevel,
+      uniqueWordCount: validWords.length,
+      timeLimitSec: totalTime,
+      actualDurationSec: Math.round(durationSec),
     });
+    const prevDiff = currentDifficulty;
+    if (clinicalEvidence.clinicalProgressionEligible) {
+      adaptation.recordTrial({
+        correct: wasSuccessful,
+        reactionTimeMs: Math.round(durationSec * 1000),
+        cueWasShown: fluencyCueLevel > 0,
+      });
+    }
 
     // Feed engagement monitor for cue dependency / fatigue tracking
     engagement.recordTrial({
