@@ -96,7 +96,6 @@ BEGIN
     RAISE EXCEPTION 'Not authorized to view session summary' USING ERRCODE = '42501';
   END IF;
 
-BEGIN
   SELECT (inputs->'task_params'->>'difficulty_level')::INTEGER
   INTO first_level
   FROM exercise_events
@@ -178,7 +177,6 @@ BEGIN
     RAISE EXCEPTION 'Not authorized to update clinical profile' USING ERRCODE = '42501';
   END IF;
 
-BEGIN
   -- Get previous profile data for diff
   SELECT profile_data INTO v_previous_profile
   FROM clinical_profile_versions
@@ -299,7 +297,6 @@ BEGIN
     RAISE EXCEPTION 'Not authorized to operate clinical administration' USING ERRCODE = '42501';
   END IF;
 
-BEGIN
   CASE _window
     WHEN '1h'  THEN v_interval := interval '1 hour';   v_bucket := interval '5 minutes';
     WHEN '24h' THEN v_interval := interval '24 hours'; v_bucket := interval '1 hour';
@@ -384,7 +381,6 @@ BEGIN
     RAISE EXCEPTION 'Not authorized to operate clinical administration' USING ERRCODE = '42501';
   END IF;
 
-BEGIN
   REFRESH MATERIALIZED VIEW CONCURRENTLY user_cluster_assignments;
 END;
 $function$
