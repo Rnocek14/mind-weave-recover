@@ -156,6 +156,25 @@ describe('DualLoadNamingExercise records mixed-domain evidence without speech in
     expect(stubs.recordTier).toHaveBeenCalledWith(expect.objectContaining({ correct: false }));
   });
 
+  it('keeps invalid component metrics out of saved accuracy and session progression', () => {
+    stubs.round = synthetic({
+      namingAccuracy: Number.NaN,
+      namingAttempts: naming(3),
+    });
+    render(<DualLoadNamingExercise />);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit synthetic dual-load attempt' }));
+
+    expect(stubs.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      isCorrect: false,
+      accuracyScore: null,
+      clinicalProgressionEligible: false,
+      trialMode: 'mixed',
+      errorType: 'invalid_metrics',
+    }));
+    expect(stubs.recordPivot).not.toHaveBeenCalled();
+    expect(stubs.recordTier).not.toHaveBeenCalled();
+  });
+
   it('saves skipped naming as practice without driving the clinical difficulty controller', () => {
     stubs.round = synthetic({
       namingAccuracy: 0,
