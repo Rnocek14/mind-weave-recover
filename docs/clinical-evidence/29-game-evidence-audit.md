@@ -49,6 +49,28 @@ The uploaded research synthesis, `Clinical Progression Ladders for Seventeen Aph
 | Sequence Builder | related | receptive | Temporal/causal dependencies in meaningful everyday sequences | Correct independent ordering, partial order and cause-effect reasoning | CANADA_COGNITION |
 | Command Scenes | exploratory | expressive | Context-appropriate functional commands and goal changes | Successfully communicated intended scene action with acceptable phrasing | CANADA_LANGUAGE, ASHA_APHASIA |
 
+## Operational stage-alignment review (13 of 13)
+
+These findings compare the current persisted L1–L8 stage descriptions and available mechanics against the single-primary-axis approach recommended in the uploaded research synthesis. They are **engineering and evidence-fit flags awaiting clinician review**, not findings from a validated patient study. In particular, altering content, cueing and speed simultaneously makes progression difficult to interpret.
+
+| Persisted game | Why clinical review is still required |
+| --- | --- |
+| photo-naming | L1–L3 primarily differ by cue support while later stages change lexical frequency and context; confirm independence is not mistaken for item-complexity advancement. |
+| fix-sentence | Early stages change cue support or semantic foil type while later stages change number and grammatical form of errors; constrain the syntax axis and accept alternate valid repairs. |
+| minimal-pairs | Early faster pace, later acoustic degradation and three-choice tasks change more than phoneme contrast; hearing and device calibration are unverified. |
+| meaning-match | Early stages change hint availability and later stages change frequency/figurative language. L8 idioms are not by themselves a controlled test of semantic-neighbor distance. |
+| two-clues | Early stages change anchor support and later stages change abstractness and nonliteral idioms; L8 phrases need diagnosticity ratings and multiple-valid-target review. |
+| semantic-features | Early stages emphasize chip support and feature count while later stages change abstractness; require nonredundant discriminative feature scoring with matched response demand. |
+| detective-mind | Early stages reduce hints and later stages alter inference complexity; use matched reading/memory load to isolate inferential improvement. |
+| multi-step-plan | Early success thresholds and cue support change separately from ordered-plan depth; control linguistic and working-memory burden of prompt wording. |
+| sentence-construction | Early tile/model support changes with later syntactic complexity; ensure higher levels measure actual sentence production rather than tile placement. |
+| phonological-awareness | Rhyme, onset/coda, vowel, nonword and degraded-signal tasks may represent distinct skills or sensory demands; keep receptive skill attribution and hearing controls. |
+| dual-load-naming | Current ladder increases lexical frequency and concurrent-memory demands together, so observed difficulty cannot be attributed specifically to dual-task interference. |
+| category-fluency | Runtime changes the time window with difficulty and category breadth; normalize timed probes and report unique valid words, switches and cues separately. |
+| synonym-generator | Existing stages increase word frequency and match-count thresholds rather than primarily testing semantic sense competition and context-appropriate substitution. |
+
+Passing automated tests only shows code and content contracts behaved as expected under controlled inputs. It does **not** resolve the above construct or measurement-validity concerns. No existing thresholds, patient histories or game progression mechanics were changed in this evidence-audit branch.
+
 ## Required separation of outcomes
 
 1. **Trial performance:** Did the patient perform the specific task on an actual trial, with what modality, answer validity, assistance and uncertainty? Includes stopped/abandoned/skip and failed recognition.
