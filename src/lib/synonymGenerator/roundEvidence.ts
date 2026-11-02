@@ -60,7 +60,9 @@ export function classifySynonymRoundEvidence(
   const requiredMatches = getSynonymSuccessThreshold(input.difficulty);
   const practiceSuccessful = Number.isFinite(input.matchCount) &&
     input.matchCount >= requiredMatches;
-  const eligible = input.inputMode === 'spoken' && input.completionReason === 'timer';
+  const eligible = input.inputMode === 'spoken' && input.completionReason === 'timer' &&
+    Number.isFinite(input.difficulty) && input.difficulty >= 1 && input.difficulty <= 10 &&
+    Number.isFinite(input.matchCount) && input.matchCount >= 0;
   return {
     requiredMatches,
     practiceSuccessful,
