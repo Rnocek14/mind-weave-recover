@@ -1,8 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import { resolveE2EEnvironment } from './scripts/e2e-environment.mjs';
+import { requireHospitalStagingAttestation } from './scripts/hospital-staging-attestation.mjs';
 
 // Validation happens before builds, browsers, or auth calls.
 const settings = resolveE2EEnvironment();
+// Hosted therapy tests sign in and write synthetic records. They are blocked
+// until the actual staging data has been reviewed and freshly approved.
+if (settings.suite === 'staging' && settings.projectRef !== 'local') {
+  requireHospitalStagingAttestation();
+}
 const stagingSpecs = [
   '**/core-loop.spec.ts',
   '**/pass-b-patient-journey.spec.ts',
