@@ -16,6 +16,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { isComparableScoredEvent } from '@/lib/clinical/metricsPresentation';
+import { toLessonExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
 export interface ExerciseStruggleRecord {
   exerciseSlug: string;
@@ -64,6 +65,7 @@ export async function fetchExerciseStruggleData(
   profileId: string | undefined,
   windowDays: number = 14,
 ): Promise<ExerciseStruggleRecord[]> {
+  if (!userId || !profileId) return [];
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - windowDays);
 
@@ -110,7 +112,7 @@ export async function fetchExerciseStruggleData(
   }>();
 
   for (const row of eligible) {
-    const slug = row.exercise_slug;
+    const slug = toLessonExerciseSlug(row.exercise_slug);
     if (!slug) continue;
     const entry = slugMap.get(slug) || { scores: [], cueLevels: [], timeouts: 0, total: 0, sessions: new Set() };
     
