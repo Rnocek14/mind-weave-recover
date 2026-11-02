@@ -12,6 +12,7 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { configureStagingRunner } from './staging-runner-config.mjs';
+import { resolveE2EEnvironment } from './e2e-environment.mjs';
 
 export const STAGING_APPROVAL_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -19,9 +20,12 @@ export function requireHospitalStagingAttestation(
   env = process.env,
   nowMs = Date.now(),
 ) {
-  // Keep the original backend/prod guards as a prerequisite.
-  const configuration = configureStagingRunner(env);
-  const projectRef = configuration.variables.E2E_SUPABASE_PROJECT_REF;
+  // Hosted CI stays pinned to the reviewed project. An explicitly launched
+  // localhost Supabase instance may also be approved, but must pass the same
+  // strict, short-lived human data review before any writes.
+  const projectRef = env.E2E_SUPABASE_PROJECT_REF === 'local'
+    ? resolveE2EEnvironment({ ...env, E2E_SUITE: 'staging' }).projectRef
+    : configureStagingRunner(env).variables.E2E_SUPABASE_PROJECT_REF;
   const attestedRef = env.NEUROSPARK_STAGING_DATA_ATTESTED_REF;
   const attestedAt = env.NEUROSPARK_STAGING_DATA_ATTESTED_AT;
   const attestedScope = env.NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE;
