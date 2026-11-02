@@ -21,6 +21,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
+import { useNarrativeRetellTrainingStage } from '@/hooks/useNarrativeRetellTrainingStage';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -79,6 +80,11 @@ export default function NarrativeRetellExercise() {
   });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const training = useNarrativeRetellTrainingStage({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    offline: isOfflineMode,
+  });
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -141,6 +147,11 @@ export default function NarrativeRetellExercise() {
         support_used: evidence.support,
         independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         story_id: result.storyId,
+        story_tier: result.storyTier ?? null,
+        narrative_training_stage: training.stage?.level ?? null,
+        // These new stages only select real practice content and support.
+        // There are no approved automated promotion rules yet.
+        narrative_stage_promotion_eligible: false,
         story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
         transcript: result.transcript ?? '',
@@ -180,7 +191,7 @@ export default function NarrativeRetellExercise() {
       }
       return saved;
     }));
-  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
+  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry, training.stage?.level]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -239,8 +250,18 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
+  if (!isOfflineMode && (isCreatingSession || !activeSessionId || !training.loaded)) {
     return <ExerciseLoading />;
+  }
+
+  if (!isOfflineMode && training.loadUnavailable) {
+    return (
+      <div role="alert" className="min-h-dvh bg-background flex flex-col items-center justify-center gap-5 p-6 text-center">
+        <h1 className="text-2xl font-bold">Practice level unavailable</h1>
+        <p className="max-w-md text-lg">We couldn't load your saved practice level. Ask a care partner for help.</p>
+        <Button size="lg" onClick={() => navigate('/today')}>Return to Today</Button>
+      </div>
+    );
   }
 
   return (
@@ -254,6 +275,13 @@ export default function NarrativeRetellExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+        {!training.stage && training.persistedLevel != null && (
+          <div role="status" className="rounded-lg border p-3 text-sm">
+            Your saved level is {training.persistedLevel}. This higher-level story training is
+            still being developed. You can continue general story practice here without
+            changing your saved level.
+          </div>
+        )}
         {saveWarning ? (
           <UnverifiedPracticeBanner />
         ) : completed ? (
@@ -272,7 +300,7 @@ export default function NarrativeRetellExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
+          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={training.stage?.storyTier ?? adaptation.difficultyTier} trainingStage={training.stage ?? undefined} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

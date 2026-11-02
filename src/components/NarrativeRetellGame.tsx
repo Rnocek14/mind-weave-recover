@@ -40,6 +40,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import { resolveVisualSupport } from '@/lib/narrative/visualSupport';
+import { resolveNarrativeTrainingVisualSupport, type NarrativeTrainingStage } from '@/lib/narrative/trainingStages';
 import { annotateNarrativeResult, classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
@@ -68,6 +69,8 @@ interface NarrativeRetellGameProps {
   onGameComplete: (results: NarrativeTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** First three operational training configurations; not clinical mastery. */
+  trainingStage?: NarrativeTrainingStage;
   /** Profile-recommended cue type — adapts retelling scaffolding */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -128,10 +131,11 @@ export function NarrativeRetellGame({
   onGameComplete,
   roundCount = 3,
   tier = 1,
+  trainingStage,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
-    useNarrativeRetellGame(roundCount, tier);
+    useNarrativeRetellGame(roundCount, tier, !!trainingStage);
 
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
@@ -164,7 +168,7 @@ export function NarrativeRetellGame({
     },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
-      if (newTier !== activeTier) {
+      if (!trainingStage && newTier !== activeTier) {
         setActiveTier(newTier);
       }
       const narration = narrateAdaptation({
@@ -845,6 +849,16 @@ export function NarrativeRetellGame({
 
       <Progress value={((currentIndex) / totalStories) * 100} className="h-2" />
 
+      {trainingStage && (
+        <div role="status" className="rounded-lg border border-primary/25 bg-primary/5 p-3">
+          <p className="text-base font-semibold">Story practice • Stage {trainingStage.level}</p>
+          <p className="text-sm">{trainingStage.label}</p>
+          <p className="text-xs text-muted-foreground">
+            This is a supported practice stage, not a verified recovery score.
+          </p>
+        </div>
+      )}
+
       <h2 className="text-lg font-bold flex items-center gap-2">
         📂 {currentStory.title}
       </h2>
@@ -1021,7 +1035,9 @@ export function NarrativeRetellGame({
                 When flag is OFF, fall back to the original tier-1 emoji hint
                 shown only after the second stall prompt. */}
             {(() => {
-              const flagOn = isFeatureEnabled('narrative_visual_fading_v1', false);
+              // Explicit training stages are always rendered and cannot be
+              // hidden behind the legacy optional flag.
+              const flagOn = !!trainingStage || isFeatureEnabled('narrative_visual_fading_v1', false);
               if (!flagOn) {
                 if (activeTier === 1 && stallPromptIndex >= 1) {
                   return (
@@ -1042,10 +1058,12 @@ export function NarrativeRetellGame({
                 return null;
               }
 
-              const { level, baseline, stallReveal } = resolveVisualSupport({
-                adaptiveLevel: adaptation.currentDifficulty,
-                stallPromptIndex,
-              });
+              const { level, baseline, stallReveal } = trainingStage
+                ? resolveNarrativeTrainingVisualSupport(trainingStage, stallPromptIndex)
+                : resolveVisualSupport({
+                  adaptiveLevel: adaptation.currentDifficulty,
+                  stallPromptIndex,
+                });
               // Idempotent telemetry update (refs only — no re-render)
               const t = supportTelemetryRef.current;
               t.flagEnabled = true;

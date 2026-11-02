@@ -19,7 +19,8 @@ describe('useNarrativeRetellTrainingStage patient-bound read', () => {
       useNarrativeRetellTrainingStage({ userId: 'synthetic-user', profileId: 'patient-b' }),
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));
-    expect(mocks.load).toHaveBeenCalledExactlyOnceWith({
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(mocks.load).toHaveBeenCalledWith({
       userId: 'synthetic-user', profileId: 'patient-b', exerciseSlug: 'narrative-retell',
     });
     expect(result.current.stage).toMatchObject({ level: 3, storyTier: 2, baselineSupport: 1 });

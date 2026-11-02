@@ -30,6 +30,9 @@ vi.mock('@/hooks/useSessionLifecycle', () => ({
     return { completeSession: mocks.completeSession };
   },
 }));
+vi.mock('@/hooks/useNarrativeRetellTrainingStage', () => ({
+  useNarrativeRetellTrainingStage: () => ({ loaded: true, loadUnavailable: false, persistedLevel: 1, stage: null }),
+}));
 vi.mock('@/hooks/useExerciseTelemetry', () => ({
   useExerciseTelemetry: () => ({ logTrial: mocks.logTrial }),
 }));
