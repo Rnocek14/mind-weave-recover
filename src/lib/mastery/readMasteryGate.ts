@@ -119,8 +119,8 @@ export interface MasteryGateResult {
 /**
  * Read the mastery confidence gate for an exercise.
  *
- * Network failures degrade safely to verdict:'skip' — never block
- * progression on transport errors.
+ * A failed check must not be confused with a new patient's absent mastery
+ * history. Errors block PROMOTION for this session; patients can retry.
  */
 export async function readMasteryGate(args: {
   profileId: string;
@@ -151,7 +151,7 @@ export async function readMasteryGate(args: {
 
     if (error) {
       console.warn('[masteryGate] read failed:', error.message);
-      return { verdict: 'skip', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
+      return { verdict: 'block', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
     }
 
     const rowBySkill = new Map<
@@ -201,6 +201,6 @@ export async function readMasteryGate(args: {
     return { verdict, confidence, skills, bySkill, minMasteryScore, minCueIndependence };
   } catch (err) {
     console.warn('[masteryGate] read threw:', err);
-    return { verdict: 'skip', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
+    return { verdict: 'block', confidence: undefined, skills, bySkill: {}, minMasteryScore: null, minCueIndependence: null };
   }
 }
