@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   completeSession: vi.fn(),
   saveDetails: vi.fn(),
   navigate: vi.fn(),
+  getStats: null as null | (() => { score: number; totalTrials: number }),
 }));
 
 vi.mock('react-router-dom', async (originalImport) => {
@@ -24,7 +25,10 @@ vi.mock('@/hooks/useStandaloneSession', () => ({
   useStandaloneSession: () => ({ activeSessionId: 'synthetic-session', isCreatingSession: false }),
 }));
 vi.mock('@/hooks/useSessionLifecycle', () => ({
-  useSessionLifecycle: () => ({ completeSession: mocks.completeSession }),
+  useSessionLifecycle: (options: { getSessionStats: () => { score: number; totalTrials: number } }) => {
+    mocks.getStats = options.getSessionStats;
+    return { completeSession: mocks.completeSession };
+  },
 }));
 vi.mock('@/hooks/useExerciseTelemetry', () => ({
   useExerciseTelemetry: () => ({ logTrial: mocks.logTrial }),
@@ -100,6 +104,7 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     localStorage.removeItem('offlineMode');
     vi.clearAllMocks();
     mocks.nextTrial = trial();
+    mocks.getStats = null;
     mocks.logTrial.mockResolvedValue(true);
     mocks.completeSession.mockResolvedValue(undefined);
   });
@@ -169,11 +174,13 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     finish();
     expect(mocks.logTrial).toHaveBeenCalledTimes(1);
     expect(mocks.completeSession).not.toHaveBeenCalled();
+    expect(mocks.getStats?.()).toMatchObject({ score: 0, totalTrials: 0 });
     await act(async () => {
       resolveWrite(true);
       await Promise.resolve();
     });
     await waitFor(() => expect(mocks.completeSession).toHaveBeenCalledTimes(1));
+    expect(mocks.getStats?.()).toMatchObject({ score: 60, totalTrials: 1 });
     expect(screen.getByText('Stories Complete!')).toBeTruthy();
   });
 
@@ -183,5 +190,6 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(screen.getByRole('alert').textContent).toContain('could not be saved');
     expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    expect(mocks.getStats?.()).toMatchObject({ score: 0, totalTrials: 0 });
   });
 });
