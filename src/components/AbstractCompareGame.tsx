@@ -37,6 +37,7 @@ import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
+import type { AbstractPracticeStage } from '@/lib/abstractCompare/trainingStages';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -54,6 +55,8 @@ interface AbstractCompareGameProps {
   tier?: number;
   /** Auto-start mic on first trial (from lesson flow) */
   autoStart?: boolean;
+  /** Externally selected practice format; never an automatic clinical stage. */
+  trainingStage?: AbstractPracticeStage | null;
 }
 
 type Phase = 'prompt' | 'speaking' | 'scored';
@@ -63,9 +66,10 @@ export function AbstractCompareGame({
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
   autoStart = false,
+  trainingStage = null,
 }: AbstractCompareGameProps) {
   const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem } =
-    useAbstractCompareGame(roundCount, tier);
+    useAbstractCompareGame(roundCount, trainingStage?.contentTier ?? tier, trainingStage);
 
   const { mode } = useCoachingMode();
   const vg = useVoiceGuidance('abstract-compare');
@@ -99,6 +103,7 @@ export function AbstractCompareGame({
       });
     },
     onDifficultyChange: (newLevel, reason, dir) => {
+      if (trainingStage) return; // Fixed practice stage; never silently remix content.
       const newTier = levelToTierLocal(newLevel);
       if (newTier !== activeTier) {
         setActiveTier(newTier);
@@ -365,7 +370,7 @@ export function AbstractCompareGame({
         onTrialComplete(result);
         // Only observed speech informs this voice/discourse adaptation path.
         // Typed practice remains available without claiming speech mastery.
-        if (!useTyping) {
+        if (!useTyping && !trainingStage) {
           const correctForAdaptation = result.coverageRatio >= 0.6;
           adaptation.recordTrial({
             correct: correctForAdaptation,
@@ -381,7 +386,7 @@ export function AbstractCompareGame({
         }
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya, useTyping]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya, useTyping, trainingStage]);
 
   // Keep ref to handleDone for typing-fallback path
   useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
@@ -419,8 +424,17 @@ export function AbstractCompareGame({
         <div className="text-6xl">🔗</div>
         <h2 className="text-2xl font-bold">Comparisons Complete!</h2>
         <Card><CardContent className="pt-4 text-center">
-          <div className="text-2xl font-bold">{Math.round(avgCoverage * 100)}%</div>
-          <div className="text-xs text-muted-foreground">Avg Concept Coverage</div>
+          {trainingStage ? (
+            <>
+              <div className="text-2xl font-bold">{results.length}</div>
+              <div className="text-xs text-muted-foreground">Pairs practiced — not a clinical score</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{Math.round(avgCoverage * 100)}%</div>
+              <div className="text-xs text-muted-foreground">Avg Concept Coverage</div>
+            </>
+          )}
         </CardContent></Card>
       </div>
     );
@@ -434,13 +448,17 @@ export function AbstractCompareGame({
           <span className="font-medium">Abstract Comparison</span>
         </div>
         <div className="flex items-center gap-2">
-          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          {trainingStage ? (
+            <span className="font-medium text-primary">Practice Stage {trainingStage.level}</span>
+          ) : (
+            <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+          )}
           <span className="text-muted-foreground">{currentIndex + 1} of {totalItems}</span>
         </div>
       </div>
       <Progress value={(currentIndex / totalItems) * 100} className="h-2" />
 
-      {shiftDirection && (
+      {!trainingStage && shiftDirection && (
         <div className="space-y-2">
           <div className="flex justify-center">
             <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
@@ -451,12 +469,24 @@ export function AbstractCompareGame({
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-2">
-          <p className="text-sm text-muted-foreground">How are these two things similar?</p>
+          <p className="text-sm text-muted-foreground">
+            {trainingStage?.prompt ?? 'How are these two things similar?'}
+          </p>
           <div className="flex items-center justify-center gap-4 py-4">
             <span className="text-2xl font-bold text-primary">{currentItem.wordA}</span>
             <span className="text-muted-foreground text-lg">&</span>
             <span className="text-2xl font-bold text-primary">{currentItem.wordB}</span>
           </div>
+          {trainingStage && (
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">{trainingStage.instruction}</p>
+              {trainingStage.displayedSupport && (
+                <p className="rounded-md bg-muted p-3 text-base font-medium">
+                  {trainingStage.displayedSupport}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -542,9 +572,15 @@ export function AbstractCompareGame({
               <div className="flex items-center gap-2">
                 <span className="text-lg">{lastResult.coverageRatio >= 0.6 ? '🧠' : lastResult.coverageRatio >= 0.3 ? '👍' : '💡'}</span>
                 <span className="font-bold text-sm">
-                  {lastResult.coverageRatio >= 0.6 ? 'Excellent thinking!' : lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
+                  {trainingStage ? 'Thanks for comparing those ideas!' :
+                    lastResult.coverageRatio >= 0.6 ? 'Excellent thinking!' :
+                    lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
                 </span>
-                <span className="ml-auto text-xs text-muted-foreground">{lastResult.conceptCount}/{lastResult.conceptsTotal} shared properties</span>
+                {!trainingStage && (
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {lastResult.conceptCount}/{lastResult.conceptsTotal} shared properties
+                  </span>
+                )}
               </div>
               {lastResult.transcript && (
                 <div className="bg-muted/30 rounded-lg p-2">
