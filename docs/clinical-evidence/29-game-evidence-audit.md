@@ -66,7 +66,7 @@ These findings compare the current persisted L1–L8 stage descriptions and avai
 | sentence-construction | Early tile/model support changes with later syntactic complexity; ensure higher levels measure actual sentence production rather than tile placement. |
 | phonological-awareness | Rhyme, onset/coda, vowel, nonword and degraded-signal tasks may represent distinct skills or sensory demands; keep receptive skill attribution and hearing controls. |
 | dual-load-naming | Current ladder increases lexical frequency and concurrent-memory demands together, so observed difficulty cannot be attributed specifically to dual-task interference. |
-| category-fluency | Runtime changes the time window with difficulty and category breadth; normalize timed probes and report unique valid words, switches and cues separately. |
+| category-fluency | The time window is now fixed at 60 seconds and displayed examples are logged as semantic support; still needs clinician review of switching targets, category norming, and the incomplete L8 content bank. |
 | synonym-generator | Existing stages increase word frequency and match-count thresholds rather than primarily testing semantic sense competition and context-appropriate substitution. |
 
 Passing automated tests only shows code and content contracts behaved as expected under controlled inputs. It does **not** resolve the above construct or measurement-validity concerns. No existing thresholds, patient histories or game progression mechanics were changed in this evidence-audit branch.

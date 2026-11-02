@@ -38,6 +38,7 @@ import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { pickEncouragement } from '@/lib/feedbackPolicy';
+import { COMPARABLE_FLUENCY_SECONDS, categoryTierIndexForDifficulty, getFluencyInputMode, getFluencyCueLevel, classifyFluencyRoundEvidence, type FluencyInputMode } from '@/lib/categoryFluency/clinicalRoundEvidence';
 
 // Categories ordered by difficulty
 const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
@@ -71,15 +72,6 @@ const CATEGORY_TIERS: Array<Array<{ category: string; label: string }>> = [
   ],
 ];
 
-// Timer decreases with difficulty
-function getTimerForDifficulty(difficulty: number): number {
-  if (difficulty <= 1) return 45;
-  if (difficulty <= 2) return 35;
-  if (difficulty <= 3) return 30;
-  if (difficulty <= 4) return 25;
-  return 20;
-}
-
 // Cross-session category recency: remember the last N categories the user got
 // so we don't open every warmup with "animals". Soft window — once it fills up,
 // the oldest entry rolls off and that category becomes eligible again.
@@ -105,17 +97,15 @@ function rememberCategory(category: string) {
 }
 
 function pickCategory(difficulty: number, usedCategories: Set<string> = new Set()) {
-  const tierIndex = Math.min(Math.floor((difficulty - 1) / 2), CATEGORY_TIERS.length - 1);
+  const tierIndex = categoryTierIndexForDifficulty(difficulty, CATEGORY_TIERS.length);
   const tier = CATEGORY_TIERS[Math.max(0, tierIndex)];
   // Combine in-session used + cross-session recent for full freshness gate.
   const recent = new Set([...loadRecentCategories(), ...usedCategories]);
   const unused = tier.filter(c => !recent.has(c.category));
   if (unused.length > 0) return unused[Math.floor(Math.random() * unused.length)];
-  // Tier exhausted: try any non-recent category from any tier (still avoiding repeats)
-  const allCategories = CATEGORY_TIERS.flat();
-  const allUnused = allCategories.filter(c => !recent.has(c.category));
-  if (allUnused.length > 0) return allUnused[Math.floor(Math.random() * allUnused.length)];
-  // Everything's been seen recently → fall back to in-session-only filter (soft recovery)
+  // Do not cross into a different category tier because of recency:
+  // a supposedly higher-level score must not come from an easier category.
+  // If needed, replay a same-tier item rather than silently changing tiers.
   const sessionUnused = tier.filter(c => !usedCategories.has(c.category));
   if (sessionUnused.length > 0) return sessionUnused[Math.floor(Math.random() * sessionUnused.length)];
   usedCategories.clear();
@@ -137,11 +127,15 @@ export interface CategoryFluencyResult {
   timeLimitSec: number;
   difficulty: number;
   difficultyChanged?: 'up' | 'down' | null;
+  cueLevelUsed: number;
+  inputMode: FluencyInputMode;
   analysis?: FluencyAnalysis;
 }
 
 interface CategoryFluencyGameProps {
   difficulty?: number;
+  /** Saved stage; L1 begins with examples, later stages reveal them on request. */
+  clinicalLevel?: number;
   onRoundComplete?: (result: CategoryFluencyResult) => void;
   onGameComplete?: (results: CategoryFluencyResult[]) => void;
   onDifficultyChange?: (newLevel: number, direction: 'up' | 'down') => void;
@@ -157,6 +151,7 @@ const DEFAULT_BOUNDS: DifficultyBounds = { floor: 1, ceiling: 5, suggestedStart:
 
 export function CategoryFluencyGame({
   difficulty = 1,
+  clinicalLevel = 1,
   onRoundComplete,
   onGameComplete,
   onDifficultyChange,
@@ -186,7 +181,7 @@ export function CategoryFluencyGame({
     enableDifficultyToasts: false,
     enableAutoHints: false,
     // Page (CategoryFluencyExercise) now owns the trial logger via
-    // useTrialSubmission and tags every row with trialMode:'production'.
+    // useTrialSubmission with per-round production, scaffolded or mixed mode.
     // Disable the auto-logger to prevent duplicate untagged rows.
     autoLog: false,
     getCueDependencyScore: () => {
@@ -244,9 +239,13 @@ export function CategoryFluencyGame({
   // as a cue / support).
   const [exampleSwapCount, setExampleSwapCount] = useState(0);
   const exampleSwapCountRef = useRef(0);
+  const [showExamples, setShowExamples] = useState(clinicalLevel <= 1);
+  const examplesVisibleRef = useRef(clinicalLevel <= 1);
+  const spokenValidWordsRef = useRef(0);
+  const typedValidWordsRef = useRef(0);
   useEffect(() => { exampleSwapCountRef.current = exampleSwapCount; }, [exampleSwapCount]);
 
-  const [totalTime, setTotalTime] = useState(() => getTimerForDifficulty(currentDifficulty));
+  const [totalTime, setTotalTime] = useState(COMPARABLE_FLUENCY_SECONDS);
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -285,6 +284,7 @@ export function CategoryFluencyGame({
     );
     fresh.forEach((it) => processedRef.current.add(it.text));
     if (fresh.length === 0) return;
+    spokenValidWordsRef.current += fresh.filter(item => item.status === 'valid').length;
     const next = [...wordsRef.current, ...fresh];
     wordsRef.current = next;
     setWords(next);
@@ -330,6 +330,7 @@ export function CategoryFluencyGame({
     fresh.forEach((it) => processedRef.current.add(it.text));
     if (fresh.length === 0) return;
 
+    spokenValidWordsRef.current += fresh.filter(item => item.status === 'valid').length;
     const next = [...wordsRef.current, ...fresh];
     wordsRef.current = next;
     setWords(next);
@@ -391,18 +392,28 @@ export function CategoryFluencyGame({
     const threshold = getSuccessThreshold(currentDifficulty);
     const wasSuccessful = validWords.length >= threshold;
 
-    // Cue level for fluency: examples chip strip is always shown (cueLevel: 1).
-    // Each "Show different examples" swap is treated as additional support,
-    // capped at cueLevel 3.
-    const fluencyCueLevel = Math.min(3, 1 + exampleSwapCountRef.current);
+    // Example words are help even if shown automatically at L1.
+    const fluencyCueLevel = getFluencyCueLevel(examplesVisibleRef.current, exampleSwapCountRef.current);
+    const inputMode = getFluencyInputMode(spokenValidWordsRef.current, typedValidWordsRef.current);
 
-    // Feed adaptive engine
-    const prevDiff = currentDifficulty;
-    adaptation.recordTrial({
-      correct: wasSuccessful,
-      reactionTimeMs: Math.round(durationSec * 1000),
-      cueWasShown: true,
+    // Early stops, typed practice and mixed-input rounds are still worthwhile
+    // practice but cannot calibrate spoken-task difficulty as though the
+    // full one-minute speech probe was completed.
+    const clinicalEvidence = classifyFluencyRoundEvidence({
+      mode: inputMode,
+      cueLevelUsed: fluencyCueLevel,
+      uniqueWordCount: validWords.length,
+      timeLimitSec: totalTime,
+      actualDurationSec: Math.round(durationSec),
     });
+    const prevDiff = currentDifficulty;
+    if (clinicalEvidence.clinicalProgressionEligible) {
+      adaptation.recordTrial({
+        correct: wasSuccessful,
+        reactionTimeMs: Math.round(durationSec * 1000),
+        cueWasShown: fluencyCueLevel > 0,
+      });
+    }
 
     // Feed engagement monitor for cue dependency / fatigue tracking
     engagement.recordTrial({
@@ -426,6 +437,8 @@ export function CategoryFluencyGame({
       timeLimitSec: totalTime,
       difficulty: currentDifficulty,
       difficultyChanged: shift,
+      cueLevelUsed: fluencyCueLevel,
+      inputMode,
       analysis,
     };
 
@@ -471,6 +484,11 @@ export function CategoryFluencyGame({
     setExampleChips(pickExamples(cat.category, 3));
     setExampleSwapCount(0);
     exampleSwapCountRef.current = 0;
+    const initialExamples = clinicalLevel <= 1;
+    setShowExamples(initialExamples);
+    examplesVisibleRef.current = initialExamples;
+    spokenValidWordsRef.current = 0;
+    typedValidWordsRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
@@ -480,7 +498,7 @@ export function CategoryFluencyGame({
     consumedTokensRef.current = 0;
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     wordsRef.current = [];
-    const newTime = getTimerForDifficulty(currentDifficulty);
+    const newTime = COMPARABLE_FLUENCY_SECONDS;
     setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
@@ -502,7 +520,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, speechSupported, startListening, vg]);
+  }, [currentDifficulty, clinicalLevel, speechSupported, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
   const beginCountdown = useCallback(async () => {
@@ -549,6 +567,11 @@ export function CategoryFluencyGame({
     setExampleChips(pickExamples(cat.category, 3));
     setExampleSwapCount(0);
     exampleSwapCountRef.current = 0;
+    const initialExamples = clinicalLevel <= 1;
+    setShowExamples(initialExamples);
+    examplesVisibleRef.current = initialExamples;
+    spokenValidWordsRef.current = 0;
+    typedValidWordsRef.current = 0;
     setPhase('active');
     setDifficultyShift(null);
     processedRef.current.clear();
@@ -558,7 +581,7 @@ export function CategoryFluencyGame({
     consumedTokensRef.current = 0;
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     wordsRef.current = [];
-    const newTime = getTimerForDifficulty(currentDifficulty);
+    const newTime = COMPARABLE_FLUENCY_SECONDS;
     setTotalTime(newTime);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
@@ -580,7 +603,7 @@ export function CategoryFluencyGame({
     } else {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, speechSupported, startListening, vg]);
+  }, [currentDifficulty, clinicalLevel, speechSupported, startListening, vg]);
 
   // Auto-start on first mount — ONLY in Full Coaching (voice-led) where Maya
   // narrates the start. In Guided/lesson mode, the patient MUST tap Start so
@@ -622,6 +645,7 @@ export function CategoryFluencyGame({
       wordsRef.current = next;
       setWords(next);
       if (status === 'valid') {
+        typedValidWordsRef.current += 1;
         setLastAddedWord(word);
         setTimeout(() => setLastAddedWord(null), 800);
       }
@@ -711,7 +735,7 @@ export function CategoryFluencyGame({
             Name as many <strong>{config.label.toLowerCase()}</strong> as you can
           </p>
           <p className="text-sm text-muted-foreground">
-            {getTimerForDifficulty(currentDifficulty)} seconds • e.g. {exampleChips.join(', ')}…
+            {COMPARABLE_FLUENCY_SECONDS} seconds • examples available if needed
           </p>
         </div>
         {currentRound > 0 && (
@@ -761,7 +785,7 @@ export function CategoryFluencyGame({
           <>
             <p className="text-base font-medium text-foreground">That one was tough.</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              No problem — we'll switch to an easier category and give you more time.
+              We can try another category at the same comfortable pace.
             </p>
           </>
         ) : (
@@ -805,9 +829,9 @@ export function CategoryFluencyGame({
         {difficultyShift && (
           <Badge variant={difficultyShift === 'up' ? 'default' : 'secondary'} className="text-xs">
             {difficultyShift === 'up' ? (
-              <><TrendingUp className="w-3 h-3 mr-1" /> Next: harder category + less time</>
+              <><TrendingUp className="w-3 h-3 mr-1" /> Next: harder category</>
             ) : (
-              <><TrendingDown className="w-3 h-3 mr-1" /> Next: easier category + more time</>
+              <><TrendingDown className="w-3 h-3 mr-1" /> Next: easier category</>
             )}
           </Badge>
         )}
@@ -920,7 +944,7 @@ export function CategoryFluencyGame({
         </div>
         <p className="text-lg font-semibold text-foreground">Name as many {config.label.toLowerCase()} as you can</p>
         {/* Coaching hint — visible early or when stuck */}
-        {timeLeft > totalTime - 6 && (
+        {showExamples && timeLeft > totalTime - 6 && (
           <p className="text-xs text-muted-foreground animate-in fade-in duration-500">
             💡 Tip: Think in groups — {
               config.category === 'animals' ? 'pets, farm, ocean…' :
@@ -971,7 +995,15 @@ export function CategoryFluencyGame({
           The user can request a fresh draw via "Show different examples";
           that swap is counted as a cue. Examples are intentionally small
           and unobtrusive so retrieval still comes from the user. */}
-      {exampleChips.length > 0 && (
+      {!showExamples && (
+        <Button type="button" variant="outline" size="sm" className="self-center min-h-[44px]" onClick={() => {
+          setShowExamples(true);
+          examplesVisibleRef.current = true;
+        }}>
+          Need a hint? Show examples
+        </Button>
+      )}
+      {showExamples && exampleChips.length > 0 && (
         <div className="flex flex-col items-center gap-1.5">
           <div className="flex flex-wrap gap-1.5 justify-center items-center">
             <span className="text-xs text-muted-foreground mr-1">e.g.</span>

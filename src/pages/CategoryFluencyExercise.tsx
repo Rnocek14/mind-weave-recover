@@ -27,6 +27,7 @@ import {
   resolveEffectiveCategoryFluencyInitialDifficulty,
 } from '@/lib/progression/categoryFluencyDifficultyBridge';
 import { getCategoryFluencyLevelSpec } from '@/lib/progression/categoryFluencyLevels';
+import { classifyFluencyRoundEvidence, COMPARABLE_FLUENCY_SECONDS } from '@/lib/categoryFluency/clinicalRoundEvidence';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -49,6 +50,9 @@ export default function CategoryFluencyExercise() {
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  // The game emits onRoundComplete and onGameComplete back-to-back on its
+  // final round. Queue async raw-event writes before progression flush.
+  const pendingTrialsRef = useRef<Array<Promise<{ ok: boolean }>>>([]);
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
@@ -134,10 +138,7 @@ export default function CategoryFluencyExercise() {
     const rungSpec = getCategoryFluencyLevelSpec(clinicalLevel);
     const isCorrect = result.uniqueWordCount >= rungSpec.minUniqueWords;
 
-    pivot.recordTrialResult({
-      wasCorrect: isCorrect,
-      reactionTimeMs: result.durationSec * 1000,
-    });
+
 
     let errorType: string | undefined;
     if (!isCorrect) {
@@ -146,12 +147,26 @@ export default function CategoryFluencyExercise() {
       else errorType = 'low_fluency';
     }
 
-    // CategoryFluency does not currently surface a sub-prompt scaffold per
-    // round; treat all rounds as `independent` for support until a
-    // sub-prompt feature ships. Keeps support mapping honest.
-    const supportUsed = mapCategoryFluencySupport(false);
+    const outcome = classifyFluencyRoundEvidence({
+      mode: result.inputMode,
+      cueLevelUsed: result.cueLevelUsed,
+      uniqueWordCount: result.uniqueWordCount,
+      timeLimitSec: result.timeLimitSec,
+      actualDurationSec: result.durationSec,
+    });
+    if (outcome.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.durationSec * 1000,
+      });
+    }
+    // Noncomparable early stops and typed/mixed attempts remain observable
+    // practice records, never clinical improvement evidence.
+    // Visible examples and changed-example requests were actually delivered
+    // semantic support; never infer independence from a high word count.
+    const supportUsed = mapCategoryFluencySupport(result.cueLevelUsed > 0);
 
-    void submitTrial({
+    const submission = submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
@@ -161,10 +176,12 @@ export default function CategoryFluencyExercise() {
       userResponse: Array.isArray(result.words) ? result.words.join(', ') : null,
       isCorrect,
       accuracyScore: isCorrect ? 1 : Math.min(1, result.uniqueWordCount / Math.max(1, rungSpec.minUniqueWords)),
-      cueLevel: 0,
+      cueLevel: result.cueLevelUsed,
+      cueTypeGiven: result.cueLevelUsed > 0 ? 'semantic' : 'none',
       supportUsed,
       latencyMs: result.durationSec * 1000,
-      trialMode: 'production',
+      trialMode: outcome.trialMode,
+      clinicalProgressionEligible: outcome.clinicalProgressionEligible,
       errorType,
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
@@ -173,6 +190,13 @@ export default function CategoryFluencyExercise() {
         unique_words: result.uniqueWordCount,
         words_per_second: Math.round(result.wordsPerSecond * 100) / 100,
         time_limit: result.timeLimitSec,
+        input_mode: result.inputMode,
+        cue_level_used: result.cueLevelUsed,
+        comparable_timing: result.timeLimitSec === COMPARABLE_FLUENCY_SECONDS &&
+          result.durationSec >= COMPARABLE_FLUENCY_SECONDS - 1,
+        actual_duration_sec: result.durationSec,
+        independent_spoken: outcome.independentSpoken,
+        clinical_progression_eligible: outcome.clinicalProgressionEligible,
         words: result.words,
         difficulty: result.difficulty,
         game_level: typeof result.difficulty === 'number'
@@ -186,6 +210,7 @@ export default function CategoryFluencyExercise() {
         ...adaptationTelemetry,
       },
     });
+    pendingTrialsRef.current.push(submission);
 
     if (pivot.shouldStepDown) {
       console.log('[CategoryFluency] Pivot: step down', pivot.pivotReason);
@@ -194,8 +219,22 @@ export default function CategoryFluencyExercise() {
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor, effectiveTier]);
 
   const handleGameComplete = useCallback(async (results: CategoryFluencyResult[]) => {
+    // Raw clinical records must finish before progression reads their buffered
+    // trial outcomes. Otherwise the final round silently disappears from
+    // the persisted level, although it appears in the session summary.
+    const pending = pendingTrialsRef.current.splice(0);
+    const settled = await Promise.allSettled(pending);
+    const failures = settled.filter(entry =>
+      entry.status === 'rejected' || (entry.status === 'fulfilled' && !entry.value.ok),
+    );
+    if (failures.length > 0) {
+      console.warn('[CategoryFluency] One or more raw trial records were not persisted; progression will exclude them', failures.length);
+    }
     // Unified commit: flushes mastery shadow + per-game progression ladder.
-    await commitSession();
+    const commit = await commitSession();
+    if (!commit.ok) {
+      console.warn('[CategoryFluency] Progression/mastery commit incomplete', commit.errors);
+    }
     completeSession();
 
     // Save structured details for reflection engine
@@ -279,6 +318,7 @@ export default function CategoryFluencyExercise() {
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
           <CategoryFluencyGame
             difficulty={effectiveTier}
+            clinicalLevel={progression.startingLevel ?? 1}
             onRoundComplete={handleRoundComplete}
             onGameComplete={handleGameComplete}
             onDifficultyChange={handleDifficultyChange}

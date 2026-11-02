@@ -99,6 +99,57 @@ describe('useTrialSubmission persistence gate', () => {
     expect(p.recordTrialOutcome).not.toHaveBeenCalled();
   });
 
+  it('preserves a typed practice record while excluding it from spoken clinical progression', async () => {
+    mocks.logExerciseEvent.mockResolvedValue(true);
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'category-fluency',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let summary: UnifiedTrialSummary | undefined;
+    await act(async () => {
+      summary = await result.current.submitTrial({
+        ...input,
+        gameId: 'category-fluency',
+        trialMode: 'mixed',
+        clinicalProgressionEligible: false,
+        taskParameters: {
+          unified_route_adaptation_log: true,
+          input_mode: 'typed',
+        },
+      });
+    });
+
+    expect(summary).toMatchObject({
+      ok: true,
+      routed: {
+        exerciseEvents: true,
+        adaptationTrialLogs: true,
+        progressionBuffered: false,
+      },
+    });
+    expect(p.recordTrialOutcome).not.toHaveBeenCalled();
+    expect(mocks.logExerciseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskParameters: expect.objectContaining({
+          clinical_progression_eligible: false,
+          trial_mode: 'mixed',
+          input_mode: 'typed',
+        }),
+      }),
+    );
+    expect(mocks.logAdaptationTrial).toHaveBeenCalledWith(
+      expect.objectContaining({ trialMode: 'mixed' }),
+    );
+  });
+
   it('routes each downstream layer once after the raw clinical event is persisted', async () => {
     mocks.logExerciseEvent.mockResolvedValue(true);
     const p = progression();
