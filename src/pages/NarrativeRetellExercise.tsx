@@ -22,6 +22,7 @@ import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
 import { useNarrativeRetellTrainingStage } from '@/hooks/useNarrativeRetellTrainingStage';
+import { getNarrativeTrainingStage } from '@/lib/narrative/trainingStages';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -85,6 +86,19 @@ export default function NarrativeRetellExercise() {
     profileId: activeProfile?.id,
     offline: isOfflineMode,
   });
+  // Care partners can choose an available PRACTICE stage. The choice is local
+  // to this patient/session and NEVER changes the persisted clinical level.
+  // The start lock prevents changing a story after recording has begun.
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const [stageChoice, setStageChoice] = useState<{ scope: string; level: 1 | 2 | 3 } | null>(null);
+  const [practiceStarted, setPracticeStarted] = useState<string | null>(null);
+  const caregiverSelected = stageChoice?.scope === scope;
+  const activeStage = caregiverSelected
+    ? getNarrativeTrainingStage(stageChoice.level)
+    : training.stage;
+  const practiceStageSource = caregiverSelected
+    ? 'care_partner_selection' : activeStage ? 'saved_level' : 'general_practice';
+  const stageCanChange = !fromLesson && practiceStarted !== scope && !completed && !saveWarning;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -148,7 +162,8 @@ export default function NarrativeRetellExercise() {
         independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         story_id: result.storyId,
         story_tier: result.storyTier ?? null,
-        narrative_training_stage: training.stage?.level ?? null,
+        narrative_training_stage: activeStage?.level ?? null,
+        narrative_practice_stage_source: practiceStageSource,
         // These new stages only select real practice content and support.
         // There are no approved automated promotion rules yet.
         narrative_stage_promotion_eligible: false,
@@ -191,7 +206,7 @@ export default function NarrativeRetellExercise() {
       }
       return saved;
     }));
-  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry, training.stage?.level]);
+  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry, activeStage?.level, practiceStageSource]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -281,9 +296,33 @@ export default function NarrativeRetellExercise() {
         {!training.stage && training.persistedLevel != null && (
           <div role="status" aria-label="Higher stage practice notice" className="rounded-lg border p-3 text-sm">
             Your saved level is {training.persistedLevel}. This higher-level story training is
-            still being developed. You can continue general story practice here without
+            still being developed. You can practice an available story mode here without
             changing your saved level.
           </div>
+        )}
+        {stageCanChange && (
+          <details className="rounded-lg border bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold">Care partner: choose practice level</summary>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Choose the story support that feels comfortable. This changes only today's
+              practice, not the patient's saved recovery level.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              {([1, 2, 3] as const).map(level => (
+                <Button
+                  key={level}
+                  type="button"
+                  size="lg"
+                  variant={activeStage?.level === level ? 'default' : 'outline'}
+                  aria-pressed={activeStage?.level === level}
+                  className="flex-1 min-h-12"
+                  onClick={() => setStageChoice({ scope, level })}
+                >
+                  Stage {level}: {level === 1 ? 'More help' : level === 2 ? 'Picture hints' : 'Longer stories'}
+                </Button>
+              ))}
+            </div>
+          </details>
         )}
         {saveWarning ? (
           <UnverifiedPracticeBanner />
@@ -304,14 +343,15 @@ export default function NarrativeRetellExercise() {
           </div>
         ) : (
           <NarrativeRetellGame
-            key={[activeProfile?.id ?? 'offline', activeSessionId ?? 'offline', training.stage?.level ?? 'general'].join(':')}
+            key={[activeProfile?.id ?? 'offline', activeSessionId ?? 'offline', activeStage?.level ?? 'general'].join(':')}
             userId={user?.id}
             sessionId={activeSessionId}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
-            tier={training.stage?.storyTier ?? adaptation.difficultyTier}
-            trainingStage={training.stage ?? undefined}
+            tier={activeStage?.storyTier ?? adaptation.difficultyTier}
+            trainingStage={activeStage ?? undefined}
+            onRetellStarted={() => setPracticeStarted(scope)}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />
         )}

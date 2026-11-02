@@ -71,6 +71,8 @@ interface NarrativeRetellGameProps {
   tier?: number;
   /** First three operational training configurations; not clinical mastery. */
   trainingStage?: NarrativeTrainingStage;
+  /** Locks a caregiver's practice-stage choice as soon as retelling starts. */
+  onRetellStarted?: () => void;
   /** Profile-recommended cue type — adapts retelling scaffolding */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -132,6 +134,7 @@ export function NarrativeRetellGame({
   roundCount = 3,
   tier = 1,
   trainingStage,
+  onRetellStarted,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
@@ -181,6 +184,8 @@ export function NarrativeRetellGame({
     },
   });
 
+  const onRetellStartedRef = useRef(onRetellStarted);
+  useEffect(() => { onRetellStartedRef.current = onRetellStarted; }, [onRetellStarted]);
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
@@ -485,6 +490,7 @@ export function NarrativeRetellGame({
   }, [phase, visibleTranscript, stallPromptIndex, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, vg]);
 
   const handleStartRetelling = useCallback(() => {
+    onRetellStartedRef.current?.();
     handleStopSpeech();
     setPhase('retelling');
     startTimeRef.current = Date.now();
