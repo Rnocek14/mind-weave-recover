@@ -8,6 +8,7 @@
 - The existing hospital-integrity branch has populated users and sessions even though it was originally created with `with_data:false`. All 2,725 currently counted auth users were anonymous accounts created Oct 28–30, 2026; recorded sessions number 5,688. These facts **do not prove that stored audio and sessions are synthetic**. Do not run test account creation, record insertion, cleanups, rebase or reset there until data provenance is reviewed by the owner.
 - The corresponding protected staging data attestation is deliberately not populated by this PR. Do not mark it approved merely because a branch name or public target manifest says “synthetic-only.”
 - The live GitHub repository has an active ruleset (ID 26032983) requiring the `Regression gate`. Its required check policy is not strict and does **not** itself verify clinical safety, staging data isolation, or all deployment entry points.
+- Read-only production aggregate of `exercise_events` on Nov 2: **6,312 total raw events**, **0 explicitly flagged `clinical_progression_eligible=false`**, **0 flagged `trial_mode` mixed/scaffolded while `counts_toward_score=true`**. This narrow count does **not** prove old clinical scores or cue fields are accurate: legacy rows may lack provenance flags entirely, and newer scoring corrections are still draft/unmerged.
 
 ## This draft branch proposes
 
