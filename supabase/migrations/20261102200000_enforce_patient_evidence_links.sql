@@ -13,6 +13,13 @@
 
 CREATE SCHEMA IF NOT EXISTS private;
 
+-- Close the gap between the preflight audit and trigger installation. A live
+-- production rollout needs a reviewed low-traffic maintenance window and a
+-- bounded lock_timeout: this blocks concurrent therapy writes temporarily,
+-- without blocking ordinary SELECT queries.
+LOCK TABLE public.profiles, public.sessions, public.exercise_events,
+  public.utterance_analyses IN SHARE ROW EXCLUSIVE MODE;
+
 -- Fail closed if historical rows are already inconsistent. Do not silently
 -- "repair" a patient's clinical evidence or apply this in a dirty database.
 DO $check_existing_patient_links$
