@@ -40,7 +40,9 @@ describe('Phrase Practice executable script training modes', () => {
     for (const trial of PHRASE_BANK.filter(t => t.difficulty === 2)) {
       const prompt = getPhraseTrainingPrompt(trial, stage);
       expect(prompt.text.trim().length).toBeGreaterThan(0);
-      expect(prompt.evidenceSupport === 'word_clues' || prompt.fullPhraseRevealed).toBe(true);
+      expect(prompt.evidenceSupport).toBe('word_clues');
+      expect(prompt.fullPhraseRevealed).toBe(false);
+      expect(prompt.text).not.toBe(trial.phrase);
       const rescue = getPhraseTrainingPrompt(trial, stage, true);
       expect(rescue.text).toBe(trial.phrase);
       expect(rescue.fullPhraseRevealed).toBe(true);

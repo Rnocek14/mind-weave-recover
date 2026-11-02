@@ -47,7 +47,7 @@ describe('PhraseTrainingScriptCard real patient presentation', () => {
       />,
     );
     expect(screen.getByText(/Stage 3/)).toBeTruthy();
-    expect(screen.getByText(/key words/i)).toBeTruthy();
+    expect(screen.getByText('Recall your phrase using these key words')).toBeTruthy();
     expect(screen.queryByText(wordCues.phrase)).toBeNull();
     rerender(
       <PhraseTrainingScriptCard
