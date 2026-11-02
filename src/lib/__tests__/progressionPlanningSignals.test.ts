@@ -59,12 +59,24 @@ describe('progression planning signals — classification', () => {
     expect(byExercise.get('photo-naming')!.planningBoost).toBeLessThanOrEqual(0);
   });
 
-  it('flags lagging games that trail the lead game by >= 2 levels', () => {
+  it('does not label a different skill as lagging because another exercise reached a higher rung', () => {
     const { byExercise } = buildProgressionPlanningSignals([
       row('photo-naming', { current_level: 7, consecutive_success_sessions: 1 }),
       row('minimal-pairs', { current_level: 1, consecutive_success_sessions: 1 }),
     ]);
-    expect(byExercise.get('minimal-pairs')?.status).toBe('lagging');
+    expect(byExercise.get('minimal-pairs')?.status).toBe('steady');
+    expect(byExercise.get('minimal-pairs')?.planningBoost).toBe(0);
+    expect(byExercise.get('minimal-pairs')?.reason).not.toMatch(/lagging|behind other games/i);
+  });
+
+  it('does not call a new/low-progress rung plateauing without longitudinal evidence', () => {
+    const { byExercise } = buildProgressionPlanningSignals([
+      row('photo-naming', { current_level: 1, progress_pct: 5,
+        consecutive_success_sessions: 0, consecutive_struggle_sessions: 0 }),
+    ]);
+    expect(byExercise.get('photo-naming')?.status).toBe('steady');
+    expect(byExercise.get('photo-naming')?.planningBoost).toBe(0);
+    expect(byExercise.get('photo-naming')?.reason).toMatch(/Insufficient within-game trend evidence/);
   });
 });
 
