@@ -18,13 +18,13 @@ import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
  *    tier 2 → tier 1–3
  *    tier 3 → tier 2–3 (fallback 3 only)
  *  Previously used `tier <= tier+1` which leaked easy stories into hard sessions. */
-function buildStories(tier: number, count: number, excludeIds: Set<string>): NarrativeStory[] {
+function buildStories(tier: number, count: number, excludeIds: Set<string>, strictTier = false): NarrativeStory[] {
   const t = Math.max(1, Math.min(3, tier));
   const lo = Math.max(1, t - 1);
   const hi = Math.min(3, t + 1);
   // Prefer exact-tier matches; fill with adjacent tier(s) if the pool is short.
   const exact = NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
-  const adjacent = NARRATIVE_STORIES.filter(
+  const adjacent = strictTier ? [] : NARRATIVE_STORIES.filter(
     (s) => s.tier !== t && s.tier >= lo && s.tier <= hi && !excludeIds.has(s.id),
   );
   const pool = [...shuffleArray(exact), ...shuffleArray(adjacent)];
@@ -46,6 +46,8 @@ export interface StructureBreakdown {
 
 export interface NarrativeTrialResult {
   storyId: string;
+  /** Actual bank complexity for audit, even if a legacy session adapts mid-round. */
+  storyTier?: 1 | 2 | 3;
   transcript: string;
   /** Key events mentioned */
   eventsFound: number;
@@ -152,11 +154,11 @@ function generateNextStepHint(breakdown: StructureBreakdown): string {
   return 'Great job covering the whole story! Try adding even more detail next time.';
 }
 
-export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1) {
+export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1, strictTier = false) {
   const seenIdsRef = useRef<Set<string>>(new Set());
 
   const initialStories = useMemo(() => {
-    const built = buildStories(tier, roundCount, seenIdsRef.current);
+    const built = buildStories(tier, roundCount, seenIdsRef.current, strictTier);
     built.forEach((s) => seenIdsRef.current.add(s.id));
     return built;
     // Initial seed only — subsequent tier changes happen via setActiveTier below.
@@ -181,7 +183,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
 
     if (!transcript || transcript.trim().length < 3) {
       return {
-        storyId: story.id, transcript: '', eventsFound: 0, eventsTotal: story.keyEvents.length,
+        storyId: story.id, storyTier: story.tier, transcript: '', eventsFound: 0, eventsTotal: story.keyEvents.length,
         eventCoverage: 0, matchedEvents: [], allKeyEvents: story.keyEvents,
         coherenceScore: 0, onTopicScore: 0, durationMs, meanUtteranceLength: 0,
         wordCount: 0, skipped: true,
@@ -206,6 +208,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
 
     const result: NarrativeTrialResult = {
       storyId: story.id,
+      storyTier: story.tier,
       transcript,
       eventsFound: score.conceptsFound,
       eventsTotal: score.conceptsTotal,
@@ -258,12 +261,12 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
         played.forEach((s) => seenIdsRef.current.add(s.id));
         const remaining = Math.max(0, roundCount - played.length);
         if (remaining === 0) return played;
-        const fresh = buildStories(clamped, remaining, seenIdsRef.current);
+        const fresh = buildStories(clamped, remaining, seenIdsRef.current, strictTier);
         fresh.forEach((s) => seenIdsRef.current.add(s.id));
         return [...played, ...fresh];
       });
     },
-    [activeTier, currentIndex, roundCount],
+    [activeTier, currentIndex, roundCount, strictTier],
   );
 
   return {

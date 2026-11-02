@@ -42,6 +42,7 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
+import type { DescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -80,6 +81,7 @@ interface DescribeGuessGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  trainingStage?: DescribeGuessTrainingStage | null;
 }
 
 export function DescribeGuessGame({
@@ -89,6 +91,7 @@ export function DescribeGuessGame({
   sessionId,
   userId,
   profileId,
+  trainingStage,
 }: DescribeGuessGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -100,7 +103,7 @@ export function DescribeGuessGame({
   );
   const [typedAnswer, setTypedAnswer] = useState('');
   const speechErrorCountRef = useRef(0);
-  const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
+  const [visiblePrompts, setVisiblePrompts] = useState<number>(trainingStage?.initialVisiblePrompts ?? 0);
   /** Re-runs the transcript mirror once the mic lock clears. See its effect. */
   const [micLockRetryTick, setMicLockRetryTick] = useState(0);
   const micLockRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,8 +232,10 @@ export function DescribeGuessGame({
       const narration = narrateAdaptation({ direction: dir, reasonKind: classifyReason(reason) });
       signalShift(dir, narration || reason);
       // Repool upcoming trials at the new tier
-      const tier = Math.min(3, Math.max(1, Math.ceil(newLvl / 3.5)));
-      setActiveDifficultyRef.current?.(tier);
+      if (!trainingStage) {
+        const tier = Math.min(3, Math.max(1, Math.ceil(newLvl / 3.5)));
+        setActiveDifficultyRef.current?.(tier);
+      }
       if (import.meta.env.DEV) {
         console.log(`[DescribeGuess] L${prevLevelLogRef.current} → L${newLvl}, reason: ${reason}`);
         prevLevelLogRef.current = newLvl;
@@ -258,7 +263,8 @@ export function DescribeGuessGame({
 
   const game = useDescribeGuessGame({
     trialCount,
-    difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))),
+    difficulty: trainingStage?.itemTier ?? Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))),
+    trainingStage,
     onTrialComplete,
     onGameComplete,
   });
@@ -371,7 +377,7 @@ export function DescribeGuessGame({
   const startPromptTimers = useCallback(() => {
     promptTimersRef.current.forEach(t => clearTimeout(t));
     promptTimersRef.current = [];
-    setVisiblePrompts(0);
+    setVisiblePrompts(trainingStage?.initialVisiblePrompts ?? 0);
 
     PROMPT_COOLDOWNS.forEach((delay, i) => {
       const timer = setTimeout(() => {
@@ -379,7 +385,7 @@ export function DescribeGuessGame({
       }, delay);
       promptTimersRef.current.push(timer);
     });
-  }, []);
+  }, [trainingStage?.initialVisiblePrompts]);
 
   /**
    * Check if transcript has enough substance to evaluate.
@@ -1110,6 +1116,13 @@ export function DescribeGuessGame({
 
   return (
     <div className="max-w-2xl mx-auto h-full flex flex-col gap-2">
+      {trainingStage && (
+        <div role="status" className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <p className="font-semibold">Describing practice • Stage {trainingStage.level}</p>
+          <p>{trainingStage.label}</p>
+          <p className="text-xs text-muted-foreground">Supported practice only — not a validated recovery measure.</p>
+        </div>
+      )}
       {/* Purpose banner — first trial only */}
       {game.currentIndex === 0 && !showFeedback && (
         <ExercisePurposeBanner exerciseSlug="describe-guess" />
