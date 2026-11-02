@@ -71,4 +71,23 @@ describe('useNarrativeRetellTrainingStage patient-bound read', () => {
     await act(async () => { finishFirst({ currentLevel: 3 }); await Promise.resolve(); });
     expect(result.current.stage?.level).toBe(2);
   });
+
+  it('never exposes the previous patient stage while the new patient is still loading', async () => {
+    let resolveSecond!: (value: { currentLevel: number }) => void;
+    mocks.load.mockResolvedValueOnce({ currentLevel: 3 });
+    mocks.load.mockImplementationOnce(() =>
+      new Promise(resolve => { resolveSecond = resolve; }));
+    const { result, rerender } = renderHook(
+      ({ profileId }) => useNarrativeRetellTrainingStage({ userId: 'u', profileId }),
+      { initialProps: { profileId: 'patient-a' } },
+    );
+    await waitFor(() => expect(result.current.stage?.level).toBe(3));
+    rerender({ profileId: 'patient-b' });
+    expect(result.current).toMatchObject({
+      loaded: false, stage: null, persistedLevel: null,
+    });
+    await act(async () => { resolveSecond({ currentLevel: 2 }); await Promise.resolve(); });
+    await waitFor(() => expect(result.current.stage?.level).toBe(2));
+  });
+
 });

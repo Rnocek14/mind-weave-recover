@@ -24,9 +24,17 @@ export function useNarrativeRetellTrainingStage(args: {
   offline?: boolean;
 }): NarrativeStageLoad {
   const { userId, profileId, offline = false } = args;
-  const [snapshot, setSnapshot] = useState<NarrativeStageLoad>({
+  // A profile switch can render synchronously before its effect starts.
+  // Keep the loaded stage tied to the exact owner scope so another person's
+  // level cannot flash on screen or seed their game's story selection.
+  const scope = offline ? 'offline' : JSON.stringify([userId ?? null, profileId ?? null]);
+  const empty: NarrativeStageLoad = {
     loaded: false, loadUnavailable: false, persistedLevel: null, stage: null,
+  };
+  const [scoped, setScoped] = useState<{ scope: string; snapshot: NarrativeStageLoad }>({
+    scope: '', snapshot: empty,
   });
+  const setSnapshot = (snapshot: NarrativeStageLoad) => setScoped({ scope, snapshot });
 
   useEffect(() => {
     if (offline) {
@@ -79,5 +87,5 @@ export function useNarrativeRetellTrainingStage(args: {
     };
   }, [userId, profileId, offline]);
 
-  return snapshot;
+  return scoped.scope === scope ? scoped.snapshot : empty;
 }
