@@ -71,10 +71,10 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // useInGameAdaptation is autoLog:false. Expressive grammar-production task
   // — routes cleanly into expressive mastery.
   'sentence_construction',
-  // multi_step_planning (Wave 2): MultiStepPlanExercise emits
-  // trialMode='production' on every submitTrial; MultiStepPlanningGame's
-  // useInGameAdaptation is autoLog:false. Expressive procedural-discourse
-  // task — open spoken production with no in-trial scaffold control.
+  // multi_step_planning: completed speech with valid content and observed
+  // step ordering emits production; typed, skipped, invalid or unscorable
+  // order evidence emits excluded mixed. The game's adaptation logger remains
+  // autoLog:false. Do not turn typed planning into independent speech mastery.
   'multi_step_planning',
   // synonym_generator (Wave 3 + integrity update): the exercise page emits
   // trialMode='production' ONLY for completed speech-only rounds. Typed,
