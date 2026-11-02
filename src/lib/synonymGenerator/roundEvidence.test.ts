@@ -27,7 +27,7 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
 
   it('preserves successful typed practice but prevents spoken mastery contamination', () => {
     for (const mode of ['typed', 'mixed', 'none'] as const) {
-      const evidence = classifySynonymRoundEvidence({
+      const evidence = classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
         inputMode: mode,
         completionReason: 'timer',
         difficulty: 5,
@@ -43,7 +43,7 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
   });
 
   it('records short spoken practice without treating Done early as a complete timed probe', () => {
-    const evidence = classifySynonymRoundEvidence({
+    const evidence = classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken',
       completionReason: 'early',
       difficulty: 7,
@@ -57,11 +57,11 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
   });
 
   it('includes full spoken rounds as correctly differentiated positive or negative trials', () => {
-    const correct = classifySynonymRoundEvidence({
+    const correct = classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken', completionReason: 'timer', difficulty: 6, matchCount: 4,
       browserTranscript: 'glad joyful cheerful pleased',
     });
-    const incorrect = classifySynonymRoundEvidence({
+    const incorrect = classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken', completionReason: 'timer', difficulty: 6, matchCount: 2,
       browserTranscript: 'glad joyful',
     });
@@ -82,21 +82,37 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
     expect(routeTrialMode('synonym-generator', correct.trialMode)).toBe('expressive');
   });
 
-  it('does not treat silence or missing numeric matches as a clinically verified failure', () => {
+  it('does not trust a timer label if elapsed time was shorter than the planned window', () => {
     expect(classifySynonymRoundEvidence({
+      inputMode: 'spoken',
+      completionReason: 'timer',
+      difficulty: 5,
+      matchCount: 4,
+      browserTranscript: 'glad joyful cheerful pleased',
+      timeLimitSec: 25,
+      durationSec: 8,
+    })).toMatchObject({
+      practiceSuccessful: true,
+      clinicalProgressionEligible: false,
+      trialMode: 'mixed',
+    });
+  });
+
+  it('does not treat silence or missing numeric matches as a clinically verified failure', () => {
+    expect(classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'none', completionReason: 'timer', difficulty: 3, matchCount: 0,
     })).toMatchObject({ trialMode: 'mixed', clinicalProgressionEligible: false });
-    expect(classifySynonymRoundEvidence({
+    expect(classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken', completionReason: 'timer', difficulty: 3, matchCount: Number.NaN,
       browserTranscript: 'glad',
     })).toMatchObject({ practiceSuccessful: false, clinicalProgressionEligible: false });
-    expect(classifySynonymRoundEvidence({
+    expect(classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken', completionReason: 'timer', difficulty: Number.NaN, matchCount: 5,
       browserTranscript: 'glad',
     })).toMatchObject({ clinicalProgressionEligible: false, verifiedSpokenScoreEligible: false });
 
     for (const transcript of ['um', 'uh uh', 'hmm.', '']) {
-      expect(classifySynonymRoundEvidence({
+      expect(classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
         inputMode: 'spoken', completionReason: 'timer', difficulty: 2, matchCount: 0,
         browserTranscript: transcript,
       }), transcript).toMatchObject({
@@ -105,7 +121,7 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
       });
     }
 
-    expect(classifySynonymRoundEvidence({
+    expect(classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'spoken', completionReason: 'timer', difficulty: 2, matchCount: 2,
       browserTranscript: null,
     })).toMatchObject({ clinicalProgressionEligible: false });
