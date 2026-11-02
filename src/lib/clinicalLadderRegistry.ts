@@ -72,7 +72,8 @@ import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLe
 import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
 import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
-import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
+import type { DesignOfRecordLevelSpec, DesignOnlySupport } from './progression/_shared/designOfRecord';
+import { UNWIRED_EXERCISE_LEVELS } from './progression/unwiredExerciseLevels';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
@@ -110,7 +111,7 @@ export type ClinicalAxis =
 export interface LadderRow {
   level: number;
   description: string;
-  targetSupport: SupportLevel;
+  targetSupport: DesignOnlySupport;
   /** Omitted for design-only rows (no runtime mastery enforcement yet). */
   minOnTargetAttempts?: number;
   /** Omitted for design-only rows. */
@@ -165,7 +166,7 @@ export interface ClinicalLadderEntry {
   track: MasteryTrack;
   /** For telemetry-only games: which SupportLevel ladder they emit. */
   telemetryNote?: string;
-  /** L1–L8 rows. Only present when status === 'full'. */
+  /** L1–L8 rows exist on full, structural AND design-only entries. */
   rows?: LadderRow[];
   /** PR7: pointer to the clinical-evidence write-up, when one exists. */
   evidenceBasis?: EvidenceBasis;
@@ -219,7 +220,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'fix-sentence',
     axis: 'executive',
     purpose: 'Detects and repairs errors in structured sentences.',
-    status: 'full',
+    status: 'structural', // L7–L8 content selectors are NOT implemented.
     track: 'expressive',
     rows: rowsFromSpec('fix-sentence', FIX_SENTENCE_LEVELS),
     evidenceBasis: {
@@ -231,7 +232,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'minimal-pairs',
     axis: 'acoustic',
     purpose: 'Discriminates similar-sounding word pairs by ear.',
-    status: 'full',
+    status: 'structural', // L7–L8 degraded-signal/triplet tasks are NOT implemented.
     track: 'receptive',
     rows: rowsFromSpec('minimal-pairs', MINIMAL_PAIRS_LEVELS),
     evidenceBasis: {
@@ -325,17 +326,17 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'pattern-match',
     axis: 'executive',
     purpose: 'Detects and extends visual/semantic patterns.',
-    // INTENTIONALLY left `generic`: Pattern Match is a non-linguistic
-    // visual / working-memory task (shapes × colors, zero linguistic
-    // content). It is NOT aphasia therapy in the strict sense. Per the
-    // research doc's Exploratory rating, we leave it on the universal
-    // 1–10 adaptation engine without a clinical ladder and exclude it
-    // from ADOPTED_TRIAL_MODE_SLUGS so its trials never contaminate the
-    // expressive mastery track. Promoting it would require either a
-    // working-memory mastery track or a linguistic content overlay —
-    // both deferred.
-    status: 'generic',
+    // Non-linguistic visual working-memory proposal. The eight stages
+    // are DESIGN ONLY; the shipped game still uses a 1–10 difficulty engine.
+    // No expressive or receptive aphasia mastery credit is awarded.
+    status: 'design-only',
     track: 'non-linguistic',
+    rows: designOnlyRows('pattern-match', Object.values(UNWIRED_EXERCISE_LEVELS['pattern-match'])),
+    telemetryNote: 'Non-linguistic visual working-memory practice. Eight proposed stages are not connected to trial evidence, independent scoring or persistent clinical progression.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Visual matching is not an aphasia-specific mastery measure. Proposed working-memory levels require accessibility and clinical evaluation before use.',
+    },
   },
   'abstract-compare': {
     slug: 'abstract-compare',
@@ -467,6 +468,124 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
       tldr: 'Divergent lexical-semantic production (SFA, VNeST, verbal-fluency intervention). 3-tier word-abstractness collapse is a clinically motivated calibration default against the existing SYNONYM_PROMPTS bank. L6–L7 thin; L8 aspirational (no constrained-output runtime mode).',
     },
   },
+  // ── Draft clinical/motor level designs for previously unrepresented games ──
+  'left-side-hunt': {
+    slug: 'left-side-hunt',
+    axis: 'motor',
+    purpose: 'Practice scanning and locating targets in the left visual field.',
+    status: 'design-only',
+    track: 'non-linguistic',
+    rows: designOnlyRows('left-side-hunt', Object.values(UNWIRED_EXERCISE_LEVELS['left-side-hunt'])),
+    telemetryNote: 'Motor/visual-attention practice. Existing target-hit metrics are not clinical proof of neglect improvement.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'reach-tap': {
+    slug: 'reach-tap',
+    axis: 'motor',
+    purpose: 'Practice comfortable touch targeting and movement precision.',
+    status: 'design-only',
+    track: 'non-linguistic',
+    rows: designOnlyRows('reach-tap', Object.values(UNWIRED_EXERCISE_LEVELS['reach-tap'])),
+    telemetryNote: 'Motor/visuomotor practice. Movement-specific assistance needs separate validation, not aphasia mastery scoring.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'phrase-practice': {
+    slug: 'phrase-practice',
+    axis: 'acoustic',
+    purpose: 'Practice short, functional spoken phrases with graded cue support.',
+    status: 'design-only',
+    track: 'expressive',
+    rows: designOnlyRows('phrase-practice', Object.values(UNWIRED_EXERCISE_LEVELS['phrase-practice'])),
+    telemetryNote: 'Existing phrase production and generic difficulty engine; eight proposed functional-communication stages are not persistent clinical levels.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'sentence-game': {
+    slug: 'sentence-game',
+    axis: 'executive',
+    purpose: 'Practice producing grammatical sentences across increasingly complex contexts.',
+    status: 'design-only',
+    track: 'expressive',
+    rows: designOnlyRows('sentence-game', Object.values(UNWIRED_EXERCISE_LEVELS['sentence-game'])),
+    telemetryNote: 'Existing sentence adaptation is separate from the persisted sentence-construction clinical ladder.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'thought-organization': {
+    slug: 'thought-organization',
+    axis: 'discourse',
+    purpose: 'Practice structuring ideas before communicating them.',
+    status: 'design-only',
+    track: 'expressive',
+    rows: designOnlyRows('thought-organization', Object.values(UNWIRED_EXERCISE_LEVELS['thought-organization'])),
+    telemetryNote: 'Distinct from Thought Continuation; proposed organization levels require task-specific evidence criteria.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'word-finding': {
+    slug: 'word-finding',
+    axis: 'lexical',
+    purpose: 'Practice lexical retrieval and effective alternate naming strategies.',
+    status: 'design-only',
+    track: 'expressive',
+    rows: designOnlyRows('word-finding', Object.values(UNWIRED_EXERCISE_LEVELS['word-finding'])),
+    telemetryNote: 'The generic word-finding experience is not the same as Photo Naming clinical level persistence.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'follow-directions': {
+    slug: 'follow-directions',
+    axis: 'comprehension',
+    purpose: 'Practice understanding and carrying out spoken instructions.',
+    status: 'design-only',
+    track: 'receptive',
+    rows: designOnlyRows('follow-directions', Object.values(UNWIRED_EXERCISE_LEVELS['follow-directions'])),
+    telemetryNote: 'Comprehension and sequencing require a receptive-only evidence route, never expressive mastery scoring.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'sequence-builder': {
+    slug: 'sequence-builder',
+    axis: 'executive',
+    purpose: 'Practice ordering event pictures and functional sequences.',
+    status: 'design-only',
+    track: 'receptive',
+    rows: designOnlyRows('sequence-builder', Object.values(UNWIRED_EXERCISE_LEVELS['sequence-builder'])),
+    telemetryNote: 'Task-ordering accuracy and support must be assessed independently from spontaneous language production.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
+  'functional-scenes': {
+    slug: 'functional-scenes',
+    axis: 'lexical',
+    purpose: 'Use functional words to change pictured scenes.',
+    status: 'design-only',
+    track: 'expressive',
+    rows: designOnlyRows('functional-scenes', Object.values(UNWIRED_EXERCISE_LEVELS['functional-scenes'])),
+    telemetryNote: 'The existing Command Scenes page logs app events only; it does not write clinical progression or verified speaker scores.',
+    evidenceBasis: {
+      docPath: 'docs/qa/eight-level-coverage-matrix.md',
+      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+    },
+  },
 };
 
 export const AXIS_LABEL: Record<ClinicalAxis, string> = {
@@ -511,7 +630,7 @@ export function entriesByAxis(): Array<{ axis: ClinicalAxis; entries: ClinicalLa
 export interface DesignRowInput {
   level: number;
   description: string;
-  targetSupport: SupportLevel;
+  targetSupport: DesignOnlySupport;
   readiness: 'ready' | 'thin' | 'aspirational';
 }
 
