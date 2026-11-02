@@ -18,7 +18,7 @@ describe('Describe & Guess patient-scoped practice-stage loading', () => {
     expect(result.current.stage).toMatchObject({ itemTier: 2, level: 3 });
     expect(mocks.load).toHaveBeenCalledTimes(1);
     expect(mocks.load).toHaveBeenCalledWith({
-      userId: 'account', profileId: 'patient-2', exerciseSlug: 'describe_guess',
+      userId: 'account', profileId: 'patient-2', exerciseSlug: 'describe-guess',
     });
   });
 
