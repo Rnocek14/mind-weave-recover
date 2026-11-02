@@ -36,6 +36,7 @@ export interface DualLoadNamingEvidence {
   verifiedExpressiveMasteryEligible: false;
   recallInputMode: 'typed';
   namingInputMode: 'spoken' | 'incomplete';
+  scorableSpokenNamingAttempts: number;
   unscorableReason: 'invalid_metrics' | 'naming_attempts_unavailable' | 'missing_or_filler_speech' | 'inconsistent_naming_score' | null;
 }
 
@@ -44,9 +45,12 @@ export function evaluateDualLoadNamingEvidence(input: DualLoadNamingEvidenceInpu
     Number.isFinite(input.namingAccuracy) && input.namingAccuracy >= 0 && input.namingAccuracy <= 1 &&
     Number.isFinite(input.recallAccuracy) && input.recallAccuracy >= 0 && input.recallAccuracy <= 1;
   const attempts = Array.isArray(input.namingAttempts) ? input.namingAttempts : [];
+  const scorableSpokenNamingAttempts = attempts.filter(a =>
+    typeof a.userResponse === 'string' &&
+    a.userResponse.trim().length > 0 && !isFillerOnly(a.userResponse),
+  ).length;
   const allSpeechScorable = attempts.length > 0 &&
-    attempts.every(a => typeof a.userResponse === 'string' &&
-      a.userResponse.trim().length > 0 && !isFillerOnly(a.userResponse));
+    scorableSpokenNamingAttempts === attempts.length;
   const observedAccuracy = attempts.length > 0
     ? attempts.filter(a => a.correct).length / attempts.length
     : null;
@@ -73,6 +77,7 @@ export function evaluateDualLoadNamingEvidence(input: DualLoadNamingEvidenceInpu
     verifiedExpressiveMasteryEligible: false,
     recallInputMode: 'typed',
     namingInputMode: allSpeechScorable ? 'spoken' : 'incomplete',
+    scorableSpokenNamingAttempts,
     unscorableReason,
   };
 }
