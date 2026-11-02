@@ -184,6 +184,7 @@ export default function MeaningMatchExercise() {
         unified_route_adaptation_log: true,
         item_id: result.itemId,
         tier: result.tier,
+        clinical_stage: result.clinicalStage ?? null,
         type: result.type,
         used_hint: result.usedHint,
         hint_type: result.usedHint ? 'highlight_keywords' : null,
@@ -298,6 +299,7 @@ export default function MeaningMatchExercise() {
             onGameComplete={handleGameComplete}
             roundCount={trialLimit}
             difficultyLevel={effectiveDifficulty}
+            clinicalLevel={progression.startingLevel}
             sessionId={activeSessionId}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
           />
