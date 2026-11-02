@@ -2,10 +2,10 @@
  * Dual-Load Naming Exercise Page
  *
  * Wave 3 (Phase 2): migrated off raw useExerciseTelemetry to the unified
- * useTrialSubmission pipeline. Every submitTrial call emits
- * `trialMode: 'production'` (expressive confrontation naming under WM
- * load) and the slug `dual_load_naming` is in ADOPTED_TRIAL_MODE_SLUGS,
- * so longitudinal mastery now flows. Progression is wired via
+ * useTrialSubmission pipeline. The spoken naming and TYPED recall phases
+ * are different modalities, so combined rounds are tagged 'mixed' and do
+ * not feed global independent expressive mastery. Complete, scorable
+ * rounds can inform only the game-specific dual-load ladder. Progression is wired via
  * useDualLoadNamingProgression (L1–L8 ladder) with a load gate so the
  * engine starts at the correct clinical floor.
  */
@@ -35,6 +35,7 @@ import {
   mapDualLoadNamingSupport,
 } from '@/hooks/useDualLoadNamingProgression';
 import { resolveEffectiveDualLoadNamingInitialDifficulty } from '@/lib/progression/dualLoadNamingDifficultyBridge';
+import { evaluateDualLoadNamingEvidence } from '@/lib/dualLoadNaming/clinicalEvidence';
 
 const EXERCISE_SLUG = 'dual_load_naming';
 
@@ -117,9 +118,9 @@ export default function DualLoadNamingExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  // Wave 3: unified trial submission (expressive axis). DualLoadNamingGame
-  // is autoLog:false; this page owns the writer and emits trialMode:'production'
-  // so the adopted slug routes mastery correctly.
+  // The page is the only raw/adaptation writer. Because memory recall is
+  // typed, the COMBINED round is mixed-domain practice, not proof of
+  // independent spoken naming recovery in the global expressive mastery.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -132,32 +133,35 @@ export default function DualLoadNamingExercise() {
 
   const handleTrialComplete = useCallback(async (result: DualLoadTrialResult) => {
     if (!activeSessionId) return;
-    scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
+    // Do not let malformed domain metrics poison the session's totals.
+    const bothMetricsValid = Number.isFinite(result.namingAccuracy) &&
+      Number.isFinite(result.recallAccuracy);
+    scoreRef.current += bothMetricsValid
+      ? Math.round((result.namingAccuracy + result.recallAccuracy) * 50) : 0;
     trialsRef.current += 1;
     trialIndexRef.current += 1;
 
-    pivot.recordTrialResult({
-      wasCorrect: result.recallAccuracy >= 0.33,
-      reactionTimeMs: result.durationMs,
-    });
-
-    dynamicTier.recordTrial({
-      correct: result.recallAccuracy >= 0.33,
-      reactionTimeMs: result.durationMs,
-    });
-
-    const isCorrect = result.recallAccuracy >= 0.33;
-    let errorType: string | undefined;
-    if (!isCorrect) {
-      if (result.recallAccuracy === 0) errorType = 'recall_failure';
-      else if (result.namingAccuracy < 0.5) errorType = 'naming_under_load';
-      else errorType = 'partial_recall';
+    const evidence = evaluateDualLoadNamingEvidence(result);
+    const isCorrect = evidence.practiceSuccessful;
+    if (evidence.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.durationMs,
+      });
+      dynamicTier.recordTrial({
+        correct: isCorrect,
+        reactionTimeMs: result.durationMs,
+      });
     }
 
-    // Combined accuracy used as the clinical correctness signal for the
-    // expressive mastery scalar. Recall ≥ 0.33 means the patient held the
-    // memory list across the naming load — the minimum criterion for the
-    // dual-task to count as "passed".
+    let errorType: string | undefined = evidence.unscorableReason ?? undefined;
+    if (!errorType && !isCorrect) {
+      if (result.recallAccuracy === 0) errorType = 'recall_failure';
+      else if (result.namingAccuracy < 0.6) errorType = 'naming_under_load';
+      else errorType = 'partial_recall';
+    }
+    // Descriptive two-domain practice score; not a validated expressive
+    // language accuracy measure or a standalone evidence threshold.
     const combinedAccuracy = (result.namingAccuracy + result.recallAccuracy) / 2;
 
     await submitTrial({
@@ -169,11 +173,12 @@ export default function DualLoadNamingExercise() {
       expectedResponse: null,
       userResponse: result.recalledWords?.join(', ') ?? null,
       isCorrect,
-      accuracyScore: combinedAccuracy,
+      accuracyScore: Number.isFinite(combinedAccuracy) ? combinedAccuracy : null,
       cueLevel: 0,
       supportUsed: mapDualLoadNamingSupport(),
       latencyMs: result.durationMs,
-      trialMode: 'production',
+      trialMode: evidence.trialMode,
+      clinicalProgressionEligible: evidence.clinicalProgressionEligible,
       errorType,
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
@@ -181,6 +186,12 @@ export default function DualLoadNamingExercise() {
         set_id: result.setId,
         naming_accuracy: result.namingAccuracy,
         recall_accuracy: result.recallAccuracy,
+        naming_input_mode: evidence.namingInputMode,
+        recall_input_mode: evidence.recallInputMode,
+        verified_expressive_mastery_eligible: evidence.verifiedExpressiveMasteryEligible,
+        mixed_task_unscorable_reason: evidence.unscorableReason,
+        naming_attempt_count: Array.isArray(result.namingAttempts) ? result.namingAttempts.length : 0,
+        naming_scorable_count: evidence.scorableSpokenNamingAttempts,
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
@@ -192,7 +203,10 @@ export default function DualLoadNamingExercise() {
       },
     });
 
-    if (pivot.shouldStepDown) { console.log('[DualLoad] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
+    if (pivot.shouldStepDown && evidence.clinicalProgressionEligible) {
+      console.log('[DualLoad] Pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: DualLoadTrialResult[]) => {

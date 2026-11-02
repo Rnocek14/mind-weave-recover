@@ -28,6 +28,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { evaluateDualLoadNamingEvidence } from '@/lib/dualLoadNaming/clinicalEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -292,18 +293,19 @@ export function DualLoadNamingGame({
     const result = submitRecall(recallInputs.filter(w => w.trim()));
     if (result) {
       setLastResult(result);
-      // Combined success: at least 2/3 words recalled AND naming above 60% — true
-      // dual-load proficiency. Feeds the adaptation engine so tier shifts reflect
-      // genuine mastery under cognitive load, not just one or the other.
-      const combinedSuccess =
-        result.recallAccuracy >= 0.67 && result.namingAccuracy >= 0.6;
-      adaptation.recordTrial({
-        correct: combinedSuccess,
-        reactionTimeMs: result.durationMs,
-      });
-      // DualLoad has no explicit cue ladder; cueLevel: 0
+      // Share the exact combined criterion with the page. Skips, filler-only
+      // speech and inconsistent underlying scores are practice attempts,
+      // not evidence to change clinically intended task difficulty.
+      const evidence = evaluateDualLoadNamingEvidence(result);
+      if (evidence.clinicalProgressionEligible) {
+        adaptation.recordTrial({
+          correct: evidence.practiceSuccessful,
+          reactionTimeMs: result.durationMs,
+        });
+      }
+      // Engagement can still acknowledge unscorable practice.
       engagement.recordTrial({
-        correct: combinedSuccess,
+        correct: evidence.practiceSuccessful,
         reactionTimeMs: result.durationMs,
         cueLevel: 0,
         timeout: false,

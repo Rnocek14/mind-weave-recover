@@ -3,8 +3,10 @@
  *
  * Expressive confrontation-naming-under-load task: patient memorises a
  * 3-word list, names 6 pictures (the load), then recalls the list.
- * `submitTrial` emits `trialMode: 'production'` and the slug IS added
- * to ADOPTED_TRIAL_MODE_SLUGS — trials route into expressive mastery.
+ * `submitTrial` emits `trialMode: 'mixed'` because the current task
+ * combines spoken naming with typed working-memory recall. Complete
+ * scorable rounds may feed this game-specific clinical ladder; combined
+ * scores are not independent expressive-language mastery evidence.
  *
  * Clinical basis & honest scope: see docs/clinical-evidence/dual-load-naming.md.
  * TL;DR: Dual-task naming under WM load (Murray & Lenz; Salis WM-in-aphasia

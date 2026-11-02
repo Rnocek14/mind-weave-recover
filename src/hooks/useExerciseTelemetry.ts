@@ -8,6 +8,7 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { readAdaptiveLevel } from '@/lib/adaptiveLevelRegistry';
 import type { ValidityResult } from '@/lib/clinical/classifyUtteranceValidity';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
+import { countsTowardUnclassifiedVerifiedScore } from '@/lib/trial/verifiedScoreEligibility';
 import {
   computeAttemptVerdict,
   reconcileSignals,
@@ -352,7 +353,7 @@ export const useExerciseTelemetry = (
           // Clinical practice-only attempts (for example typed or mixed
           // input during a spoken fluency task) are real events, but must
           // not enter the verified speech-accuracy denominator.
-          eventData.counts_toward_score = tp.clinical_progression_eligible !== false;
+          eventData.counts_toward_score = countsTowardUnclassifiedVerifiedScore(tp);
         }
 
         // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──

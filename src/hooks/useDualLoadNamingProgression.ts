@@ -2,8 +2,10 @@
  * useDualLoadNamingProgression — Phase 2, Wave 3 wiring of the
  * dual-task naming ladder to `clinical_progression_state`.
  *
- * Expressive routing: DualLoadNaming's submitTrial emits
- * `trialMode: 'production'` and the slug IS in ADOPTED_TRIAL_MODE_SLUGS.
+ * Per-game mixed cognitive-linguistic progression: naming is spoken while
+ * recall is typed. The combined trial is tagged 'mixed' (not expressive
+ * mastery). Only complete scorable results enter this game-specific
+ * clinical ladder. Stages and promotion thresholds remain provisional.
  *
  * Mirrors useSynonymGeneratorProgression line-for-line; differences are
  * limited to the slug + per-game helpers and support mapping.
