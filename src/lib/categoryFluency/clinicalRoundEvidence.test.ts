@@ -37,8 +37,15 @@ describe('category-fluency clinical evidence constraints', () => {
     expect(getFluencyInputMode(Number.NaN, 1)).toBe('typed');
   });
 
-  const classify = (mode: 'spoken' | 'typed' | 'mixed' | 'none', cueLevelUsed: number, timeLimitSec = 60, uniqueWordCount = 6) =>
-    classifyFluencyRoundEvidence({ mode, cueLevelUsed, timeLimitSec, uniqueWordCount });
+  const classify = (
+    mode: 'spoken' | 'typed' | 'mixed' | 'none',
+    cueLevelUsed: number,
+    timeLimitSec = 60,
+    uniqueWordCount = 6,
+    actualDurationSec = 60,
+  ) => classifyFluencyRoundEvidence({
+    mode, cueLevelUsed, timeLimitSec, uniqueWordCount, actualDurationSec,
+  });
 
   it('treats unassisted spoken output as conditional expressive evidence', () => {
     expect(classify('spoken', 0)).toEqual({
@@ -61,6 +68,15 @@ describe('category-fluency clinical evidence constraints', () => {
       expect(outcome.independentSpoken, mode).toBe(false);
       expect(outcome.trialMode, mode).toBe('mixed');
     }
+    expect(classify('spoken', 0, 60, 6, 25)).toMatchObject({
+      trialMode: 'mixed',
+      clinicalProgressionEligible: false,
+      independentSpoken: false,
+    });
+    expect(classify('spoken', 0, 60, 6, 59)).toMatchObject({
+      trialMode: 'production',
+      clinicalProgressionEligible: true,
+    });
     expect(classify('spoken', 0, 30)).toMatchObject({
       trialMode: 'production',
       clinicalProgressionEligible: false,
