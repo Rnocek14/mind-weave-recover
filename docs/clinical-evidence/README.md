@@ -30,6 +30,7 @@ criterion for any individual patient.
 
 - [`photo-naming.md`](./photo-naming.md) — lexical retrieval; SFA/PCA-style
   cueing ladder.
+- [`phrase-practice.md`](./phrase-practice.md) — functional scripts, self-report/ASR separation, and why its eight proposed stages remain design-only.
 - [`fix-sentence.md`](./fix-sentence.md) — sentence-repair independence;
   not lexical retrieval.
 - [`minimal-pairs.md`](./minimal-pairs.md) — auditory phonemic
