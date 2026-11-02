@@ -47,6 +47,12 @@ const Exercise = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const activeProfileId = useActiveProfileId();
+  // Pre-session only. Does not write clinical progression or impersonate a
+  // patient's saved level.
+  const [phraseStageChoice, setPhraseStageChoice] = useState<{
+    scope: string;
+    level: 1 | 2 | 3;
+  } | null>(null);
   const phraseStageScope = JSON.stringify([user?.id ?? null, activeProfileId ?? null]);
   const practiceStageChoice = phraseStageChoice?.scope === phraseStageScope
     ? phraseStageChoice.level : null;
@@ -65,12 +71,6 @@ const Exercise = () => {
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
-  // Pre-session only. Does not write clinical progression or impersonate a
-  // patient's saved level.
-  const [phraseStageChoice, setPhraseStageChoice] = useState<{
-    scope: string;
-    level: 1 | 2 | 3;
-  } | null>(null);
   const autoStartedRef = useRef(false);
   const hasDispatchedCompleteRef = useRef(false);
   const phraseGameRef = useRef<PhrasePracticeGameHandle>(null);
