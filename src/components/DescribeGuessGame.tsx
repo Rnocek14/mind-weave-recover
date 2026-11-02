@@ -280,6 +280,9 @@ export function DescribeGuessGame({
   useEffect(() => { currentTrialRef.current = game.currentTrial; }, [game.currentTrial]);
 
   const handleSpeechResult = useCallback((result: string) => {
+    // A late recognition callback must never overwrite typed practice or
+    // fabricate browser speech evidence after the input mode changes.
+    if (useTypingRef.current) return;
     logBrowserTranscript(result);
   }, [logBrowserTranscript]);
 
@@ -406,7 +409,7 @@ export function DescribeGuessGame({
   // feature types light their chips up ("where you'd find it" → Where ✓),
   // so coverage is visible without tapping anything.
   useEffect(() => {
-    if (!fullTranscript || !game.currentTrial || showFeedback) return;
+    if (useTypingRef.current || !fullTranscript || !game.currentTrial || showFeedback) return;
     game.recordSpokenFeatures(fullTranscript);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullTranscript]);
@@ -563,6 +566,7 @@ export function DescribeGuessGame({
     // once the lock clears, and let the echo gate reject Maya's own voice —
     // which it can, because the chip questions are passed to it as
     // extraSpokenContext below.
+    if (useTypingRef.current) return;
     if (voiceController.isMicLocked) {
       if (micLockRetryRef.current) clearTimeout(micLockRetryRef.current);
       micLockRetryRef.current = setTimeout(() => setMicLockRetryTick((t) => t + 1), 450);
@@ -578,7 +582,7 @@ export function DescribeGuessGame({
   useEffect(() => {
     const trial = currentTrialRef.current;
     const textToCheck = fullTranscript || transcript;
-    if (!textToCheck || !trial || evaluatedRef.current || awaitingWordAttempt) return;
+    if (useTypingRef.current || !textToCheck || !trial || evaluatedRef.current || awaitingWordAttempt) return;
     if (wordSaidRedirectFiredRef.current) return; // Only redirect once per trial
 
     if (game.checkWordMatch(textToCheck, trial)) {
@@ -666,7 +670,7 @@ export function DescribeGuessGame({
       stopListening();
       setIsListening(false);
 
-      const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
+      const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true, false, 'spoken');
       if (finalResult) {
         logFinalAnalysis({
           transcript: ctx.originalTranscript,
@@ -736,9 +740,11 @@ export function DescribeGuessGame({
     if (!trial || evaluatedRef.current || processingRef.current || wordSaidRedirect) return;
 
     const currentTranscript = rawTranscriptRef.current;
+    const evaluationMode = useTypingRef.current ? 'typed' : 'spoken';
 
-    // CRITICAL: Gate on substantial speech to prevent false positives
-    if (!hasSubstantialSpeech(currentTranscript)) {
+    // A typing fallback has no microphone or listening-duration requirement.
+    // Retain the response-content and semantic validation gates.
+    if (evaluationMode === 'spoken' && !hasSubstantialSpeech(currentTranscript)) {
       // Not enough speech — don't evaluate, let them keep talking
       return;
     }
@@ -799,7 +805,7 @@ export function DescribeGuessGame({
       let pronunciationData: any = null;
 
       const audioPromise = (async () => {
-        if (isRecording) {
+        if (evaluationMode === 'spoken' && isRecording) {
           const recResult = await stopRecording();
           if (recResult && sessionId && userId) {
             recordingDurationMs = recResult.duration;
@@ -815,7 +821,7 @@ export function DescribeGuessGame({
 
       setIsEvaluating(false);
 
-      if (guessResult.guessed && !wordWin) {
+      if (guessResult.guessed && !wordWin && evaluationMode === 'spoken') {
         // App guessed correctly — celebrate, then optionally let them try saying it
         setGuessMessage(`I got it! It's "${trial.target}"! Say: ${trial.target}`);
         setAwaitingWordAttempt(true);
@@ -857,7 +863,7 @@ export function DescribeGuessGame({
             const postGuessTranscript = rawTranscriptRef.current;
             const saidWord = game.checkWordMatch(postGuessTranscript, trial);
             if (saidWord) game.recordWordRetrieval();
-            const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
+            const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord, false, 'spoken');
             if (finalResult) {
               logFinalAnalysis({
                 transcript: currentTranscript,
@@ -887,22 +893,32 @@ export function DescribeGuessGame({
       } else {
         // Finalize immediately — show feedback first, THEN advance
         await audioPromise; // Ensure audio is done
-        const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin);
+        const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin, false, evaluationMode);
         if (finalResult) {
-          await logFinalAnalysis({
-            transcript: currentTranscript,
-            transcriptSource: 'browser',
-            isCorrect: finalResult.meaningWin || finalResult.wordWin,
-            errorType: wordWin ? 'word_retrieved' : (finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess'),
-            semanticSimilarity: guessResult.confidence,
-            audioStoragePath,
-            recordingDurationMs,
-            ...(pronunciationData ? {
-              pronunciationScore: pronunciationData.pronunciationScore,
-              gopData: pronunciationData,
-            } : {}),
-          });
-          recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+          if (evaluationMode === 'spoken') {
+            await logFinalAnalysis({
+              transcript: currentTranscript,
+              transcriptSource: 'browser',
+              isCorrect: finalResult.meaningWin || finalResult.wordWin,
+              errorType: wordWin ? 'word_retrieved' : (finalResult.meaningWin ? 'meaning_conveyed' : 'no_guess'),
+              semanticSimilarity: guessResult.confidence,
+              audioStoragePath,
+              recordingDurationMs,
+              ...(pronunciationData ? {
+                pronunciationScore: pronunciationData.pronunciationScore,
+                gopData: pronunciationData,
+              } : {}),
+            });
+            recordAdaptiveTrial({
+              correct: finalResult.meaningWin || finalResult.wordWin,
+              reactionTimeMs: finalResult.reactionTimeMs,
+              cueWasShown: finalResult.promptsShown.length > 0,
+            });
+          } else {
+            // An attempt may have started before switching to typing.
+            // Do not persist its typed content as an utterance analysis.
+            resetAttempt();
+          }
           engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
         }
         setShowFeedback(true);
