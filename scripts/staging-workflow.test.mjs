@@ -70,3 +70,19 @@ test('candidate and setup evidence stay outside the browser-cleaned output direc
     assert.match(job(name), /qa-evidence\/staging-config.json/);
   }
 });
+
+test('staging live jobs reject unreviewed data before all backend requests and installations', () => {
+  for (const name of ['speech', 'therapy']) {
+    const content = job(name);
+    assert.match(content, /NEUROSPARK_STAGING_DATA_ATTESTED_REF: \\$\\{\\{ vars\\.NEUROSPARK_STAGING_DATA_ATTESTED_REF \\}\\}/);
+    assert.match(content, /NEUROSPARK_STAGING_DATA_ATTESTED_AT: \\$\\{\\{ vars\\.NEUROSPARK_STAGING_DATA_ATTESTED_AT \\}\\}/);
+    assert.match(content, /NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE: \\$\\{\\{ vars\\.NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE \\}\\}/);
+    const attestation = content.indexOf('node scripts/hospital-staging-attestation.mjs --check');
+    assert.ok(attestation >= 0, 'required human data approval is missing');
+    assert.ok(attestation > content.indexOf('staging-runner-config.mjs --github-env'));
+    assert.ok(attestation < content.indexOf('bun install --frozen-lockfile'));
+    assert.ok(attestation < content.indexOf('bun run test:'));
+    assert.ok(attestation < content.indexOf('scripts/verify-speech-services.mjs --run'));
+    assert.ok(attestation < content.indexOf('bun run test:e2e:staging'));
+  }
+});
