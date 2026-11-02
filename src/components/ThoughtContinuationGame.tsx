@@ -34,6 +34,10 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { voiceController } from '@/lib/voiceController';
 import { useThoughtDecisionLog } from '@/hooks/useThoughtDecisionLog';
 import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import {
+  selectThoughtTrainingPrompt, type ThoughtTrainingStage,
+} from '@/lib/thoughtContinuation/trainingStages';
 import { detectUtteranceComplete } from '@/lib/completionDetector';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { gateResponse } from '@/lib/evaluation/gateResponse';
@@ -92,6 +96,10 @@ interface ThoughtContinuationGameProps {
     completedThoughts: number;
   }) => void;
   onExit?: () => void;
+  trainingStage?: ThoughtTrainingStage | null;
+  practiceStageSource?: 'care_partner_selection' | 'saved_level' | 'general_practice';
+  /** Allow page to await each pending raw clinical event before session completion. */
+  onRawEventWrite?: (pending: Promise<boolean>) => void;
 }
 
 // =============================================================================
@@ -104,6 +112,9 @@ export function ThoughtContinuationGame({
   sessionId,
   onComplete,
   onExit,
+  trainingStage = null,
+  practiceStageSource = 'general_practice',
+  onRawEventWrite,
 }: ThoughtContinuationGameProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -188,15 +199,20 @@ export function ThoughtContinuationGame({
   // adaptive validation. Discourse games log one row per spoken turn.
   const { logTrial: logAdaptationTrial } = useAdaptationTrialLogger({
     userId,
+    profileId,
     sessionId,
     exerciseSlug: 'thought_continuation',
   });
+  const { logTrial: logPracticeTrial } = useExerciseTelemetry(sessionId, 'thought_continuation');
 
   // LLM-first clinical scorer (with local fallback). Replaces stuck-type-only
   // heuristics with semantic / target-achievement / error-type judgement.
   const scorer = useDiscourseSignalScorer({
     sessionId,
     exerciseSlug: 'thought_continuation',
+    // Prevent the legacy graded discourse scorer from treating externally
+    // prompted practice as independent clinical accuracy.
+    logToDatabase: !trainingStage,
   });
 
   
@@ -234,12 +250,21 @@ export function ThoughtContinuationGame({
   const selectAndSetNextPrompt = useCallback(async () => {
     // Pass the engine discourse level so the selector enforces the mapped
     // content tier as a hard band — no cumulative blending across tiers.
-    const selection = selectNextPrompt(
-      previousStuckType,
-      sessionHistory,
-      usedPromptIds,
-      adaptation.level,
-    );
+    const selection = trainingStage
+      ? (() => {
+          const prompt = selectThoughtTrainingPrompt(trainingStage.level, usedPromptIds);
+          return prompt
+            ? { prompt, strategy: 'random_appropriate' as const,
+                reason: `Practice Stage ${trainingStage.level}: fixed content, no clinical promotion` }
+            : null;
+        })()
+      : selectNextPrompt(
+          previousStuckType,
+          sessionHistory,
+          usedPromptIds,
+          adaptation.level,
+        );
+    if (!selection) return;
 
     console.log('[ThoughtGame] Prompt selected:', {
       strategy: selection.strategy,
@@ -267,7 +292,7 @@ export function ThoughtContinuationGame({
     setCurrentPrompt(selection.prompt);
     setUsedPromptIds(prev => [...prev, selection.prompt.id]);
     setPromptCount(prev => prev + 1);
-  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
+  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level, trainingStage]);
 
   useEffect(() => {
     if (!currentPrompt && promptCount === 0) {
