@@ -23,6 +23,7 @@ import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 import { flushVoiceSessionQueue } from '@/lib/voiceController';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 
 interface ConversationPartnerGameProps {
   userId: string;
@@ -37,7 +38,7 @@ interface ConversationPartnerGameProps {
   onExit?: () => void;
 }
 
-type Phase = 'ready' | 'ai_speaking' | 'listening' | 'processing' | 'complete';
+type Phase = 'ready' | 'ai_speaking' | 'listening' | 'processing' | 'complete' | 'save_failed';
 
 export function ConversationPartnerGame({
   userId,
@@ -55,6 +56,9 @@ export function ConversationPartnerGame({
   const firstWordTimeRef = useRef<number | null>(null);
   const turnCountRef = useRef(0);
   const mountedRef = useRef(true);
+  // One in-flight commit per turn; any failed write blocks verified completion.
+  const committingRef = useRef(false);
+  const saveFailureRef = useRef(false);
 
   const { speak, stop: stopTTS, isLoading: ttsLoading } = useTextToSpeech();
   
@@ -100,6 +104,8 @@ export function ConversationPartnerGame({
   const scorer = useDiscourseSignalScorer({
     sessionId,
     exerciseSlug: 'conversation_partner',
+    // The partner hook owns one practice event per turn with a graded shadow.
+    logToDatabase: false,
   });
 
   const handleSpeechResult = useCallback((transcript: string) => {
@@ -153,7 +159,8 @@ export function ConversationPartnerGame({
 
   // Handle press-to-talk start
   const handleStartTalking = useCallback(() => {
-    if (phase !== 'ready' && phase !== 'ai_speaking') return;
+    // Never open the mic while Maya is still speaking.
+    if (phase !== 'ready' || committingRef.current) return;
     
     setUserTranscript('');
     firstWordTimeRef.current = null;
@@ -182,7 +189,8 @@ export function ConversationPartnerGame({
 
   // Handle done talking
   const handleDoneTalking = useCallback(async () => {
-    if (phase !== 'listening') return;
+    if (phase !== 'listening' || committingRef.current) return;
+    committingRef.current = true;
 
     stopListening();
     setPhase('processing');
@@ -215,9 +223,10 @@ export function ConversationPartnerGame({
       );
     }
     
-    // Log utterance to utterance_analyses
+    // A failed/missing speech record is not verified practice.
+    let utteranceSaved = false;
     if (currentAttemptId) {
-      await logFinalAnalysis({
+      const utteranceWrite = await logFinalAnalysis({
         transcript: userTranscript || undefined,
         transcriptSource: 'browser',
         evaluationModel: 'flow',
@@ -230,13 +239,14 @@ export function ConversationPartnerGame({
         fluencyAvailable: false,
         fluencyUnavailableReason: 'discourse_task',
       });
+      utteranceSaved = utteranceWrite.status === 'persisted';
       resetAttempt();
     }
 
     // Score this turn with the LLM-first clinical scorer.
     // Falls back to local heuristics on timeout/failure. Logs to DB.
     const userWordCount = userTranscript.trim().split(/\s+/).filter(Boolean).length;
-    await scorer.scoreAndRecord(
+    const scored = await scorer.scoreAndRecord(
       {
         exerciseSlug: 'conversation_partner',
         promptText: currentAIText,
@@ -250,8 +260,11 @@ export function ConversationPartnerGame({
       adaptation.recordTurn,
     );
 
-    // Process turn and get follow-up
-    const { followupText } = await processUserTurn(userTranscript, latencyMs);
+    // Process one raw turn with the same attempt ID as the utterance.
+    const { followupText, eventSaved } = await processUserTurn(
+      userTranscript, latencyMs, currentAttemptId, scored.signal,
+    );
+    if (!eventSaved || !utteranceSaved) saveFailureRef.current = true;
 
     // User exited mid-processing — don't resume speaking after unmount.
     if (!mountedRef.current) return;
@@ -266,9 +279,13 @@ export function ConversationPartnerGame({
         console.warn('TTS failed:', err);
       }
       
+      if (!mountedRef.current) return;
       addAITurn(followupText);
+      if (saveFailureRef.current) {
+        setPhase('save_failed');
+        return;
+      }
       setPhase('complete');
-      
       if (onComplete) {
         const userAIRatio = metrics.totalAIWords > 0 
           ? (metrics.totalUserWords / metrics.totalAIWords) * 100 
@@ -290,7 +307,9 @@ export function ConversationPartnerGame({
         console.warn('TTS failed:', err);
       }
       
+      if (!mountedRef.current) return;
       addAITurn(followupText);
+      committingRef.current = false;
       setPhase('ready');
     }
   }, [
@@ -462,7 +481,17 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'complete' && (
+          {phase === 'save_failed' && (
+        <div className="space-y-3" role="alert">
+          <UnverifiedPracticeBanner />
+          <p className="text-sm text-muted-foreground text-center">
+            You can return home. This conversation has not been marked as fully saved.
+          </p>
+          {onExit && <Button onClick={onExit} className="w-full">Return home</Button>}
+        </div>
+      )}
+
+      {phase === 'complete' && (
             <div className="text-center py-6 space-y-4">
               <div className="text-4xl">🎉</div>
               <h3 className="text-lg font-medium">Nice conversation!</h3>
