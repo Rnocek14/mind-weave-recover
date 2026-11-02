@@ -2,8 +2,10 @@
  * useDualLoadNamingProgression — Phase 2, Wave 3 wiring of the
  * dual-task naming ladder to `clinical_progression_state`.
  *
- * Expressive routing: DualLoadNaming's submitTrial emits
- * `trialMode: 'production'` and the slug IS in ADOPTED_TRIAL_MODE_SLUGS.
+ * Mixed-modality routing: spoken naming plus typed recall is not a pure
+ * expressive production event. The combined event uses trialMode='mixed'
+ * (excluded from expressive mastery), but valid dual-task outcomes may
+ * still advance this game-specific clinical progression ladder.
  *
  * Mirrors useSynonymGeneratorProgression line-for-line; differences are
  * limited to the slug + per-game helpers and support mapping.
@@ -31,7 +33,9 @@ const DUAL_LOAD_NAMING_SLUG = 'dual-load-naming';
 /**
  * Map Dual-Load Naming trials to the canonical executive SupportLevel.
  * The game has no in-trial scaffold (no hint button, no carrier prompt,
- * no phonemic cue). Every trial is `open_response`.
+ * no phonemic cue). Scorable naming attempts use `open_response`
+ * support; typed recall is a separate domain and the whole round remains
+ * mixed mode for mastery routing.
  */
 export function mapDualLoadNamingSupport(): SupportLevel {
   return 'open_response';

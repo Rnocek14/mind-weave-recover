@@ -82,11 +82,11 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // from expressive mastery. The game's adaptive auto-logger is disabled.
   // In-game typed practice is not independent spoken-language recovery.
   'synonym_generator',
-  // dual_load_naming (Wave 3): DualLoadNamingExercise emits
-  // trialMode='production' on every submitTrial; DualLoadNamingGame's
-  // useInGameAdaptation is autoLog:false. Expressive confrontation
-  // naming under verbal WM load — open spoken production with no
-  // in-trial scaffold control.
+  // dual_load_naming: the COMPOSITE task requires spoken picture naming
+  // plus TYPED word-list recall. Its trialMode='mixed' is intentionally
+  // excluded from expressive mastery even though the game-specific
+  // dual-task clinical ladder can use eligible valid mixed outcomes.
+  // The in-game adaptation auto-logger remains disabled.
   'dual_load_naming',
   // INTENTIONALLY NOT ADOPTED: meaning_match (receptive/comprehension —
   // emits trialMode:'recognition' which routes to `excluded`. Adding it

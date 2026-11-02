@@ -3,8 +3,9 @@
  *
  * Expressive confrontation-naming-under-load task: patient memorises a
  * 3-word list, names 6 pictures (the load), then recalls the list.
- * `submitTrial` emits `trialMode: 'production'` and the slug IS added
- * to ADOPTED_TRIAL_MODE_SLUGS — trials route into expressive mastery.
+ * Composite task includes browser-recognized spoken naming and typed
+ * recall. It is tagged trialMode='mixed' (excluded from expressive
+ * mastery), while eligible trials may inform a separate game progression.
  *
  * Clinical basis & honest scope: see docs/clinical-evidence/dual-load-naming.md.
  * TL;DR: Dual-task naming under WM load (Murray & Lenz; Salis WM-in-aphasia
@@ -16,8 +17,9 @@
  * Support axis (executive / open-production):
  *   The current game UI has no in-trial scaffold control — there is no
  *   hint button, no phonemic cue, no carrier prompt. The patient simply
- *   speaks under the load. Every trial is `open_response`. The ladder
- *   advances on combined naming + recall accuracy at progressively harder
+ *   speaks under the load; the later recall phase is typed. Naming uses
+ *   `open_response` support and combined game trials use mixed modality.
+ *   The ladder advances on combined naming + recall accuracy at progressively harder
  *   content tiers, not on scaffold fading.
  *
  * Phase 1 readiness:
