@@ -306,6 +306,7 @@ export default function TwoCluesExercise() {
             profileId={activeProfile?.id}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
             clinicalLevel={progression.startingLevel}
+            initialDifficulty={bridge.effective}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : undefined}
           />
         )}
