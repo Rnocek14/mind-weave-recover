@@ -27,7 +27,7 @@ import {
   resolveEffectiveCategoryFluencyInitialDifficulty,
 } from '@/lib/progression/categoryFluencyDifficultyBridge';
 import { getCategoryFluencyLevelSpec } from '@/lib/progression/categoryFluencyLevels';
-import { classifyFluencyRoundEvidence } from '@/lib/categoryFluency/clinicalRoundEvidence';
+import { classifyFluencyRoundEvidence, COMPARABLE_FLUENCY_SECONDS } from '@/lib/categoryFluency/clinicalRoundEvidence';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -186,7 +186,7 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         input_mode: result.inputMode,
         cue_level_used: result.cueLevelUsed,
-        comparable_timing: result.timeLimitSec === 60,
+        comparable_timing: result.timeLimitSec === COMPARABLE_FLUENCY_SECONDS,
         independent_spoken: outcome.independentSpoken,
         clinical_progression_eligible: outcome.clinicalProgressionEligible,
         words: result.words,
