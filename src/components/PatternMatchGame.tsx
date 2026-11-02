@@ -9,17 +9,23 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { buildPatternChoices, PATTERN_SHAPES, PATTERN_COLORS, type PatternItem } from '@/lib/patternMatch/buildPatternChoices';
+import { getPatternPracticeStage, patternRuleForTrial, buildPatternPracticeChoices, type PatternPracticeLevel, type PatternMatchRule } from '@/lib/patternMatch/practiceStages';
 
 interface PatternMatchGameProps {
   totalTrials: number;
   initialDifficulty?: number;
   bounds?: DifficultyBounds;
   slowMode?: boolean;
+  practiceLevel?: PatternPracticeLevel | null;
   onTrialComplete: (result: {
     correct: boolean;
     reactionTimeMs: number;
     difficultyLevel: number;
     patternSize: number;
+    practiceStage?: number;
+    matchRule?: PatternMatchRule;
+    supportShown?: boolean;
+    skipped?: boolean;
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -44,6 +50,7 @@ export const PatternMatchGame = ({
   initialDifficulty = 3,
   bounds = { floor: 1, ceiling: 8, suggestedStart: 3 },
   slowMode = true,
+  practiceLevel = null,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -59,6 +66,9 @@ export const PatternMatchGame = ({
   const [feedbackType, setFeedbackType] = useState<'success' | 'incorrect'>('success');
   const [trialStartTime, setTrialStartTime] = useState(0);
   const [showingProgress, setShowingProgress] = useState(100);
+  const [practiceRule, setPracticeRule] = useState<PatternMatchRule>('exact');
+  const [revealed, setRevealed] = useState(false);
+  const stage = getPatternPracticeStage(practiceLevel);
   // The previous progress bar displayed 50% BEFORE the first trial of a
   // two-round game and 100% before the patient answered the last round.
   // This is completed-work feedback, not the current item number.
@@ -127,17 +137,28 @@ export const PatternMatchGame = ({
   const startTrial = useCallback(() => {
     clearDisplayTimers();
     selectionLockedRef.current = false;
-    const patternSize = getPatternSize(currentDifficulty);
-    const optionCount = getOptionCount(currentDifficulty);
+    setRevealed(false);
+    const patternSize = stage?.patternSize ?? getPatternSize(currentDifficulty);
+    const optionCount = stage?.optionCount ?? getOptionCount(currentDifficulty);
     const newPattern = generatePattern(patternSize);
-    const { options: newOptions, correctIndex: correctIdx } = buildPatternChoices(newPattern, optionCount);
+    const rule = stage ? patternRuleForTrial(stage, currentTrial) : 'exact';
+    const { options: newOptions, correctIndex: correctIdx } = stage
+      ? buildPatternPracticeChoices(newPattern, optionCount, rule)
+      : buildPatternChoices(newPattern, optionCount);
+    setPracticeRule(rule);
     setPattern(newPattern);
     setOptions(newOptions);
     setCorrectIndex(correctIdx);
     setPhase('showing');
     setShowingProgress(100);
     
-    const displayTime = getDisplayTime(currentDifficulty);
+    const displayTime = stage?.previewMs ?? getDisplayTime(currentDifficulty);
+    // L1/L2 are simultaneous visual matching, not memory recall.
+    if (stage?.visibleAtAnswer) {
+      setPhase('matching');
+      setTrialStartTime(Date.now());
+      return;
+    }
     progressIntervalRef.current = setInterval(() => {
       setShowingProgress(prev => Math.max(0, prev - (100 / (displayTime / 100))));
     }, 100);
@@ -146,7 +167,7 @@ export const PatternMatchGame = ({
       setPhase('matching');
       setTrialStartTime(Date.now());
     }, displayTime);
-  }, [clearDisplayTimers, currentDifficulty, generatePattern, slowMode]);
+  }, [clearDisplayTimers, currentDifficulty, generatePattern, slowMode, stage?.level, currentTrial]);
 
   // A new round must use the UPDATED difficulty, not the closed-over level
   // from the previous round's feedback timeout.
@@ -166,15 +187,25 @@ export const PatternMatchGame = ({
     selectionLockedRef.current = true;
     const reactionTimeMs = Date.now() - trialStartTime;
     const correct = selectedIndex === correctIndex;
-    updateTrial(correct, reactionTimeMs);
-    engagement.recordTrial({ correct, reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
+    // Externally selected practice stages never alter the adaptive level.
+    if (!stage) updateTrial(correct, reactionTimeMs);
+    engagement.recordTrial({ correct, reactionTimeMs, timeout: false,
+      cueLevel: stage?.visibleAtAnswer || revealed ? 1 : 0, timestamp: Date.now() });
     if (correct) { setScore(s => s + 1); playSuccess(); setFeedbackType('success'); }
     else { playError(); setFeedbackType('incorrect'); }
     setPhase('feedback');
-    onTrialComplete({ correct, reactionTimeMs, difficultyLevel: currentDifficulty, patternSize: pattern.length });
+    onTrialComplete({
+      correct, reactionTimeMs,
+      difficultyLevel: stage?.level ?? currentDifficulty,
+      patternSize: pattern.length,
+      practiceStage: stage?.level,
+      matchRule: practiceRule,
+      supportShown: !!stage?.visibleAtAnswer || revealed,
+      skipped: false,
+    });
     feedbackTimeoutRef.current = setTimeout(() => {
       feedbackTimeoutRef.current = null;
-      checkAndAdjust();
+      if (!stage) checkAndAdjust();
       if (currentTrial >= totalTrials) {
         onGameComplete(score + (correct ? 1 : 0));
       } else {
@@ -207,7 +238,9 @@ export const PatternMatchGame = ({
         <span className="text-muted-foreground font-medium">Trial {currentTrial}/{totalTrials}</span>
         <div className="flex items-center gap-2">
           <span className="font-bold text-base">{score}/{completedTrials}</span>
-          <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">Lv {currentDifficulty}</span>
+          <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
+            {stage ? `Practice ${stage.level}/8` : `Lv ${currentDifficulty}`}
+          </span>
         </div>
       </div>
 
@@ -221,13 +254,20 @@ export const PatternMatchGame = ({
             <Progress value={showingProgress} className="h-1.5 w-32 mx-auto" />
           </div>
         )}
-        {phase === 'matching' && <p className="text-base sm:text-lg font-semibold">🎯 Find the matching pattern</p>}
+        {phase === 'matching' && <p className="text-base sm:text-lg font-semibold">
+          {practiceRule === 'shape' ? '🎯 Match the SHAPES in order' :
+            practiceRule === 'color' ? '🎯 Match the COLORS in order' : '🎯 Find the matching pattern'}
+        </p>}
         {phase === 'feedback' && (
           <p className={cn("text-base sm:text-lg font-semibold", feedbackType === 'success' ? 'text-green-600' : 'text-orange-600')}>
             {feedbackType === 'success' ? '✨ Perfect match!' : '🔄 Not quite — keep going'}
           </p>
         )}
       </div>
+
+      {stage && <p className="text-center text-sm text-muted-foreground">
+        Stage {stage.level}: {stage.instruction}
+      </p>}
 
       {/* Pattern display — generous, hero card */}
       <div className="bg-gradient-to-br from-card to-muted/30 border-2 rounded-2xl p-6 sm:p-8 min-h-[140px] sm:min-h-[180px] flex items-center justify-center shadow-sm">
@@ -241,12 +281,22 @@ export const PatternMatchGame = ({
           </div>
         )}
         {phase === 'matching' && (
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center opacity-40">
-            {pattern.map((_, idx) => (
-              <div key={idx} className="border-2 border-dashed border-muted-foreground/40 rounded-xl"
-                style={{ width: getShapeSize('display') + 20, height: getShapeSize('display') + 20 }} />
-            ))}
-          </div>
+          (stage?.visibleAtAnswer || revealed) ? (
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
+              {pattern.map((item, idx) => (
+                <div key={idx} className="p-2.5 bg-background rounded-xl shadow-md">
+                  {renderShape(item, getShapeSize('display'))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center opacity-40">
+              {pattern.map((_, idx) => (
+                <div key={idx} className="border-2 border-dashed border-muted-foreground/40 rounded-xl"
+                  style={{ width: getShapeSize('display') + 20, height: getShapeSize('display') + 20 }} />
+              ))}
+            </div>
+          )
         )}
         {phase === 'feedback' && (
           <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
@@ -258,6 +308,12 @@ export const PatternMatchGame = ({
           </div>
         )}
       </div>
+
+      {phase === 'matching' && stage && !stage.visibleAtAnswer && !revealed && (
+        <Button variant="outline" size="lg" onClick={() => setRevealed(true)}>
+          Show the pattern again (help)
+        </Button>
+      )}
 
       {/* Options — large touch targets */}
       {phase === 'matching' && (
