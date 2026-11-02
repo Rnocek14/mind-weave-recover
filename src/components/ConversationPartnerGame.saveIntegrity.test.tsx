@@ -208,6 +208,33 @@ describe('ConversationPartnerGame real component finalization', () => {
     }
   });
 
+  it('lets a patient skip when speech recognition is unavailable without creating fake speech data', async () => {
+    mocks.isSupported = false;
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Type a reply' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Skip turn' }));
+      if (i < 2) {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Type a reply' })).toBeTruthy());
+      }
+    }
+    await waitFor(() => expect(screen.getByText('Nice conversation!')).toBeTruthy());
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(mocks.insert).toHaveBeenCalledTimes(3);
+    for (const [row] of mocks.insert.mock.calls) {
+      expect(row).toMatchObject({
+        score: 0,
+        counts_toward_score: false,
+        task_parameters: { input_mode: 'typed', trial_mode: 'mixed' },
+        engagement_flags: { did_speak: false },
+      });
+    }
+    expect(mocks.startRecording).not.toHaveBeenCalled();
+    expect(mocks.logFinalAnalysis).not.toHaveBeenCalled();
+  });
+
   it('does not claim a fully saved session when the utterance analysis write fails', async () => {
     mocks.logFinalAnalysis.mockResolvedValue({ status: 'failed', reason: 'database_error', attemptId: 'synthetic' });
     const complete = vi.fn();
