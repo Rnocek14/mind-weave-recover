@@ -90,8 +90,8 @@ export async function fetchRecentExerciseUsage(
   }>();
 
   for (const row of data) {
+    if (!row.exercise_slug) continue;
     const slug = toLessonExerciseSlug(row.exercise_slug);
-    if (!slug) continue;
 
     const existing = usageMap.get(slug) || {
       sessions: new Set<string>(),
