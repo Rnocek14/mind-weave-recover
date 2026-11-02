@@ -21,6 +21,10 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useThoughtContinuationTrainingStage } from '@/hooks/useThoughtContinuationTrainingStage';
+import { getThoughtTrainingStage, type ThoughtTrainingStageLevel } from '@/lib/thoughtContinuation/trainingStages';
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 
 const EXERCISE_SLUG = 'thought_continuation';
 
@@ -38,6 +42,29 @@ export default function ThoughtContinuationExercise() {
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
+  const training = useThoughtContinuationTrainingStage({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    offline: isOfflineMode,
+  });
+  // Practice override is deliberately local to the patient and THIS session;
+  // selecting another stage must not write the saved clinical level.
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const [stageChoice, setStageChoice] = useState<{ scope: string; level: ThoughtTrainingStageLevel } | null>(null);
+  const caregiverSelected = stageChoice?.scope === scope;
+  const activeStage = caregiverSelected
+    ? getThoughtTrainingStage(stageChoice.level)
+    : training.stage;
+  const practiceStageSource = caregiverSelected ? 'care_partner_selection' as const :
+    activeStage ? 'saved_level' as const : 'general_practice' as const;
+  const pendingEventWritesRef = useRef<Promise<boolean>[]>([]);
+  const completionRequestedRef = useRef(false);
+  const [saveWarning, setSaveWarning] = useState(false);
+  const handleRawEventWrite = useCallback((pending: Promise<boolean>) => {
+    pendingEventWritesRef.current.push(pending);
+  }, []);
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
@@ -64,32 +91,46 @@ export default function ThoughtContinuationExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
   
-  const [gameStarted, setGameStarted] = useState(fromLesson);
-  const [sessionSummary, setSessionSummary] = useState<{
-    totalPrompts: number;
-    promptsSpoken: number;
-    avgMomentumScore: number;
-    completedThoughts: number;
-  } | null>(null);
+  // Scope both UI state and completed summaries so changing the selected
+  // patient never reuses an old patient's in-progress gameplay or results.
+  const [gameState, setGameState] = useState<{ scope: string; started: boolean }>({
+    scope: '', started: fromLesson,
+  });
+  const gameStarted = gameState.scope === scope ? gameState.started : fromLesson;
+  type Summary = { totalPrompts: number; promptsSpoken: number;
+    avgMomentumScore: number; completedThoughts: number };
+  const [scopedSummary, setScopedSummary] = useState<{ scope: string; summary: Summary } | null>(null);
+  const sessionSummary = scopedSummary?.scope === scope ? scopedSummary.summary : null;
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
 
   const handleStart = () => {
-    setGameStarted(true);
+    if (!training.loaded || (!isOfflineMode && !activeSessionId)) return;
+    pendingEventWritesRef.current = [];
+    completionRequestedRef.current = false;
+    setSaveWarning(false);
+    setGameState({ scope, started: true });
   };
 
-  const handleComplete = (summary: {
-    totalPrompts: number;
-    promptsSpoken: number;
-    avgMomentumScore: number;
-    completedThoughts: number;
-  }) => {
-    setSessionSummary(summary);
-    setGameStarted(false);
+  const handleComplete = async (summary: Summary) => {
+    if (completionRequestedRef.current) return;
+    completionRequestedRef.current = true;
+    // The staged game registers the promise synchronously for each attempted
+    // round. A successful UI celebration is NOT a confirmed database write.
+    if (activeStage && !isOfflineMode) {
+      const saved = await confirmRawEventWrites(
+        pendingEventWritesRef.current.splice(0), summary.totalPrompts,
+      );
+      if (!saved.ok) {
+        setSaveWarning(true);
+        return; // No clinical completion or lesson handoff on missing evidence.
+      }
+    }
     promptsRef.current = summary.promptsSpoken;
-    void completeSession();
+    await completeSession();
+    setScopedSummary({ scope, summary });
+    setGameState({ scope, started: false });
 
-    // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -122,8 +163,11 @@ export default function ThoughtContinuationExercise() {
   }, [fromLesson, navigate]);
 
   const handlePlayAgain = () => {
-    setSessionSummary(null);
-    setGameStarted(true);
+    setScopedSummary(null);
+    setSaveWarning(false);
+    completionRequestedRef.current = false;
+    pendingEventWritesRef.current = [];
+    setGameState({ scope, started: true });
   };
 
   // Not logged in
@@ -138,6 +182,21 @@ export default function ThoughtContinuationExercise() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
+    return <div role="status" className="p-8 text-center">Preparing practice session…</div>;
+  }
+  if (!training.loaded) {
+    return <div role="status" className="p-8 text-center">Loading your practice stage…</div>;
+  }
+  if (saveWarning) {
+    return (
+      <div className="mx-auto max-w-md p-8 space-y-4">
+        <UnverifiedPracticeBanner />
+        <Button variant="outline" onClick={handleBack}>Return home</Button>
       </div>
     );
   }
@@ -224,9 +283,13 @@ export default function ThoughtContinuationExercise() {
         
         <main className="pt-6">
           <ThoughtContinuationGame
+            key={scope}
             userId={user.id}
             profileId={activeProfile.id}
             sessionId={activeSessionId}
+            trainingStage={activeStage}
+            practiceStageSource={practiceStageSource}
+            onRawEventWrite={handleRawEventWrite}
             onComplete={handleComplete}
             onExit={handleExit}
           />
@@ -260,16 +323,63 @@ export default function ThoughtContinuationExercise() {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-center text-muted-foreground">
-              Practice completing thoughts at your own pace.
-              There are no wrong answers — just keep it moving.
+              Practice continuing everyday thoughts at your own pace.
+              A short answer is enough to begin.
             </p>
+            <div className="rounded-md bg-muted/50 p-3 space-y-1 text-sm">
+              {activeStage ? (
+                <>
+                  <p className="font-medium">Practice Stage {activeStage.level}: {activeStage.label}</p>
+                  <p className="text-muted-foreground">{activeStage.instructions}</p>
+                  <p className="text-muted-foreground">Practice format only — not a clinical level-up.</p>
+                </>
+              ) : training.loadUnavailable ? (
+                <p role="status">
+                  Your saved level could not be checked. General practice is available,
+                  or a care partner can choose a stage. No saved level will be changed.
+                </p>
+              ) : (
+                <p role="status">
+                  Your saved clinical level {training.persistedLevel ?? 'is unavailable'} does not
+                  yet have a dedicated practice stage. General practice remains available;
+                  stages 4–8 are still being developed.
+                </p>
+              )}
+            </div>
             
+            {!fromLesson && (
+              <details className="rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">
+                  Care partner: choose practice stage
+                </summary>
+                <p className="mt-2 text-muted-foreground">
+                  Changes only this practice session, not the saved clinical level.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {([1, 2, 3] as const).map(level => {
+                    const choice = getThoughtTrainingStage(level);
+                    return (
+                      <Button
+                        key={level}
+                        type="button"
+                        variant={activeStage?.level === level ? 'default' : 'outline'}
+                        aria-pressed={activeStage?.level === level}
+                        onClick={() => setStageChoice({ scope, level })}
+                      >
+                        Stage {level}: {choice?.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
+
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-medium text-primary">1</span>
                 </div>
-                <p className="text-muted-foreground">You'll see a prompt like "Talk about the last thing you ate"</p>
+                <p className="text-muted-foreground">You'll hear a sentence or a short situation to continue</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -285,7 +395,8 @@ export default function ThoughtContinuationExercise() {
               </div>
             </div>
             
-            <Button onClick={handleStart} className="w-full" size="lg">
+            <Button onClick={handleStart} className="w-full" size="lg"
+              disabled={!training.loaded || (!isOfflineMode && !activeSessionId)}>
               Start Practice
             </Button>
           </CardContent>
