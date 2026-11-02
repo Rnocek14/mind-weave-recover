@@ -24,6 +24,7 @@ describe('Dual-Load Naming: mixed cognition and speech cannot inflate independen
       trialMode: 'mixed',
       verifiedExpressiveMasteryEligible: false,
       unscorableReason: null,
+      scorableSpokenNamingAttempts: 5,
     });
     expect(routeTrialMode('dual-load-naming', good.trialMode)).toBe('excluded');
   });
@@ -66,12 +67,14 @@ describe('Dual-Load Naming: mixed cognition and speech cannot inflate independen
     })).toMatchObject({
       clinicalProgressionEligible: false,
       unscorableReason: 'missing_or_filler_speech',
+      scorableSpokenNamingAttempts: 0,
     });
     expect(evaluateDualLoadNamingEvidence({
       ...base, namingAttempts: [{ targetWord: 'cat', userResponse: 'um', correct: false }],
     })).toMatchObject({
       clinicalProgressionEligible: false,
       unscorableReason: 'missing_or_filler_speech',
+      scorableSpokenNamingAttempts: 0,
     });
     expect(evaluateDualLoadNamingEvidence({
       ...base, namingAccuracy: 1,
