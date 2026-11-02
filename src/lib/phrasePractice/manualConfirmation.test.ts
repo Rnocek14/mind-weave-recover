@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from './manualConfirmation';
+import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL, canSelfReportPracticeFromLegacyExercise } from './manualConfirmation';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
@@ -7,6 +7,13 @@ import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
 describe('Phrase Practice manual confirmation cannot pose as verified spoken recovery', () => {
   it('always counts the visible target phrase as lexical support', () => {
     expect(VISIBLE_PHRASE_CUE_LEVEL).toBe(1);
+  });
+
+  it('prevents other embedded games from fabricating trials via the legacy confirmation button', () => {
+    expect(canSelfReportPracticeFromLegacyExercise('word-practice')).toBe(true);
+    for (const slug of ['photo-naming', 'reach-tap', 'left-side-hunt', 'meaning-match', undefined, null]) {
+      expect(canSelfReportPracticeFromLegacyExercise(slug), String(slug)).toBe(false);
+    }
   });
 
   it('preserves a user report while withholding fabricated word accuracy and ASR transcript', () => {
