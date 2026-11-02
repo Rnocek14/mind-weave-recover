@@ -76,6 +76,19 @@ export const ABSTRACT_COMPARE_ITEMS: AbstractCompareItem[] = [
   { id: 'ac-46', wordA: 'Teacher', wordB: 'Lighthouse', keyProperties: ['guide', 'safe passage', 'beacon', 'show way', 'steady', 'help others'], abstractionLevel: 'abstract', tier: 3 },
   { id: 'ac-47', wordA: 'Idea', wordB: 'Spark', keyProperties: ['ignite', 'start', 'small but powerful', 'lead to fire', 'beginning', 'energy'], abstractionLevel: 'abstract', tier: 3 },
   { id: 'ac-48', wordA: 'Mistake', wordB: 'Lesson', keyProperties: ['learn', 'experience', 'growth', 'teach you something', 'past', 'improve'], abstractionLevel: 'abstract', tier: 3 },
+
+  // Novel-comparison *practice* pool (Stage 8); authored, not SLP-validated
+  // and deliberately withheld from other levels to preserve distinct tasks.
+  { id: 'ac-novel-01', wordA: 'Compass', wordB: 'Promise', keyProperties: ['guide', 'direction', 'trust', 'follow', 'commitment'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-02', wordA: 'Window', wordB: 'Question', keyProperties: ['open', 'see', 'new perspective', 'explore', 'understanding'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-03', wordA: 'Garden', wordB: 'Conversation', keyProperties: ['grow', 'nurture', 'care', 'exchange', 'attention'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-04', wordA: 'Bridge', wordB: 'Apology', keyProperties: ['connect', 'repair', 'distance', 'trust', 'rebuild'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-05', wordA: 'Calendar', wordB: 'River', keyProperties: ['time', 'flow', 'change', 'passage', 'moving'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-06', wordA: 'Recipe', wordB: 'Friendship', keyProperties: ['steps', 'care', 'build', 'ingredients', 'balance'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-07', wordA: 'Library', wordB: 'Footpath', keyProperties: ['explore', 'discover', 'journey', 'learning', 'guide'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-08', wordA: 'Echo', wordB: 'Memory', keyProperties: ['repeat', 'past', 'return', 'fade', 'recall'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-09', wordA: 'Lantern', wordB: 'Advice', keyProperties: ['guide', 'help', 'clarity', 'direction', 'light'], abstractionLevel: 'abstract', tier: 3 },
+  { id: 'ac-novel-10', wordA: 'Clock', wordB: 'Heartbeat', keyProperties: ['rhythm', 'time', 'repeat', 'pace', 'measure'], abstractionLevel: 'abstract', tier: 3 },
 ];
 
 export function getCompareItemsByTier(tier: number): AbstractCompareItem[] {

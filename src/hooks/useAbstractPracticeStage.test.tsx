@@ -34,13 +34,15 @@ describe('Abstract Comparison stage ownership', () => {
     expect(result.current).toMatchObject({ unavailable: true, savedLevel: null, stage: null });
   });
 
-  it('retains saved level 8 as unimplemented without overwriting it', async () => {
+  it('loads saved Level 8 as a supported practice task without overwriting it', async () => {
     mock.load.mockResolvedValue({ currentLevel: 8 });
     const { result } = renderHook(() =>
       useAbstractPracticeStage({ userId: 'patient-user', profileId: 'profile-a' }));
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.savedLevel).toBe(8);
-    expect(result.current.stage).toBeNull();
+    expect(result.current.stage).toMatchObject({
+      level: 8, contentTier: 3, novelOnly: true,
+    });
   });
 
   it('does not expose another patient stage during a profile switch', async () => {
