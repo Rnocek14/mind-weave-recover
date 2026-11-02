@@ -165,7 +165,7 @@ export default function DualLoadNamingExercise() {
 
     // Combined accuracy is a GAME-SPECIFIC dual-task measure, not an
     // independent spoken-language mastery score. The real game requires
-    // BOTH naming >=0.60 and typed recall >=0.67 for combined success.
+    // BOTH naming >=0.60 and typed recall of at least 2 of 3 words.
     const combinedAccuracy = (result.namingAccuracy + result.recallAccuracy) / 2;
 
     await submitTrial({
