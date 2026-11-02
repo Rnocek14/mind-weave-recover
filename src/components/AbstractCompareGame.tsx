@@ -57,6 +57,7 @@ interface AbstractCompareGameProps {
   autoStart?: boolean;
   /** Externally selected practice format; never an automatic clinical stage. */
   trainingStage?: AbstractPracticeStage | null;
+  onAttemptStart?: () => void;
 }
 
 type Phase = 'prompt' | 'speaking' | 'scored';
@@ -67,6 +68,7 @@ export function AbstractCompareGame({
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
   autoStart = false,
   trainingStage = null,
+  onAttemptStart,
 }: AbstractCompareGameProps) {
   const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem } =
     useAbstractCompareGame(roundCount, trainingStage?.contentTier ?? tier, trainingStage);
@@ -235,6 +237,7 @@ export function AbstractCompareGame({
   }, [phase, collectedTranscript, fullTranscript, currentItem]);
 
   const handleStart = useCallback(() => {
+    onAttemptStart?.();
     vg.interrupt(); // Stop any TTS before mic starts
     setPhase('speaking');
     startTimeRef.current = Date.now();
@@ -253,7 +256,7 @@ export function AbstractCompareGame({
     
     startRecording();
     startListening();
-  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId, vg]);
+  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId, vg, onAttemptStart]);
 
   const handleStartRef = useRef(handleStart);
   useEffect(() => { handleStartRef.current = handleStart; }, [handleStart]);
@@ -498,7 +501,7 @@ export function AbstractCompareGame({
                 <Mic className="h-4 w-4 mr-2" /> Explain similarities
               </Button>
             ) : (
-              <Button onClick={() => setPhase('speaking')} className="flex-1" size="lg" variant="secondary">
+              <Button onClick={() => { onAttemptStart?.(); setPhase('speaking'); }} className="flex-1" size="lg" variant="secondary">
                 <Keyboard className="h-4 w-4 mr-2" /> Type your answer
               </Button>
             )}
