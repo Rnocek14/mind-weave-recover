@@ -12,6 +12,8 @@ export interface TwoCluesPuzzle {
   clues: string[];                              // 2-3 clue words
   category: string;                             // e.g., 'animals', 'kitchen'
   difficulty: 1 | 2 | 3;                        // Mapped to word frequency/abstractness
+  /** Distinct clinical stage content, never inferred from 1–10 engine tier. */
+  clinicalStage?: 8;
   
   // Answer graph - top tier
   anchors: string[];                            // Top intended answers (e.g., "bird")
