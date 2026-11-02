@@ -30,6 +30,7 @@ vi.mock('@/lib/adaptiveLevelRegistry', () => ({
 import { useExerciseTelemetry } from './useExerciseTelemetry';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
+import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
 
 const spokenValidity = () => classifyUtteranceValidity({
   transcript: 'the cup is used for drinking',
@@ -37,8 +38,8 @@ const spokenValidity = () => classifyUtteranceValidity({
   asrVerified: true,
 });
 
-async function persist(trial: Partial<TrialData>) {
-  const { result } = renderHook(() => useExerciseTelemetry('synthetic-session', 'describe_guess'));
+async function persist(trial: Partial<TrialData>, slug = 'describe_guess') {
+  const { result } = renderHook(() => useExerciseTelemetry('synthetic-session', slug));
   let saved = false;
   await act(async () => {
     saved = await result.current.logTrial({
@@ -180,4 +181,39 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
       },
     });
   });
+  it('does not count a correct STAGE-2 spoken phrase completion as independent clinical speech', async () => {
+    const raw = await persist({
+      correct: true,
+      browserTranscript: 'you',
+      taskParameters: {
+        ...describePhrasePracticeEvidence({
+          trainingStage: 2,
+          scriptSupport: 'partial_script',
+          fullScriptRevealed: false,
+          practiceStageSource: 'care_partner_selection',
+        }),
+        phrase_id: 'thanks',
+      },
+    }, 'phrase-practice');
+    expect(raw).toMatchObject({
+      score: 100,
+      counts_toward_score: false,
+      task_parameters: {
+        training_stage: 2,
+        clinical_progression_eligible: false,
+        independent_spoken_score_eligible: false,
+      },
+    });
+    const summary = reduceAccuracy([{
+      score: raw.score,
+      cue_level: raw.cue_level,
+      counts_toward_score: raw.counts_toward_score,
+      exercise_slug: raw.exercise_slug,
+    }]);
+    expect(summary).toMatchObject({
+      accuracy: null, asr_accuracy: null,
+      independent_accuracy: null, scored_trials: 0,
+    });
+  });
+
 });
