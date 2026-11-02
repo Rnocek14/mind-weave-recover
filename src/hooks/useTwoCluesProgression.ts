@@ -25,9 +25,15 @@ import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const TWO_CLUES_SLUG = 'two-clues';
 
-/** Map TwoClues anchor usage to the canonical lexical SupportLevel. */
-export function mapTwoCluesSupport(reachedAnchor: boolean): SupportLevel {
-  return reachedAnchor ? 'semantic_cue' : 'independent';
+/** Delivered support is independent of answer quality (`reachedAnchor`). */
+export function mapTwoCluesSupport(
+  usedCue: boolean,
+  cueType: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'semantic',
+): SupportLevel {
+  if (!usedCue) return 'independent';
+  if (cueType === 'phonemic') return 'phonemic_cue';
+  if (cueType === 'full_word') return 'carrier_or_full_model';
+  return 'semantic_cue';
 }
 
 interface BufferedTrial {
