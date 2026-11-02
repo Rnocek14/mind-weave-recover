@@ -1,0 +1,33 @@
+/**
+ * User-confirmed phrase practice is participation evidence, not ASR verification.
+ * A self-report must not fabricate a transcript or word-match percentage.
+ */
+export function buildManualPhraseConfirmation(input: {
+  phraseId: string;
+  difficulty: number;
+  cueLevel: number;
+  timeMs: number;
+  attempts: number;
+}): {
+  correct: true;
+  manualConfirmed: true;
+  wordAccuracy: null;
+  whisperTranscript: undefined;
+  phraseId: string;
+  difficulty: number;
+  cueLevel: number;
+  timeMs: number;
+  repetitions: number;
+} {
+  return {
+    correct: true,
+    manualConfirmed: true,
+    wordAccuracy: null,
+    whisperTranscript: undefined,
+    phraseId: input.phraseId,
+    difficulty: input.difficulty,
+    cueLevel: input.cueLevel,
+    timeMs: Math.max(0, input.timeMs),
+    repetitions: Math.max(1, input.attempts + 1),
+  };
+}
