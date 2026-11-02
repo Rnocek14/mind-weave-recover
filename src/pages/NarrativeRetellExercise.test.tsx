@@ -62,15 +62,17 @@ vi.mock('@/lib/exerciseDetailsStore', () => ({
 }));
 vi.mock('@/components/NarrativeRetellGame', () => ({
   NarrativeRetellGame: ({
-    onTrialComplete, onGameComplete, tier, trainingStage,
+    onTrialComplete, onGameComplete, tier, trainingStage, onRetellStarted,
   }: {
     onTrialComplete: (value: NarrativeTrialResult) => void;
     onGameComplete: (values: NarrativeTrialResult[]) => void | Promise<void>;
     tier: number;
     trainingStage?: { level: number };
+    onRetellStarted?: () => void;
   }) => (
     <>
       <output data-testid="narrative-game-stage">tier={tier};stage={trainingStage?.level ?? 'general'}</output>
+      <button onClick={() => onRetellStarted?.()}>Begin synthetic retell</button>
       <button onClick={() => {
         if (!mocks.nextTrial) throw new Error('Test trial missing');
         onTrialComplete(mocks.nextTrial);
@@ -254,6 +256,36 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     mocks.trainingLoaded = false;
     render(<NarrativeRetellExercise />);
     expect(screen.queryByRole('button', { name: 'Complete synthetic retell' })).toBeNull();
+  });
+
+
+  it('lets a care partner choose an actual stage 3 story without changing clinical progression', async () => {
+    mocks.trainingStage = { level: 1, storyTier: 1, baselineSupport: 3, label: 'Short story' };
+    mocks.nextTrial = trial({ storyTier: 2 });
+    render(<NarrativeRetellExercise />);
+    expect(screen.getByTestId('narrative-game-stage').textContent).toContain('stage=1');
+    fireEvent.click(screen.getByText('Care partner: choose practice level'));
+    fireEvent.click(screen.getByRole('button', { name: 'Stage 3: Longer stories' }));
+    expect(screen.getByTestId('narrative-game-stage').textContent).toBe('tier=2;stage=3');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete synthetic retell' }));
+    await waitFor(() => expect(mocks.logTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.logTrial).toHaveBeenCalledWith(expect.objectContaining({
+      taskParameters: expect.objectContaining({
+        narrative_training_stage: 3,
+        narrative_practice_stage_source: 'care_partner_selection',
+        narrative_stage_promotion_eligible: false,
+      }),
+    }));
+  });
+
+  it('locks care-partner practice-stage choices once actual retelling begins', () => {
+    mocks.trainingStage = { level: 1, storyTier: 1, baselineSupport: 3, label: 'Short story' };
+    render(<NarrativeRetellExercise />);
+    fireEvent.click(screen.getByText('Care partner: choose practice level'));
+    expect(screen.getByRole('button', { name: 'Stage 2: Picture hints' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Begin synthetic retell' }));
+    expect(screen.queryByText('Care partner: choose practice level')).toBeNull();
+    expect(screen.getByTestId('narrative-game-stage').textContent).toBe('tier=1;stage=1');
   });
 
 });
