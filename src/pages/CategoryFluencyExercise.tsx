@@ -138,10 +138,7 @@ export default function CategoryFluencyExercise() {
     const rungSpec = getCategoryFluencyLevelSpec(clinicalLevel);
     const isCorrect = result.uniqueWordCount >= rungSpec.minUniqueWords;
 
-    pivot.recordTrialResult({
-      wasCorrect: isCorrect,
-      reactionTimeMs: result.durationSec * 1000,
-    });
+
 
     let errorType: string | undefined;
     if (!isCorrect) {
@@ -155,7 +152,16 @@ export default function CategoryFluencyExercise() {
       cueLevelUsed: result.cueLevelUsed,
       uniqueWordCount: result.uniqueWordCount,
       timeLimitSec: result.timeLimitSec,
+      actualDurationSec: result.durationSec,
     });
+    if (outcome.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.durationSec * 1000,
+      });
+    }
+    // Noncomparable early stops and typed/mixed attempts remain observable
+    // practice records, never clinical improvement evidence.
     // Visible examples and changed-example requests were actually delivered
     // semantic support; never infer independence from a high word count.
     const supportUsed = mapCategoryFluencySupport(result.cueLevelUsed > 0);
@@ -186,7 +192,9 @@ export default function CategoryFluencyExercise() {
         time_limit: result.timeLimitSec,
         input_mode: result.inputMode,
         cue_level_used: result.cueLevelUsed,
-        comparable_timing: result.timeLimitSec === COMPARABLE_FLUENCY_SECONDS,
+        comparable_timing: result.timeLimitSec === COMPARABLE_FLUENCY_SECONDS &&
+          result.durationSec >= COMPARABLE_FLUENCY_SECONDS - 1,
+        actual_duration_sec: result.durationSec,
         independent_spoken: outcome.independentSpoken,
         clinical_progression_eligible: outcome.clinicalProgressionEligible,
         words: result.words,
