@@ -16,6 +16,22 @@ describe('Narrative Retell real story selector for training stage', () => {
     expect(result.current.isComplete).toBe(true);
   });
 
+  it('reserves unique authored Stage 8 stories instead of repeating practiced stories', () => {
+    const { result } = renderHook(() => useNarrativeRetellGame(3, 3, true, true));
+    const seen = new Set<string>();
+    for (let i=0;i<3;i++) {
+      const story = result.current.currentStory;
+      expect(story?.tier).toBe(3);
+      expect(story?.id.startsWith('novel-retell-')).toBe(true);
+      expect(seen.has(story!.id)).toBe(false);
+      seen.add(story!.id);
+      act(() => result.current.nextStory());
+    }
+    expect(result.current.isComplete).toBe(true);
+    const old = renderHook(() => useNarrativeRetellGame(3, 3, true, false));
+    expect(old.result.current.currentStory?.id.startsWith('novel-retell-')).toBe(false);
+    old.unmount();
+  });
   it('does not switch to an easier bank when in-session adaptation tries to change tier', () => {
     const { result } = renderHook(() => useNarrativeRetellGame(3, 2, true));
     const firstId = result.current.currentStory!.id;
