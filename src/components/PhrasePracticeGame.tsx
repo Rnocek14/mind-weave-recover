@@ -30,7 +30,7 @@ import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 import { verifyPhrasePracticeWrites } from '@/lib/phrasePractice/verifyPhrasePracticeWrites';
 import { usePhrasePracticeTrainingStage } from '@/hooks/usePhrasePracticeTrainingStage';
-import { getPhraseTrainingPrompt } from '@/lib/phrasePractice/trainingStages';
+import { getPhraseTrainingPrompt, getPhraseTrialsForTraining } from '@/lib/phrasePractice/trainingStages';
 import { PhraseTrainingScriptCard } from '@/components/phrasePractice/PhraseTrainingScriptCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -299,7 +299,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (!training.loaded || training.loadUnavailable || initializedRef.current) return;
     initializedRef.current = true;
 
-    const newTrials = getTrialsForLevel(safeInitialDifficulty, totalTrials);
+    const newTrials = training.stage
+      ? getPhraseTrialsForTraining(training.stage, totalTrials)
+      : getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
     
@@ -1051,10 +1053,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
     const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const regeneratedTrials = getTrialsForLevel(
-        training.stage?.engineLevel ?? currentDifficultyRef.current,
-        remainingTrials + 5,
-      );
+      const regeneratedTrials = training.stage
+        ? getPhraseTrialsForTraining(training.stage, remainingTrials + 5)
+        : getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 5);
       // Exclude current phrase AND any phrases the user already mastered
       const mastered = masteredPhraseIdsRef.current;
       const filteredTrials = regeneratedTrials.filter(trial =>
@@ -1110,7 +1111,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       recoveryTimerRef.current = null;
     }
     modeledPhraseRef.current = null;
-    const newTrials = getTrialsForLevel(safeInitialDifficulty, totalTrials);
+    const newTrials = training.stage
+      ? getPhraseTrialsForTraining(training.stage, totalTrials)
+      : getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
   };

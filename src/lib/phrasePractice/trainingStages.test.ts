@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PHRASE_BANK } from '@/data/phraseBank';
-import { getPhraseTrainingPrompt, getPhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
+import { getPhraseTrainingPrompt, getPhraseTrainingStage, getPhraseTrialsForTraining } from '@/lib/phrasePractice/trainingStages';
 
 describe('Phrase Practice executable script training modes', () => {
   it('selects two genuinely different bank bands, not just new labels', () => {
@@ -26,18 +26,29 @@ describe('Phrase Practice executable script training modes', () => {
 
   it('does not leak hidden full phrases in completion mode, even for two-word scripts', () => {
     const stage = getPhraseTrainingStage(2);
-    for (const trial of PHRASE_BANK.filter(t => t.difficulty === 1)) {
+    const playable = getPhraseTrialsForTraining(stage!, 20);
+    expect(playable).toHaveLength(20);
+    for (const trial of playable) {
+      expect(trial.difficulty).toBe(1);
+      expect(trial.phrase.trim().split(/\\s+/).length).toBeGreaterThanOrEqual(2);
       const prompt = getPhraseTrainingPrompt(trial, stage);
       expect(prompt.fullPhraseRevealed).toBe(false);
       expect(prompt.text).toContain('_____');
       expect(prompt.text).not.toBe(trial.phrase);
       expect(prompt.evidenceSupport).toBe('partial_script');
     }
+    // A one-word item remains valid for modeled repetition, but could not
+    // produce a phrase completion prompt without inventing target words.
+    const oneWord = PHRASE_BANK.find(t => t.id === 'hello')!;
+    expect(getPhraseTrainingPrompt(oneWord, stage).fullPhraseRevealed).toBe(true);
   });
 
   it('offers a meaningful clue or accessible full-script rescue for stage three', () => {
     const stage = getPhraseTrainingStage(3);
-    for (const trial of PHRASE_BANK.filter(t => t.difficulty === 2)) {
+    const playable = getPhraseTrialsForTraining(stage!, 12);
+    expect(playable).toHaveLength(12);
+    for (const trial of playable) {
+      expect(trial.difficulty).toBe(2);
       const prompt = getPhraseTrainingPrompt(trial, stage);
       expect(prompt.text.trim().length).toBeGreaterThan(0);
       expect(prompt.evidenceSupport).toBe('word_clues');

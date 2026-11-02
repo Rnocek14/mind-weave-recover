@@ -3,7 +3,7 @@
  * These are training tasks, not verified clinical recovery/milestones. L4–L8
  * remain aspirational until situational prompts, variations and SLP approval.
  */
-import type { PhraseTrial } from '@/data/phraseBank';
+import { getTrialsForLevel, type PhraseTrial } from '@/data/phraseBank';
 
 export interface PhraseTrainingStage {
   level: 1 | 2 | 3;
@@ -97,4 +97,27 @@ export function getPhraseTrainingPrompt(
     fullPhraseRevealed: false,
     evidenceSupport: 'word_clues',
   };
+}
+
+/**
+ * Select actual playable stage content, not generic bank items carrying an
+ * aspirational label. A single word like "Yes" cannot be a missing-word
+ * PHRASE completion task. Preserve those items at Stage 1 repetition.
+ */
+export function getPhraseTrialsForTraining(
+  stage: PhraseTrainingStage,
+  requested: number,
+): PhraseTrial[] {
+  if (!Number.isFinite(requested) || requested <= 0) return [];
+  const count = Math.max(0, Math.floor(requested));
+  const pool = getTrialsForLevel(stage.engineLevel, stage.mode === 'completion'
+    ? Math.max(count * 2, count + 10)
+    : count);
+  const playable = stage.mode === 'completion'
+    ? pool.filter(trial => trial.phrase.trim().split(/\s+/).filter(Boolean).length >= 2)
+    : stage.mode === 'key_words'
+      ? pool.filter(trial => (trial.cueWords ?? []).some(cue => !!cue.trim()))
+      : pool;
+  // Do not fall back silently to the wrong task or invent a target.
+  return playable.slice(0, count);
 }
