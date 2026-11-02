@@ -1191,18 +1191,11 @@ const Exercise = () => {
                 <Button
                   className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
                   size="sm"
-                  onClick={() => {
-                    if (exerciseId === 'word-practice' && phraseGameRef.current) {
-                      phraseGameRef.current.markCorrect();
-                    } else {
-                      // No fabricated correct trial for unverified exercise routes.
-                    }
-                  }}
+                  onClick={() => phraseGameRef.current?.markCorrect()}
                 >
                   <CheckCircle2 className="w-5 h-5 sm:mr-2" />
                   <span className="hidden sm:inline">I Said It!</span>
                 </Button>
-  
               )}
               <Button
                 variant="secondary"
