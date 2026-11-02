@@ -82,6 +82,22 @@ test('approvals expire at the precise 24-hour boundary', () => {
   assert.throws(() => requireHospitalStagingAttestation(approved(), at + STAGING_APPROVAL_MAX_AGE_MS));
 });
 
+test('authenticated release suite requires unsigned privileged-RPC negative probes', () => {
+  const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8');
+  const probe = readFileSync(new URL('../tests/e2e/privileged-rpc-denial.spec.ts', import.meta.url), 'utf8');
+  assert.match(config, /privileged-rpc-denial\\.spec\\.ts/);
+  for (const name of [
+    'setup_admin_user',
+    'claim_speech_analysis_jobs',
+    'submit_speech_analysis_result',
+    'get_session_summary',
+  ]) {
+    assert.ok(probe.includes(`name: '${name}'`));
+  }
+  assert.match(probe, /\\[401, 403, 404\\]/);
+  assert.match(probe, /p_batch_size: 0/);
+});
+
 test('reviewed SQL includes server-side patient boundaries and privileged revocation', () => {
   const sql = readFileSync(new URL('../supabase/migrations/20261102195000_hospital_privileged_rpc_perimeter.sql', import.meta.url), 'utf8');
   assert.match(sql, /CREATE OR REPLACE FUNCTION private\.can_access_stroke_patient/);
