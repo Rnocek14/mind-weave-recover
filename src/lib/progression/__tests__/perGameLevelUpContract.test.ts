@@ -23,7 +23,7 @@
  * uniform contract shape (no evidenceMetForXLevel export).
  */
 import { describe, it, expect } from 'vitest';
-import { MAX_LEVEL, type SupportLevel } from '@/lib/progression/clinicalProgression';
+import { MAX_LEVEL, applySessionToState, defaultProgressionState, type SupportLevel } from '@/lib/progression/clinicalProgression';
 
 import * as PhotoNaming from '@/lib/progression/photoNamingLevels';
 import * as FixSentence from '@/lib/progression/fixSentenceLevels';
@@ -191,6 +191,44 @@ describe('Per-Game Progression Contract — level-up + regression', () => {
       // Failure pool must never grant net-positive progress.
       expect(lose).toBeLessThanOrEqual(0);
     });
+  });
+
+  it('each implemented rung rejects no evidence and all-wrong evidence', () => {
+    for (const spec of SLUGS) {
+      for (let level = 1; level <= spec.highestImplemented(); level++) {
+        expect(spec.evidenceMet([], level), spec.slug + ' L' + level + ' empty').toBe(false);
+        expect(spec.evidenceMet(failurePool(), level), spec.slug + ' L' + level + ' wrong').toBe(false);
+        expect(spec.progressDelta(perfectPool(), level),
+          spec.slug + ' L' + level + ' should reward observed success')
+          .toBeGreaterThan(spec.progressDelta(failurePool(), level));
+      }
+    }
+  });
+
+  it('no session can award an aspirational level above the shipped game ceiling', () => {
+    for (const spec of SLUGS) {
+      const cap = spec.highestImplemented();
+      const prev = {
+        ...defaultProgressionState({
+          userId: 'synthetic', profileId: 'synthetic-patient',
+          exerciseSlug: spec.slug,
+        }),
+        currentLevel: cap,
+        stableLevel: cap,
+        progressPct: 99,
+      };
+      const next = applySessionToState(prev, {
+        trials: Array.from({ length: 20 }, () => ({
+          correct: true, support: 'independent' as const,
+        })),
+        evidenceMet: true,
+        progressDelta: 500,
+        maxImplementedLevel: cap,
+        masteryVerdict: 'pass',
+      });
+      expect(next.currentLevel, spec.slug).toBe(cap);
+      expect(next.progressPct, spec.slug).toBe(100);
+    }
   });
 
   it('all 13 adopted slugs are covered (sanity)', () => {
