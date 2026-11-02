@@ -253,6 +253,33 @@ describe('ConversationPartnerGame real component finalization', () => {
     expect(mocks.logFinalAnalysis).not.toHaveBeenCalled();
   });
 
+  it('can leave a failed microphone turn and type instead with no fabricated speech row', async () => {
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    fireEvent.click(screen.getByRole('button', { name: 'Press to Talk' }));
+    expect(mocks.startRecording).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Type instead' }));
+    await waitFor(() => expect(screen.getByLabelText('Your reply')).toBeTruthy());
+    expect(mocks.stopRecording).toHaveBeenCalledTimes(1);
+    expect(mocks.resetAttempt).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByLabelText('Your reply'), { target: { value: 'I had breakfast' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledTimes(1));
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      counts_toward_score: false,
+      task_parameters: {
+        input_mode: 'typed',
+        answer_source: 'typed',
+        independent_spoken_score_eligible: false,
+      },
+    });
+    expect(mocks.logFinalAnalysis).not.toHaveBeenCalled();
+    expect(mocks.scoreAndRecord).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it('does not claim a fully saved session when the utterance analysis write fails', async () => {
     mocks.logFinalAnalysis.mockResolvedValue({ status: 'failed', reason: 'database_error', attemptId: 'synthetic' });
     const complete = vi.fn();
