@@ -225,6 +225,10 @@ export default function DescribeGuessExercise() {
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
         input_mode: evidence.inputMode,
+        // The raw logger normalizes successful error_type to 'correct'. Keep
+        // missing recognition provenance queryable even on correct practice.
+        provenance_issue: result.inputMode === 'spoken' && !result.browserTranscript?.trim()
+          ? 'missing_browser_transcript' : null,
         valid_communication: evidence.validCommunication,
         independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         supported_spoken_practice: evidence.shouldAdaptSpokenTask && cueLevel > 0,
