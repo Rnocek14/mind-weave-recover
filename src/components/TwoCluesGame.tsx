@@ -1057,8 +1057,8 @@ export function TwoCluesGame({
     setProcessingGuard(false);
     // Fire-and-forget so a stuck pronunciation request can never block the skip.
     void finalizeAttempt('skipped').catch(() => {});
-    game.skipRound();
-  }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
+    game.skipRound({ level: cueLevel, type: cueState?.type ?? 'none' });
+  }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard, cueLevel, cueState]);
 
   const handleContinue = useCallback(() => {
     if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
