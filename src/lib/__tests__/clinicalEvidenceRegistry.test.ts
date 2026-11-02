@@ -64,7 +64,7 @@ describe('29-game evidence design contract and measurement integrity', () => {
     for (const [key, source] of sources) {
       expect(source.label.length, key).toBeGreaterThan(15);
       expect(new URL(source.url).protocol).toBe('https:');
-      expect(['guideline', 'clinical-practice', 'trial']).toContain(source.kind);
+      expect(['guideline', 'clinical-practice', 'systematic-review', 'trial']).toContain(source.kind);
     }
     for (const [slug, game] of Object.entries(CLINICAL_GAME_EVIDENCE)) {
       for (const key of game.sources) expect(CLINICAL_EVIDENCE_SOURCES[key], slug).toBeDefined();
