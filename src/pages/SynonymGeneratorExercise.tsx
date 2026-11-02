@@ -36,6 +36,7 @@ import {
 } from '@/hooks/useSynonymGeneratorProgression';
 import { resolveEffectiveSynonymGeneratorInitialDifficulty } from '@/lib/progression/synonymGeneratorDifficultyBridge';
 import { classifySynonymRoundEvidence } from '@/lib/synonymGenerator/roundEvidence';
+import { isFillerOnly } from '@/lib/clinical/classifyUtteranceValidity';
 
 const EXERCISE_SLUG = 'synonym_generator';
 
@@ -147,7 +148,9 @@ export default function SynonymGeneratorExercise() {
     }
     let errorType: string | undefined;
     if (!isCorrect) {
-      if (result.totalEntered === 0) errorType = 'no_response';
+      if (result.browserTranscript && isFillerOnly(result.browserTranscript)) {
+        errorType = 'filler_only';
+      } else if (result.totalEntered === 0) errorType = 'no_response';
       else if (result.matchCount === 0) errorType = 'no_valid_synonyms';
       else errorType = 'low_synonym_count';
     }
