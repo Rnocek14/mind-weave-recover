@@ -101,13 +101,12 @@ export default function NarrativeRetellExercise() {
     if (!activeSessionId && !isOfflineMode) return;
     const evidence = classifyNarrativeRoundEvidence(result);
     const isCorrect = evidence.practiceSuccessful;
-    // Keep session score distinct from participation: typed/scaffolded
-    // narratives still have meaningful coverage metrics in their raw row,
-    // but cannot inflate the verified independent spoken-score total.
-    if (evidence.independentSpokenScoreEligible && Number.isFinite(result.eventCoverage)) {
-      scoreRef.current += Math.round(result.eventCoverage * 100);
-    }
-    trialsRef.current += 1;
+    // Session totals must reflect DURABLY SAVED eligible evidence, not
+    // optimistic UI feedback. A failed final insert cannot inflate the
+    // saved session's score or trial count.
+    const verifiedScore = evidence.independentSpokenScoreEligible &&
+      Number.isFinite(result.eventCoverage)
+      ? Math.round(result.eventCoverage * 100) : 0;
 
     let errorType: string | undefined;
     if (result.completionReason === 'skipped' || result.skipped) errorType = 'skipped';
@@ -172,7 +171,13 @@ export default function NarrativeRetellExercise() {
         depth: result.depthTelemetry,
       },
     });
-    pendingEventWritesRef.current.push(pending);
+    pendingEventWritesRef.current.push(pending.then(saved => {
+      if (saved === true) {
+        trialsRef.current += 1;
+        scoreRef.current += verifiedScore;
+      }
+      return saved;
+    }));
   }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
 
   const resumeLessonFlow = useCallback(() => {
