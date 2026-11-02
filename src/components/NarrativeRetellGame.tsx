@@ -40,6 +40,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import { resolveVisualSupport } from '@/lib/narrative/visualSupport';
+import { annotateNarrativeResult, classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -488,7 +489,7 @@ export function NarrativeRetellGame({
     setMicFailed(false);
     transcriptPrefixRef.current = '';
     latestTranscriptRef.current = '';
-    if (currentStory && userId) {
+    if (!useTyping && currentStory && userId) {
       startAttempt({
         sessionId: sessionId || 'standalone',
         userId,
@@ -600,6 +601,14 @@ export function NarrativeRetellGame({
         resetCoachingState('narrative_retell', speakTTS);
       }
       const result = submitRetell(validation.valid ? gatedTranscript : '', durationMs);
+      if (result) {
+        annotateNarrativeResult(result, {
+          inputMode: useTyping ? 'typed' : 'spoken',
+          completionReason: 'completed',
+          responseValid: validation.valid && !!gatedTranscript.trim(),
+          browserTranscript: useTyping ? null : transcript,
+        });
+      }
 
       let audioStoragePath: string | null = null;
       if (recordingResult?.audioBlob && userId && sessionId) {
@@ -608,7 +617,7 @@ export function NarrativeRetellGame({
         );
       }
 
-      if (currentAttemptId) {
+      if (!useTyping && currentAttemptId) {
         await logFinalAnalysis({
           transcript: transcript || undefined,
           transcriptSource: 'browser',
@@ -637,13 +646,18 @@ export function NarrativeRetellGame({
         };
         setLastResult(result);
         setPhase('scored');
-        // Feed adaptation engine: 60% event coverage = strong retell, drives tier shifts
-        adaptation.recordTrial({
-          correct: result.eventCoverage >= 0.6,
-          reactionTimeMs: result.durationMs,
-        });
+        // The 60% coverage criterion measures in-app practice, not
+        // clinical recovery. Typed, skipped, invalid or helped speech
+        // cannot adjust the independent spoken adaptation engine.
+        const evidence = classifyNarrativeRoundEvidence(result);
+        if (evidence.independentSpokenScoreEligible) {
+          adaptation.recordTrial({
+            correct: evidence.practiceSuccessful,
+            reactionTimeMs: result.durationMs,
+          });
+        }
         engagement.recordTrial({
-          correct: result.eventCoverage >= 0.6,
+          correct: evidence.practiceSuccessful,
           reactionTimeMs: result.durationMs,
           timeout: false,
           cueLevel: 0,
@@ -682,12 +696,20 @@ export function NarrativeRetellGame({
     cancelAutoListen();
     setIsRetellPlaybackActive(false);
     stopListening();
-    await stopRecording();
+    if (!useTyping) await stopRecording();
 
     const durationMs = Date.now() - startTimeRef.current;
     const result = submitRetell('', durationMs);
+    if (result) {
+      annotateNarrativeResult(result, {
+        inputMode: 'none',
+        completionReason: 'skipped',
+        responseValid: false,
+        browserTranscript: null,
+      });
+    }
 
-    if (currentAttemptId) {
+    if (!useTyping && currentAttemptId) {
       await logFinalAnalysis({
         transcript: '',
         transcriptSource: 'browser',
@@ -713,11 +735,8 @@ export function NarrativeRetellGame({
       };
       setLastResult(result);
       setPhase('scored');
-      // Skipped retell = unsuccessful trial; engine should ease the next story.
-      adaptation.recordTrial({
-        correct: false,
-        reactionTimeMs: durationMs,
-      });
+      // Skipping is practice participation, not evidence of decline
+      // from an actual, scorable spoken retell.
       engagement.recordTrial({
         correct: false,
         reactionTimeMs: durationMs,
@@ -727,7 +746,7 @@ export function NarrativeRetellGame({
       });
       onTrialComplete(result);
     }
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, engagement]);
 
   const handleContinue = useCallback(() => {
     nextStory();
