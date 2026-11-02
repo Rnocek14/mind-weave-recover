@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { usePhrasePracticeTrainingStage } from '@/hooks/usePhrasePracticeTrainingStage';
 
 const mocks = vi.hoisted(() => ({ load: vi.fn() }));
@@ -15,9 +16,11 @@ describe('Phrase Practice patient-specific training stage', () => {
       userId: 'synthetic-user', profileId: 'patient-b',
     }));
     await waitFor(() => expect(result.current.loaded).toBe(true));
+    // Match the real exercise_events/progression storage identifier.
+    expect(CANONICAL_SLUGS.PHRASE_PRACTICE).toBe('phrase_practice');
     expect(mocks.load).toHaveBeenCalledTimes(1);
     expect(mocks.load).toHaveBeenCalledWith({
-      userId: 'synthetic-user', profileId: 'patient-b', exerciseSlug: 'phrase-practice',
+      userId: 'synthetic-user', profileId: 'patient-b', exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE,
     });
     expect(result.current.stage).toMatchObject({ level: 3, engineLevel: 3, mode: 'key_words' });
   });

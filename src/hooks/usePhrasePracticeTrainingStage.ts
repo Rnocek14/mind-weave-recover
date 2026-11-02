@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { loadProgressionState } from '@/lib/progression/clinicalProgression';
 import { getPhraseTrainingStage, type PhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 
 const LOAD_TIMEOUT_MS = 5000;
 
@@ -54,7 +55,7 @@ export function usePhrasePracticeTrainingStage({
     void (async () => {
       try {
         const saved = await Promise.race([
-          loadProgressionState({ userId, profileId, exerciseSlug: 'phrase-practice' }),
+          loadProgressionState({ userId, profileId, exerciseSlug: CANONICAL_SLUGS.PHRASE_PRACTICE }),
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => reject(new Error('Phrase stage load timed out')), LOAD_TIMEOUT_MS);
           }),
