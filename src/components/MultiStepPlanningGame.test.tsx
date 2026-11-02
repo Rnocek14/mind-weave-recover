@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -147,6 +148,35 @@ describe('MultiStepPlanningGame real modality/clinical handoff', () => {
     expect(mocks.startRecording).toHaveBeenCalledTimes(1);
     expect(mocks.stopRecording).toHaveBeenCalledTimes(1);
     expect(mocks.recordAdaptation).toHaveBeenCalledTimes(1);
+  });
+
+  it('auto-starts speech exactly once in guided StrictMode after effect replay', () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <StrictMode>
+          <MultiStepPlanningGame autoStart roundCount={1} onTrialComplete={vi.fn()} onGameComplete={vi.fn()} />
+        </StrictMode>,
+      );
+      act(() => vi.advanceTimersByTime(450));
+      expect(mocks.startListening).toHaveBeenCalledTimes(1);
+      expect(mocks.startRecording).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a pending guided microphone start if the patient switches to typing', () => {
+    vi.useFakeTimers();
+    try {
+      render(<MultiStepPlanningGame autoStart roundCount={1} onTrialComplete={vi.fn()} onGameComplete={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Type instead/ }));
+      act(() => vi.advanceTimersByTime(450));
+      expect(mocks.startListening).not.toHaveBeenCalled();
+      expect(mocks.startRecording).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retains a skipped trial without scoring it as a language failure', async () => {
