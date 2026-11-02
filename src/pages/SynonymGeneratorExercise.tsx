@@ -4,10 +4,10 @@
  * "Give as many synonyms for [word] as you can" with adaptive difficulty.
  *
  * Wave 3 (Phase 2): migrated off raw useExerciseTelemetry to the unified
- * useTrialSubmission pipeline. Every submitTrial call emits
- * `trialMode: 'production'` (expressive divergent lexical-semantic
- * retrieval) and the slug `synonym_generator` is in
- * ADOPTED_TRIAL_MODE_SLUGS, so longitudinal mastery now flows.
+ * useTrialSubmission pipeline. Only completed speech-only rounds emit
+ * `trialMode: 'production'`; typed, mixed and early-ended rounds remain
+ * practice data and do not contribute to clinical progression or expressive
+ * mastery. The slug `synonym_generator` is adopted for eligible production.
  * Progression is wired via useSynonymGeneratorProgression (L1–L8 ladder)
  * with a load gate so the engine starts at the correct clinical floor.
  */
@@ -35,6 +35,7 @@ import {
   mapSynonymGeneratorSupport,
 } from '@/hooks/useSynonymGeneratorProgression';
 import { resolveEffectiveSynonymGeneratorInitialDifficulty } from '@/lib/progression/synonymGeneratorDifficultyBridge';
+import { classifySynonymRoundEvidence } from '@/lib/synonymGenerator/roundEvidence';
 
 const EXERCISE_SLUG = 'synonym_generator';
 
@@ -54,6 +55,7 @@ export default function SynonymGeneratorExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const trialIndexRef = useRef(0);
+  const pendingTrialsRef = useRef<Array<Promise<{ ok: boolean }>>>([]);
   const startTimeRef = useRef(Date.now());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
@@ -108,9 +110,9 @@ export default function SynonymGeneratorExercise() {
     getSessionStats,
   });
 
-  // Wave 3: unified trial submission (expressive axis). SynonymGeneratorGame
-  // is autoLog:false; this page owns the writer and emits
-  // trialMode:'production' so the adopted slug routes mastery correctly.
+  // Unified trial submission is the single data writer. Only eligible
+  // speech rounds enter expressive mastery; typed/mixed practice is recorded
+  // with its true mode and excluded from verified clinical scores.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -129,18 +131,20 @@ export default function SynonymGeneratorExercise() {
     console.log(`[SynonymGenerator] Adaptive difficulty ${direction}: now level ${newLevel}`);
   }, []);
 
-  const handleRoundComplete = useCallback(async (result: SynonymRoundResult) => {
+  const handleRoundComplete = useCallback((result: SynonymRoundResult) => {
     if (!activeSessionId) return;
     trialsRef.current += 1;
     trialIndexRef.current += 1;
     scoreRef.current += result.matchCount;
 
-    pivot.recordTrialResult({
-      wasCorrect: result.matchCount >= 2,
-      reactionTimeMs: result.durationSec * 1000,
-    });
-
-    const isCorrect = result.matchCount >= 2;
+    const evidence = classifySynonymRoundEvidence(result);
+    const isCorrect = evidence.practiceSuccessful;
+    if (evidence.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.durationSec * 1000,
+      });
+    }
     let errorType: string | undefined;
     if (!isCorrect) {
       if (result.totalEntered === 0) errorType = 'no_response';
@@ -148,7 +152,7 @@ export default function SynonymGeneratorExercise() {
       else errorType = 'low_synonym_count';
     }
 
-    await submitTrial({
+    const pending = submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
@@ -156,12 +160,14 @@ export default function SynonymGeneratorExercise() {
       stimulusId: result.targetWord ?? `syn_trial_${trialIndexRef.current}`,
       expectedResponse: null,
       userResponse: result.enteredWords?.join(', ') ?? null,
+      browserTranscript: result.browserTranscript,
       isCorrect,
       accuracyScore: result.totalEntered > 0 ? result.matchCount / Math.max(result.totalEntered, 1) : 0,
       cueLevel: 0,
       supportUsed: mapSynonymGeneratorSupport(),
       latencyMs: Math.round(result.durationSec * 1000),
-      trialMode: 'production',
+      trialMode: evidence.trialMode,
+      clinicalProgressionEligible: evidence.clinicalProgressionEligible,
       errorType,
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
@@ -171,7 +177,12 @@ export default function SynonymGeneratorExercise() {
         unmatched_entries: result.unmatchedEntries,
         match_count: result.matchCount,
         total_entered: result.totalEntered,
+        input_mode: result.inputMode,
+        completion_reason: result.completionReason,
         time_limit: result.timeLimitSec,
+        actual_duration_sec: result.durationSec,
+        required_matches: evidence.requiredMatches,
+        verified_spoken_score_eligible: evidence.verifiedSpokenScoreEligible,
         difficulty: result.difficulty,
         difficulty_changed: result.difficultyChanged ?? null,
         pivot_pending: pivot.hasPending,
@@ -180,8 +191,11 @@ export default function SynonymGeneratorExercise() {
         ...adaptationTelemetry,
       },
     });
+    // The game emits onRoundComplete and onGameComplete in the same tick.
+    // Queue the promise synchronously, before a final-round commit can run.
+    pendingTrialsRef.current.push(pending);
 
-    if (pivot.shouldStepDown) {
+    if (pivot.shouldStepDown && evidence.clinicalProgressionEligible) {
       console.log('[SynonymGenerator] Pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
@@ -189,9 +203,20 @@ export default function SynonymGeneratorExercise() {
 
   const handleGameComplete = useCallback(async (results: SynonymRoundResult[]) => {
     setCompleted(true);
-    // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
-    // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
+    // Await every raw record before flushing the progression buffer and
+    // longitudinal mastery. The last round otherwise races the commit.
+    const pending = pendingTrialsRef.current.splice(0);
+    const outcomes = await Promise.allSettled(pending);
+    const failed = outcomes.filter(entry =>
+      entry.status === 'rejected' || (entry.status === 'fulfilled' && !entry.value.ok),
+    );
+    if (failed.length) {
+      console.warn('[SynonymGenerator] Raw event persistence failed for', failed.length, 'rounds; these do not advance progression');
+    }
+    const commit = await commitSession();
+    if (!commit.ok) {
+      console.warn('[SynonymGenerator] Clinical progression commit incomplete', commit.errors);
+    }
     completeSession();
 
     if (fromLesson && !exerciseCompleteSentRef.current) {
