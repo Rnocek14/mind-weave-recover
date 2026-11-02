@@ -22,9 +22,8 @@ import {
   type AdaptiveEngineInput,
   type SignalCounts,
   type SpeechProfileSummary,
-  type DomainExposure7d,
 } from '@/lib/adaptiveDecisionEngine';
-import { COGNITIVE_DOMAINS } from '@/lib/cognitiveStateEngine';
+import { buildDomainExposure7d } from '@/lib/dailyLessonDomainExposure';
 import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalties } from '@/lib/exerciseRecency';
 import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
 import { fetchProgressionPlanningSignals, type ProgressionPlanningSignal } from '@/lib/progressionPlanningSignals';
@@ -330,21 +329,11 @@ export const useDailyLesson = (
         } : null;
 
         // Compute 7-day domain exposure from recent trials
-        const sevenDaysAgoStr = sevenDaysAgo.toISOString();
-        const domainExposure7d: DomainExposure7d[] = COGNITIVE_DOMAINS
-          .filter(d => d.exerciseSlugs.length > 0)
-          .map(domain => {
-            const domainTrials = (recentTrials || []).filter(
-              (t: any) => (domain.exerciseSlugs as readonly string[]).includes(t.exercise_slug) &&
-                t.created_at >= sevenDaysAgoStr
-            );
-            const uniqueSessions = new Set(domainTrials.map((t: any) => t.session_id));
-            return {
-              domainSlug: domain.slug,
-              sessionCount: uniqueSessions.size,
-              trialCount: domainTrials.length,
-            };
-          });
+        // Domain exposure is measured using canonical lesson IDs, not the
+        // underscore telemetry slug; otherwise every completed game looks unused.
+        const domainExposure7d = buildDomainExposure7d(
+          recentTrials, sevenDaysAgo.toISOString(),
+        );
 
         // Inject clinical aphasia type into engine input so adaptive rules can fire
         // even with low/no performance data (clinical profile is ground truth)
