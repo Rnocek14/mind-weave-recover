@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   recordPivot: vi.fn(),
   acknowledgePivot: vi.fn(),
   navigate: vi.fn(),
+  stage: null as { level: 1 | 2 | 3; itemTier: 1 | 2; initialVisiblePrompts: 0 | 3; label: string } | null,
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -25,8 +26,8 @@ vi.mock('@/hooks/useProfile', () => ({
 }));
 vi.mock('@/hooks/useDescribeGuessTrainingStage', () => ({
   useDescribeGuessTrainingStage: () => ({
-    loaded: true, loadUnavailable: false, persistedLevel: 2,
-    stage: { level: 2, itemTier: 1, initialVisiblePrompts: 0, label: 'Short descriptions with less help' },
+    loaded: true, loadUnavailable: false, persistedLevel: mocks.stage?.level ?? 1,
+    stage: mocks.stage,
   }),
 }));
 vi.mock('@/hooks/useStandaloneSession', () => ({
@@ -87,13 +88,33 @@ const trial = (o: Partial<DescribeGuessTrialResult> = {}): DescribeGuessTrialRes
 
 describe('DescribeGuessExercise scoring/provenance reader', () => {
   it('passes the selected patient practice stage into the real page rendering path', () => {
+    mocks.stage = { level: 2, itemTier: 1, initialVisiblePrompts: 0, label: 'Short descriptions with less help' };
     render(<DescribeGuessExercise />);
     expect(screen.getByText('Chosen training stage: 2')).toBeTruthy();
+  });
+
+  it('prevents always-visible strategy labels from inflating independent speech accuracy', async () => {
+    mocks.stage = { level: 1, itemTier: 1, initialVisiblePrompts: 3, label: 'Full feature support' };
+    complete();
+    await waitFor(() => expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      trialMode: 'scaffolded',
+      clinicalProgressionEligible: false,
+      cueLevel: 0, // no chip tapped, but visible strategy labels were offered
+      supportUsed: 'semantic_cue',
+      taskParameters: expect.objectContaining({
+        stage_strategy_labels_available: 5,
+        independent_spoken_score_eligible: false,
+        clinical_stage_promotion_eligible: false,
+        supported_spoken_practice: true,
+      }),
+    }));
   });
 
   beforeEach(() => {
     sessionStorage.clear();
     vi.clearAllMocks();
+    mocks.stage = null;
     mocks.nextTrial=trial();
     mocks.submitTrial.mockResolvedValue({ok:true});
     mocks.commitSession.mockResolvedValue({ok:true,errors:[]});
@@ -115,7 +136,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       supportUsed:'independent',
       taskParameters:expect.objectContaining({
         input_mode:'spoken',independent_spoken_score_eligible:true,
-        describing_training_stage:2, describing_target_tier:1,
+        describing_training_stage:null, describing_target_tier:null,
         clinical_stage_promotion_eligible:false,
       }),
     }));

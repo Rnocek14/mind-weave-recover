@@ -198,7 +198,19 @@ export default function DescribeGuessExercise() {
     // of "always unaided".
     const promptCount = result.promptsShown?.length ?? 0;
     const { cueLevel, cueTypeGiven } = deriveCueTelemetry(promptCount, isCorrect);
-    const supportUsed = cueLevelToLexicalSupport(cueLevel);
+    // New staged tasks show 2–5 semantic strategy labels from the outset.
+    // These are useful lexical scaffolds even if the patient does not tap.
+    // A cued practice configuration must not silently become INDEPENDENT
+    // speech recovery evidence when no chip was tapped.
+    const stageStrategyLabelsAvailable = training.stage
+      ? Math.min(5, training.stage.initialVisiblePrompts + 2)
+      : 0;
+    const stageScaffolded = stageStrategyLabelsAvailable > 0;
+    const independentlyObserved = evidence.independentSpokenScoreEligible && !stageScaffolded;
+    const supportUsed = stageScaffolded ? 'semantic_cue' : cueLevelToLexicalSupport(cueLevel);
+    const trialMode = stageScaffolded && evidence.inputMode === 'spoken' &&
+      evidence.validCommunication && !!result.browserTranscript?.trim()
+      ? 'scaffolded' : stageScaffolded ? 'mixed' : evidence.trialMode;
 
     void submitTrial({
       profileId: activeProfile?.id,
@@ -219,8 +231,8 @@ export default function DescribeGuessExercise() {
       cueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
-      trialMode: evidence.trialMode,
-      clinicalProgressionEligible: evidence.independentSpokenScoreEligible,
+      trialMode,
+      clinicalProgressionEligible: independentlyObserved,
       errorType: !evidence.validCommunication ? 'unscorable_response'
         : result.inputMode === 'spoken' && !result.browserTranscript?.trim()
           ? 'unverified_speech_provenance'
@@ -235,14 +247,15 @@ export default function DescribeGuessExercise() {
         input_mode: evidence.inputMode,
         describing_training_stage: training.stage?.level ?? null,
         describing_target_tier: training.stage?.itemTier ?? null,
+        stage_strategy_labels_available: stageStrategyLabelsAvailable,
         clinical_stage_promotion_eligible: false,
         // The raw logger normalizes successful error_type to 'correct'. Keep
         // missing recognition provenance queryable even on correct practice.
         provenance_issue: result.inputMode === 'spoken' && !result.browserTranscript?.trim()
           ? 'missing_browser_transcript' : null,
         valid_communication: evidence.validCommunication,
-        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
-        supported_spoken_practice: evidence.shouldAdaptSpokenTask && cueLevel > 0,
+        independent_spoken_score_eligible: independentlyObserved,
+        supported_spoken_practice: evidence.shouldAdaptSpokenTask && (cueLevel > 0 || stageScaffolded),
         cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
@@ -253,7 +266,7 @@ export default function DescribeGuessExercise() {
       console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot, training.stage]);
 
   const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
