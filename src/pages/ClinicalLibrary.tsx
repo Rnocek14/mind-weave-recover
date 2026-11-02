@@ -361,7 +361,7 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             {LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS[entry.slug] && (
               <p><span className="font-medium text-foreground">Clinician-review flag:</span> {LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS[entry.slug]}</p>
             )}
-            <p className="font-medium text-foreground">The eight app stages and automatic level thresholds have not been clinically validated.</p>
+            <p className="font-medium text-foreground">These eight stages and automatic level thresholds have not undergone formal clinical outcome evaluation.</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1" aria-label="Evidence sources">
               {evidence.sources.map((key) => (
                 <a key={key} href={CLINICAL_EVIDENCE_SOURCES[key].url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
