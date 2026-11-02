@@ -40,14 +40,15 @@ describe('Thought Continuation patient-owned practice-stage load', () => {
     });
   });
 
-  it('does not pretend an L4–L8 profile has an implemented stage', async () => {
+  it('loads an authored Stage 7 prompt bank without promoting a clinical level', async () => {
     mocks.load.mockResolvedValue({ currentLevel: 7 });
     const { result } = renderHook(() =>
       useThoughtContinuationTrainingStage({ userId: 'u', profileId: 'p' }),
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.persistedLevel).toBe(7);
-    expect(result.current.stage).toBeNull();
+    expect(result.current.stage).toMatchObject({ level: 7, label: 'Imagine a different outcome' });
+    expect(mocks.load).toHaveBeenCalledTimes(1);
   });
 
   it('allows explicitly offline Stage 1 participation without querying patient data', async () => {

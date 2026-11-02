@@ -49,7 +49,10 @@ describe('ReachTapGame — actual staged motor/left-search gameplay', () => {
     expect(trial).toHaveBeenLastCalledWith(expect.objectContaining({
       practiceStage:5,targetSide:'left',visualGuidePresented:false,
     }));
-    act(() => vi.advanceTimersByTime(1900));
+    // Flush the feedback transition/render before the next target's
+    // 1-second delay. One giant fake-time jump skips the React effect tick.
+    act(() => vi.advanceTimersByTime(850));
+    act(() => vi.advanceTimersByTime(1100));
     const second=screen.getByRole('button',{name:'Tap the target'});
     fireEvent.click(second);
     expect(trial).toHaveBeenLastCalledWith(expect.objectContaining({

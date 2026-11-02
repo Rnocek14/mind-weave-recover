@@ -22,7 +22,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
     expect(screen.getByRole('button', { name: /^brighter$/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^darker$/i })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^brighter$/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
     expect(applied).toHaveBeenCalledWith(expect.objectContaining({
       practiceStage: 1, inputMode: 'tap', supportShown: true, goalReached: true,
     }));
@@ -34,7 +34,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
     expect(screen.getByText(/Help someone read/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Need help\? Show words/i }));
     fireEvent.click(screen.getByRole('button', { name: /^brighter$/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
     expect(applied).toHaveBeenCalledWith(expect.objectContaining({
       inputMode: 'tap', supportShown: true, goalReached: true, practiceStage: 4,
     }));
@@ -46,7 +46,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
       target: { value: 'lamp brighter' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Apply typed command/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
     expect(applied).toHaveBeenCalledWith(expect.objectContaining({
       practiceStage: 5, inputMode: 'typed', goalReached: true,
       supportShown: false,
@@ -65,7 +65,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
       target: { value: 'lighter' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Apply typed command/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
     expect(applied).toHaveBeenLastCalledWith(expect.objectContaining({
       practiceStage: 7, inputMode: 'typed', formUsed: 'alias',
       goalReached: true,
@@ -81,7 +81,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
     expect(screen.queryByText(/Goal practiced/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Need help\? Show words/i }));
     fireEvent.click(screen.getByRole('button', { name: /^darker$/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
   });
   it('stage 8 changes to another real scene with a different goal after step 1', () => {
     const applied = vi.fn();
@@ -95,7 +95,7 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
     expect(screen.getByText(/Step 2 of 2/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Need help\? Show words/i }));
     fireEvent.click(screen.getByRole('button', { name: /^bigger$/i }));
-    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(screen.getByText('You changed the scene. Goal practiced!')).toBeTruthy();
     expect(applied).toHaveBeenCalledTimes(2);
   });
 });
