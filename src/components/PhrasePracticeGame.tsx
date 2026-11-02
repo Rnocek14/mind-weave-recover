@@ -27,6 +27,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
+import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -40,8 +41,10 @@ interface PhrasePracticeGameProps {
     cueLevel: number;
     difficulty: number;
     phraseId: string;
-    wordAccuracy: number;
+    wordAccuracy: number | null;
     repetitions: number;
+    /** User reported this exercise was done, not verified by speech recognition. */
+    manualConfirmed?: boolean;
     whisperTranscript?: string;
     whisperConfidence?: number;
     encouragementScore?: number;
@@ -106,7 +109,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [cueLevel, setCueLevel] = useState(1); // Start with phrase visible for better UX // 0=none, 1=visual, 2=audio, 3=both
+  // The full printed phrase is lexical support on every trial.
+  const [cueLevel, setCueLevel] = useState<number>(VISIBLE_PHRASE_CUE_LEVEL); // 1=visual, 2=audio, 3=both
   const [showFeedback, _setShowFeedback] = useState(false);
   const setShowFeedback = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
     _setShowFeedback(prev => {
@@ -116,6 +120,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     });
   }, []);
   const [feedbackCorrect, setFeedbackCorrect] = useState(false);
+  const [manualConfirmationFeedback, setManualConfirmationFeedback] = useState(false);
   const [trialStartTime, setTrialStartTime] = useState<number>(0);
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const [attempts, setAttempts] = useState(0);
@@ -235,7 +240,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   useImperativeHandle(ref, () => ({
     markCorrect: () => {
       if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
-      handleCorrectAnswer(1.0, currentTrial.phrase);
+      handleManualConfirmation();
     },
     skipTooHard: () => {
       if (showFeedbackRef.current || processingResultRef.current || !currentTrial) return;
@@ -389,8 +394,6 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       handleCorrectAnswer(evaluation.wordAccuracy, transcript);
     } else if (evaluation.wordAccuracy > 0.3) {
       const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-      
       // After max attempts with partial matches, auto-advance with encouragement
       if (newAttempts >= MAX_ATTEMPTS_BEFORE_SKIP) {
         toast({
@@ -398,9 +401,11 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           description: "Let's move on to the next phrase.",
           duration: 2500,
         });
-        // Treat as a partial-credit correct to advance
-        handleCorrectAnswer(evaluation.wordAccuracy, transcript);
+        // This was NOT a target match; preserve the attempt and move on
+        // without awarding independent naming or speech-mastery credit.
+        handleIncorrectAnswer(transcript, { advanceAfterFeedback: true });
       } else {
+        setAttempts(newAttempts);
         toast({
           title: "Almost there!",
           description: `You got ${Math.round(evaluation.wordAccuracy * 100)}% of the words. Try again.`,
@@ -530,10 +535,45 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     });
   };
 
+  /** User confirmation counts as practice, never as ASR-matched speech. */
+  const handleManualConfirmation = () => {
+    if (processingResultRef.current || showFeedbackRef.current || !currentTrial) return;
+    processingResultRef.current = true;
+    const trial = currentTrial;
+    setManualConfirmationFeedback(true);
+    setFeedbackCorrect(true);
+    setShowFeedback(true);
+    if (isListening) stopListening();
+    if (isRecording) {
+      void stopRecording().catch(err =>
+        console.warn('[PhrasePractice] Stopping recording after manual confirmation failed', err),
+      );
+    }
+    // No fabricated transcript, phoneme scores, adaptation success, or learned
+    // phrase suppression. Explicit manual source enables a clinician to tell.
+    void logFinalAnalysis({
+      transcriptSource: 'manual',
+      isCorrect: null,
+      errorType: 'manual_confirmed',
+      reasoning: 'User confirmed practice. Speech accuracy was not automatically assessed.',
+      fluencyAvailable: false,
+      fluencyUnavailableReason: 'no_recording',
+    });
+    onTrialComplete?.(buildManualPhraseConfirmation({
+      phraseId: trial.id,
+      difficulty: currentDifficulty,
+      cueLevel,
+      timeMs: Date.now() - trialStartTime,
+      attempts,
+    }));
+    setTimeout(() => nextTrial(), 1200);
+  };
+
   const handleCorrectAnswer = async (wordAccuracy: number, spokenTranscript: string) => {
     // Prevent duplicate processing
     if (processingResultRef.current) return;
     processingResultRef.current = true;
+    setManualConfirmationFeedback(false);
     
     const reactionTime = Date.now() - trialStartTime;
     const trialData = currentTrial!;
@@ -719,6 +759,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     // Prevent duplicate processing
     if (processingResultRef.current) return;
     processingResultRef.current = true;
+    setManualConfirmationFeedback(false);
     setShowRecoveryActions(false);
     consecutiveStallCountRef.current = 0;
     
@@ -938,7 +979,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
     setCurrentTrialIndex(prev => prev + 1);
     setShowFeedback(false);
-    setCueLevel(0);
+    setManualConfirmationFeedback(false);
+    setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
     setAttempts(0);
     setCurrentWordAccuracy(0);
     setLastHeardText('');
@@ -957,9 +999,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const reset = () => {
     setCurrentTrialIndex(0);
     setScore(0);
-    setCueLevel(0);
+    setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
     setAttempts(0);
     setShowFeedback(false);
+    setManualConfirmationFeedback(false);
     setLastHeardText('');
     setProcessingAnswer(false);
     setShowRecoveryActions(false);
@@ -1117,14 +1160,16 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
       {/* Feedback */}
       {showFeedback && (
-        <Card className={`p-6 text-center ${feedbackCorrect ? 'bg-green-50 dark:bg-green-950/20 border-green-500' : 'bg-red-50 dark:bg-red-950/20 border-red-500'}`}>
+        <Card className={`p-6 text-center ${manualConfirmationFeedback ? 'bg-muted/40 border-border' : feedbackCorrect ? 'bg-green-50 dark:bg-green-950/20 border-green-500' : 'bg-red-50 dark:bg-red-950/20 border-red-500'}`}>
           <div className="text-2xl font-bold mb-2">
-            {feedbackCorrect ? '✓ Excellent!' : '✗ Try Again'}
+            {manualConfirmationFeedback ? 'Practice noted' : feedbackCorrect ? '✓ Excellent!' : '✗ Try Again'}
           </div>
           <div className="text-sm text-muted-foreground">
-            {feedbackCorrect 
-              ? `Great job! ${currentWordAccuracy >= 0.95 ? 'Perfect!' : 'Well done!'}`
-              : 'Keep practicing - you can do it!'}
+            {manualConfirmationFeedback
+              ? 'You confirmed the phrase. Speech accuracy was not checked.'
+              : feedbackCorrect
+                ? `Great job! ${currentWordAccuracy >= 0.95 ? 'Perfect!' : 'Well done!'}`
+                : 'Keep practicing - you can do it!'}
           </div>
         </Card>
       )}

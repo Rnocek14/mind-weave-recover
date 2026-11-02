@@ -36,6 +36,8 @@ import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useActiveProfileId } from "@/hooks/useActiveProfileId";
+import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
+import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -126,11 +128,10 @@ const Exercise = () => {
         
         const { data: events } = await supabase
           .from('exercise_events')
-          .select('score')
+          .select('score, counts_toward_score')
           .in('session_id', sessionIds);
         
-        const total = events?.length || 0;
-        const correct = events?.filter(e => e.score > 0).length || 0;
+        const { correct, total } = summarizeVerifiedScoreEvents(events);
         
         setTodayStats(prev => ({ ...prev, correct, total }));
       } catch (error) {
@@ -991,16 +992,28 @@ const Exercise = () => {
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
+                // Self-report is meaningful practice participation, not an
+                // automatically verified spoken target or phoneme score.
+                const manual = result.manualConfirmed === true;
                 await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.timeMs,
                   cueLevel: result.cueLevel,
-                  errorType: result.correct ? undefined : 'incorrect',
+                  errorType: manual ? 'manual_confirmed' : result.correct ? undefined : 'incorrect',
+                  browserTranscript: manual ? undefined : result.whisperTranscript,
+                  validity: manual ? classifyUtteranceValidity({
+                    manualConfirmed: true,
+                    confirmedBy: 'user',
+                    asrVerified: false,
+                  }) : undefined,
                   taskParameters: {
                     difficulty_level: result.difficulty,
                     phrase_id: result.phraseId,
-                    word_accuracy: result.wordAccuracy,
+                    word_accuracy: manual ? null : result.wordAccuracy,
                     repetitions: result.repetitions,
+                    confirmation_mode: manual ? 'manual' : 'browser_asr',
+                    manual_confirmed: manual,
+                    speech_verified: !manual && !!result.whisperTranscript,
                     round: currentRound,
                     exercise_type: 'phrase-practice',
                   },
@@ -1008,7 +1021,7 @@ const Exercise = () => {
                 
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
-                  if (result.correct) {
+                  if (result.correct && !result.manualConfirmed) {
                     setScore((prev) => prev + 100);
                   }
                   startTrial();
@@ -1174,20 +1187,16 @@ const Exercise = () => {
                 {isPausedOverlay ? <Play className="w-5 h-5 sm:mr-2" /> : <Pause className="w-5 h-5 sm:mr-2" />}
                 <span className="hidden sm:inline">{isPausedOverlay ? 'Resume' : 'Pause'}</span>
               </Button>
-              <Button
-                className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
-                size="sm"
-                onClick={() => {
-                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
-                    phraseGameRef.current.markCorrect();
-                  } else {
-                    handleRoundComplete(true);
-                  }
-                }}
-              >
-                <CheckCircle2 className="w-5 h-5 sm:mr-2" />
-                <span className="hidden sm:inline">I Said It!</span>
-              </Button>
+              {canSelfReportPracticeFromLegacyExercise(exerciseId) && (
+                <Button
+                  className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
+                  size="sm"
+                  onClick={() => phraseGameRef.current?.markCorrect()}
+                >
+                  <CheckCircle2 className="w-5 h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">I Said It!</span>
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
