@@ -1,0 +1,175 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  insert: vi.fn(),
+  invoke: vi.fn(),
+  speak: vi.fn(),
+  stopTTS: vi.fn(),
+  startListening: vi.fn(),
+  stopListening: vi.fn(),
+  startRecording: vi.fn(),
+  stopRecording: vi.fn(),
+  uploadRecording: vi.fn(),
+  startAttempt: vi.fn(),
+  logFinalAnalysis: vi.fn(),
+  resetAttempt: vi.fn(),
+  scoreAndRecord: vi.fn(),
+  onSpeechResult: null as null | ((text: string) => void),
+  scorerOptions: null as null | { logToDatabase?: boolean },
+}));
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    functions: { invoke: mocks.invoke },
+    from: () => ({ insert: mocks.insert }),
+  },
+}));
+vi.mock('@/hooks/useSpeechRecognition', () => ({
+  useSpeechRecognition: (opts: { onResult: (text: string) => void }) => {
+    mocks.onSpeechResult = opts.onResult;
+    return {
+      isSupported: true, isListening: false,
+      startListening: mocks.startListening,
+      stopListening: mocks.stopListening,
+    };
+  },
+}));
+vi.mock('@/hooks/useTextToSpeech', () => ({
+  useTextToSpeech: () => ({
+    speak: mocks.speak, stop: mocks.stopTTS, isLoading: false,
+  }),
+}));
+vi.mock('@/hooks/useAudioRecorder', () => ({
+  useAudioRecorder: () => ({
+    startRecording: mocks.startRecording,
+    stopRecording: mocks.stopRecording,
+    uploadRecording: mocks.uploadRecording,
+  }),
+}));
+vi.mock('@/hooks/useUtteranceLogger', () => ({
+  useUtteranceLogger: () => ({
+    startAttempt: mocks.startAttempt,
+    logFinalAnalysis: mocks.logFinalAnalysis,
+    resetAttempt: mocks.resetAttempt,
+    currentAttemptId: 'synthetic-attempt-id',
+  }),
+}));
+vi.mock('@/hooks/useDiscourseAdaptation', () => ({
+  useDiscourseAdaptation: () => ({
+    recordTurn: vi.fn(), shiftDirection: null,
+  }),
+}));
+vi.mock('@/hooks/useDiscourseSignalScorer', () => ({
+  useDiscourseSignalScorer: (opts: { logToDatabase?: boolean }) => {
+    mocks.scorerOptions = opts;
+    return { scoreAndRecord: mocks.scoreAndRecord };
+  },
+}));
+vi.mock('@/lib/voiceController', () => ({
+  flushVoiceSessionQueue: vi.fn(),
+}));
+vi.mock('@/components/exercise/UnverifiedPracticeBanner', () => ({
+  UnverifiedPracticeBanner: () => <p>Some conversation evidence could not be saved.</p>,
+}));
+
+import { ConversationPartnerGame } from './ConversationPartnerGame';
+
+async function begin() {
+  fireEvent.click(screen.getByRole('button', { name: /Start Conversation/ }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+}
+
+async function answer(text: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Press to Talk' }));
+  await act(async () => {
+    mocks.onSpeechResult?.(text);
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Done Talking' }));
+}
+
+describe('ConversationPartnerGame real component finalization', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.onSpeechResult = null;
+    mocks.scorerOptions = null;
+    mocks.speak.mockResolvedValue(undefined);
+    mocks.invoke.mockResolvedValue({ data: { fallbackType: 'tell_more' }, error: null });
+    mocks.insert.mockResolvedValue({ error: null });
+    mocks.stopRecording.mockResolvedValue(null);
+    mocks.logFinalAnalysis.mockResolvedValue({ status: 'persisted', attemptId: 'synthetic', duplicate: false });
+    mocks.scoreAndRecord.mockResolvedValue({ signal: {
+      onTopicScore: 0.5, targetAchievementScore: 0.5, responseQualityScore: 0.5,
+      successScore: 0.5, confidence: 0.5, errorType: 'fluent_correct', source: 'local',
+    } });
+  });
+  afterEach(() => cleanup());
+
+  it('allows the first patient turn only after opener TTS finishes', async () => {
+    let releaseOpener!: () => void;
+    mocks.speak.mockImplementationOnce(() => new Promise<void>(resolve => { releaseOpener = resolve; }));
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" />);
+    fireEvent.click(screen.getByRole('button', { name: /Start Conversation/ }));
+    expect(screen.queryByRole('button', { name: 'Press to Talk' })).toBeNull();
+    expect(mocks.startListening).not.toHaveBeenCalled();
+    await act(async () => { releaseOpener(); await Promise.resolve(); });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+    expect(mocks.startListening).not.toHaveBeenCalled();
+    expect(mocks.scorerOptions?.logToDatabase).toBe(false);
+  });
+
+  it('persists exactly one uniquely indexed practice event per spoken turn', async () => {
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    for (const utterance of ['Toast and eggs', 'It tasted good', 'I would make more']) {
+      await answer(utterance);
+      if (utterance !== 'I would make more') {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+      }
+    }
+    await waitFor(() => expect(screen.getByText('Nice conversation!')).toBeTruthy());
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(mocks.insert).toHaveBeenCalledTimes(3);
+    const rows = mocks.insert.mock.calls.map(([row]) => row as Record<string, any>);
+    expect(rows.map(row => row.round)).toEqual([1, 2, 3]);
+    expect(rows.map(row => row.trial_index)).toEqual([0, 1, 2]);
+    expect(rows.every(row => row.counts_toward_score === false)).toBe(true);
+    expect(rows.every(row => row.attempt_id === 'synthetic-attempt-id')).toBe(true);
+    expect(rows.every(row => row.outputs.discourse_signal_shadow?.source === 'local')).toBe(true);
+    expect(mocks.logFinalAnalysis).toHaveBeenCalledTimes(3);
+    expect(mocks.scoreAndRecord).toHaveBeenCalledTimes(3);
+  });
+
+  it('never calls completeSession via parent when an earlier turn had rejected DB evidence', async () => {
+    mocks.insert.mockResolvedValueOnce({ error: { message: 'synthetic failure' } })
+      .mockResolvedValue({ error: null });
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    for (const utterance of ['I have tea', 'Maybe tomorrow', 'We can try']) {
+      await answer(utterance);
+      if (utterance !== 'We can try') {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+      }
+    }
+    await waitFor(() => expect(screen.getByText(/Some conversation evidence could not be saved/)).toBeTruthy());
+    expect(screen.queryByText('Nice conversation!')).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it('does not claim a fully saved session when the utterance analysis write fails', async () => {
+    mocks.logFinalAnalysis.mockResolvedValue({ status: 'failed', reason: 'database_error', attemptId: 'synthetic' });
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    for (const utterance of ['I had breakfast', 'It was nice', 'I made coffee']) {
+      await answer(utterance);
+      if (utterance !== 'I made coffee') {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+      }
+    }
+    await waitFor(() => expect(screen.getByText(/Some conversation evidence could not be saved/)).toBeTruthy());
+    expect(complete).not.toHaveBeenCalled();
+  });
+});
