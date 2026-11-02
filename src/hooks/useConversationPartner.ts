@@ -91,8 +91,9 @@ export function useConversationPartner({
    */
   const processUserTurn = useCallback(async (
     transcript: string,
-    latencyToFirstWordMs: number | null
-  ): Promise<{ followupType: FollowupType; followupText: string }> => {
+    latencyToFirstWordMs: number | null,
+    attemptId?: string | null,
+  ): Promise<{ followupType: FollowupType; followupText: string; eventSaved: boolean }> => {
     setIsLoadingFollowup(true);
 
     try {
@@ -175,12 +176,16 @@ export function useConversationPartner({
       // Get the actual line to speak
       const followupText = getFollowupLine(followupType);
 
-      // Log to database if we have a session
-      if (sessionId) {
-        await logConversationTurn(sessionId, userTurn, followupType, stuckResult.stuckType);
-      }
+      // The actual record acknowledgment is surfaced to the game; a
+      // completed conversation is not proof that Supabase accepted events.
+      const eventSaved = sessionId
+        ? await logConversationTurn(
+            sessionId, userTurn, followupType, stuckResult.stuckType,
+            newTurnNumber, attemptId,
+          )
+        : false;
 
-      return { followupType, followupText };
+      return { followupType, followupText, eventSaved };
     } finally {
       setIsLoadingFollowup(false);
     }
@@ -246,8 +251,10 @@ async function logConversationTurn(
   sessionId: string,
   userTurn: ConversationTurn,
   followupType: FollowupType,
-  stuckType: StuckType
-) {
+  stuckType: StuckType,
+  turnNumber: number,
+  attemptId?: string | null,
+): Promise<boolean> {
   try {
     const meaningful = (userTurn.wordCount || 0) >= 2;
     const isCorrect = meaningful;
@@ -255,13 +262,24 @@ async function logConversationTurn(
       ? 'correct'
       : ((userTurn.wordCount || 0) === 0 ? 'no_response' : 'minimal_response');
 
-    await supabase.from('exercise_events').insert({
+    const { error } = await supabase.from('exercise_events').insert({
       session_id: sessionId,
       exercise_slug: normalizeExerciseSlug('conversation-partner'),
-      round: 1,
-      score: isCorrect ? 100 : 0, // 0–100 scale (canonical exercise_events.score)
+      round: turnNumber,
+      trial_index: turnNumber - 1,
+      ...(attemptId ? { attempt_id: attemptId } : {}),
+      score: isCorrect ? 100 : 0, // Participation proxy, NOT validated speech accuracy.
+      counts_toward_score: false,
       reaction_time_ms: userTurn.latencyMs,
       error_type: resolvedErrorType,
+      task_parameters: {
+        trial_mode: 'production',
+        clinical_progression_eligible: false,
+        clinical_stage_promotion_eligible: false,
+        independent_spoken_score_eligible: false,
+        answer_source: 'browser_asr_unverified',
+        practice_response_word_count: userTurn.wordCount ?? 0,
+      },
       inputs: {
         user_text: userTurn.text,
         word_count: userTurn.wordCount,
@@ -276,7 +294,14 @@ async function logConversationTurn(
         meaningful_response: meaningful
       }
     });
-  } catch (err) {
-    console.error('Failed to log conversation turn:', err);
+    if (error) {
+      // Avoid logging clinical text, patient identifiers, or backend payloads.
+      console.warn('[ConversationPartner] Turn event not persisted.');
+      return false;
+    }
+    return true;
+  } catch {
+    console.warn('[ConversationPartner] Turn event transport failed.');
+    return false;
   }
 }
