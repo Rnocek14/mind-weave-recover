@@ -76,11 +76,11 @@ const ADOPTED_TRIAL_MODE_SLUGS = new Set<string>([
   // useInGameAdaptation is autoLog:false. Expressive procedural-discourse
   // task — open spoken production with no in-trial scaffold control.
   'multi_step_planning',
-  // synonym_generator (Wave 3): SynonymGeneratorExercise emits
-  // trialMode='production' on every submitTrial (per round);
-  // SynonymGeneratorGame's useAdaptiveDifficulty is autoLog:false.
-  // Expressive divergent lexical-semantic retrieval — open spoken (or
-  // typed-fallback) production with no in-trial scaffold control.
+  // synonym_generator (Wave 3 + integrity update): the exercise page emits
+  // trialMode='production' ONLY for completed speech-only rounds. Typed,
+  // mixed, silent and early-ended rounds are tagged 'mixed' and excluded
+  // from expressive mastery. The game's adaptive auto-logger is disabled.
+  // In-game typed practice is not independent spoken-language recovery.
   'synonym_generator',
   // dual_load_naming (Wave 3): DualLoadNamingExercise emits
   // trialMode='production' on every submitTrial; DualLoadNamingGame's
