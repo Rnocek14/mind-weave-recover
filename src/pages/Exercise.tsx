@@ -36,6 +36,7 @@ import { useSessionAdaptation } from "@/hooks/useSessionAdaptation";
 import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useActiveProfileId } from "@/hooks/useActiveProfileId";
+import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -1186,20 +1187,23 @@ const Exercise = () => {
                 {isPausedOverlay ? <Play className="w-5 h-5 sm:mr-2" /> : <Pause className="w-5 h-5 sm:mr-2" />}
                 <span className="hidden sm:inline">{isPausedOverlay ? 'Resume' : 'Pause'}</span>
               </Button>
-              <Button
-                className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
-                size="sm"
-                onClick={() => {
-                  if (exerciseId === 'word-practice' && phraseGameRef.current) {
-                    phraseGameRef.current.markCorrect();
-                  } else {
-                    handleRoundComplete(true);
-                  }
-                }}
-              >
-                <CheckCircle2 className="w-5 h-5 sm:mr-2" />
-                <span className="hidden sm:inline">I Said It!</span>
-              </Button>
+              {canSelfReportPracticeFromLegacyExercise(exerciseId) && (
+                <Button
+                  className="bg-success min-w-[70px] sm:min-w-[140px] h-12 sm:h-14 text-sm sm:text-base px-2 sm:px-4"
+                  size="sm"
+                  onClick={() => {
+                    if (exerciseId === 'word-practice' && phraseGameRef.current) {
+                      phraseGameRef.current.markCorrect();
+                    } else {
+                      // No fabricated correct trial for unverified exercise routes.
+                    }
+                  }}
+                >
+                  <CheckCircle2 className="w-5 h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">I Said It!</span>
+                </Button>
+  
+              )}
               <Button
                 variant="secondary"
                 size="sm"
