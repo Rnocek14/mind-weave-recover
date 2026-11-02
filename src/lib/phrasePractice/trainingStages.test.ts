@@ -13,7 +13,7 @@ describe('Phrase Practice executable script training modes', () => {
   });
 
   it('does not invent unsupported saved clinical stages', () => {
-    for (const level of [null, undefined, -1, 0, 4, 8, NaN, 1.5]) {
+    for (const level of [null, undefined, -1, 0, 9, NaN, 1.5]) {
       expect(getPhraseTrainingStage(level)).toBeNull();
     }
   });
@@ -60,6 +60,35 @@ describe('Phrase Practice executable script training modes', () => {
       expect(rescue.evidenceSupport).toBe('visible_script');
     }
   });
+  it('selects real harder scripts rather than repeating Stage 1–3 content', () => {
+    const modes=([1,2,3,4,5,6,7,8] as const).map(level=>getPhraseTrainingStage(level)!);
+    expect(modes.map(m=>m.engineLevel)).toEqual([1,1,3,5,7,7,9,9]);
+    expect(modes.map(m=>m.mode)).toEqual([
+      'modeled','completion','key_words','modeled','completion','key_words','scenario','repair',
+    ]);
+    for(const level of [4,5,6,7,8] as const){
+      const stage=getPhraseTrainingStage(level)!;
+      const trials=getPhraseTrialsForTraining(stage,5);
+      expect(trials).toHaveLength(5);
+      expect(trials.every(t=>t.difficulty===(level===4?3:level<=6?4:5))).toBe(true);
+      for(const trial of trials){
+        const prompt=getPhraseTrainingPrompt(trial,stage);
+        expect(prompt.text).toBeTruthy();
+        if(level>4) {
+          expect(prompt.text).not.toBe(trial.phrase);
+          expect(prompt.fullPhraseRevealed).toBe(false);
+        }
+        if(level>=7){
+          expect(prompt.evidenceSupport).toBe(level===7?'situational_prompt':'repair_prompt');
+          expect(prompt.text.toLowerCase()).not.toContain(trial.phrase.toLowerCase());
+        }
+        const rescue=getPhraseTrainingPrompt(trial,stage,true);
+        expect(rescue.fullPhraseRevealed).toBe(true);
+        expect(rescue.text).toBe(trial.phrase);
+      }
+    }
+  });
+
   it('allows a session-only caregiver choice without modifying a saved stage', () => {
     const saved = getPhraseTrainingStage(1)!;
     const overridden = resolvePhrasePracticeStage(saved, 3);
