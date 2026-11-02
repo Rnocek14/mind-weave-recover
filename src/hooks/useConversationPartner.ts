@@ -100,12 +100,13 @@ export function useConversationPartner({
     latencyToFirstWordMs: number | null,
     attemptId?: string | null,
     scoreSignal?: ConversationShadowSignal | null,
+    inputMode: 'spoken' | 'typed' = 'spoken',
   ): Promise<{ followupType: FollowupType; followupText: string; eventSaved: boolean }> => {
     setIsLoadingFollowup(true);
 
     try {
       const userWords = transcript.split(/\s+/).filter(Boolean).length;
-      const didSpeak = userWords > 0;
+      const didSpeak = inputMode === 'spoken' && userWords > 0;
       const turnDurationMs = Date.now() - turnStartTimeRef.current;
 
       // Classify stuck type using existing classifier
@@ -188,7 +189,7 @@ export function useConversationPartner({
       const eventSaved = sessionId
         ? await logConversationTurn(
             sessionId, userTurn, followupType, stuckResult.stuckType,
-            newTurnNumber, attemptId, scoreSignal,
+            newTurnNumber, attemptId, scoreSignal, inputMode,
           )
         : false;
 
@@ -262,6 +263,7 @@ async function logConversationTurn(
   turnNumber: number,
   attemptId?: string | null,
   scoreSignal?: ConversationShadowSignal | null,
+  inputMode: 'spoken' | 'typed' = 'spoken',
 ): Promise<boolean> {
   try {
     const meaningful = (userTurn.wordCount || 0) >= 2;
@@ -281,15 +283,17 @@ async function logConversationTurn(
       reaction_time_ms: userTurn.latencyMs,
       error_type: resolvedErrorType,
       task_parameters: {
-        trial_mode: 'production',
+        trial_mode: inputMode === 'spoken' ? 'production' : 'mixed',
+        input_mode: inputMode,
         clinical_progression_eligible: false,
         clinical_stage_promotion_eligible: false,
         independent_spoken_score_eligible: false,
-        answer_source: 'browser_asr_unverified',
+        answer_source: inputMode === 'spoken' ? 'browser_asr_unverified' : 'typed',
         practice_response_word_count: userTurn.wordCount ?? 0,
       },
       inputs: {
         user_text: userTurn.text,
+        input_mode: inputMode,
         word_count: userTurn.wordCount,
         error_type: resolvedErrorType,
       },
@@ -311,7 +315,7 @@ async function logConversationTurn(
         } : {}),
       },
       engagement_flags: {
-        did_speak: (userTurn.wordCount || 0) > 0,
+        did_speak: inputMode === 'spoken' && (userTurn.wordCount || 0) > 0,
         meaningful_response: meaningful
       }
     });
