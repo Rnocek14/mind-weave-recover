@@ -5,7 +5,9 @@
  *
  * It is a mixed-modality composite. A successful typed recall cannot itself
  * establish independent expressive speech recovery. The existing game
- * success definition is preserved (>=0.67 recall AND >=0.60 naming).
+ * success definition is preserved (at least 2 of 3 recalled AND >=0.60 naming).
+ * Use EXACT 2/3 rather than 0.67: a 3-item list returns 0.666666..., so
+ * comparing against 0.67 accidentally requires perfect 3/3 recall.
  */
 import type { DualLoadTrialResult } from '@/hooks/useDualLoadNamingGame';
 import { isFillerOnly } from '@/lib/clinical/classifyUtteranceValidity';
@@ -23,7 +25,7 @@ export interface DualLoadCompositeEvidence {
 
 /** Existing threshold used by the actual game's adaptation hook. */
 export function isDualLoadCombinedSuccess(input: Pick<DualLoadTrialResult, 'namingAccuracy' | 'recallAccuracy'>): boolean {
-  return Number.isFinite(input.recallAccuracy) && input.recallAccuracy >= 0.67 &&
+  return Number.isFinite(input.recallAccuracy) && input.recallAccuracy >= (2 / 3) &&
     Number.isFinite(input.namingAccuracy) && input.namingAccuracy >= 0.6;
 }
 
