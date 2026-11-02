@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   saveDetails: vi.fn(),
   navigate: vi.fn(),
   getStats: null as null | (() => { score: number; totalTrials: number }),
+  trainingStage: null as null | { level: 1 | 2 | 3; storyTier: 1 | 2; baselineSupport: 1 | 2 | 3; label: string },
+  trainingLoaded: true,
+  trainingUnavailable: false,
+  persistedLevel: 1 as number | null,
 }));
 
 vi.mock('react-router-dom', async (originalImport) => {
@@ -31,7 +35,12 @@ vi.mock('@/hooks/useSessionLifecycle', () => ({
   },
 }));
 vi.mock('@/hooks/useNarrativeRetellTrainingStage', () => ({
-  useNarrativeRetellTrainingStage: () => ({ loaded: true, loadUnavailable: false, persistedLevel: 1, stage: null }),
+  useNarrativeRetellTrainingStage: () => ({
+    loaded: mocks.trainingLoaded,
+    loadUnavailable: mocks.trainingUnavailable,
+    persistedLevel: mocks.persistedLevel,
+    stage: mocks.trainingStage,
+  }),
 }));
 vi.mock('@/hooks/useExerciseTelemetry', () => ({
   useExerciseTelemetry: () => ({ logTrial: mocks.logTrial }),
@@ -53,18 +62,23 @@ vi.mock('@/lib/exerciseDetailsStore', () => ({
 }));
 vi.mock('@/components/NarrativeRetellGame', () => ({
   NarrativeRetellGame: ({
-    onTrialComplete, onGameComplete,
+    onTrialComplete, onGameComplete, tier, trainingStage,
   }: {
     onTrialComplete: (value: NarrativeTrialResult) => void;
     onGameComplete: (values: NarrativeTrialResult[]) => void | Promise<void>;
+    tier: number;
+    trainingStage?: { level: number };
   }) => (
-    <button onClick={() => {
-      if (!mocks.nextTrial) throw new Error('Test trial missing');
-      onTrialComplete(mocks.nextTrial);
-      void onGameComplete([mocks.nextTrial]);
-    }}>
-      Complete synthetic retell
-    </button>
+    <>
+      <output data-testid="narrative-game-stage">tier={tier};stage={trainingStage?.level ?? 'general'}</output>
+      <button onClick={() => {
+        if (!mocks.nextTrial) throw new Error('Test trial missing');
+        onTrialComplete(mocks.nextTrial);
+        void onGameComplete([mocks.nextTrial]);
+      }}>
+        Complete synthetic retell
+      </button>
+    </>
   ),
 }));
 
@@ -108,6 +122,10 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     vi.clearAllMocks();
     mocks.nextTrial = trial();
     mocks.getStats = null;
+    mocks.trainingStage = null;
+    mocks.trainingLoaded = true;
+    mocks.trainingUnavailable = false;
+    mocks.persistedLevel = 1;
     mocks.logTrial.mockResolvedValue(true);
     mocks.completeSession.mockResolvedValue(undefined);
   });
@@ -195,4 +213,46 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     expect(mocks.completeSession).not.toHaveBeenCalled();
     expect(mocks.getStats?.()).toMatchObject({ score: 0, totalTrials: 0 });
   });
+
+  it('passes a persisted stage 3 into the actual game entrypoint and records its story tier', async () => {
+    mocks.trainingStage = { level: 3, storyTier: 2, baselineSupport: 1, label: 'Cause-and-effect story' };
+    mocks.persistedLevel = 3;
+    mocks.nextTrial = trial({ storyTier: 2 });
+    render(<NarrativeRetellExercise />);
+    expect(screen.getByTestId('narrative-game-stage').textContent).toBe('tier=2;stage=3');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete synthetic retell' }));
+    await waitFor(() => expect(mocks.logTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.logTrial).toHaveBeenCalledWith(expect.objectContaining({
+      taskParameters: expect.objectContaining({
+        narrative_training_stage: 3,
+        story_tier: 2,
+        narrative_stage_promotion_eligible: false,
+      }),
+    }));
+  });
+
+  it('fails closed instead of mounting gameplay when patient progression cannot be read', () => {
+    mocks.trainingLoaded = true;
+    mocks.trainingUnavailable = true;
+    mocks.persistedLevel = null;
+    render(<NarrativeRetellExercise />);
+    expect(screen.getByRole('alert').textContent).toContain('Practice level unavailable');
+    expect(screen.queryByRole('button', { name: 'Complete synthetic retell' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Return to Today' })).toBeTruthy();
+    expect(mocks.logTrial).not.toHaveBeenCalled();
+  });
+
+  it('does not advertise a finished clinical stage for unimplemented levels 4 to 8', () => {
+    mocks.persistedLevel = 6;
+    render(<NarrativeRetellExercise />);
+    expect(screen.getByRole('status').textContent).toContain('higher-level story training is');
+    expect(screen.getByTestId('narrative-game-stage').textContent).toContain('stage=general');
+  });
+
+  it('does not mount a story queue before the patient level has loaded', () => {
+    mocks.trainingLoaded = false;
+    render(<NarrativeRetellExercise />);
+    expect(screen.queryByRole('button', { name: 'Complete synthetic retell' })).toBeNull();
+  });
+
 });
