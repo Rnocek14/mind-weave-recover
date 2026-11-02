@@ -448,6 +448,27 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
   }
 };
 
+/**
+ * Observed mismatches or confounds requiring SLP/domain-clinician review of
+ * the 13 CURRENTLY PERSISTED ladders. The statements are audit hypotheses;
+ * they are not automatic changes to therapy rules or patient grades.
+ */
+export const LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS: Record<string, string> = {
+  "photo-naming": "L1–L3 primarily differ by cue support while later stages change lexical frequency and context; confirm independence is not mistaken for item-complexity advancement.",
+  "fix-sentence": "Early stages change cue support or semantic foil type while later stages change number and grammatical form of errors; constrain the syntax axis and accept alternate valid repairs.",
+  "minimal-pairs": "Early faster pace, later acoustic degradation and three-choice tasks change more than phoneme contrast; hearing and device calibration are unverified.",
+  "meaning-match": "Early stages change hint availability and later stages change frequency/figurative language. L8 idioms are not by themselves a controlled test of semantic-neighbor distance.",
+  "two-clues": "Early stages change anchor support and later stages change abstractness and nonliteral idioms; L8 phrases need diagnosticity ratings and multiple-valid-target review.",
+  "semantic-features": "Early stages emphasize chip support and feature count while later stages change abstractness; require nonredundant discriminative feature scoring with matched response demand.",
+  "detective-mind": "Early stages reduce hints and later stages alter inference complexity; use matched reading/memory load to isolate inferential improvement.",
+  "multi-step-plan": "Early success thresholds and cue support change separately from ordered-plan depth; control linguistic and working-memory burden of prompt wording.",
+  "sentence-construction": "Early tile/model support changes with later syntactic complexity; ensure higher levels measure actual sentence production rather than tile placement.",
+  "phonological-awareness": "Rhyme, onset/coda, vowel, nonword and degraded-signal tasks may represent distinct skills or sensory demands; keep receptive skill attribution and hearing controls.",
+  "dual-load-naming": "Current ladder increases lexical frequency and concurrent-memory demands together, so observed difficulty cannot be attributed specifically to dual-task interference.",
+  "category-fluency": "Runtime changes the time window with difficulty and category breadth; normalize timed probes and report unique valid words, switches and cues separately.",
+  "synonym-generator": "Existing stages increase word frequency and match-count thresholds rather than primarily testing semantic sense competition and context-appropriate substitution."
+};
+
 /** Neither trial accuracy nor design coverage demonstrates validation. */
 export const EIGHT_STAGE_LADDER_VALIDATED = false as const;
 export const CLINICIAN_REVIEW_DOCUMENTED = false as const;
