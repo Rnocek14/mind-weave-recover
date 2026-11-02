@@ -146,6 +146,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       errorType: 'unverified_speech_provenance',
       taskParameters: expect.objectContaining({
         input_mode: 'spoken',
+        provenance_issue: 'missing_browser_transcript',
         independent_spoken_score_eligible: false,
       }),
     }));
