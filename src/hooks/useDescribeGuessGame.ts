@@ -32,6 +32,9 @@ export interface DescribeGuessTrialResult {
   trialId: string;
   target: string;
   transcript: string;
+  /** Actual source; fallback typed practice is not speech. */
+  inputMode?: 'spoken' | 'typed' | 'unknown';
+  browserTranscript?: string | null;
   meaningWin: boolean;      // App guessed correctly
   wordWin: boolean;         // User said the target word
   strategyWin: boolean;     // Used 2+ feature types
@@ -359,6 +362,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     guessResult: GuessResult,
     rawWordWin: boolean,
     selfCorrected: boolean = false,
+    inputMode: 'spoken' | 'typed' | 'unknown' = 'unknown',
   ) => {
     if (!currentTrial) return;
 
@@ -387,6 +391,8 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       trialId: currentTrial.id,
       target: currentTrial.target,
       transcript,
+      inputMode,
+      browserTranscript: inputMode === 'spoken' ? transcript : null,
       meaningWin,
       wordWin,
       strategyWin,
