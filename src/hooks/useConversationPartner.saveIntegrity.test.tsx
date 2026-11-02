@@ -27,8 +27,8 @@ describe('Conversation Partner raw clinical event integrity', () => {
       userId: 'synthetic-user', profileId: 'synthetic-profile',
       sessionId: 'synthetic-session', maxTurns: 3,
     }));
-    let first: { eventSaved?: boolean } = {};
-    let second: { eventSaved?: boolean } = {};
+    let first: unknown = null;
+    let second: unknown = null;
     act(() => result.current.addAITurn('What did you have for breakfast?'));
     await act(async () => {
       first = await result.current.processUserTurn('Toast and eggs', 2400);
@@ -38,8 +38,8 @@ describe('Conversation Partner raw clinical event integrity', () => {
       second = await result.current.processUserTurn('Yes, very much', 1500);
     });
 
-    expect(first.eventSaved).toBe(true);
-    expect(second.eventSaved).toBe(true);
+    expect((first as { eventSaved?: boolean }).eventSaved).toBe(true);
+    expect((second as { eventSaved?: boolean }).eventSaved).toBe(true);
     expect(mocks.insert).toHaveBeenCalledTimes(2);
     const [one, two] = mocks.insert.mock.calls.map(args => args[0] as Record<string, any>);
     expect(one).toMatchObject({
@@ -66,11 +66,11 @@ describe('Conversation Partner raw clinical event integrity', () => {
     const { result } = renderHook(() => useConversationPartner({
       userId: 'u', profileId: 'p', sessionId: 'synthetic-session',
     }));
-    let response: { eventSaved?: boolean } = {};
+    let response: unknown = null;
     await act(async () => {
       response = await result.current.processUserTurn('I made coffee', 900);
     });
-    expect(response.eventSaved).toBe(false);
+    expect((response as { eventSaved?: boolean }).eventSaved).toBe(false);
     expect(mocks.insert).toHaveBeenCalledTimes(1);
   });
 
@@ -78,11 +78,11 @@ describe('Conversation Partner raw clinical event integrity', () => {
     const { result } = renderHook(() => useConversationPartner({
       userId: 'u', profileId: 'p', sessionId: null,
     }));
-    let response: { eventSaved?: boolean } = {};
+    let response: unknown = null;
     await act(async () => {
       response = await result.current.processUserTurn('Hello there', 950);
     });
-    expect(response.eventSaved).toBe(false);
+    expect((response as { eventSaved?: boolean }).eventSaved).toBe(false);
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 });
