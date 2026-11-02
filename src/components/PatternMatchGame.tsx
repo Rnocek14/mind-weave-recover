@@ -59,6 +59,14 @@ export const PatternMatchGame = ({
   const [feedbackType, setFeedbackType] = useState<'success' | 'incorrect'>('success');
   const [trialStartTime, setTrialStartTime] = useState(0);
   const [showingProgress, setShowingProgress] = useState(100);
+  // The previous progress bar displayed 50% BEFORE the first trial of a
+  // two-round game and 100% before the patient answered the last round.
+  // This is completed-work feedback, not the current item number.
+  const completedTrials = Math.max(0, Math.min(
+    totalTrials,
+    currentTrial - 1 + (phase === 'feedback' ? 1 : 0),
+  ));
+
   const selectionLockedRef = useRef(false);
   const displayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -198,12 +206,12 @@ export const PatternMatchGame = ({
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground font-medium">Trial {currentTrial}/{totalTrials}</span>
         <div className="flex items-center gap-2">
-          <span className="font-bold text-base">{score}/{currentTrial}</span>
+          <span className="font-bold text-base">{score}/{completedTrials}</span>
           <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">Lv {currentDifficulty}</span>
         </div>
       </div>
 
-      <Progress value={(currentTrial / totalTrials) * 100} className="h-1.5" />
+      <Progress aria-label="Completed pattern trials" value={totalTrials > 0 ? (completedTrials / totalTrials) * 100 : 0} className="h-1.5" />
 
       {/* Phase instruction */}
       <div className="text-center">
