@@ -33,7 +33,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import {
   useTwoCluesProgression,
-  mapTwoCluesSupport,
+  getTwoCluesSupportEvidence,
 } from '@/hooks/useTwoCluesProgression';
 import { resolveEffectiveTwoCluesInitialDifficulty } from '@/lib/progression/twoCluesDifficultyBridge';
 import { Button } from '@/components/ui/button';
@@ -153,8 +153,7 @@ export default function TwoCluesExercise() {
 
     // `reachedAnchor` describes match quality, NOT hint use. Use the
     // actual delivered cue type so independent strong answers stay independent.
-    const deliveredCueLevel = result.cueLevelUsed ?? 0;
-    const supportUsed = mapTwoCluesSupport(deliveredCueLevel > 0, result.cueTypeUsed);
+    const { cueLevel: deliveredCueLevel, supportUsed } = getTwoCluesSupportEvidence(result);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     void submitTrial({
