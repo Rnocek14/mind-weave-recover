@@ -1,4 +1,11 @@
 /**
+ * The target phrase is printed in full throughout the trial, including after
+ * Next/Restart. Even without playing TTS, this is visual lexical support.
+ * Never report these rounds as uncued independent spoken production.
+ */
+export const VISIBLE_PHRASE_CUE_LEVEL = 1 as const;
+
+/**
  * User-confirmed phrase practice is participation evidence, not ASR verification.
  * A self-report must not fabricate a transcript or word-match percentage.
  */
