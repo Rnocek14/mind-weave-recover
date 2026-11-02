@@ -516,6 +516,8 @@ export function ConversationPartnerGame({
                   setCurrentAIText('');
                   setUserTranscript('');
                   turnCountRef.current = 0;
+                  committingRef.current = false;
+                  saveFailureRef.current = false;
                 }}>
                   Talk Again
                 </Button>
