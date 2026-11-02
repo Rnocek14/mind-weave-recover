@@ -306,17 +306,23 @@ export const useExerciseTelemetry = (
         // accuracy/adaptation aggregates; UI surfaces them in Session Review.
         if (trial.validity) {
           const gate = applyValidityGate(trial.validity);
+          // A validity verdict is one requirement, not an override of the
+          // game's explicit practice-only exclusion. Otherwise a valid ASR
+          // result on an assisted/typed trial enters verified accuracy.
+          const explicitlyExcluded = tp.clinical_progression_eligible === false;
+          const countsTowardVerified = gate.shouldScore && !explicitlyExcluded;
+          const countsTowardAsr = gate.shouldCountAsrAccuracy && !explicitlyExcluded;
           tp.speech_validity = {
             label: gate.label,
             bucket: gate.bucket,
-            should_score: gate.shouldScore,
-            should_feed_adaptation: gate.shouldFeedAdaptation,
+            should_score: countsTowardVerified,
+            should_feed_adaptation: gate.shouldFeedAdaptation && !explicitlyExcluded,
             // Phase 1B — separate scoring axes so manual-confirmed trials stay
             // out of ASR/independent accuracy while still counting toward
             // participation + practice accuracy.
             counts_toward_participation: gate.shouldCountParticipation,
             counts_toward_practice_accuracy: gate.shouldCountPracticeAccuracy,
-            counts_toward_asr_accuracy: gate.shouldCountAsrAccuracy,
+            counts_toward_asr_accuracy: countsTowardAsr,
             confirmed_by: gate.confirmedBy,
             confidence: trial.validity.confidence,
             reason: gate.reason,
@@ -328,10 +334,10 @@ export const useExerciseTelemetry = (
               : {}),
             validity_label: gate.label,
             validity_bucket: gate.bucket,
-            counts_toward_score: gate.shouldScore,
+            counts_toward_score: countsTowardVerified,
             counts_toward_participation: gate.shouldCountParticipation,
             counts_toward_practice_accuracy: gate.shouldCountPracticeAccuracy,
-            counts_toward_asr_accuracy: gate.shouldCountAsrAccuracy,
+            counts_toward_asr_accuracy: countsTowardAsr,
             confirmed_by: gate.confirmedBy,
           };
           // Promote to dedicated top-level columns so analytics/research can
@@ -342,7 +348,7 @@ export const useExerciseTelemetry = (
             typeof trial.validity.confidence === 'number' ? trial.validity.confidence : null;
           eventData.validity_reason = gate.reason;
           eventData.validity_signals = (trial.validity.signals ?? null) as never;
-          eventData.counts_toward_score = gate.shouldScore;
+          eventData.counts_toward_score = countsTowardVerified;
 
         } else {
           // No classifier verdict supplied (non-speech trial, or speech with no
