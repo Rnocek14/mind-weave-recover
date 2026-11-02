@@ -48,6 +48,25 @@ for (const [reason, changed] of [
   });
 }
 
+test('explicit disposable localhost also requires an exact and current review', () => {
+  const local = {
+    E2E_SUPABASE_URL: 'http://127.0.0.1:54321',
+    E2E_SUPABASE_PROJECT_REF: 'local',
+    E2E_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_synthetic_local',
+  };
+  assert.throws(() => requireHospitalStagingAttestation(local, when), /attestation is required/);
+  const approvedLocal = {
+    ...approved(),
+    ...local,
+    NEUROSPARK_STAGING_DATA_ATTESTED_REF: 'local',
+  };
+  assert.equal(requireHospitalStagingAttestation(approvedLocal, when).projectRef, 'local');
+  assert.throws(() => requireHospitalStagingAttestation({
+    ...approvedLocal,
+    E2E_SUPABASE_URL: 'https://wjedbpjaiqdxhmjzkcxo.supabase.co',
+  }, when));
+});
+
 test('production and mismatched endpoints remain blocked even with fresh attestation', () => {
   assert.throws(() => requireHospitalStagingAttestation({
     ...approved(),
