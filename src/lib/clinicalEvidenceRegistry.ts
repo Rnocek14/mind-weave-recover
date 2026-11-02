@@ -18,7 +18,7 @@ export type EvidenceSourceKey = 'ASHA_APHASIA' | 'ESO_2025' | 'CANADA_LANGUAGE' 
 
 export const CLINICAL_EVIDENCE_SOURCES: Record<EvidenceSourceKey, {
   label: string;
-  kind: 'guideline' | 'clinical-practice' | 'trial';
+  kind: 'guideline' | 'clinical-practice' | 'systematic-review' | 'trial';
   url: string;
 }> = {
   "ASHA_APHASIA": {
@@ -58,17 +58,17 @@ export const CLINICAL_EVIDENCE_SOURCES: Record<EvidenceSourceKey, {
   },
   "SFA_REVIEW": {
     "label": "Semantic Feature Analysis systematic review (2014)",
-    "kind": "trial",
+    "kind": "systematic-review",
     "url": "https://pubmed.ncbi.nlm.nih.gov/24797214/"
   },
   "SENTENCE_REVIEW": {
     "label": "Aphasia sentence treatment evidence scoping review (2022)",
-    "kind": "trial",
+    "kind": "systematic-review",
     "url": "https://pubmed.ncbi.nlm.nih.gov/34941377/"
   },
   "PARTNER_TRAINING_REVIEW": {
     "label": "Communication partner training in aphasia systematic review (2016)",
-    "kind": "trial",
+    "kind": "systematic-review",
     "url": "https://pubmed.ncbi.nlm.nih.gov/27117383/"
   },
   "SCRIPT_TRAINING_RCT": {
