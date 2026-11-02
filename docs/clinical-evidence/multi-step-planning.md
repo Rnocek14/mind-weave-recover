@@ -27,13 +27,20 @@ highlight_plus_choice  <  choice_based  <  open_response
 (model heard + tiles)     (tiles only)     (spontaneous)
 ```
 
-The current MSP game UI has **no in-trial scaffold control** — no hint button, no tile suppression toggle. The patient simply speaks. Every trial is therefore mapped to `open_response`. The ladder advances on accuracy + sequence-coverage growth at progressively harder content tiers, not on scaffold fading. This matches MSP's clinical reality (it is a discourse-production task, not a tile-assembly task).
+The game has no in-trial hint button or choice tiles, but **does have a typed fallback** for accessibility or microphone failure. Only an eligible, completed **spoken** response with usable content and at least two distinguishable observed step positions contributes to the game-specific clinical progression ladder and expressive mastery. Typed, skipped, invalid and sequence-unresolved attempts remain practice records, not evidence of independent speech recovery. Eligible speech is `open_response`; this label does not make typed text into speech.
 
 ## Mastery routing
 
-- `submitTrial` emits `trialMode: 'production'` on every call.
-- Canonical slug `multi_step_planning` IS added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials route into expressive mastery — same path as PhotoNaming / FixSentence / SemanticFeatures / TwoClues / CategoryFluency / SentenceConstruction.
+- Eligible completed speech rounds emit `trialMode:'production'`. Typed, skipped, nonresponse and uncertain-sequence attempts emit an excluded `mixed` routing tag, plus explicit `input_mode`, `completion_reason`, `response_valid` and sequence provenance fields.
+- The canonical slug `multi_step_planning` remains adopted for the eligible spoken-production subset. Unscorable participation never advances the patient's spoken clinical ladder or expressive mastery.
+- The game and the exercise page now use the **same existing task-success criteria**: at least 60% step coverage **and** at least 50% observed step-order agreement. Previously the exercise page credited a plan with only 30% coverage, regardless of step order.
+- Observed order uses distinctive words and exact multiword expressions located in the **patient's actual response**, compared with each stimulus's curated `idealOrder`. The former loop iterated the predefined key-step array and awarded any two matches a perfect order score, even if the patient reversed them. Ambiguous or insufficient order evidence is explicitly **not assessed**, not 0% patient ability.
+
+## Clinical measurement and limitations
+
+The sequence scorer is a **conservative lexical heuristic**, not a standardized neuropsychological or speech-language test. It does not reliably understand every paraphrase, omission, alternate valid order, temporal dependency or recognition error. A clinician must review examples before using this outcome to guide care. Goal coverage and step ordering are separate dimensions; do not report a missing order judgment as incorrect sequencing or a clinical decline.
+
+The proposed eight-stage ladder still uses developer calibration defaults, not empirically established promotion thresholds. L8 has no operational constrained-output gameplay, and improvements in these trained tasks are not evidence of functional communication outside the app. Patient-specific, untrained real-life planning probes, representative aphasic speech, supported communication methods, and independent speech-language-pathologist evaluation remain outstanding.
 
 ## Readiness
 

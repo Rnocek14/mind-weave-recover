@@ -2,8 +2,9 @@
  * useMultiStepPlanningProgression — Phase 2, Wave 2 wiring of the
  * procedural-discourse ladder to `clinical_progression_state`.
  *
- * Expressive routing: MSP's submitTrial emits `trialMode: 'production'`
- * and the slug IS in ADOPTED_TRIAL_MODE_SLUGS.
+ * Expressive routing: completed valid spoken rounds with observable step
+ * order emit trialMode='production'. Typed, skipped or uncertain rounds are
+ * retained for participation but excluded from the spoken ladder/mastery.
  *
  * Mirrors useSentenceConstructionProgression line-for-line; differences
  * are limited to the slug + per-game helpers and support mapping.
@@ -31,7 +32,8 @@ const MULTI_STEP_PLANNING_SLUG = 'multi-step-plan';
 /**
  * Map MSP trials to the canonical executive SupportLevel. The current game
  * UI has no in-trial scaffold (no hint button, no tile suppression) — the
- * patient just speaks. Every trial is `open_response`.
+ * patient may speak or type. Only eligible spoken trials use `open_response`
+ * as independent speech support; typed/invalid practice is excluded.
  */
 export function mapMultiStepPlanningSupport(): SupportLevel {
   return 'open_response';

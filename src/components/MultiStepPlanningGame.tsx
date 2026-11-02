@@ -33,6 +33,8 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { TypingFallbackBar, getPreferTyping, setPreferTyping } from '@/components/TypingFallbackBar';
 import { Keyboard } from 'lucide-react';
 import { mapEngineLevelToPlanningTier } from '@/data/multiStepPlanningStimuli';
+import { classifyPlanningRoundEvidence } from '@/lib/multiStepPlanning/roundEvidence';
+import type { PlanningInputMode } from '@/lib/multiStepPlanning/roundEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) — Phase 1.5: single source of truth */
 const levelToTierLocal = mapEngineLevelToPlanningTier;
@@ -105,6 +107,8 @@ export function MultiStepPlanningGame({
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
+  const typedSubmissionRef = useRef<string | null>(null);
+  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
 
   // Clinical pipeline hooks
   const {
@@ -121,6 +125,7 @@ export function MultiStepPlanningGame({
   } = useAudioRecorder();
 
   const autoStartedRef = useRef(false);
+  const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setPhase('prompt');
@@ -128,6 +133,7 @@ export function MultiStepPlanningGame({
     setCollectedTranscript('');
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    typedSubmissionRef.current = null;
   }, [currentIndex]);
 
 
@@ -140,46 +146,50 @@ export function MultiStepPlanningGame({
   }, [isComplete, results, onGameComplete]);
 
   const handleSpeechResult = useCallback((transcript: string) => {
-    if (hasProcessedRef.current || !transcript.trim()) return;
+    if (hasProcessedRef.current || useTyping || !transcript.trim()) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
-  }, []);
+  }, [useTyping]);
 
-  // Typing fallback (clinical safety)
-  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
-  const handleDoneRef = useRef<(() => void) | null>(null);
+  // Typing fallback is a different input modality, NOT a speech transcript.
+  // Keep a synchronous ref so pressing Submit cannot race React setState.
+  const handleDoneRef = useRef<((mode: PlanningInputMode) => void) | null>(null);
   const handleTypedSubmit = useCallback((text: string) => {
     if (hasProcessedRef.current) return;
+    typedSubmissionRef.current = text;
     setCollectedTranscript(text);
-    latestTranscriptRef.current = text;
-    setTimeout(() => { if (!hasProcessedRef.current) handleDoneRef.current?.(); }, 0);
+    handleDoneRef.current?.('typed');
   }, []);
 
   const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
   useEffect(() => {
-    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
-  }, [fullTranscript]);
+    if (!useTyping && !hasProcessedRef.current && fullTranscript) {
+      latestTranscriptRef.current = fullTranscript;
+    }
+  }, [fullTranscript, useTyping]);
 
   // Auto-submit after 3s silence once user has spoken 2+ words
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (phase !== 'speaking') return;
+    if (phase !== 'speaking' || useTyping || !isSupported) return;
     const transcript = collectedTranscript || latestTranscriptRef.current || '';
     const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (wordCount >= 2) {
       silenceTimerRef.current = setTimeout(() => {
-        if (!hasProcessedRef.current) handleDone();
+        if (!hasProcessedRef.current) void handleDone('spoken');
       }, 3000);
     }
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, collectedTranscript, fullTranscript]);
+  }, [phase, collectedTranscript, fullTranscript, useTyping, isSupported]);
 
   const handleStart = useCallback(() => {
+    if (hasProcessedRef.current || useTyping || !isSupported) return;
     setPhase('speaking');
     startTimeRef.current = Date.now();
+    typedSubmissionRef.current = null;
 
     // Start clinical pipeline
     if (currentItem && userId) {
@@ -196,55 +206,78 @@ export function MultiStepPlanningGame({
 
     startRecording();
     startListening();
-  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
+  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId, useTyping, isSupported]);
+
+  const handleStartTyping = useCallback(() => {
+    setUseTyping(true);
+    startTimeRef.current = Date.now();
+    typedSubmissionRef.current = null;
+    latestTranscriptRef.current = '';
+    setPhase('speaking');
+  }, []);
 
   // Auto-start first trial when launched from lesson
   useEffect(() => {
-    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
-      autoStartedRef.current = true;
-      setTimeout(() => handleStart(), 400);
+    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported && !useTyping) {
+      autoStartTimerRef.current = setTimeout(() => {
+        autoStartedRef.current = true;
+        handleStart();
+      }, 400);
     }
-  }, [autoStart, phase, currentItem, isSupported, handleStart]);
+    // Switching to typing or leaving the game cancels a pending microphone
+    // auto-start; a stale closure must never restart recording.
+    return () => {
+      if (autoStartTimerRef.current) clearTimeout(autoStartTimerRef.current);
+      autoStartTimerRef.current = null;
+    };
+  }, [autoStart, phase, currentItem, isSupported, useTyping, handleStart]);
 
-  const handleDone = useCallback(async () => {
+  const handleDone = useCallback(async (mode: PlanningInputMode = 'spoken') => {
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
-    stopListening();
+    if (mode === 'spoken') stopListening();
 
-    const recordingResult = await stopRecording();
-
-    setTimeout(async () => {
-      const transcript = collectedTranscript || latestTranscriptRef.current || '';
+    // Only the spoken path has a microphone, audio recording or speech
+    // analysis. A typed fallback is never labeled as a browser transcript.
+    const recordingResult = mode === 'spoken' ? await stopRecording() : null;
+    const finish = async () => {
+      const transcript = mode === 'typed'
+        ? (typedSubmissionRef.current ?? '')
+        : (collectedTranscript || latestTranscriptRef.current || '');
       const validation = validateSpokenResponse({ transcript, expectedMode: 'description' });
       trackValidation('multi_step_planning', validation);
       logValidationDetail('multi_step_planning', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
       if (!validation.valid && validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'multi_step_planning' }).then(line => setValidationCoaching(line));
+        void speakMayaCoaching(
+          validation.rejectionReason, speakMaya, { exerciseKey: 'multi_step_planning' },
+        ).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
         resetCoachingState('multi_step_planning', speakMaya);
       }
-      const result = submitPlan(validation.valid ? transcript : '', durationMs);
+      const result = submitPlan(validation.valid ? transcript : '', durationMs, {
+        inputMode: mode,
+        completionReason: 'completed',
+        responseValid: validation.valid,
+        browserTranscript: mode === 'spoken' ? transcript : null,
+      });
 
-      // Upload audio + log utterance
+      // Preserve existing speech/audio analysis only for actual speech. Typed
+      // text must never enter utterance_analyses as a spoken recording.
       let audioStoragePath: string | null = null;
-      if (recordingResult?.audioBlob && userId && sessionId) {
+      if (mode === 'spoken' && recordingResult?.audioBlob && userId && sessionId) {
         audioStoragePath = await uploadRecording(
-          recordingResult.audioBlob,
-          userId,
-          sessionId,
-          currentIndex,
-          recordingResult.mimeType
+          recordingResult.audioBlob, userId, sessionId, currentIndex,
+          recordingResult.mimeType,
         );
       }
-
-      if (currentAttemptId) {
+      if (mode === 'spoken' && currentAttemptId) {
         await logFinalAnalysis({
           transcript: transcript || undefined,
           transcriptSource: 'browser',
           evaluationModel: 'flow',
-          isCorrect: null, // Discourse task - no binary correctness
+          isCorrect: null,
           didSpeak: transcript.trim().length > 0,
           utteranceComplete: transcript.trim().length > 0,
           recordingDurationMs: durationMs,
@@ -259,22 +292,34 @@ export function MultiStepPlanningGame({
         setLastResult(result);
         setPhase('scored');
         onTrialComplete(result);
-        // Feed adaptive engine: success = covering steps AND in correct order
-        const success = result.goalCoverage >= 0.6 && result.sequenceScore >= 0.5;
-        adaptation.recordTrial({
-          correct: success,
-          reactionTimeMs: durationMs,
-        });
+        const evidence = classifyPlanningRoundEvidence(result);
+        if (evidence.clinicalProgressionEligible) {
+          adaptation.recordTrial({
+            correct: evidence.practiceSuccessful,
+            reactionTimeMs: durationMs,
+          });
+        }
         engagement.recordTrial({
-          correct: success,
+          correct: evidence.practiceSuccessful,
           reactionTimeMs: durationMs,
           cueLevel: 0,
-          timeout: !collectedTranscript.trim(),
+          timeout: !transcript.trim(),
           timestamp: Date.now(),
         });
       }
-    }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
+    };
+    // Speech retains its brief final-recognition callback grace window.
+    // Typed responses are read synchronously from the submission ref.
+    if (mode === 'spoken') {
+      setTimeout(() => { void finish(); }, 150);
+    } else {
+      await finish();
+    }
+  }, [
+    stopListening, stopRecording, collectedTranscript, submitPlan, onTrialComplete,
+    uploadRecording, userId, sessionId, currentIndex, currentAttemptId,
+    logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya,
+  ]);
 
   // Bridge handleDone for typing-fallback path
   useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
@@ -283,13 +328,18 @@ export function MultiStepPlanningGame({
     if (hasProcessedRef.current) return;
     hasProcessedRef.current = true;
     stopListening();
-    await stopRecording();
+    if (!useTyping && isSupported) await stopRecording();
 
     const durationMs = Date.now() - startTimeRef.current;
-    const result = submitPlan('', durationMs);
+    const result = submitPlan('', durationMs, {
+      inputMode: 'none',
+      completionReason: 'skipped',
+      responseValid: false,
+      browserTranscript: null,
+    });
 
     // Log skip
-    if (currentAttemptId) {
+    if (!useTyping && isSupported && currentAttemptId) {
       await logFinalAnalysis({
         transcript: '',
         transcriptSource: 'browser',
@@ -303,11 +353,14 @@ export function MultiStepPlanningGame({
     }
 
     if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
-  }, [stopListening, stopRecording, submitPlan, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
+  }, [stopListening, stopRecording, submitPlan, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, isSupported]);
 
   if (!currentItem || isComplete) {
     const avgCov = results.length > 0 ? results.reduce((s, r) => s + r.goalCoverage, 0) / results.length : 0;
-    const avgSeq = results.length > 0 ? results.reduce((s, r) => s + r.sequenceScore, 0) / results.length : 0;
+    const scoredSequenceRounds = results.filter(r => r.sequenceEvidenceAvailable);
+    const avgSeq = scoredSequenceRounds.length
+      ? scoredSequenceRounds.reduce((s, r) => s + r.sequenceScore, 0) / scoredSequenceRounds.length
+      : null;
     return (
       <div className="max-w-lg mx-auto space-y-6 text-center">
         <div className="text-6xl">📋</div>
@@ -318,7 +371,7 @@ export function MultiStepPlanningGame({
             <div className="text-xs text-muted-foreground">Step Coverage</div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold">{Math.round(avgSeq * 100)}%</div>
+            <div className="text-2xl font-bold">{avgSeq === null ? 'Not assessed' : `${Math.round(avgSeq * 100)}%`}</div>
             <div className="text-xs text-muted-foreground">Sequence Order</div>
           </CardContent></Card>
         </div>
@@ -366,7 +419,7 @@ export function MultiStepPlanningGame({
                 <Mic className="h-4 w-4 mr-2" /> Start planning
               </Button>
             ) : (
-              <Button onClick={() => setPhase('speaking')} className="flex-1" size="lg" variant="secondary">
+              <Button onClick={handleStartTyping} className="flex-1" size="lg" variant="secondary">
                 <Keyboard className="h-4 w-4 mr-2" /> Type your plan
               </Button>
             )}
@@ -409,14 +462,14 @@ export function MultiStepPlanningGame({
               </>
             )}
             <TypingFallbackBar
-              visible={useTyping}
+              visible={useTyping || !isSupported}
               onSubmit={handleTypedSubmit}
               placeholder="Type the steps in your plan…"
               buttonLabel="Submit"
             />
             <div className="flex gap-2">
               {!useTyping && (
-                <Button onClick={handleDone} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
+                <Button onClick={() => { void handleDone('spoken'); }} className="flex-1" variant="secondary"><MicOff className="h-4 w-4 mr-2" /> I'm done</Button>
               )}
               <Button variant="ghost" size="sm" onClick={handleSkip}>Skip<SkipForward className="h-4 w-4 ml-1" /></Button>
             </div>
@@ -431,23 +484,26 @@ export function MultiStepPlanningGame({
           delayMs={3000}
         >
           <Card className={cn("border-2 w-full",
-            lastResult.goalCoverage >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
+            !lastResult.sequenceEvidenceAvailable ? "border-border bg-muted/30" :
+            lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.goalCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{lastResult.goalCoverage >= 0.6 ? '🧠' : lastResult.goalCoverage >= 0.3 ? '👍' : '💡'}</span>
+                <span className="text-lg">{!lastResult.sequenceEvidenceAvailable ? '💡' : lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? '🧠' : lastResult.goalCoverage >= 0.3 ? '👍' : '💡'}</span>
                 <span className="font-bold text-sm">
-                  {lastResult.goalCoverage >= 0.6 ? 'Great plan!' : lastResult.goalCoverage >= 0.3 ? 'Good thinking!' : 'Keep practicing!'}
+                  {!lastResult.sequenceEvidenceAvailable ? 'Good practice — try giving two steps in order.' :
+                    lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? 'Great plan practice!' :
+                    lastResult.goalCoverage >= 0.3 ? 'Good effort — try the steps in order.' : 'Keep practicing!'}
                 </span>
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {lastResult.stepsFound}/{lastResult.stepsTotal} steps • {Math.round(lastResult.sequenceScore * 100)}% order
+                  {lastResult.stepsFound}/{lastResult.stepsTotal} steps • {lastResult.sequenceEvidenceAvailable ? `${Math.round(lastResult.sequenceScore * 100)}% observed order` : 'Order not assessed'}
                 </span>
               </div>
               {lastResult.transcript && (
                 <div className="bg-muted/30 rounded-lg p-2">
-                  <p className="text-xs text-muted-foreground mb-1">You said:</p>
+                  <p className="text-xs text-muted-foreground mb-1">{lastResult.inputMode === 'typed' ? 'You typed:' : 'You said:'}</p>
                   <p className="text-sm italic">"{lastResult.transcript}"</p>
                 </div>
               )}

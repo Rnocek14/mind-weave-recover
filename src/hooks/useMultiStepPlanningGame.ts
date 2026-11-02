@@ -9,6 +9,11 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { PLANNING_ITEMS, PlanningItem } from '@/data/multiStepPlanningStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
+import {
+  scorePlanningSequence,
+  type PlanningInputMode,
+  type PlanningCompletionReason,
+} from '@/lib/multiStepPlanning/roundEvidence';
 
 export interface PlanningTrialResult {
   itemId: string;
@@ -22,6 +27,15 @@ export interface PlanningTrialResult {
   sequenceScore: number;
   durationMs: number;
   skipped: boolean;
+  inputMode: PlanningInputMode;
+  completionReason: PlanningCompletionReason;
+  responseValid: boolean;
+  /** True only when >=2 distinct step positions were actually detected. */
+  sequenceEvidenceAvailable: boolean;
+  sequenceMatchedSteps: number;
+  sequenceMethod: 'distinctive_tokens_v1';
+  /** Real browser recognizer output only; typed input is never fabricated as ASR. */
+  browserTranscript: string | null;
   depthTelemetry: {
     taskType: 'multi_step_plan';
     stepCount: number;
@@ -75,7 +89,16 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
   const currentItem: PlanningItem | null = items[currentIndex] ?? null;
   const isComplete = currentIndex >= items.length;
 
-  const submitPlan = useCallback((transcript: string, durationMs: number): PlanningTrialResult | null => {
+  const submitPlan = useCallback((
+    transcript: string,
+    durationMs: number,
+    evidence: {
+      inputMode: PlanningInputMode;
+      completionReason: PlanningCompletionReason;
+      responseValid: boolean;
+      browserTranscript?: string | null;
+    } = { inputMode: 'none', completionReason: 'skipped', responseValid: false },
+  ): PlanningTrialResult | null => {
     if (!currentItem) return null;
 
     const score = scoreExplanation(transcript, currentItem.keySteps, currentItem.goal);
@@ -86,27 +109,11 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
         .filter(s => s.trim().length > 3).length
     );
 
-    // Sequence score: check if matched concepts appear in roughly correct order in transcript
-    const transcriptLower = transcript.toLowerCase();
-    const matchedIndices: number[] = [];
-    for (let i = 0; i < currentItem.keySteps.length; i++) {
-      const stepWords = currentItem.keySteps[i].toLowerCase().split(/\s+/);
-      const found = stepWords.some(w => w.length > 3 && transcriptLower.includes(w));
-      if (found) {
-        matchedIndices.push(i);
-      }
-    }
-
-    // Sequence score = ratio of in-order pairs
-    let inOrderPairs = 0;
-    let totalPairs = 0;
-    for (let i = 0; i < matchedIndices.length; i++) {
-      for (let j = i + 1; j < matchedIndices.length; j++) {
-        totalPairs++;
-        if (matchedIndices[i] < matchedIndices[j]) inOrderPairs++;
-      }
-    }
-    const sequenceScore = totalPairs > 0 ? inOrderPairs / totalPairs : 0;
+    // Order must reflect actual observed transcript positions, not the
+    // index order of the predefined keySteps array (the old bug).
+    const sequence = scorePlanningSequence(
+      transcript, currentItem.keySteps, currentItem.idealOrder,
+    );
 
     const result: PlanningTrialResult = {
       itemId: currentItem.id,
@@ -117,13 +124,20 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
       stepsFound: score.conceptsFound,
       stepsTotal: score.conceptsTotal,
       goalCoverage: score.coverageRatio,
-      sequenceScore,
+      sequenceScore: sequence.sequenceScore,
       durationMs,
-      skipped: !transcript || transcript.trim().length < 3,
+      skipped: evidence.completionReason === 'skipped' || !transcript?.trim(),
+      inputMode: evidence.inputMode,
+      completionReason: evidence.completionReason,
+      responseValid: evidence.responseValid,
+      sequenceEvidenceAvailable: sequence.sequenceEvidenceAvailable,
+      sequenceMatchedSteps: sequence.matchedStepCount,
+      sequenceMethod: sequence.sequenceMethod,
+      browserTranscript: evidence.inputMode === 'spoken' ? (evidence.browserTranscript ?? null) : null,
       depthTelemetry: {
         taskType: 'multi_step_plan',
         stepCount,
-        sequenceScore,
+        sequenceScore: sequence.sequenceScore,
         goalCoverage: score.coverageRatio,
       },
     };
