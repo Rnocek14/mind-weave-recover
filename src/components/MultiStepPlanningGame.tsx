@@ -125,6 +125,7 @@ export function MultiStepPlanningGame({
   } = useAudioRecorder();
 
   const autoStartedRef = useRef(false);
+  const autoStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setPhase('prompt');
@@ -219,8 +220,14 @@ export function MultiStepPlanningGame({
   useEffect(() => {
     if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported && !useTyping) {
       autoStartedRef.current = true;
-      setTimeout(() => handleStart(), 400);
+      autoStartTimerRef.current = setTimeout(() => handleStart(), 400);
     }
+    // Switching to typing or leaving the game cancels a pending microphone
+    // auto-start; a stale closure must never restart recording.
+    return () => {
+      if (autoStartTimerRef.current) clearTimeout(autoStartTimerRef.current);
+      autoStartTimerRef.current = null;
+    };
   }, [autoStart, phase, currentItem, isSupported, useTyping, handleStart]);
 
   const handleDone = useCallback(async (mode: PlanningInputMode = 'spoken') => {
@@ -348,7 +355,10 @@ export function MultiStepPlanningGame({
 
   if (!currentItem || isComplete) {
     const avgCov = results.length > 0 ? results.reduce((s, r) => s + r.goalCoverage, 0) / results.length : 0;
-    const avgSeq = results.length > 0 ? results.reduce((s, r) => s + r.sequenceScore, 0) / results.length : 0;
+    const scoredSequenceRounds = results.filter(r => r.sequenceEvidenceAvailable);
+    const avgSeq = scoredSequenceRounds.length
+      ? scoredSequenceRounds.reduce((s, r) => s + r.sequenceScore, 0) / scoredSequenceRounds.length
+      : null;
     return (
       <div className="max-w-lg mx-auto space-y-6 text-center">
         <div className="text-6xl">📋</div>
@@ -359,7 +369,7 @@ export function MultiStepPlanningGame({
             <div className="text-xs text-muted-foreground">Step Coverage</div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 text-center">
-            <div className="text-2xl font-bold">{Math.round(avgSeq * 100)}%</div>
+            <div className="text-2xl font-bold">{avgSeq === null ? 'Not assessed' : `${Math.round(avgSeq * 100)}%`}</div>
             <div className="text-xs text-muted-foreground">Sequence Order</div>
           </CardContent></Card>
         </div>
@@ -472,23 +482,26 @@ export function MultiStepPlanningGame({
           delayMs={3000}
         >
           <Card className={cn("border-2 w-full",
-            lastResult.goalCoverage >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
+            !lastResult.sequenceEvidenceAvailable ? "border-border bg-muted/30" :
+            lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.goalCoverage >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{lastResult.goalCoverage >= 0.6 ? '🧠' : lastResult.goalCoverage >= 0.3 ? '👍' : '💡'}</span>
+                <span className="text-lg">{!lastResult.sequenceEvidenceAvailable ? '💡' : lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? '🧠' : lastResult.goalCoverage >= 0.3 ? '👍' : '💡'}</span>
                 <span className="font-bold text-sm">
-                  {lastResult.goalCoverage >= 0.6 ? 'Great plan!' : lastResult.goalCoverage >= 0.3 ? 'Good thinking!' : 'Keep practicing!'}
+                  {!lastResult.sequenceEvidenceAvailable ? 'Good practice — try giving two steps in order.' :
+                    lastResult.goalCoverage >= 0.6 && lastResult.sequenceScore >= 0.5 ? 'Great plan practice!' :
+                    lastResult.goalCoverage >= 0.3 ? 'Good effort — try the steps in order.' : 'Keep practicing!'}
                 </span>
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {lastResult.stepsFound}/{lastResult.stepsTotal} steps • {Math.round(lastResult.sequenceScore * 100)}% order
+                  {lastResult.stepsFound}/{lastResult.stepsTotal} steps • {lastResult.sequenceEvidenceAvailable ? `${Math.round(lastResult.sequenceScore * 100)}% observed order` : 'Order not assessed'}
                 </span>
               </div>
               {lastResult.transcript && (
                 <div className="bg-muted/30 rounded-lg p-2">
-                  <p className="text-xs text-muted-foreground mb-1">You said:</p>
+                  <p className="text-xs text-muted-foreground mb-1">{lastResult.inputMode === 'typed' ? 'You typed:' : 'You said:'}</p>
                   <p className="text-sm italic">"{lastResult.transcript}"</p>
                 </div>
               )}
