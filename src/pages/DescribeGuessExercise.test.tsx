@@ -143,6 +143,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       browserTranscript: null,
       trialMode: 'mixed',
       clinicalProgressionEligible: false,
+      errorType: 'unverified_speech_provenance',
       taskParameters: expect.objectContaining({
         input_mode: 'spoken',
         independent_spoken_score_eligible: false,
