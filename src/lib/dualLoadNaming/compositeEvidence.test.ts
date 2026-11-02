@@ -30,7 +30,8 @@ describe('Dual-Load Naming combined speech/typed memory evidence', () => {
   it('uses the existing GAME criterion rather than the page previous recall-only 1-of-3 rule', () => {
     expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: 0.8, recallAccuracy: 0.34 }))).toBe(false);
     expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: 0.5, recallAccuracy: 1 }))).toBe(false);
-    expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: 0.6, recallAccuracy: 0.67 }))).toBe(true);
+    expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: 0.6, recallAccuracy: 2 / 3 }))).toBe(true);
+    expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: 0.6, recallAccuracy: 0.66 }))).toBe(false);
     expect(isDualLoadCombinedSuccess(trial({ namingAccuracy: Number.NaN, recallAccuracy: 1 }))).toBe(false);
   });
 
