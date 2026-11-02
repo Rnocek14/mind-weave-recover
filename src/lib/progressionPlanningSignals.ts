@@ -4,11 +4,11 @@
  * Feeds per-game longitudinal progression (clinical_progression_state) BACK into
  * daily lesson planning. Without this, the planner is "amnesiac": each game
  * advances its own floor in isolation, but tomorrow's lesson doesn't know where
- * the patient is succeeding, struggling, plateauing, or lagging across games.
+ * the patient is repeatedly struggling or succeeding WITHIN a particular game.
  *
  * This module turns the raw progression rows into planning signals:
  *   - a per-exercise scoring boost (invest more where it matters)
- *   - a coarse status (advancing / plateauing / struggling / lagging / steady)
+ *   - a conservative within-game status (advancing / struggling / no proven trend)
  *   - human-readable reasoning for explainability
  *
  * IMPORTANT: This layer ONLY influences SELECTION/PRIORITIZATION (which games
@@ -38,7 +38,7 @@ export interface ProgressionRow {
 export interface ProgressionPlanningSignal {
   exerciseSlug: string;
   currentLevel: number;
-  /** Continuous position: (level-1) + progress fraction. Used for cross-game comparison. */
+  /** Non-clinical in-game rung position for diagnostics only; not comparable across different exercises. */
   relativeProgress: number;
   status: ProgressionStatus;
   /** Added to the exercise's selection score. Positive = invest more. */
@@ -48,7 +48,7 @@ export interface ProgressionPlanningSignal {
 
 export interface ProgressionPlanningSignals {
   byExercise: Map<string, ProgressionPlanningSignal>;
-  /** Highest relativeProgress across tracked games (the patient's "lead" game). */
+  /** Diagnostic maximum only: never treat one exercise's rung number as more recovered than another's. */
   maxRelativeProgress: number;
 }
 
@@ -58,14 +58,11 @@ export interface ProgressionPlanningSignals {
 // +5 that would re-select it through a -3 recency penalty day after day).
 const BOOST = {
   struggling: 2,
-  plateauing: 2,
-  lagging: 1,
+  plateauing: 0, // Legacy status. Never infer plateau from one snapshot.
+  lagging: 0,    // Legacy status. Cross-game numerical levels are incomparable.
   advancing: -2,
   steady: 0,
 } as const;
-
-/** A game is "lagging" if it trails the lead game by this much (in levels). */
-const LAGGING_GAP_LEVELS = 3;
 
 /**
  * Fetch the latest progression state per exercise for a profile.
@@ -135,29 +132,19 @@ export function buildProgressionPlanningSignals(
     let status: ProgressionStatus;
     let reason: string;
 
+    // The clinical rung measures DIFFERENT skills across games. A naming
+    // L7 cannot diagnose "lagging" auditory discrimination L1. Likewise,
+    // one low-progress snapshot does not establish a plateau. Use repeated
+    // observations WITHIN the same game only.
     if (struggleSessions >= 2) {
       status = 'struggling';
-      reason = `Struggling at L${r.current_level} (${struggleSessions} hard sessions) — reinforce`;
-    } else if (
-      successSessions === 0 &&
-      struggleSessions <= 1 &&
-      (r.progress_pct ?? 0) < 40 &&
-      r.current_level === r.stable_level
-    ) {
-      status = 'plateauing';
-      reason = `Plateauing at L${r.current_level} (${Math.round(r.progress_pct ?? 0)}%) — vary approach`;
-    } else if (
-      maxRelativeProgress - rp >= LAGGING_GAP_LEVELS &&
-      successSessions < 3
-    ) {
-      status = 'lagging';
-      reason = `Lagging behind other games (L${r.current_level}) — invest to balance`;
+      reason = `Recorded support need at L${r.current_level} across ${struggleSessions} consecutive sessions — review for targeted practice`;
     } else if (successSessions >= 3) {
       status = 'advancing';
-      reason = `Advancing well at L${r.current_level} (${successSessions} strong sessions) — coast`;
+      reason = `Consistent app practice successes at L${r.current_level} across ${successSessions} sessions — rotate while retaining exposure`;
     } else {
       status = 'steady';
-      reason = `Steady at L${r.current_level}`;
+      reason = `Insufficient within-game trend evidence at L${r.current_level}; no automatic recovery or plateau conclusion`;
     }
 
     byExercise.set(r.exercise_slug, {
