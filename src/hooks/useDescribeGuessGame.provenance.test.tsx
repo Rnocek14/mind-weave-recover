@@ -25,7 +25,7 @@ describe('useDescribeGuessGame original result provenance', () => {
     }));
     expect(result.current.currentTrial).toBeTruthy();
 
-    let output: ReturnType<typeof result.current.finalizeTrial>;
+    let output: ReturnType<typeof result.current.finalizeTrial> | undefined = undefined;
     await act(async () => {
       output = result.current.finalizeTrial(
         'you put a drink in this and hold it',
@@ -51,7 +51,7 @@ describe('useDescribeGuessGame original result provenance', () => {
     const { result } = renderHook(() => useDescribeGuessGame({
       trialCount: 1, difficulty: 1,
     }));
-    let output: ReturnType<typeof result.current.finalizeTrial>;
+    let output: ReturnType<typeof result.current.finalizeTrial> | undefined = undefined;
     act(() => {
       output = result.current.finalizeTrial(
         'this is something to hold your drink',
@@ -68,7 +68,7 @@ describe('useDescribeGuessGame original result provenance', () => {
     const { result } = renderHook(() => useDescribeGuessGame({
       trialCount: 1, difficulty: 1,
     }));
-    let output: ReturnType<typeof result.current.finalizeTrial>;
+    let output: ReturnType<typeof result.current.finalizeTrial> | undefined = undefined;
     act(() => {
       output = result.current.finalizeTrial('you drink from it', guess, false);
     });
