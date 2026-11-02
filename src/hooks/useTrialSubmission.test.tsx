@@ -210,6 +210,193 @@ describe('useTrialSubmission persistence gate', () => {
     );
   });
 
+
+  it('awaits an unawaited final raw-event write before flushing progression and mastery', async () => {
+    let resolveWrite!: (ok: boolean) => void;
+    mocks.logExerciseEvent.mockImplementation(() => new Promise<boolean>(resolve => {
+      resolveWrite = resolve;
+    }));
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'fix-sentence',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let trial!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    act(() => {
+      // Several actual games issue `void submitTrial(...)`, then immediately
+      // call `commitSession()` from onGameComplete in the SAME tick.
+      trial = result.current.submitTrial(input);
+      commit = result.current.commitSession();
+    });
+
+    expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
+    expect(p.recordTrialOutcome).not.toHaveBeenCalled();
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(mocks.flushAdaptation).not.toHaveBeenCalled();
+    expect(mocks.flushMasteryShadow).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveWrite(true);
+      await Promise.all([trial, commit]);
+    });
+    expect(p.recordTrialOutcome).toHaveBeenCalledTimes(1);
+    expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(mocks.flushAdaptation).toHaveBeenCalledTimes(1);
+    expect(mocks.flushMasteryShadow).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed on a raw trial failure, even if an earlier trial buffered successfully', async () => {
+    mocks.logExerciseEvent.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'meaning-match',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let first!: Promise<UnifiedTrialSummary>;
+    let second!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    act(() => {
+      first = result.current.submitTrial(input);
+      second = result.current.submitTrial({ ...input, stimulusId: 'second-item' });
+      commit = result.current.commitSession();
+    });
+    const [one, two, outcome] = await Promise.all([first, second, commit]);
+    expect(one.ok).toBe(true);
+    expect(two.ok).toBe(false);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.errors.join(' ')).toMatch(/raw clinical event writes failed: 1/);
+    expect(outcome.masteryFlushed).toBe(false);
+    expect(p.recordTrialOutcome).toHaveBeenCalledTimes(1);
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(mocks.flushAdaptation).not.toHaveBeenCalled();
+    expect(mocks.flushMasteryShadow).not.toHaveBeenCalled();
+
+    // An automatic retry must not silently turn the partial patient session
+    // into a complete one after the failed write has left the queue.
+    const retry = await result.current.commitSession();
+    expect(retry.ok).toBe(false);
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(mocks.flushMasteryShadow).not.toHaveBeenCalled();
+  });
+
+  it('preserves per-attempt indices and waits for concurrent raw saves resolving out of order', async () => {
+    const resolveWrites: Array<(ok: boolean) => void> = [];
+    mocks.logExerciseEvent.mockImplementation(() => new Promise<boolean>(resolve => {
+      resolveWrites.push(resolve);
+    }));
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'semantic-features',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let a!: Promise<UnifiedTrialSummary>;
+    let b!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    act(() => {
+      a = result.current.submitTrial({ ...input, stimulusId: 'first' });
+      b = result.current.submitTrial({ ...input, stimulusId: 'second' });
+      commit = result.current.commitSession();
+    });
+    await act(async () => {
+      resolveWrites[1](true);
+      await b;
+    });
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+    expect(mocks.logAdaptationTrial).toHaveBeenCalledWith(expect.objectContaining({ trialIndex: 1 }));
+
+    await act(async () => {
+      resolveWrites[0](true);
+      await Promise.all([a, commit]);
+    });
+    expect(mocks.logAdaptationTrial.mock.calls.map(([args]) => args.trialIndex)).toEqual([1, 0]);
+    expect(p.recordTrialOutcome).toHaveBeenCalledTimes(2);
+    expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes a trial registered during an already-waiting commit', async () => {
+    const resolveWrites: Array<(ok: boolean) => void> = [];
+    mocks.logExerciseEvent.mockImplementation(() => new Promise<boolean>(resolve => {
+      resolveWrites.push(resolve);
+    }));
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'two-clues',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let first!: Promise<UnifiedTrialSummary>;
+    let second!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    act(() => {
+      first = result.current.submitTrial({ ...input, stimulusId: 'first' });
+      commit = result.current.commitSession();
+      second = result.current.submitTrial({ ...input, stimulusId: 'second' });
+    });
+    await act(async () => {
+      resolveWrites[0](true);
+      await first;
+    });
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveWrites[1](true);
+      await Promise.all([second, commit]);
+    });
+    expect(p.recordTrialOutcome).toHaveBeenCalledTimes(2);
+    expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces duplicate session finalization into one persisted clinical commit', async () => {
+    mocks.logExerciseEvent.mockResolvedValue(true);
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'minimal-pairs',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    const [first, second] = await Promise.all([
+      result.current.commitSession(),
+      result.current.commitSession(),
+    ]);
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(mocks.flushMasteryShadow).toHaveBeenCalledTimes(1);
+  });
+
   it('routes each downstream layer once after the raw clinical event is persisted', async () => {
     mocks.logExerciseEvent.mockResolvedValue(true);
     const p = progression();
