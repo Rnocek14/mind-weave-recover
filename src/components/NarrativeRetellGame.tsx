@@ -40,6 +40,7 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import { resolveVisualSupport } from '@/lib/narrative/visualSupport';
+import { resolveNarrativeTrainingVisualSupport, type NarrativeTrainingStage } from '@/lib/narrative/trainingStages';
 import { annotateNarrativeResult, classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
@@ -68,6 +69,10 @@ interface NarrativeRetellGameProps {
   onGameComplete: (results: NarrativeTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** First three operational training configurations; not clinical mastery. */
+  trainingStage?: NarrativeTrainingStage;
+  /** Locks a caregiver's practice-stage choice as soon as retelling starts. */
+  onRetellStarted?: () => void;
   /** Profile-recommended cue type — adapts retelling scaffolding */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -128,10 +133,12 @@ export function NarrativeRetellGame({
   onGameComplete,
   roundCount = 3,
   tier = 1,
+  trainingStage,
+  onRetellStarted,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
-    useNarrativeRetellGame(roundCount, tier);
+    useNarrativeRetellGame(roundCount, tier, !!trainingStage);
 
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
@@ -164,9 +171,11 @@ export function NarrativeRetellGame({
     },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
-      if (newTier !== activeTier) {
-        setActiveTier(newTier);
-      }
+      // The supported training stage locks both story complexity and help
+      // for comparable in-session practice. Do not announce a stage switch
+      // when only the legacy internal adaptation score changed.
+      if (trainingStage) return;
+      if (newTier !== activeTier) setActiveTier(newTier);
       const narration = narrateAdaptation({
         direction: dir,
         reasonKind: classifyReason(reason),
@@ -175,6 +184,8 @@ export function NarrativeRetellGame({
     },
   });
 
+  const onRetellStartedRef = useRef(onRetellStarted);
+  useEffect(() => { onRetellStartedRef.current = onRetellStarted; }, [onRetellStarted]);
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
@@ -479,6 +490,7 @@ export function NarrativeRetellGame({
   }, [phase, visibleTranscript, stallPromptIndex, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, vg]);
 
   const handleStartRetelling = useCallback(() => {
+    onRetellStartedRef.current?.();
     handleStopSpeech();
     setPhase('retelling');
     startTimeRef.current = Date.now();
@@ -833,10 +845,14 @@ export function NarrativeRetellGame({
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium">Narrative Retell</span>
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+{!trainingStage && <AdaptationBadge direction={shiftDirection} reason={shiftReason} />}
         </div>
         <div className="flex items-center gap-2">
-          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+{trainingStage ? (
+            <span className="text-xs font-semibold rounded-full bg-muted px-3 py-1" aria-label="Narrative practice stage">
+              Stage {trainingStage.level}/3
+            </span>
+          ) : <LevelBadge descriptor={adaptation.levelDescriptor} compact />}
           <span className="text-muted-foreground">
             Story {currentIndex + 1} of {totalStories}
           </span>
@@ -844,6 +860,16 @@ export function NarrativeRetellGame({
       </div>
 
       <Progress value={((currentIndex) / totalStories) * 100} className="h-2" />
+
+      {trainingStage && (
+        <div role="status" className="rounded-lg border border-primary/25 bg-primary/5 p-3">
+          <p className="text-base font-semibold">Story practice • Stage {trainingStage.level}</p>
+          <p className="text-sm">{trainingStage.label}</p>
+          <p className="text-xs text-muted-foreground">
+            This is a supported practice stage, not a verified recovery score.
+          </p>
+        </div>
+      )}
 
       <h2 className="text-lg font-bold flex items-center gap-2">
         📂 {currentStory.title}
@@ -1021,7 +1047,9 @@ export function NarrativeRetellGame({
                 When flag is OFF, fall back to the original tier-1 emoji hint
                 shown only after the second stall prompt. */}
             {(() => {
-              const flagOn = isFeatureEnabled('narrative_visual_fading_v1', false);
+              // Explicit training stages are always rendered and cannot be
+              // hidden behind the legacy optional flag.
+              const flagOn = !!trainingStage || isFeatureEnabled('narrative_visual_fading_v1', false);
               if (!flagOn) {
                 if (activeTier === 1 && stallPromptIndex >= 1) {
                   return (
@@ -1042,10 +1070,12 @@ export function NarrativeRetellGame({
                 return null;
               }
 
-              const { level, baseline, stallReveal } = resolveVisualSupport({
-                adaptiveLevel: adaptation.currentDifficulty,
-                stallPromptIndex,
-              });
+              const { level, baseline, stallReveal } = trainingStage
+                ? resolveNarrativeTrainingVisualSupport(trainingStage, stallPromptIndex)
+                : resolveVisualSupport({
+                  adaptiveLevel: adaptation.currentDifficulty,
+                  stallPromptIndex,
+                });
               // Idempotent telemetry update (refs only — no re-render)
               const t = supportTelemetryRef.current;
               t.flagEnabled = true;
