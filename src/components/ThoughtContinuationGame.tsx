@@ -826,7 +826,11 @@ export function ThoughtContinuationGame({
     // When true, we re-arm the mic on the SAME prompt instead of advancing,
     // so the user can actually keep going when we tell them to.
     let continueSamePrompt = false;
-    if (signal && didSpeak) {
+    if (trainingStage && didSpeak) {
+      // The LLM may grade short sentence endings as incomplete discourse;
+      // that cannot invalidate legitimate scaffolded production practice.
+      feedback = "Thanks for continuing that thought.";
+    } else if (signal && didSpeak) {
       const { errorType, onTopicScore, successScore } = signal;
       if (errorType === 'off_topic' || onTopicScore < 0.25) {
         feedback = `Interesting — try to bring it back to: "${currentPrompt.promptText}"`;
