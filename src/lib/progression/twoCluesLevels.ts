@@ -67,7 +67,7 @@ export interface TwoCluesLevelSpec {
  *   L5 abstract concepts introduced
  *   L6 low-frequency concrete + abstract mix (thin bank)
  *   L7 abstract concepts under retrieval pressure (thin bank)
- *   L8 figurative / idiomatic targets (aspirational)
+ *   L8 figurative / idiomatic targets (thin, dedicated bank)
  */
 export const TWO_CLUES_LEVELS: Record<number, TwoCluesLevelSpec> = {
   1: {
@@ -142,16 +142,16 @@ export const TWO_CLUES_LEVELS: Record<number, TwoCluesLevelSpec> = {
   },
   8: {
     level: 8,
-    description: 'Figurative / idiomatic targets — design-of-record',
+    description: 'Nonliteral cue convergence — dedicated contextual L8 bank',
     targetSupport: 'independent',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
-    readiness: 'aspirational',
+    readiness: 'thin',
     trialWeight: 2.5,
     contentSelector: {
       tierKey: 'figurative',
-      description: 'Figurative/idiomatic bank not yet shipped — ceiling clamp blocks advancement.',
-      implemented: false,
+      description: 'Distinct 16-item idiom and nonliteral convergence bank; clinician/ASR validation pending.',
+      implemented: true,
     },
   },
 };
