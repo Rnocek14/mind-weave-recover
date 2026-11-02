@@ -70,6 +70,9 @@ const ACCURACY_EXCLUDED_SLUGS = new Set([
   'conversation_partner',
   'conversation_coach',
   'conversation_turn',
+  // Thought Continuation uses a graded discourse/momentum signal, not a
+  // validated speech-accuracy measure. Quarantine historical rows too.
+  'thought_continuation',
   'voice_practice',
   // Visual-memory game results are meaningful practice, not speech-recognition
   // accuracy. Also quarantines legacy rows written without the exclusion flag.
