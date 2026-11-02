@@ -58,6 +58,8 @@ interface TwoCluesGameProps {
   profileId?: string;
   focusPhonemes?: string[];
   clinicalLevel?: number | null;
+  /** Bridged 1–10 engine start from the saved clinical level and session plan. */
+  initialDifficulty?: number;
   /** Profile-recommended first cue type (personalizes cue ladder order) */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -124,6 +126,7 @@ export function TwoCluesGame({
   focusPhonemes,
   recommendedCueType,
   clinicalLevel,
+  initialDifficulty,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -208,7 +211,7 @@ export function TwoCluesGame({
 
     exerciseSlug: 'two_clues',
     sessionId: sessionId || null,
-    initialDifficulty: bounds.suggestedStart,
+    initialDifficulty: initialDifficulty ?? bounds.suggestedStart,
     bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
