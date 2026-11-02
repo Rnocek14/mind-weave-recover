@@ -94,6 +94,26 @@ test('the actual CLI rejects missing and production configuration without a live
   }
 });
 
+test('direct live speech CLI blocks configured hosted staging without current data review', () => {
+  const script = fileURLToPath(new URL('./verify-speech-services.mjs', import.meta.url));
+  const target = JSON.parse(readFileSync(new URL('../tests/e2e/staging-target.public.json', import.meta.url), 'utf8'));
+  const configured = {
+    E2E_SUPABASE_URL: target.supabaseURL,
+    E2E_SUPABASE_PROJECT_REF: target.projectRef,
+    E2E_SUPABASE_PUBLISHABLE_KEY: target.publishableKey,
+  };
+  const run = spawnSync(process.execPath, [script, '--run'], {
+    env: configured, encoding: 'utf8', timeout: 5000,
+  });
+  assert.ifError(run.error);
+  assert.equal(run.status, 1);
+  const report = JSON.parse(run.stdout);
+  assert.equal(report.status, 'blocked');
+  assert.equal(report.failure.phase, 'staging_data_attestation');
+  assert.equal(report.executed, 0);
+  assert.equal(report.authentication, 'not_run');
+});
+
 test('environment check reads and validates the real synthetic WAVs without creating a client', async () => {
   const stub = transport();
   const report = await verifySpeechServices({ env: { ...env, E2E_SUITE: 'public' }, mode: 'check-env', clientFactory: stub.clientFactory });
