@@ -88,7 +88,7 @@ function inspectOne(entry: ClinicalLadderEntry): EightLevelCoverage {
     }
   }
 
-  const liveProgression = Object.hasOwn(LIVE_GAME_LEVEL_CEILINGS, entry.slug);
+  const liveProgression = Object.prototype.hasOwnProperty.call(LIVE_GAME_LEVEL_CEILINGS, entry.slug);
   const liveCeiling = liveProgression ? LIVE_GAME_LEVEL_CEILINGS[entry.slug]() : null;
   if (liveProgression !== (entry.status === 'full' || entry.status === 'structural')) {
     problems.push('Registry runtime status disagrees with persisted progression hooks');
