@@ -33,7 +33,7 @@ import {
 } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 import { summarizeEightLevelCoverage } from '@/lib/clinicalEightLevelCoverage';
-import { getClinicalGameEvidence, EVIDENCE_FIT_TEXT, CLINICAL_EVIDENCE_SOURCES } from '@/lib/clinicalEvidenceRegistry';
+import { getClinicalGameEvidence, EVIDENCE_FIT_TEXT, CLINICAL_EVIDENCE_SOURCES, LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS } from '@/lib/clinicalEvidenceRegistry';
 
 const STATUS_BADGE: Record<LadderStatus, { label: string; className: string; help: string }> = {
   full: {
@@ -358,6 +358,9 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
             <p><span className="font-medium text-foreground">Observed practice:</span> {evidence.gameplayMeasure}</p>
             <p><span className="font-medium text-foreground">Measurement caution:</span> {evidence.measurementConfound}</p>
             <p><span className="font-medium text-foreground">Separate transfer check:</span> {evidence.untrainedTransferCheck}</p>
+            {LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS[entry.slug] && (
+              <p><span className="font-medium text-foreground">Clinician-review flag:</span> {LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS[entry.slug]}</p>
+            )}
             <p className="font-medium text-foreground">The eight app stages and automatic level thresholds have not been clinically validated.</p>
             <div className="flex flex-wrap gap-x-3 gap-y-1" aria-label="Evidence sources">
               {evidence.sources.map((key) => (
