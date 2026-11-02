@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildManualPhraseConfirmation } from './manualConfirmation';
+import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from './manualConfirmation';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
 
 describe('Phrase Practice manual confirmation cannot pose as verified spoken recovery', () => {
+  it('always counts the visible target phrase as lexical support', () => {
+    expect(VISIBLE_PHRASE_CUE_LEVEL).toBe(1);
+  });
+
   it('preserves a user report while withholding fabricated word accuracy and ASR transcript', () => {
     const report = buildManualPhraseConfirmation({
       phraseId: 'need_help', difficulty: 4, cueLevel: 1, timeMs: 3400, attempts: 2,
