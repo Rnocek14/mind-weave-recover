@@ -15,6 +15,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { isComparableScoredEvent } from '@/lib/clinical/metricsPresentation';
 
 export interface ExerciseStruggleRecord {
   exerciseSlug: string;
@@ -74,22 +75,30 @@ export async function fetchExerciseStruggleData(
       cue_level,
       reaction_time_ms,
       session_id,
+      validity_label,
+      counts_toward_score,
+      clinician_validity_override,
+      task_parameters,
+      engagement_flags,
       sessions!inner(user_id, profile_id)
     `)
     .not('exercise_slug', 'is', null)
     .gte('created_at', cutoff.toISOString())
     .eq('sessions.user_id', userId)
-    .limit(1000);
+    .limit(1001);
 
   if (profileId) {
     query = query.eq('sessions.profile_id', profileId);
   }
 
   const { data, error } = await query;
-  if (error || !data) {
-    console.warn('[ExerciseStruggle] Fetch failed:', error?.message);
+  if (error || !data || data.length >= 1001) {
+    console.warn('[ExerciseStruggle] Performance evidence missing or incomplete:', error?.message);
     return [];
   }
+
+  // Poor-quality/mixed-speaker/unscored attempts are not patient failures.
+  const eligible = data.filter(isComparableScoredEvent);
 
   // Aggregate by exercise_slug
   const slugMap = new Map<string, {
@@ -100,12 +109,14 @@ export async function fetchExerciseStruggleData(
     sessions: Set<string>;
   }>();
 
-  for (const row of data) {
+  for (const row of eligible) {
     const slug = row.exercise_slug;
     if (!slug) continue;
     const entry = slugMap.get(slug) || { scores: [], cueLevels: [], timeouts: 0, total: 0, sessions: new Set() };
     
-    if (row.score !== null) entry.scores.push(row.score);
+    // Preserve both supported score scales, without treating every positive
+    // partial score as a completely correct answer.
+    if (row.score !== null) entry.scores.push(row.score <= 1 ? row.score : row.score / 100);
     if (row.cue_level !== null) entry.cueLevels.push(row.cue_level);
     if (row.reaction_time_ms === null || row.reaction_time_ms <= 0) entry.timeouts++;
     entry.total++;
@@ -115,7 +126,7 @@ export async function fetchExerciseStruggleData(
 
   return Array.from(slugMap.entries()).map(([slug, d]) => {
     const avgAccuracy = d.scores.length > 0
-      ? d.scores.filter(s => s > 0).length / d.scores.length
+      ? d.scores.reduce((sum, score) => sum + score, 0) / d.scores.length
       : 0;
     const avgCueLevel = d.cueLevels.length > 0
       ? d.cueLevels.reduce((a, b) => a + b, 0) / d.cueLevels.length
