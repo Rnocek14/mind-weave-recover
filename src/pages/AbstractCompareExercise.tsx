@@ -293,6 +293,7 @@ export default function AbstractCompareExercise() {
               roundCount={trialLimit}
               tier={practiceStage?.contentTier ?? dynamicTier.currentTier}
               trainingStage={practiceStage}
+              onAttemptStart={() => setAttemptedScope(scope)}
               userId={user?.id}
               sessionId={activeSessionId}
               autoStart={fromLesson}
