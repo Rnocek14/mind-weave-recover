@@ -82,7 +82,9 @@ test('staging live jobs reject unreviewed data before all backend requests and i
     assert.ok(attestation > content.indexOf('staging-runner-config.mjs --github-env'));
     assert.ok(attestation < content.indexOf('bun install --frozen-lockfile'));
     assert.ok(attestation < content.indexOf('bun run test:'));
-    assert.ok(attestation < content.indexOf('scripts/verify-speech-services.mjs --run'));
-    assert.ok(attestation < content.indexOf('bun run test:e2e:staging'));
+    const liveCommand = name === 'speech'
+      ? 'scripts/verify-speech-services.mjs --run'
+      : 'bun run test:e2e:staging';
+    assert.ok(content.indexOf(liveCommand) > attestation);
   }
 });
