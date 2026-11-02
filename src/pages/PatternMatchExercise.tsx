@@ -22,6 +22,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { PATTERN_PRACTICE_STAGES, type PatternPracticeLevel } from '@/lib/patternMatch/practiceStages';
 
 const PATTERN_TRIAL_COUNT = 10;
 
@@ -45,6 +46,13 @@ export default function PatternMatchExercise() {
   const [sessionError, setSessionError] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selection, setSelection] = useState<{
+    scope: string; level: PatternPracticeLevel | null;
+  } | null>(null);
+  const [startedScope, setStartedScope] = useState<string | null>(null);
+  const practiceScope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, sessionId]);
+  const selectedPractice = selection?.scope === practiceScope ? selection.level : null;
+  const gameReady = fromLesson || startedScope === practiceScope;
   const finalizationStartedRef = useRef(false);
   const pendingTrialWritesRef = useRef<Promise<boolean>[]>([]);
 
@@ -271,8 +279,46 @@ export default function PatternMatchExercise() {
           <div role="status" className="p-6 text-center">Saving your practice…</div>
         ) : saveError ? (
           <div role="alert" className="p-6 text-center">Your practice could not be fully saved. Please ask a care partner for help.</div>
+        ) : !gameReady ? (
+          <div className="mx-auto w-full max-w-xl space-y-4 rounded-xl border p-4 sm:p-6">
+            <h2 className="text-xl font-semibold">Choose a visual practice stage</h2>
+            <p className="text-sm text-muted-foreground">
+              These change the patterns you actually match. They are not clinical recovery levels.
+              A care partner can choose a comfortable challenge.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {PATTERN_PRACTICE_STAGES.map(stage => (
+                <Button
+                  key={stage.level} variant={selectedPractice === stage.level ? 'default' : 'outline'}
+                  aria-pressed={selectedPractice === stage.level}
+                  className="h-auto min-h-14 p-3 whitespace-normal text-left justify-start"
+                  onClick={() => setSelection({ scope: practiceScope, level: stage.level })}
+                >
+                  Stage {stage.level}: {stage.label}
+                </Button>
+              ))}
+            </div>
+            {selectedPractice && (
+              <p className="rounded-lg bg-muted p-3 text-sm">
+                {PATTERN_PRACTICE_STAGES[selectedPractice - 1].instruction}
+              </p>
+            )}
+            <Button className="w-full min-h-14" size="lg"
+              onClick={() => setStartedScope(practiceScope)}
+              disabled={!selectedPractice}>
+              Start visual practice
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => {
+              setSelection({ scope: practiceScope, level: null });
+              setStartedScope(practiceScope);
+            }}>
+              Use adaptive practice instead
+            </Button>
+          </div>
         ) : (
         <PatternMatchGame
+          key={practiceScope + ':' + (selectedPractice ?? 'adaptive')}
+          practiceLevel={selectedPractice}
           totalTrials={PATTERN_TRIAL_COUNT}
           initialDifficulty={config.startDifficulty || 3}
           bounds={bounds}
@@ -285,11 +331,14 @@ export default function PatternMatchExercise() {
             const pendingWrite = logPatternTrial({
               correct: data.correct,
               reactionTimeMs: data.reactionTimeMs,
-              cueLevel: 0,
+              cueLevel: data.supportShown ? 1 : 0,
               errorType: data.correct ? undefined : 'pattern_mismatch',
               taskParameters: {
                 difficulty_level: data.difficultyLevel,
                 pattern_size: data.patternSize,
+                visual_practice_stage: data.practiceStage ?? null,
+                match_rule: data.matchRule ?? 'exact',
+                visual_support_presented: data.supportShown ?? false,
                 trial_mode: 'recognition',
                 task_track: 'non_linguistic_visual_memory',
                 // A pattern match is practice, not ASR/independent speech evidence.
