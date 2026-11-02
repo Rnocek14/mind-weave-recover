@@ -5,7 +5,7 @@ import { TWO_CLUES_PUZZLES, getPuzzles } from '@/data/twoCluesBank';
 import { TWO_CLUES_LEVEL8_PUZZLES } from '@/data/twoCluesLevel8Bank';
 import { buildPool } from '@/hooks/useMeaningMatchGame';
 import { selectTwoCluesStagePool } from '@/hooks/useTwoCluesGame';
-import { mapTwoCluesSupport } from '@/hooks/useTwoCluesProgression';
+import { mapTwoCluesSupport, getTwoCluesSupportEvidence } from '@/hooks/useTwoCluesProgression';
 import { scoreAnswer } from '@/lib/twoCluesScorer';
 import { highestImplementedMeaningMatchLevel, getMeaningMatchLevelSpec } from '@/lib/progression/meaningMatchLevels';
 import { highestImplementedTwoCluesLevel, getTwoCluesLevelSpec } from '@/lib/progression/twoCluesLevels';
@@ -45,6 +45,14 @@ describe('dedicated stage 8 tasks are genuinely selected and scoreable', () => {
     expect(mapTwoCluesSupport(true, 'semantic')).toBe('semantic_cue');
     expect(mapTwoCluesSupport(true, 'phonemic')).toBe('phonemic_cue');
     expect(mapTwoCluesSupport(true, 'full_word')).toBe('carrier_or_full_model');
+    expect(getTwoCluesSupportEvidence({ ...score, cueLevelUsed: 0, cueTypeUsed: 'none' })).toEqual({
+      cueLevel: 0,
+      supportUsed: 'independent',
+    });
+    expect(getTwoCluesSupportEvidence({ ...score, cueLevelUsed: 2, cueTypeUsed: 'phonemic' })).toEqual({
+      cueLevel: 2,
+      supportUsed: 'phonemic_cue',
+    });
   });
 
   it('separates Meaning Match L8 inference from generic hard tiers', () => {
