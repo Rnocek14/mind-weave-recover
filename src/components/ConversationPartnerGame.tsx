@@ -52,6 +52,7 @@ export function ConversationPartnerGame({
   const [currentAIText, setCurrentAIText] = useState<string>('');
   const [userTranscript, setUserTranscript] = useState<string>('');
   const [typedDraft, setTypedDraft] = useState('');
+  const [silenceCueText, setSilenceCueText] = useState<string | null>(null);
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   
   const speechStartTimeRef = useRef<number | null>(null);
@@ -172,6 +173,7 @@ export function ConversationPartnerGame({
     }
 
     setUserTranscript('');
+    setSilenceCueText(null);
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
     turnCountRef.current += 1;
@@ -202,6 +204,7 @@ export function ConversationPartnerGame({
     committingRef.current = true;
 
     stopListening();
+    setSilenceCueText(null);
     setPhase('processing');
     
     // Stop recording and capture audio
@@ -381,22 +384,18 @@ export function ConversationPartnerGame({
     }
   }, [phase, typedDraft, processUserTurn, currentTurn, maxTurns, speak, addAITurn, metrics, onComplete]);
 
-  // Start silence timer when listening begins
+  // Never speak into an open patient microphone/recorder. Playing the
+  // coach's TTS while listening can be captured and scored as patient
+  // output. A short visible cue is safe until the turn has ended.
   useEffect(() => {
-    if (phase === 'listening') {
-      const timer = setTimeout(async () => {
-        const nudge = getNudge(8000);
-        try {
-          await speak(nudge, { voiceId: MAYA_VOICE_ID });
-        } catch (err) {
-          console.warn('Nudge TTS failed:', err);
-        }
-      }, 8000);
-
-      setSilenceTimer(timer);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, getNudge, speak]);
+    if (phase !== 'listening') return;
+    const timer = setTimeout(() => {
+      if (!mountedRef.current) return;
+      setSilenceCueText(getNudge(8000));
+    }, 8000);
+    setSilenceTimer(timer);
+    return () => clearTimeout(timer);
+  }, [phase, getNudge]);
 
   // Progress dots
   const progressDots = Array.from({ length: maxTurns }, (_, i) => (
@@ -521,6 +520,11 @@ export function ConversationPartnerGame({
               <p className="text-sm text-muted-foreground mt-2">
                 Take your time. Press when you're finished.
               </p>
+              {silenceCueText && (
+                <p role="status" className="mt-3 rounded-lg bg-muted p-3 text-base font-medium">
+                  {silenceCueText}
+                </p>
+              )}
             </div>
           )}
 
@@ -599,6 +603,7 @@ export function ConversationPartnerGame({
                   setCurrentAIText('');
                   setUserTranscript('');
                   setTypedDraft('');
+                  setSilenceCueText(null);
                   turnCountRef.current = 0;
                   committingRef.current = false;
                   saveFailureRef.current = false;
