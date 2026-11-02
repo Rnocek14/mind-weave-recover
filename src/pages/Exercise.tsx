@@ -987,6 +987,10 @@ const Exercise = () => {
             />
           ) : exerciseId === 'word-practice' ? (
             <PhrasePracticeGame
+              // Recreate the stateful speech game when the selected patient
+              // changes; the staged content queue, attempts and audio belong
+              // to one patient, not merely the signed-in caregiver account.
+              key={['phrase', user?.id ?? 'anonymous', activeProfileId ?? 'unselected'].join(':')}
               ref={phraseGameRef}
               sessionId={sessionId}
               totalTrials={totalRounds}

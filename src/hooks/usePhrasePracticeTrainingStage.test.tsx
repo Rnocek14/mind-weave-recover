@@ -51,4 +51,21 @@ describe('Phrase Practice patient-specific training stage', () => {
     await act(async () => { finish({ currentLevel: 3 }); await Promise.resolve(); });
     expect(result.current.stage?.level).toBe(2);
   });
+
+  it('never displays a previous patient\'s level during the first render of a profile switch', async () => {
+    let finishSecond!: (v: { currentLevel: number }) => void;
+    mocks.load.mockResolvedValueOnce({ currentLevel: 3 });
+    mocks.load.mockImplementationOnce(() => new Promise(resolve => { finishSecond = resolve; }));
+    const { result, rerender } = renderHook(
+      ({ profileId }) => usePhrasePracticeTrainingStage({ userId: 'u', profileId }),
+      { initialProps: { profileId: 'patient-a' } },
+    );
+    await waitFor(() => expect(result.current.stage?.level).toBe(3));
+    rerender({ profileId: 'patient-b' });
+    expect(result.current.loaded).toBe(false);
+    expect(result.current.stage).toBeNull();
+    await act(async () => { finishSecond({ currentLevel: 2 }); await Promise.resolve(); });
+    await waitFor(() => expect(result.current.stage?.level).toBe(2));
+  });
+
 });

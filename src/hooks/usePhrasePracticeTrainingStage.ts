@@ -23,9 +23,17 @@ export function usePhrasePracticeTrainingStage({
   profileId?: string | null;
   offline?: boolean;
 }): PhraseStageSnapshot {
-  const [snapshot, setSnapshot] = useState<PhraseStageSnapshot>({
+  // React can render a new patient one frame before its load effect runs.
+  // Tie stage data to the exact owner scope so the previous patient's level
+  // cannot briefly appear or seed a new phrase bank during that frame.
+  const scope = offline ? 'offline' : JSON.stringify([userId ?? null, profileId ?? null]);
+  const empty: PhraseStageSnapshot = {
     loaded: false, loadUnavailable: false, persistedLevel: null, stage: null,
+  };
+  const [scoped, setScoped] = useState<{ scope: string; snapshot: PhraseStageSnapshot }>({
+    scope: '', snapshot: empty,
   });
+  const setSnapshot = (snapshot: PhraseStageSnapshot) => setScoped({ scope, snapshot });
 
   useEffect(() => {
     if (offline) {
@@ -75,5 +83,5 @@ export function usePhrasePracticeTrainingStage({
     };
   }, [userId, profileId, offline]);
 
-  return snapshot;
+  return scoped.scope === scope ? scoped.snapshot : empty;
 }
