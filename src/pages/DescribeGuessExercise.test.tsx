@@ -23,6 +23,12 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/hooks/useProfile', () => ({
   useProfile: () => ({ activeProfile: { id: 'synthetic-profile' } }),
 }));
+vi.mock('@/hooks/useDescribeGuessTrainingStage', () => ({
+  useDescribeGuessTrainingStage: () => ({
+    loaded: true, loadUnavailable: false, persistedLevel: 2,
+    stage: { level: 2, itemTier: 1, initialVisiblePrompts: 0, label: 'Short descriptions with less help' },
+  }),
+}));
 vi.mock('@/hooks/useStandaloneSession', () => ({
   useStandaloneSession: () => ({ activeSessionId: 'synthetic-session', isCreatingSession: false }),
 }));
@@ -51,16 +57,18 @@ vi.mock('@/hooks/useTrialSubmission', () => ({
   }),
 }));
 vi.mock('@/components/DescribeGuessGame', () => ({
-  DescribeGuessGame: ({onTrialComplete, onGameComplete}: {
+  DescribeGuessGame: ({onTrialComplete, onGameComplete, trainingStage}: {
     onTrialComplete:(value: DescribeGuessTrialResult)=>void,
     onGameComplete:(values:DescribeGuessTrialResult[])=>void,
-  }) => (
+    trainingStage?: { level: number } | null,
+  }) => (<>
+    <p>Chosen training stage: {trainingStage?.level ?? 'none'}</p>
     <button onClick={() => {
       if (!mocks.nextTrial) throw new Error('Missing synthetic describe trial');
       onTrialComplete(mocks.nextTrial);
       onGameComplete([mocks.nextTrial]);
     }}>Finish synthetic description</button>
-  ),
+  </>),
 }));
 
 import DescribeGuessExercise from './DescribeGuessExercise';
@@ -78,6 +86,11 @@ const trial = (o: Partial<DescribeGuessTrialResult> = {}): DescribeGuessTrialRes
 });
 
 describe('DescribeGuessExercise scoring/provenance reader', () => {
+  it('passes the selected patient practice stage into the real page rendering path', () => {
+    render(<DescribeGuessExercise />);
+    expect(screen.getByText('Chosen training stage: 2')).toBeTruthy();
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
     vi.clearAllMocks();
@@ -102,6 +115,8 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       supportUsed:'independent',
       taskParameters:expect.objectContaining({
         input_mode:'spoken',independent_spoken_score_eligible:true,
+        describing_training_stage:2, describing_target_tier:1,
+        clinical_stage_promotion_eligible:false,
       }),
     }));
     expect(mocks.recordPivot).toHaveBeenCalledWith(expect.objectContaining({wasCorrect:true}));
