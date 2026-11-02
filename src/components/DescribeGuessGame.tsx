@@ -346,13 +346,18 @@ export function DescribeGuessGame({
     }
   }, [speechError, useTyping]);
 
-  // When user switches to typing, stop the mic so the two inputs don't fight.
+  // Typing is a distinct practice mode: disarm the microphone AND audio
+  // recorder and close any in-flight speech attempt. Late browser speech
+  // callbacks must not be interpreted as user-typed language.
   useEffect(() => {
-    if (useTyping && speechIsListening) {
+    if (!useTyping) return;
+    if (speechIsListening) {
       stopListening();
       setIsListening(false);
     }
-  }, [useTyping, speechIsListening, stopListening]);
+    if (isRecording) cancelRecording();
+    resetAttempt();
+  }, [useTyping, speechIsListening, isRecording, stopListening, cancelRecording, resetAttempt]);
 
   const handleTypedSubmit = useCallback(() => {
     const text = typedAnswer.trim();
@@ -679,7 +684,11 @@ export function DescribeGuessGame({
           errorType: 'word_retrieved',
           semanticSimilarity: ctx.guessResult.confidence,
         });
-        recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
+        recordAdaptiveTrial({
+          correct: true,
+          reactionTimeMs: finalResult.reactionTimeMs,
+          cueWasShown: finalResult.promptsShown.length > 0,
+        });
         engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
       }
       wordAttemptContextRef.current = null;
@@ -878,7 +887,11 @@ export function DescribeGuessGame({
                   gopData: pronunciationData,
                 } : {}),
               });
-              recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
+              recordAdaptiveTrial({
+                correct: finalResult.meaningWin || finalResult.wordWin,
+                reactionTimeMs: finalResult.reactionTimeMs,
+                cueWasShown: finalResult.promptsShown.length > 0,
+              });
               engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
             }
             setShowFeedback(true);
@@ -1241,7 +1254,7 @@ export function DescribeGuessGame({
               )}
               {game.lastResult.communicationWin && !game.lastResult.meaningWin && !game.lastResult.wordWin && (
                 <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                  🗣️ Clear
+                  {game.lastResult.inputMode === 'typed' ? '⌨️ Clear description' : '🗣️ Clear'}
                 </Badge>
               )}
             </div>
