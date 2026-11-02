@@ -44,16 +44,21 @@ export function classifyFluencyRoundEvidence(args: {
   cueLevelUsed: number;
   uniqueWordCount: number;
   timeLimitSec: number;
+  /** Actual rounded elapsed time, not just the round's planned cap. */
+  actualDurationSec: number;
 }): {
   trialMode: 'production' | 'scaffolded' | 'mixed';
   clinicalProgressionEligible: boolean;
   independentSpoken: boolean;
 } {
   const spoken = args.mode === 'spoken' && args.uniqueWordCount > 0;
-  const comparable = args.timeLimitSec === COMPARABLE_FLUENCY_SECONDS;
+  // An early stop must not masquerade as a complete one-minute probe.
+  const comparable = args.timeLimitSec === COMPARABLE_FLUENCY_SECONDS &&
+    Number.isFinite(args.actualDurationSec) &&
+    args.actualDurationSec >= COMPARABLE_FLUENCY_SECONDS - 1;
   const cued = args.cueLevelUsed > 0;
   return {
-    trialMode: !spoken ? 'mixed' : cued ? 'scaffolded' : 'production',
+    trialMode: !spoken || !comparable ? 'mixed' : cued ? 'scaffolded' : 'production',
     clinicalProgressionEligible: spoken && comparable,
     independentSpoken: spoken && comparable && !cued,
   };
