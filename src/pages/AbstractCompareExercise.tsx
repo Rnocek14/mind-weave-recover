@@ -1,3 +1,4 @@
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
 import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Abstract Comparison Exercise Page — wrapper with session lifecycle.
@@ -137,10 +138,12 @@ export default function AbstractCompareExercise() {
   const handleGameComplete = useCallback(async (results: AbstractCompareTrialResult[]) => {
     if (completionStartedRef.current) return;
     completionStartedRef.current = true;
-    const settled = await Promise.allSettled(pendingEventWritesRef.current.splice(0));
-    if (settled.length === 0 || settled.length < results.length || settled.some(
-      row => row.status === 'rejected' || row.value !== true,
-    )) {
+    const saved = await confirmRawEventWrites(
+      pendingEventWritesRef.current.splice(0),
+      results.length,
+    );
+    if (!saved.ok) {
+      console.warn('[AbstractCompare] Session has incomplete raw clinical events', saved);
       setSaveError(true);
       return;
     }

@@ -1,3 +1,4 @@
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
 import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
@@ -199,16 +200,13 @@ export default function NarrativeRetellExercise() {
     // Existing legacy telemetry does not use useTrialSubmission's shared
     // commit barrier. Await its own pending raw events before ending the
     // session or navigating to another game.
-    const settled = await Promise.allSettled(pendingEventWritesRef.current.splice(0));
-    const failed = settled.filter(entry =>
-      entry.status === 'rejected' || (entry.status === 'fulfilled' && entry.value !== true),
-    ).length;
-    // A missing final write is as unsafe as a known rejected one. Do not
-    // silently close or advance the parent's lesson on incomplete evidence.
-    if (!isOfflineMode && (failed > 0 || settled.length < results.length || settled.length === 0)) {
-      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', {
-        failed, observed: settled.length, expected: results.length,
-      });
+    const saved = await confirmRawEventWrites(
+      pendingEventWritesRef.current.splice(0),
+      results.length,
+    );
+    // Offline practice can finish locally, but is never verified clinical data.
+    if (!isOfflineMode && !saved.ok) {
+      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', saved);
       setSaveWarning(true);
       return;
     }
