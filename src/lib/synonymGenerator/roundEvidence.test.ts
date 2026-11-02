@@ -86,6 +86,9 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
     })).toMatchObject({ trialMode: 'mixed', clinicalProgressionEligible: false });
     expect(classifySynonymRoundEvidence({
       inputMode: 'spoken', completionReason: 'timer', difficulty: 3, matchCount: Number.NaN,
-    })).toMatchObject({ practiceSuccessful: false });
+    })).toMatchObject({ practiceSuccessful: false, clinicalProgressionEligible: false });
+    expect(classifySynonymRoundEvidence({
+      inputMode: 'spoken', completionReason: 'timer', difficulty: Number.NaN, matchCount: 5,
+    })).toMatchObject({ clinicalProgressionEligible: false, verifiedSpokenScoreEligible: false });
   });
 });
