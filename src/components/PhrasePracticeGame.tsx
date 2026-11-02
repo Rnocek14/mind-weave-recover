@@ -29,6 +29,10 @@ import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 import { verifyPhrasePracticeWrites } from '@/lib/phrasePractice/verifyPhrasePracticeWrites';
+import { usePhrasePracticeTrainingStage } from '@/hooks/usePhrasePracticeTrainingStage';
+import { getPhraseTrainingPrompt } from '@/lib/phrasePractice/trainingStages';
+import { PhraseTrainingScriptCard } from '@/components/phrasePractice/PhraseTrainingScriptCard';
+import { useNavigate } from 'react-router-dom';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -46,6 +50,9 @@ interface PhrasePracticeGameProps {
     repetitions: number;
     /** User reported this exercise was done, not verified by speech recognition. */
     manualConfirmed?: boolean;
+    trainingStage?: 1 | 2 | 3 | null;
+    scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues';
+    fullScriptRevealed?: boolean;
     whisperTranscript?: string;
     whisperConfidence?: number;
     encouragementScore?: number;
@@ -103,6 +110,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const { playSuccess, playError } = useGameSounds();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
+  const navigate = useNavigate();
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const vg = useVoiceGuidance('phrase-practice');
   const hasSpokenPPIntroRef = useRef(false);
   const stallTimerPPRef = useRef<NodeJS.Timeout | null>(null);
@@ -113,6 +122,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const scoreRef = useRef(0);
   const pendingTrialWritesRef = useRef<Promise<boolean | void>[]>([]);
   const [saveError, setSaveError] = useState(false);
+  const [scriptRevealed, setScriptRevealed] = useState(false);
+  const scriptRevealedRef = useRef(false);
   const finalizationRef = useRef(false);
   // The full printed phrase is lexical support on every trial.
   const [cueLevel, setCueLevel] = useState<number>(VISIBLE_PHRASE_CUE_LEVEL); // 1=visual, 2=audio, 3=both
@@ -162,7 +173,12 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     sessionId,
     CANONICAL_SLUGS.PHRASE_PRACTICE
   );
-  
+  const training = usePhrasePracticeTrainingStage({
+    userId: user?.id,
+    profileId: standaloneProfileId || activeProfile?.id,
+    offline: isOfflineMode,
+  });
+
   // Session lifecycle - guaranteed cleanup on unmount, pagehide, visibility timeout
   const { completeSession } = useSessionLifecycle({
     sessionId: activeSessionId,
@@ -200,8 +216,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // here — that silently throws away the engine's L6-L10 signal and forces
   // every "hard" user back into tier 5 content.
   const safeInitialDifficulty = useMemo(
-    () => Math.max(1, Math.min(initialDifficulty, 10)),
-    [initialDifficulty]
+    () => Math.max(1, Math.min(training.stage?.engineLevel ?? initialDifficulty, 10)),
+    [initialDifficulty, training.stage?.engineLevel]
   );
 
   // Capability-based difficulty bounds (full 1..10 engine range)
@@ -280,9 +296,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
   const initializedRef = useRef(false);
   useEffect(() => {
-    if (initializedRef.current) return;
+    if (!training.loaded || training.loadUnavailable || initializedRef.current) return;
     initializedRef.current = true;
-    
+
     const newTrials = getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -311,7 +327,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     };
     
     loadVoicePreference();
-  }, [initialDifficulty, totalTrials, user]);
+  }, [initialDifficulty, totalTrials, user, training.loaded, training.loadUnavailable, safeInitialDifficulty]);
 
   const currentTrial = trials[currentTrialIndex] || null;
 
@@ -320,8 +336,16 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const recordTrialForCompletion = (data: Parameters<NonNullable<PhrasePracticeGameProps['onTrialComplete']>>[0]) => {
     if (!onTrialComplete) return;
     try {
+      const script = currentTrial
+        ? getPhraseTrainingPrompt(currentTrial, training.stage, scriptRevealedRef.current)
+        : null;
       pendingTrialWritesRef.current.push(
-        Promise.resolve(onTrialComplete(data)).catch((error) => {
+        Promise.resolve(onTrialComplete({
+          ...data,
+          trainingStage: training.stage?.level ?? null,
+          scriptSupport: script?.evidenceSupport ?? 'visible_script',
+          fullScriptRevealed: script?.fullPhraseRevealed ?? true,
+        })).catch((error) => {
           console.warn('[PhrasePractice] Raw trial failed:', error);
           return false;
         }),
@@ -534,6 +558,27 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         }
       }, 1200);
     }
+  };
+
+  // Stage 1: a modeled phrase, using the existing mic/TTS interlock.
+  // Reading after the model is supported practice, not independent speech.
+  const modeledPhraseRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!training.stage?.autoModel || !training.loaded || !currentTrial ||
+        (!activeSessionId && !isOfflineMode) || saveError) return;
+    if (modeledPhraseRef.current === currentTrial.id) return;
+    modeledPhraseRef.current = currentTrial.id;
+    void handlePlayAudio().catch(err =>
+      console.warn('[PhrasePractice] full model unavailable; Hear It remains available', err),
+    );
+    // The model is tied to a trial id, not ephemeral audio status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [training.stage?.autoModel, training.loaded, currentTrial?.id, activeSessionId, isOfflineMode, saveError]);
+
+  const revealWholePhrase = () => {
+    scriptRevealedRef.current = true;
+    setScriptRevealed(true);
+    // Do not fabricate an audio cue; track exact visual help per trial.
   };
 
   // Show visual cue
@@ -1006,7 +1051,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
     const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const regeneratedTrials = getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 5);
+      const regeneratedTrials = getTrialsForLevel(
+        training.stage?.engineLevel ?? currentDifficultyRef.current,
+        remainingTrials + 5,
+      );
       // Exclude current phrase AND any phrases the user already mastered
       const mastered = masteredPhraseIdsRef.current;
       const filteredTrials = regeneratedTrials.filter(trial =>
@@ -1022,6 +1070,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setShowFeedback(false);
     setManualConfirmationFeedback(false);
     setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
+    scriptRevealedRef.current = false;
+    setScriptRevealed(false);
     setAttempts(0);
     setCurrentWordAccuracy(0);
     setLastHeardText('');
@@ -1045,6 +1095,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setSaveError(false);
     setScore(0);
     setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
+    scriptRevealedRef.current = false;
+    setScriptRevealed(false);
     setAttempts(0);
     setShowFeedback(false);
     setManualConfirmationFeedback(false);
@@ -1057,11 +1109,28 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       clearTimeout(recoveryTimerRef.current);
       recoveryTimerRef.current = null;
     }
-    const newTrials = getTrialsForLevel(initialDifficulty, totalTrials);
+    modeledPhraseRef.current = null;
+    const newTrials = getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
   };
 
+  if (!training.loaded || isCreatingSession) {
+    return (
+      <Card role="status" className="w-full max-w-2xl mx-auto p-8 text-center">
+        Preparing your phrase practice…
+      </Card>
+    );
+  }
+  if (training.loadUnavailable) {
+    return (
+      <Card role="alert" className="w-full max-w-2xl mx-auto p-8 text-center space-y-4">
+        <h2 className="text-2xl font-bold">Practice level unavailable</h2>
+        <p>We couldn't load your saved practice level. Please ask a care partner for help.</p>
+        <Button size="lg" onClick={() => navigate('/today')}>Return to Today</Button>
+      </Card>
+    );
+  }
   if (!currentTrial) {
     return (
       <Card className="w-full max-w-2xl mx-auto p-8 text-center">
@@ -1101,22 +1170,22 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       {/* Progress Bar */}
       <Progress value={progress} className="h-3" />
 
+      {!training.stage && training.persistedLevel != null && (
+        <div role="status" className="rounded-lg border p-3 text-sm">
+          Your saved level is {training.persistedLevel}. Higher-stage script
+          tasks are still being developed. You can continue general phrase
+          practice without changing your saved level.
+        </div>
+      )}
+
       {/* Main Phrase Card */}
       <Card className="p-8 text-center space-y-6">
-        {/* Phrase Display */}
-        <div className="space-y-4">
-          <div className="text-sm text-muted-foreground uppercase tracking-wide">
-            Practice this phrase:
-          </div>
-          
-          <div className="text-4xl font-bold text-foreground leading-relaxed py-6 px-4 bg-accent/20 rounded-lg">
-            {currentTrial.phrase}
-          </div>
-          
-          <Badge variant="outline" className="text-sm">
-            {currentTrial.category.replace('_', ' ')}
-          </Badge>
-        </div>
+        <PhraseTrainingScriptCard
+          trial={currentTrial}
+          trainingStage={training.stage}
+          revealed={scriptRevealed}
+          onReveal={revealWholePhrase}
+        />
 
         {/* Speech Recognition Status */}
         {(
