@@ -9,6 +9,8 @@ export type MeaningMatchItem = {
   id: string;
   tier: MeaningMatchTier;
   type: MeaningMatchType;
+  /** Explicit stage bank; ordinary tier-3 items are NOT automatically L8. */
+  clinicalStage?: 8;
   sentence: string;
   options: string[];
   correctIndex: number;

@@ -7,8 +7,8 @@
 - 28/28 canonical activities and 1 additional Command Scenes activity have individually described L1–L8 stage designs (29 × 8 = 232 qualitative descriptions).
 - 13/29 activities have real per-game, persisted clinical progression hooks.
 - 16/29 are design-only, with no numeric mastery rule, evidence-based promotion or level persistence.
-- Only **2 of the 13 currently wired ladders** report a selectable ceiling of eight under their existing `highestImplemented...Level()` code: Photo Naming (upper-level integrity caveats) and Semantic Features (thin upper-level bank). "Selectable" does not imply a validated clinical improvement measure.
-- All other live games cap at L6 or L7 until distinct content and evidence handling are implemented.
+- **4 of the 13 currently wired ladders** now report an L8-selectable ceiling: Photo Naming and Semantic Features (existing upper-level caveats), plus Meaning Match and Two Clues (new dedicated 16-item L8 banks; clinician, ASR, and contextual scoring review pending). "Selectable" does not imply a validated clinical improvement measure.
+- The other 9 live games still cap at L6 or L7 until distinct content and evidence handling are implemented.
 - Automated coverage tests prevent any newly added canonical game from escaping the eight-design contract, but cannot establish real content or clinical efficacy.
 
 ## Current catalog (source: production progression modules and registry)
@@ -19,8 +19,8 @@
 | Semantic Features | Yes | Yes | 8 | L6–L8 sparse content; independent evidence needs clinician evaluation |
 | Fix the Sentence | Yes | Yes | 6 | L7 embedded clauses and L8 open-ended repair not wired |
 | Minimal Pairs | Yes | Yes (receptive) | 6 | L7 degraded-signal and L8 triplet response-time tasks not built |
-| Meaning Match | Yes | Yes (receptive) | 7 | L8 figurative language not built; L6–L7 thin |
-| Two Clues | Yes | Yes | 7 | L8 figurative clues not built; L6–L7 thin |
+| Meaning Match | Yes | Yes (receptive) | 8 | L8 contextual nonliteral inference has 16 distinct items; SLP review and clinical validity pending; L6–L7 thin |
+| Two Clues | Yes | Yes | 8 | L8 nonliteral convergence has 16 distinct items; ASR, valid alternatives, and SLP review pending; L6–L7 thin |
 | Category Fluency | Yes | Yes | 7 | L8 figurative task not built; L6–L7 thin |
 | Sentence Construction | Yes | Yes | 7 | L8 open production not built; L6–L7 thin |
 | Multi-Step Planning | Yes | Yes | 7 | L8 constrained-output task not built; L7 thin |
@@ -45,6 +45,8 @@
 | Pattern Match | Yes (new design) | **No** | None | Non-linguistic visual working-memory; keep excluded from aphasia mastery |
 | Command Scenes (supplemental route) | Yes (new design) | **No** | None | Current game emits app events only; no verified scored or persisted clinical attempt path |
 
+**L8 activation in the stacked implementation branch:** Both new L8 banks are selected only by the patient's persisted clinical level. Generic engine difficulty 9–10 alone never unlocks them. The existing progression hooks and clinician-motivated numerical criteria remain in effect; these are content readiness updates, not newly validated clinical thresholds. Two Clues additionally records actual cue delivery independently from strong anchor matches. Automated content/unit testing is necessary but not sufficient; isolated backend, real aphasic speech, and clinician evaluations remain unverified.
+
 **Aliases and separate modes:** `/exercise/word-practice` maps to the Phrase Practice game, and the Practice picker’s `phonological` routes to Phonological Awareness. They are not extra independent clinical games. Feed the Monster is a pediatric, device-local prototype without clinical telemetry or parental-consent infrastructure. Voice Practice is a mode with its own session logic, not a discrete adult task ladder; neither is silently assigned invented adult clinical promotion criteria.
 
 ## Required engineering acceptance criteria to activate each planned level
@@ -57,4 +59,4 @@
 6. Unit + integration + browser tests prove the level-specific content changes, scoring, cue dependencies, per-patient persistence, no cross-game progress leakage, and accurate daily planning feedback.
 7. SLP review for each ladder; separate permitted aphasic speech/device evaluation and regulatory/privacy readiness before hospital use.
 
-The current changes establish **specification completeness and enforce honest readiness metadata**. The remaining L7/L8 content and six plus ten design-only runtime migrations are future implementation, not silently shipped features. All current draft changes are isolated from production data.
+PR #101 established **design completeness**. Stacked PR #102 adds two distinct L8 content paths and corrects Two Clues cue attribution; neither PR has been merged or deployed. **Nine** other wired games still have incomplete final-stage mechanics, and **16** design-only games still require runtime progression, game-specific evidence, and persistence. No clinical effectiveness or hospital readiness is implied.

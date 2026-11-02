@@ -33,7 +33,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import {
   useTwoCluesProgression,
-  mapTwoCluesSupport,
+  getTwoCluesSupportEvidence,
 } from '@/hooks/useTwoCluesProgression';
 import { resolveEffectiveTwoCluesInitialDifficulty } from '@/lib/progression/twoCluesDifficultyBridge';
 import { Button } from '@/components/ui/button';
@@ -148,16 +148,12 @@ export default function TwoCluesExercise() {
     pivot.recordTrialResult({
       wasCorrect: isCorrect,
       reactionTimeMs: result.reactionTimeMs,
-      cueLevel: result.reachedAnchor ? 1 : 0,
+      cueLevel: result.cueLevelUsed ?? 0,
     });
 
-    // Lexical axis SupportLevel mapping:
-    //   independent  → produced from the two clues alone (no anchor)
-    //   semantic_cue → anchor word was shown (semantic scaffold)
-    // TwoClues never escalates to phonemic / full-model, so the ladder
-    // stops at semantic_cue.
-    const usedAnchor = !!result.reachedAnchor;
-    const supportUsed = mapTwoCluesSupport(usedAnchor);
+    // `reachedAnchor` describes match quality, NOT hint use. Use the
+    // actual delivered cue type so independent strong answers stay independent.
+    const { cueLevel: deliveredCueLevel, supportUsed } = getTwoCluesSupportEvidence(result);
     const cleanedAnswer = extractAnswerFromTranscript(result.spokenWord);
 
     void submitTrial({
@@ -170,7 +166,7 @@ export default function TwoCluesExercise() {
       userResponse: cleanedAnswer ?? result.spokenWord ?? null,
       isCorrect,
       accuracyScore: typeof result.semanticSimilarity === 'number' ? result.semanticSimilarity : (isCorrect ? 1 : 0),
-      cueLevel: usedAnchor ? 1 : 0,
+      cueLevel: deliveredCueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
       trialMode: 'production',
@@ -181,13 +177,17 @@ export default function TwoCluesExercise() {
         anchors: result.anchors,
         match_tier: result.tier,
         reached_anchor: result.reachedAnchor,
+        delivered_cue_level: deliveredCueLevel,
+        delivered_cue_type: result.cueTypeUsed ?? 'none',
+        clinical_stage: result.clinicalStage ?? null,
         spoken_word_raw: result.spokenWord,
         spoken_word_clean: cleanedAnswer,
         matched_word: result.matchedWord,
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
         pivot_pending: pivot.hasPending,
-        cue_type_given: adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : 'none',
+        cue_type_given: result.cueTypeUsed ?? 'none',
+        recommended_cue_type: adaptation.recommendedCueType,
         clinical_level: progression.startingLevel,
         clinical_floor: bridge.clinicalFloor,
         ...adaptationTelemetry,
@@ -305,6 +305,8 @@ export default function TwoCluesExercise() {
             userId={user?.id}
             profileId={activeProfile?.id}
             focusPhonemes={adaptation.focusPhonemes.length > 0 ? adaptation.focusPhonemes : undefined}
+            clinicalLevel={progression.startingLevel}
+            initialDifficulty={bridge.effective}
             recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType : undefined}
           />
         )}

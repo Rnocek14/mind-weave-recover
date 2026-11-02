@@ -251,7 +251,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'recognition_only (baseline) → semantic_cue (after hint). Receptive task — NOT routed into expressive mastery; receptive mastery track deferred.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/meaning-match.md',
-      tldr: 'Comprehension hierarchy (concrete→abstract, distant→close distractors) is grounded; per-level thresholds and tier mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational. Receptive-safe routing.',
+      tldr: 'Comprehension hierarchy (concrete→abstract, distant→close distractors) is grounded; per-level thresholds and tier mapping are clinically motivated calibration defaults. L6–L7 thin; L8 has a dedicated limited contextual-figurative bank, with SLP validity review pending. Receptive-safe routing.',
     },
   },
   'two-clues': {
@@ -264,7 +264,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'independent (solved cold) → semantic_cue (after anchor)',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/two-clues.md',
-      tldr: 'SFA-style converging-features retrieval (Boyle & Coelho; Maddy meta-analysis); per-level thresholds + bank mapping are clinically motivated calibration defaults. L6–L7 thin; L8 aspirational.',
+      tldr: 'SFA-style converging-features retrieval (Boyle & Coelho; Maddy meta-analysis); per-level thresholds + bank mapping are clinically motivated calibration defaults. L6–L7 thin; L8 has a limited nonliteral cue-convergence bank, with ASR/SLP review pending.',
     },
   },
   'describe-guess': {

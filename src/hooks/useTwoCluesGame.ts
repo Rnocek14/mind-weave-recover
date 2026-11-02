@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { TwoCluesPuzzle, shufflePuzzles, getPuzzles } from '@/data/twoCluesBank';
+import { TWO_CLUES_LEVEL8_PUZZLES } from '@/data/twoCluesLevel8Bank';
 import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 import { filterKidsTwoCluesPuzzles } from '@/data/kidsContent';
 import { useKidsMode } from '@/contexts/KidsModeContext';
@@ -26,6 +27,10 @@ export interface TwoCluesTrialResult {
   reactionTimeMs: number;
   coachResponse?: string;
   attemptNumber: number;
+  /** Delivered assistance; distinct from `reachedAnchor` (answer match tier). */
+  cueLevelUsed?: number;
+  cueTypeUsed?: 'none' | 'semantic' | 'phonemic' | 'full_word';
+  clinicalStage?: 8;
 }
 
 export interface TwoCluesGameState {
@@ -46,9 +51,22 @@ interface UseTwoCluesGameOptions {
   roundCount?: number;
   category?: string;
   difficulty?: 1 | 2 | 3;
+  /** Persistent stage drives advanced bank, not in-session engine difficulty. */
+  clinicalLevel?: number | null;
   focusPhonemes?: string[];
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
   onGameComplete?: (results: TwoCluesTrialResult[]) => void;
+}
+
+/** L8 is selected only at a persisted stage; engine difficulty cannot unlock it. */
+export function selectTwoCluesStagePool(
+  standardPool: TwoCluesPuzzle[],
+  clinicalLevel?: number | null,
+  kidsMode = false,
+): TwoCluesPuzzle[] {
+  return clinicalLevel === 8 && !kidsMode
+    ? [...TWO_CLUES_LEVEL8_PUZZLES]
+    : standardPool;
 }
 
 export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
@@ -56,6 +74,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     roundCount = 10,
     category,
     difficulty,
+    clinicalLevel,
     focusPhonemes,
     onTrialComplete,
     onGameComplete,
@@ -67,11 +86,12 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
 
   // Initialize puzzles with phoneme targeting
   const initialPuzzles = useMemo(() => {
-    let puzzles = getPuzzles({
+    const advanced = clinicalLevel === 8 && !kidsMode;
+    let puzzles = selectTwoCluesStagePool(getPuzzles({
       category: category as any,
       difficulty,
       focusPhonemes,
-    });
+    }), clinicalLevel, kidsMode);
     // Kids Mode narrows to easy, kid-world puzzles — but never overrides an
     // explicit clinician-configured category or difficulty.
     if (kidsMode && !category && !difficulty) {
@@ -81,12 +101,12 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     // (T2/T3 pools are ~20 items with 10-round sessions — naive shuffle
     // repeats within two days). Soft: never yields fewer than roundCount.
     const ordered = orderFreshFirst('two_clues', shufflePuzzles(puzzles), {
-      tier: difficulty ?? '*',
+      tier: advanced ? 'clinical-l8' : difficulty ?? '*',
     });
     const picked = ordered.slice(0, roundCount);
-    markManyUsed('two_clues', picked.map((p) => p.id), { tier: difficulty ?? '*' });
+    markManyUsed('two_clues', picked.map((p) => p.id), { tier: advanced ? 'clinical-l8' : difficulty ?? '*' });
     return picked;
-  }, [category, difficulty, roundCount, focusPhonemes?.join(','), kidsMode]);
+  }, [category, difficulty, clinicalLevel, roundCount, focusPhonemes?.join(','), kidsMode]);
 
   const [state, setState] = useState<TwoCluesGameState>(() => ({
     puzzles: initialPuzzles,
@@ -118,7 +138,11 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   // Uses functional setState for fresh state + fires callback outside updater
   const pendingTrialRef = useRef<TwoCluesTrialResult | null>(null);
 
-  const submitAnswer = useCallback((spokenWord: string, precomputedResult?: ScoringResult): ScoringResult => {
+  const submitAnswer = useCallback((
+    spokenWord: string,
+    precomputedResult?: ScoringResult,
+    cueEvidence?: { level: number; type: 'none' | 'semantic' | 'phonemic' | 'full_word' },
+  ): ScoringResult => {
     const result: ScoringResult = precomputedResult ?? {
       tier: 'uncertain',
       score: 0,
@@ -160,6 +184,9 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         reactionTimeMs,
         coachResponse: result.coachResponse,
         attemptNumber: prev.currentAttempt,
+        cueLevelUsed: cueEvidence?.level ?? 0,
+        cueTypeUsed: cueEvidence?.type ?? 'none',
+        clinicalStage: prev.currentPuzzle.clinicalStage,
       };
 
       // Stash for callback outside updater
@@ -218,7 +245,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   }, [onGameComplete]);
 
   // Skip current puzzle
-  const skipRound = useCallback(() => {
+  const skipRound = useCallback((cueEvidence?: { level: number; type: 'none' | 'semantic' | 'phonemic' | 'full_word' }) => {
     // Log skip with no score
     const { currentPuzzle } = state;
     if (currentPuzzle) {
@@ -235,6 +262,9 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
           ? Date.now() - roundStartTimeRef.current
           : 0,
         attemptNumber: 0,
+        cueLevelUsed: cueEvidence?.level ?? 0,
+        cueTypeUsed: cueEvidence?.type ?? 'none',
+        clinicalStage: currentPuzzle.clinicalStage,
       };
       onTrialComplete?.(skipResult);
     }

@@ -10,6 +10,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { MEANING_MATCH_ITEMS, MeaningMatchItem, levelToTier, MeaningMatchTier } from '@/data/meaningMatchItems';
+import { MEANING_MATCH_LEVEL8_ITEMS } from '@/data/meaningMatchLevel8Items';
 import { shuffleArray } from '@/lib/shuffle';
 
 export interface MeaningMatchTrialResult {
@@ -20,6 +21,7 @@ export interface MeaningMatchTrialResult {
   reactionTimeMs: number;
   tier: number;
   type: string;
+  clinicalStage?: 8;
   usedHint: boolean;
   points: number;
   explanation?: {
@@ -34,7 +36,16 @@ export interface MeaningMatchTrialResult {
   };
 }
 
-function buildPool(tier: MeaningMatchTier, seen: Set<string>): MeaningMatchItem[] {
+/** Advanced figurative inference is exclusive to persisted clinical L8. */
+export function buildPool(
+  tier: MeaningMatchTier,
+  seen: Set<string>,
+  clinicalLevel?: number | null,
+): MeaningMatchItem[] {
+  if (clinicalLevel === 8) {
+    const fresh = MEANING_MATCH_LEVEL8_ITEMS.filter(item => !seen.has(item.id));
+    return fresh.length ? shuffleArray(fresh) : shuffleArray(MEANING_MATCH_LEVEL8_ITEMS);
+  }
   const primary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier && !seen.has(i.id));
   const adjacent = MEANING_MATCH_ITEMS.filter(i => Math.abs(i.tier - tier) === 1 && !seen.has(i.id));
   const fallbackPrimary = MEANING_MATCH_ITEMS.filter(i => i.tier === tier);
@@ -42,7 +53,11 @@ function buildPool(tier: MeaningMatchTier, seen: Set<string>): MeaningMatchItem[
   return pool.length > 0 ? pool : shuffleArray(fallbackPrimary);
 }
 
-export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: number = 1) {
+export function useMeaningMatchGame(
+  roundCount: number = 10,
+  difficultyLevel: number = 1,
+  clinicalLevel: number | null = null,
+) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<MeaningMatchTrialResult[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
@@ -53,7 +68,7 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
 
   // Dynamic queue: regenerated when tier changes
   const initialQueue = useMemo(
-    () => buildPool(levelToTier(difficultyLevel), seenItemIdsRef.current).slice(0, roundCount),
+    () => buildPool(levelToTier(difficultyLevel), seenItemIdsRef.current, clinicalLevel).slice(0, roundCount),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -64,12 +79,12 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
     seenItemIdsRef.current = new Set();
     const t = levelToTier(difficultyLevel);
     setActiveTierState(t);
-    setQueue(buildPool(t, seenItemIdsRef.current).slice(0, roundCount));
+    setQueue(buildPool(t, seenItemIdsRef.current, clinicalLevel).slice(0, roundCount));
     setCurrentIndex(0);
     setResults([]);
     setTotalPoints(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundCount]);
+  }, [roundCount, clinicalLevel]);
 
   /**
    * Set the active tier mid-game. The current upcoming item (and beyond) is
@@ -77,17 +92,20 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
    * content shift. Past items are preserved.
    */
   const setActiveTier = useCallback((tier: MeaningMatchTier) => {
+    // Real L8 tasks cannot be swapped with generic tier-2/3 items by
+    // moment-to-moment difficulty changes; support can still adapt.
+    if (clinicalLevel === 8) return;
     setActiveTierState(prev => {
       if (prev === tier) return prev;
       setQueue(prevQueue => {
         const past = prevQueue.slice(0, currentIndex);
         const remainingNeeded = roundCount - currentIndex;
-        const fresh = buildPool(tier, seenItemIdsRef.current).slice(0, remainingNeeded);
+        const fresh = buildPool(tier, seenItemIdsRef.current, clinicalLevel).slice(0, remainingNeeded);
         return [...past, ...fresh];
       });
       return tier;
     });
-  }, [currentIndex, roundCount]);
+  }, [currentIndex, roundCount, clinicalLevel]);
 
   const currentItem: MeaningMatchItem | null = queue[currentIndex] ?? null;
   const isComplete = currentIndex >= queue.length || currentIndex >= roundCount;
@@ -111,6 +129,7 @@ export function useMeaningMatchGame(roundCount: number = 10, difficultyLevel: nu
       reactionTimeMs,
       tier: currentItem.tier,
       type: currentItem.type,
+      clinicalStage: currentItem.clinicalStage,
       usedHint,
       points,
     };

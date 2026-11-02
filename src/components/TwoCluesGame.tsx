@@ -57,6 +57,9 @@ interface TwoCluesGameProps {
   userId?: string;
   profileId?: string;
   focusPhonemes?: string[];
+  clinicalLevel?: number | null;
+  /** Bridged 1–10 engine start from the saved clinical level and session plan. */
+  initialDifficulty?: number;
   /** Profile-recommended first cue type (personalizes cue ladder order) */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -122,6 +125,8 @@ export function TwoCluesGame({
   profileId,
   focusPhonemes,
   recommendedCueType,
+  clinicalLevel,
+  initialDifficulty,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -206,7 +211,7 @@ export function TwoCluesGame({
 
     exerciseSlug: 'two_clues',
     sessionId: sessionId || null,
-    initialDifficulty: bounds.suggestedStart,
+    initialDifficulty: initialDifficulty ?? bounds.suggestedStart,
     bounds,
     windowSize: 5,
     targetSuccessRate: 0.75,
@@ -281,6 +286,7 @@ export function TwoCluesGame({
   const game = useTwoCluesGame({
     roundCount,
     focusPhonemes,
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   });
@@ -805,6 +811,10 @@ export function TwoCluesGame({
     let shouldHoldProcessing = false;
 
     try {
+      // Snapshot help delivered BEFORE asynchronous answer evaluation.
+      // `reachedAnchor` means matched a top answer, NOT that a cue was used.
+      const deliveredCueLevel = cueLevel;
+      const deliveredCueType = cueState?.type ?? 'none';
       // Quick local match first (instant)
       const quickMatch = quickLocalMatch(
         candidate,
@@ -871,7 +881,7 @@ export function TwoCluesGame({
       }
 
       // Pass pre-computed result to game state
-      game.submitAnswer(candidate, result);
+      game.submitAnswer(candidate, result, { level: deliveredCueLevel, type: deliveredCueType });
 
       // Adaptive difficulty
       const isSuccess = result.tier === 'strong' || result.tier === 'related';
@@ -1050,8 +1060,8 @@ export function TwoCluesGame({
     setProcessingGuard(false);
     // Fire-and-forget so a stuck pronunciation request can never block the skip.
     void finalizeAttempt('skipped').catch(() => {});
-    game.skipRound();
-  }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard]);
+    game.skipRound({ level: cueLevel, type: cueState?.type ?? 'none' });
+  }, [game, cancelRecording, stopListening, clearTranscriptState, finalizeAttempt, setProcessingGuard, cueLevel, cueState]);
 
   const handleContinue = useCallback(() => {
     if (autoRetryTimerRef.current) { clearTimeout(autoRetryTimerRef.current); autoRetryTimerRef.current = null; }
