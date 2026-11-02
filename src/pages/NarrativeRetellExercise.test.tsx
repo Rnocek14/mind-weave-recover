@@ -189,7 +189,7 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     finish();
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(screen.getByRole('alert').textContent).toContain('could not be saved');
-    expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    expect(mocks.completeSession).not.toHaveBeenCalled();
     expect(mocks.getStats?.()).toMatchObject({ score: 0, totalTrials: 0 });
   });
 });

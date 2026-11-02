@@ -10,7 +10,7 @@ export function UnverifiedPracticeBanner() {
     <div role="alert" aria-live="assertive" className="fixed inset-0 z-[100] flex items-center justify-center bg-background p-6 overflow-y-auto">
       <div className="w-full max-w-2xl rounded-xl border-2 border-destructive p-6 space-y-5 text-center">
         <h2 className="text-2xl font-bold">Results not saved</h2>
-        <p className="text-lg">We couldn't save every answer. Please ask a care partner for help.</p>
+        <p className="text-lg">Some results could not be saved. Please ask a care partner for help.</p>
         <Button size="lg" className="min-h-14 min-w-48" onClick={() => navigate('/today')}>Return to Today</Button>
       </div>
     </div>
