@@ -30,6 +30,8 @@ Only after the owner confirms that the exact backend is disposable and contains 
 
 No secrets, passwords or clinical sample data go in these values. A human set of these variables is an administrative sign-off **only**; the checks must still verify actual authenticated writes, RLS denials and read-back.
 
+A genuinely disposable **local** Supabase instance at `http://127.0.0.1:54321` (`E2E_SUPABASE_PROJECT_REF=local`) also requires the same short-lived data attestation, with `NEUROSPARK_STAGING_DATA_ATTESTED_REF=local`. A local URL alone does not establish a safe backend; do not point it at a remote or real-patient database proxy.
+
 ## Promotion gate — must all be independently proven
 
 - [ ] Security engineer reviews the migration and all remaining exposed SECURITY DEFINER functions and triggers; no unintended public privileged RPC remains.
