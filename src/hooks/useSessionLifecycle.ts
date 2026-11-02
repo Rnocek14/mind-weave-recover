@@ -7,6 +7,7 @@ import { clearStandaloneSessionMutex } from '@/hooks/useStandaloneSession';
 import { trackEvent, FUNNEL_EVENTS } from '@/lib/appEvents';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { computeSessionAccuracySummary, accuracySummaryToSummaryFields } from '@/lib/sessionAccuracySummary';
+import { invalidateDailyLessonCache } from '@/lib/dailyLessonCache';
 
 type EndedReason = 'completed' | 'abandoned' | 'pagehide' | 'visibility_timeout' | 'unmount' | 'manual';
 
@@ -226,6 +227,7 @@ export const useSessionLifecycle = ({
             endedRef.current = false;
           }
         } else {
+          invalidateDailyLessonCache();
           console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
           // Release standalone-session mutex once the session is closed
           if (!isOwnedByParent) clearStandaloneSessionMutex();

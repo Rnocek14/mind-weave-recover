@@ -52,6 +52,9 @@ type ProgressionHook = (args: {
 }) => {
   loaded: boolean;
   startingLevel: number | null;
+  loadUnavailable: boolean;
+  recordTrialOutcome: (trial: {correct: boolean; support: "independent"}) => void;
+  __bufferedTrialCount: () => number;
 };
 
 const CASES: Array<{ name: string; slug: string; hook: ProgressionHook; level: number }> = [
@@ -97,5 +100,20 @@ describe.each(CASES)('$name — progression load-gate contract', ({ slug, hook, 
 
     expect(result.current.loaded).toBe(true);
     expect(result.current.startingLevel).toBe(level);
+  });
+
+  it("keeps all games gated when the clinical progression read is unavailable", async () => {
+    const { result } = renderHook(() => hook({ userId: 'u1', profileId: 'p1' }));
+    await act(async () => {
+      resolveLoad?.({
+        userId: 'u1', profileId: 'p1', exerciseSlug: slug,
+        currentLevel: 1, progressPct: 0, loadUnavailable: true,
+      });
+    });
+    expect(result.current.loadUnavailable).toBe(true);
+    expect(result.current.loaded).toBe(false);
+    expect(result.current.startingLevel).toBeNull();
+    act(() => result.current.recordTrialOutcome({ correct: true, support: "independent" }));
+    expect(result.current.__bufferedTrialCount()).toBe(0);
   });
 });

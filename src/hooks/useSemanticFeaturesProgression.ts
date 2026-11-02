@@ -71,6 +71,10 @@ export function useSemanticFeaturesProgression({
       setLoaded(true);
       return;
     }
+    setLoaded(false);
+    setState(null);
+    trialsRef.current = [];
+    flushedRef.current = false;
     let cancelled = false;
     void (async () => {
       const loadedState = await loadProgressionState({
@@ -93,12 +97,19 @@ export function useSemanticFeaturesProgression({
   }, [userId, profileId]);
 
   const recordTrialOutcome = useCallback((trial: BufferedTrial) => {
+    // A transient DB error, stale patient or unhydrated level is not a new beginner.
+    if (!loaded || state?.loadUnavailable ||
+        (userId && profileId && (!state || state.userId !== userId || state.profileId !== profileId))) return;
     trialsRef.current.push(trial);
-  }, []);
+  }, [loaded, state, userId, profileId]);
 
   const flushAtSessionEnd = useCallback(
     async (params: { sessionId: string | null }) => {
       if (flushedRef.current) return { ok: true, skipped: true as const };
+      if (state?.loadUnavailable ||
+          (userId && profileId && (!loaded || !state || state.userId !== userId || state.profileId !== profileId))) {
+        return { ok: false, error: 'Patient progression unavailable. Reopen practice to try again.' };
+      }
       const trials = trialsRef.current;
       if (!userId || !profileId || trials.length === 0) {
         flushedRef.current = true;
@@ -175,8 +186,12 @@ export function useSemanticFeaturesProgression({
 
   return {
     state,
-    loaded,
-    startingLevel: state?.currentLevel ?? null,
+    loaded: loaded && state?.loadUnavailable !== true &&
+      (!userId || !profileId || (state?.userId === userId && state?.profileId === profileId)),
+    loadUnavailable: state?.loadUnavailable === true,
+    startingLevel: loaded && state?.loadUnavailable !== true &&
+      (!userId || !profileId || (state?.userId === userId && state?.profileId === profileId))
+      ? state?.currentLevel ?? null : null,
     recordTrialOutcome,
     flushAtSessionEnd,
     __bufferedTrialCount: bufferedTrialCount,

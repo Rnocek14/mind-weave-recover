@@ -13,6 +13,7 @@ import type { CapabilityScores } from './capabilityAssessor';
 import type { ClinicalProfile } from './clinicalProfileMapper';
 import type { RecencyPenalties } from './exerciseRecency';
 import type { ProgressionPlanningSignal } from './progressionPlanningSignals';
+import { isComparableScoredEvent } from './clinical/metricsPresentation';
 import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
 import { isPolishedExercise, filterToPolished, POLISHED_EXERCISES } from './polishedExercises';
 import { filterForSeverity } from './exerciseGating';
@@ -1365,7 +1366,10 @@ export function aggregatePerformanceSignals(
   recentTrials: any[], // From exercise_events
   recentSessions: any[] // From sessions
 ): PerformanceSignals {
-  if (recentTrials.length === 0) {
+  // Use the same exclusion policy as clinician reviews. Unscored/invalid
+  // attempts cannot be interpreted as wrong answers, a decline or fatigue.
+  const eligible = recentTrials.filter(isComparableScoredEvent);
+  if (eligible.length === 0) {
     return {
       avgReactionTime: 3000,
       avgAccuracy: 0.5,
@@ -1377,13 +1381,24 @@ export function aggregatePerformanceSignals(
     };
   }
 
-  const totalTrials = recentTrials.length;
-  const correctTrials = recentTrials.filter(t => t.score === 1).length;
-  const timeouts = recentTrials.filter(t => t.reaction_time_ms === null).length;
+  const totalTrials = eligible.length;
+  // Some historical games store a 0–1 score, others 0–100. Compute a
+  // descriptive mean rather than treating every non-exact "1" as wrong.
+  const meanTaskScore = eligible.reduce((sum, trial) =>
+    sum + (trial.score <= 1 ? trial.score : trial.score / 100), 0) / totalTrials;
+  const timeouts = eligible.filter(t => t.reaction_time_ms === null).length;
 
-  const validRTs = recentTrials
-    .filter(t => t.reaction_time_ms !== null)
-    .map(t => t.reaction_time_ms);
+  // Query results arrive newest-first; a fatigue/drift calculation needs
+  // chronological order or improving response time looks like worsening.
+  const chronological = [...eligible].sort((a, b) => {
+    const aTime = Date.parse(a.created_at ?? '');
+    const bTime = Date.parse(b.created_at ?? '');
+    return Number.isFinite(aTime) && Number.isFinite(bTime) ? aTime - bTime : 0;
+  });
+  const validRTs = chronological
+    .filter(t => typeof t.reaction_time_ms === 'number' &&
+      Number.isFinite(t.reaction_time_ms) && t.reaction_time_ms >= 0)
+    .map(t => t.reaction_time_ms as number);
   const avgReactionTime = validRTs.length > 0
     ? validRTs.reduce((a, b) => a + b, 0) / validRTs.length
     : 3000;
@@ -1395,7 +1410,7 @@ export function aggregatePerformanceSignals(
     perseverations: 0,
   };
 
-  recentTrials.forEach(t => {
+  eligible.forEach(t => {
     if (t.error_type) {
       if (t.error_type.includes('semantic')) errorCounts.semantic++;
       if (t.error_type.includes('phonological')) errorCounts.phonological++;
@@ -1413,7 +1428,7 @@ export function aggregatePerformanceSignals(
 
   // Infer frustration from engagement_flags
   let frustrationSignals = 0;
-  recentTrials.forEach(t => {
+  eligible.forEach(t => {
     if (t.engagement_flags) {
       const flags = t.engagement_flags as any;
       if (flags.frustrationLevel === 'high') frustrationSignals++;
@@ -1443,7 +1458,7 @@ export function aggregatePerformanceSignals(
 
   return {
     avgReactionTime,
-    avgAccuracy: correctTrials / totalTrials,
+    avgAccuracy: meanTaskScore,
     timeoutRate: timeouts / totalTrials,
     errorTypes,
     frustrationLevel,

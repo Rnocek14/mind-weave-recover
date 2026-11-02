@@ -15,6 +15,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { toLessonExerciseSlug } from './exerciseSlugNormalizer';
 
 export interface ExerciseUsageRecord {
   exerciseSlug: string;
@@ -46,6 +47,7 @@ export async function fetchRecentExerciseUsage(
   profileId: string | undefined,
   windowDays: number = 7,
 ): Promise<ExerciseUsageRecord[]> {
+  if (!userId || !profileId) return [];
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - windowDays);
 
@@ -63,7 +65,7 @@ export async function fetchRecentExerciseUsage(
     .gte('created_at', cutoffDate.toISOString())
     .eq('sessions.user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(1000);
+    .limit(1001);
 
   // Further scope to active profile if available
   if (profileId) {
@@ -72,7 +74,7 @@ export async function fetchRecentExerciseUsage(
 
   const { data, error } = await query;
 
-  if (error || !data) {
+  if (error || !data || data.length >= 1001) {
     console.warn('[ExerciseRecency] Failed to fetch usage:', error?.message);
     return [];
   }
@@ -88,8 +90,8 @@ export async function fetchRecentExerciseUsage(
   }>();
 
   for (const row of data) {
-    const slug = row.exercise_slug;
-    if (!slug) continue;
+    if (!row.exercise_slug) continue;
+    const slug = toLessonExerciseSlug(row.exercise_slug);
 
     const existing = usageMap.get(slug) || {
       sessions: new Set<string>(),
