@@ -14,7 +14,8 @@ import { getCapabilityDifficultyBounds } from '@/lib/difficultyBounds';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePhraseAudio } from '@/hooks/usePhraseAudio';
-import { getTrialsForLevel, evaluatePhraseMatch, type PhraseTrial } from '@/data/phraseBank';
+import { getTrialsForLevel, type PhraseTrial } from '@/data/phraseBank';
+import { evaluatePhraseTrainingResponse } from '@/lib/phrasePractice/evaluateTrainingResponse';
 import { buildShadowEvent, toUtteranceAnalysis, type UtteranceAnalysis, type ShadowEvent } from '@/types/utteranceAnalysis';
 import { classifySpeechError } from '@/lib/errorClassifier';
 import { calculateEncouragementScore } from '@/lib/feedbackGenerator';
@@ -435,7 +436,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const trimmed = transcript.trim();
     if (trimmed.length < 2) return;
     
-    const evaluation = evaluatePhraseMatch(transcript, currentTrial);
+    const evaluation = evaluatePhraseTrainingResponse(transcript, currentTrial, training.stage);
     setCurrentWordAccuracy(evaluation.wordAccuracy);
     
     if (evaluation.match) {
