@@ -245,7 +245,8 @@ describe('NarrativeRetellExercise raw event integrity', () => {
   it('does not advertise a finished clinical stage for unimplemented levels 4 to 8', () => {
     mocks.persistedLevel = 6;
     render(<NarrativeRetellExercise />);
-    expect(screen.getByRole('status').textContent).toContain('higher-level story training is');
+    expect(screen.getByRole('status', { name: 'Higher stage practice notice' }).textContent)
+      .toContain('higher-level story training is');
     expect(screen.getByTestId('narrative-game-stage').textContent).toContain('stage=general');
   });
 

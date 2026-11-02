@@ -279,7 +279,7 @@ export default function NarrativeRetellExercise() {
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
         {!training.stage && training.persistedLevel != null && (
-          <div role="status" className="rounded-lg border p-3 text-sm">
+          <div role="status" aria-label="Higher stage practice notice" className="rounded-lg border p-3 text-sm">
             Your saved level is {training.persistedLevel}. This higher-level story training is
             still being developed. You can continue general story practice here without
             changing your saved level.

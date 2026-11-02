@@ -54,7 +54,7 @@ Legacy `exercise_events` writes are now awaited before the session is ended. The
 | Practice stage 1 | executable practice only | Tier 1 + full-scene visual assistance; no clinical promotion |
 | Practice stage 2 | executable practice only | Tier 1 + emoji sequence; no clinical promotion |
 | Practice stage 3 | executable practice only | Tier 2 + sequence dots with stall rescue; no clinical promotion |
-| Clinical L1–L8 | aspirational | Criteria, thresholds, persistence of **advancement**, and validated transfer not implemented |
+| Clinical L1–L8 | aspirational | Criteria, thresholds and stored **advancement** are not implemented; functional-transfer testing is unperformed |
 | Higher-stage training 4–8 | not implemented | General practice available, but no higher-stage-specific mechanics |
 
 ## Out of scope for this ship
