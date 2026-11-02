@@ -39,6 +39,39 @@ describe('FunctionalScenePlayer — actual stage-specific playthroughs', () => {
       inputMode: 'tap', supportShown: true, goalReached: true, practiceStage: 4,
     }));
   });
+  it('stage 5 lets someone without a microphone type a real object-action goal', () => {
+    const applied = vi.fn();
+    render(<FunctionalScenePlayer practiceLevel={5} onCommandApplied={applied} />);
+    fireEvent.change(screen.getByLabelText(/Type the command instead/i), {
+      target: { value: 'lamp brighter' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Apply typed command/i }));
+    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(applied).toHaveBeenCalledWith(expect.objectContaining({
+      practiceStage: 5, inputMode: 'typed', goalReached: true,
+      supportShown: false,
+    }));
+  });
+
+  it('stage 7 requires a meaningful alternative expression, not the canonical target echo', () => {
+    const applied=vi.fn();
+    render(<FunctionalScenePlayer practiceLevel={7} onCommandApplied={applied} />);
+    fireEvent.change(screen.getByLabelText(/Type the command instead/i), {
+      target: { value: 'brighter' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Apply typed command/i }));
+    expect(screen.queryByText(/Goal practiced/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Type the command instead/i), {
+      target: { value: 'lighter' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Apply typed command/i }));
+    expect(screen.getByText(/Goal practiced/)).toBeTruthy();
+    expect(applied).toHaveBeenLastCalledWith(expect.objectContaining({
+      practiceStage: 7, inputMode: 'typed', formUsed: 'alias',
+      goalReached: true,
+    }));
+  });
+
   it('stage 6 requires two actual opposite scene actions to finish', () => {
     render(<FunctionalScenePlayer practiceLevel={6} />);
     expect(screen.getByText(/Step 1 of 2/)).toBeTruthy();
