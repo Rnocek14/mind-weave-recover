@@ -332,23 +332,33 @@ export function SynonymGeneratorGame({
     setDifficultyShift(null);
     processedRef.current.clear();
     wordsRef.current = [];
+    spokenTokensRef.current = 0;
+    typedEntriesRef.current = 0;
+    spokenTranscriptRef.current = null;
+    roundFinishedRef.current = false;
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (roundEndTimerRef.current) clearTimeout(roundEndTimerRef.current);
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTimeLeft(newTime);
     startTimeRef.current = Date.now();
 
+    // Never call a game-completion side effect from a React state updater.
+    // A separate timeout owns completion; interval is display only.
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) { finishRound(); return 0; }
-        return prev - 1;
-      });
+      setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
+    roundEndTimerRef.current = setTimeout(() => {
+      latestFinishRoundRef.current('timer');
+    }, newTime * 1000);
 
-    if (speechSupported) {
-      setTimeout(() => startListening(), 300);
-    } else {
+    if (speechSupported && !showTextInput) {
+      setTimeout(() => {
+        if (!roundFinishedRef.current) startListening();
+      }, 300);
+    } else if (!speechSupported) {
       setShowTextInput(true);
     }
-  }, [currentDifficulty, finishRound, speechSupported, startListening, vg]);
+  }, [currentDifficulty, speechSupported, showTextInput, startListening, vg]);
 
   /** Begin the countdown → then auto-start the round */
   const beginCountdown = useCallback(() => {
@@ -409,12 +419,18 @@ export function SynonymGeneratorGame({
   }, [beginCountdown]);
 
   const addWord = useCallback(() => {
+    if (phase !== 'active' || roundFinishedRef.current) return;
     const word = currentInput.trim();
     if (!word) return;
-    setWords(prev => [...prev, word]);
+    typedEntriesRef.current += 1;
+    // Keep the authoritative ref synchronous with the UI; finishing the
+    // round immediately after Enter must not lose the last typed word.
+    const nextWords = [...wordsRef.current, word];
+    wordsRef.current = nextWords;
+    setWords(nextWords);
     setCurrentInput('');
     inputRef.current?.focus();
-  }, [currentInput]);
+  }, [currentInput, phase]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') { e.preventDefault(); addWord(); }
@@ -476,7 +492,7 @@ export function SynonymGeneratorGame({
   // ── Round feedback ──
   if (phase === 'round-feedback') {
     const lastResult = results[results.length - 1];
-    const threshold = getSuccessThreshold(currentDifficulty);
+    const threshold = getSynonymSuccessThreshold(lastResult.difficulty);
     const wasGood = lastResult.matchCount >= threshold;
 
     return (
@@ -569,7 +585,7 @@ export function SynonymGeneratorGame({
     }
 
     if (accuracy >= 0.7) {
-      strengths.push('High accuracy — most words you said were valid synonyms');
+      strengths.push('High accuracy — most words you entered were valid synonyms');
     }
 
     const bestRound = results.reduce((best, r) => r.matchCount > best.matchCount ? r : best, results[0]);
@@ -706,7 +722,12 @@ export function SynonymGeneratorGame({
       {/* Toggle input mode */}
       {speechSupported && (
         <button
-          onClick={() => { const next = !showTextInput; setShowTextInput(next); sessionStorage.setItem('preferTypingInput', String(next)); }}
+          onClick={() => {
+            const next = !showTextInput;
+            if (next) stopListening();
+            setShowTextInput(next);
+            sessionStorage.setItem('preferTypingInput', String(next));
+          }}
           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 self-center"
         >
           {showTextInput ? <Mic className="w-3 h-3" /> : <Keyboard className="w-3 h-3" />}
@@ -734,7 +755,7 @@ export function SynonymGeneratorGame({
         ))}
       </div>
 
-      <Button variant="outline" size="sm" onClick={finishRound} className="self-end min-h-[44px]">
+      <Button variant="outline" size="sm" onClick={() => finishRound('early')} className="self-end min-h-[44px]">
         Done early
       </Button>
     </div>
