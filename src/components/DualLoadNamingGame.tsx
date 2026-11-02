@@ -28,6 +28,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Mic, MicOff, Brain, ChevronRight, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { classifyDualLoadCompositeEvidence } from '@/lib/dualLoadNaming/compositeEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) */
 function levelToTierLocal(level: number): number {
@@ -295,12 +296,16 @@ export function DualLoadNamingGame({
       // Combined success: at least 2/3 words recalled AND naming above 60% — true
       // dual-load proficiency. Feeds the adaptation engine so tier shifts reflect
       // genuine mastery under cognitive load, not just one or the other.
-      const combinedSuccess =
-        result.recallAccuracy >= 0.67 && result.namingAccuracy >= 0.6;
-      adaptation.recordTrial({
-        correct: combinedSuccess,
-        reactionTimeMs: result.durationMs,
-      });
+      const evidence = classifyDualLoadCompositeEvidence(result);
+      const combinedSuccess = evidence.combinedSuccess;
+      // No valid spoken naming attempts: don't turn missing/unsuitable ASR
+      // evidence into an automatic decrease in dual-task difficulty.
+      if (evidence.clinicalProgressionEligible) {
+        adaptation.recordTrial({
+          correct: combinedSuccess,
+          reactionTimeMs: result.durationMs,
+        });
+      }
       // DualLoad has no explicit cue ladder; cueLevel: 0
       engagement.recordTrial({
         correct: combinedSuccess,
