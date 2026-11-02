@@ -26,11 +26,20 @@
 
 import type { SupportLevel } from '../clinicalProgression';
 
+/**
+ * Draft-only non-speech assistance vocabulary. These are NOT valid persisted
+ * SupportLevel values and must never enter SUPPORT_CREDIT/mastery calculations.
+ * Motor/visual tasks need their own independently evaluated assistance axis.
+ */
+export type ProposedNonSpeechSupport = 'guided_touch' | 'visual_prompt' | 'independent_motor';
+
+export type DesignOnlySupport = SupportLevel | ProposedNonSpeechSupport;
+
 export interface DesignOfRecordLevelSpec {
   level: number;
   description: string;
   /** Intended clinical support target if/when the ladder is enforced. */
-  targetSupport: SupportLevel;
+  targetSupport: DesignOnlySupport;
   /** Phase 1 readiness — almost always 'aspirational' for design-only. */
   readiness: 'ready' | 'thin' | 'aspirational';
   /** Always `implemented: false` for design-only specs. */
