@@ -11,6 +11,28 @@ import type { NarrativeTrialResult } from '@/hooks/useNarrativeRetellGame';
 export type NarrativeInputMode = 'spoken' | 'typed' | 'none';
 export type NarrativeCompletionReason = 'completed' | 'skipped';
 
+/**
+ * Component-to-page provenance bridge. Called with the original input
+ * source before logging; assignment does not change the narrative scorer.
+ */
+export function annotateNarrativeResult(
+  result: NarrativeTrialResult,
+  evidence: {
+    inputMode: NarrativeInputMode;
+    completionReason: NarrativeCompletionReason;
+    responseValid: boolean;
+    browserTranscript?: string | null;
+  },
+): NarrativeTrialResult {
+  result.inputMode = evidence.inputMode;
+  result.completionReason = evidence.completionReason;
+  result.responseValid = evidence.responseValid;
+  result.browserTranscript = evidence.inputMode === 'spoken'
+    ? (evidence.browserTranscript ?? null)
+    : null;
+  return result;
+}
+
 export interface NarrativeRoundEvidence {
   practiceSuccessful: boolean;
   /** Browser-recognized, valid speech-mode retell with no surfaced aids. */
