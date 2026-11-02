@@ -33,6 +33,8 @@ import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { TypingFallbackBar, getPreferTyping, setPreferTyping } from '@/components/TypingFallbackBar';
 import { Keyboard } from 'lucide-react';
 import { mapEngineLevelToPlanningTier } from '@/data/multiStepPlanningStimuli';
+import { classifyPlanningRoundEvidence } from '@/lib/multiStepPlanning/roundEvidence';
+import type { PlanningInputMode } from '@/lib/multiStepPlanning/roundEvidence';
 
 /** Map adaptive level (1-10) → content tier (1-3) — Phase 1.5: single source of truth */
 const levelToTierLocal = mapEngineLevelToPlanningTier;
@@ -105,6 +107,8 @@ export function MultiStepPlanningGame({
   const startTimeRef = useRef(Date.now());
   const latestTranscriptRef = useRef('');
   const hasProcessedRef = useRef(false);
+  const typedSubmissionRef = useRef<string | null>(null);
+  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
 
   // Clinical pipeline hooks
   const {
@@ -128,6 +132,7 @@ export function MultiStepPlanningGame({
     setCollectedTranscript('');
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
+    typedSubmissionRef.current = null;
   }, [currentIndex]);
 
 
@@ -140,46 +145,50 @@ export function MultiStepPlanningGame({
   }, [isComplete, results, onGameComplete]);
 
   const handleSpeechResult = useCallback((transcript: string) => {
-    if (hasProcessedRef.current || !transcript.trim()) return;
+    if (hasProcessedRef.current || useTyping || !transcript.trim()) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = transcript;
-  }, []);
+  }, [useTyping]);
 
-  // Typing fallback (clinical safety)
-  const [useTyping, setUseTyping] = useState<boolean>(() => getPreferTyping());
-  const handleDoneRef = useRef<(() => void) | null>(null);
+  // Typing fallback is a different input modality, NOT a speech transcript.
+  // Keep a synchronous ref so pressing Submit cannot race React setState.
+  const handleDoneRef = useRef<((mode: PlanningInputMode) => void) | null>(null);
   const handleTypedSubmit = useCallback((text: string) => {
     if (hasProcessedRef.current) return;
+    typedSubmissionRef.current = text;
     setCollectedTranscript(text);
-    latestTranscriptRef.current = text;
-    setTimeout(() => { if (!hasProcessedRef.current) handleDoneRef.current?.(); }, 0);
+    handleDoneRef.current?.('typed');
   }, []);
 
   const { isListening, transcript: liveTranscript, fullTranscript, startListening, stopListening, isSupported } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
 
   useEffect(() => {
-    if (fullTranscript) latestTranscriptRef.current = fullTranscript;
-  }, [fullTranscript]);
+    if (!useTyping && !hasProcessedRef.current && fullTranscript) {
+      latestTranscriptRef.current = fullTranscript;
+    }
+  }, [fullTranscript, useTyping]);
 
   // Auto-submit after 3s silence once user has spoken 2+ words
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (phase !== 'speaking') return;
+    if (phase !== 'speaking' || useTyping || !isSupported) return;
     const transcript = collectedTranscript || latestTranscriptRef.current || '';
     const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (wordCount >= 2) {
       silenceTimerRef.current = setTimeout(() => {
-        if (!hasProcessedRef.current) handleDone();
+        if (!hasProcessedRef.current) void handleDone('spoken');
       }, 3000);
     }
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, collectedTranscript, fullTranscript]);
+  }, [phase, collectedTranscript, fullTranscript, useTyping, isSupported]);
 
   const handleStart = useCallback(() => {
+    if (hasProcessedRef.current || useTyping || !isSupported) return;
     setPhase('speaking');
     startTimeRef.current = Date.now();
+    typedSubmissionRef.current = null;
 
     // Start clinical pipeline
     if (currentItem && userId) {
@@ -196,15 +205,23 @@ export function MultiStepPlanningGame({
 
     startRecording();
     startListening();
-  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId]);
+  }, [startListening, startRecording, startAttempt, currentItem, currentIndex, userId, sessionId, useTyping, isSupported]);
+
+  const handleStartTyping = useCallback(() => {
+    setUseTyping(true);
+    startTimeRef.current = Date.now();
+    typedSubmissionRef.current = null;
+    latestTranscriptRef.current = '';
+    setPhase('speaking');
+  }, []);
 
   // Auto-start first trial when launched from lesson
   useEffect(() => {
-    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported) {
+    if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported && !useTyping) {
       autoStartedRef.current = true;
       setTimeout(() => handleStart(), 400);
     }
-  }, [autoStart, phase, currentItem, isSupported, handleStart]);
+  }, [autoStart, phase, currentItem, isSupported, useTyping, handleStart]);
 
   const handleDone = useCallback(async () => {
     if (hasProcessedRef.current) return;
