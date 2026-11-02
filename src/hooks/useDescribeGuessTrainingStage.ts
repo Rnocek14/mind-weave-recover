@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { loadProgressionState } from '@/lib/progression/clinicalProgression';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { getDescribeGuessTrainingStage, type DescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
 
 const LOAD_TIMEOUT_MS = 5000;
@@ -54,7 +55,7 @@ export function useDescribeGuessTrainingStage({
     void (async () => {
       try {
         const saved = await Promise.race([
-          loadProgressionState({ userId, profileId, exerciseSlug: 'describe-guess' }),
+          loadProgressionState({ userId, profileId, exerciseSlug: CANONICAL_SLUGS.DESCRIBE_GUESS }),
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => reject(new Error('DescribeGuess stage load timed out')), LOAD_TIMEOUT_MS);
           }),
