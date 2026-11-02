@@ -7,11 +7,12 @@
 import { useEffect, useState } from 'react';
 import { loadProgressionState } from '@/lib/progression/clinicalProgression';
 import { getNarrativeTrainingStage, type NarrativeTrainingStage } from '@/lib/narrative/trainingStages';
-import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
+import { CANONICAL_SLUGS, toProgressionSlug } from '@/lib/exerciseSlugNormalizer';
 
 const LOAD_TIMEOUT_MS = 5000;
-// Database stores canonical underscore IDs, not hyphenated route IDs.
-const SLUG = CANONICAL_SLUGS.NARRATIVE_RETELL;
+// Progression rows use hyphen IDs; exercise-event telemetry uses underscores.
+// Derive this from the central converter, not a route or raw event slug.
+const SLUG = toProgressionSlug(CANONICAL_SLUGS.NARRATIVE_RETELL);
 
 export interface NarrativeStageLoad {
   loaded: boolean;

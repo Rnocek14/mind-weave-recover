@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
+import { CANONICAL_SLUGS, toProgressionSlug } from '@/lib/exerciseSlugNormalizer';
 import { useNarrativeRetellTrainingStage } from '@/hooks/useNarrativeRetellTrainingStage';
 
 const mocks = vi.hoisted(() => ({
@@ -20,11 +20,12 @@ describe('useNarrativeRetellTrainingStage patient-bound read', () => {
       useNarrativeRetellTrainingStage({ userId: 'synthetic-user', profileId: 'patient-b' }),
     );
     await waitFor(() => expect(result.current.loaded).toBe(true));
-    // Match the real exercise_events/progression storage identifier.
+    // Clinical state uses the progression namespace; raw events use telemetry.
     expect(CANONICAL_SLUGS.NARRATIVE_RETELL).toBe('narrative_retell');
+    expect(toProgressionSlug(CANONICAL_SLUGS.NARRATIVE_RETELL)).toBe('narrative-retell');
     expect(mocks.load).toHaveBeenCalledTimes(1);
     expect(mocks.load).toHaveBeenCalledWith({
-      userId: 'synthetic-user', profileId: 'patient-b', exerciseSlug: CANONICAL_SLUGS.NARRATIVE_RETELL,
+      userId: 'synthetic-user', profileId: 'patient-b', exerciseSlug: toProgressionSlug(CANONICAL_SLUGS.NARRATIVE_RETELL),
     });
     expect(result.current.stage).toMatchObject({ level: 3, storyTier: 2, baselineSupport: 1 });
   });
