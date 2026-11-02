@@ -4,8 +4,7 @@
 
 "Name as many **[category]** members as you can" within a time cap. One
 *round* = one category probe. The page derives `correct = uniqueWordCount
->= rung's minUniqueWords` and feeds the support level (independent vs
-`semantic_cue` if a sub-prompt was shown).
+>= rung's minUniqueWords` and records actual example support separately from category content difficulty. The original difficulty-linked timer was replaced with a consistent 60-second round for comparable practice counts.
 
 ## Clinical grounding
 
@@ -32,7 +31,7 @@
 - Routing into the **expressive mastery EWMA**: slug is added to
   `ADOPTED_TRIAL_MODE_SLUGS`, and `CategoryFluencyExercise` is migrated
   from the legacy `useExerciseTelemetry.logTrial` to the unified
-  `useTrialSubmission` pathway with `trialMode: 'production'`.
+  `useTrialSubmission` pathway with per-round `trialMode: 'production'` only for uncued recognized speech, `scaffolded` for example-supported spoken responses and `mixed` for typed or mixed-input practice.
   `CategoryFluencyGame`'s adaptation auto-logger is set to
   `autoLog: false` so no untagged rows leak into routing.
 
@@ -57,10 +56,18 @@ must remain tunable.
 | In-game state         | Canonical `SupportLevel` |
 | --------------------- | ------------------------ |
 | No sub-prompt shown   | `independent`            |
-| Category sub-prompt   | `semantic_cue`           |
+| Visible example words (including L1) or extra examples on request | `semantic_cue` |
 
 Category Fluency never escalates to `phonemic_cue`,
 `carrier_or_full_model`, or `recognition_only`.
+
+## Current measurement and transfer boundaries
+
+- L1 shows example words at round start and is coded as semantic support. Later clinical levels begin without visible examples; requested examples are logged as actual support. Showing additional examples is not independent language production.
+- A 60-second time window is constant across in-session difficulty changes. A round ended early still stores its actual duration separately.
+- Spoken-only recognized words may inform the stored clinical ladder; typed, mixed and empty-input rounds are retained as practice records but are **excluded from spoken clinical progression**. Recognition errors, other speakers and device noise still require separate real-audio validation.
+- Raw event writes finish before the game calls session-end progression persistence; failed writes do not feed the ladder.
+- Adaptation level, category tiers and L6–L8 content remain incomplete relative to a distinct eight-stage clinical construct. Unique-word thresholds are provisional implementation defaults, not clinical norms. Untrained categories and a clinician-administered functional outcome remain a future evaluation requirement.
 
 ## Files
 
