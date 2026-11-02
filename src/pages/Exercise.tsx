@@ -39,6 +39,7 @@ import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
 import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
 import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
+import { getPhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
 import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
 import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 import {
@@ -57,7 +58,7 @@ const Exercise = () => {
   // patient's saved level.
   const [phraseStageChoice, setPhraseStageChoice] = useState<{
     scope: string;
-    level: 1 | 2 | 3;
+    level: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   } | null>(null);
   const phraseStageScope = JSON.stringify([user?.id ?? null, activeProfileId ?? null]);
   const practiceStageChoice = phraseStageChoice?.scope === phraseStageScope
@@ -942,7 +943,7 @@ const Exercise = () => {
                     Leave unchanged to use the saved practice level.
                   </p>
                   <div className="mt-3 flex flex-col gap-2">
-                    {([1, 2, 3] as const).map(stage => (
+                    {([1, 2, 3, 4, 5, 6, 7, 8] as const).map(stage => (
                       <Button
                         key={stage}
                         size="lg"
@@ -952,8 +953,7 @@ const Exercise = () => {
                         aria-pressed={practiceStageChoice === stage}
                         onClick={() => setPhraseStageChoice({ scope: phraseStageScope, level: stage })}
                       >
-                        Stage {stage}: {stage === 1 ? 'Hear and repeat' : stage === 2
-                          ? 'Finish the phrase' : 'Use word clues'}
+                        Stage {stage}: {getPhraseTrainingStage(stage)?.label}
                       </Button>
                     ))}
                   </div>

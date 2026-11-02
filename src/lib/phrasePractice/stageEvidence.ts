@@ -9,7 +9,7 @@
 export interface PhrasePracticeEvidenceInput {
   trainingStage?: number | null;
   practiceStageSource?: string | null;
-  scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues' | null;
+  scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues' | 'situational_prompt' | 'repair_prompt' | null;
   fullScriptRevealed?: boolean | null;
   manualConfirmed?: boolean | null;
 }
