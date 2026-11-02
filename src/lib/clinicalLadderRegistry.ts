@@ -74,7 +74,6 @@ import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels
 import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
 import type { DesignOfRecordLevelSpec, DesignOnlySupport } from './progression/_shared/designOfRecord';
 import { UNWIRED_EXERCISE_LEVELS } from './progression/unwiredExerciseLevels';
-import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
 
 /**
