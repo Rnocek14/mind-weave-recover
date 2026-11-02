@@ -107,8 +107,10 @@ export function useTrialSubmission(opts: Options) {
    */
   const submitTrial = useCallback(
     (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
+      // Capture the index at submission time, BEFORE an awaited raw write.
+      // Completion order must not change a patient's trial identity.
+      const trialIndex = trialCountRef.current++;
       const pending = (async (): Promise<UnifiedTrialSummary> => {
-      trialCountRef.current += 1;
       const summary: UnifiedTrialSummary = {
         ok: true,
         routed: {
@@ -196,7 +198,7 @@ export function useTrialSubmission(opts: Options) {
           input.taskParameters?.unified_route_adaptation_log === true
         ) {
           logAdaptationTrial({
-            trialIndex: trialCountRef.current - 1,
+            trialIndex,
             difficulty: input.level,
             cueLevel: input.cueLevel ?? null,
             correct: input.isCorrect,
@@ -273,7 +275,7 @@ export function useTrialSubmission(opts: Options) {
   );
 
   /**
-   * Flush all session-end work atomically:
+   * Coordinate session-end writes (NOT a cross-table database transaction):
    *   • progression.flushAtSessionEnd  (per-game level/progress upsert)
    *   • flushMasteryShadow             (longitudinal user_skill_mastery upsert)
    *   • drain any queued adaptation rows
