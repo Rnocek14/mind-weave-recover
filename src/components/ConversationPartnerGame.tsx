@@ -332,10 +332,10 @@ export function ConversationPartnerGame({
   // A typing fallback is real participation, not microphone evidence.
   // No audio recording, utterance analysis, speech adaptation or LLM grader
   // is run for a typed response. Its raw event explicitly records its mode.
-  const handleTypedReply = useCallback(async () => {
+  const handleTypedReply = useCallback(async (skip = false) => {
     if (phase !== 'typing' || committingRef.current) return;
-    const text = typedDraft.trim();
-    if (!text) return;
+    const text = skip ? '' : typedDraft.trim();
+    if (!text && !skip) return;
     committingRef.current = true;
     setPhase('processing');
     try {
@@ -536,9 +536,23 @@ export function ConversationPartnerGame({
                 className="w-full min-h-[112px] rounded-lg border bg-background p-3 text-base"
                 placeholder="Type what you'd like to say"
               />
-              <Button onClick={handleTypedReply} disabled={!typedDraft.trim() || committingRef.current} className="w-full" size="lg">
-                Send reply
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => void handleTypedReply(false)}
+                  disabled={!typedDraft.trim() || committingRef.current}
+                  className="flex-1" size="lg"
+                >
+                  Send reply
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTypedReply(true)}
+                  disabled={committingRef.current}
+                  size="lg"
+                >
+                  Skip turn
+                </Button>
+              </div>
             </div>
           )}
 
