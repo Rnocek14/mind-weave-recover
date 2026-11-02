@@ -85,7 +85,7 @@ test('approvals expire at the precise 24-hour boundary', () => {
 test('authenticated release suite requires unsigned privileged-RPC negative probes', () => {
   const config = readFileSync(new URL('../playwright.config.ts', import.meta.url), 'utf8');
   const probe = readFileSync(new URL('../tests/e2e/privileged-rpc-denial.spec.ts', import.meta.url), 'utf8');
-  assert.match(config, /privileged-rpc-denial\\.spec\\.ts/);
+  assert.match(config, /privileged-rpc-denial\.spec\.ts/);
   for (const name of [
     'setup_admin_user',
     'claim_speech_analysis_jobs',
@@ -94,7 +94,7 @@ test('authenticated release suite requires unsigned privileged-RPC negative prob
   ]) {
     assert.ok(probe.includes(`name: '${name}'`));
   }
-  assert.match(probe, /\\[401, 403, 404\\]/);
+  assert.match(probe, /\[401, 403, 404\]/);
   assert.match(probe, /p_batch_size: 0/);
 });
 
