@@ -219,8 +219,10 @@ export function MultiStepPlanningGame({
   // Auto-start first trial when launched from lesson
   useEffect(() => {
     if (autoStart && !autoStartedRef.current && phase === 'prompt' && currentItem && isSupported && !useTyping) {
-      autoStartedRef.current = true;
-      autoStartTimerRef.current = setTimeout(() => handleStart(), 400);
+      autoStartTimerRef.current = setTimeout(() => {
+        autoStartedRef.current = true;
+        handleStart();
+      }, 400);
     }
     // Switching to typing or leaving the game cancels a pending microphone
     // auto-start; a stale closure must never restart recording.
