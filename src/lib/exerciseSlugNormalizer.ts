@@ -155,6 +155,19 @@ export const toProgressionSlug = (rawSlug: string): string => {
   return canonical.replace(/_/g, '-');
 };
 
+/**
+ * Route/lesson catalog slug for planning and game rotation. Different from
+ * the progression namespace for the historical multi-step-plan alias.
+ * exercise_events are underscore slugs; CANONICAL_EXERCISES and recency
+ * score maps are hyphenated route slugs. Never index one with the other.
+ */
+export const toLessonExerciseSlug = (rawSlug: string): string => {
+  const telemetrySlug = normalizeExerciseSlug(rawSlug);
+  return telemetrySlug === CANONICAL_SLUGS.MULTI_STEP_PLANNING
+    ? 'multi-step-plan'
+    : telemetrySlug.replace(/_/g, '-');
+};
+
 /** Progression (hyphen) → Telemetry (underscore). Alias of `normalizeExerciseSlug`. */
 export const toTelemetrySlug = (rawSlug: string): string =>
   normalizeExerciseSlug(rawSlug);
