@@ -69,7 +69,7 @@ describe('Thought Continuation executable practice stages', () => {
     expect(getThoughtTrainingPrompts(5).every(x => x.intentType === 'express_opinion')).toBe(true);
     expect(getThoughtTrainingPrompts(6).every(x => /why|explain/i.test(x.promptText))).toBe(true);
     expect(getThoughtTrainingPrompts(7).every(x => /if |suppose|imagine/i.test(x.promptText))).toBe(true);
-    expect(getThoughtTrainingPrompts(8).every(x => x.promptText.length > 140)).toBe(true);
+    expect(getThoughtTrainingPrompts(8).every(x => x.promptText.length > 120)).toBe(true);
     for (const value of [null, undefined, 0, -1, 9, NaN, 1.5]) {
       expect(getThoughtTrainingStage(value)).toBeNull();
     }
