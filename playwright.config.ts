@@ -13,6 +13,7 @@ const stagingSpecs = [
   '**/core-loop.spec.ts',
   '**/pass-b-patient-journey.spec.ts',
   '**/exercise-session.spec.ts',
+  '**/privileged-rpc-denial.spec.ts',
 ];
 
 export default defineConfig({
