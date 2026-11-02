@@ -9,12 +9,10 @@
  *     `exercise_events` and the mastery shadow.
  *   - `adaptation_trial_logs` continues to be written from
  *     `DescribeGuessGame`'s own `useInGameAdaptation(autoLog:true)`.
- *   - SupportLevel mapping (lexical axis, ordinal to `cueLevel`):
- *       0 prompts → `independent`
- *       1 prompt  → `semantic_cue`
- *       2 prompts → `phonemic_cue`
- *       3 prompts → `carrier_or_full_model`
- *     `cueLevel` itself is already derived by `deriveCueTelemetry()`.
+ *   - All feature-chip prompts are SEMANTIC hints (what/where/how).
+ *     None supplies a phoneme or full spoken carrier model. Record
+ *     `cueLevel` 0–3 as intensity/count, but `supportUsed` is semantic
+ *     for every prompted attempt, never fabricated phonemic/model support.
  *   - No per-game progression hook yet — `progression: null`.
  */
 
@@ -33,17 +31,16 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
+import { classifyDescribeGuessEvidence } from '@/lib/describeGuess/roundEvidence';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
-/** Ordinal cueLevel (0..3) → lexical-axis SupportLevel. */
-function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
-  if (cueLevel <= 0) return 'independent';
-  if (cueLevel === 1) return 'semantic_cue';
-  if (cueLevel === 2) return 'phonemic_cue';
-  return 'carrier_or_full_model';
+/** Help-chip counts are ordinal INTENSITY, not phonemic cue types.
+ * All help chips in Describe & Guess ask for semantic features. */
+export function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
+  return cueLevel <= 0 ? 'independent' : 'semantic_cue';
 }
 
 
@@ -178,8 +175,14 @@ export default function DescribeGuessExercise() {
     const points = (result.meaningWin ? 40 : 0) + (result.wordWin ? 40 : 0) + (result.strategyWin ? 20 : 0);
     scoreRef.current += points;
     trialsRef.current += 1;
-    const isCorrect = result.meaningWin || result.wordWin;
-    pivot.recordTrialResult({ wasCorrect: isCorrect, reactionTimeMs: result.reactionTimeMs });
+    const evidence = classifyDescribeGuessEvidence(result);
+    const isCorrect = evidence.practiceSuccessful;
+    // The pivot reflects speech-task performance only. A typed fallback,
+    // or an unknown/invalid response, must not lower the patient's speech
+    // difficulty or masquerade as an independent clinical trial.
+    if (evidence.shouldAdaptSpokenTask) {
+      pivot.recordTrialResult({ wasCorrect: isCorrect, reactionTimeMs: result.reactionTimeMs });
+    }
 
     // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
     // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
@@ -196,7 +199,9 @@ export default function DescribeGuessExercise() {
       level: result.difficulty ?? adaptation.difficultyTier ?? 1,
       stimulusId: result.trialId,
       expectedResponse: result.target ?? null,
-      userResponse: null,
+      userResponse: result.transcript || null,
+      browserTranscript: result.inputMode === 'spoken'
+        ? (result.browserTranscript ?? result.transcript) : null,
       isCorrect,
       // Word win is the harder of the two; weight accordingly so mastery
       // shadow / adaptation can distinguish full retrieval from
@@ -205,21 +210,31 @@ export default function DescribeGuessExercise() {
       cueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
-      trialMode: 'production',
-      errorType: isCorrect ? undefined : 'no_guess',
+      trialMode: evidence.trialMode,
+      clinicalProgressionEligible: evidence.independentSpokenScoreEligible,
+      errorType: !evidence.validCommunication ? 'unscorable_response'
+        : result.inputMode === 'typed' ? 'typed_practice'
+        : isCorrect ? undefined : 'no_guess',
       taskParameters: {
         trial_id: result.trialId, target: result.target,
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
+        input_mode: evidence.inputMode,
+        valid_communication: evidence.validCommunication,
+        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
+        supported_spoken_practice: evidence.shouldAdaptSpokenTask && cueLevel > 0,
         cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
         pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
     });
-    if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
+    if (evidence.shouldAdaptSpokenTask && pivot.shouldStepDown) {
+      console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
 
   const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
