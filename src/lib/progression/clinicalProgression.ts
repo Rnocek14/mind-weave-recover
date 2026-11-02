@@ -36,6 +36,8 @@ export interface ClinicalProgressionState {
   lastSessionId: string | null;
   lastUpdatedAt: string;
   createdAt: string;
+  /** Transient client-only safety flag: a failed read must NEVER become a fresh Level 1 save. */
+  loadUnavailable?: true;
 }
 
 export type SupportLevel =
@@ -390,19 +392,20 @@ export async function loadProgressionState(params: {
     const { data, error } = await (supabase as any)
       .from('clinical_progression_state')
       .select('*')
+      .eq('user_id', params.userId)
       .eq('profile_id', params.profileId)
       .eq('exercise_slug', params.exerciseSlug)
       .maybeSingle();
 
     if (error) {
       console.warn('[clinicalProgression] load failed:', error.message);
-      return defaultProgressionState(params);
+      return { ...defaultProgressionState(params), loadUnavailable: true };
     }
     if (!data) return defaultProgressionState(params);
     return fromRow(data as DbRow);
   } catch (e) {
     console.warn('[clinicalProgression] load threw (network?):', e);
-    return defaultProgressionState(params);
+    return { ...defaultProgressionState(params), loadUnavailable: true };
   }
 }
 
@@ -418,6 +421,9 @@ export async function loadProgressionState(params: {
 export async function saveProgressionState(
   state: ClinicalProgressionState
 ): Promise<{ ok: boolean; error?: string }> {
+  if (state.loadUnavailable) {
+    return { ok: false, error: 'Cannot save progression: previous patient level was unavailable.' };
+  }
   // Read the previous row first so the audit event can record the transition.
   let prevRow: {
     current_level: number | null;
