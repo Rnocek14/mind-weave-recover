@@ -56,6 +56,7 @@ describe("planner struggle detector cannot punish invalid recordings", () => {
     expect(backend.calls).toContainEqual(["sessions.user_id", "synthetic-owner"]);
     expect(backend.calls).toContainEqual(["sessions.profile_id", "synthetic-patient"]);
     expect(result).toHaveLength(1);
+    expect(result[0].exerciseSlug).toBe('photo-naming');
     expect(result[0]).toMatchObject({
       trialCount: 8,
       avgCueLevel: 0,
