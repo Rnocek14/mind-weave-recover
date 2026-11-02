@@ -27,7 +27,7 @@ import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
-import { buildManualPhraseConfirmation } from '@/lib/phrasePractice/manualConfirmation';
+import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -109,7 +109,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [cueLevel, setCueLevel] = useState(1); // Start with phrase visible for better UX // 0=none, 1=visual, 2=audio, 3=both
+  // The full printed phrase is lexical support on every trial.
+  const [cueLevel, setCueLevel] = useState<number>(VISIBLE_PHRASE_CUE_LEVEL); // 1=visual, 2=audio, 3=both
   const [showFeedback, _setShowFeedback] = useState(false);
   const setShowFeedback = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
     _setShowFeedback(prev => {
@@ -979,7 +980,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     setCurrentTrialIndex(prev => prev + 1);
     setShowFeedback(false);
     setManualConfirmationFeedback(false);
-    setCueLevel(0);
+    setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
     setAttempts(0);
     setCurrentWordAccuracy(0);
     setLastHeardText('');
@@ -998,7 +999,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const reset = () => {
     setCurrentTrialIndex(0);
     setScore(0);
-    setCueLevel(0);
+    setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
     setAttempts(0);
     setShowFeedback(false);
     setManualConfirmationFeedback(false);
