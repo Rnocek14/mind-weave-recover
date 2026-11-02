@@ -31,6 +31,7 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { mapTrialToSkills, isExcludedFromMastery } from './skillMapping';
+import { isAdoptedForTrialMode } from './masterySignalRouting';
 import type { MasteryConfidenceLevel } from '@/lib/progression/clinicalProgression';
 
 const RANK: Record<MasteryConfidenceLevel, number> = {
@@ -130,7 +131,10 @@ export async function readMasteryGate(args: {
 }): Promise<MasteryGateResult> {
   const { profileId, exerciseSlug, difficulty } = args;
 
-  if (isExcludedFromMastery(exerciseSlug)) {
+  // Only games emitting verified spoken-production trial_mode feed the
+  // expressive mastery track. Receptive ladders have separate on-target
+  // criteria and must never be held by an unrelated expressive read outage.
+  if (isExcludedFromMastery(exerciseSlug) || !isAdoptedForTrialMode(exerciseSlug)) {
     return { verdict: 'skip', confidence: undefined, skills: [], bySkill: {}, minMasteryScore: null, minCueIndependence: null };
   }
 
