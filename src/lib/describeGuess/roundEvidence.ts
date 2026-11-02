@@ -28,7 +28,12 @@ export function classifyDescribeGuessEvidence(result: DescribeGuessTrialResult):
   const validCommunication = result.communicationWin === true &&
     typeof result.transcript === 'string' &&
     result.transcript.trim().length > 0;
-  const spoken = mode === 'spoken' && validCommunication;
+  // A caller's spoken mode flag is not itself evidence that recognition ran.
+  // Without the original browser transcript, abstain from independent scores
+  // and speech-driven adaptation rather than promoting unverified text.
+  const hasBrowserTranscript = typeof result.browserTranscript === 'string' &&
+    result.browserTranscript.trim().length > 0;
+  const spoken = mode === 'spoken' && validCommunication && hasBrowserTranscript;
   const independent = spoken && prompts === 0;
   return {
     practiceSuccessful: result.meaningWin === true || result.wordWin === true,

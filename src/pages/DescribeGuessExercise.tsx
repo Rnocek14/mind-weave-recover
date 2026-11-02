@@ -200,8 +200,9 @@ export default function DescribeGuessExercise() {
       stimulusId: result.trialId,
       expectedResponse: result.target ?? null,
       userResponse: result.transcript || null,
-      browserTranscript: result.inputMode === 'spoken'
-        ? (result.browserTranscript ?? result.transcript) : null,
+      // Never manufacture recognized speech from the generic response text.
+      browserTranscript: result.inputMode === 'spoken' && result.browserTranscript?.trim()
+        ? result.browserTranscript : null,
       isCorrect,
       // Word win is the harder of the two; weight accordingly so mastery
       // shadow / adaptation can distinguish full retrieval from
@@ -213,6 +214,8 @@ export default function DescribeGuessExercise() {
       trialMode: evidence.trialMode,
       clinicalProgressionEligible: evidence.independentSpokenScoreEligible,
       errorType: !evidence.validCommunication ? 'unscorable_response'
+        : result.inputMode === 'spoken' && !result.browserTranscript?.trim()
+          ? 'unverified_speech_provenance'
         : result.inputMode === 'typed' ? 'typed_practice'
         : isCorrect ? undefined : 'no_guess',
       taskParameters: {
@@ -222,6 +225,10 @@ export default function DescribeGuessExercise() {
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
         input_mode: evidence.inputMode,
+        // The raw logger normalizes successful error_type to 'correct'. Keep
+        // missing recognition provenance queryable even on correct practice.
+        provenance_issue: result.inputMode === 'spoken' && !result.browserTranscript?.trim()
+          ? 'missing_browser_transcript' : null,
         valid_communication: evidence.validCommunication,
         independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         supported_spoken_practice: evidence.shouldAdaptSpokenTask && cueLevel > 0,
