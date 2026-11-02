@@ -45,7 +45,16 @@ const { submitTrial, commitSession, startTrial, calculateReactionTime } =
 - `flushMasteryShadow` (longitudinal `user_skill_mastery`)
 - drains any queued adaptation rows
 
-Pure types live in `src/lib/trial/types.ts`. No new promotion/regression behavior introduced — Step 2 will promote mastery confidence into the level-up evidence gate.
+**Commit barrier and failure policy (PR #108):**
+
+- `submitTrial(input)` registers its pending raw-event write **synchronously** before its first asynchronous wait. Games that call `void submitTrial(...)` and immediately call `commitSession()` therefore cannot flush clinical progression before the raw attempt finishes.
+- Every submission retains its own stable zero-based trial index, even if database writes resolve out of order.
+- `commitSession()` drains every registered trial and waits for its outcome before flushing adaptation, progression, or the mastery shadow. A raw insert failure produces `ok:false`, blocks progression/mastery persistence for that incomplete session, and is reported in `errors`.
+- Duplicate completion calls share the same in-flight/resolved commit result, so a retry cannot silently discard the failed-attempt evidence and promote the patient.
+- This is an **application-level ordering barrier**, not a database transaction. Successful raw writes may remain stored even when an unrelated attempt fails, and a separate backend RLS/integration check is required for real durability. Existing clinicians' scores or progression thresholds are not altered; missing or failed data cannot automatically earn clinical advancement.
+- The hook does not guarantee that every caller surfaces a failed save to patients. A separate screen-level save-feedback audit is required. The release-only authenticated persistence suite remains unverified.
+
+Pure types live in `src/lib/trial/types.ts`. No new clinical promotion thresholds introduced; Step 2 remains the mastery-confidence evidence gate.
 
 ## Migration checklist
 

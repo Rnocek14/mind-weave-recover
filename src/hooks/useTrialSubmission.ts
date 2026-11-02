@@ -94,14 +94,42 @@ export function useTrialSubmission(opts: Options) {
   });
 
   const trialCountRef = useRef(0);
+  // Store ALL submissions since the last commit, including already resolved
+  // ones. A completed failed insert must not disappear before the final
+  // commit detects the missing clinical raw record.
+  const uncommittedTrialsRef = useRef<Promise<UnifiedTrialSummary>[]>([]);
+  const commitPromiseRef = useRef<Promise<CommitSessionResult> | null>(null);
+  const commitPhaseRef = useRef<'open' | 'draining' | 'flushing' | 'complete'>('open');
 
   /**
-   * One trial in. Fans out to all subsystems. Returns a routing summary so
-   * call sites can prove (in dev) that every layer received the trial.
+   * One trial in. Fans out to all subsystems. Register the promise
+   * SYNCHRONOUSLY, before returning control to the game. Several game
+   * callbacks intentionally don't await it and immediately fire onComplete.
    */
   const submitTrial = useCallback(
-    async (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
-      trialCountRef.current += 1;
+    (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
+      // A trial that arrives after the commit barrier closes must NOT race
+      // the progression upsert and then be silently omitted from its level.
+      // Don't write a raw event whose outcome can no longer be reconciled
+      // into the session's final saved result.
+      if (commitPhaseRef.current === 'flushing' || commitPhaseRef.current === 'complete') {
+        console.warn('[submitTrial] rejected late trial after session commit barrier', {
+          game: canonicalSlug,
+        });
+        return Promise.resolve({
+          ok: false,
+          routed: {
+            exerciseEvents: false,
+            adaptationTrialLogs: false,
+            progressionBuffered: false,
+          },
+          progression: null,
+        });
+      }
+      // Capture the index at submission time, BEFORE an awaited raw write.
+      // Completion order must not change a patient's trial identity.
+      const trialIndex = trialCountRef.current++;
+      const pending = (async (): Promise<UnifiedTrialSummary> => {
       const summary: UnifiedTrialSummary = {
         ok: true,
         routed: {
@@ -189,7 +217,7 @@ export function useTrialSubmission(opts: Options) {
           input.taskParameters?.unified_route_adaptation_log === true
         ) {
           logAdaptationTrial({
-            trialIndex: trialCountRef.current - 1,
+            trialIndex,
             difficulty: input.level,
             cueLevel: input.cueLevel ?? null,
             correct: input.isCorrect,
@@ -258,21 +286,65 @@ export function useTrialSubmission(opts: Options) {
       }
 
       return summary;
+      })();
+      uncommittedTrialsRef.current.push(pending);
+      return pending;
     },
     [canonicalSlug, debug, logAdaptationTrial, logExerciseEvent, opts.progression]
   );
 
   /**
-   * Flush all session-end work atomically:
+   * Coordinate session-end writes (NOT a cross-table database transaction):
    *   • progression.flushAtSessionEnd  (per-game level/progress upsert)
    *   • flushMasteryShadow             (longitudinal user_skill_mastery upsert)
    *   • drain any queued adaptation rows
    */
-  const commitSession = useCallback(async (): Promise<CommitSessionResult> => {
+  const commitSession = useCallback((): Promise<CommitSessionResult> => {
+    // Two completion callbacks must not start two independent progression
+    // flushes. In a session with a raw write failure, retain that failure
+    // result rather than allowing a second attempt to silently promote from
+    // an incomplete set of patient attempts.
+    if (commitPromiseRef.current) return commitPromiseRef.current;
+    commitPhaseRef.current = 'draining';
+    const commit = (async (): Promise<CommitSessionResult> => {
     const errors: string[] = [];
     let progressionSnapshot: { level: number; progressPct: number } | null = null;
     let recapSnapshot: CommitSessionResult['progressionSnapshot'] = null;
     let masteryFlushed = false;
+
+    // Await every event's real result before computing persisted clinical
+    // progression or mastery. If any raw attempt could not be persisted,
+    // fail CLOSED: a partial session must not advance a clinical level.
+    // A loop also catches trial callbacks registered during an earlier wait.
+    let rawTrialFailures = 0;
+    while (uncommittedTrialsRef.current.length > 0) {
+      const batch = uncommittedTrialsRef.current.splice(0);
+      const settled = await Promise.allSettled(batch);
+      for (const outcome of settled) {
+        if (outcome.status === 'rejected' || !outcome.value.ok ||
+            !outcome.value.routed.exerciseEvents) {
+          rawTrialFailures += 1;
+        }
+      }
+    }
+    // Close admission before starting any longer-running DB flush. New
+    // callbacks can no longer create untracked attempts mid-commit.
+    commitPhaseRef.current = 'flushing';
+    if (rawTrialFailures > 0) {
+      errors.push(`raw clinical event writes failed: ${rawTrialFailures} of this session's trial submissions; progression and mastery were not flushed`);
+      console.warn('[commitSession] fail-closed: raw clinical evidence incomplete', {
+        game: canonicalSlug, sessionId: opts.sessionId,
+        rawTrialFailures,
+      });
+      commitPhaseRef.current = 'complete';
+      return {
+        ok: false,
+        progression: null,
+        progressionSnapshot: null,
+        masteryFlushed: false,
+        errors,
+      };
+    }
 
     try {
       await flushAdaptation();
@@ -328,6 +400,7 @@ export function useTrialSubmission(opts: Options) {
       });
     }
 
+    commitPhaseRef.current = 'complete';
     return {
       ok: errors.length === 0,
       progression: progressionSnapshot,
@@ -335,6 +408,9 @@ export function useTrialSubmission(opts: Options) {
       masteryFlushed,
       errors,
     };
+    })();
+    commitPromiseRef.current = commit;
+    return commit;
   }, [canonicalSlug, debug, flushAdaptation, opts.progression, opts.profileId, opts.sessionId, opts.userId]);
 
   return { submitTrial, commitSession, startTrial, calculateReactionTime };
