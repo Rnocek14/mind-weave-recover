@@ -57,6 +57,7 @@ interface TwoCluesGameProps {
   userId?: string;
   profileId?: string;
   focusPhonemes?: string[];
+  clinicalLevel?: number | null;
   /** Profile-recommended first cue type (personalizes cue ladder order) */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -122,6 +123,7 @@ export function TwoCluesGame({
   profileId,
   focusPhonemes,
   recommendedCueType,
+  clinicalLevel,
 }: TwoCluesGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -281,6 +283,7 @@ export function TwoCluesGame({
   const game = useTwoCluesGame({
     roundCount,
     focusPhonemes,
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   });
@@ -805,6 +808,10 @@ export function TwoCluesGame({
     let shouldHoldProcessing = false;
 
     try {
+      // Snapshot help delivered BEFORE asynchronous answer evaluation.
+      // `reachedAnchor` means matched a top answer, NOT that a cue was used.
+      const deliveredCueLevel = cueLevel;
+      const deliveredCueType = cueState?.type ?? 'none';
       // Quick local match first (instant)
       const quickMatch = quickLocalMatch(
         candidate,
@@ -871,7 +878,7 @@ export function TwoCluesGame({
       }
 
       // Pass pre-computed result to game state
-      game.submitAnswer(candidate, result);
+      game.submitAnswer(candidate, result, { level: deliveredCueLevel, type: deliveredCueType });
 
       // Adaptive difficulty
       const isSuccess = result.tier === 'strong' || result.tier === 'related';
