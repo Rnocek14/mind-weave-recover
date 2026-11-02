@@ -6,7 +6,7 @@ import { requireHospitalStagingAttestation } from './scripts/hospital-staging-at
 const settings = resolveE2EEnvironment();
 // Hosted therapy tests sign in and write synthetic records. They are blocked
 // until the actual staging data has been reviewed and freshly approved.
-if (settings.suite === 'staging' && settings.projectRef !== 'local') {
+if (settings.suite === 'staging') {
   requireHospitalStagingAttestation();
 }
 const stagingSpecs = [
