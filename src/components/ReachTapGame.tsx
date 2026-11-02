@@ -7,18 +7,23 @@ import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { placeReachTapTarget } from '@/lib/reachTap/placeReachTapTarget';
+import { getReachPracticeStage, placeStagedReachTarget, type ReachPracticeLevel } from '@/lib/reachTap/practiceStages';
 
 interface ReachTapGameProps {
   totalTrials: number;
   initialDifficulty: number;
   variant?: 'standard' | 'left-side-hunt'; // New: support neglect variant
   slowMode?: boolean; // Gentle mode: longer timers, no penalties
+  practiceLevel?: ReachPracticeLevel | null; // Session-only: not clinical progression
   onTrialComplete: (result: {
     correct: boolean;
     reactionTimeMs: number;
     difficultyLevel: number;
     targetSize: number;
     targetSide?: 'left' | 'center' | 'right'; // Track which side target appeared
+    practiceStage?: number;
+    visualGuidePresented?: boolean;
+    distractorsShown?: number;
   }) => void;
   onGameComplete: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -39,6 +44,7 @@ export const ReachTapGame = ({
   initialDifficulty,
   variant = 'standard',
   slowMode = true, // Default ON for stroke survivors
+  practiceLevel = null,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange,
@@ -46,6 +52,7 @@ export const ReachTapGame = ({
   sessionId,
 }: ReachTapGameProps) => {
   const [currentTrial, setCurrentTrial] = useState(1);
+  const stage = getReachPracticeStage(variant, practiceLevel);
   const [score, setScore] = useState(0);
   const [target, setTarget] = useState<TargetPosition | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -87,6 +94,7 @@ export const ReachTapGame = ({
     adjustmentThreshold: 0.15,
     onDifficultyChange: (newLevel) => {
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
+      if (stage) return; // Never change a chosen motor/visual practice stage.
       setDifficultyChanged(direction);
       
       schedule(() => {
@@ -149,14 +157,17 @@ export const ReachTapGame = ({
     const positioned = placeReachTapTarget({
       width: rect.width,
       height: rect.height,
-      desiredSize: getTargetSize(currentDifficulty, rect.width),
-      variant,
+      desiredSize: stage?.sizePx ?? getTargetSize(currentDifficulty, rect.width),
+      variant: stage ? (variant === 'left-side-hunt' ? 'left-side-hunt' : 'standard') : variant,
       previous: lastPositionRef.current,
     });
     if (!positioned) return;
+    const placed = stage
+      ? placeStagedReachTarget(positioned, rect.width, rect.height, stage, currentTrial)
+      : positioned;
     trialLockedRef.current = false;
-    lastPositionRef.current = { x: positioned.x, y: positioned.y };
-    setTarget({ ...positioned, appearTime: Date.now() });
+    lastPositionRef.current = { x: placed.x, y: placed.y };
+    setTarget({ ...placed, appearTime: Date.now() });
   };
 
   // Start new trial
@@ -175,7 +186,7 @@ export const ReachTapGame = ({
     if (!target || showFeedback) return;
     
     // In slow mode, no timeout penalty - let them take their time
-    if (slowMode) return;
+    if (slowMode || stage) return;
 
     const timeout = getTimeout(currentDifficulty);
     const timer = setTimeout(() => {
@@ -210,17 +221,20 @@ export const ReachTapGame = ({
     setScore((prev) => prev + points);
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(true, reactionTime);
+    if (!stage) updateTrial(true, reactionTime);
     engagement.recordTrial({ correct: true, reactionTimeMs: reactionTime, timeout: false, cueLevel: 0, timestamp: Date.now() });
-    checkAndAdjust();
+    if (!stage) checkAndAdjust();
 
     // Log telemetry (Note: ReachTap adaptations handled by parent component)
     onTrialComplete({
       correct: true,
       reactionTimeMs: reactionTime,
-      difficultyLevel: currentDifficulty,
+      difficultyLevel: stage?.level ?? currentDifficulty,
       targetSize: target.size,
       targetSide: target.side,
+      practiceStage: stage?.level,
+      visualGuidePresented: !!stage?.visualGuide,
+      distractorsShown: stage?.distractors ?? 0,
     });
 
     // Move to next trial
@@ -254,17 +268,20 @@ export const ReachTapGame = ({
     const reactionTime = target ? Date.now() - target.appearTime : 0;
 
     // Update adaptive difficulty tracking and check for adjustment
-    updateTrial(false, reactionTime);
+    if (!stage) updateTrial(false, reactionTime);
     engagement.recordTrial({ correct: false, reactionTimeMs: reactionTime, timeout: true, cueLevel: 0, timestamp: Date.now() });
-    checkAndAdjust();
+    if (!stage) checkAndAdjust();
 
     // Log telemetry
     onTrialComplete({
       correct: false,
       reactionTimeMs: reactionTime,
-      difficultyLevel: currentDifficulty,
+      difficultyLevel: stage?.level ?? currentDifficulty,
       targetSize: target?.size || 0,
       targetSide: target?.side,
+      practiceStage: stage?.level,
+      visualGuidePresented: !!stage?.visualGuide,
+      distractorsShown: stage?.distractors ?? 0,
     });
 
     // Move to next trial
@@ -299,6 +316,15 @@ export const ReachTapGame = ({
           className="h-2"
         />
       </div>
+
+      {stage && (
+        <div className="text-center text-sm p-2 bg-muted rounded-lg" role="status">
+          <strong>Practice stage {stage.level}/8 — {stage.title}.</strong> {stage.prompt}
+          <span className="block text-xs text-muted-foreground">
+            No speed limit. This is motor/visual practice, not a recovery score.
+          </span>
+        </div>
+      )}
 
       {/* Difficulty indicator */}
       <div className="flex justify-between items-center flex-shrink-0">
@@ -361,8 +387,8 @@ export const ReachTapGame = ({
           }
         }}
       >
-        {/* Left-side hunt zone indicator */}
-        {variant === 'left-side-hunt' && (
+        {/* Left-side orientation is part of the practice stage, not proof of visual recovery. */}
+        {variant === 'left-side-hunt' && (!stage || stage.visualGuide) && (
           <div className="absolute left-0 top-0 bottom-0 w-1/3 border-r-2 border-dashed border-amber-400/40 pointer-events-none">
             <div className="absolute top-2 left-2 flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-medium bg-amber-100/80 dark:bg-amber-900/50 px-2 py-1 rounded">
               <Eye className="w-3 h-3" />
@@ -391,6 +417,21 @@ export const ReachTapGame = ({
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Target distractors are visual only; tapping outside the target is a miss. */}
+        {stage && stage.distractors > 0 && target && !showFeedback && (
+          <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
+            {Array.from({length: stage.distractors}, (_, i) => (
+              <div key={i} className="absolute rounded-lg bg-muted-foreground/30 border-2 border-muted-foreground/30"
+                style={{
+                  width: 26, height: 26,
+                  left: `${8 + (i * 17 + currentTrial * 11) % 77}%`,
+                  top: `${12 + (i * 23 + currentTrial * 7) % 70}%`,
+                }}
+              />
+            ))}
           </div>
         )}
 
