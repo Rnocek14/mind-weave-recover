@@ -74,6 +74,32 @@ describe('Conversation Partner raw clinical event integrity', () => {
     expect(mocks.insert).toHaveBeenCalledTimes(1);
   });
 
+  it('labels typed fallback as participation, not spoken production', async () => {
+    const { result } = renderHook(() => useConversationPartner({
+      userId: 'u', profileId: 'p', sessionId: 'synthetic-session',
+    }));
+    let response: unknown = null;
+    await act(async () => {
+      response = await result.current.processUserTurn(
+        'I went to the store', null, null, null, 'typed',
+      );
+    });
+    expect((response as { eventSaved?: boolean }).eventSaved).toBe(true);
+    expect(mocks.insert).toHaveBeenCalledTimes(1);
+    expect(mocks.insert.mock.calls[0][0]).toMatchObject({
+      trial_index: 0,
+      round: 1,
+      counts_toward_score: false,
+      task_parameters: {
+        input_mode: 'typed',
+        trial_mode: 'mixed',
+        answer_source: 'typed',
+        independent_spoken_score_eligible: false,
+      },
+      engagement_flags: { did_speak: false },
+    });
+  });
+
   it('does not claim a verified save when there is no session ID', async () => {
     const { result } = renderHook(() => useConversationPartner({
       userId: 'u', profileId: 'p', sessionId: null,
