@@ -26,6 +26,7 @@ describe('Describe & Guess executable training stages', () => {
   it('never pads a stage from an easier/adjacent photo tier', () => {
     const stage = getDescribeGuessTrainingStage(3)!;
     const chosen = getDescribeGuessStageTrials(stage, 80);
+    expect(chosen.length).toBeGreaterThan(0);
     expect(chosen.every(t => t.difficulty === 2)).toBe(true);
   });
 });

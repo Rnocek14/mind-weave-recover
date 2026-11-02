@@ -42,6 +42,11 @@ export function getDescribeGuessStageTrials(
   count: number,
 ): DescribeGuessTrial[] {
   if (!Number.isSafeInteger(count) || count < 1) return [];
-  return getDescribeGuessTrials({ difficulty: stage.itemTier, count })
+  // The existing selector accepts ENGINE difficulty, not literal bank tier:
+  // engine 1–3 → bank tier 1, engine 4–7 → bank tier 2.
+  // Passing literal tier 2 incorrectly selected all tier-1 objects, then
+  // this strict filter threw them away and made Stage 3 unplayable.
+  const engineDifficulty = stage.itemTier === 1 ? 1 : 5;
+  return getDescribeGuessTrials({ difficulty: engineDifficulty, count })
     .filter(t => t.difficulty === stage.itemTier);
 }
