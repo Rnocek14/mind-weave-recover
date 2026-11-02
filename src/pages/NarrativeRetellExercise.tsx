@@ -250,7 +250,10 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  if (!isOfflineMode && (isCreatingSession || !activeSessionId || !training.loaded)) {
+  // Even offline practice must wait for the stage configuration. Otherwise
+  // the old generic game mounts first and its one-time story queue ignores
+  // the patient's actual training stage when the read finishes.
+  if (!training.loaded || (!isOfflineMode && (isCreatingSession || !activeSessionId))) {
     return <ExerciseLoading />;
   }
 
@@ -300,7 +303,17 @@ export default function NarrativeRetellExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={training.stage?.storyTier ?? adaptation.difficultyTier} trainingStage={training.stage ?? undefined} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
+          <NarrativeRetellGame
+            key={[activeProfile?.id ?? 'offline', activeSessionId ?? 'offline', training.stage?.level ?? 'general'].join(':')}
+            userId={user?.id}
+            sessionId={activeSessionId}
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+            roundCount={trialLimit}
+            tier={training.stage?.storyTier ?? adaptation.difficultyTier}
+            trainingStage={training.stage ?? undefined}
+            recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
+          />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

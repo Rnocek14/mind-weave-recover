@@ -168,9 +168,11 @@ export function NarrativeRetellGame({
     },
     onDifficultyChange: (newLevel, reason, dir) => {
       const newTier = levelToTierLocal(newLevel);
-      if (!trainingStage && newTier !== activeTier) {
-        setActiveTier(newTier);
-      }
+      // The supported training stage locks both story complexity and help
+      // for comparable in-session practice. Do not announce a stage switch
+      // when only the legacy internal adaptation score changed.
+      if (trainingStage) return;
+      if (newTier !== activeTier) setActiveTier(newTier);
       const narration = narrateAdaptation({
         direction: dir,
         reasonKind: classifyReason(reason),
@@ -837,10 +839,14 @@ export function NarrativeRetellGame({
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium">Narrative Retell</span>
-          <AdaptationBadge direction={shiftDirection} reason={shiftReason} />
+{!trainingStage && <AdaptationBadge direction={shiftDirection} reason={shiftReason} />}
         </div>
         <div className="flex items-center gap-2">
-          <LevelBadge descriptor={adaptation.levelDescriptor} compact />
+{trainingStage ? (
+            <span className="text-xs font-semibold rounded-full bg-muted px-3 py-1" aria-label="Narrative practice stage">
+              Stage {trainingStage.level}/3
+            </span>
+          ) : <LevelBadge descriptor={adaptation.levelDescriptor} compact />}
           <span className="text-muted-foreground">
             Story {currentIndex + 1} of {totalStories}
           </span>
