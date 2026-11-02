@@ -71,6 +71,9 @@ const ACCURACY_EXCLUDED_SLUGS = new Set([
   'conversation_coach',
   'conversation_turn',
   'voice_practice',
+  // Visual-memory game results are meaningful practice, not speech-recognition
+  // accuracy. Also quarantines legacy rows written without the exclusion flag.
+  'pattern_match',
 ]);
 
 const EMPTY: SessionAccuracySummary = {

@@ -99,4 +99,26 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(r.practice_accuracy).toBe(100);
     expect(r.participation_trials).toBe(2);
   });
+  it('excludes Pattern Match visual-memory successes from ASR accuracy, including legacy rows', () => {
+    const result = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: true, exercise_slug: 'pattern_match' },
+      { score: 0, cue_level: 0, counts_toward_score: null, exercise_slug: 'pattern_match' },
+      { score: 0, cue_level: 0, counts_toward_score: true, exercise_slug: 'photo_naming' },
+    ]);
+    expect(result.asr_accuracy).toBe(0);
+    expect(result.independent_accuracy).toBe(0);
+    expect(result.scored_trials).toBe(1);
+    expect(result.participation_trials).toBe(1);
+  });
+
+  it('does not turn a visual-only session into a fabricated speech score', () => {
+    const result = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: true, exercise_slug: 'pattern_match' },
+    ]);
+    expect(result.asr_accuracy).toBeNull();
+    expect(result.independent_accuracy).toBeNull();
+    expect(result.practice_accuracy).toBeNull();
+    expect(result.scored_trials).toBe(0);
+  });
+
 });

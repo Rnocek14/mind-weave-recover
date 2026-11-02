@@ -291,6 +291,9 @@ export default function PatternMatchExercise() {
                 difficulty_level: data.difficultyLevel,
                 pattern_size: data.patternSize,
                 trial_mode: 'recognition',
+                task_track: 'non_linguistic_visual_memory',
+                // A pattern match is practice, not ASR/independent speech evidence.
+                clinical_progression_eligible: false,
                 ...adaptationTelemetry,
               },
             });
