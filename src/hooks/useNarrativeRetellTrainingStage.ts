@@ -7,9 +7,11 @@
 import { useEffect, useState } from 'react';
 import { loadProgressionState } from '@/lib/progression/clinicalProgression';
 import { getNarrativeTrainingStage, type NarrativeTrainingStage } from '@/lib/narrative/trainingStages';
+import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 
 const LOAD_TIMEOUT_MS = 5000;
-const SLUG = 'narrative-retell';
+// Database stores canonical underscore IDs, not hyphenated route IDs.
+const SLUG = CANONICAL_SLUGS.NARRATIVE_RETELL;
 
 export interface NarrativeStageLoad {
   loaded: boolean;
