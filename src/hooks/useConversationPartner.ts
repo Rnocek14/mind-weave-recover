@@ -10,6 +10,12 @@ import {
   parseFollowupType
 } from '@/lib/conversationFollowups';
 import { StuckType, classifyStuckType } from '@/lib/stuckTypeClassifier';
+import type { ClinicalSignal } from '@/lib/discourseSignalScorer';
+
+type ConversationShadowSignal = Pick<ClinicalSignal,
+  'onTopicScore' | 'targetAchievementScore' | 'responseQualityScore' |
+  'successScore' | 'confidence' | 'errorType' | 'source'
+>;
 
 interface ConversationTurn {
   role: 'ai' | 'user';
@@ -93,6 +99,7 @@ export function useConversationPartner({
     transcript: string,
     latencyToFirstWordMs: number | null,
     attemptId?: string | null,
+    scoreSignal?: ConversationShadowSignal | null,
   ): Promise<{ followupType: FollowupType; followupText: string; eventSaved: boolean }> => {
     setIsLoadingFollowup(true);
 
@@ -181,7 +188,7 @@ export function useConversationPartner({
       const eventSaved = sessionId
         ? await logConversationTurn(
             sessionId, userTurn, followupType, stuckResult.stuckType,
-            newTurnNumber, attemptId,
+            newTurnNumber, attemptId, scoreSignal,
           )
         : false;
 
@@ -254,6 +261,7 @@ async function logConversationTurn(
   stuckType: StuckType,
   turnNumber: number,
   attemptId?: string | null,
+  scoreSignal?: ConversationShadowSignal | null,
 ): Promise<boolean> {
   try {
     const meaningful = (userTurn.wordCount || 0) >= 2;
@@ -287,7 +295,20 @@ async function logConversationTurn(
       },
       outputs: {
         followup_type: followupType,
-        stuck_type: stuckType
+        stuck_type: stuckType,
+        // Clinician visibility without a duplicate graded exercise_events row
+        // or mistaken inclusion in verified speech-accuracy aggregates.
+        ...(scoreSignal ? {
+          discourse_signal_shadow: {
+            onTopicScore: scoreSignal.onTopicScore,
+            targetAchievementScore: scoreSignal.targetAchievementScore,
+            responseQualityScore: scoreSignal.responseQualityScore,
+            successScore: scoreSignal.successScore,
+            confidence: scoreSignal.confidence,
+            errorType: scoreSignal.errorType,
+            source: scoreSignal.source,
+          },
+        } : {}),
       },
       engagement_flags: {
         did_speak: (userTurn.wordCount || 0) > 0,
