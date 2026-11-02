@@ -17,25 +17,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import {
-  getGameClinicalProfile,
-  type ClinicalRung,
-  type RungReadiness,
-} from '@/lib/leveling/clinicalRungs';
+import { getGameClinicalProfile } from '@/lib/leveling/clinicalRungs';
 import { CLINICAL_DIMENSIONS, type ClinicalDimensionId } from '@/lib/leveling/clinicalDimensions';
 import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 
 
-function readinessBadge(r: RungReadiness) {
-  const map: Record<RungReadiness, { label: string; className: string }> = {
-    ready: { label: 'Ready', className: 'bg-primary/15 text-primary border-primary/30' },
-    thin: { label: 'Thin content', className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
-    aspirational: { label: 'Aspirational', className: 'bg-muted text-muted-foreground border-border' },
-  };
-  const m = map[r];
-  return <Badge variant="outline" className={m.className}>{m.label}</Badge>;
-}
 
 function DimensionChip({ id }: { id: ClinicalDimensionId }) {
   const d = CLINICAL_DIMENSIONS[id];
@@ -49,34 +36,6 @@ function DimensionChip({ id }: { id: ClinicalDimensionId }) {
   );
 }
 
-function RungCard({ rung, index, total }: { rung: ClinicalRung; index: number; total: number }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Rung {index + 1} of {total} · Level {rung.levelRange[0]}–{rung.levelRange[1]}
-          </div>
-          <h3 className="mt-1 text-lg font-semibold text-foreground">{rung.name}</h3>
-        </div>
-        {readinessBadge(rung.readiness)}
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">{rung.description}</p>
-
-      <div className="mt-3">
-        <div className="text-xs font-medium text-muted-foreground">What this rung stresses</div>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {rung.stresses.map(d => <DimensionChip key={d} id={d} />)}
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-lg bg-muted/40 p-3">
-        <div className="text-xs font-medium text-muted-foreground">Mastery</div>
-        <p className="mt-0.5 text-sm text-foreground">{rung.masteryCriterion}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function GameAboutPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -223,18 +182,42 @@ export default function GameAboutPage() {
 
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between">
-          {sectionTitle(<Target className="h-4 w-4 text-primary" />, 'Clinical rungs')}
-          <span className="text-xs text-muted-foreground">Easiest → hardest</span>
+          {sectionTitle(<Target className="h-4 w-4 text-primary" />,
+            registered?.status === 'design-only' ? 'Eight proposed practice stages' : 'Eight clinical practice stages')}
+          <span className="text-xs text-muted-foreground">Level 1–8</span>
         </div>
-        <div className="space-y-3">
-          {profile.rungs.map((r, i) => (
-            <RungCard key={r.name} rung={r} index={i} total={profile.rungs.length} />
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          <strong>Readiness</strong> shows whether we have enough curated content for that rung today.
-          "Thin" or "Aspirational" rungs are still being built out — your level may temporarily cap until more content lands.
+        <p className="mb-3 text-sm text-muted-foreground">
+          {registered?.status === 'design-only'
+            ? 'These are proposed goals, not eight levels currently used to update your clinical score.'
+            : 'The game tracks its own clinical level. Later stages may still have limited content or be unavailable.'}
         </p>
+        {registered?.rows?.length ? (
+          <ol aria-label="Eight-stage practice ladder" className="space-y-2">
+            {registered.rows.map(row => (
+              <li key={row.level} data-testid="clinical-stage" className="flex gap-3 rounded-xl border border-border p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                  {row.level}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground">{row.description}</p>
+                  {row.tierStatus === 'planned' ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Planned stage — not currently available as a separately scored level
+                    </p>
+                  ) : (row.tierStatus === 'partially-implemented' || row.readiness === 'thin') ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Limited content — practice level may need more examples
+                    </p>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No game-specific eight-stage description is available.
+          </p>
+        )}
       </section>
 
       <Card className="mb-6">
