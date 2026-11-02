@@ -68,6 +68,12 @@ export interface NarrativeTrialResult {
   wordCount: number;
   /** Was skipped */
   skipped: boolean;
+  /** Supplied at completion: actual mode that generated the response. */
+  inputMode?: 'spoken' | 'typed' | 'none';
+  completionReason?: 'completed' | 'skipped';
+  responseValid?: boolean;
+  /** Real browser recognition output; NEVER copied from typed fallback. */
+  browserTranscript?: string | null;
   /** Beginning / Middle / End breakdown with hit/total counts */
   structureBreakdown: StructureBreakdown;
   /** Auto-generated next-step suggestion */
