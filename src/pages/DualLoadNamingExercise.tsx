@@ -134,7 +134,11 @@ export default function DualLoadNamingExercise() {
 
   const handleTrialComplete = useCallback(async (result: DualLoadTrialResult) => {
     if (!activeSessionId) return;
-    scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
+    // This is a mixed-task practice score, never an independently verified
+    // expressive naming score. Invalid numbers must not poison the session.
+    if (Number.isFinite(result.namingAccuracy) && Number.isFinite(result.recallAccuracy)) {
+      scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
+    }
     trialsRef.current += 1;
     trialIndexRef.current += 1;
 
@@ -173,7 +177,7 @@ export default function DualLoadNamingExercise() {
       expectedResponse: null,
       userResponse: result.recalledWords?.join(', ') ?? null,
       isCorrect,
-      accuracyScore: combinedAccuracy,
+      accuracyScore: Number.isFinite(combinedAccuracy) ? combinedAccuracy : null,
       cueLevel: 0,
       supportUsed: mapDualLoadNamingSupport(),
       latencyMs: result.durationMs,
@@ -203,7 +207,10 @@ export default function DualLoadNamingExercise() {
       },
     });
 
-    if (pivot.shouldStepDown) { console.log('[DualLoad] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
+    if (evidence.clinicalProgressionEligible && pivot.shouldStepDown) {
+      console.log('[DualLoad] Pivot: step down', pivot.pivotReason);
+      pivot.acknowledge();
+    }
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: DualLoadTrialResult[]) => {
