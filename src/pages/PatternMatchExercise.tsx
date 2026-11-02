@@ -299,7 +299,7 @@ export default function PatternMatchExercise() {
           userId={user?.id}
           sessionId={sessionId}
         />
-        )
+        )}
         </div>
       </main>
     </div>
