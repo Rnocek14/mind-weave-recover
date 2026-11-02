@@ -171,6 +171,29 @@ describe('SynonymGeneratorExercise persistence and actual played-tier scoring', 
     await waitFor(() => expect(stubs.commitSession).toHaveBeenCalledTimes(1));
   });
 
+  it('treats a filler-only recognizer result as practice-only rather than a patient failure', async () => {
+    stubs.round = syntheticRound({
+      enteredWords: ['um'],
+      matchedSynonyms: [],
+      unmatchedEntries: ['um'],
+      matchCount: 0,
+      totalEntered: 1,
+      browserTranscript: 'um',
+    });
+
+    render(<SynonymGeneratorExercise />);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish synthetic synonym round' }));
+
+    expect(stubs.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      isCorrect: false,
+      errorType: 'filler_only',
+      trialMode: 'mixed',
+      clinicalProgressionEligible: false,
+    }));
+    expect(stubs.recordPivot).not.toHaveBeenCalled();
+    await waitFor(() => expect(stubs.commitSession).toHaveBeenCalledTimes(1));
+  });
+
   it('awaits the final raw trial write before flushing progression and ending the session', async () => {
     let acknowledge!: (result: { ok: boolean }) => void;
     stubs.submitTrial.mockImplementation(() => new Promise(resolve => {
