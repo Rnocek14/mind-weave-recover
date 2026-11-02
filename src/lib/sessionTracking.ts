@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ExerciseModality, normalizeExerciseSlug } from './exerciseSlugNormalizer';
 import { trackEvent, FUNNEL_EVENTS } from './appEvents';
+import { invalidateDailyLessonCache } from './dailyLessonCache';
 
 export interface SessionPlan {
   blocks: Array<{
@@ -164,6 +165,7 @@ export const endSession = async (
     .is('ended_at', null);
   
   if (error) throw error;
+  invalidateDailyLessonCache();
 
   if (reason === 'completed') {
     trackEvent(FUNNEL_EVENTS.SESSION_COMPLETED, {
