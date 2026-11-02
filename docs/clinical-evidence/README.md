@@ -19,10 +19,10 @@ criterion for any individual patient.
 
 - [Clinical evidence and progression audit for 29 activities](./29-game-evidence-audit.md) — distinct skill construct, evidence-fit classification, task measure, measurement confound, independent generalization check and traceable references for every canonical game plus Command Scenes.
 - `src/lib/clinicalEvidenceRegistry.ts` is the **machine-checkable design evidence contract** consumed by the Activity Library. The contract is reviewed by `clinicalEvidenceRegistry.test.ts`; adding a game without an evidence entry or changing its mastery track incorrectly fails the test.
-- All 13 currently persisted clinical ladders have a documented **alignment review flag**. This is a required SLP/discipline-specific review queue, not a claim that the game is validated.
+- All 13 currently persisted clinical ladders have a documented **alignment review flag**. This is a required SLP/discipline-specific review queue, not a claim of completed clinical outcome evaluation.
 - The 16 design-only games **do not** yet have persistent, clinically scoreable eight-stage ladders. Software regression green status does not change this.
 
-**Research-fit categories are not clinical grades.** `direct-method` means the game resembles a studied treatment ingredient; `related` means a neighboring therapeutic principle is supported; `exploratory` means direct evidence for the mechanic is missing. None of these supports an assertion that NeuroSpark's stage thresholds or clinical efficacy are validated.
+**Research-fit categories are not clinical grades.** `direct-method` means the game resembles a studied treatment ingredient; `related` means a neighboring therapeutic principle is supported; `exploratory` means direct evidence for the mechanic is missing. None of these supports an assertion that NeuroSpark's stage thresholds or clinical efficacy have been established through clinical studies.
 
 **Untrained transfer is not automatic.** The Big CACTUS RCT demonstrated that improvements in trained computer-based word retrieval need not generalize to untrained words or conversation. Track those outcomes separately and require clinician-reviewed evidence before hospital marketing claims. [Trial](https://www.ncbi.nlm.nih.gov/books/NBK556719/).
 
