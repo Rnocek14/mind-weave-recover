@@ -186,6 +186,21 @@ export default function ThoughtContinuationExercise() {
     );
   }
 
+  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
+    return <div role="status" className="p-8 text-center">Preparing practice session…</div>;
+  }
+  if (!training.loaded) {
+    return <div role="status" className="p-8 text-center">Loading your practice stage…</div>;
+  }
+  if (saveWarning) {
+    return (
+      <div className="mx-auto max-w-md p-8 space-y-4">
+        <UnverifiedPracticeBanner />
+        <Button variant="outline" onClick={handleBack}>Return home</Button>
+      </div>
+    );
+  }
+
   // Show summary after completion
   if (sessionSummary) {
     const percentSpoken = sessionSummary.totalPrompts > 0
@@ -268,9 +283,13 @@ export default function ThoughtContinuationExercise() {
         
         <main className="pt-6">
           <ThoughtContinuationGame
+            key={scope}
             userId={user.id}
             profileId={activeProfile.id}
             sessionId={activeSessionId}
+            trainingStage={activeStage}
+            practiceStageSource={practiceStageSource}
+            onRawEventWrite={handleRawEventWrite}
             onComplete={handleComplete}
             onExit={handleExit}
           />
@@ -304,16 +323,63 @@ export default function ThoughtContinuationExercise() {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-center text-muted-foreground">
-              Practice completing thoughts at your own pace.
-              There are no wrong answers — just keep it moving.
+              Practice continuing everyday thoughts at your own pace.
+              A short answer is enough to begin.
             </p>
+            <div className="rounded-md bg-muted/50 p-3 space-y-1 text-sm">
+              {activeStage ? (
+                <>
+                  <p className="font-medium">Practice Stage {activeStage.level}: {activeStage.label}</p>
+                  <p className="text-muted-foreground">{activeStage.instructions}</p>
+                  <p className="text-muted-foreground">Practice format only — not a clinical level-up.</p>
+                </>
+              ) : training.loadUnavailable ? (
+                <p role="status">
+                  Your saved level could not be checked. General practice is available,
+                  or a care partner can choose a stage. No saved level will be changed.
+                </p>
+              ) : (
+                <p role="status">
+                  Your saved clinical level {training.persistedLevel ?? 'is unavailable'} does not
+                  yet have a dedicated practice stage. General practice remains available;
+                  stages 4–8 are still being developed.
+                </p>
+              )}
+            </div>
             
+            {!fromLesson && (
+              <details className="rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium">
+                  Care partner: choose practice stage
+                </summary>
+                <p className="mt-2 text-muted-foreground">
+                  Changes only this practice session, not the saved clinical level.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {([1, 2, 3] as const).map(level => {
+                    const choice = getThoughtTrainingStage(level);
+                    return (
+                      <Button
+                        key={level}
+                        type="button"
+                        variant={activeStage?.level === level ? 'default' : 'outline'}
+                        aria-pressed={activeStage?.level === level}
+                        onClick={() => setStageChoice({ scope, level })}
+                      >
+                        Stage {level}: {choice?.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
+
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <span className="text-xs font-medium text-primary">1</span>
                 </div>
-                <p className="text-muted-foreground">You'll see a prompt like "Talk about the last thing you ate"</p>
+                <p className="text-muted-foreground">You'll hear a sentence or a short situation to continue</p>
               </div>
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -329,7 +395,8 @@ export default function ThoughtContinuationExercise() {
               </div>
             </div>
             
-            <Button onClick={handleStart} className="w-full" size="lg">
+            <Button onClick={handleStart} className="w-full" size="lg"
+              disabled={!training.loaded || (!isOfflineMode && !activeSessionId)}>
               Start Practice
             </Button>
           </CardContent>
