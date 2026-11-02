@@ -37,6 +37,7 @@ import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
+import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
 import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
 
 const Exercise = () => {
@@ -1055,11 +1056,10 @@ const Exercise = () => {
                     confirmation_mode: manual ? 'manual' : 'browser_asr',
                     manual_confirmed: manual,
                     speech_verified: !manual && !!result.whisperTranscript,
-                    training_stage: result.trainingStage ?? null,
-                    practice_stage_source: result.practiceStageSource ?? 'general_practice',
-                    script_support: result.scriptSupport ?? 'visible_script',
-                    full_script_revealed: result.fullScriptRevealed ?? true,
-                    clinical_stage_promotion_eligible: false,
+                    // This exercise always shows or models lexical material.
+                    // Retain meaningful practice outcomes without inflating
+                    // ASR-independent clinical score or progression.
+                    ...describePhrasePracticeEvidence(result),
                     round: currentRound,
                     exercise_type: 'phrase-practice',
                   },
