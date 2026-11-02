@@ -30,7 +30,7 @@ describe('Phrase Practice executable script training modes', () => {
     expect(playable).toHaveLength(20);
     for (const trial of playable) {
       expect(trial.difficulty).toBe(1);
-      expect(trial.phrase.trim().split(/\\s+/).length).toBeGreaterThanOrEqual(2);
+      expect(trial.phrase.trim().split(/\s+/).length).toBeGreaterThanOrEqual(2);
       const prompt = getPhraseTrainingPrompt(trial, stage);
       expect(prompt.fullPhraseRevealed).toBe(false);
       expect(prompt.text).toContain('_____');
