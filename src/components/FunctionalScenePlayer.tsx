@@ -53,7 +53,7 @@ export interface SceneCommandEvent {
   sceneId: string;
   command: string;
   formUsed: string;
-  inputMode: 'speech' | 'tap' | 'demo';
+  inputMode: 'speech' | 'tap' | 'demo' | 'typed';
   changed: boolean;
   atLimit: boolean;
   practiceStage?: number;
@@ -144,6 +144,7 @@ export function FunctionalScenePlayer({
     Object.fromEntries(FUNCTIONAL_SCENES.map((s) => [s.id, initialSceneState(s)])),
   );
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [typedCommand, setTypedCommand] = useState('');
   const [micOn, setMicOn] = useState(false);
   const [practiceStep, setPracticeStep] = useState(0);
   const [choicesRevealed, setChoicesRevealed] = useState(false);
@@ -157,17 +158,17 @@ export function FunctionalScenePlayer({
   const state = states[scene.id];
 
   const applyUtterance = useCallback(
-    (utterance: string, inputMode: 'speech' | 'tap' | 'demo') => {
+    (utterance: string, inputMode: 'speech' | 'tap' | 'demo' | 'typed') => {
       if (practiceStage && goalComplete) return;
       const app: CommandApplication = applyCommandUtterance(scene, states[scene.id], utterance);
       if (!app.matched) {
-        if (inputMode === 'speech') setFeedback(UNMATCHED_HINT);
+        if (inputMode === 'speech' || inputMode === 'typed') setFeedback(UNMATCHED_HINT);
         return;
       }
       setStates((prev) => ({ ...prev, [scene.id]: app.next }));
       const line = feedbackFor(scene, app);
-      const supported = inputMode !== 'speech' || choicesRevealed
-        || !!practiceStage?.visibleChoices;
+      const supported = inputMode !== 'speech' && inputMode !== 'typed'
+        || choicesRevealed || !!practiceStage?.visibleChoices;
       const matchedGoal = !!goal && app.changed && (
         (inputMode === 'tap' && choicesRevealed && app.matched.word === goal.command)
         || commandMeetsScenePracticeGoal(
@@ -181,6 +182,7 @@ export function FunctionalScenePlayer({
         } else {
           setPracticeStep(step => step + 1);
           setChoicesRevealed(false);
+          setTypedCommand('');
           if (practiceStage.mode === 'context_switch') {
             const next = (sceneIndex + 1) % FUNCTIONAL_SCENES.length;
             setSceneIndex(next);
@@ -258,6 +260,7 @@ export function FunctionalScenePlayer({
       const idx = (nextIndex + FUNCTIONAL_SCENES.length) % FUNCTIONAL_SCENES.length;
       setSceneIndex(idx);
       setFeedback(null);
+      setTypedCommand('');
       setPracticeStep(0);
       setGoalComplete(false);
       setChoicesRevealed(false);
@@ -356,6 +359,29 @@ export function FunctionalScenePlayer({
         </CardContent>
       </Card>
 
+      {practiceStage && !goalComplete && !practiceStage.visibleChoices && (
+        <div className="rounded-lg border p-3 space-y-2">
+          <label htmlFor="scene-typed-command" className="font-medium text-sm">
+            Can't use your microphone? Type the command instead
+          </label>
+          <input
+            id="scene-typed-command"
+            value={typedCommand}
+            onChange={e => setTypedCommand(e.target.value)}
+            placeholder={practiceStage.mode === 'object_action'
+              ? 'Example: lamp brighter' : 'What should happen?'}
+            className="w-full rounded-md border bg-background p-3 min-h-12 text-base"
+          />
+          <Button size="lg" className="w-full" disabled={!typedCommand.trim()}
+            onClick={() => {
+              applyUtterance(typedCommand, 'typed');
+              setTypedCommand('');
+            }}>Apply typed command</Button>
+          <p className="text-xs text-muted-foreground">
+            Typed practice does not count as spoken communication.
+          </p>
+        </div>
+      )}
       {practiceStage && !visibleChoices && (
         <Button variant="outline" size="lg" className="w-full min-h-14"
           onClick={() => setChoicesRevealed(true)}>
