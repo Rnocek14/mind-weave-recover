@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 import { useState, useEffect, useRef } from "react";
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import { useNavigate, useLocation } from "react-router-dom";
@@ -41,6 +43,7 @@ import { SessionSidePanel } from "@/components/SessionSidePanel";
 
 const SentenceConstructionExercise = () => {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   
@@ -228,7 +231,11 @@ const SentenceConstructionExercise = () => {
   const handleGameComplete = async (finalScore: number, totalTrials: number) => {
     // Unified commit before session-end housekeeping — flushes mastery
     // shadow + drains queued adaptation rows + persists the L1–L8 ladder.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     if (sessionId) {
       const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
@@ -292,6 +299,7 @@ const SentenceConstructionExercise = () => {
   if (fromLesson) {
     return (
       <div className="h-dvh flex flex-col bg-background overflow-hidden">
+        {saveError && <UnverifiedPracticeBanner />}
         <SessionSidePanel />
         <InlineSessionProgress />
         {/* Compact header */}
@@ -343,6 +351,7 @@ const SentenceConstructionExercise = () => {
 
   return (
     <div className="h-dvh flex flex-col bg-background overflow-hidden">
+        {saveError && <UnverifiedPracticeBanner />}
       {/* Compact header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
         <div className="flex items-center gap-2">

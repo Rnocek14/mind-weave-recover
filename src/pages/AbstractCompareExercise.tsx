@@ -1,3 +1,5 @@
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Abstract Comparison Exercise Page — wrapper with session lifecycle.
  */
@@ -31,6 +33,9 @@ export default function AbstractCompareExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const pendingEventWritesRef = useRef<Promise<boolean>[]>([]);
+  const completionStartedRef = useRef(false);
   const exerciseCompleteSentRef = useRef(false);
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -79,8 +84,7 @@ export default function AbstractCompareExercise() {
 
   const handleTrialComplete = useCallback((result: AbstractCompareTrialResult) => {
     if (!activeSessionId) return;
-    scoreRef.current += Math.round(result.coverageRatio * 100);
-    trialsRef.current += 1;
+    const practiceScore = Math.round(result.coverageRatio * 100);
 
     const wasCorrect = result.coverageRatio >= 0.3;
 
@@ -96,13 +100,20 @@ export default function AbstractCompareExercise() {
       errorType: wasCorrect ? undefined : 'low_coverage',
     });
 
-    logTrial({
+    const pending = logTrial({
       correct: wasCorrect,
       reactionTimeMs: result.durationMs,
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
+        input_mode: result.inputMode ?? 'unknown',
+        trial_mode: result.inputMode === 'spoken' ? 'production'
+          : result.inputMode === 'typed' ? 'typed'
+          : result.inputMode === 'skip' ? 'skipped' : 'unknown',
+        clinical_progression_eligible: false,
+        // A coverage-ratio exercise is descriptive practice, not clinical
+        // speech-recognition accuracy or independent mastery.
         // Universal 1–10 GameLevel for analytics + UI consistency
         game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
         ...adaptationTelemetry,
@@ -118,11 +129,29 @@ export default function AbstractCompareExercise() {
         depth: result.depthTelemetry,
       },
     });
+    pendingEventWritesRef.current.push(pending.then(saved => {
+      if (saved === true) {
+        scoreRef.current += practiceScore;
+        trialsRef.current += 1;
+      }
+      return saved;
+    }));
   }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot]);
 
-  const handleGameComplete = useCallback((results: AbstractCompareTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: AbstractCompareTrialResult[]) => {
+    if (completionStartedRef.current) return;
+    completionStartedRef.current = true;
+    const saved = await confirmRawEventWrites(
+      pendingEventWritesRef.current.splice(0),
+      results.length,
+    );
+    if (!saved.ok) {
+      console.warn('[AbstractCompare] Session has incomplete raw clinical events', saved);
+      setSaveError(true);
+      return;
+    }
+    await completeSession();
     setCompleted(true);
-    completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -164,7 +193,9 @@ export default function AbstractCompareExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveError ? (
+          <UnverifiedPracticeBanner />
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>
             <h2 className="text-2xl font-bold">Comparisons Complete!</h2>

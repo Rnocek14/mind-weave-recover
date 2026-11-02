@@ -9,6 +9,10 @@ const Progress = React.forwardRef<
 >(({ className, value, ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
+    // Without forwarding value, Radix exposes no aria-valuenow. Sighted
+    // patients see progress while screen-reader users hear an indeterminate
+    // status even for 0%, 50% and completed exercises.
+    value={value}
     className={cn("relative h-4 w-full overflow-hidden rounded-full bg-secondary", className)}
     {...props}
   >

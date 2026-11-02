@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Phonological Awareness Exercise Page
  *
@@ -49,6 +51,7 @@ const EXERCISE_SLUG = 'phonological_awareness';
 
 export default function PhonologicalExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -240,7 +243,11 @@ export default function PhonologicalExercise() {
     if (!activeSessionId || !user?.id) return;
     // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
     // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
     completeSession();
 
     const accuracy = (finalScore / totalTrials) * 100;
@@ -263,6 +270,7 @@ export default function PhonologicalExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       {fromLesson && <SessionSidePanel />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">

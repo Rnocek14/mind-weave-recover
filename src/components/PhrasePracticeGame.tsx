@@ -28,6 +28,7 @@ import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
+import { verifyPhrasePracticeWrites } from '@/lib/phrasePractice/verifyPhrasePracticeWrites';
 
 interface PhrasePracticeGameProps {
   totalTrials: number;
@@ -52,7 +53,7 @@ interface PhrasePracticeGameProps {
     utteranceAnalysis?: UtteranceAnalysis;
     shadowEvent?: ShadowEvent;
     audioStoragePath?: string;
-  }) => void;
+  }) => Promise<boolean | void> | boolean | void;
   onGameComplete?: (finalScore: number, finalLevel: number) => void;
   onDifficultyChange?: (newLevel: number) => void;
 }
@@ -109,6 +110,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   const [trials, setTrials] = useState<PhraseTrial[]>([]);
   const [currentTrialIndex, setCurrentTrialIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
+  const pendingTrialWritesRef = useRef<Promise<boolean | void>[]>([]);
+  const [saveError, setSaveError] = useState(false);
+  const finalizationRef = useRef(false);
   // The full printed phrase is lexical support on every trial.
   const [cueLevel, setCueLevel] = useState<number>(VISIBLE_PHRASE_CUE_LEVEL); // 1=visual, 2=audio, 3=both
   const [showFeedback, _setShowFeedback] = useState(false);
@@ -309,6 +314,23 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   }, [initialDifficulty, totalTrials, user]);
 
   const currentTrial = trials[currentTrialIndex] || null;
+
+  // Enqueue the event as soon as speech/tap outcome is observed. The separate
+  // audio analyzer is deliberately not allowed to delay clinical raw inserts.
+  const recordTrialForCompletion = (data: Parameters<NonNullable<PhrasePracticeGameProps['onTrialComplete']>>[0]) => {
+    if (!onTrialComplete) return;
+    try {
+      pendingTrialWritesRef.current.push(
+        Promise.resolve(onTrialComplete(data)).catch((error) => {
+          console.warn('[PhrasePractice] Raw trial failed:', error);
+          return false;
+        }),
+      );
+    } catch (error) {
+      console.warn('[PhrasePractice] Raw trial threw:', error);
+      pendingTrialWritesRef.current.push(Promise.resolve(false));
+    }
+  };
 
   useEffect(() => {
     currentAttemptIdRef.current = currentAttemptId;
@@ -559,7 +581,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       fluencyAvailable: false,
       fluencyUnavailableReason: 'no_recording',
     });
-    onTrialComplete?.(buildManualPhraseConfirmation({
+    recordTrialForCompletion(buildManualPhraseConfirmation({
       phraseId: trial.id,
       difficulty: currentDifficulty,
       cueLevel,
@@ -585,7 +607,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     
     // ===== INSTANT FEEDBACK (< 100ms) =====
     playSuccess();
-    setScore(prev => prev + 100);
+    scoreRef.current += 100;
+    setScore(scoreRef.current);
     setFeedbackCorrect(true);
     // Mark phrase as mastered if answered correctly within 2 attempts — don't repeat it
     if (attemptCount <= 2 && trialData.id) {
@@ -599,6 +622,17 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     
     // Update adaptive difficulty tracking (fast, local)
     recordAdaptiveTrial({ correct: true, reactionTimeMs: reactionTime });
+    recordTrialForCompletion({
+      correct: true,
+      timeMs: reactionTime,
+      cueLevel: currentCueLevel,
+      difficulty: currentDiff,
+      phraseId: trialData.id,
+      wordAccuracy,
+      repetitions: attemptCount + 1,
+      whisperTranscript: spokenTranscript,
+      effortfulSpeech: false,
+    });
     
     // ===== BACKGROUND ANALYSIS (fire-and-forget) =====
     const runBackgroundAnalysis = async () => {
@@ -674,7 +708,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           {
             taskType: 'phrase_practice',
             domain: trialData.category as any,
-            interactionMode: 'independent',
+            cueLevel: currentCueLevel, // target phrase was visible, never uncued
             targetPhrase: trialData.phrase,
           },
           utteranceAnalysis
@@ -690,22 +724,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           });
         }
 
-        // Log trial
-        onTrialComplete?.({
-          correct: true,
-          timeMs: reactionTime,
-          cueLevel: currentCueLevel,
-          difficulty: currentDiff,
-          phraseId: trialData.id,
-          wordAccuracy,
-          repetitions: attemptCount + 1,
-          whisperTranscript: spokenTranscript,
-          encouragementScore,
-          effortfulSpeech: false,
-          utteranceAnalysis,
-          shadowEvent,
-          audioStoragePath: uploadedPath,
-        });
+        // Raw trial was already submitted before background analysis.
 
         // Log final analysis to utterance_analyses (TERMINAL OUTCOME: correct)
         // Include gopData + alignmentData for word/phoneme-level analysis
@@ -786,7 +805,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     // Update adaptive difficulty tracking (fast, local)
     recordAdaptiveTrial({ correct: false });
 
-    onTrialComplete?.({
+    recordTrialForCompletion({
       correct: false,
       timeMs: reactionTime,
       cueLevel: currentCueLevel,
@@ -958,8 +977,30 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const currentIndex = currentTrialIndexRef.current;
 
     if (currentIndex + 1 >= trials.length) {
-      completeSession();
-      onGameComplete?.(score, currentDifficulty);
+      if (finalizationRef.current) return;
+      finalizationRef.current = true;
+      void (async () => {
+        const result = await verifyPhrasePracticeWrites(
+          pendingTrialWritesRef.current,
+          totalTrials,
+          Boolean(onTrialComplete),
+        );
+        if (!result.ok) {
+          setSaveError(true);
+          console.warn('[PhrasePractice] Completion withheld:', 'reason' in result ? result.reason : 'Raw attempt save failed');
+          toast({
+            title: 'Practice not fully saved',
+            description: 'Please ask a care partner for help. Results are not marked complete.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        await completeSession();
+        onGameComplete?.(scoreRef.current, currentDifficultyRef.current);
+      })().catch((error) => {
+        setSaveError(true);
+        console.error('[PhrasePractice] Completion failed:', error);
+      });
       return;
     }
 
@@ -998,6 +1039,10 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
   const reset = () => {
     setCurrentTrialIndex(0);
+    scoreRef.current = 0;
+    pendingTrialWritesRef.current = [];
+    finalizationRef.current = false;
+    setSaveError(false);
     setScore(0);
     setCueLevel(VISIBLE_PHRASE_CUE_LEVEL);
     setAttempts(0);
@@ -1046,6 +1091,12 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
           {score} pts
         </div>
       </div>
+
+      {saveError && (
+        <Card role="alert" className="p-4 border-destructive">
+          Your practice ended, but some attempts were not saved. Please ask a care partner for help.
+        </Card>
+      )}
 
       {/* Progress Bar */}
       <Progress value={progress} className="h-3" />

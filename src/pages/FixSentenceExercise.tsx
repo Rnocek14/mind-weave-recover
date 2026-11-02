@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Fix the Sentence Exercise Page
  * 
@@ -39,6 +41,7 @@ const EXERCISE_SLUG = 'fix_sentence';
 
 export default function FixSentenceExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -190,6 +193,10 @@ export default function FixSentenceExercise() {
 
     // Unified commit: progression flush + mastery shadow flush in one call.
     const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     const finalize = () => {
       setCompleted(true);
@@ -243,6 +250,7 @@ export default function FixSentenceExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       {recap && (
         <ProgressionRecap
           gameTitle="Fix the Sentence"

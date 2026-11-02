@@ -6,6 +6,7 @@ import { useAdaptiveDifficulty } from '@/hooks/useAdaptiveDifficulty';
 import { useEngagementMonitor } from '@/hooks/useEngagementMonitor';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { placeReachTapTarget } from '@/lib/reachTap/placeReachTapTarget';
 
 interface ReachTapGameProps {
   totalTrials: number;
@@ -52,6 +53,23 @@ export const ReachTapGame = ({
   const [difficultyChanged, setDifficultyChanged] = useState<'up' | 'down' | null>(null);
   const [consecutiveHits, setConsecutiveHits] = useState(0);
   const [consecutiveMisses, setConsecutiveMisses] = useState(0);
+  const trialLockedRef = useRef(false);
+  const feedbackTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const schedule = (action: () => void, delayMs: number) => {
+    const timer = setTimeout(() => {
+      feedbackTimersRef.current.delete(timer);
+      action();
+    }, delayMs);
+    feedbackTimersRef.current.add(timer);
+  };
+  useEffect(() => () => {
+    for (const timer of feedbackTimersRef.current) clearTimeout(timer);
+    feedbackTimersRef.current.clear();
+  }, []);
+  const completedTrials = Math.max(0, Math.min(
+    totalTrials,
+    currentTrial - 1 + (showFeedback ? 1 : 0),
+  ));
   
   const containerRef = useRef<HTMLDivElement>(null);
   const { playSuccess, playTimeout, playLevelUp, playLevelDown, playStreak } = useGameSounds();
@@ -71,7 +89,7 @@ export const ReachTapGame = ({
       const direction = newLevel > currentDifficulty ? 'up' : 'down';
       setDifficultyChanged(direction);
       
-      setTimeout(() => {
+      schedule(() => {
         if (direction === 'up') {
           playLevelUp();
         } else {
@@ -84,7 +102,7 @@ export const ReachTapGame = ({
         : `Adjusting to level ${newLevel} for better experience`;
       
       onDifficultyChange?.(newLevel, reason);
-      setTimeout(() => setDifficultyChanged(null), 2000);
+      schedule(() => setDifficultyChanged(null), 2000);
     },
     userId,
     sessionId,
@@ -122,65 +140,23 @@ export const ReachTapGame = ({
   // Track previous position to ensure targets jump around
   const lastPositionRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Generate random target position with optional bias for neglect training
+  // Use physical bounds and the target's actual center for position labels.
+  // In Left-Side Hunt the previous formula allowed negative X on phones
+  // whenever a wide easy target exceeded one third of the play area.
   const generateTarget = () => {
     if (!containerRef.current) return;
-
-    const container = containerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const size = getTargetSize(currentDifficulty, containerRect.width);
-    
-    const padding = Math.max(12, size * 0.5);
-    const maxX = containerRect.width - size - padding;
-    const maxY = containerRect.height - size - padding;
-    
-    // Minimum jump distance = 30% of container diagonal
-    const minJump = Math.sqrt(containerRect.width ** 2 + containerRect.height ** 2) * 0.3;
-    
-    let x: number;
-    let y: number;
-    let side: 'left' | 'center' | 'right';
-    let attempts = 0;
-    
-    do {
-      if (variant === 'left-side-hunt') {
-        const spawnLeft = Math.random() < 0.7;
-        if (spawnLeft) {
-          x = Math.random() * (containerRect.width / 3 - size) + padding;
-          side = 'left';
-        } else {
-          x = Math.random() * (containerRect.width * 2/3 - size) + (containerRect.width / 3);
-          side = x > containerRect.width * 2/3 ? 'right' : 'center';
-        }
-      } else {
-        x = Math.random() * maxX + padding;
-        if (x < containerRect.width / 3) side = 'left';
-        else if (x > containerRect.width * 2/3) side = 'right';
-        else side = 'center';
-      }
-      
-      y = Math.random() * maxY + padding;
-      attempts++;
-      
-      // Ensure sufficient distance from last position (retry up to 10 times)
-      if (lastPositionRef.current && attempts < 10) {
-        const dx = x - lastPositionRef.current.x;
-        const dy = y - lastPositionRef.current.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < minJump) continue;
-      }
-      break;
-    } while (true);
-
-    lastPositionRef.current = { x, y };
-
-    setTarget({
-      x,
-      y,
-      size,
-      side,
-      appearTime: Date.now(),
+    const rect = containerRef.current.getBoundingClientRect();
+    const positioned = placeReachTapTarget({
+      width: rect.width,
+      height: rect.height,
+      desiredSize: getTargetSize(currentDifficulty, rect.width),
+      variant,
+      previous: lastPositionRef.current,
     });
+    if (!positioned) return;
+    trialLockedRef.current = false;
+    lastPositionRef.current = { x: positioned.x, y: positioned.y };
+    setTarget({ ...positioned, appearTime: Date.now() });
   };
 
   // Start new trial
@@ -210,7 +186,8 @@ export const ReachTapGame = ({
   }, [target, showFeedback, currentDifficulty, slowMode]);
 
   const handleTargetHit = () => {
-    if (!target || showFeedback) return;
+    if (!target || showFeedback || trialLockedRef.current) return;
+    trialLockedRef.current = true;
 
     const reactionTime = Date.now() - target.appearTime;
     setFeedbackType('success');
@@ -225,7 +202,7 @@ export const ReachTapGame = ({
     
     // Play streak sound for 3+ consecutive hits
     if (newConsecutiveHits >= 3 && newConsecutiveHits % 3 === 0) {
-      setTimeout(() => playStreak(), 200);
+      schedule(() => playStreak(), 200);
     }
 
     // Update score
@@ -247,11 +224,14 @@ export const ReachTapGame = ({
     });
 
     // Move to next trial
-    setTimeout(() => {
+    schedule(() => {
       setShowFeedback(false);
       setTarget(null);
       
       if (currentTrial >= totalTrials) {
+        // Move beyond the playable range before leaving the screen.
+        // Otherwise the effect respawns a new target after the last trial.
+        setCurrentTrial(totalTrials + 1);
         onGameComplete(score + points);
       } else {
         setCurrentTrial((prev) => prev + 1);
@@ -260,7 +240,8 @@ export const ReachTapGame = ({
   };
 
   const handleMiss = () => {
-    if (showFeedback) return;
+    if (showFeedback || !target || trialLockedRef.current) return;
+    trialLockedRef.current = true;
 
     setFeedbackType('miss');
     setShowFeedback(true);
@@ -287,11 +268,12 @@ export const ReachTapGame = ({
     });
 
     // Move to next trial
-    setTimeout(() => {
+    schedule(() => {
       setShowFeedback(false);
       setTarget(null);
       
       if (currentTrial >= totalTrials) {
+        setCurrentTrial(totalTrials + 1);
         onGameComplete(score);
       } else {
         setCurrentTrial((prev) => prev + 1);
@@ -305,14 +287,15 @@ export const ReachTapGame = ({
       <div className="space-y-2 flex-shrink-0">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
-            Trial {currentTrial} of {totalTrials}
+            {currentTrial > totalTrials ? 'Practice complete' : `Trial ${currentTrial} of ${totalTrials}`}
           </span>
           <span className="font-medium text-primary">
             Score: {score}
           </span>
         </div>
         <Progress
-          value={(currentTrial / totalTrials) * 100}
+          aria-label="Completed Reach and Tap trials"
+          value={totalTrials > 0 ? (completedTrials / totalTrials) * 100 : 0}
           className="h-2"
         />
       </div>
@@ -414,6 +397,7 @@ export const ReachTapGame = ({
         {/* Target - different appearance for left-side-hunt */}
         {target && !showFeedback && (
           <button
+            aria-label={variant === 'left-side-hunt' ? 'Tap the star target' : 'Tap the target'}
             className={`absolute transition-all animate-scale-in cursor-pointer ${
               variant === 'left-side-hunt'
                 ? 'bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 border-4 border-amber-200 shadow-lg shadow-amber-500/30'

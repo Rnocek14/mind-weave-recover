@@ -995,7 +995,7 @@ const Exercise = () => {
                 // Self-report is meaningful practice participation, not an
                 // automatically verified spoken target or phoneme score.
                 const manual = result.manualConfirmed === true;
-                await logTrial({
+                const persisted = await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.timeMs,
                   cueLevel: result.cueLevel,
@@ -1026,6 +1026,7 @@ const Exercise = () => {
                   }
                   startTrial();
                 }
+                return persisted;
               }}
               onGameComplete={(finalScore) => {
                 setScore(finalScore);

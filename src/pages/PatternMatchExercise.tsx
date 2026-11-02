@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { awaitPatternMatchWrites } from '@/lib/patternMatch/awaitPatternMatchWrites';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PatternMatchGame } from '@/components/PatternMatchGame';
 import { useAuth } from '@/hooks/useAuth';
 import { startSession, endSession } from '@/lib/sessionTracking';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, SkipForward } from 'lucide-react';
+import { ArrowLeft, SkipForward, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { describeLevel } from '@/lib/gameLevels';
@@ -21,6 +22,8 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+
+const PATTERN_TRIAL_COUNT = 10;
 
 export default function PatternMatchExercise() {
   const navigate = useNavigate();
@@ -39,6 +42,11 @@ export default function PatternMatchExercise() {
   const [clinicalProfile, setClinicalProfile] = useState<any>(null);
   // Guards handleGameStart so exactly one session is created per play start.
   const sessionStartedRef = useRef(false);
+  const [sessionError, setSessionError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const finalizationStartedRef = useRef(false);
+  const pendingTrialWritesRef = useRef<Promise<boolean>[]>([]);
 
   // UX1B: presentation-only "Today's Challenge" state. Mirrors the live
   // difficulty emitted by PatternMatchGame and a rolling success rate derived
@@ -136,6 +144,7 @@ export default function PatternMatchExercise() {
     // creating ~8 empty duplicate sessions in <1s. Latch on first invocation.
     if (sessionStartedRef.current) return;
     sessionStartedRef.current = true;
+    setSessionError(false);
 
     try {
       if (fromLesson && lessonSessionId) {
@@ -147,35 +156,63 @@ export default function PatternMatchExercise() {
         setSessionId(session.id);
       }
     } catch (error) {
-      // Allow a retry if session creation failed
+      // Preserve a patient-visible recovery route instead of a stuck spinner.
       sessionStartedRef.current = false;
+      setSessionError(true);
       console.error('Error starting pattern-match session:', error);
     }
   };
 
   const handleGameComplete = async (finalScore: number) => {
-    if (!sessionId || !user?.id) return;
-    
-    const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
-    const totalTrials = 10;
-    const accuracy = (finalScore / totalTrials) * 100;
-    
-    await endSession(sessionId, {
-      durationSec,
-      scores: { 'pattern-match': accuracy },
-      reps: totalTrials,
-    });
-    
-    toast({
-      title: 'Session saved!',
-      description: `You matched ${finalScore}/${totalTrials} patterns (${accuracy.toFixed(0)}% accuracy).`,
-    });
-    
-    if (fromLesson) {
-      window.dispatchEvent(new CustomEvent('exercise-complete'));
-      navigate(returnTo, { state: { resuming: true } });
-    } else {
-      setTimeout(() => navigate('/today'), 2000);
+    if (finalizationStartedRef.current) return;
+    finalizationStartedRef.current = true;
+    setSaving(true);
+    setSaveError(false);
+
+    try {
+      if (!sessionId || !user?.id) throw new Error('Missing session identity');
+
+      // The old flow closed the session while raw exercise_events writes
+      // were still pending. A green-looking completion could have no trials.
+      const saveCheck = await awaitPatternMatchWrites(
+        pendingTrialWritesRef.current,
+        PATTERN_TRIAL_COUNT,
+      );
+      if (!saveCheck.ok) throw new Error('reason' in saveCheck ? saveCheck.reason : 'Raw attempt save failed');
+
+      const accuracy = (finalScore / PATTERN_TRIAL_COUNT) * 100;
+      // Guided sessions belong to the lesson: do not close the parent's
+      // session mid-lesson. The overall lesson owns its final summary.
+      if (!(fromLesson && lessonSessionId === sessionId)) {
+        await endSession(sessionId, {
+          durationSec: Math.floor((Date.now() - sessionStartTime) / 1000),
+          scores: { 'pattern-match': accuracy },
+          reps: PATTERN_TRIAL_COUNT,
+        });
+      }
+
+      toast({
+        title: 'Practice recorded',
+        description: `You matched ${finalScore}/${PATTERN_TRIAL_COUNT} patterns (${accuracy.toFixed(0)}% practice accuracy).`,
+      });
+
+      if (fromLesson) {
+        window.dispatchEvent(new CustomEvent('exercise-complete'));
+        navigate(returnTo, { state: { resuming: true } });
+      } else {
+        setTimeout(() => navigate('/today'), 2000);
+      }
+    } catch (error) {
+      setSaveError(true);
+      // A failed raw write must not trigger a false "session saved" message.
+      console.error('Pattern Match completion could not be verified:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Practice was not fully saved',
+        description: 'Please ask your care partner for help. This attempt is not recorded as complete.',
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -219,9 +256,24 @@ export default function PatternMatchExercise() {
           />
         )}
 
-        {/* Game */}
+        {/* Game: never start trials before an owned session is ready. */}
+        {!user?.id || !activeProfile?.id ? (
+          <div role="status" className="p-6 text-center">Sign in and select a patient profile before practicing.</div>
+        ) : sessionError ? (
+          <div role="alert" className="p-6 text-center space-y-3">
+            <AlertCircle className="mx-auto" aria-hidden="true" />
+            <p>We could not start your practice session.</p>
+            <Button onClick={() => void handleGameStart()}>Try again</Button>
+          </div>
+        ) : !sessionId ? (
+          <div role="status" className="p-6 text-center">Preparing your practice session…</div>
+        ) : saving ? (
+          <div role="status" className="p-6 text-center">Saving your practice…</div>
+        ) : saveError ? (
+          <div role="alert" className="p-6 text-center">Your practice could not be fully saved. Please ask a care partner for help.</div>
+        ) : (
         <PatternMatchGame
-          totalTrials={10}
+          totalTrials={PATTERN_TRIAL_COUNT}
           initialDifficulty={config.startDifficulty || 3}
           bounds={bounds}
           slowMode={true}
@@ -230,7 +282,7 @@ export default function PatternMatchExercise() {
             // UX1B presentation-only: mirror live difficulty + rolling success.
             setCurrentChallenge(data.difficultyLevel);
             setRecentResults((prev) => [...prev, data.correct].slice(-5));
-            void logPatternTrial({
+            const pendingWrite = logPatternTrial({
               correct: data.correct,
               reactionTimeMs: data.reactionTimeMs,
               cueLevel: 0,
@@ -239,13 +291,18 @@ export default function PatternMatchExercise() {
                 difficulty_level: data.difficultyLevel,
                 pattern_size: data.patternSize,
                 trial_mode: 'recognition',
+                task_track: 'non_linguistic_visual_memory',
+                // A pattern match is practice, not ASR/independent speech evidence.
+                clinical_progression_eligible: false,
                 ...adaptationTelemetry,
               },
             });
+            pendingTrialWritesRef.current.push(pendingWrite);
           }}
           userId={user?.id}
           sessionId={sessionId}
         />
+        )}
         </div>
       </main>
     </div>

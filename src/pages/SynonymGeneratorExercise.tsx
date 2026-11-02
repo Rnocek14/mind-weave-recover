@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Synonym Generator Exercise Page
  *
@@ -42,6 +44,7 @@ const EXERCISE_SLUG = 'synonym_generator';
 
 export default function SynonymGeneratorExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -205,7 +208,7 @@ export default function SynonymGeneratorExercise() {
   }, [activeSessionId, submitTrial, adaptationTelemetry, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: SynonymRoundResult[]) => {
-    setCompleted(true);
+    
     // Await every raw record before flushing the progression buffer and
     // longitudinal mastery. The last round otherwise races the commit.
     const pending = pendingTrialsRef.current.splice(0);
@@ -217,6 +220,11 @@ export default function SynonymGeneratorExercise() {
       console.warn('[SynonymGenerator] Raw event persistence failed for', failed.length, 'rounds; these do not advance progression');
     }
     const commit = await commitSession();
+    if (hasMissingClinicalRawEvidence(commit)) {
+      setSaveError(true);
+      return;
+    }
+    setCompleted(true);
     if (!commit.ok) {
       console.warn('[SynonymGenerator] Clinical progression commit incomplete', commit.errors);
     }
@@ -249,6 +257,7 @@ export default function SynonymGeneratorExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>

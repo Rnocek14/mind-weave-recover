@@ -29,7 +29,7 @@ import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { isAudioUnlocked } from '@/lib/audioUnlock';
 import { useVoiceState } from '@/hooks/useVoiceState';
 import { voiceController } from '@/lib/voiceController';
-import { formatDetectiveOptionsForSpeech } from '@/lib/detectiveMindSpeech';
+import { formatDetectiveOptionsForSpeech, resolveDetectiveSpokenChoice, formatDetectiveChoiceRetryPrompt } from '@/lib/detectiveMindSpeech';
 
 interface DetectiveMindGameProps {
   onTrialComplete: (result: DetectiveTrialResult) => void;
@@ -338,69 +338,10 @@ export function DetectiveMindGame({
   // ─── Voice answer support ────────────────────────────────────────────────
   // Listen after Maya finishes reading; map spoken letter / ordinal /
   // option keyword to the displayed option index.
-  const selectFromTranscript = useCallback((raw: string): number | null => {
-    const t = raw.toLowerCase().trim().replace(/[.,!?]/g, '');
-    if (!t) return null;
-
-    const tokens = t.split(/\s+/).filter(Boolean);
-    const compact = t.replace(/\s+/g, '');
-
-    // SpeechRecognition often hears bare letters as common words.
-    const spokenLetterAliases: Record<string, number> = {
-      a: 0, ay: 0, hey: 0, eh: 0, 'lettera': 0, 'optiona': 0,
-      b: 1, bee: 1, be: 1, 'letterb': 1, 'optionb': 1,
-      c: 2, see: 2, sea: 2, 'letterc': 2, 'optionc': 2,
-      d: 3, dee: 3, 'letterd': 3, 'optiond': 3,
-    };
-
-    for (const token of tokens) {
-      const aliasIdx = spokenLetterAliases[token];
-      if (aliasIdx !== undefined && aliasIdx < displayedOptions.length) return aliasIdx;
-    }
-    const compactAliasIdx = spokenLetterAliases[compact];
-    if (compactAliasIdx !== undefined && compactAliasIdx < displayedOptions.length) return compactAliasIdx;
-
-    // "number one/two/three/four" → 0..3 (check BEFORE letter regex so "b" in
-    // "number" doesn't false-trigger).
-    const numberWords: Record<string, number> = {
-      one: 0, two: 1, three: 2, four: 3,
-      '1': 0, '2': 1, '3': 2, '4': 3,
-    };
-    const numMatch = t.match(/\bnumber\s+(one|two|three|four|[1-4])\b/);
-    if (numMatch && numberWords[numMatch[1]] < displayedOptions.length) {
-      return numberWords[numMatch[1]];
-    }
-    // Standalone "1/2/3/4"
-    const digitMatch = t.match(/\b([1-4])\b/);
-    if (digitMatch) {
-      const v = numberWords[digitMatch[1]];
-      if (v < displayedOptions.length) return v;
-    }
-    // Letter match: "a", "b", "letter c", "answer d", "option a"
-    const letterMatch = t.match(/\b(?:answer\s+|letter\s+|option\s+)?([a-d])\b/);
-    if (letterMatch) {
-      const idx = letterMatch[1].charCodeAt(0) - 'a'.charCodeAt(0);
-      if (idx >= 0 && idx < displayedOptions.length) return idx;
-    }
-    // Ordinals: first/second/third/fourth and one/two/three/four
-    const ords: Record<string, number> = {
-      first: 0, second: 1, third: 2, fourth: 3,
-      one: 0, two: 1, three: 2, four: 3,
-    };
-    for (const [k, v] of Object.entries(ords)) {
-      if (new RegExp(`\\b${k}\\b`).test(t) && v < displayedOptions.length) return v;
-    }
-    // Substring match against option text (longest unique wins, ≥4 chars)
-    let best = -1; let bestLen = 0;
-    displayedOptions.forEach((opt, i) => {
-      const lower = opt.toLowerCase();
-      const words = lower.split(/\W+/).filter(w => w.length >= 4);
-      for (const w of words) {
-        if (t.includes(w) && w.length > bestLen) { best = i; bestLen = w.length; }
-      }
-    });
-    return best >= 0 ? best : null;
-  }, [displayedOptions]);
+  const selectFromTranscript = useCallback(
+    (raw: string): number | null => resolveDetectiveSpokenChoice(raw, displayedOptions),
+    [displayedOptions],
+  );
 
   // Track when TTS finished so we can ignore speech results that arrive
   // before audio has fully drained (those are almost always Maya's own voice
@@ -435,9 +376,9 @@ export function DetectiveMindGame({
       handleSelectOption(idx);
     } else if (text.trim()) {
       // Don't say "keep going" — show inline guidance instead and re-arm mic.
-      setVoiceMissMsg("I didn't catch a choice. Try saying A, B, C, or D.");
+      setVoiceMissMsg(formatDetectiveChoiceRetryPrompt(displayedOptions.length));
     }
-  }, [phase, selectedOption, selectFromTranscript, handleSelectOption]);
+  }, [phase, selectedOption, selectFromTranscript, handleSelectOption, displayedOptions.length]);
 
   const handleSpeechAnswer = useCallback((text: string) => {
     if (phase !== 'answering' || selectedOption !== null) return;

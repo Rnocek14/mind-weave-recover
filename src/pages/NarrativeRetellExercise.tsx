@@ -1,3 +1,5 @@
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
  * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
@@ -198,16 +200,18 @@ export default function NarrativeRetellExercise() {
     // Existing legacy telemetry does not use useTrialSubmission's shared
     // commit barrier. Await its own pending raw events before ending the
     // session or navigating to another game.
-    const settled = await Promise.allSettled(pendingEventWritesRef.current.splice(0));
-    const failed = settled.filter(entry =>
-      entry.status === 'rejected' || (entry.status === 'fulfilled' && entry.value !== true),
-    ).length;
-    if (failed > 0 && !isOfflineMode) {
-      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', { failed });
+    const saved = await confirmRawEventWrites(
+      pendingEventWritesRef.current.splice(0),
+      results.length,
+    );
+    // Offline practice can finish locally, but is never verified clinical data.
+    if (!isOfflineMode && !saved.ok) {
+      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', saved);
       setSaveWarning(true);
+      return;
     }
-    setCompleted(true);
     await completeSession();
+    setCompleted(true);
 
     // Save structured details for reflection engine
     if (blockIndex != null && results.length > 0) {
@@ -250,7 +254,9 @@ export default function NarrativeRetellExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveWarning ? (
+          <UnverifiedPracticeBanner />
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📖</div>
             <h2 className="text-2xl font-bold">Stories Complete!</h2>

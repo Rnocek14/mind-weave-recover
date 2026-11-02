@@ -8,6 +8,7 @@ import { useGameSounds } from '@/hooks/useGameSounds';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { buildPatternChoices, PATTERN_SHAPES, PATTERN_COLORS, type PatternItem } from '@/lib/patternMatch/buildPatternChoices';
 
 interface PatternMatchGameProps {
   totalTrials: number;
@@ -26,16 +27,9 @@ interface PatternMatchGameProps {
   sessionId?: string | null;
 }
 
-type ShapeType = 'circle' | 'square' | 'triangle' | 'star';
-type ColorType = 'red' | 'blue' | 'green' | 'yellow' | 'purple';
-
-interface PatternItem {
-  shape: ShapeType;
-  color: ColorType;
-}
-
-const SHAPES: ShapeType[] = ['circle', 'square', 'triangle', 'star'];
-const COLORS: ColorType[] = ['red', 'blue', 'green', 'yellow', 'purple'];
+type ColorType = PatternItem['color'];
+const SHAPES = PATTERN_SHAPES;
+const COLORS = PATTERN_COLORS;
 
 const COLOR_CLASSES: Record<ColorType, string> = {
   red: 'bg-red-500',
@@ -65,6 +59,18 @@ export const PatternMatchGame = ({
   const [feedbackType, setFeedbackType] = useState<'success' | 'incorrect'>('success');
   const [trialStartTime, setTrialStartTime] = useState(0);
   const [showingProgress, setShowingProgress] = useState(100);
+  // The previous progress bar displayed 50% BEFORE the first trial of a
+  // two-round game and 100% before the patient answered the last round.
+  // This is completed-work feedback, not the current item number.
+  const completedTrials = Math.max(0, Math.min(
+    totalTrials,
+    currentTrial - 1 + (phase === 'feedback' ? 1 : 0),
+  ));
+
+  const selectionLockedRef = useRef(false);
+  const displayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const isMobile = useIsMobile();
   
@@ -111,34 +117,20 @@ export const PatternMatchGame = ({
     }));
   }, []);
 
-  const generateOptions = useCallback((correctPattern: PatternItem[], count: number): PatternItem[][] => {
-    const opts: PatternItem[][] = [correctPattern];
-    while (opts.length < count) {
-      const wrongPattern = correctPattern.map((item) => {
-        if (Math.random() < 0.4) {
-          return {
-            shape: Math.random() < 0.5 ? SHAPES[Math.floor(Math.random() * SHAPES.length)] : item.shape,
-            color: Math.random() < 0.5 ? COLORS[Math.floor(Math.random() * COLORS.length)] : item.color,
-          };
-        }
-        return { ...item };
-      });
-      const isDifferent = wrongPattern.some((item, idx) => 
-        item.shape !== correctPattern[idx].shape || item.color !== correctPattern[idx].color
-      );
-      if (isDifferent) opts.push(wrongPattern);
-    }
-    return [...opts].sort(() => Math.random() - 0.5);
+  const clearDisplayTimers = useCallback(() => {
+    if (displayTimeoutRef.current) clearTimeout(displayTimeoutRef.current);
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    displayTimeoutRef.current = null;
+    progressIntervalRef.current = null;
   }, []);
 
   const startTrial = useCallback(() => {
+    clearDisplayTimers();
+    selectionLockedRef.current = false;
     const patternSize = getPatternSize(currentDifficulty);
     const optionCount = getOptionCount(currentDifficulty);
     const newPattern = generatePattern(patternSize);
-    const newOptions = generateOptions(newPattern, optionCount);
-    const correctIdx = newOptions.findIndex(opt =>
-      opt.every((item, idx) => item.shape === newPattern[idx].shape && item.color === newPattern[idx].color)
-    );
+    const { options: newOptions, correctIndex: correctIdx } = buildPatternChoices(newPattern, optionCount);
     setPattern(newPattern);
     setOptions(newOptions);
     setCorrectIndex(correctIdx);
@@ -146,18 +138,32 @@ export const PatternMatchGame = ({
     setShowingProgress(100);
     
     const displayTime = getDisplayTime(currentDifficulty);
-    const progressInterval = setInterval(() => {
+    progressIntervalRef.current = setInterval(() => {
       setShowingProgress(prev => Math.max(0, prev - (100 / (displayTime / 100))));
     }, 100);
-    setTimeout(() => {
-      clearInterval(progressInterval);
+    displayTimeoutRef.current = setTimeout(() => {
+      clearDisplayTimers();
       setPhase('matching');
       setTrialStartTime(Date.now());
     }, displayTime);
-  }, [currentDifficulty, generatePattern, generateOptions, slowMode]);
+  }, [clearDisplayTimers, currentDifficulty, generatePattern, slowMode]);
+
+  // A new round must use the UPDATED difficulty, not the closed-over level
+  // from the previous round's feedback timeout.
+  const startTrialRef = useRef(startTrial);
+  startTrialRef.current = startTrial;
+  useEffect(() => {
+    if (currentTrial <= totalTrials) startTrialRef.current();
+  }, [currentTrial, totalTrials]);
+
+  useEffect(() => () => {
+    clearDisplayTimers();
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+  }, [clearDisplayTimers]);
 
   const handleSelect = (selectedIndex: number) => {
-    if (phase !== 'matching') return;
+    if (phase !== 'matching' || selectionLockedRef.current) return;
+    selectionLockedRef.current = true;
     const reactionTimeMs = Date.now() - trialStartTime;
     const correct = selectedIndex === correctIndex;
     updateTrial(correct, reactionTimeMs);
@@ -166,14 +172,16 @@ export const PatternMatchGame = ({
     else { playError(); setFeedbackType('incorrect'); }
     setPhase('feedback');
     onTrialComplete({ correct, reactionTimeMs, difficultyLevel: currentDifficulty, patternSize: pattern.length });
-    setTimeout(() => {
+    feedbackTimeoutRef.current = setTimeout(() => {
+      feedbackTimeoutRef.current = null;
       checkAndAdjust();
-      if (currentTrial >= totalTrials) { onGameComplete(score + (correct ? 1 : 0)); }
-      else { setCurrentTrial(t => t + 1); startTrial(); }
+      if (currentTrial >= totalTrials) {
+        onGameComplete(score + (correct ? 1 : 0));
+      } else {
+        setCurrentTrial(t => t + 1);
+      }
     }, 1500);
   };
-
-  useEffect(() => { startTrial(); }, []);
 
   const renderShape = (item: PatternItem, size: number = 40) => {
     const colorClass = COLOR_CLASSES[item.color];
@@ -198,12 +206,12 @@ export const PatternMatchGame = ({
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground font-medium">Trial {currentTrial}/{totalTrials}</span>
         <div className="flex items-center gap-2">
-          <span className="font-bold text-base">{score}/{currentTrial}</span>
+          <span className="font-bold text-base">{score}/{completedTrials}</span>
           <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">Lv {currentDifficulty}</span>
         </div>
       </div>
 
-      <Progress value={(currentTrial / totalTrials) * 100} className="h-1.5" />
+      <Progress aria-label="Completed pattern trials" value={totalTrials > 0 ? (completedTrials / totalTrials) * 100 : 0} className="h-1.5" />
 
       {/* Phase instruction */}
       <div className="text-center">
@@ -264,6 +272,7 @@ export const PatternMatchGame = ({
             <button
               key={optIdx}
               onClick={() => handleSelect(optIdx)}
+              aria-label={`Pattern choice ${optIdx + 1} of ${options.length}`}
               className="p-4 bg-card border-2 border-muted hover:border-primary hover:shadow-md rounded-2xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary min-h-[88px]"
             >
               <div className="flex items-center justify-center gap-2 flex-wrap">

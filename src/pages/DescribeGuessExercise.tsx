@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Describe & Guess Exercise Page
  *
@@ -52,6 +54,7 @@ export default function DescribeGuessExercise() {
   const { user } = useAuth();
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
@@ -246,9 +249,13 @@ export default function DescribeGuessExercise() {
 
   const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    await commitSession();
+    const commit = await commitSession();
+    if (hasMissingClinicalRawEvidence(commit)) {
+      setSaveError(true);
+      return;
+    }
     setCompleted(true);
-    completeSession();
+    await completeSession();
 
     if (fromLesson) {
       completionTimeoutRef.current = window.setTimeout(() => {
@@ -278,6 +285,7 @@ export default function DescribeGuessExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -292,7 +300,7 @@ export default function DescribeGuessExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
-        {completed ? (
+        {saveError ? null : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
             <h2 className="text-2xl font-bold">Exercise Complete!</h2>

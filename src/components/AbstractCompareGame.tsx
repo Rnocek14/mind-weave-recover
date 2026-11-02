@@ -306,22 +306,31 @@ export function AbstractCompareGame({
     
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
-      const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
-      trackValidation('abstract_compare', validation);
-      logValidationDetail('abstract_compare', transcript, validation);
+      // Typed fallback is valid communication PRACTICE, but it is not a
+      // microphone-observed utterance or ASR confidence signal.
+      const validation = useTyping
+        ? null
+        : validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
+      if (validation) {
+        trackValidation('abstract_compare', validation);
+        logValidationDetail('abstract_compare', transcript, validation);
+      }
       const durationMs = Date.now() - startTimeRef.current;
-      if (!validation.valid && validation.rejectionReason) {
+      if (validation && !validation.valid && validation.rejectionReason) {
         speakMayaCoaching(validation.rejectionReason, speakMaya, { exerciseKey: 'abstract_compare' }).then(line => setValidationCoaching(line));
       } else {
         setValidationCoaching(null);
         resetCoachingState('abstract_compare', speakMaya);
-        setValidationCoaching(null);
       }
-      const result = submitAnswer(validation.valid ? transcript : '', durationMs);
+      const result = submitAnswer(
+        useTyping || validation?.valid ? transcript : '',
+        durationMs,
+        useTyping ? 'typed' : 'spoken',
+      );
       
       // Upload audio + log utterance
       let audioStoragePath: string | null = null;
-      if (recordingResult?.audioBlob && userId && sessionId) {
+      if (!useTyping && recordingResult?.audioBlob && userId && sessionId) {
         audioStoragePath = await uploadRecording(
           recordingResult.audioBlob,
           userId,
@@ -332,18 +341,21 @@ export function AbstractCompareGame({
       }
       
       if (currentAttemptId) {
-        await logFinalAnalysis({
-          transcript: transcript || undefined,
-          transcriptSource: 'browser',
-          evaluationModel: 'flow',
-          isCorrect: null, // Discourse task - no binary correctness
-          didSpeak: transcript.trim().length > 0,
-          utteranceComplete: transcript.trim().length > 0,
-          recordingDurationMs: durationMs,
-          audioStoragePath: audioStoragePath || undefined,
-          fluencyAvailable: false,
-          fluencyUnavailableReason: 'discourse_task',
-        });
+        if (!useTyping) {
+          await logFinalAnalysis({
+            transcript: transcript || undefined,
+            transcriptSource: 'browser',
+            evaluationModel: 'flow',
+            isCorrect: null, // Discourse task - no binary correctness
+            didSpeak: transcript.trim().length > 0,
+            utteranceComplete: transcript.trim().length > 0,
+            recordingDurationMs: durationMs,
+            audioStoragePath: audioStoragePath || undefined,
+            fluencyAvailable: false,
+            fluencyUnavailableReason: 'discourse_task',
+          });
+        }
+        // A typed answer must never create a fake spoken utterance row.
         resetAttempt();
       }
       
@@ -351,23 +363,25 @@ export function AbstractCompareGame({
         setLastResult(result);
         setPhase('scored');
         onTrialComplete(result);
-        // Feed adaptive engine: ≥0.6 coverage = "success", <0.3 = clear miss
-        const correctForAdaptation = result.coverageRatio >= 0.6;
-        adaptation.recordTrial({
-          correct: correctForAdaptation,
-          reactionTimeMs: durationMs,
-        });
-        // Feed engagement monitor (cueLevel 0: discourse task has no explicit cues)
-        engagement.recordTrial({
-          correct: correctForAdaptation,
-          reactionTimeMs: durationMs,
-          cueLevel: 0,
-          timeout: !transcript.trim(),
-          timestamp: Date.now(),
-        });
+        // Only observed speech informs this voice/discourse adaptation path.
+        // Typed practice remains available without claiming speech mastery.
+        if (!useTyping) {
+          const correctForAdaptation = result.coverageRatio >= 0.6;
+          adaptation.recordTrial({
+            correct: correctForAdaptation,
+            reactionTimeMs: durationMs,
+          });
+          engagement.recordTrial({
+            correct: correctForAdaptation,
+            reactionTimeMs: durationMs,
+            cueLevel: 0,
+            timeout: !transcript.trim(),
+            timestamp: Date.now(),
+          });
+        }
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya, useTyping]);
 
   // Keep ref to handleDone for typing-fallback path
   useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
@@ -379,7 +393,7 @@ export function AbstractCompareGame({
     await stopRecording();
     
     const durationMs = Date.now() - startTimeRef.current;
-    const result = submitAnswer('', durationMs);
+    const result = submitAnswer('', durationMs, 'skip');
     
     // Log skip
     if (currentAttemptId) {

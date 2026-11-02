@@ -1214,42 +1214,57 @@ export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
   wordAccuracy: number;
   matchedWords: string[];
 } {
-  // Clean up fillers FIRST
-  const cleanedSpoken = normalizeASROutput(spoken);
-  const spokenWords = cleanedSpoken.toLowerCase().trim().split(/\s+/);
-  const targetWords = target.phrase.toLowerCase().split(/\s+/);
-  
-  // Extract content words for partial credit
-  const contentWords = extractContentWords(target.phrase);
-  
-  let matchedCount = 0;
-  const matched: string[] = [];
-  
-  for (const targetWord of targetWords) {
-    // Check if any spoken word closely matches this target word
-    const found = spokenWords.some(sw => {
-      const similarity = getWordSimilarity(sw, targetWord);
-      return similarity > 0.65; // More forgiving (was 0.7)
-    });
-    
-    if (found) {
-      matchedCount++;
-      matched.push(targetWord);
+  const spokenWords = normalizeASROutput(spoken)
+    .toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const targetWords = target.phrase
+    .toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+  // A word heard by ASR can support AT MOST one word in the target phrase.
+  // The previous .some() loop could count a single "to" twice in
+  // "I want to go to the store" and inflate pronunciation/phrase accuracy.
+  // Maximum bipartite matching preserves the existing word-order tolerance
+  // for patients with aphasia without treating repetitions as new words.
+  const assignedTargetBySpoken = new Array<number>(spokenWords.length).fill(-1);
+  const assignTarget = (targetIndex: number, visited: Set<number>): boolean => {
+    const candidates = spokenWords
+      .map((word, index) => ({
+        index,
+        similarity: getWordSimilarity(word, targetWords[targetIndex]),
+      }))
+      .filter(({ similarity }) => similarity > 0.65)
+      .sort((a, b) => b.similarity - a.similarity);
+    for (const { index } of candidates) {
+      if (visited.has(index)) continue;
+      visited.add(index);
+      const existing = assignedTargetBySpoken[index];
+      if (existing < 0 || assignTarget(existing, visited)) {
+        assignedTargetBySpoken[index] = targetIndex;
+        return true;
+      }
     }
+    return false;
+  };
+
+  for (let targetIndex = 0; targetIndex < targetWords.length; targetIndex++) {
+    assignTarget(targetIndex, new Set<number>());
   }
-  
-  const wordAccuracy = targetWords.length > 0 ? matchedCount / targetWords.length : 0;
-  
-  // Consider it a match if 65%+ of words are correct (was 80%)
-  // Give partial credit for getting key content words
-  const matchThreshold = contentWords.length > 0 && matched.some(w => contentWords.includes(w))
-    ? 0.6  // Lower threshold if they got at least one content word
-    : 0.65; // Standard threshold
-  
+  const creditedTargetIndices = new Set(assignedTargetBySpoken.filter((index) => index >= 0));
+  const matched = targetWords.filter((_, index) => creditedTargetIndices.has(index));
+  const wordAccuracy = targetWords.length > 0
+    ? matched.length / targetWords.length
+    : 0;
+
+  // Retain the existing forgiving, content-aware match thresholds. This is
+  // practice feedback, not validated speech accuracy or independent mastery.
+  const contentWords = extractContentWords(target.phrase);
+  const matchThreshold = contentWords.length > 0 && matched.some((w) => contentWords.includes(w))
+    ? 0.6
+    : 0.65;
+
   return {
-    match: wordAccuracy >= matchThreshold,
+    match: wordAccuracy >= matchThreshold && targetWords.length > 0,
     wordAccuracy,
-    matchedWords: matched
+    matchedWords: matched,
   };
 }
 
