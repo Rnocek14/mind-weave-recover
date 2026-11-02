@@ -46,6 +46,9 @@ const Exercise = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const activeProfileId = useActiveProfileId();
+  const phraseStageScope = JSON.stringify([user?.id ?? null, activeProfileId ?? null]);
+  const practiceStageChoice = phraseStageChoice?.scope === phraseStageScope
+    ? phraseStageChoice.level : null;
   
   // Check if we're coming from lesson flow (with sessionStorage fallback)
   const restored = useRestoredLessonContext(exerciseId || 'unknown');
@@ -61,6 +64,12 @@ const Exercise = () => {
   const lessonFocusWords = location.state?.focusWords as string[] | undefined;
   
   const [isPlaying, setIsPlaying] = useState(false);
+  // Pre-session only. Does not write clinical progression or impersonate a
+  // patient's saved level.
+  const [phraseStageChoice, setPhraseStageChoice] = useState<{
+    scope: string;
+    level: 1 | 2 | 3;
+  } | null>(null);
   const autoStartedRef = useRef(false);
   const hasDispatchedCompleteRef = useRef(false);
   const phraseGameRef = useRef<PhrasePracticeGameHandle>(null);
@@ -861,6 +870,33 @@ const Exercise = () => {
                   Take your time and do your best.
                 </p>
               </div>
+              {exerciseId === 'word-practice' && !fromLesson && !sessionStartTime && (
+                <details className="w-full max-w-md rounded-lg border bg-muted/20 px-4 py-3 text-left">
+                  <summary className="cursor-pointer text-sm font-semibold">
+                    Care partner: choose practice level
+                  </summary>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Choose the help for today's phrases. This does not change the saved recovery level.
+                    Leave unchanged to use the saved practice level.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {([1, 2, 3] as const).map(stage => (
+                      <Button
+                        key={stage}
+                        size="lg"
+                        type="button"
+                        className="w-full min-h-12"
+                        variant={practiceStageChoice === stage ? 'default' : 'outline'}
+                        aria-pressed={practiceStageChoice === stage}
+                        onClick={() => setPhraseStageChoice({ scope: phraseStageScope, level: stage })}
+                      >
+                        Stage {stage}: {stage === 1 ? 'Hear and repeat' : stage === 2
+                          ? 'Finish the phrase' : 'Use word clues'}
+                      </Button>
+                    ))}
+                  </div>
+                </details>
+              )}
               <Button 
                 size="lg" 
                 className="bg-gradient-healing text-base px-8 py-5"
@@ -987,6 +1023,7 @@ const Exercise = () => {
             />
           ) : exerciseId === 'word-practice' ? (
             <PhrasePracticeGame
+              practiceStageOverride={practiceStageChoice}
               // Recreate the stateful speech game when the selected patient
               // changes; the staged content queue, attempts and audio belong
               // to one patient, not merely the signed-in caregiver account.
@@ -1019,6 +1056,7 @@ const Exercise = () => {
                     manual_confirmed: manual,
                     speech_verified: !manual && !!result.whisperTranscript,
                     training_stage: result.trainingStage ?? null,
+                    practice_stage_source: result.practiceStageSource ?? 'general_practice',
                     script_support: result.scriptSupport ?? 'visible_script',
                     full_script_revealed: result.fullScriptRevealed ?? true,
                     clinical_stage_promotion_eligible: false,

@@ -121,3 +121,11 @@ export function getPhraseTrialsForTraining(
   // Do not fall back silently to the wrong task or invent a target.
   return playable.slice(0, count);
 }
+
+/** A care-partner selection changes practice, not the patient's saved level. */
+export function resolvePhrasePracticeStage(
+  savedStage: PhraseTrainingStage | null,
+  practiceOverride: 1 | 2 | 3 | null | undefined,
+): PhraseTrainingStage | null {
+  return practiceOverride == null ? savedStage : getPhraseTrainingStage(practiceOverride);
+}

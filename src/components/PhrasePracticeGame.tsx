@@ -31,7 +31,7 @@ import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 import { verifyPhrasePracticeWrites } from '@/lib/phrasePractice/verifyPhrasePracticeWrites';
 import { usePhrasePracticeTrainingStage } from '@/hooks/usePhrasePracticeTrainingStage';
-import { getPhraseTrainingPrompt, getPhraseTrialsForTraining } from '@/lib/phrasePractice/trainingStages';
+import { getPhraseTrainingPrompt, getPhraseTrialsForTraining, resolvePhrasePracticeStage } from '@/lib/phrasePractice/trainingStages';
 import { PhraseTrainingScriptCard } from '@/components/phrasePractice/PhraseTrainingScriptCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,6 +41,8 @@ interface PhrasePracticeGameProps {
   autoListen?: boolean;
   listenDelayMs?: number;
   sessionId?: string | null;
+  /** Care partner may choose a practice-only stage before pressing Start. */
+  practiceStageOverride?: 1 | 2 | 3 | null;
   onTrialComplete?: (data: {
     correct: boolean;
     timeMs: number;
@@ -54,6 +56,7 @@ interface PhrasePracticeGameProps {
     trainingStage?: 1 | 2 | 3 | null;
     scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues';
     fullScriptRevealed?: boolean;
+    practiceStageSource?: 'care_partner_selection' | 'saved_level' | 'general_practice';
     whisperTranscript?: string;
     whisperConfidence?: number;
     encouragementScore?: number;
@@ -103,6 +106,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   autoListen = true, // Default ON for stroke survivors
   listenDelayMs = 800, // 800ms warmup before mic opens
   sessionId,
+  practiceStageOverride = null,
   onTrialComplete,
   onGameComplete,
   onDifficultyChange
@@ -179,6 +183,9 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     profileId: standaloneProfileId || activeProfile?.id,
     offline: isOfflineMode,
   });
+  // Read-only choice, never a clinical promotion. Patient-scope read errors
+  // still block the game even if a caregiver picked a practice stage.
+  const activeTrainingStage = resolvePhrasePracticeStage(training.stage, practiceStageOverride);
 
   // Session lifecycle - guaranteed cleanup on unmount, pagehide, visibility timeout
   const { completeSession } = useSessionLifecycle({
@@ -217,8 +224,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // here — that silently throws away the engine's L6-L10 signal and forces
   // every "hard" user back into tier 5 content.
   const safeInitialDifficulty = useMemo(
-    () => Math.max(1, Math.min(training.stage?.engineLevel ?? initialDifficulty, 10)),
-    [initialDifficulty, training.stage?.engineLevel]
+    () => Math.max(1, Math.min(activeTrainingStage?.engineLevel ?? initialDifficulty, 10)),
+    [initialDifficulty, activeTrainingStage?.engineLevel]
   );
 
   // Capability-based difficulty bounds (full 1..10 engine range)
@@ -300,8 +307,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (!training.loaded || training.loadUnavailable || initializedRef.current) return;
     initializedRef.current = true;
 
-    const newTrials = training.stage
-      ? getPhraseTrialsForTraining(training.stage, totalTrials)
+    const newTrials = activeTrainingStage
+      ? getPhraseTrialsForTraining(activeTrainingStage, totalTrials)
       : getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -340,12 +347,15 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     if (!onTrialComplete) return;
     try {
       const script = currentTrial
-        ? getPhraseTrainingPrompt(currentTrial, training.stage, scriptRevealedRef.current)
+        ? getPhraseTrainingPrompt(currentTrial, activeTrainingStage, scriptRevealedRef.current)
         : null;
       pendingTrialWritesRef.current.push(
         Promise.resolve(onTrialComplete({
           ...data,
-          trainingStage: training.stage?.level ?? null,
+          trainingStage: activeTrainingStage?.level ?? null,
+          practiceStageSource: practiceStageOverride != null
+            ? 'care_partner_selection'
+            : activeTrainingStage ? 'saved_level' : 'general_practice',
           scriptSupport: script?.evidenceSupport ?? 'visible_script',
           fullScriptRevealed: script?.fullPhraseRevealed ?? true,
         })).catch((error) => {
@@ -436,7 +446,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     const trimmed = transcript.trim();
     if (trimmed.length < 2) return;
     
-    const evaluation = evaluatePhraseTrainingResponse(transcript, currentTrial, training.stage);
+    const evaluation = evaluatePhraseTrainingResponse(transcript, currentTrial, activeTrainingStage);
     setCurrentWordAccuracy(evaluation.wordAccuracy);
     
     if (evaluation.match) {
@@ -567,7 +577,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
   // Reading after the model is supported practice, not independent speech.
   const modeledPhraseRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!training.stage?.autoModel || !training.loaded || !currentTrial ||
+    if (!activeTrainingStage?.autoModel || !training.loaded || !currentTrial ||
         (!activeSessionId && !isOfflineMode) || saveError) return;
     if (modeledPhraseRef.current === currentTrial.id) return;
     modeledPhraseRef.current = currentTrial.id;
@@ -576,7 +586,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
     );
     // The model is tied to a trial id, not ephemeral audio status.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [training.stage?.autoModel, training.loaded, currentTrial?.id, activeSessionId, isOfflineMode, saveError]);
+  }, [activeTrainingStage?.autoModel, training.loaded, currentTrial?.id, activeSessionId, isOfflineMode, saveError]);
 
   const revealWholePhrase = () => {
     scriptRevealedRef.current = true;
@@ -1054,8 +1064,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
 
     const remainingTrials = totalTrials - currentIndex - 1;
     if (remainingTrials > 0) {
-      const regeneratedTrials = training.stage
-        ? getPhraseTrialsForTraining(training.stage, remainingTrials + 5)
+      const regeneratedTrials = activeTrainingStage
+        ? getPhraseTrialsForTraining(activeTrainingStage, remainingTrials + 5)
         : getTrialsForLevel(currentDifficultyRef.current, remainingTrials + 5);
       // Exclude current phrase AND any phrases the user already mastered
       const mastered = masteredPhraseIdsRef.current;
@@ -1112,8 +1122,8 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       recoveryTimerRef.current = null;
     }
     modeledPhraseRef.current = null;
-    const newTrials = training.stage
-      ? getPhraseTrialsForTraining(training.stage, totalTrials)
+    const newTrials = activeTrainingStage
+      ? getPhraseTrialsForTraining(activeTrainingStage, totalTrials)
       : getTrialsForLevel(safeInitialDifficulty, totalTrials);
     setTrials(newTrials);
     setTrialStartTime(Date.now());
@@ -1174,11 +1184,11 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       {/* Progress Bar */}
       <Progress value={progress} className="h-3" />
 
-      {!training.stage && training.persistedLevel != null && (
+      {!activeTrainingStage && training.persistedLevel != null && (
         <div role="status" className="rounded-lg border p-3 text-sm">
           Your saved level is {training.persistedLevel}. Higher-stage script
-          tasks are still being developed. You can continue general phrase
-          practice without changing your saved level.
+          tasks are still being developed. Today's script practice does not
+          change your saved level.
         </div>
       )}
 
@@ -1186,7 +1196,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
       <Card className="p-8 text-center space-y-6">
         <PhraseTrainingScriptCard
           trial={currentTrial}
-          trainingStage={training.stage}
+          trainingStage={activeTrainingStage}
           revealed={scriptRevealed}
           onReveal={revealWholePhrase}
         />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PHRASE_BANK } from '@/data/phraseBank';
-import { getPhraseTrainingPrompt, getPhraseTrainingStage, getPhraseTrialsForTraining } from '@/lib/phrasePractice/trainingStages';
+import { getPhraseTrainingPrompt, getPhraseTrainingStage, getPhraseTrialsForTraining, resolvePhrasePracticeStage } from '@/lib/phrasePractice/trainingStages';
 
 describe('Phrase Practice executable script training modes', () => {
   it('selects two genuinely different bank bands, not just new labels', () => {
@@ -60,4 +60,12 @@ describe('Phrase Practice executable script training modes', () => {
       expect(rescue.evidenceSupport).toBe('visible_script');
     }
   });
+  it('allows a session-only caregiver choice without modifying a saved stage', () => {
+    const saved = getPhraseTrainingStage(1)!;
+    const overridden = resolvePhrasePracticeStage(saved, 3);
+    expect(overridden).toMatchObject({ level: 3, engineLevel: 3, mode: 'key_words' });
+    expect(saved.level).toBe(1);
+    expect(resolvePhrasePracticeStage(saved, null)).toBe(saved);
+  });
+
 });
