@@ -18,6 +18,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
+import { classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -32,6 +33,8 @@ export default function NarrativeRetellExercise() {
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
   const { activeProfile } = useProfile();
   const [completed, setCompleted] = useState(false);
+  const [saveWarning, setSaveWarning] = useState(false);
+  const pendingEventWritesRef = useRef<Promise<boolean>[]>([]);
   const exerciseCompleteSentRef = useRef(false);
   const hasAdvancedLessonRef = useRef(false);
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -96,25 +99,46 @@ export default function NarrativeRetellExercise() {
 
   const handleTrialComplete = useCallback((result: NarrativeTrialResult) => {
     if (!activeSessionId && !isOfflineMode) return;
-    const points = Math.round(result.eventCoverage * 100);
-    scoreRef.current += points;
+    const evidence = classifyNarrativeRoundEvidence(result);
+    const isCorrect = evidence.practiceSuccessful;
+    // Keep session score distinct from participation: typed/scaffolded
+    // narratives still have meaningful coverage metrics in their raw row,
+    // but cannot inflate the verified independent spoken-score total.
+    if (evidence.independentSpokenScoreEligible && Number.isFinite(result.eventCoverage)) {
+      scoreRef.current += Math.round(result.eventCoverage * 100);
+    }
     trialsRef.current += 1;
 
-    // Derive errorType for narrative-retell from coverage and on-topic signals
-    const isCorrect = result.eventCoverage >= 0.3;
     let errorType: string | undefined;
-    if (!isCorrect) {
+    if (result.completionReason === 'skipped' || result.skipped) errorType = 'skipped';
+    else if (!result.responseValid) errorType = 'unscorable_retell';
+    else if (result.inputMode === 'typed') errorType = 'typed_retell_practice';
+    else if (!evidence.independentSpokenScoreEligible) errorType = 'supported_retell_practice';
+    else if (!isCorrect) {
       if (result.wordCount < 5) errorType = 'minimal_output';
       else if (result.onTopicScore != null && result.onTopicScore < 0.4) errorType = 'off_topic';
       else if (result.eventCoverage === 0) errorType = 'no_event_coverage';
       else errorType = 'low_event_coverage';
     }
 
-    logTrial({
+    // A raw event has its own durable write. The game may call
+    // onGameComplete immediately after onTrialComplete; register the write
+    // synchronously so finalization can await the last trial.
+    if (!activeSessionId) return; // Explicit offline participation only.
+    const pending = logTrial({
       correct: isCorrect,
+      browserTranscript: result.inputMode === 'spoken' ? (result.browserTranscript ?? undefined) : undefined,
       reactionTimeMs: result.durationMs,
       errorType,
       taskParameters: {
+        trial_mode: evidence.trialMode,
+        clinical_progression_eligible: evidence.independentSpokenScoreEligible,
+        input_mode: result.inputMode ?? 'unknown',
+        completion_reason: result.completionReason ?? 'unknown',
+        response_valid: result.responseValid === true,
+        required_event_coverage: evidence.requiredEventCoverage,
+        support_used: evidence.support,
+        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         story_id: result.storyId,
         story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
@@ -148,6 +172,7 @@ export default function NarrativeRetellExercise() {
         depth: result.depthTelemetry,
       },
     });
+    pendingEventWritesRef.current.push(pending);
   }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
 
   const resumeLessonFlow = useCallback(() => {
@@ -164,9 +189,20 @@ export default function NarrativeRetellExercise() {
     return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
   }, []);
 
-  const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: NarrativeTrialResult[]) => {
+    // Existing legacy telemetry does not use useTrialSubmission's shared
+    // commit barrier. Await its own pending raw events before ending the
+    // session or navigating to another game.
+    const settled = await Promise.allSettled(pendingEventWritesRef.current.splice(0));
+    const failed = settled.filter(entry =>
+      entry.status === 'rejected' || (entry.status === 'fulfilled' && entry.value !== true),
+    ).length;
+    if (failed > 0 && !isOfflineMode) {
+      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', { failed });
+      setSaveWarning(true);
+    }
     setCompleted(true);
-    completeSession();
+    await completeSession();
 
     // Save structured details for reflection engine
     if (blockIndex != null && results.length > 0) {
@@ -183,7 +219,7 @@ export default function NarrativeRetellExercise() {
     if (fromLesson) {
       completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex]);
+  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex, isOfflineMode]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
@@ -213,6 +249,12 @@ export default function NarrativeRetellExercise() {
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📖</div>
             <h2 className="text-2xl font-bold">Stories Complete!</h2>
+            {saveWarning && (
+              <p role="alert" className="text-sm text-destructive">
+                Some results could not be saved. Your practice still counts as participation,
+                but these attempts will not be treated as complete clinical records.
+              </p>
+            )}
             <p className="text-muted-foreground">
               {fromLesson ? 'Loading next exercise...' : 'Great job retelling those stories!'}
             </p>
