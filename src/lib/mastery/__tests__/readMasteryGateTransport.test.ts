@@ -57,10 +57,15 @@ describe("longitudinal promotion check fails closed without penalizing new patie
     expect(result.skills.length).toBeGreaterThan(0);
   });
 
-  it("receptive tasks remain outside expressive mastery even if the service is unavailable", async () => {
+  it.each([
+    "minimal-pairs",
+    "meaning-match",
+    "detective-mind",
+    "phonological-awareness",
+  ])("%s retains its independent receptive progression when expressive mastery is unavailable", async exerciseSlug => {
     const result = await readMasteryGate({
       profileId: "synthetic-profile",
-      exerciseSlug: "minimal-pairs",
+      exerciseSlug,
       difficulty: 3,
     });
     expect(result.verdict).toBe("skip");
