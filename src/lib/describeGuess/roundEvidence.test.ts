@@ -63,6 +63,21 @@ describe('Describe & Guess evidence provenance', () => {
     expect(cueLevelToLexicalSupport(0)).toBe('independent');
   });
 
+  it('abstains from independent spoken scoring when recognizer evidence is missing', () => {
+    for (const browserTranscript of [null, '', '   ']) {
+      const evidence = classifyDescribeGuessEvidence(trial({
+        inputMode: 'spoken',
+        browserTranscript,
+      }));
+      expect(evidence).toMatchObject({
+        practiceSuccessful: true,
+        independentSpokenScoreEligible: false,
+        shouldAdaptSpokenTask: false,
+        trialMode: 'mixed',
+      });
+    }
+  });
+
   it('fails closed when the result has no trustworthy source or no meaningful response', () => {
     for (const o of [
       { inputMode: 'unknown' as const },
