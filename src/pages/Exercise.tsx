@@ -991,16 +991,28 @@ const Exercise = () => {
               totalTrials={totalRounds}
               initialDifficulty={level}
               onTrialComplete={async (result) => {
+                // Self-report is meaningful practice participation, not an
+                // automatically verified spoken target or phoneme score.
+                const manual = result.manualConfirmed === true;
                 await logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.timeMs,
                   cueLevel: result.cueLevel,
-                  errorType: result.correct ? undefined : 'incorrect',
+                  errorType: manual ? 'manual_confirmed' : result.correct ? undefined : 'incorrect',
+                  browserTranscript: manual ? undefined : result.whisperTranscript,
+                  validity: manual ? classifyUtteranceValidity({
+                    manualConfirmed: true,
+                    confirmedBy: 'user',
+                    asrVerified: false,
+                  }) : undefined,
                   taskParameters: {
                     difficulty_level: result.difficulty,
                     phrase_id: result.phraseId,
-                    word_accuracy: result.wordAccuracy,
+                    word_accuracy: manual ? null : result.wordAccuracy,
                     repetitions: result.repetitions,
+                    confirmation_mode: manual ? 'manual' : 'browser_asr',
+                    manual_confirmed: manual,
+                    speech_verified: !manual && !!result.whisperTranscript,
                     round: currentRound,
                     exercise_type: 'phrase-practice',
                   },
@@ -1008,7 +1020,7 @@ const Exercise = () => {
                 
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
-                  if (result.correct) {
+                  if (result.correct && !result.manualConfirmed) {
                     setScore((prev) => prev + 100);
                   }
                   startTrial();
