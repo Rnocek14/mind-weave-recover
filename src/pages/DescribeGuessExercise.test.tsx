@@ -135,6 +135,22 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
     }));
   });
 
+  it('never fabricates a browser transcript when a spoken-tagged result lacks ASR evidence', async () => {
+    mocks.nextTrial = trial({ inputMode: 'spoken', browserTranscript: null });
+    complete();
+    await waitFor(() => expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      browserTranscript: null,
+      trialMode: 'mixed',
+      clinicalProgressionEligible: false,
+      taskParameters: expect.objectContaining({
+        input_mode: 'spoken',
+        independent_spoken_score_eligible: false,
+      }),
+    }));
+    expect(mocks.recordPivot).not.toHaveBeenCalled();
+  });
+
   it('excludes missing source/invalid communication from independence measures and pivot', async () => {
     mocks.nextTrial=trial({inputMode:'unknown',communicationWin:false,transcript:''});
     complete();
