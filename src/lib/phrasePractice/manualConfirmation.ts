@@ -38,3 +38,11 @@ export function buildManualPhraseConfirmation(input: {
     repetitions: Math.max(1, input.attempts + 1),
   };
 }
+
+/** Only Phrase Practice has a separately audited self-report path.
+ * Generic "I Said It" clicks on other embedded exercises used to fabricate
+ * a `correct` scored trial despite those games owning their own outcomes.
+ */
+export function canSelfReportPracticeFromLegacyExercise(routeId: string | null | undefined): boolean {
+  return routeId === 'word-practice';
+}
