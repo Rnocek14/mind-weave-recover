@@ -122,9 +122,10 @@ BEGIN
 END;
 $authenticated_checks$;
 
--- Test privileged writes separately: even a backend/service role must
--- not silently change the patient identity of existing evidence.
-SET LOCAL ROLE service_role;
+-- Test privileged writes separately as the SQL database owner, which bypasses
+-- RLS. This is NOT evidence of actual service_role permissions or worker health;
+-- the staging service_role currently lacks some core table DML grants.
+SET LOCAL ROLE postgres;
 DO $backend_checks$
 DECLARE
   b uuid:=current_setting('neurospark.check.b')::uuid;
