@@ -107,7 +107,10 @@ export default function AbstractCompareExercise() {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
-        trial_mode: 'production',
+        input_mode: result.inputMode ?? 'unknown',
+        trial_mode: result.inputMode === 'spoken' ? 'production'
+          : result.inputMode === 'typed' ? 'typed'
+          : result.inputMode === 'skip' ? 'skipped' : 'unknown',
         clinical_progression_eligible: false,
         // A coverage-ratio exercise is descriptive practice, not clinical
         // speech-recognition accuracy or independent mastery.

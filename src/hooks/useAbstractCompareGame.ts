@@ -11,6 +11,8 @@ import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
 
 export interface AbstractCompareTrialResult {
+  /** Observed input channel. Never conflate typed fallback with real microphone speech. */
+  inputMode?: 'spoken' | 'typed' | 'skip';
   itemId: string;
   wordA: string;
   wordB: string;
@@ -82,13 +84,14 @@ export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1)
   const currentItem: AbstractCompareItem | null = items[currentIndex] ?? null;
   const isComplete = currentIndex >= items.length;
 
-  const submitAnswer = useCallback((transcript: string, durationMs: number): AbstractCompareTrialResult | null => {
+  const submitAnswer = useCallback((transcript: string, durationMs: number, inputMode: 'spoken' | 'typed' | 'skip'): AbstractCompareTrialResult | null => {
     if (!currentItem) return null;
 
     const correctContext = `${currentItem.wordA} and ${currentItem.wordB} are similar`;
     const score = scoreExplanation(transcript, currentItem.keyProperties, correctContext);
 
     const result: AbstractCompareTrialResult = {
+      inputMode,
       itemId: currentItem.id,
       wordA: currentItem.wordA,
       wordB: currentItem.wordB,
