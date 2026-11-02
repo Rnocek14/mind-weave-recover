@@ -36,6 +36,9 @@ export interface SynonymRoundEvidenceInput {
   completionReason: SynonymCompletionReason;
   difficulty: number;
   matchCount: number;
+  /** Planned window and actual elapsed time are separate measurements. */
+  timeLimitSec: number;
+  durationSec: number;
   /** Actual recognizer output, never fabricated from expected words. */
   browserTranscript?: string | null;
 }
@@ -70,8 +73,13 @@ export function classifySynonymRoundEvidence(
   // target words, an ASR transcript, or clinical speaker verification.
   const transcript = (input.browserTranscript ?? '').trim();
   const hasScorableTranscript = transcript.length > 0 && !isFillerOnly(transcript);
+  // A timer callback alone is not enough: the measured probe must span the
+  // actual scheduled window. Small (<1s) rounding tolerance is for the game's
+  // Math.round duration and browser event-loop scheduling.
+  const fullWindow = Number.isFinite(input.timeLimitSec) && input.timeLimitSec > 0 &&
+    Number.isFinite(input.durationSec) && input.durationSec >= input.timeLimitSec - 1;
   const eligible = input.inputMode === 'spoken' && input.completionReason === 'timer' &&
-    hasScorableTranscript &&
+    fullWindow && hasScorableTranscript &&
     Number.isFinite(input.difficulty) && input.difficulty >= 1 && input.difficulty <= 10 &&
     Number.isFinite(input.matchCount) && input.matchCount >= 0;
   return {
