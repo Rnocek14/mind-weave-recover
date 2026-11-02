@@ -2,8 +2,10 @@
  * useSynonymGeneratorProgression — Phase 2, Wave 3 wiring of the
  * divergent lexical-semantic ladder to `clinical_progression_state`.
  *
- * Expressive routing: SynonymGenerator's submitTrial emits
- * `trialMode: 'production'` and the slug IS in ADOPTED_TRIAL_MODE_SLUGS.
+ * Expressive routing: SynonymGenerator emits `trialMode: 'production'`
+ * only on completed speech-only rounds. Typed, mixed and early-ended
+ * practice is logged but excluded by unified submission; the slug remains
+ * adopted for eligible speech production.
  *
  * Mirrors useMultiStepPlanningProgression line-for-line; differences are
  * limited to the slug + per-game helpers and support mapping.
@@ -30,9 +32,9 @@ const SYNONYM_GENERATOR_SLUG = 'synonym-generator';
 
 /**
  * Map Synonym Generator trials to the canonical lexical SupportLevel.
- * The current game UI has no in-trial scaffold (no hint, no cue chips —
- * typing fallback is an input modality, not a clinical scaffold). Every
- * trial is `open_response`.
+ * The current game UI has no in-trial scaffold (no hint/cue chips).
+ * Eligible spoken trials are `open_response`; typed/mixed/early-ended
+ * practice is excluded from this hook rather than miscredited as speech.
  */
 export function mapSynonymGeneratorSupport(): SupportLevel {
   return 'open_response';
