@@ -14,7 +14,7 @@
 
 export type EvidenceFit = 'direct-method' | 'related' | 'exploratory';
 export type EvidenceTrack = 'expressive' | 'receptive' | 'non-linguistic';
-export type EvidenceSourceKey = 'ASHA_APHASIA' | 'ESO_2025' | 'CANADA_LANGUAGE' | 'CANADA_COGNITION' | 'CANADA_VISION' | 'CANADA_MOTOR' | 'BIG_CACTUS';
+export type EvidenceSourceKey = 'ASHA_APHASIA' | 'ESO_2025' | 'CANADA_LANGUAGE' | 'CANADA_COGNITION' | 'CANADA_VISION' | 'CANADA_MOTOR' | 'BIG_CACTUS' | 'SFA_REVIEW' | 'SENTENCE_REVIEW' | 'PARTNER_TRAINING_REVIEW' | 'SCRIPT_TRAINING_RCT';
 
 export const CLINICAL_EVIDENCE_SOURCES: Record<EvidenceSourceKey, {
   label: string;
@@ -55,6 +55,26 @@ export const CLINICAL_EVIDENCE_SOURCES: Record<EvidenceSourceKey, {
     "label": "Big CACTUS computerized aphasia therapy RCT",
     "kind": "trial",
     "url": "https://www.ncbi.nlm.nih.gov/books/NBK556719/"
+  },
+  "SFA_REVIEW": {
+    "label": "Semantic Feature Analysis systematic review (2014)",
+    "kind": "trial",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/24797214/"
+  },
+  "SENTENCE_REVIEW": {
+    "label": "Aphasia sentence treatment evidence scoping review (2022)",
+    "kind": "trial",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/34941377/"
+  },
+  "PARTNER_TRAINING_REVIEW": {
+    "label": "Communication partner training in aphasia systematic review (2016)",
+    "kind": "trial",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/27117383/"
+  },
+  "SCRIPT_TRAINING_RCT": {
+    "label": "Script training dose and generalization randomized trial (2026)",
+    "kind": "trial",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/42821294/"
   }
 };
 
@@ -92,7 +112,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Unscripted conversation with an unfamiliar partner, scored separately",
     "sources": [
       "CANADA_LANGUAGE",
-      "ASHA_APHASIA"
+      "ASHA_APHASIA",
+      "PARTNER_TRAINING_REVIEW"
     ]
   },
   "conversation-partner": {
@@ -104,7 +125,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Independent real-world partner-rated functional goal assessment",
     "sources": [
       "CANADA_LANGUAGE",
-      "ASHA_APHASIA"
+      "ASHA_APHASIA",
+      "PARTNER_TRAINING_REVIEW"
     ]
   },
   "describe-guess": {
@@ -116,7 +138,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Novel target conveyed to a person without seeing the answer",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SFA_REVIEW"
     ]
   },
   "detective-mind": {
@@ -152,7 +175,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Untrained sentence structures reviewed for grammatical adequacy",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SENTENCE_REVIEW"
     ]
   },
   "left-side-hunt": {
@@ -211,7 +235,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Untrained stories scored with a reproducible human-checked rubric",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SENTENCE_REVIEW"
     ]
   },
   "pattern-match": {
@@ -247,7 +272,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "sources": [
       "ASHA_APHASIA",
       "BIG_CACTUS",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SFA_REVIEW"
     ]
   },
   "phrase-practice": {
@@ -259,7 +285,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Personally relevant unprompted exchange with another speaker",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SCRIPT_TRAINING_RCT"
     ]
   },
   "reach-tap": {
@@ -282,7 +309,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Untrained naming and feature generation distinct from practiced items",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SFA_REVIEW"
     ]
   },
   "sentence-construction": {
@@ -294,7 +322,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Novel syntactic structures produced without automatic full models",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SENTENCE_REVIEW"
     ]
   },
   "sentence-game": {
@@ -306,7 +335,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Untrained sentence prompt rated for grammar and intended meaning",
     "sources": [
       "ASHA_APHASIA",
-      "CANADA_LANGUAGE"
+      "CANADA_LANGUAGE",
+      "SENTENCE_REVIEW"
     ]
   },
   "thought-continuation": {
@@ -354,7 +384,8 @@ export const CLINICAL_GAME_EVIDENCE: Record<string, ClinicalGameEvidence> = {
     "untrainedTransferCheck": "Untrained personally meaningful words distinct from practice set",
     "sources": [
       "ASHA_APHASIA",
-      "BIG_CACTUS"
+      "BIG_CACTUS",
+      "SFA_REVIEW"
     ]
   },
   "follow-directions": {
