@@ -59,4 +59,4 @@
 6. Unit + integration + browser tests prove the level-specific content changes, scoring, cue dependencies, per-patient persistence, no cross-game progress leakage, and accurate daily planning feedback.
 7. SLP review for each ladder; separate permitted aphasic speech/device evaluation and regulatory/privacy readiness before hospital use.
 
-The current changes establish **specification completeness and enforce honest readiness metadata**. The remaining L7/L8 content and six plus ten design-only runtime migrations are future implementation, not silently shipped features. All current draft changes are isolated from production data.
+PR #101 established **design completeness**. Stacked PR #102 adds two distinct L8 content paths and corrects Two Clues cue attribution; neither PR has been merged or deployed. **Nine** other wired games still have incomplete final-stage mechanics, and **16** design-only games still require runtime progression, game-specific evidence, and persistence. No clinical effectiveness or hospital readiness is implied.
