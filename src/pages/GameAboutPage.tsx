@@ -90,6 +90,14 @@ export default function GameAboutPage() {
   if (!profile && registered?.rows?.length) {
     const title = getCanonicalExercise(registered.slug)?.title ??
       (registered.slug === 'functional-scenes' ? 'Command Scenes' : registered.slug);
+    const existingPlayableRoutes: Record<string, string> = {
+      'reach-tap': '/exercise/reach-tap',
+      'left-side-hunt': '/exercise/left-side-hunt',
+      'pattern-match': '/exercise/pattern-match',
+      'phrase-practice': '/exercise/word-practice',
+      'functional-scenes': '/exercise/functional-scenes',
+    };
+    const practiceRoute = existingPlayableRoutes[registered.slug];
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
         <Button variant="ghost" size="sm" onClick={() => navigate('/games')} className="mb-4">
@@ -120,9 +128,16 @@ export default function GameAboutPage() {
             </li>
           ))}
         </ol>
-        <Button asChild variant="outline" className="mt-5">
-          <Link to={`/exercise/${registered.slug}`}>Open current practice</Link>
-        </Button>
+        {practiceRoute ? (
+          <Button asChild variant="outline" className="mt-5">
+            <Link to={practiceRoute}>Open current practice</Link>
+          </Button>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            This activity does not yet have a dedicated standalone game route.
+            The eight-level design is published for development review only.
+          </p>
+        )}
       </main>
     );
   }
