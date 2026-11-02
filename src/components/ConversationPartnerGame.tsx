@@ -48,6 +48,7 @@ export function ConversationPartnerGame({
   onExit
 }: ConversationPartnerGameProps) {
   const [phase, setPhase] = useState<Phase>('ready');
+  const [conversationStarted, setConversationStarted] = useState(false);
   const [currentAIText, setCurrentAIText] = useState<string>('');
   const [userTranscript, setUserTranscript] = useState<string>('');
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -153,7 +154,9 @@ export function ConversationPartnerGame({
       console.warn('TTS failed, continuing without voice:', err);
     }
     
+    if (!mountedRef.current) return;
     addAITurn(opener);
+    setConversationStarted(true);
     setPhase('ready');
   }, [speak, addAITurn]);
 
@@ -406,7 +409,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn === 0 && (
+          {phase === 'ready' && !conversationStarted && (
             <div className="text-center py-8">
               <Button
                 size="lg"
@@ -427,7 +430,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn > 0 && (
+          {phase === 'ready' && conversationStarted && (
             <div className="text-center py-4">
               <Button
                 size="lg"
@@ -446,14 +449,7 @@ export function ConversationPartnerGame({
                 <Volume2 className="w-5 h-5 animate-pulse" />
                 <span>Listening to response...</span>
               </div>
-              <Button
-                size="lg"
-                onClick={handleStartTalking}
-                className="gap-2 min-w-[200px] mt-4"
-              >
-                <Mic className="w-5 h-5" />
-                Press to Talk
-              </Button>
+              <p className="text-sm mt-3">You can answer when Maya finishes speaking.</p>
             </div>
           )}
 
@@ -512,6 +508,7 @@ export function ConversationPartnerGame({
               <div className="flex gap-3 justify-center pt-4">
                 <Button onClick={() => {
                   reset();
+                  setConversationStarted(false);
                   setPhase('ready');
                   setCurrentAIText('');
                   setUserTranscript('');
