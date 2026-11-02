@@ -33,6 +33,7 @@ import {
 } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 import { summarizeEightLevelCoverage } from '@/lib/clinicalEightLevelCoverage';
+import { getClinicalGameEvidence, EVIDENCE_FIT_TEXT, CLINICAL_EVIDENCE_SOURCES } from '@/lib/clinicalEvidenceRegistry';
 
 const STATUS_BADGE: Record<LadderStatus, { label: string; className: string; help: string }> = {
   full: {
@@ -287,6 +288,7 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
   const [open, setOpen] = useState(false);
   const badge = STATUS_BADGE[entry.status];
   const trackBadge = TRACK_BADGE[entry.track];
+  const evidence = getClinicalGameEvidence(entry.slug);
 
   return (
     <Card className="border-border">
@@ -348,6 +350,23 @@ function GameCard({ entry }: { entry: ClinicalLadderEntry }) {
                 ? open ? 'Hide recovery roadmap' : 'Show recovery roadmap'
                 : open ? 'Hide progression focus' : 'Show planned progression focus'}
           </button>
+        )}
+        {open && evidence && (
+          <section data-testid="progression-evidence" className="mt-3 space-y-2 border-t pt-3 text-xs text-muted-foreground" aria-label="Clinical evidence and measurement limitations">
+            <p><span className="font-medium text-foreground">Evidence fit:</span> {EVIDENCE_FIT_TEXT[evidence.evidenceFit]}</p>
+            <p><span className="font-medium text-foreground">Difficulty target:</span> {evidence.primaryProgressionAxis}</p>
+            <p><span className="font-medium text-foreground">Observed practice:</span> {evidence.gameplayMeasure}</p>
+            <p><span className="font-medium text-foreground">Measurement caution:</span> {evidence.measurementConfound}</p>
+            <p><span className="font-medium text-foreground">Separate transfer check:</span> {evidence.untrainedTransferCheck}</p>
+            <p className="font-medium text-foreground">The eight app stages and automatic level thresholds have not been clinically validated.</p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1" aria-label="Evidence sources">
+              {evidence.sources.map((key) => (
+                <a key={key} href={CLINICAL_EVIDENCE_SOURCES[key].url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+                  {CLINICAL_EVIDENCE_SOURCES[key].label}
+                </a>
+              ))}
+            </div>
+          </section>
         )}
         {hasFullLadder && open && <LadderTable entry={entry} />}
         {hasRoadmap && open && (
