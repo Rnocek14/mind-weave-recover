@@ -6,6 +6,8 @@
  * task's feedback from eligibility for verified spoken accuracy,
  * clinical progression, in-session adaptation and expressive mastery.
  */
+import { isFillerOnly } from '@/lib/clinical/classifyUtteranceValidity';
+
 export type SynonymInputMode = 'spoken' | 'typed' | 'mixed' | 'none';
 export type SynonymCompletionReason = 'timer' | 'early';
 
@@ -34,6 +36,8 @@ export interface SynonymRoundEvidenceInput {
   completionReason: SynonymCompletionReason;
   difficulty: number;
   matchCount: number;
+  /** Actual recognizer output, never fabricated from expected words. */
+  browserTranscript?: string | null;
 }
 
 export interface SynonymRoundEvidence {
@@ -60,7 +64,14 @@ export function classifySynonymRoundEvidence(
   const requiredMatches = getSynonymSuccessThreshold(input.difficulty);
   const practiceSuccessful = Number.isFinite(input.matchCount) &&
     input.matchCount >= requiredMatches;
+  // A browser speech callback containing only "um/uh/hmm", or no raw
+  // transcript at all, is NOT sufficient evidence of a speech attempt.
+  // Reuse the existing utterance-validity filler detector; do not invent
+  // target words, an ASR transcript, or clinical speaker verification.
+  const transcript = (input.browserTranscript ?? '').trim();
+  const hasScorableTranscript = transcript.length > 0 && !isFillerOnly(transcript);
   const eligible = input.inputMode === 'spoken' && input.completionReason === 'timer' &&
+    hasScorableTranscript &&
     Number.isFinite(input.difficulty) && input.difficulty >= 1 && input.difficulty <= 10 &&
     Number.isFinite(input.matchCount) && input.matchCount >= 0;
   return {
