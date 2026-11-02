@@ -47,14 +47,25 @@ vi.mock('@/hooks/useAudioRecorder', () => ({
     uploadRecording: mocks.uploadRecording,
   }),
 }));
-vi.mock('@/hooks/useUtteranceLogger', () => ({
-  useUtteranceLogger: () => ({
-    startAttempt: mocks.startAttempt,
-    logFinalAnalysis: mocks.logFinalAnalysis,
-    resetAttempt: mocks.resetAttempt,
-    currentAttemptId: 'synthetic-attempt-id',
-  }),
-}));
+vi.mock('@/hooks/useUtteranceLogger', async () => {
+  const { useState } = await import('react');
+  return {
+    useUtteranceLogger: () => {
+      const [attemptId, setAttemptId] = useState<string | null>(null);
+      return {
+        startAttempt: (args: unknown) => {
+          mocks.startAttempt(args);
+          const nextId = 'synthetic-attempt-' + mocks.startAttempt.mock.calls.length;
+          setAttemptId(nextId);
+          return { attemptId: nextId, pronRequestId: 'synthetic-pron' };
+        },
+        logFinalAnalysis: mocks.logFinalAnalysis,
+        resetAttempt: () => { mocks.resetAttempt(); setAttemptId(null); },
+        currentAttemptId: attemptId,
+      };
+    },
+  };
+});
 vi.mock('@/hooks/useDiscourseAdaptation', () => ({
   useDiscourseAdaptation: () => ({
     recordTurn: vi.fn(), shiftDirection: null,
@@ -135,7 +146,9 @@ describe('ConversationPartnerGame real component finalization', () => {
     expect(rows.map(row => row.round)).toEqual([1, 2, 3]);
     expect(rows.map(row => row.trial_index)).toEqual([0, 1, 2]);
     expect(rows.every(row => row.counts_toward_score === false)).toBe(true);
-    expect(rows.every(row => row.attempt_id === 'synthetic-attempt-id')).toBe(true);
+    expect(rows.map(row => row.attempt_id)).toEqual([
+      'synthetic-attempt-1', 'synthetic-attempt-2', 'synthetic-attempt-3',
+    ]);
     expect(rows.every(row => row.outputs.discourse_signal_shadow?.source === 'local')).toBe(true);
     expect(mocks.logFinalAnalysis).toHaveBeenCalledTimes(3);
     expect(mocks.scoreAndRecord).toHaveBeenCalledTimes(3);
