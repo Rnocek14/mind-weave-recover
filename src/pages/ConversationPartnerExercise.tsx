@@ -180,7 +180,7 @@ export default function ConversationPartnerExercise() {
                   <div className="text-3xl font-bold text-primary">
                     {Math.round(sessionSummary.userAIRatio)}%
                   </div>
-                  <div className="text-sm text-muted-foreground">your talk time</div>
+                  <div className="text-sm text-muted-foreground">your share of words</div>
                 </div>
               </div>
 
