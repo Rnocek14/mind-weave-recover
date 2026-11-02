@@ -181,7 +181,7 @@ export function CategoryFluencyGame({
     enableDifficultyToasts: false,
     enableAutoHints: false,
     // Page (CategoryFluencyExercise) now owns the trial logger via
-    // useTrialSubmission and tags every row with trialMode:'production'.
+    // useTrialSubmission with per-round production, scaffolded or mixed mode.
     // Disable the auto-logger to prevent duplicate untagged rows.
     autoLog: false,
     getCueDependencyScore: () => {
@@ -774,7 +774,7 @@ export function CategoryFluencyGame({
           <>
             <p className="text-base font-medium text-foreground">That one was tough.</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              No problem — we'll switch to an easier category and give you more time.
+              We can try another category at the same comfortable pace.
             </p>
           </>
         ) : (
