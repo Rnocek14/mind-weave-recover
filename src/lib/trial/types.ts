@@ -46,6 +46,10 @@ export interface UnifiedTrialInput {
   isCorrect: boolean;
   /** Optional 0..1 graded accuracy (LLM / fuzzy / continuous scorers). */
   accuracyScore?: number | null;
+  /** False retains the observable practice attempt, but prevents use as
+   * progression evidence (e.g., typed words in a spoken fluency task).
+   * Omitted preserves existing game behavior. */
+  clinicalProgressionEligible?: boolean;
   /** 0..3 cue intensity actually given. */
   cueLevel?: number | null;
   cueType?: string | null;
