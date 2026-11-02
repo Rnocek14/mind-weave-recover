@@ -36,6 +36,8 @@ describe('Detective Mind conservative live ASR choice resolution', () => {
     ['cats', 1],
     ['I think it is cats', 1],
     ['A please', 0],
+    ["It's A", 0],
+    ["I'm going with C", 2],
   ] as const)('resolves a deliberate response %s', (heard, expected) => {
     expect(resolveDetectiveSpokenChoice(heard, three)).toBe(expected);
   });

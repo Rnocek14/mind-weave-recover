@@ -28,7 +28,7 @@ const SPOKEN_OPTION_NUMBERS: Readonly<Record<string, number>> = {
 };
 
 const normalizedChoiceText = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  value.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
 const uniqueChoice = (numbers: number[]): number | null => {
   const candidates = [...new Set(numbers)];
@@ -82,7 +82,7 @@ export function resolveDetectiveSpokenChoice(
 
   // "I think C", "C please", "I'm going with B" are explicit short
   // letter answers, but "I think a..." and "I see..." are not.
-  const shortAnswer = text.match(/^(?:(?:i\s+think|i\s+choose|i\s+pick|i\s+say|i\s+would\s+say|its|it\s+is|go\s+with|going\s+with)\s+)?([b-d]|a)(?:\s+please)?$/);
+  const shortAnswer = text.match(/^(?:(?:i\s+think|i\s+choose|i\s+pick|i\s+say|i\s+would\s+say|its|it\s+is|go\s+with|(?:im\s+)?going\s+with)\s+)?([b-d]|a)(?:\s+please)?$/);
   if (shortAnswer) {
     const idx = SPOKEN_OPTION_NUMBERS[shortAnswer[1]];
     if (valid(idx)) return idx;
