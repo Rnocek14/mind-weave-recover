@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { MAYA_VOICE_ID } from '@/lib/constants/voice';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, Keyboard } from 'lucide-react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useConversationPartner } from '@/hooks/useConversationPartner';
@@ -38,7 +38,7 @@ interface ConversationPartnerGameProps {
   onExit?: () => void;
 }
 
-type Phase = 'ready' | 'ai_speaking' | 'listening' | 'processing' | 'complete' | 'save_failed';
+type Phase = 'ready' | 'ai_speaking' | 'listening' | 'typing' | 'processing' | 'complete' | 'save_failed';
 
 export function ConversationPartnerGame({
   userId,
@@ -51,6 +51,7 @@ export function ConversationPartnerGame({
   const [conversationStarted, setConversationStarted] = useState(false);
   const [currentAIText, setCurrentAIText] = useState<string>('');
   const [userTranscript, setUserTranscript] = useState<string>('');
+  const [typedDraft, setTypedDraft] = useState('');
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   
   const speechStartTimeRef = useRef<number | null>(null);
@@ -164,7 +165,12 @@ export function ConversationPartnerGame({
   const handleStartTalking = useCallback(() => {
     // Never open the mic while Maya is still speaking.
     if (phase !== 'ready' || committingRef.current) return;
-    
+    if (!isSupported) {
+      setTypedDraft('');
+      setPhase('typing');
+      return;
+    }
+
     setUserTranscript('');
     firstWordTimeRef.current = null;
     speechStartTimeRef.current = Date.now();
@@ -188,7 +194,7 @@ export function ConversationPartnerGame({
     if (silenceTimer) {
       clearTimeout(silenceTimer);
     }
-  }, [phase, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId]);
+  }, [phase, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId, isSupported]);
 
   // Handle done talking
   const handleDoneTalking = useCallback(async () => {
@@ -323,6 +329,58 @@ export function ConversationPartnerGame({
     scorer, adaptation,
   ]);
 
+  // A typing fallback is real participation, not microphone evidence.
+  // No audio recording, utterance analysis, speech adaptation or LLM grader
+  // is run for a typed response. Its raw event explicitly records its mode.
+  const handleTypedReply = useCallback(async () => {
+    if (phase !== 'typing' || committingRef.current) return;
+    const text = typedDraft.trim();
+    if (!text) return;
+    committingRef.current = true;
+    setPhase('processing');
+    try {
+      const { followupText, eventSaved } = await processUserTurn(
+        text, null, null, null, 'typed',
+      );
+      if (!eventSaved) saveFailureRef.current = true;
+      if (!mountedRef.current) return;
+
+      setCurrentAIText(followupText);
+      setPhase('ai_speaking');
+      try {
+        await speak(followupText, { voiceId: MAYA_VOICE_ID });
+      } catch {
+        // Visual follow-up remains available when audio playback fails.
+      }
+      if (!mountedRef.current) return;
+      addAITurn(followupText);
+
+      if (currentTurn + 1 >= maxTurns) {
+        if (saveFailureRef.current) {
+          setPhase('save_failed');
+          return;
+        }
+        setPhase('complete');
+        const userAIRatio = metrics.totalAIWords > 0
+          ? (metrics.totalUserWords / metrics.totalAIWords) * 100 : 100;
+        onComplete?.({
+          turnsCompleted: metrics.turnsCompleted + 1,
+          avgLatencyMs: metrics.avgLatencyMs,
+          completionRate: metrics.completionRate,
+          userAIRatio,
+        });
+      } else {
+        committingRef.current = false;
+        setTypedDraft('');
+        setPhase('ready');
+      }
+    } catch {
+      if (!mountedRef.current) return;
+      saveFailureRef.current = true;
+      setPhase('save_failed');
+    }
+  }, [phase, typedDraft, processUserTurn, currentTurn, maxTurns, speak, addAITurn, metrics, onComplete]);
+
   // Start silence timer when listening begins
   useEffect(() => {
     if (phase === 'listening') {
@@ -355,18 +413,14 @@ export function ConversationPartnerGame({
     />
   ));
 
-  if (!isSupported) {
-    return (
-      <Card className="p-6 text-center">
-        <p className="text-muted-foreground">
-          Speech recognition is not supported in this browser.
-        </p>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      {!isSupported && (
+        <p role="status" className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+          Speech recognition isn't available in this browser. You can type
+          your replies. Typed practice is not counted as independent speech.
+        </p>
+      )}
       <div className="flex justify-center gap-2">
         {progressDots}
       </div>
@@ -437,8 +491,8 @@ export function ConversationPartnerGame({
                 onClick={handleStartTalking}
                 className="gap-2 min-w-[200px]"
               >
-                <Mic className="w-5 h-5" />
-                Press to Talk
+                {isSupported ? <Mic className="w-5 h-5" /> : <Keyboard className="w-5 h-5" />}
+                {isSupported ? 'Press to Talk' : 'Type a reply'}
               </Button>
             </div>
           )}
@@ -467,6 +521,24 @@ export function ConversationPartnerGame({
               <p className="text-sm text-muted-foreground mt-2">
                 Take your time. Press when you're finished.
               </p>
+            </div>
+          )}
+
+          {phase === 'typing' && (
+            <div className="space-y-3">
+              <label htmlFor="conversation-partner-typed-reply" className="block font-medium text-sm">
+                Your reply
+              </label>
+              <textarea
+                id="conversation-partner-typed-reply"
+                value={typedDraft}
+                onChange={event => setTypedDraft(event.target.value)}
+                className="w-full min-h-[112px] rounded-lg border bg-background p-3 text-base"
+                placeholder="Type what you'd like to say"
+              />
+              <Button onClick={handleTypedReply} disabled={!typedDraft.trim() || committingRef.current} className="w-full" size="lg">
+                Send reply
+              </Button>
             </div>
           )}
 
@@ -512,6 +584,7 @@ export function ConversationPartnerGame({
                   setPhase('ready');
                   setCurrentAIText('');
                   setUserTranscript('');
+                  setTypedDraft('');
                   turnCountRef.current = 0;
                   committingRef.current = false;
                   saveFailureRef.current = false;
@@ -529,7 +602,7 @@ export function ConversationPartnerGame({
         </CardContent>
       </Card>
 
-      {phase !== 'complete' && onExit && (
+      {phase !== 'complete' && phase !== 'save_failed' && onExit && (
         <div className="text-center">
           <Button variant="ghost" size="sm" onClick={onExit}>
             End session
