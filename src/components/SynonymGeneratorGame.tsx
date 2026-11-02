@@ -188,6 +188,7 @@ export function SynonymGeneratorGame({
   const [currentInput, setCurrentInput] = useState('');
   const [difficultyShift, setDifficultyShift] = useState<'up' | 'down' | null>(null);
   const [showTextInput, setShowTextInput] = useState(() => sessionStorage.getItem('preferTypingInput') === 'true');
+  const textInputModeRef = useRef(showTextInput);
   const [lastAddedWord, setLastAddedWord] = useState<string | null>(null);
 
   const totalTime = getTimerForDifficulty(currentDifficulty);
@@ -217,7 +218,7 @@ export function SynonymGeneratorGame({
   const handleSpeechResult = useCallback((transcript: string) => {
     // Switching to typing immediately disarms the speech stream; delayed
     // recognition callbacks must not silently add words to a typed round.
-    if (phase !== 'active' || showTextInput) return;
+    if (phase !== 'active' || showTextInput || roundFinishedRef.current) return;
     spokenTranscriptRef.current = transcript;
     const spokenWords = transcript
       .toLowerCase()
@@ -353,9 +354,10 @@ export function SynonymGeneratorGame({
 
     if (speechSupported && !showTextInput) {
       setTimeout(() => {
-        if (!roundFinishedRef.current) startListening();
+        if (!roundFinishedRef.current && !textInputModeRef.current) startListening();
       }, 300);
     } else if (!speechSupported) {
+      textInputModeRef.current = true;
       setShowTextInput(true);
     }
   }, [currentDifficulty, speechSupported, showTextInput, startListening, vg]);
@@ -414,6 +416,7 @@ export function SynonymGeneratorGame({
     setWords([]);
     setCurrentInput('');
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
+    textInputModeRef.current = preferTyping;
     setShowTextInput(preferTyping);
     setTimeout(() => beginCountdown(), 300);
   }, [beginCountdown]);
@@ -725,6 +728,7 @@ export function SynonymGeneratorGame({
           onClick={() => {
             const next = !showTextInput;
             if (next) stopListening();
+            textInputModeRef.current = next;
             setShowTextInput(next);
             sessionStorage.setItem('preferTypingInput', String(next));
           }}
