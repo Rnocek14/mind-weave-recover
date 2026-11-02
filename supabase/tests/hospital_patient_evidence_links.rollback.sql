@@ -141,7 +141,7 @@ BEGIN
   EXCEPTION WHEN check_violation THEN NULL; END;
 
   BEGIN
-    UPDATE public.profiles SET user_id=b WHERE id=a_profile;
+    UPDATE public.profiles SET user_id=b, profile_name='hospital-rollback-check-' || gen_random_uuid()::text WHERE id=a_profile;
     RAISE EXCEPTION 'FAIL: backend reassigned active profile owner';
   EXCEPTION WHEN check_violation THEN NULL; END;
 
