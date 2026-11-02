@@ -5,7 +5,7 @@ import {
   classifyFluencyRoundEvidence,
   getFluencyCueLevel,
   getFluencyInputMode,
-} from '../clinicalRoundEvidence';
+} from './clinicalRoundEvidence';
 
 describe('category-fluency clinical evidence constraints', () => {
   it('uses a fixed sixty-second comparison regardless of category tier', () => {
