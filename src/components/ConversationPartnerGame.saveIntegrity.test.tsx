@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   resetAttempt: vi.fn(),
   scoreAndRecord: vi.fn(),
   onSpeechResult: null as null | ((text: string) => void),
+  isSupported: true,
   scorerOptions: null as null | { logToDatabase?: boolean },
 }));
 
@@ -29,7 +30,7 @@ vi.mock('@/hooks/useSpeechRecognition', () => ({
   useSpeechRecognition: (opts: { onResult: (text: string) => void }) => {
     mocks.onSpeechResult = opts.onResult;
     return {
-      isSupported: true, isListening: false,
+      isSupported: mocks.isSupported, isListening: false,
       startListening: mocks.startListening,
       stopListening: mocks.stopListening,
     };
@@ -104,6 +105,7 @@ describe('ConversationPartnerGame real component finalization', () => {
     vi.clearAllMocks();
     mocks.onSpeechResult = null;
     mocks.scorerOptions = null;
+    mocks.isSupported = true;
     mocks.speak.mockResolvedValue(undefined);
     mocks.invoke.mockResolvedValue({ data: { fallbackType: 'tell_more' }, error: null });
     mocks.insert.mockResolvedValue({ error: null });
@@ -169,6 +171,41 @@ describe('ConversationPartnerGame real component finalization', () => {
     await waitFor(() => expect(screen.getByText(/Some conversation evidence could not be saved/)).toBeTruthy());
     expect(screen.queryByText('Nice conversation!')).toBeNull();
     expect(complete).not.toHaveBeenCalled();
+  });
+
+  it('provides a functioning typed fallback without manufacturing audio or spoken scores', async () => {
+    mocks.isSupported = false;
+    const complete = vi.fn();
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
+    await begin();
+    expect(screen.getByRole('status').textContent).toContain('Typed practice');
+    for (const words of ['I had toast today', 'I liked it', 'Maybe I will cook again']) {
+      fireEvent.click(screen.getByRole('button', { name: 'Type a reply' }));
+      fireEvent.change(screen.getByLabelText('Your reply'), { target: { value: words } });
+      fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+      if (words !== 'Maybe I will cook again') {
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Type a reply' })).toBeTruthy());
+      }
+    }
+    await waitFor(() => expect(screen.getByText('Nice conversation!')).toBeTruthy());
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(mocks.insert).toHaveBeenCalledTimes(3);
+    expect(mocks.startRecording).not.toHaveBeenCalled();
+    expect(mocks.startAttempt).not.toHaveBeenCalled();
+    expect(mocks.logFinalAnalysis).not.toHaveBeenCalled();
+    expect(mocks.scoreAndRecord).not.toHaveBeenCalled();
+    for (const [row] of mocks.insert.mock.calls) {
+      expect(row).toMatchObject({
+        counts_toward_score: false,
+        task_parameters: {
+          input_mode: 'typed',
+          trial_mode: 'mixed',
+          clinical_progression_eligible: false,
+          independent_spoken_score_eligible: false,
+        },
+        engagement_flags: { did_speak: false },
+      });
+    }
   });
 
   it('does not claim a fully saved session when the utterance analysis write fails', async () => {
