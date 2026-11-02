@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+import { PHRASE_BANK, evaluatePhraseMatch } from '@/data/phraseBank';
+import { evaluatePhraseTrainingResponse } from '@/lib/phrasePractice/evaluateTrainingResponse';
+import { getPhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
+
+const tier1 = PHRASE_BANK.filter(t => t.difficulty === 1 && t.phrase.trim().split(/\s+/).length >= 2);
+
+describe('Phrase Practice completion speech evaluation via production matcher', () => {
+  it('accepts the missing word of a two-word completion when full-phrase scoring would fail', () => {
+    const twoWords = tier1.find(t => t.phrase.trim().split(/\s+/).length === 2);
+    expect(twoWords).toBeDefined();
+    const missing = twoWords!.phrase.trim().split(/\s+/).slice(1).join(' ');
+    expect(evaluatePhraseMatch(missing, twoWords!).match).toBe(false);
+    const response = evaluatePhraseTrainingResponse(missing, twoWords!, getPhraseTrainingStage(2));
+    expect(response.match).toBe(true);
+    expect(response.wordAccuracy).toBe(1);
+  });
+
+  it('credits missing words for every playable Stage 2 script', () => {
+    expect(tier1.length).toBeGreaterThan(3);
+    for (const trial of tier1) {
+      const hidden = trial.phrase.trim().split(/\s+/).slice(1).join(' ');
+      expect(evaluatePhraseTrainingResponse(hidden, trial, getPhraseTrainingStage(2)).match,
+        `Rejected correct completion for ${trial.id}`).toBe(true);
+    }
+  });
+
+  it('accepts a complete spoken script as an alternative, without requiring it', () => {
+    for (const trial of tier1.slice(0, 10)) {
+      const evaluation = evaluatePhraseTrainingResponse(trial.phrase, trial, getPhraseTrainingStage(2));
+      expect(evaluation.match).toBe(true);
+    }
+  });
+
+  it('rejects merely repeating the visible word in Stage 2', () => {
+    for (const trial of tier1) {
+      const visible = trial.phrase.trim().split(/\s+/)[0];
+      expect(evaluatePhraseTrainingResponse(visible, trial, getPhraseTrainingStage(2)).match,
+        `Incorrectly counted visible prompt alone for ${trial.id}`).toBe(false);
+    }
+  });
+
+  it('keeps Stage 1 modeled practice and Stage 3 keyword recall aligned with the original evaluator', () => {
+    const example = tier1[0];
+    for (const stage of [getPhraseTrainingStage(1), getPhraseTrainingStage(3), null]) {
+      for (const spoken of [example.phrase, 'unrelated zebra', example.phrase.split(' ')[0]]) {
+        expect(evaluatePhraseTrainingResponse(spoken, example, stage))
+          .toEqual(evaluatePhraseMatch(spoken, example));
+      }
+    }
+  });
+  it('keeps brief but meaningful aphasic requests as supported practice, even if their words appear in a clue', () => {
+    const target = PHRASE_BANK.find(t => t.id === 'more_water')!;
+    // "More water" already communicates the need. This exercise must not
+    // impose a new, unapproved requirement to add words just to score.
+    const response = evaluatePhraseTrainingResponse('more water', target, getPhraseTrainingStage(3));
+    expect(response.match).toBe(true);
+    expect(response.wordAccuracy).toBeGreaterThan(0);
+  });
+
+});

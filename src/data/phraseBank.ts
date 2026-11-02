@@ -1214,10 +1214,20 @@ export function evaluatePhraseMatch(spoken: string, target: PhraseTrial): {
   wordAccuracy: number;
   matchedWords: string[];
 } {
-  const spokenWords = normalizeASROutput(spoken)
-    .toLowerCase().trim().split(/\s+/).filter(Boolean);
+  // Do not delete a *target word* just because the generic ASR cleaner
+  // recognizes it as a conversational filler. "Okay" and "well" occur in
+  // functional scripts; deleting them made exact correct replies fail.
+  // Keep generic filler/noise filtering for other tokens, without changing
+  // the shared ASR normalizer used by unrelated games.
   const targetWords = target.phrase
-    .toLowerCase().trim().split(/\s+/).filter(Boolean);
+    .toLowerCase().replace(/[.,!?;:]/g, '').trim().split(/\s+/).filter(Boolean);
+  const required = new Set(targetWords);
+  const spokenWords = spoken.toLowerCase()
+    .replace(/\[.*?\]|\(.*?\)/g, ' ')
+    .replace(/[.,!?;:]/g, '')
+    .trim().split(/\s+/).filter(word =>
+      !!word && (required.has(word) || normalizeASROutput(word).trim().length > 0),
+    );
 
   // A word heard by ASR can support AT MOST one word in the target phrase.
   // The previous .some() loop could count a single "to" twice in

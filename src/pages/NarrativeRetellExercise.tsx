@@ -21,6 +21,8 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { saveExerciseDetails } from '@/lib/exerciseDetailsStore';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { classifyNarrativeRoundEvidence } from '@/lib/narrative/roundEvidence';
+import { useNarrativeRetellTrainingStage } from '@/hooks/useNarrativeRetellTrainingStage';
+import { getNarrativeTrainingStage } from '@/lib/narrative/trainingStages';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -79,6 +81,24 @@ export default function NarrativeRetellExercise() {
   });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const training = useNarrativeRetellTrainingStage({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    offline: isOfflineMode,
+  });
+  // Care partners can choose an available PRACTICE stage. The choice is local
+  // to this patient/session and NEVER changes the persisted clinical level.
+  // The start lock prevents changing a story after recording has begun.
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const [stageChoice, setStageChoice] = useState<{ scope: string; level: 1 | 2 | 3 } | null>(null);
+  const [practiceStarted, setPracticeStarted] = useState<string | null>(null);
+  const caregiverSelected = stageChoice?.scope === scope;
+  const activeStage = caregiverSelected
+    ? getNarrativeTrainingStage(stageChoice.level)
+    : training.stage;
+  const practiceStageSource = caregiverSelected
+    ? 'care_partner_selection' : activeStage ? 'saved_level' : 'general_practice';
+  const stageCanChange = !fromLesson && practiceStarted !== scope && !completed && !saveWarning;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -103,10 +123,15 @@ export default function NarrativeRetellExercise() {
     if (!activeSessionId && !isOfflineMode) return;
     const evidence = classifyNarrativeRoundEvidence(result);
     const isCorrect = evidence.practiceSuccessful;
+    // Every selected Stage 1–3 presents a story-picture scaffold. Even if
+    // the visual telemetry is missing or delayed, an independently spoken
+    // verdict cannot be inferred from this actively assisted task.
+    const independentSpokenScoreEligible =
+      !activeStage && evidence.independentSpokenScoreEligible;
     // Session totals must reflect DURABLY SAVED eligible evidence, not
     // optimistic UI feedback. A failed final insert cannot inflate the
     // saved session's score or trial count.
-    const verifiedScore = evidence.independentSpokenScoreEligible &&
+    const verifiedScore = independentSpokenScoreEligible &&
       Number.isFinite(result.eventCoverage)
       ? Math.round(result.eventCoverage * 100) : 0;
 
@@ -114,7 +139,7 @@ export default function NarrativeRetellExercise() {
     if (result.completionReason === 'skipped' || result.skipped) errorType = 'skipped';
     else if (!result.responseValid) errorType = 'unscorable_retell';
     else if (result.inputMode === 'typed') errorType = 'typed_retell_practice';
-    else if (!evidence.independentSpokenScoreEligible) errorType = 'supported_retell_practice';
+    else if (!independentSpokenScoreEligible) errorType = 'supported_retell_practice';
     else if (!isCorrect) {
       if (result.wordCount < 5) errorType = 'minimal_output';
       else if (result.onTopicScore != null && result.onTopicScore < 0.4) errorType = 'off_topic';
@@ -132,15 +157,22 @@ export default function NarrativeRetellExercise() {
       reactionTimeMs: result.durationMs,
       errorType,
       taskParameters: {
-        trial_mode: evidence.trialMode,
-        clinical_progression_eligible: evidence.independentSpokenScoreEligible,
+        trial_mode: activeStage && result.inputMode === 'spoken'
+          ? 'scaffolded' : evidence.trialMode,
+        clinical_progression_eligible: independentSpokenScoreEligible,
         input_mode: result.inputMode ?? 'unknown',
         completion_reason: result.completionReason ?? 'unknown',
         response_valid: result.responseValid === true,
         required_event_coverage: evidence.requiredEventCoverage,
-        support_used: evidence.support,
-        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
+        support_used: activeStage ? 'visual_or_stall_prompt' : evidence.support,
+        independent_spoken_score_eligible: independentSpokenScoreEligible,
         story_id: result.storyId,
+        story_tier: result.storyTier ?? null,
+        narrative_training_stage: activeStage?.level ?? null,
+        narrative_practice_stage_source: practiceStageSource,
+        // These new stages only select real practice content and support.
+        // There are no approved automated promotion rules yet.
+        narrative_stage_promotion_eligible: false,
         story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
         transcript: result.transcript ?? '',
@@ -180,7 +212,7 @@ export default function NarrativeRetellExercise() {
       }
       return saved;
     }));
-  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
+  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry, activeStage?.level, practiceStageSource]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -239,8 +271,21 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
+  // Even offline practice must wait for the stage configuration. Otherwise
+  // the old generic game mounts first and its one-time story queue ignores
+  // the patient's actual training stage when the read finishes.
+  if (!training.loaded || (!isOfflineMode && (isCreatingSession || !activeSessionId))) {
     return <ExerciseLoading />;
+  }
+
+  if (!isOfflineMode && training.loadUnavailable) {
+    return (
+      <div role="alert" className="min-h-dvh bg-background flex flex-col items-center justify-center gap-5 p-6 text-center">
+        <h1 className="text-2xl font-bold">Practice level unavailable</h1>
+        <p className="max-w-md text-lg">We couldn't load your saved practice level. Ask a care partner for help.</p>
+        <Button size="lg" onClick={() => navigate('/today')}>Return to Today</Button>
+      </div>
+    );
   }
 
   return (
@@ -254,6 +299,37 @@ export default function NarrativeRetellExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
+        {!training.stage && training.persistedLevel != null && (
+          <div role="status" aria-label="Higher stage practice notice" className="rounded-lg border p-3 text-sm">
+            Your saved level is {training.persistedLevel}. This higher-level story training is
+            still being developed. You can practice an available story mode here without
+            changing your saved level.
+          </div>
+        )}
+        {stageCanChange && (
+          <details className="rounded-lg border bg-muted/20 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold">Care partner: choose practice level</summary>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Choose the story support that feels comfortable. This changes only today's
+              practice, not the patient's saved recovery level.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              {([1, 2, 3] as const).map(level => (
+                <Button
+                  key={level}
+                  type="button"
+                  size="lg"
+                  variant={activeStage?.level === level ? 'default' : 'outline'}
+                  aria-pressed={activeStage?.level === level}
+                  className="flex-1 min-h-12"
+                  onClick={() => setStageChoice({ scope, level })}
+                >
+                  Stage {level}: {level === 1 ? 'More help' : level === 2 ? 'Picture hints' : 'Longer stories'}
+                </Button>
+              ))}
+            </div>
+          </details>
+        )}
         {saveWarning ? (
           <UnverifiedPracticeBanner />
         ) : completed ? (
@@ -272,7 +348,18 @@ export default function NarrativeRetellExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
+          <NarrativeRetellGame
+            key={[activeProfile?.id ?? 'offline', activeSessionId ?? 'offline', activeStage?.level ?? 'general'].join(':')}
+            userId={user?.id}
+            sessionId={activeSessionId}
+            onTrialComplete={handleTrialComplete}
+            onGameComplete={handleGameComplete}
+            roundCount={trialLimit}
+            tier={activeStage?.storyTier ?? adaptation.difficultyTier}
+            trainingStage={activeStage ?? undefined}
+            onRetellStarted={() => setPracticeStarted(scope)}
+            recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined}
+          />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

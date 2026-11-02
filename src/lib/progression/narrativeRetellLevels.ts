@@ -1,8 +1,11 @@
 /**
  * Narrative Retell — design-of-record ladder (Phase 2, Wave 4).
  *
- * DESIGN-ONLY. Runtime continues to ride the discourse adaptation engine.
- * No progression hook, no difficulty bridge, no mastery routing.
+ * DESIGN-ONLY clinical promotion criteria. There is now a separate,
+ * read-only, patient-scoped L1–L3 training configuration at
+ * src/lib/narrative/trainingStages.ts (story complexity + visual help).
+ * This table still has NO validated progression hook, evidence threshold,
+ * per-level mastery calculation, or automatic promotion.
  *
  * Clinical basis & honest scope: see docs/clinical-evidence/narrative-retell.md.
  * TL;DR: Story-retell macrostructure analysis (Ulatowska; Wright & Capilouto)

@@ -22,6 +22,25 @@ describe('Phrase Practice one-to-one speech word matching', () => {
     expect(result.match).toBe(true);
   });
 
+  it('keeps functional words like okay even though general ASR removes them as fillers', () => {
+    const actual = PHRASE_BANK.find(trial => trial.id === 'im_okay')!;
+    expect(actual.phrase).toBe("I'm okay");
+    const exact = evaluatePhraseMatch("I'm okay", actual);
+    expect(exact.match).toBe(true);
+    expect(exact.wordAccuracy).toBe(1);
+    const withFiller = evaluatePhraseMatch("um I'm okay", actual);
+    expect(withFiller.match).toBe(true);
+    expect(withFiller.wordAccuracy).toBe(1);
+    // "okay" alone is not enough for the entire two-word phrase.
+    expect(evaluatePhraseMatch('okay', actual).match).toBe(false);
+  });
+
+  it('does not credit a filler as unrelated phrase content', () => {
+    const result = evaluatePhraseMatch('well uh need help', target('I need help'));
+    expect(result.matchedWords).not.toContain('well');
+    expect(result.wordAccuracy).toBeLessThan(1);
+  });
+
   it('returns no invented success for silence, fillers or unrelated speech', () => {
     expect(evaluatePhraseMatch('', target('I need help')).wordAccuracy).toBe(0);
     expect(evaluatePhraseMatch('banana', target('I need help')).match).toBe(false);
