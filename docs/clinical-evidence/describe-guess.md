@@ -4,7 +4,7 @@
 
 Published clinical-stage design only. Runtime continues to use the existing discourse adaptation engine and `cueLevel 0–3` telemetry intensity mapping. There is **no** per-game clinical progression hook, **no** difficulty bridge, **no** adopted expressive mastery routing, and **no** per-level mastery enforcement.
 
-**Measurement-integrity update:** The game already uses `useTrialSubmission` for raw practice events, but the canonical slug remains **outside** the adopted expressive-mastered-slug allowlist. The new evidence classifier distinguishes **uncued spoken production**, **semantically prompted spoken practice**, and **typed practice** in each raw event. This improves reporting accuracy but does not turn the stage definitions into operational L1–L8 progression.
+**Measurement-integrity update:** The game already uses `useTrialSubmission` for raw practice events, but the canonical slug remains **outside** the expressive-mastery adoption list. The new evidence classifier distinguishes **uncued spoken production**, **semantically prompted spoken practice**, and **typed practice** in each raw event. This improves reporting accuracy but does not turn the stage definitions into operational L1–L8 progression.
 
 This document reserves the intended L1–L8 ladder so a future structural migration can promote the game without redesigning it.
 
