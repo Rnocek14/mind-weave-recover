@@ -32,22 +32,23 @@ import {
   type MasteryTrack,
 } from '@/lib/clinicalLadderRegistry';
 import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
+import { summarizeEightLevelCoverage } from '@/lib/clinicalEightLevelCoverage';
 
 const STATUS_BADGE: Record<LadderStatus, { label: string; className: string; help: string }> = {
   full: {
-    label: 'Full L1–L8 ladder',
+    label: 'L1–L8 clinical progression',
     className: 'bg-primary/15 text-primary border-primary/30',
-    help: 'Real per-level spec drives runtime adaptation. L1–L8 table below.',
+    help: 'Eight-stage framework connected to the game. Individual rows may have content limitations; this is not clinical efficacy validation.',
   },
   structural: {
     label: 'Structural ladder',
     className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
-    help: 'Engine runs against an L1–L8 spec; top tiers may be thin. Table withheld pending clinician review of content banks.',
+    help: 'Persisted per-game clinical levels operate through the currently implemented content ceiling. Higher stages may still be planned.',
   },
   'design-only': {
     label: 'Design-of-record',
     className: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30',
-    help: 'Clinical L1–L8 design is published; runtime still uses the generic 1–10 engine until per-level enforcement lands.',
+    help: 'Eight differentiated stages are documented, but NOT connected to persistent clinical levels. Existing gameplay keeps its own settings.',
   },
   'telemetry-only': {
     label: 'Telemetry-only',
@@ -233,7 +234,7 @@ function RecoveryRoadmap({
   const note =
     variant === 'structural'
       ? 'Simplified stages. The engine adapts per level internally; the detailed L1–L8 table is reserved for clinician review.'
-      : 'Conceptual progression. Clinical design-of-record; runtime adaptation still rides the generic 1–10 engine.';
+      : 'Conceptual practice progression only. These eight stages do not yet determine the game\'s scored clinical level.';
 
   return (
     <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3">
@@ -383,6 +384,7 @@ export default function ClinicalLibrary() {
   const totalDesign = countByStatus('design-only');
   const totalTelemetry = countByStatus('telemetry-only');
   const totalGeneric = countByStatus('generic');
+  const levelCoverage = summarizeEightLevelCoverage();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
@@ -400,8 +402,13 @@ export default function ClinicalLibrary() {
           Activity Library
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Every activity, grouped by the skill it practices — with the evidence
-          behind it and how its difficulty levels work.
+          Every activity, grouped by the skill it practices — including its eight-stage
+          design and whether those stages are connected to clinical progression.
+        </p>
+        <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+          {levelCoverage.canonicalGames} catalog activities have eight-stage designs.
+          {levelCoverage.liveProgressionGames} currently save independent game-specific clinical levels;
+          other stages remain planned. Each game uses its own skill-specific criteria.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {totalFull > 0 && (
