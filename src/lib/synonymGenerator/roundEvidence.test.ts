@@ -59,9 +59,11 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
   it('includes full spoken rounds as correctly differentiated positive or negative trials', () => {
     const correct = classifySynonymRoundEvidence({
       inputMode: 'spoken', completionReason: 'timer', difficulty: 6, matchCount: 4,
+      browserTranscript: 'glad joyful cheerful pleased',
     });
     const incorrect = classifySynonymRoundEvidence({
       inputMode: 'spoken', completionReason: 'timer', difficulty: 6, matchCount: 2,
+      browserTranscript: 'glad joyful',
     });
     expect(correct).toMatchObject({
       trialMode: 'production',
@@ -86,9 +88,26 @@ describe('Synonym Generator: faithful round evidence and mastery eligibility', (
     })).toMatchObject({ trialMode: 'mixed', clinicalProgressionEligible: false });
     expect(classifySynonymRoundEvidence({
       inputMode: 'spoken', completionReason: 'timer', difficulty: 3, matchCount: Number.NaN,
+      browserTranscript: 'glad',
     })).toMatchObject({ practiceSuccessful: false, clinicalProgressionEligible: false });
     expect(classifySynonymRoundEvidence({
       inputMode: 'spoken', completionReason: 'timer', difficulty: Number.NaN, matchCount: 5,
+      browserTranscript: 'glad',
     })).toMatchObject({ clinicalProgressionEligible: false, verifiedSpokenScoreEligible: false });
+
+    for (const transcript of ['um', 'uh uh', 'hmm.', '']) {
+      expect(classifySynonymRoundEvidence({
+        inputMode: 'spoken', completionReason: 'timer', difficulty: 2, matchCount: 0,
+        browserTranscript: transcript,
+      }), transcript).toMatchObject({
+        clinicalProgressionEligible: false,
+        trialMode: 'mixed',
+      });
+    }
+
+    expect(classifySynonymRoundEvidence({
+      inputMode: 'spoken', completionReason: 'timer', difficulty: 2, matchCount: 2,
+      browserTranscript: null,
+    })).toMatchObject({ clinicalProgressionEligible: false });
   });
 });
