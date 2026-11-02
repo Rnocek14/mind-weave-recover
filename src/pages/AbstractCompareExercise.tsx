@@ -237,9 +237,9 @@ export default function AbstractCompareExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {saveError ? (
+        {saveErrorScope === scope ? (
           <UnverifiedPracticeBanner />
-        ) : completed ? (
+        ) : completedScope === scope ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🔗</div>
             <h2 className="text-2xl font-bold">Comparisons Complete!</h2>
@@ -249,7 +249,55 @@ export default function AbstractCompareExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
+          <>
+            {!fromLesson && attemptedScope !== scope && (
+              <details className="mx-auto max-w-lg rounded-lg border p-3 mb-3 text-sm">
+                <summary className="cursor-pointer font-medium">
+                  Care partner: choose comparison practice
+                </summary>
+                {practiceStage ? (
+                  <p className="mt-2 text-muted-foreground">
+                    Practice Stage {practiceStage.level}: {practiceStage.label}.
+                    This is supported practice, not a clinical promotion.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-muted-foreground" role="status">
+                    {practiceLoad.unavailable
+                      ? 'Your saved level could not be checked. General practice remains available.'
+                      : 'Higher levels are not implemented as staged practice yet. General practice remains available.'}
+                  </p>
+                )}
+                <div className="flex flex-col gap-2 mt-3">
+                  {([1, 2, 3] as const).map(level => {
+                    const stage = getAbstractPracticeStage(level);
+                    return (
+                      <Button
+                        key={level}
+                        size="sm"
+                        type="button"
+                        aria-pressed={practiceStage?.level === level}
+                        variant={practiceStage?.level === level ? 'default' : 'outline'}
+                        onClick={() => setChosen({ scope, level })}
+                      >
+                        Stage {level}: {stage?.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
+            <AbstractCompareGame
+              key={scope + ':' + (practiceStage?.level ?? 'general')}
+              onTrialComplete={handleTrialComplete}
+              onGameComplete={handleGameComplete}
+              roundCount={trialLimit}
+              tier={practiceStage?.contentTier ?? dynamicTier.currentTier}
+              trainingStage={practiceStage}
+              userId={user?.id}
+              sessionId={activeSessionId}
+              autoStart={fromLesson}
+            />
+          </>
         )}
       </main>
       {fromLesson && <SessionSidePanel />}
