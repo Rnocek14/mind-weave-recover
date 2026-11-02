@@ -1,7 +1,7 @@
 /**
  * Patient-owned, READ-ONLY Describe & Guess stage selection. Uses the existing
  * clinical_progression_state row, but does not assert/promote clinical mastery.
- * Only stage L1–L3 has executable script presentation.
+ * Only stages L1–L3 have executable supported description tasks.
  */
 import { useEffect, useState } from 'react';
 import { loadProgressionState } from '@/lib/progression/clinicalProgression';

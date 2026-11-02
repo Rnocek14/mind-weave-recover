@@ -19,6 +19,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/describeGuessBank';
+import { getDescribeGuessStageTrials, type DescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
 import { matchAnswer } from '@/lib/answerMatcher';
 import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
 import { evaluateCoverage, detectSpokenDimensions } from '@/lib/describeGuess/coverageGuess';
@@ -75,6 +76,7 @@ interface GuessResult {
 interface UseDescribeGuessGameOptions {
   trialCount?: number;
   difficulty?: number;
+  trainingStage?: DescribeGuessTrainingStage | null;
   onTrialComplete?: (result: DescribeGuessTrialResult) => void;
   onGameComplete?: (results: DescribeGuessTrialResult[]) => void;
 }
@@ -83,6 +85,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const {
     trialCount = 8,
     difficulty = 2,
+    trainingStage,
     onTrialComplete,
     onGameComplete,
   } = options;
@@ -95,7 +98,9 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getDescribeGuessTrials({ difficulty, count: trialCount }),
+    () => trainingStage
+      ? getDescribeGuessStageTrials(trainingStage, trialCount)
+      : getDescribeGuessTrials({ difficulty, count: trialCount }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trialCount]
   );

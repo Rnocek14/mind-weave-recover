@@ -34,6 +34,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
 import { classifyDescribeGuessEvidence } from '@/lib/describeGuess/roundEvidence';
+import { useDescribeGuessTrainingStage } from '@/hooks/useDescribeGuessTrainingStage';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
@@ -117,6 +118,10 @@ export default function DescribeGuessExercise() {
     providedSessionId,
     EXERCISE_SLUG
   );
+  const training = useDescribeGuessTrainingStage({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
@@ -228,6 +233,9 @@ export default function DescribeGuessExercise() {
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
         input_mode: evidence.inputMode,
+        describing_training_stage: training.stage?.level ?? null,
+        describing_target_tier: training.stage?.itemTier ?? null,
+        clinical_stage_promotion_eligible: false,
         // The raw logger normalizes successful error_type to 'correct'. Keep
         // missing recognition provenance queryable even on correct practice.
         provenance_issue: result.inputMode === 'spoken' && !result.browserTranscript?.trim()
@@ -277,10 +285,20 @@ export default function DescribeGuessExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  const isReady = !isCreatingSession && !!activeSessionId && training.loaded;
 
   if (!isReady) {
     return <ExerciseLoading />;
+  }
+
+  if (training.loadUnavailable) {
+    return (
+      <div role="alert" className="min-h-dvh bg-background flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="text-2xl font-bold">Practice level unavailable</h1>
+        <p className="text-lg">We couldn't load your saved level. Ask a care partner for help.</p>
+        <Button size="lg" onClick={() => navigate('/today')}>Return to Today</Button>
+      </div>
+    );
   }
 
   return (
@@ -300,6 +318,13 @@ export default function DescribeGuessExercise() {
       </header>
 
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-4 tall:pb-16">
+        {!training.stage && training.persistedLevel != null && (
+          <div role="status" className="rounded-lg border p-3 text-sm">
+            Your saved level is {training.persistedLevel}. Higher-stage
+            describing tasks are still being developed; general describing
+            practice will not change your saved level.
+          </div>
+        )}
         {saveError ? null : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">🎉</div>
@@ -311,6 +336,8 @@ export default function DescribeGuessExercise() {
           </div>
         ) : (
           <DescribeGuessGame
+            key={[activeProfile?.id ?? 'none', activeSessionId, training.stage?.level ?? 'general'].join(':')}
+            trainingStage={training.stage}
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             trialCount={trialCount}
