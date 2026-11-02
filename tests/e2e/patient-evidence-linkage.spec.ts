@@ -58,6 +58,8 @@ test('different authenticated patients cannot cross-link or read clinical eviden
   const remember = (client: DbClient, table: typeof cleanups[number]['table'], column: string, id: string) =>
     cleanups.push({ client, table, column, id });
 
+  let testError: unknown;
+  let cleanupFailed = false;
   try {
     const aProfile = await ensurePatientProfile(aClient, aUser.id);
     const bProfile = await ensurePatientProfile(bClient, bUser.id);
@@ -138,23 +140,33 @@ test('different authenticated patients cannot cross-link or read clinical eviden
     expect(bSessions.data).toHaveLength(0);
     expect(bEvents.data).toHaveLength(0);
     expect(bSpeech.data).toHaveLength(0);
+  } catch (error) {
+    testError = error;
   } finally {
     // Only synthetic rows created in this test, never project-wide cleanup.
     // Reverse insertion order honors utterance -> events -> sessions -> profile.
-    let cleanupFailed = false;
+    // No throwing from finally: preserve the primary integrity-test failure.
     for (const item of cleanups.reverse()) {
-      const res = item.table === 'sessions'
-        ? await item.client.from('sessions').delete().eq(item.column, item.id)
-        : item.table === 'exercise_events'
-        ? await item.client.from('exercise_events').delete().eq(item.column, item.id)
-        : item.table === 'utterance_analyses'
-        ? await item.client.from('utterance_analyses').delete().eq(item.column, item.id)
-        : await item.client.from('profiles').delete().eq(item.column, item.id);
-      if (res.error) cleanupFailed = true;
+      try {
+        const res = item.table === 'sessions'
+          ? await item.client.from('sessions').delete().eq(item.column, item.id)
+          : item.table === 'exercise_events'
+          ? await item.client.from('exercise_events').delete().eq(item.column, item.id)
+          : item.table === 'utterance_analyses'
+          ? await item.client.from('utterance_analyses').delete().eq(item.column, item.id)
+          : await item.client.from('profiles').delete().eq(item.column, item.id);
+        if (res.error) cleanupFailed = true;
+      } catch {
+        cleanupFailed = true;
+      }
     }
-    const signOut = await bClient.auth.signOut({ scope: 'local' });
-    if (signOut.error || cleanupFailed) {
-      throw new Error('Synthetic evidence cleanup or second session sign-out failed');
+    try {
+      const signOut = await bClient.auth.signOut({ scope: 'local' });
+      if (signOut.error) cleanupFailed = true;
+    } catch {
+      cleanupFailed = true;
     }
   }
+  if (testError !== undefined) throw testError;
+  expect(cleanupFailed, 'Synthetic evidence cleanup and sign-out must succeed').toBe(false);
 });
