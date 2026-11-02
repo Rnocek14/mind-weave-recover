@@ -9,12 +9,10 @@
  *     `exercise_events` and the mastery shadow.
  *   - `adaptation_trial_logs` continues to be written from
  *     `DescribeGuessGame`'s own `useInGameAdaptation(autoLog:true)`.
- *   - SupportLevel mapping (lexical axis, ordinal to `cueLevel`):
- *       0 prompts → `independent`
- *       1 prompt  → `semantic_cue`
- *       2 prompts → `phonemic_cue`
- *       3 prompts → `carrier_or_full_model`
- *     `cueLevel` itself is already derived by `deriveCueTelemetry()`.
+ *   - All feature-chip prompts are SEMANTIC hints (what/where/how).
+ *     None supplies a phoneme or full spoken carrier model. Record
+ *     `cueLevel` 0–3 as intensity/count, but `supportUsed` is semantic
+ *     for every prompted attempt, never fabricated phonemic/model support.
  *   - No per-game progression hook yet — `progression: null`.
  */
 
@@ -39,12 +37,10 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 
-/** Ordinal cueLevel (0..3) → lexical-axis SupportLevel. */
-function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
-  if (cueLevel <= 0) return 'independent';
-  if (cueLevel === 1) return 'semantic_cue';
-  if (cueLevel === 2) return 'phonemic_cue';
-  return 'carrier_or_full_model';
+/** Help-chip counts are ordinal INTENSITY, not phonemic cue types.
+ * All help chips in Describe & Guess ask for semantic features. */
+export function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
+  return cueLevel <= 0 ? 'independent' : 'semantic_cue';
 }
 
 
