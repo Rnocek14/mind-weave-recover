@@ -478,7 +478,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Motor/visual-attention practice. Existing target-hit metrics are not clinical proof of neglect improvement.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'reach-tap': {
@@ -491,7 +491,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Motor/visuomotor practice. Movement-specific assistance needs separate validation, not aphasia mastery scoring.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'phrase-practice': {
@@ -504,7 +504,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Existing phrase production and generic difficulty engine; eight proposed functional-communication stages are not persistent clinical levels.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'sentence-game': {
@@ -517,7 +517,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Existing sentence adaptation is separate from the persisted sentence-construction clinical ladder.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'thought-organization': {
@@ -530,7 +530,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Distinct from Thought Continuation; proposed organization levels require task-specific evidence criteria.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'word-finding': {
@@ -543,7 +543,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'The generic word-finding experience is not the same as Photo Naming clinical level persistence.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'follow-directions': {
@@ -556,7 +556,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Comprehension and sequencing require a receptive-only evidence route, never expressive mastery scoring.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'sequence-builder': {
@@ -569,7 +569,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Task-ordering accuracy and support must be assessed independently from spontaneous language production.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
   'functional-scenes': {
@@ -582,7 +582,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'The existing Command Scenes page logs app events only; it does not write clinical progression or verified speaker scores.',
     evidenceBasis: {
       docPath: 'docs/qa/eight-level-coverage-matrix.md',
-      tldr: 'Proposed L1–L8 qualitative training progression; clinical criteria and differentiated runtime task selection are not yet implemented or validated.',
+      tldr: 'Proposed L1–L8 practice stages. Clinical promotion criteria, differentiated content and independent scoring are not implemented or clinician-reviewed.',
     },
   },
 };
