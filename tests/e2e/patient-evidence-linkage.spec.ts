@@ -69,31 +69,43 @@ test('different authenticated patients cannot cross-link or read clinical eviden
     const aSession = await aClient.from('sessions')
       .insert({ user_id: aUser.id, profile_id: aProfile.id, plan: { synthetic_hospital_link_test: true } })
       .select('id,user_id,profile_id').single();
+    if (aSession.error || !aSession.data) {
+      throw new Error('Compatible first patient session creation failed');
+    }
+    remember(aClient, 'sessions', 'id', aSession.data.id);
     const bSession = await bClient.from('sessions')
       .insert({ user_id: bUser.id, profile_id: bProfile.id, plan: { synthetic_hospital_link_test: true } })
       .select('id,user_id,profile_id').single();
-    if (aSession.error || !aSession.data || bSession.error || !bSession.data) {
-      throw new Error('Compatible isolated patient session creation failed');
+    if (bSession.error || !bSession.data) {
+      throw new Error('Compatible second patient session creation failed');
     }
-    remember(aClient, 'sessions', 'id', aSession.data.id);
     remember(bClient, 'sessions', 'id', bSession.data.id);
     expect(aSession.data).toMatchObject({ user_id: aUser.id, profile_id: aProfile.id });
     expect(bSession.data).toMatchObject({ user_id: bUser.id, profile_id: bProfile.id });
 
     // These were all accepted by the old staging schema in a rollback-only
     // reproduction. The actual deployed trigger must now reject each one.
+    // Preallocate IDs and register bounded cleanup BEFORE attempting writes.
+    // If a future regression accepts an invalid row, the test still tries to
+    // remove exactly its own synthetic evidence rather than abandoning it.
+    const badSessionId = randomUUID();
+    remember(aClient, 'sessions', 'id', badSessionId);
     const crossSession = await aClient.from('sessions')
-      .insert({ user_id: bUser.id, profile_id: aProfile.id, plan: {} });
+      .insert({ id: badSessionId, user_id: bUser.id, profile_id: aProfile.id, plan: {} });
     expect(crossSession.error?.code, 'Cross-user session insert must fail via the DB invariant').toBe('23514');
 
+    const badEventId = randomUUID();
+    remember(aClient, 'exercise_events', 'id', badEventId);
     const crossEvent = await aClient.from('exercise_events')
-      .insert({ session_id: aSession.data.id, profile_id: bProfile.id, round: 1, counts_toward_score: false });
+      .insert({ id: badEventId, session_id: aSession.data.id, profile_id: bProfile.id, round: 1, counts_toward_score: false });
     expect(crossEvent.error?.code, 'Cross-profile event insert must fail via the DB invariant').toBe('23514');
 
+    const badSpeechId = randomUUID();
     const badSpeechAttempt = randomUUID();
+    remember(aClient, 'utterance_analyses', 'id', badSpeechId);
     const crossSpeech = await aClient.from('utterance_analyses')
       .insert({
-        user_id: aUser.id, session_id: bSession.data.id, profile_id: bProfile.id,
+        id: badSpeechId, user_id: aUser.id, session_id: bSession.data.id, profile_id: bProfile.id,
         attempt_id: badSpeechAttempt, target_word: 'synthetic-unauthorized', counts_toward_score: false,
       });
     expect(crossSpeech.error?.code, 'Cross-user speech insert must fail via the DB invariant').toBe('23514');
