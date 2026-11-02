@@ -28,13 +28,15 @@ highlight_plus_choice  <  choice_based  <  open_response
 (model heard + cues)      (cue chips)      (spontaneous)
 ```
 
-The current Synonym Generator game UI has **no in-trial scaffold control** — no hint button, no cue chips, no model audio. The patient just speaks (or types via the input-mode fallback; that is an input-modality fallback, not a clinical scaffold). Every trial is therefore mapped to `open_response`. The ladder advances on match-count growth at progressively harder content tiers and progressively tighter time windows, not on scaffold fading. This matches Synonym Generator's clinical reality (it is a divergent-retrieval task, not a cue-faded confrontation-naming task).
+The current Synonym Generator UI has no hint button, cue chips, or model audio. It allows recognized speech **and** typed input. Both can count toward practice engagement, but only a **completed timed speech-only round** now routes through `open_response` as clinical progression evidence. Typed, mixed, silent and **Done early** rounds are retained as observable practice but excluded from the verified speech score, clinical-level buffer, in-session spoken adaptation, and expressive mastery. `open_response` labels support in eligible spoken rounds; it does not turn typed output into independent speech.
 
 ## Mastery routing
 
-- `submitTrial` emits `trialMode: 'production'` on every call.
-- Canonical slug `synonym_generator` IS added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials route into expressive mastery — same path as PhotoNaming / FixSentence / SemanticFeatures / TwoClues / CategoryFluency / SentenceConstruction / MultiStepPlanning.
+- Full timed speech-only rounds emit `trialMode: 'production'`. Typed, mixed, no-response and early-ended rounds emit the unscored `mixed` routing tag with the **actual** `input_mode` and `completion_reason` kept separately in telemetry.
+- Canonical slug `synonym_generator` remains adopted; only eligible `production` rows can enter expressive mastery. Typed/mixed practice cannot inflate the spoken clinical ladder or its scored denominator.
+- The game and the page now use the **same existing** match thresholds (2 at engine levels 1–2, 3 at 3–4, 4 at 5+). Previously the page incorrectly accepted two matches at every difficulty.
+- The final raw event write completes before the session commits progression and mastery. A failed raw insert cannot silently buffer a supposedly successful final round.
+- Browser recognition remains a provisional observation: these changes do **not** verify the speaker, clinical correctness, aphasic recognition fidelity, or transfer to outside communication.
 
 ## Readiness
 
@@ -45,6 +47,10 @@ The current Synonym Generator game UI has **no in-trial scaffold control** — n
 | L6 | thin | Bank tier 2/3 boundary (abstract mid-frequency); rotation only. |
 | L7 | thin | Bank tier 3 (abstract low-frequency); sparse coverage. |
 | L8 | aspirational | No constrained-output runtime mode (typing fallback always available; no enforced speech-only or extreme per-prompt minimums). Ceiling clamp blocks live promotion. |
+
+## Measurement limitations
+
+The current 45-to-25-second timer varies with difficulty and may confound word productivity with lexical complexity. **This wave did not change the timer or the clinician-unreviewed eight-stage thresholds.** It records both the time cap and actual duration and excludes early-ended rounds from scored clinical evidence. Cross-tier outcome interpretation still requires norming and SLP review, ideally with stable independent probes.
 
 ## Out of scope for this ship
 
