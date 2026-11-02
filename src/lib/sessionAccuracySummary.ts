@@ -74,6 +74,9 @@ const ACCURACY_EXCLUDED_SLUGS = new Set([
   // Visual-memory game results are meaningful practice, not speech-recognition
   // accuracy. Also quarantines legacy rows written without the exclusion flag.
   'pattern_match',
+  // Abstract comparison uses a coverage-ratio heuristic for practice; do
+  // not present it as ASR accuracy, including legacy scored rows.
+  'abstract_compare',
 ]);
 
 const EMPTY: SessionAccuracySummary = {

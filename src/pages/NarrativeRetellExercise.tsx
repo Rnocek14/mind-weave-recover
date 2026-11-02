@@ -1,3 +1,4 @@
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Narrative Retell Exercise Page — wrapper with session lifecycle.
  * Now consumes shared adaptation contract (profile-aware, not phoneme-targeted).
@@ -202,12 +203,17 @@ export default function NarrativeRetellExercise() {
     const failed = settled.filter(entry =>
       entry.status === 'rejected' || (entry.status === 'fulfilled' && entry.value !== true),
     ).length;
-    if (failed > 0 && !isOfflineMode) {
-      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', { failed });
+    // A missing final write is as unsafe as a known rejected one. Do not
+    // silently close or advance the parent's lesson on incomplete evidence.
+    if (!isOfflineMode && (failed > 0 || settled.length < results.length || settled.length === 0)) {
+      console.warn('[NarrativeRetell] Session has incomplete raw clinical events', {
+        failed, observed: settled.length, expected: results.length,
+      });
       setSaveWarning(true);
+      return;
     }
-    setCompleted(true);
     await completeSession();
+    setCompleted(true);
 
     // Save structured details for reflection engine
     if (blockIndex != null && results.length > 0) {
@@ -250,7 +256,9 @@ export default function NarrativeRetellExercise() {
         {fromLesson && <InlineSessionProgress />}
       </header>
       <main className="container px-4 py-2 flex-1 flex flex-col overflow-y-auto pb-16">
-        {completed ? (
+        {saveWarning ? (
+          <UnverifiedPracticeBanner />
+        ) : completed ? (
           <div className="max-w-md mx-auto text-center space-y-6">
             <div className="text-6xl">📖</div>
             <h2 className="text-2xl font-bold">Stories Complete!</h2>

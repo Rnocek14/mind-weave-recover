@@ -121,4 +121,13 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(result.scored_trials).toBe(0);
   });
 
+  it('excludes unvalidated Abstract Compare coverage from ASR speech scores', () => {
+    const result = reduceAccuracy([
+      { score: 100, cue_level: 0, counts_toward_score: true, exercise_slug: 'abstract_compare' },
+      { score: 0, cue_level: 0, counts_toward_score: true, exercise_slug: 'photo_naming' },
+    ]);
+    expect(result.asr_accuracy).toBe(0);
+    expect(result.scored_trials).toBe(1);
+  });
+
 });
