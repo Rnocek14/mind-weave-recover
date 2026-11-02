@@ -26,14 +26,29 @@ import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 const TWO_CLUES_SLUG = 'two-clues';
 
 /** Delivered support is independent of answer quality (`reachedAnchor`). */
+export type TwoCluesCueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
+
 export function mapTwoCluesSupport(
   usedCue: boolean,
-  cueType: 'none' | 'semantic' | 'phonemic' | 'full_word' = 'semantic',
+  cueType: TwoCluesCueType = 'semantic',
 ): SupportLevel {
   if (!usedCue) return 'independent';
   if (cueType === 'phonemic') return 'phonemic_cue';
   if (cueType === 'full_word') return 'carrier_or_full_model';
   return 'semantic_cue';
+}
+
+/** Strong match (reachedAnchor=true) must NEVER imply that a hint was delivered. */
+export function getTwoCluesSupportEvidence(result: {
+  cueLevelUsed?: number;
+  cueTypeUsed?: TwoCluesCueType;
+}): { cueLevel: number; supportUsed: SupportLevel } {
+  const cueLevel = Number.isFinite(result.cueLevelUsed)
+    ? Math.max(0, Math.min(3, Math.round(result.cueLevelUsed ?? 0))) : 0;
+  return {
+    cueLevel,
+    supportUsed: mapTwoCluesSupport(cueLevel > 0, result.cueTypeUsed),
+  };
 }
 
 interface BufferedTrial {
