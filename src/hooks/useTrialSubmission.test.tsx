@@ -373,6 +373,51 @@ describe('useTrialSubmission persistence gate', () => {
     expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects new clinical trials once adaptation/progression flushing has begun', async () => {
+    mocks.logExerciseEvent.mockResolvedValue(true);
+    let finishAdaptation!: () => void;
+    mocks.flushAdaptation.mockImplementation(() => new Promise<void>(resolve => {
+      finishAdaptation = resolve;
+    }));
+    const p = progression();
+    const { result } = renderHook(() =>
+      useTrialSubmission({
+        userId: 'user-1',
+        profileId: 'profile-1',
+        sessionId: 'session-1',
+        exerciseSlug: 'two-clues',
+        progression: p,
+        debug: false,
+      }),
+    );
+
+    let trial!: Promise<UnifiedTrialSummary>;
+    let commit!: ReturnType<typeof result.current.commitSession>;
+    act(() => {
+      trial = result.current.submitTrial(input);
+      commit = result.current.commitSession();
+    });
+    await act(async () => {
+      await trial;
+      await Promise.resolve();
+    });
+    expect(mocks.flushAdaptation).toHaveBeenCalledTimes(1);
+    expect(p.flushAtSessionEnd).not.toHaveBeenCalled();
+
+    const tooLate = await result.current.submitTrial({ ...input, stimulusId: 'late' });
+    expect(tooLate.ok).toBe(false);
+    expect(tooLate.routed.exerciseEvents).toBe(false);
+    expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
+    expect(p.recordTrialOutcome).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishAdaptation();
+      await commit;
+    });
+    expect(p.flushAtSessionEnd).toHaveBeenCalledTimes(1);
+    expect(mocks.flushMasteryShadow).toHaveBeenCalledTimes(1);
+  });
+
   it('coalesces duplicate session finalization into one persisted clinical commit', async () => {
     mocks.logExerciseEvent.mockResolvedValue(true);
     const p = progression();
