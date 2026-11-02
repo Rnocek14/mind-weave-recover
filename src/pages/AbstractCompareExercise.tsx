@@ -264,11 +264,11 @@ export default function AbstractCompareExercise() {
                   <p className="mt-2 text-muted-foreground" role="status">
                     {practiceLoad.unavailable
                       ? 'Your saved level could not be checked. General practice remains available.'
-                      : 'Higher levels are not implemented as staged practice yet. General practice remains available.'}
+                      : 'The saved level is unavailable as a staged practice format. General practice remains available.'}
                   </p>
                 )}
                 <div className="flex flex-col gap-2 mt-3">
-                  {([1, 2, 3] as const).map(level => {
+                  {([1, 2, 3, 4, 5, 6, 7, 8] as const).map(level => {
                     const stage = getAbstractPracticeStage(level);
                     return (
                       <Button

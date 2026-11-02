@@ -26,6 +26,17 @@ describe('Phrase Practice patient-specific training stage', () => {
     expect(result.current.stage).toMatchObject({ level: 3, engineLevel: 3, mode: 'key_words' });
   });
 
+  it('loads a saved Level 8 as authored conversation-repair practice without any progression writes', async () => {
+    mocks.load.mockResolvedValue({currentLevel:8});
+    const {result}=renderHook(()=>usePhrasePracticeTrainingStage({
+      userId:'u',profileId:'synthetic-profile',
+    }));
+    await waitFor(()=>expect(result.current.loaded).toBe(true));
+    expect(result.current.persistedLevel).toBe(8);
+    expect(result.current.stage).toMatchObject({level:8,mode:'repair',engineLevel:9});
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+  });
+
   it('never overwrites a known clinical level after a failed read', async () => {
     mocks.load.mockResolvedValue({ currentLevel: 1, loadUnavailable: true });
     const { result } = renderHook(() => usePhrasePracticeTrainingStage({ userId: 'u', profileId: 'p' }));

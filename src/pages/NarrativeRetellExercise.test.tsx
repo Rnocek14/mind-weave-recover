@@ -275,7 +275,7 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     render(<NarrativeRetellExercise />);
     expect(screen.getByTestId('narrative-game-stage').textContent).toContain('stage=1');
     fireEvent.click(screen.getByText('Care partner: choose practice level'));
-    fireEvent.click(screen.getByRole('button', { name: 'Stage 3: Longer stories' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stage 3: Cause-and-effect with a sequence guide' }));
     expect(screen.getByTestId('narrative-game-stage').textContent).toBe('tier=2;stage=3');
     fireEvent.click(screen.getByRole('button', { name: 'Complete synthetic retell' }));
     await waitFor(() => expect(mocks.logTrial).toHaveBeenCalledTimes(1));
@@ -292,7 +292,7 @@ describe('NarrativeRetellExercise raw event integrity', () => {
     mocks.trainingStage = { level: 1, storyTier: 1, baselineSupport: 3, label: 'Short story' };
     render(<NarrativeRetellExercise />);
     fireEvent.click(screen.getByText('Care partner: choose practice level'));
-    expect(screen.getByRole('button', { name: 'Stage 2: Picture hints' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Stage 2: Short story with picture clues' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Begin synthetic retell' }));
     expect(screen.queryByText('Care partner: choose practice level')).toBeNull();
     expect(screen.getByTestId('narrative-game-stage').textContent).toBe('tier=1;stage=1');

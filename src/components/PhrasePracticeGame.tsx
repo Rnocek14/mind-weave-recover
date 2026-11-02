@@ -31,7 +31,7 @@ import { useShadowEventLogger } from '@/hooks/useShadowEventLogger';
 import { buildManualPhraseConfirmation, VISIBLE_PHRASE_CUE_LEVEL } from '@/lib/phrasePractice/manualConfirmation';
 import { verifyPhrasePracticeWrites } from '@/lib/phrasePractice/verifyPhrasePracticeWrites';
 import { usePhrasePracticeTrainingStage } from '@/hooks/usePhrasePracticeTrainingStage';
-import { getPhraseTrainingPrompt, getPhraseTrialsForTraining, resolvePhrasePracticeStage } from '@/lib/phrasePractice/trainingStages';
+import { getPhraseTrainingPrompt, getPhraseTrialsForTraining, resolvePhrasePracticeStage, type PhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
 import { PhraseTrainingScriptCard } from '@/components/phrasePractice/PhraseTrainingScriptCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,7 +42,7 @@ interface PhrasePracticeGameProps {
   listenDelayMs?: number;
   sessionId?: string | null;
   /** Care partner may choose a practice-only stage before pressing Start. */
-  practiceStageOverride?: 1 | 2 | 3 | null;
+  practiceStageOverride?: PhraseTrainingStage['level'] | null;
   onTrialComplete?: (data: {
     correct: boolean;
     timeMs: number;
@@ -53,8 +53,8 @@ interface PhrasePracticeGameProps {
     repetitions: number;
     /** User reported this exercise was done, not verified by speech recognition. */
     manualConfirmed?: boolean;
-    trainingStage?: 1 | 2 | 3 | null;
-    scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues';
+    trainingStage?: PhraseTrainingStage['level'] | null;
+    scriptSupport?: 'visible_script' | 'partial_script' | 'word_clues' | 'situational_prompt' | 'repair_prompt';
     fullScriptRevealed?: boolean;
     practiceStageSource?: 'care_partner_selection' | 'saved_level' | 'general_practice';
     whisperTranscript?: string;

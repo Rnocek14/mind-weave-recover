@@ -36,6 +36,30 @@ describe('PhraseTrainingScriptCard real patient presentation', () => {
     expect(screen.queryByRole('button', { name: 'Show whole phrase' })).toBeNull();
   });
 
+  it('presents a situational Stage 7 prompt without leaking the target phrase', () => {
+    const stage = getPhraseTrainingStage(7)!;
+    const trial = PHRASE_BANK.find(t => t.id === 'need_talk')!;
+    const {rerender}=render(<PhraseTrainingScriptCard trial={trial}
+      trainingStage={stage} revealed={false} onReveal={vi.fn()} />);
+    expect(screen.getByText(/Stage 7/)).toBeTruthy();
+    expect(screen.getByText(/important subject/i)).toBeTruthy();
+    expect(screen.queryByText(trial.phrase)).toBeNull();
+    rerender(<PhraseTrainingScriptCard trial={trial}
+      trainingStage={stage} revealed onReveal={vi.fn()} />);
+    expect(screen.getByText(trial.phrase)).toBeTruthy();
+  });
+
+  it('offers Stage 8 conversation-repair practice without a full answer leak', () => {
+    const stage = getPhraseTrainingStage(8)!;
+    const trial = PHRASE_BANK.find(t => t.id === 'frustrated_but_not_giving_up')!;
+    render(<PhraseTrainingScriptCard trial={trial}
+      trainingStage={stage} revealed={false} onReveal={vi.fn()} />);
+    expect(screen.getByText(/Stage 8/)).toBeTruthy();
+    expect(screen.getByText(/listener assumes frustration/i)).toBeTruthy();
+    expect(screen.queryByText(trial.phrase)).toBeNull();
+    expect(screen.getByRole('button',{name:'Show whole phrase'})).toBeTruthy();
+  });
+
   it('offers stage-three word clues and a full script recovery action', () => {
     const wordCues = PHRASE_BANK.find(t => t.difficulty === 2)!;
     const { rerender } = render(

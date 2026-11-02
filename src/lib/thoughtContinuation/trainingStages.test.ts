@@ -46,12 +46,33 @@ describe('Thought Continuation executable practice stages', () => {
     expect(selectThoughtTrainingPrompt(level, used)).toBeNull();
   });
 
-  it('does not fabricate an L4-L8 runtime stage or silently clamp a saved level', () => {
-    for (const value of [null, undefined, 0, -1, 4, 5, 6, 7, 8, 9, NaN, 1.5]) {
+  it('provides distinct authored L4–8 tasks with no reuse or silent fallback', () => {
+    const ids = new Set<string>();
+    for (const level of [4, 5, 6, 7, 8] as const) {
+      const stage = getThoughtTrainingStage(level);
+      expect(stage?.level).toBe(level);
+      const bank = getThoughtTrainingPrompts(level);
+      expect(bank.length).toBeGreaterThanOrEqual(8);
+      expect(bank.every(prompt => prompt.id.startsWith(`thought-training-s${level}-`))).toBe(true);
+      expect(bank.every(prompt => prompt.difficultyTier === 3)).toBe(true);
+      for (const prompt of bank) {
+        expect(ids.has(prompt.id)).toBe(false);
+        ids.add(prompt.id);
+        expect(prompt.narrowingSteps.map(x => x.level)).toEqual([1, 2]);
+        expect(prompt.promptText).not.toBe(prompt.narrowingSteps[0].text);
+      }
+      const first = selectThoughtTrainingPrompt(level, []);
+      expect(first?.id.startsWith(`thought-training-s${level}-`)).toBe(true);
+      expect(selectThoughtTrainingPrompt(level, bank.map(x => x.id))).toBeNull();
+    }
+    expect(getThoughtTrainingPrompts(4).every(x => /explain|what|how|why/i.test(x.promptText))).toBe(true);
+    expect(getThoughtTrainingPrompts(5).every(x => x.intentType === 'express_opinion')).toBe(true);
+    expect(getThoughtTrainingPrompts(6).every(x => /why|explain/i.test(x.promptText))).toBe(true);
+    expect(getThoughtTrainingPrompts(7).every(x => /if |suppose|imagine/i.test(x.promptText))).toBe(true);
+    expect(getThoughtTrainingPrompts(8).every(x => x.promptText.length > 120)).toBe(true);
+    for (const value of [null, undefined, 0, -1, 9, NaN, 1.5]) {
       expect(getThoughtTrainingStage(value)).toBeNull();
     }
-    expect(getThoughtTrainingStage(1)?.level).toBe(1);
-    expect(getThoughtTrainingStage(3)?.level).toBe(3);
   });
 
   it('keeps support as optional hints, not a level or a fabricated answer key', () => {

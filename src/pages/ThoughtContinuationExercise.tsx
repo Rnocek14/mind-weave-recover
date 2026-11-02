@@ -342,7 +342,7 @@ export default function ThoughtContinuationExercise() {
                 <p role="status">
                   Your saved clinical level {training.persistedLevel ?? 'is unavailable'} does not
                   yet have a dedicated practice stage. General practice remains available;
-                  stages 4–8 are still being developed.
+                  these stages are practice formats, not a validated automatic clinical ladder.
                 </p>
               )}
             </div>
@@ -356,7 +356,7 @@ export default function ThoughtContinuationExercise() {
                   Changes only this practice session, not the saved clinical level.
                 </p>
                 <div className="mt-3 flex flex-col gap-2">
-                  {([1, 2, 3] as const).map(level => {
+                  {([1, 2, 3, 4, 5, 6, 7, 8] as const).map(level => {
                     const choice = getThoughtTrainingStage(level);
                     return (
                       <Button

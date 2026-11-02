@@ -597,6 +597,63 @@ export const NARRATIVE_STORIES: NarrativeStory[] = [
     tier: 3,
     structureMap: DEFAULT_STRUCTURE,
   },
+  // Stage 8: previously unseen authored narratives; practice-only, not validated.
+  {
+    id: "novel-retell-mailbox-mixup", title: "The Mailbox Mix-up",
+    scenes: [
+      {emoji:"📬",text:"A neighbor found a birthday invitation in the wrong mailbox."},
+      {emoji:"🎂",text:"She noticed that the party was happening that very evening."},
+      {emoji:"🚶",text:"She carried the card to the correct house and explained the mistake."},
+      {emoji:"🤝",text:"The invited guest thanked her and reached the dinner in time."},
+    ],
+    keyEvents: ["wrong mailbox","birthday invitation","delivered correct house","guest arrived on time"], expectedClauses: 4,
+    tier: 3, structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: "novel-retell-museum-keys", title: "The Museum Keys",
+    scenes: [
+      {emoji:"🏛️",text:"A museum volunteer opened the building before a class visit."},
+      {emoji:"🔑",text:"He noticed that a gallery key was missing from its hook."},
+      {emoji:"📋",text:"His coworker checked the key log and found where the cleaner left it."},
+      {emoji:"🎨",text:"The class entered the gallery after a short wait."},
+    ],
+    keyEvents: ["museum opened","missing gallery key","checked key log","class entered gallery"], expectedClauses: 4,
+    tier: 3, structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: "novel-retell-missed-bus", title: "The Missed Bus",
+    scenes: [
+      {emoji:"🚌",text:"Lena reached the stop just as her bus drove away."},
+      {emoji:"📱",text:"The schedule showed a second bus would arrive in twenty minutes."},
+      {emoji:"☕",text:"She called her friend and waited inside a nearby cafe."},
+      {emoji:"🤝",text:"Her friend was glad to see her arrive safely."},
+    ],
+    keyEvents: ["missed bus","second bus delayed","called friend","arrived safely"], expectedClauses: 4,
+    tier: 3, structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: "novel-retell-garden-fence", title: "The Garden Fence",
+    scenes: [
+      {emoji:"🌬️",text:"Wind knocked down part of a neighborhood garden fence."},
+      {emoji:"🥬",text:"The gardeners feared rabbits would eat the new vegetables."},
+      {emoji:"🔨",text:"They gathered tools and repaired the broken part together."},
+      {emoji:"🌱",text:"The plants grew, and the gardeners decided to meet every week."},
+    ],
+    keyEvents: ["wind damaged fence","rabbits threatened vegetables","gardeners repaired fence","gardeners met weekly"], expectedClauses: 4,
+    tier: 3, structureMap: DEFAULT_STRUCTURE,
+  },
+  {
+    id: "novel-retell-surprise-book", title: "A Note in the Library Book",
+    scenes: [
+      {emoji:"📚",text:"A child borrowed a book from the community library."},
+      {emoji:"📝",text:"Inside, she found a handwritten note from an earlier reader."},
+      {emoji:"💬",text:"The note asked future readers to write about their favorite part."},
+      {emoji:"😊",text:"She added her own message before returning the book."},
+    ],
+    keyEvents: ["borrowed library book","found note","note asks favorite part","left message"], expectedClauses: 4,
+    tier: 3, structureMap: DEFAULT_STRUCTURE,
+  },
+
 ];
 
 export function getStoriesByTier(tier: number): NarrativeStory[] {

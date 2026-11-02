@@ -39,6 +39,13 @@ import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
 import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
 import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
+import { getPhraseTrainingStage } from '@/lib/phrasePractice/trainingStages';
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
+import {
+  REACH_PRACTICE_STAGES, LEFT_HUNT_PRACTICE_STAGES,
+  type ReachPracticeLevel,
+} from '@/lib/reachTap/practiceStages';
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -51,11 +58,19 @@ const Exercise = () => {
   // patient's saved level.
   const [phraseStageChoice, setPhraseStageChoice] = useState<{
     scope: string;
-    level: 1 | 2 | 3;
+    level: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   } | null>(null);
   const phraseStageScope = JSON.stringify([user?.id ?? null, activeProfileId ?? null]);
   const practiceStageChoice = phraseStageChoice?.scope === phraseStageScope
     ? phraseStageChoice.level : null;
+  // For motor and visual search, a care partner may choose a session-only
+  // gameplay stage. Never write it to language/clinical progression.
+  const [motorStageChoice, setMotorStageChoice] = useState<{
+    scope: string; level: ReachPracticeLevel;
+  } | null>(null);
+  const motorScope = JSON.stringify([user?.id ?? null, activeProfileId ?? null, exerciseId ?? null]);
+  const motorPracticeStage = motorStageChoice?.scope === motorScope
+    ? motorStageChoice.level : null;
   
   // Check if we're coming from lesson flow (with sessionStorage fallback)
   const restored = useRestoredLessonContext(exerciseId || 'unknown');
@@ -78,6 +93,10 @@ const Exercise = () => {
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [motorSaveError, setMotorSaveError] = useState(false);
+  const [motorSaving, setMotorSaving] = useState(false);
+  const pendingMotorTrialWritesRef = useRef<Promise<boolean>[]>([]);
+  const motorFinishStartedRef = useRef(false);
   const [showRestPrompt, setShowRestPrompt] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -382,6 +401,11 @@ const Exercise = () => {
   }, [isPlaying, sessionStartTime]);
 
   const startExercise = async (moodOverride?: number) => {
+    if (exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt') {
+      pendingMotorTrialWritesRef.current = [];
+      motorFinishStartedRef.current = false;
+      setMotorSaveError(false);
+    }
     // Check dose cap before allowing start — skip when already in a lesson session
     if (!fromLesson && doseCap.enforceCaps && !doseCap.canStartSession) {
       toast({
@@ -676,6 +700,12 @@ const Exercise = () => {
     );
   }
 
+  if (motorSaveError) return <UnverifiedPracticeBanner />;
+  if (motorSaving) {
+    return <div className="min-h-dvh flex items-center justify-center p-6 text-xl" role="status">
+      Saving your practice…
+    </div>;
+  }
   if (showResult) {
     if (fromLesson) {
       // Effect above handles navigation — show nothing while it fires
@@ -871,6 +901,38 @@ const Exercise = () => {
                   Take your time and do your best.
                 </p>
               </div>
+              {(exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt')
+                && !fromLesson && !sessionStartTime && (
+                <details className="w-full max-w-md rounded-lg border bg-muted/20 px-4 py-3 text-left">
+                  <summary className="cursor-pointer text-sm font-semibold">
+                    Care partner: choose a motor/visual practice stage
+                  </summary>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Eight different exercises are available. These are practice
+                    choices, not proof of motor or vision recovery, and do not
+                    change your saved clinical level.
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(exerciseId === 'left-side-hunt'
+                      ? LEFT_HUNT_PRACTICE_STAGES : REACH_PRACTICE_STAGES
+                    ).map(stage => (
+                      <Button key={stage.level} type="button"
+                        variant={motorPracticeStage === stage.level ? 'default' : 'outline'}
+                        aria-pressed={motorPracticeStage === stage.level}
+                        className="h-auto min-h-12 whitespace-normal justify-start text-left px-3 py-2"
+                        onClick={() => setMotorStageChoice({scope:motorScope,level:stage.level})}>
+                        Stage {stage.level}: {stage.title}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {motorPracticeStage
+                      ? (exerciseId === 'left-side-hunt'
+                        ? LEFT_HUNT_PRACTICE_STAGES : REACH_PRACTICE_STAGES)[motorPracticeStage-1].prompt
+                      : 'Leave unselected for adaptive practice.'}
+                  </p>
+                </details>
+              )}
               {exerciseId === 'word-practice' && !fromLesson && !sessionStartTime && (
                 <details className="w-full max-w-md rounded-lg border bg-muted/20 px-4 py-3 text-left">
                   <summary className="cursor-pointer text-sm font-semibold">
@@ -881,7 +943,7 @@ const Exercise = () => {
                     Leave unchanged to use the saved practice level.
                   </p>
                   <div className="mt-3 flex flex-col gap-2">
-                    {([1, 2, 3] as const).map(stage => (
+                    {([1, 2, 3, 4, 5, 6, 7, 8] as const).map(stage => (
                       <Button
                         key={stage}
                         size="lg"
@@ -891,8 +953,7 @@ const Exercise = () => {
                         aria-pressed={practiceStageChoice === stage}
                         onClick={() => setPhraseStageChoice({ scope: phraseStageScope, level: stage })}
                       >
-                        Stage {stage}: {stage === 1 ? 'Hear and repeat' : stage === 2
-                          ? 'Finish the phrase' : 'Use word clues'}
+                        Stage {stage}: {getPhraseTrainingStage(stage)?.label}
                       </Button>
                     ))}
                   </div>
@@ -909,16 +970,18 @@ const Exercise = () => {
             </div>
           ) : exerciseId === 'reach-tap' ? (
             <ReachTapGame
+              key={motorScope + ':' + (motorPracticeStage ?? 'adaptive')}
+              practiceLevel={motorPracticeStage}
               totalTrials={totalRounds}
               initialDifficulty={lessonAdaptations?.startDifficulty || level}
               slowMode={lessonAdaptations?.largeTargets || true} // largeTargets → slowMode (larger targets + longer timeouts)
               userId={user?.id}
               sessionId={sessionId}
-              onTrialComplete={async (result) => {
-                await logTrial({
+              onTrialComplete={(result) => {
+                const pending = logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
-                  cueLevel: 0, // Motor exercise doesn't use cues
+                  cueLevel: result.visualGuidePresented ? 1 : 0,
                   errorType: result.correct ? undefined : 'timeout',
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
@@ -926,9 +989,16 @@ const Exercise = () => {
                     target_side: result.targetSide,
                     round: currentRound,
                     exercise_type: 'reach-tap',
+                    motor_practice_stage: result.practiceStage ?? null,
+                    motor_visual_guide_presented: result.visualGuidePresented ?? false,
+                    visual_distractors_shown: result.distractorsShown ?? 0,
+                    trial_mode: 'motor',
+                    clinical_progression_eligible: false,
+                    independent_spoken_score_eligible: false,
                     adaptations_active: lessonAdaptations || {},
                   },
                 });
+                pendingMotorTrialWritesRef.current.push(pending);
                 
                 // Move to next round
                 if (currentRound < totalRounds) {
@@ -939,7 +1009,18 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
+              onGameComplete={async (finalScore) => {
+                if (motorFinishStartedRef.current) return;
+                motorFinishStartedRef.current = true;
+                setMotorSaving(true);
+                const verification = await confirmRawEventWrites(
+                  pendingMotorTrialWritesRef.current.splice(0), totalRounds,
+                );
+                setMotorSaving(false);
+                if (!verification.ok) {
+                  setMotorSaveError(true);
+                  return;
+                }
                 setScore(finalScore);
                 setIsPlaying(false);
                 setShowResult(true);
@@ -1086,17 +1167,19 @@ const Exercise = () => {
             />
           ) : exerciseId === 'left-side-hunt' ? (
             <ReachTapGame
+              key={motorScope + ':' + (motorPracticeStage ?? 'adaptive')}
+              practiceLevel={motorPracticeStage}
               totalTrials={totalRounds}
               initialDifficulty={lessonAdaptations?.startDifficulty || level}
               variant="left-side-hunt"
               slowMode={lessonAdaptations?.largeTargets || true}
               userId={user?.id}
               sessionId={sessionId}
-              onTrialComplete={async (result) => {
-                await logTrial({
+              onTrialComplete={(result) => {
+                const pending = logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
-                  cueLevel: 0,
+                  cueLevel: result.visualGuidePresented ? 1 : 0,
                   errorType: result.correct ? undefined : 'timeout',
                   taskParameters: {
                     difficulty_level: result.difficultyLevel,
@@ -1104,10 +1187,17 @@ const Exercise = () => {
                     target_side: result.targetSide,
                     round: currentRound,
                     exercise_type: 'left-side-hunt',
+                    motor_practice_stage: result.practiceStage ?? null,
+                    motor_visual_guide_presented: result.visualGuidePresented ?? false,
+                    visual_distractors_shown: result.distractorsShown ?? 0,
+                    trial_mode: 'motor',
+                    clinical_progression_eligible: false,
+                    independent_spoken_score_eligible: false,
                     adaptations_active: lessonAdaptations || {},
                     ...adaptationTelemetry,
                   },
                 });
+                pendingMotorTrialWritesRef.current.push(pending);
                 
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
@@ -1117,7 +1207,18 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
+              onGameComplete={async (finalScore) => {
+                if (motorFinishStartedRef.current) return;
+                motorFinishStartedRef.current = true;
+                setMotorSaving(true);
+                const verification = await confirmRawEventWrites(
+                  pendingMotorTrialWritesRef.current.splice(0), totalRounds,
+                );
+                setMotorSaving(false);
+                if (!verification.ok) {
+                  setMotorSaveError(true);
+                  return;
+                }
                 setScore(finalScore);
                 setIsPlaying(false);
                 setShowResult(true);

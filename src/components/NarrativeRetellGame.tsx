@@ -138,7 +138,7 @@ export function NarrativeRetellGame({
   recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
-    useNarrativeRetellGame(roundCount, tier, !!trainingStage);
+    useNarrativeRetellGame(roundCount, tier, !!trainingStage, !!trainingStage?.novelOnly);
 
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
@@ -850,7 +850,7 @@ export function NarrativeRetellGame({
         <div className="flex items-center gap-2">
 {trainingStage ? (
             <span className="text-xs font-semibold rounded-full bg-muted px-3 py-1" aria-label="Narrative practice stage">
-              Stage {trainingStage.level}/3
+              Stage {trainingStage.level}/8
             </span>
           ) : <LevelBadge descriptor={adaptation.levelDescriptor} compact />}
           <span className="text-muted-foreground">
@@ -865,6 +865,7 @@ export function NarrativeRetellGame({
         <div role="status" className="rounded-lg border border-primary/25 bg-primary/5 p-3">
           <p className="text-base font-semibold">Story practice • Stage {trainingStage.level}</p>
           <p className="text-sm">{trainingStage.label}</p>
+          <p className="text-sm font-medium">Your retell goal: {trainingStage.taskPrompt}</p>
           <p className="text-xs text-muted-foreground">
             This is a supported practice stage, not a verified recovery score.
           </p>
@@ -972,7 +973,7 @@ export function NarrativeRetellGame({
                 from memory is the clinical target. (Replay audio if needed
                 via the "Listen again" path in the reading phase.) */}
             <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground text-center">
-              Tell the story back in your own words.
+              {trainingStage?.taskPrompt ?? 'Tell the story back in your own words.'}
             </div>
 
             {/* Mic failure recovery — persistent, not toast */}
