@@ -14,6 +14,7 @@ const stagingSpecs = [
   '**/pass-b-patient-journey.spec.ts',
   '**/exercise-session.spec.ts',
   '**/privileged-rpc-denial.spec.ts',
+  '**/patient-evidence-linkage.spec.ts',
 ];
 
 export default defineConfig({
