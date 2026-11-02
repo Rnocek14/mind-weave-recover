@@ -21,6 +21,10 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useThoughtContinuationTrainingStage } from '@/hooks/useThoughtContinuationTrainingStage';
+import { getThoughtTrainingStage, type ThoughtTrainingStageLevel } from '@/lib/thoughtContinuation/trainingStages';
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 
 const EXERCISE_SLUG = 'thought_continuation';
 
@@ -38,6 +42,29 @@ export default function ThoughtContinuationExercise() {
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+
+  const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
+  const training = useThoughtContinuationTrainingStage({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+    offline: isOfflineMode,
+  });
+  // Practice override is deliberately local to the patient and THIS session;
+  // selecting another stage must not write the saved clinical level.
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const [stageChoice, setStageChoice] = useState<{ scope: string; level: ThoughtTrainingStageLevel } | null>(null);
+  const caregiverSelected = stageChoice?.scope === scope;
+  const activeStage = caregiverSelected
+    ? getThoughtTrainingStage(stageChoice.level)
+    : training.stage;
+  const practiceStageSource = caregiverSelected ? 'care_partner_selection' as const :
+    activeStage ? 'saved_level' as const : 'general_practice' as const;
+  const pendingEventWritesRef = useRef<Promise<boolean>[]>([]);
+  const completionRequestedRef = useRef(false);
+  const [saveWarning, setSaveWarning] = useState(false);
+  const handleRawEventWrite = useCallback((pending: Promise<boolean>) => {
+    pendingEventWritesRef.current.push(pending);
+  }, []);
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
@@ -64,32 +91,46 @@ export default function ThoughtContinuationExercise() {
   });
   const adaptationTelemetry = buildAdaptationTelemetry(adaptation);
   
-  const [gameStarted, setGameStarted] = useState(fromLesson);
-  const [sessionSummary, setSessionSummary] = useState<{
-    totalPrompts: number;
-    promptsSpoken: number;
-    avgMomentumScore: number;
-    completedThoughts: number;
-  } | null>(null);
+  // Scope both UI state and completed summaries so changing the selected
+  // patient never reuses an old patient's in-progress gameplay or results.
+  const [gameState, setGameState] = useState<{ scope: string; started: boolean }>({
+    scope: '', started: fromLesson,
+  });
+  const gameStarted = gameState.scope === scope ? gameState.started : fromLesson;
+  type Summary = { totalPrompts: number; promptsSpoken: number;
+    avgMomentumScore: number; completedThoughts: number };
+  const [scopedSummary, setScopedSummary] = useState<{ scope: string; summary: Summary } | null>(null);
+  const sessionSummary = scopedSummary?.scope === scope ? scopedSummary.summary : null;
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
 
   const handleStart = () => {
-    setGameStarted(true);
+    if (!training.loaded || (!isOfflineMode && !activeSessionId)) return;
+    pendingEventWritesRef.current = [];
+    completionRequestedRef.current = false;
+    setSaveWarning(false);
+    setGameState({ scope, started: true });
   };
 
-  const handleComplete = (summary: {
-    totalPrompts: number;
-    promptsSpoken: number;
-    avgMomentumScore: number;
-    completedThoughts: number;
-  }) => {
-    setSessionSummary(summary);
-    setGameStarted(false);
+  const handleComplete = async (summary: Summary) => {
+    if (completionRequestedRef.current) return;
+    completionRequestedRef.current = true;
+    // The staged game registers the promise synchronously for each attempted
+    // round. A successful UI celebration is NOT a confirmed database write.
+    if (activeStage && !isOfflineMode) {
+      const saved = await confirmRawEventWrites(
+        pendingEventWritesRef.current.splice(0), summary.totalPrompts,
+      );
+      if (!saved.ok) {
+        setSaveWarning(true);
+        return; // No clinical completion or lesson handoff on missing evidence.
+      }
+    }
     promptsRef.current = summary.promptsSpoken;
-    void completeSession();
+    await completeSession();
+    setScopedSummary({ scope, summary });
+    setGameState({ scope, started: false });
 
-    // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -122,8 +163,11 @@ export default function ThoughtContinuationExercise() {
   }, [fromLesson, navigate]);
 
   const handlePlayAgain = () => {
-    setSessionSummary(null);
-    setGameStarted(true);
+    setScopedSummary(null);
+    setSaveWarning(false);
+    completionRequestedRef.current = false;
+    pendingEventWritesRef.current = [];
+    setGameState({ scope, started: true });
   };
 
   // Not logged in
