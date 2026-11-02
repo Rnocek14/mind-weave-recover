@@ -245,7 +245,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
   }, [onGameComplete]);
 
   // Skip current puzzle
-  const skipRound = useCallback(() => {
+  const skipRound = useCallback((cueEvidence?: { level: number; type: 'none' | 'semantic' | 'phonemic' | 'full_word' }) => {
     // Log skip with no score
     const { currentPuzzle } = state;
     if (currentPuzzle) {
@@ -262,8 +262,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
           ? Date.now() - roundStartTimeRef.current
           : 0,
         attemptNumber: 0,
-        cueLevelUsed: 0,
-        cueTypeUsed: 'none',
+        cueLevelUsed: cueEvidence?.level ?? 0,
+        cueTypeUsed: cueEvidence?.type ?? 'none',
         clinicalStage: currentPuzzle.clinicalStage,
       };
       onTrialComplete?.(skipResult);
