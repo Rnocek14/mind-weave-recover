@@ -48,8 +48,7 @@ export const TWO_CLUES_LEVEL8_PUZZLES: TwoCluesPuzzle[] = [
     ],
     "cluster": [
       "hidden issue",
-      "tension",
-      "elephant in the room"
+      "tension"
     ],
     "nearMisses": [
       "animal",
