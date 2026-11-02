@@ -99,6 +99,7 @@ export function useTrialSubmission(opts: Options) {
   // commit detects the missing clinical raw record.
   const uncommittedTrialsRef = useRef<Promise<UnifiedTrialSummary>[]>([]);
   const commitPromiseRef = useRef<Promise<CommitSessionResult> | null>(null);
+  const commitPhaseRef = useRef<'open' | 'draining' | 'flushing' | 'complete'>('open');
 
   /**
    * One trial in. Fans out to all subsystems. Register the promise
@@ -107,6 +108,24 @@ export function useTrialSubmission(opts: Options) {
    */
   const submitTrial = useCallback(
     (input: UnifiedTrialInput): Promise<UnifiedTrialSummary> => {
+      // A trial that arrives after the commit barrier closes must NOT race
+      // the progression upsert and then be silently omitted from its level.
+      // Don't write a raw event whose outcome can no longer be reconciled
+      // into the session's final saved result.
+      if (commitPhaseRef.current === 'flushing' || commitPhaseRef.current === 'complete') {
+        console.warn('[submitTrial] rejected late trial after session commit barrier', {
+          game: canonicalSlug,
+        });
+        return Promise.resolve({
+          ok: false,
+          routed: {
+            exerciseEvents: false,
+            adaptationTrialLogs: false,
+            progressionBuffered: false,
+          },
+          progression: null,
+        });
+      }
       // Capture the index at submission time, BEFORE an awaited raw write.
       // Completion order must not change a patient's trial identity.
       const trialIndex = trialCountRef.current++;
@@ -286,6 +305,7 @@ export function useTrialSubmission(opts: Options) {
     // result rather than allowing a second attempt to silently promote from
     // an incomplete set of patient attempts.
     if (commitPromiseRef.current) return commitPromiseRef.current;
+    commitPhaseRef.current = 'draining';
     const commit = (async (): Promise<CommitSessionResult> => {
     const errors: string[] = [];
     let progressionSnapshot: { level: number; progressPct: number } | null = null;
@@ -307,12 +327,16 @@ export function useTrialSubmission(opts: Options) {
         }
       }
     }
+    // Close admission before starting any longer-running DB flush. New
+    // callbacks can no longer create untracked attempts mid-commit.
+    commitPhaseRef.current = 'flushing';
     if (rawTrialFailures > 0) {
       errors.push(`raw clinical event writes failed: ${rawTrialFailures} of this session's trial submissions; progression and mastery were not flushed`);
       console.warn('[commitSession] fail-closed: raw clinical evidence incomplete', {
         game: canonicalSlug, sessionId: opts.sessionId,
         rawTrialFailures,
       });
+      commitPhaseRef.current = 'complete';
       return {
         ok: false,
         progression: null,
@@ -376,6 +400,7 @@ export function useTrialSubmission(opts: Options) {
       });
     }
 
+    commitPhaseRef.current = 'complete';
     return {
       ok: errors.length === 0,
       progression: progressionSnapshot,
