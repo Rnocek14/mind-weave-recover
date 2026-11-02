@@ -12,10 +12,14 @@ const stubs = vi.hoisted(() => ({
   round: null as SynonymRoundResult | null,
 }));
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => stubs.navigate,
-  useLocation: () => ({ state: { trialLimit: 1 } }),
-}));
+vi.mock('react-router-dom', async (importOriginal) => {
+  const original = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...original,
+    useNavigate: () => stubs.navigate,
+    useLocation: () => ({ state: { trialLimit: 1 } }),
+  };
+});
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'synthetic-user' } }),
 }));
