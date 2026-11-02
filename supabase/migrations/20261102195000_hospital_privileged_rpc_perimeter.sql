@@ -211,7 +211,7 @@ BEGIN
     p_source_type,
     p_source_note_id,
     p_change_reason,
-    COALESCE(p_created_by, auth.uid()),
+    COALESCE(auth.uid(), p_created_by),  -- caller identity wins; service may supply fallback
     true,
     CASE 
       WHEN v_previous_profile IS NOT NULL THEN
