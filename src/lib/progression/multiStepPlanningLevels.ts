@@ -2,9 +2,9 @@
  * Multi-Step Planning — structural ladder (Phase 2, Wave 2).
  *
  * Expressive discourse-level executive task: patient speaks an ordered
- * multi-step plan for a goal. `submitTrial` emits `trialMode: 'production'`
- * and the slug IS added to ADOPTED_TRIAL_MODE_SLUGS — trials route into
- * expressive mastery alongside the other discourse/production tasks.
+ * multi-step plan for a goal, with a separate typed fallback.
+ * Eligible valid spoken trials route to expressive mastery with
+ * trialMode='production'; typed/invalid/ambiguous practice is excluded.
  *
  * Clinical basis & honest scope: see docs/clinical-evidence/multi-step-planning.md.
  * TL;DR: Multi-step procedural discourse training is well-supported in
@@ -17,9 +17,9 @@
  *
  * Support axis (executive / open-production):
  *   The current game UI has no in-trial scaffold control — the patient
- *   simply speaks. Every trial is `open_response`. The ladder advances on
- *   accuracy + sequence-coverage growth at progressively harder content
- *   tiers, not on scaffold fading. This matches MSP's clinical reality.
+ *   speaks or types. Only eligible spoken rounds use `open_response`
+ *   support; typed/missing/invalid/sequence-uncertain attempts are excluded.
+ *   The ladder advances on step coverage AND observed order on harder content.
  *
  * Phase 1 readiness:
  *   L1–L4 → ready (bank tier 1 — familiar daily procedures)
