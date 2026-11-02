@@ -2,10 +2,10 @@
  * Multi-Step Planning Exercise Page — wrapper with session lifecycle.
  *
  * Wave 2 (Phase 2): migrated off raw useExerciseTelemetry to the unified
- * useTrialSubmission pipeline. Every submitTrial call emits
- * `trialMode: 'production'` (expressive procedural discourse) and the slug
- * `multi_step_planning` is in ADOPTED_TRIAL_MODE_SLUGS, so longitudinal
- * mastery now flows. Progression is wired via useMultiStepPlanningProgression
+ * useTrialSubmission pipeline. Completed, valid speech with observable
+ * step order may emit production evidence; typed, skipped, unclear and
+ * invalid trials remain recorded practice without inflating expressive
+ * mastery or clinical progression. Progression is wired via useMultiStepPlanningProgression
  * (L1–L8 ladder) with a load gate so the engine starts at the correct
  * clinical floor.
  */
@@ -33,6 +33,7 @@ import {
   mapMultiStepPlanningSupport,
 } from '@/hooks/useMultiStepPlanningProgression';
 import { resolveEffectiveMultiStepPlanningInitialDifficulty } from '@/lib/progression/multiStepPlanningDifficultyBridge';
+import { classifyPlanningRoundEvidence } from '@/lib/multiStepPlanning/roundEvidence';
 
 const EXERCISE_SLUG = 'multi_step_planning';
 
@@ -102,9 +103,8 @@ export default function MultiStepPlanExercise() {
     exerciseSlug: EXERCISE_SLUG, getSessionStats,
   });
 
-  // Wave 2: unified trial submission (expressive axis). MSP game component
-  // is autoLog:false; this page owns the writer and emits
-  // trialMode: 'production' so the adopted slug routes mastery correctly.
+  // Unified trial submission owns the raw and adaptation writes. Not every
+  // answer is spoken or sequence-valid; mode must be classified per trial.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -117,20 +117,31 @@ export default function MultiStepPlanExercise() {
 
   const handleTrialComplete = useCallback(async (result: PlanningTrialResult) => {
     if (!activeSessionId) return;
-    scoreRef.current += Math.round(result.goalCoverage * 100);
+    const evidence = classifyPlanningRoundEvidence(result);
+    const isCorrect = evidence.practiceSuccessful;
+    if (Number.isFinite(result.goalCoverage)) {
+      scoreRef.current += Math.round(result.goalCoverage * 100);
+    }
     trialsRef.current += 1;
     trialIndexRef.current += 1;
 
-    pivot.recordTrialResult({
-      wasCorrect: result.goalCoverage >= 0.3,
-      reactionTimeMs: result.durationMs,
-    });
+    if (evidence.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.durationMs,
+      });
+    }
 
-    const isCorrect = result.goalCoverage >= 0.3;
+    // Non-scorable practice is a valid activity; never call it a speech
+    // disorder, patient decline, or independent planning success.
     let errorType: string | undefined;
-    if (!isCorrect) {
+    if (result.completionReason === 'skipped') errorType = 'skipped';
+    else if (result.inputMode === 'typed') errorType = 'typed_practice';
+    else if (!result.responseValid) errorType = 'unscorable_response';
+    else if (!result.sequenceEvidenceAvailable) errorType = 'sequence_evidence_unavailable';
+    else if (!isCorrect) {
       if (result.stepsFound === 0) errorType = 'no_plan_steps';
-      else if (result.sequenceScore != null && result.sequenceScore < 0.3) errorType = 'sequence_disorder';
+      else if (result.sequenceScore < evidence.requiredSequenceScore) errorType = 'sequence_disorder';
       else errorType = 'incomplete_plan';
     }
 
@@ -141,13 +152,15 @@ export default function MultiStepPlanExercise() {
       level: result.tier ?? effectiveTier,
       stimulusId: result.itemId ?? `msp_trial_${trialIndexRef.current}`,
       expectedResponse: null,
-      userResponse: null,
+      userResponse: result.transcript || null,
+      browserTranscript: result.browserTranscript,
       isCorrect,
-      accuracyScore: result.goalCoverage,
+      accuracyScore: Number.isFinite(result.goalCoverage) ? result.goalCoverage : null,
       cueLevel: 0,
       supportUsed: mapMultiStepPlanningSupport(),
       latencyMs: result.durationMs,
-      trialMode: 'production',
+      trialMode: evidence.trialMode,
+      clinicalProgressionEligible: evidence.clinicalProgressionEligible,
       errorType,
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
@@ -157,6 +170,14 @@ export default function MultiStepPlanExercise() {
         steps_found: result.stepsFound,
         steps_total: result.stepsTotal,
         sequence_score: result.sequenceScore,
+        sequence_evidence_available: result.sequenceEvidenceAvailable,
+        sequence_matched_steps: result.sequenceMatchedSteps,
+        sequence_method: result.sequenceMethod,
+        input_mode: result.inputMode,
+        completion_reason: result.completionReason,
+        response_valid: result.responseValid,
+        required_goal_coverage: evidence.requiredGoalCoverage,
+        required_sequence_score: evidence.requiredSequenceScore,
         trial_limit: trialLimit,
         tier: result.tier,
         clinical_level: progression.startingLevel,
