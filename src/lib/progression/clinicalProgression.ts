@@ -257,6 +257,8 @@ export function applySessionToState(
   prev: ClinicalProgressionState,
   input: SessionRollupInput
 ): ClinicalProgressionState {
+  // Never compute a patient-facing level or progress from an unavailable read.
+  if (prev.loadUnavailable) return prev;
   const struggleCount = input.trials.filter(isStruggleTrial).length;
   const wasStruggleSession =
     input.trials.length > 0 && struggleCount / input.trials.length >= 0.5;
