@@ -229,7 +229,17 @@ describe('NarrativeRetellExercise raw event integrity', () => {
         narrative_training_stage: 3,
         story_tier: 2,
         narrative_stage_promotion_eligible: false,
+        clinical_progression_eligible: false,
+        independent_spoken_score_eligible: false,
+        support_used: 'visual_or_stall_prompt',
+        trial_mode: 'scaffolded',
       }),
+    }));
+    // The test intentionally omitted visualSupport from the mocked game
+    // result. A configured supported stage must still fail closed for
+    // clinical accuracy rather than depending on a telemetry flag.
+    await waitFor(() => expect(mocks.getStats?.()).toMatchObject({
+      score: 0, totalTrials: 1,
     }));
   });
 

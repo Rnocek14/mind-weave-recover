@@ -123,10 +123,15 @@ export default function NarrativeRetellExercise() {
     if (!activeSessionId && !isOfflineMode) return;
     const evidence = classifyNarrativeRoundEvidence(result);
     const isCorrect = evidence.practiceSuccessful;
+    // Every selected Stage 1–3 presents a story-picture scaffold. Even if
+    // the visual telemetry is missing or delayed, an independently spoken
+    // verdict cannot be inferred from this actively assisted task.
+    const independentSpokenScoreEligible =
+      !activeStage && evidence.independentSpokenScoreEligible;
     // Session totals must reflect DURABLY SAVED eligible evidence, not
     // optimistic UI feedback. A failed final insert cannot inflate the
     // saved session's score or trial count.
-    const verifiedScore = evidence.independentSpokenScoreEligible &&
+    const verifiedScore = independentSpokenScoreEligible &&
       Number.isFinite(result.eventCoverage)
       ? Math.round(result.eventCoverage * 100) : 0;
 
@@ -134,7 +139,7 @@ export default function NarrativeRetellExercise() {
     if (result.completionReason === 'skipped' || result.skipped) errorType = 'skipped';
     else if (!result.responseValid) errorType = 'unscorable_retell';
     else if (result.inputMode === 'typed') errorType = 'typed_retell_practice';
-    else if (!evidence.independentSpokenScoreEligible) errorType = 'supported_retell_practice';
+    else if (!independentSpokenScoreEligible) errorType = 'supported_retell_practice';
     else if (!isCorrect) {
       if (result.wordCount < 5) errorType = 'minimal_output';
       else if (result.onTopicScore != null && result.onTopicScore < 0.4) errorType = 'off_topic';
@@ -152,14 +157,15 @@ export default function NarrativeRetellExercise() {
       reactionTimeMs: result.durationMs,
       errorType,
       taskParameters: {
-        trial_mode: evidence.trialMode,
-        clinical_progression_eligible: evidence.independentSpokenScoreEligible,
+        trial_mode: activeStage && result.inputMode === 'spoken'
+          ? 'scaffolded' : evidence.trialMode,
+        clinical_progression_eligible: independentSpokenScoreEligible,
         input_mode: result.inputMode ?? 'unknown',
         completion_reason: result.completionReason ?? 'unknown',
         response_valid: result.responseValid === true,
         required_event_coverage: evidence.requiredEventCoverage,
-        support_used: evidence.support,
-        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
+        support_used: activeStage ? 'visual_or_stall_prompt' : evidence.support,
+        independent_spoken_score_eligible: independentSpokenScoreEligible,
         story_id: result.storyId,
         story_tier: result.storyTier ?? null,
         narrative_training_stage: activeStage?.level ?? null,
