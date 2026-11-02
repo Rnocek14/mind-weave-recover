@@ -475,7 +475,7 @@ export const CLINICIAN_REVIEW_DOCUMENTED = false as const;
 
 export const EVIDENCE_FIT_TEXT: Record<EvidenceFit, string> = {
   'direct-method': 'A published treatment method closely relates to this activity; the app implementation is not validated.',
-  related: 'Related clinical rehabilitation evidence; this game's eight-stage design is an extrapolation.',
+  related: "Related clinical rehabilitation evidence; this game's eight-stage design is an extrapolation.",
   exploratory: 'Exploratory game mechanic; direct evidence for this exact progression is not established.',
 };
 
