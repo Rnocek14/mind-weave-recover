@@ -39,6 +39,8 @@ import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
 import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
 import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
+import { confirmRawEventWrites } from '@/lib/trial/confirmRawEventWrites';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 import {
   REACH_PRACTICE_STAGES, LEFT_HUNT_PRACTICE_STAGES,
   type ReachPracticeLevel,
@@ -90,6 +92,10 @@ const Exercise = () => {
   const [score, setScore] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [motorSaveError, setMotorSaveError] = useState(false);
+  const [motorSaving, setMotorSaving] = useState(false);
+  const pendingMotorTrialWritesRef = useRef<Promise<boolean>[]>([]);
+  const motorFinishStartedRef = useRef(false);
   const [showRestPrompt, setShowRestPrompt] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -394,6 +400,11 @@ const Exercise = () => {
   }, [isPlaying, sessionStartTime]);
 
   const startExercise = async (moodOverride?: number) => {
+    if (exerciseId === 'reach-tap' || exerciseId === 'left-side-hunt') {
+      pendingMotorTrialWritesRef.current = [];
+      motorFinishStartedRef.current = false;
+      setMotorSaveError(false);
+    }
     // Check dose cap before allowing start — skip when already in a lesson session
     if (!fromLesson && doseCap.enforceCaps && !doseCap.canStartSession) {
       toast({
@@ -688,6 +699,12 @@ const Exercise = () => {
     );
   }
 
+  if (motorSaveError) return <UnverifiedPracticeBanner />;
+  if (motorSaving) {
+    return <div className="min-h-dvh flex items-center justify-center p-6 text-xl" role="status">
+      Saving your practice…
+    </div>;
+  }
   if (showResult) {
     if (fromLesson) {
       // Effect above handles navigation — show nothing while it fires
@@ -960,8 +977,8 @@ const Exercise = () => {
               slowMode={lessonAdaptations?.largeTargets || true} // largeTargets → slowMode (larger targets + longer timeouts)
               userId={user?.id}
               sessionId={sessionId}
-              onTrialComplete={async (result) => {
-                await logTrial({
+              onTrialComplete={(result) => {
+                const pending = logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.visualGuidePresented ? 1 : 0,
@@ -981,6 +998,7 @@ const Exercise = () => {
                     adaptations_active: lessonAdaptations || {},
                   },
                 });
+                pendingMotorTrialWritesRef.current.push(pending);
                 
                 // Move to next round
                 if (currentRound < totalRounds) {
@@ -991,7 +1009,18 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
+              onGameComplete={async (finalScore) => {
+                if (motorFinishStartedRef.current) return;
+                motorFinishStartedRef.current = true;
+                setMotorSaving(true);
+                const verification = await confirmRawEventWrites(
+                  pendingMotorTrialWritesRef.current.splice(0), totalRounds,
+                );
+                setMotorSaving(false);
+                if (!verification.ok) {
+                  setMotorSaveError(true);
+                  return;
+                }
                 setScore(finalScore);
                 setIsPlaying(false);
                 setShowResult(true);
@@ -1146,8 +1175,8 @@ const Exercise = () => {
               slowMode={lessonAdaptations?.largeTargets || true}
               userId={user?.id}
               sessionId={sessionId}
-              onTrialComplete={async (result) => {
-                await logTrial({
+              onTrialComplete={(result) => {
+                const pending = logTrial({
                   correct: result.correct,
                   reactionTimeMs: result.reactionTimeMs,
                   cueLevel: result.visualGuidePresented ? 1 : 0,
@@ -1168,6 +1197,7 @@ const Exercise = () => {
                     ...adaptationTelemetry,
                   },
                 });
+                pendingMotorTrialWritesRef.current.push(pending);
                 
                 if (currentRound < totalRounds) {
                   setCurrentRound((prev) => prev + 1);
@@ -1177,7 +1207,18 @@ const Exercise = () => {
                   startTrial();
                 }
               }}
-              onGameComplete={(finalScore) => {
+              onGameComplete={async (finalScore) => {
+                if (motorFinishStartedRef.current) return;
+                motorFinishStartedRef.current = true;
+                setMotorSaving(true);
+                const verification = await confirmRawEventWrites(
+                  pendingMotorTrialWritesRef.current.splice(0), totalRounds,
+                );
+                setMotorSaving(false);
+                if (!verification.ok) {
+                  setMotorSaveError(true);
+                  return;
+                }
                 setScore(finalScore);
                 setIsPlaying(false);
                 setShowResult(true);
