@@ -26,6 +26,13 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import {
+  classifySynonymRoundEvidence,
+  getSynonymInputMode,
+  getSynonymSuccessThreshold,
+  type SynonymCompletionReason,
+  type SynonymInputMode,
+} from '@/lib/synonymGenerator/roundEvidence';
+import {
   pickSynonymPrompt,
   mapEngineLevelToSynonymTier,
   type SynonymPrompt,
@@ -95,12 +102,6 @@ function checkSynonymDetailed(input: string, prompt: SynonymPrompt): MatchResult
   return { matched: false, matchType: 'no' };
 }
 
-function getSuccessThreshold(difficulty: number): number {
-  if (difficulty <= 2) return 2;
-  if (difficulty <= 4) return 3;
-  return 4;
-}
-
 export interface SynonymRoundResult {
   targetWord: string;
   enteredWords: string[];
@@ -112,6 +113,11 @@ export interface SynonymRoundResult {
   timeLimitSec: number;
   difficulty: number;
   difficultyChanged?: 'up' | 'down' | null;
+  /** Provenance, not just the currently selected input toggle. */
+  inputMode: SynonymInputMode;
+  completionReason: SynonymCompletionReason;
+  /** Browser recognizer output; never a fabricated Whisper transcript. */
+  browserTranscript: string | null;
 }
 
 interface SynonymGeneratorGameProps {
@@ -189,18 +195,30 @@ export function SynonymGeneratorGame({
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const roundEndTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const roundFinishedRef = useRef(false);
+  const latestFinishRoundRef = useRef<(reason: SynonymCompletionReason) => void>(() => {});
   const wordsRef = useRef<string[]>([]);
+  const spokenTokensRef = useRef(0);
+  const typedEntriesRef = useRef(0);
+  const spokenTranscriptRef = useRef<string | null>(null);
 
   useEffect(() => { wordsRef.current = words; }, [words]);
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (roundEndTimerRef.current) clearTimeout(roundEndTimerRef.current);
+    };
   }, []);
 
   // Speech
   const processedRef = useRef(new Set<string>());
 
   const handleSpeechResult = useCallback((transcript: string) => {
-    if (phase !== 'active') return;
+    // Switching to typing immediately disarms the speech stream; delayed
+    // recognition callbacks must not silently add words to a typed round.
+    if (phase !== 'active' || showTextInput) return;
+    spokenTranscriptRef.current = transcript;
     const spokenWords = transcript
       .toLowerCase()
       .split(/[\s,]+/)
@@ -216,11 +234,14 @@ export function SynonymGeneratorGame({
     }
 
     if (newWords.length > 0) {
-      setWords(prev => [...prev, ...newWords]);
+      spokenTokensRef.current += newWords.length;
+      const nextWords = [...wordsRef.current, ...newWords];
+      wordsRef.current = nextWords;
+      setWords(nextWords);
       setLastAddedWord(newWords[newWords.length - 1]);
       setTimeout(() => setLastAddedWord(null), 800);
     }
-  }, [phase]);
+  }, [phase, showTextInput]);
 
   const {
     isListening,
@@ -236,7 +257,7 @@ export function SynonymGeneratorGame({
     autoStart: false,
   });
 
-  const buildResult = useCallback((): SynonymRoundResult => {
+  const buildResult = useCallback((completionReason: SynonymCompletionReason): SynonymRoundResult => {
     const durationSec = (Date.now() - startTimeRef.current) / 1000;
     const unique = [...new Set(wordsRef.current.map(w => w.toLowerCase().trim()))].filter(Boolean);
     const matched = unique.filter(w => checkSynonymDetailed(w, prompt).matched);
@@ -252,22 +273,36 @@ export function SynonymGeneratorGame({
       durationSec: Math.round(durationSec),
       timeLimitSec: totalTime,
       difficulty: currentDifficulty,
+      inputMode: getSynonymInputMode(spokenTokensRef.current, typedEntriesRef.current),
+      completionReason,
+      browserTranscript: spokenTranscriptRef.current,
     };
   }, [prompt, totalTime, currentDifficulty]);
 
-  const finishRound = useCallback(() => {
+  const finishRound = useCallback((completionReason: SynonymCompletionReason = 'early') => {
+    // Timer and patient Done can race. Exactly one final result and write
+    // must be emitted per round.
+    if (roundFinishedRef.current) return;
+    roundFinishedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    if (roundEndTimerRef.current) clearTimeout(roundEndTimerRef.current);
     stopListening();
-    const result = buildResult();
-
-    const threshold = getSuccessThreshold(currentDifficulty);
-    const wasSuccessful = result.matchCount >= threshold;
+    const result = buildResult(completionReason);
+    const evidence = classifySynonymRoundEvidence(result);
+    const wasSuccessful = evidence.practiceSuccessful;
     const reactionMs = Math.round(result.durationSec * 1000);
-    updateTrial(wasSuccessful, reactionMs);
+
+    // In-session difficulty must not mistake typed, mixed, empty or early
+    // completion for validated spoken-language success/failure.
+    if (evidence.clinicalProgressionEligible) {
+      updateTrial(wasSuccessful, reactionMs);
+    }
     engagement.recordTrial({ correct: wasSuccessful, reactionTimeMs: reactionMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
 
     const prevDiff = currentDifficulty;
-    const { newLevel } = checkAndAdjust();
+    const newLevel = evidence.clinicalProgressionEligible
+      ? checkAndAdjust().newLevel
+      : prevDiff;
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
     setDifficultyShift(shift);
     result.difficultyChanged = shift;
@@ -282,7 +317,11 @@ export function SynonymGeneratorGame({
     } else {
       setPhase('round-feedback');
     }
-  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust, stopListening]);
+  }, [buildResult, results, currentRound, roundCount, onRoundComplete, onGameComplete, currentDifficulty, updateTrial, checkAndAdjust, stopListening, engagement]);
+
+  // The timer calls the most recent render's completion callback, never a
+  // stale pre-countdown closure holding the previous stimulus or word list.
+  latestFinishRoundRef.current = finishRound;
 
   /** Start round with a given prompt (used after countdown) */
   const startRoundWithPrompt = useCallback((p: SynonymPrompt) => {
