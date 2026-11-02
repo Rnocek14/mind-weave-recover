@@ -37,6 +37,7 @@ import { buildAdaptationTelemetry } from "@/lib/adaptationTelemetry";
 import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useActiveProfileId } from "@/hooks/useActiveProfileId";
 import { canSelfReportPracticeFromLegacyExercise } from '@/lib/phrasePractice/manualConfirmation';
+import { summarizeVerifiedScoreEvents } from '@/lib/clinical/summarizeVerifiedScoreEvents';
 
 const Exercise = () => {
   const { exerciseId } = useParams();
@@ -127,11 +128,10 @@ const Exercise = () => {
         
         const { data: events } = await supabase
           .from('exercise_events')
-          .select('score')
+          .select('score, counts_toward_score')
           .in('session_id', sessionIds);
         
-        const total = events?.length || 0;
-        const correct = events?.filter(e => e.score > 0).length || 0;
+        const { correct, total } = summarizeVerifiedScoreEvents(events);
         
         setTodayStats(prev => ({ ...prev, correct, total }));
       } catch (error) {
