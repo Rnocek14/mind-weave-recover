@@ -154,7 +154,7 @@ describe('useTrialSubmission persistence gate', () => {
   it('logs spoken-vs-typed synonym provenance without buffering typed clinical success', async () => {
     mocks.logExerciseEvent.mockResolvedValue(true);
     const p = progression();
-    const evidence = classifySynonymRoundEvidence({
+    const evidence = classifySynonymRoundEvidence({ timeLimitSec: 25, durationSec: 25,
       inputMode: 'typed', completionReason: 'timer', difficulty: 5, matchCount: 8,
     });
     const { result } = renderHook(() =>
