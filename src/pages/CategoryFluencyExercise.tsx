@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Category Fluency Exercise Page
  * 
@@ -37,6 +39,7 @@ const EXERCISE_SLUG = 'category_fluency';
 
 export default function CategoryFluencyExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -232,6 +235,10 @@ export default function CategoryFluencyExercise() {
     }
     // Unified commit: flushes mastery shadow + per-game progression ladder.
     const commit = await commitSession();
+    if (hasMissingClinicalRawEvidence(commit)) {
+      setSaveError(true);
+      return;
+    }
     if (!commit.ok) {
       console.warn('[CategoryFluency] Progression/mastery commit incomplete', commit.errors);
     }
@@ -301,6 +308,7 @@ export default function CategoryFluencyExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>

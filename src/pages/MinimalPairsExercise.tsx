@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * MinimalPairsExercise Page
  * 
@@ -36,6 +38,7 @@ import type { CommitSessionResult } from '@/lib/trial/types';
 
 export default function MinimalPairsExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -173,6 +176,10 @@ export default function MinimalPairsExercise() {
 
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
     const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     // Close the session (standalone) or record the sub-exercise (lesson-owned)
     // and stamp the accuracy summary + speech dose.
@@ -340,6 +347,7 @@ export default function MinimalPairsExercise() {
   
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       {recap && (
         <ProgressionRecap
           gameTitle="Minimal Pairs"

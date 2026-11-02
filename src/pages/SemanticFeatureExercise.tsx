@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Semantic Features Exercise Page
  *
@@ -53,6 +55,7 @@ import { getTrialsByTargetWords } from '@/data/semanticFeatureBank';
 
 export default function SemanticFeatureExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -254,7 +257,11 @@ export default function SemanticFeatureExercise() {
 
     // Unified commit before session-end housekeeping — flushes mastery
     // shadow + drains any queued adaptation rows.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     const durationSec = Math.floor((Date.now() - sessionStartTime) / 1000);
     const accuracy = (finalScore / totalTrials) * 100;
@@ -286,6 +293,7 @@ export default function SemanticFeatureExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       {fromLesson && <SessionSidePanel />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
