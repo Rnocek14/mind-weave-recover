@@ -87,7 +87,8 @@ export interface ValidityResult {
  */
 const FILLER_TOKEN = /^(um+|uh+|hmm+|mm+|er+|ah+|eh+|oh+)$/i;
 
-function isFillerOnly(transcript: string): boolean {
+/** Shared non-content transcript filter; no speaker identity is inferred. */
+export function isFillerOnly(transcript: string): boolean {
   const tokens = transcript
     .toLowerCase()
     .replace(/[.,!?;:"]/g, ' ')

@@ -3,9 +3,9 @@
  *
  * Expressive lexical-semantic divergent-production task: patient produces
  * as many synonyms as they can for a target word within a timed window.
- * `submitTrial` emits `trialMode: 'production'` and the slug IS added to
- * ADOPTED_TRIAL_MODE_SLUGS — trials route into expressive mastery alongside
- * the other production tasks.
+ * `submitTrial` emits `trialMode: 'production'` for complete spoken-only
+ * rounds and an excluded practice tag for typed/mixed/early-ended rounds.
+ * The slug remains adopted in ADOPTED_TRIAL_MODE_SLUGS.
  *
  * Clinical basis & honest scope: see docs/clinical-evidence/synonym-generator.md.
  * TL;DR: Divergent semantic-retrieval / category-generation training is
@@ -17,8 +17,9 @@
  * proven head-to-head hierarchy. Per-level accuracy bars are tunable.
  *
  * Support axis (lexical / open-production):
- *   The current game UI has no in-trial scaffold control — the patient
- *   just speaks (or types via fallback). Every trial is `open_response`.
+ *   The current game UI has no in-trial scaffold control. Completed
+ *   speech-only rounds are `open_response`; typed/mixed practice is logged
+ *   but excluded from spoken progression and mastery.
  *   The ladder advances on match-count growth at progressively harder
  *   content tiers (and tighter time pressure), not on scaffold fading.
  *   This matches Synonym Generator's clinical reality (it is a divergent-
