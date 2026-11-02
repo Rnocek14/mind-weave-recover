@@ -165,7 +165,7 @@ const TEMPLATES: Readonly<Record<ThoughtTrainingStageLevel, readonly Template[]>
     p('daily_routine', 'solve_problem', 'Suppose your morning appointment moved to the afternoon. What might change in your plan?', 'What do you usually do in the morning?', 'How would your schedule change?'),
     p('hobbies', 'explain_reason', 'Imagine a garden got only half the usual rain. How would you care for it differently?', 'Think of what plants need.', 'What could the gardener do more often?'),
     p('memories', 'express_opinion', 'If you could revisit a favorite place from long ago, what would you want to see and why?', 'Imagine the place clearly.', 'What detail matters to you?'),
-    p('health', 'solve_problem', 'If a planned walk became too tiring, how might someone adjust the plan without giving up on the day?', 'Consider the person's energy.', 'What gentler option could they choose?'),
+    p('health', 'solve_problem', 'If a planned walk became too tiring, how might someone adjust the plan without giving up on the day?', 'Consider how tired the person feels.', 'What gentler option could they choose?'),
   ],
   8: [
     p('home', 'solve_problem', 'A community room is used for quiet reading, games, and group meetings. Two groups want it at the same time. Explain how you would make a fair plan, what tradeoff you would accept, and why.', 'Who needs the room?', 'What compromise could work for both groups?'),
