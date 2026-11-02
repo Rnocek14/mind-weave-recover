@@ -178,7 +178,7 @@ export default function PatternMatchExercise() {
         pendingTrialWritesRef.current,
         PATTERN_TRIAL_COUNT,
       );
-      if (!saveCheck.ok) throw new Error(saveCheck.reason);
+      if (!saveCheck.ok) throw new Error('reason' in saveCheck ? saveCheck.reason : 'Raw attempt save failed');
 
       const accuracy = (finalScore / PATTERN_TRIAL_COUNT) * 100;
       // Guided sessions belong to the lesson: do not close the parent's

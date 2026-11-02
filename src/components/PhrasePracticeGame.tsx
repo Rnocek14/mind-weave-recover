@@ -987,7 +987,7 @@ export const PhrasePracticeGame = forwardRef<PhrasePracticeGameHandle, PhrasePra
         );
         if (!result.ok) {
           setSaveError(true);
-          console.warn('[PhrasePractice] Completion withheld:', result.reason);
+          console.warn('[PhrasePractice] Completion withheld:', 'reason' in result ? result.reason : 'Raw attempt save failed');
           toast({
             title: 'Practice not fully saved',
             description: 'Please ask a care partner for help. Results are not marked complete.',
