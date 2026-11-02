@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Detective Mind Exercise Page
  *
@@ -44,6 +46,7 @@ const EXERCISE_SLUG = 'detective_mind';
 
 export default function DetectiveMindExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const isOfflineMode = typeof window !== 'undefined' && localStorage.getItem('offlineMode') === 'true';
@@ -172,10 +175,14 @@ export default function DetectiveMindExercise() {
   }, [activeSessionId, isOfflineMode, submitTrial, adaptationTelemetry, pivot, trialLimit, blockIndex, lessonSource, presetId, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: DetectiveTrialResult[]) => {
-    setCompleted(true);
     // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
     // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
+    setCompleted(true);
     completeSession();
 
     // Save structured details for reflection engine
@@ -223,6 +230,7 @@ export default function DetectiveMindExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>

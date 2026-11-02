@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Multi-Step Planning Exercise Page — wrapper with session lifecycle.
  *
@@ -39,6 +41,7 @@ const EXERCISE_SLUG = 'multi_step_planning';
 
 export default function MultiStepPlanExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -195,10 +198,14 @@ export default function MultiStepPlanExercise() {
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, pivot, activeProfile?.id, effectiveTier, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: PlanningTrialResult[]) => {
-    setCompleted(true);
     // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
     // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
+    setCompleted(true);
     completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
@@ -241,6 +248,7 @@ export default function MultiStepPlanExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>

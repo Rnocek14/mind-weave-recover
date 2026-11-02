@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Dual-Load Naming Exercise Page
  *
@@ -42,6 +44,7 @@ const EXERCISE_SLUG = 'dual_load_naming';
 
 export default function DualLoadNamingExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -214,10 +217,14 @@ export default function DualLoadNamingExercise() {
   }, [activeSessionId, submitTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, activeProfile?.id, difficultyLevel, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: DualLoadTrialResult[]) => {
-    setCompleted(true);
     // Unified commit BEFORE session-end housekeeping — flushes the L1–L8
     // progression ladder + mastery shadow + drains adaptation rows.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
+    setCompleted(true);
     completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
@@ -242,6 +249,7 @@ export default function DualLoadNamingExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur shrink-0">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}><ArrowLeft className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Back</span></Button>

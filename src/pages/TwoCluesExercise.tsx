@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Two Clues Word Association Exercise Page
  *
@@ -45,6 +47,7 @@ const EXERCISE_SLUG = 'two_clues';
 
 export default function TwoCluesExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -206,7 +209,11 @@ export default function TwoCluesExercise() {
     // the finished game, never alter clinical trial scoring or progression.
     recordTwoCluesReviewTargets(results, activeSessionId);
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     setCompleted(true);
     completeSession();
@@ -264,6 +271,7 @@ export default function TwoCluesExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">

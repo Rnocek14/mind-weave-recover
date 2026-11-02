@@ -1,3 +1,5 @@
+import { hasMissingClinicalRawEvidence } from '@/lib/trial/clinicalRawCompletionGate';
+import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracticeBanner';
 /**
  * Meaning Match Arena Exercise Page
  *
@@ -46,6 +48,7 @@ const EXERCISE_SLUG = 'meaning_match';
 
 export default function MeaningMatchExercise() {
   const navigate = useNavigate();
+  const [saveError, setSaveError] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -220,7 +223,11 @@ export default function MeaningMatchExercise() {
   const handleGameComplete = useCallback(async (results: MeaningMatchTrialResult[]) => {
     // Unified commit: drains adaptation log buffer + flushes mastery shadow.
     // No per-game progression snapshot yet (progression: null above).
-    await commitSession();
+    const commitResult = await commitSession();
+    if (hasMissingClinicalRawEvidence(commitResult)) {
+      setSaveError(true);
+      return;
+    }
 
     setCompleted(true);
     completeSession();
@@ -265,6 +272,7 @@ export default function MeaningMatchExercise() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {saveError && <UnverifiedPracticeBanner />}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 items-center justify-between px-4">
           <Button variant="ghost" size="sm" onClick={handleBack}>
