@@ -32,6 +32,7 @@ interface MeaningMatchGameProps {
   onGameComplete: (results: MeaningMatchTrialResult[]) => void;
   roundCount?: number;
   difficultyLevel?: number;
+  clinicalLevel?: number | null;
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
   /**
    * Active session id — forwarded to useInGameAdaptation so the auto-wired
@@ -70,6 +71,7 @@ export function MeaningMatchGame({
   onGameComplete,
   roundCount = 10,
   difficultyLevel = 1,
+  clinicalLevel = null,
   recommendedCueType,
   sessionId = null,
 }: MeaningMatchGameProps) {
@@ -85,7 +87,7 @@ export function MeaningMatchGame({
     nextItem,
     activeTier,
     setActiveTier,
-  } = useMeaningMatchGame(roundCount, difficultyLevel);
+  } = useMeaningMatchGame(roundCount, difficultyLevel, clinicalLevel);
 
   // ============ Adaptive Difficulty Layer ============
   // Real-time tier shifts based on rolling success rate
