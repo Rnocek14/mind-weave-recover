@@ -29,7 +29,7 @@ export function requireHospitalStagingAttestation(
   if (attestedRef !== projectRef ||
       attestedScope !== 'synthetic-only-reviewed' ||
       typeof attestedAt !== 'string' ||
-      !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/.test(attestedAt)) {
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(attestedAt)) {
     throw new Error(
       'Staging clinical verification blocked: a current, project-matched ' +
       'synthetic-only data attestation is required. Inspect the actual ' +
