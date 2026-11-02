@@ -202,6 +202,10 @@ export function ConversationPartnerGame({
   // switch to typed participation. No synthetic transcript enters speech.
   const handleSwitchToTyping = useCallback(async () => {
     if (phase !== 'listening' || committingRef.current) return;
+    // Switching modes is itself a turn-owned transition. Block an overlapping
+    // Done press (or double Type instead) while the recorder is stopping.
+    committingRef.current = true;
+    setPhase('processing');
     stopListening();
     setSilenceCueText(null);
     if (silenceTimer) clearTimeout(silenceTimer);
@@ -211,6 +215,7 @@ export function ConversationPartnerGame({
     if (!mountedRef.current) return;
     setUserTranscript('');
     setTypedDraft('');
+    committingRef.current = false;
     setPhase('typing');
   }, [phase, stopListening, stopRecording, resetAttempt, silenceTimer]);
 
