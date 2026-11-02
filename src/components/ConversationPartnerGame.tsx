@@ -198,6 +198,22 @@ export function ConversationPartnerGame({
     }
   }, [phase, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId, isSupported]);
 
+  // Microphone denied/unreliable? Leave the spoken attempt unscored and
+  // switch to typed participation. No synthetic transcript enters speech.
+  const handleSwitchToTyping = useCallback(async () => {
+    if (phase !== 'listening' || committingRef.current) return;
+    stopListening();
+    setSilenceCueText(null);
+    if (silenceTimer) clearTimeout(silenceTimer);
+    setSilenceTimer(null);
+    try { await stopRecording(); } catch { /* Record not available. */ }
+    resetAttempt();
+    if (!mountedRef.current) return;
+    setUserTranscript('');
+    setTypedDraft('');
+    setPhase('typing');
+  }, [phase, stopListening, stopRecording, resetAttempt, silenceTimer]);
+
   // Handle done talking
   const handleDoneTalking = useCallback(async () => {
     if (phase !== 'listening' || committingRef.current) return;
@@ -516,6 +532,14 @@ export function ConversationPartnerGame({
               >
                 <MicOff className="w-5 h-5" />
                 Done Talking
+              </Button>
+              <Button
+                type="button" variant="outline" size="lg"
+                onClick={() => void handleSwitchToTyping()}
+                className="gap-2"
+              >
+                <Keyboard className="w-4 h-4" />
+                Type instead
               </Button>
               <p className="text-sm text-muted-foreground mt-2">
                 Take your time. Press when you're finished.
