@@ -6,6 +6,7 @@ import {
   CLINICAL_GAME_EVIDENCE,
   EIGHT_STAGE_LADDER_VALIDATED,
   CLINICIAN_REVIEW_DOCUMENTED,
+  LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS,
   EVIDENCE_FIT_TEXT,
   getClinicalGameEvidence,
 } from '@/lib/clinicalEvidenceRegistry';
@@ -47,6 +48,17 @@ describe('29-game evidence design contract and measurement integrity', () => {
       expect(EIGHT_STAGE_LADDER_VALIDATED).toBe(false);
       expect(CLINICIAN_REVIEW_DOCUMENTED).toBe(false);
     }
+  });
+
+  it('flags ALL 13 operational ladders for clinician review of their stage axis', () => {
+    const live = getEightLevelCoverage().filter(g => g.liveProgression).map(g => g.slug).sort();
+    expect(live).toHaveLength(13);
+    expect(Object.keys(LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS).sort()).toEqual(live);
+    for (const slug of live) {
+      expect(LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS[slug].length, slug).toBeGreaterThan(60);
+    }
+    expect(LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS['two-clues']).toMatch(/L8/);
+    expect(LIVE_LADDER_ALIGNMENT_REVIEW_FLAGS['category-fluency']).toMatch(/time window/);
   });
 
   it('never routes non-linguistic or receptive gameplay as expressive recovery', () => {
