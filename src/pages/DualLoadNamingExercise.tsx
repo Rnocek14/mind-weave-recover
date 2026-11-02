@@ -191,8 +191,7 @@ export default function DualLoadNamingExercise() {
         verified_expressive_mastery_eligible: evidence.verifiedExpressiveMasteryEligible,
         mixed_task_unscorable_reason: evidence.unscorableReason,
         naming_attempt_count: Array.isArray(result.namingAttempts) ? result.namingAttempts.length : 0,
-        naming_scorable_count: Array.isArray(result.namingAttempts)
-          ? result.namingAttempts.filter(a => a.userResponse?.trim().length > 0).length : 0,
+        naming_scorable_count: evidence.scorableSpokenNamingAttempts,
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
