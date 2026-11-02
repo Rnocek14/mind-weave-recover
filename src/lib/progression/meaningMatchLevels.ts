@@ -78,7 +78,7 @@ export interface MeaningMatchLevelSpec {
  *   L5 abstract concepts, close semantic distractors
  *   L6 abstract concepts under semantic-distance pressure (thin bank)
  *   L7 mixed-abstractness, low-frequency lexemes (thin bank)
- *   L8 figurative / idiomatic comprehension (aspirational)
+ *   L8 figurative / idiomatic comprehension (thin, contextual bank)
  */
 export const MEANING_MATCH_LEVELS: Record<number, MeaningMatchLevelSpec> = {
   1: {
@@ -153,16 +153,16 @@ export const MEANING_MATCH_LEVELS: Record<number, MeaningMatchLevelSpec> = {
   },
   8: {
     level: 8,
-    description: 'Figurative / idiomatic comprehension — design-of-record',
+    description: 'Contextual nonliteral inference against plausible paraphrases',
     targetSupport: 'recognition_only',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
-    readiness: 'aspirational',
+    readiness: 'thin',
     trialWeight: 2.5,
     contentSelector: {
       tierKey: 'figurative',
-      description: 'Figurative/idiomatic bank not yet shipped — ceiling clamp blocks advancement until bank exists.',
-      implemented: false,
+      description: 'Distinct 16-item contextual nonliteral inference bank; clinical validity requires SLP review.',
+      implemented: true,
     },
   },
 };
