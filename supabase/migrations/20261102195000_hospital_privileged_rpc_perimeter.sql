@@ -293,7 +293,13 @@ DECLARE
   v_interval interval;
   v_bucket   interval;
 BEGIN
-  IF auth.uid() IS NULL OR NOT COALESCE(public.has_role(auth.uid(),'admin'::public.app_role),false) THEN
+  -- Preserve backend/cron service operations; signed-in humans still
+  -- require the admin role. A public caller cannot forge the service JWT.
+  IF NOT (
+    session_user = 'postgres'
+    OR COALESCE(auth.jwt()->>'role' = 'service_role',false)
+    OR (auth.uid() IS NOT NULL AND COALESCE(public.has_role(auth.uid(),'admin'::public.app_role),false))
+  ) THEN
     RAISE EXCEPTION 'Not authorized to operate clinical administration' USING ERRCODE = '42501';
   END IF;
 
@@ -377,7 +383,13 @@ CREATE OR REPLACE FUNCTION public.refresh_cluster_assignments()
  SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF auth.uid() IS NULL OR NOT COALESCE(public.has_role(auth.uid(),'admin'::public.app_role),false) THEN
+  -- Preserve backend/cron service operations; signed-in humans still
+  -- require the admin role. A public caller cannot forge the service JWT.
+  IF NOT (
+    session_user = 'postgres'
+    OR COALESCE(auth.jwt()->>'role' = 'service_role',false)
+    OR (auth.uid() IS NOT NULL AND COALESCE(public.has_role(auth.uid(),'admin'::public.app_role),false))
+  ) THEN
     RAISE EXCEPTION 'Not authorized to operate clinical administration' USING ERRCODE = '42501';
   END IF;
 
