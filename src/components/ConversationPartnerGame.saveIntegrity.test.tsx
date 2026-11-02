@@ -131,6 +131,24 @@ describe('ConversationPartnerGame real component finalization', () => {
     expect(mocks.scorerOptions?.logToDatabase).toBe(false);
   });
 
+  it('does not play Maya into an active microphone when the patient needs time', async () => {
+    render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" />);
+    await begin();
+    expect(mocks.speak).toHaveBeenCalledTimes(1);
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Press to Talk' }));
+      await act(async () => { vi.advanceTimersByTime(8_100); await Promise.resolve(); });
+      expect(mocks.speak).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole('status').textContent).toMatch(
+        /Take your time|No rush|Whenever you're ready|It's okay, think about it/i,
+      );
+      expect(mocks.stopListening).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('persists exactly one uniquely indexed practice event per spoken turn', async () => {
     const complete = vi.fn();
     render(<ConversationPartnerGame userId="u" profileId="p" sessionId="session" onComplete={complete} />);
