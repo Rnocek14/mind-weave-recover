@@ -10,6 +10,12 @@ import {
   parseFollowupType
 } from '@/lib/conversationFollowups';
 import { StuckType, classifyStuckType } from '@/lib/stuckTypeClassifier';
+import type { ClinicalSignal } from '@/lib/discourseSignalScorer';
+
+type ConversationShadowSignal = Pick<ClinicalSignal,
+  'onTopicScore' | 'targetAchievementScore' | 'responseQualityScore' |
+  'successScore' | 'confidence' | 'errorType' | 'source'
+>;
 
 interface ConversationTurn {
   role: 'ai' | 'user';
@@ -91,13 +97,16 @@ export function useConversationPartner({
    */
   const processUserTurn = useCallback(async (
     transcript: string,
-    latencyToFirstWordMs: number | null
-  ): Promise<{ followupType: FollowupType; followupText: string }> => {
+    latencyToFirstWordMs: number | null,
+    attemptId?: string | null,
+    scoreSignal?: ConversationShadowSignal | null,
+    inputMode: 'spoken' | 'typed' = 'spoken',
+  ): Promise<{ followupType: FollowupType; followupText: string; eventSaved: boolean }> => {
     setIsLoadingFollowup(true);
 
     try {
       const userWords = transcript.split(/\s+/).filter(Boolean).length;
-      const didSpeak = userWords > 0;
+      const didSpeak = inputMode === 'spoken' && userWords > 0;
       const turnDurationMs = Date.now() - turnStartTimeRef.current;
 
       // Classify stuck type using existing classifier
@@ -175,12 +184,16 @@ export function useConversationPartner({
       // Get the actual line to speak
       const followupText = getFollowupLine(followupType);
 
-      // Log to database if we have a session
-      if (sessionId) {
-        await logConversationTurn(sessionId, userTurn, followupType, stuckResult.stuckType);
-      }
+      // The actual record acknowledgment is surfaced to the game; a
+      // completed conversation is not proof that Supabase accepted events.
+      const eventSaved = sessionId
+        ? await logConversationTurn(
+            sessionId, userTurn, followupType, stuckResult.stuckType,
+            newTurnNumber, attemptId, scoreSignal, inputMode,
+          )
+        : false;
 
-      return { followupType, followupText };
+      return { followupType, followupText, eventSaved };
     } finally {
       setIsLoadingFollowup(false);
     }
@@ -246,8 +259,12 @@ async function logConversationTurn(
   sessionId: string,
   userTurn: ConversationTurn,
   followupType: FollowupType,
-  stuckType: StuckType
-) {
+  stuckType: StuckType,
+  turnNumber: number,
+  attemptId?: string | null,
+  scoreSignal?: ConversationShadowSignal | null,
+  inputMode: 'spoken' | 'typed' = 'spoken',
+): Promise<boolean> {
   try {
     const meaningful = (userTurn.wordCount || 0) >= 2;
     const isCorrect = meaningful;
@@ -255,28 +272,61 @@ async function logConversationTurn(
       ? 'correct'
       : ((userTurn.wordCount || 0) === 0 ? 'no_response' : 'minimal_response');
 
-    await supabase.from('exercise_events').insert({
+    const { error } = await supabase.from('exercise_events').insert({
       session_id: sessionId,
       exercise_slug: normalizeExerciseSlug('conversation-partner'),
-      round: 1,
-      score: isCorrect ? 100 : 0, // 0–100 scale (canonical exercise_events.score)
+      round: turnNumber,
+      trial_index: turnNumber - 1,
+      ...(attemptId ? { attempt_id: attemptId } : {}),
+      score: isCorrect ? 100 : 0, // Participation proxy, NOT validated speech accuracy.
+      counts_toward_score: false,
       reaction_time_ms: userTurn.latencyMs,
       error_type: resolvedErrorType,
+      task_parameters: {
+        trial_mode: inputMode === 'spoken' ? 'production' : 'mixed',
+        input_mode: inputMode,
+        clinical_progression_eligible: false,
+        clinical_stage_promotion_eligible: false,
+        independent_spoken_score_eligible: false,
+        answer_source: inputMode === 'spoken' ? 'browser_asr_unverified' : 'typed',
+        practice_response_word_count: userTurn.wordCount ?? 0,
+      },
       inputs: {
         user_text: userTurn.text,
+        input_mode: inputMode,
         word_count: userTurn.wordCount,
         error_type: resolvedErrorType,
       },
       outputs: {
         followup_type: followupType,
-        stuck_type: stuckType
+        stuck_type: stuckType,
+        // Clinician visibility without a duplicate graded exercise_events row
+        // or mistaken inclusion in verified speech-accuracy aggregates.
+        ...(scoreSignal ? {
+          discourse_signal_shadow: {
+            onTopicScore: scoreSignal.onTopicScore,
+            targetAchievementScore: scoreSignal.targetAchievementScore,
+            responseQualityScore: scoreSignal.responseQualityScore,
+            successScore: scoreSignal.successScore,
+            confidence: scoreSignal.confidence,
+            errorType: scoreSignal.errorType,
+            source: scoreSignal.source,
+          },
+        } : {}),
       },
       engagement_flags: {
-        did_speak: (userTurn.wordCount || 0) > 0,
+        did_speak: inputMode === 'spoken' && (userTurn.wordCount || 0) > 0,
         meaningful_response: meaningful
       }
     });
-  } catch (err) {
-    console.error('Failed to log conversation turn:', err);
+    if (error) {
+      // Avoid logging clinical text, patient identifiers, or backend payloads.
+      console.warn('[ConversationPartner] Turn event not persisted.');
+      return false;
+    }
+    return true;
+  } catch {
+    console.warn('[ConversationPartner] Turn event transport failed.');
+    return false;
   }
 }

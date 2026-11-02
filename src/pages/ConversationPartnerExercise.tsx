@@ -27,9 +27,13 @@ export default function ConversationPartnerExercise() {
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { activeProfile, loading: profileLoading } = useProfile();
-  const [gameStarted, setGameStarted] = useState(false);
-  const autoStartedRef = React.useRef(false);
-  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [scopedGame, setScopedGame] = useState<{ scope: string; started: boolean }>({
+    scope: '', started: false,
+  });
+  const autoStartedRef = React.useRef<string | null>(null);
+  const [scopedSummary, setScopedSummary] = useState<{
+    scope: string; value: SessionSummary;
+  } | null>(null);
 
   const restored = useRestoredLessonContext('conversation-partner');
   const { fromLesson, returnTo } = restored;
@@ -44,11 +48,21 @@ export default function ConversationPartnerExercise() {
     providedSessionId,
     'conversation-partner'
   );
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const liveScopeRef = useRef(scope);
+  liveScopeRef.current = scope;
+  const gameStarted = scopedGame.scope === scope && scopedGame.started;
+  const sessionSummary = scopedSummary?.scope === scope ? scopedSummary.value : null;
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
   const sessionStartRef = useRef(Date.now());
   const turnsRef = useRef(0);
+  React.useEffect(() => {
+    turnsRef.current = 0;
+    sessionStartRef.current = Date.now();
+    exerciseCompleteSentRef.current = false;
+  }, [scope]);
   const getSessionStats = useCallback(() => ({
     score: 0, // conversation_partner is accuracy-excluded; turns are the dose signal
     totalTrials: turnsRef.current,
@@ -74,11 +88,11 @@ export default function ConversationPartnerExercise() {
 
   // Auto-start when launched from lesson flow
   React.useEffect(() => {
-    if (fromLesson && !autoStartedRef.current && !gameStarted && !authLoading && !profileLoading && user && activeSessionId) {
-      autoStartedRef.current = true;
-      setGameStarted(true);
+    if (fromLesson && !autoStartedRef.current && !gameStarted && !authLoading && !profileLoading && user && activeProfile?.id && activeSessionId) {
+      autoStartedRef.current = scope;
+      setScopedGame({ scope, started: true });
     }
-  }, [fromLesson, gameStarted, authLoading, profileLoading, user, activeSessionId]);
+  }, [fromLesson, gameStarted, authLoading, profileLoading, user, activeProfile?.id, activeSessionId, scope]);
 
   if (authLoading || profileLoading) {
     return (
@@ -94,11 +108,13 @@ export default function ConversationPartnerExercise() {
   }
 
   const handleStart = () => {
-    setGameStarted(true);
+    if (!user?.id || !activeProfile?.id || !activeSessionId) return;
+    setScopedGame({ scope, started: true });
   };
 
   const handleComplete = (summary: SessionSummary) => {
-    setSessionSummary(summary);
+    if (liveScopeRef.current !== scope) return;
+    setScopedSummary({ scope, value: summary });
     turnsRef.current = summary.turnsCompleted;
     void completeSession();
 
@@ -106,6 +122,7 @@ export default function ConversationPartnerExercise() {
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
+        if (liveScopeRef.current !== scope) return;
         window.dispatchEvent(new CustomEvent('exercise-complete', {
           detail: { exerciseSlug: 'conversation-partner', results: summary },
         }));
@@ -131,8 +148,8 @@ export default function ConversationPartnerExercise() {
   };
 
   const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
+    setScopedGame({ scope, started: false });
+    setScopedSummary(null);
   };
 
   // Summary screen
@@ -180,7 +197,7 @@ export default function ConversationPartnerExercise() {
                   <div className="text-3xl font-bold text-primary">
                     {Math.round(sessionSummary.userAIRatio)}%
                   </div>
-                  <div className="text-sm text-muted-foreground">your talk time</div>
+                  <div className="text-sm text-muted-foreground">your share of words</div>
                 </div>
               </div>
 
@@ -259,7 +276,7 @@ export default function ConversationPartnerExercise() {
                 className="w-full" 
                 size="lg"
                 onClick={handleStart}
-                disabled={isCreatingSession}
+                disabled={isCreatingSession || !activeProfile?.id || !activeSessionId}
               >
                 {isCreatingSession ? 'Preparing...' : 'Start Conversation'}
               </Button>
@@ -287,6 +304,7 @@ export default function ConversationPartnerExercise() {
       <main className="flex-1 p-4 flex flex-col overflow-y-auto pb-16">
         <div className="max-w-md mx-auto">
           <ConversationPartnerGame
+            key={scope}
             userId={user.id}
             profileId={activeProfile?.id || ''}
             sessionId={activeSessionId}
