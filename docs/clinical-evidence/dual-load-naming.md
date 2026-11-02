@@ -7,13 +7,36 @@ Targets executive-function load tolerance + interference recovery in
 service of word retrieval — a known bottleneck in anomic / mild
 non-fluent aphasia and in cognitive-communication impairment after TBI.
 
-## Trial mode
-**Expressive** — every trial requires spoken naming (whisper / speech
-recognition with typing fallback). `submitTrial` emits
-`trialMode: 'production'` and `dual_load_naming` IS in
-`ADOPTED_TRIAL_MODE_SLUGS`. Trials route into the expressive mastery
-track alongside photo-naming, semantic-features, two-clues,
-sentence-construction, multi-step-planning, and synonym-generator.
+## Current implementation: a mixed cognitive-linguistic task
+
+Naming images uses browser-recognized **speech**. The memory-recall portion
+uses **typed text fields**, not recorded spoken recall. The combined result
+must therefore use `trialMode: 'mixed'` and must **not** enter the global
+independent expressive-language mastery denominator. It may enter its own
+per-game dual-task clinical ladder only when all naming attempts contain
+scorable non-filler recognized speech, internal naming accuracy matches the
+recorded attempts, and recall metrics are valid.
+
+The game and page now use the **same preexisting dual-domain gate**:
+naming accuracy at least 0.60 **and** memory recall at least 0.67.
+Previously the page accepted recall at least 0.33 even when naming was
+zero, despite the game itself requiring both components. Those earlier
+clinical records require a separately documented historical-data audit,
+not silent rewriting.
+
+**Threshold caveat:** `2/3` recall is approximately `0.6667`, which falls
+below the existing `0.67` threshold. The exact stored threshold was
+preserved to avoid an unreviewed change in clinical outcomes; an SLP
+should decide whether future versions should treat 2 of 3 as sufficient.
+The numerical criteria and eight clinical stages have not undergone
+clinical outcome evaluation.
+
+The memory portion may still improve practice engagement, but it is never
+presented as independent spoken recall. If all naming answers were skipped,
+filler-only, or internally inconsistent, the attempt remains auditable
+practice without driving automatic dual-task progression or adaptation.
+`counts_toward_score` is false for unclassified mixed-mode trial records
+even when their per-game progression is eligible.
 
 ## Clinical basis (and honest scope)
 - **Dual-task naming under cognitive load** — Murray & Lenz (2001),
