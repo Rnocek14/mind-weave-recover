@@ -133,7 +133,11 @@ export default function DualLoadNamingExercise() {
 
   const handleTrialComplete = useCallback(async (result: DualLoadTrialResult) => {
     if (!activeSessionId) return;
-    scoreRef.current += Math.round((result.namingAccuracy + result.recallAccuracy) * 50);
+    // Do not let malformed domain metrics poison the session's totals.
+    const bothMetricsValid = Number.isFinite(result.namingAccuracy) &&
+      Number.isFinite(result.recallAccuracy);
+    scoreRef.current += bothMetricsValid
+      ? Math.round((result.namingAccuracy + result.recallAccuracy) * 50) : 0;
     trialsRef.current += 1;
     trialIndexRef.current += 1;
 
@@ -169,7 +173,7 @@ export default function DualLoadNamingExercise() {
       expectedResponse: null,
       userResponse: result.recalledWords?.join(', ') ?? null,
       isCorrect,
-      accuracyScore: combinedAccuracy,
+      accuracyScore: Number.isFinite(combinedAccuracy) ? combinedAccuracy : null,
       cueLevel: 0,
       supportUsed: mapDualLoadNamingSupport(),
       latencyMs: result.durationMs,
@@ -186,9 +190,9 @@ export default function DualLoadNamingExercise() {
         recall_input_mode: evidence.recallInputMode,
         verified_expressive_mastery_eligible: evidence.verifiedExpressiveMasteryEligible,
         mixed_task_unscorable_reason: evidence.unscorableReason,
-        naming_attempt_count: result.namingAttempts.length,
-        naming_scorable_count: result.namingAttempts.filter(a =>
-          a.userResponse?.trim().length > 0).length,
+        naming_attempt_count: Array.isArray(result.namingAttempts) ? result.namingAttempts.length : 0,
+        naming_scorable_count: Array.isArray(result.namingAttempts)
+          ? result.namingAttempts.filter(a => a.userResponse?.trim().length > 0).length : 0,
         interference_index: result.interferenceIndex,
         trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
