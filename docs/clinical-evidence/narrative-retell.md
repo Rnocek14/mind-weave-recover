@@ -20,6 +20,16 @@ The ladder advances on narrative complexity (short sequential → episodic with 
 - "Coherence" and "thematic" credit at L6–L7 would require scoring infrastructure that does not yet exist at runtime.
 - Per-level accuracy bars / attempts are intentionally **not** specified.
 
+## Current runtime evidence integrity (November 2026)
+
+Narrative Retell still has **no operational L1–L8 clinical progression hook**. The adaptive game distinguishes complete retell practice from patient recovery outcomes. A 60% main-event-coverage heuristic drives *in-game* success feedback; the exercise page previously called 30% coverage correct. The code now consistently uses the existing 60% rule but does **not** claim it is a standardized clinical outcome threshold.
+
+The game records whether the answer was browser-recognized speech, typed fallback, or a skip. Typed text is never logged as a speech transcript, and skipped, unscorable or assisted speech does not lower or increase the independent spoken adaptive score. Visual and stall supports remain explicitly logged. Completed valid spoken retells without observed support can enter a separately labeled score denominator; all other work remains accessible as **practice participation**, with step/event-coverage measurements retained for clinician review. Any recording of recognized speech is still subject to real-world ASR uncertainty.
+
+Legacy `exercise_events` writes are now awaited before the session is ended. The saved session's score and trial count reflect successful raw writes rather than optimistic results from pending or failed requests; a write failure is disclosed instead of silently recording a completed clinical outcome.
+
+**Interpretation limits:** Individual event-coverage matching does not establish narrative cohesion, conversational transfer or functional communication improvement. Even the spoken denominator reflects browser-recognized mode, not independently assessed speaking ability. An SLP must review clinical thresholds, the support model, outcome definitions and examples of real aphasic language before these signals are used for treatment decisions. The game retains its existing 1–10 in-session adaptation and design-only eight-stage plan.
+
 ## Mastery routing
 
 - `submitTrial` is **not** wired through `useTrialSubmission`.
