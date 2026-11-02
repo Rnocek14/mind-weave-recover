@@ -29,6 +29,8 @@ import { fetchRecentExerciseUsage, calculateRecencyPenalties, type RecencyPenalt
 import { fetchExerciseStruggleData, calculateStrugglePenalties } from '@/lib/exerciseStruggleTracker';
 import { fetchProgressionPlanningSignals, type ProgressionPlanningSignal } from '@/lib/progressionPlanningSignals';
 import type { CapabilityScores } from '@/lib/capabilityAssessor';
+import { isComparableScoredEvent } from '@/lib/clinical/metricsPresentation';
+import { DAILY_LESSON_CACHE_KEY, isDailyLessonCacheFresh } from '@/lib/dailyLessonCache';
 
 interface UseDailyLessonResult {
   lesson: DailyLesson | null;
@@ -42,8 +44,6 @@ interface UseDailyLessonResult {
 }
 
 // Cache key for session storage
-const LESSON_CACHE_KEY = 'dailyLessonCache';
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 const FALLBACK_CAPABILITY_SCORES: CapabilityScores = {
   vision: 6,
@@ -87,7 +87,7 @@ export const useDailyLesson = (
   const effectiveAssessment = currentAssessment?.completed ? currentAssessment : previousAssessment?.completed ? previousAssessment : null;
 
   // Extract lesson generation into reusable function
-  const buildLessonFromState = async (freshAssessment?: any): Promise<DailyLesson | null> => {
+  const buildLessonFromState = async (freshAssessment?: any, bypassCache = false): Promise<DailyLesson | null> => {
     // Derive scores directly from fresh assessment if provided, otherwise use best available
     const assessmentToUse = freshAssessment || effectiveAssessment;
     
@@ -104,16 +104,16 @@ export const useDailyLesson = (
       return null;
     }
     
-    // Check cache first (skip if force regenerate via freshAssessment)
-    if (!freshAssessment) {
+    // Regeneration must explicitly bypass the cached plan.
+    if (!freshAssessment && !bypassCache) {
       try {
-        const cached = sessionStorage.getItem(LESSON_CACHE_KEY);
+        const cached = sessionStorage.getItem(DAILY_LESSON_CACHE_KEY);
         if (cached) {
           const cache: LessonCache = JSON.parse(cached);
           const isValid = 
             cache.profileId === profileId &&
             cache.assessmentId === assessmentToUse?.id &&
-            Date.now() - cache.timestamp < CACHE_TTL_MS;
+            isDailyLessonCacheFresh(cache.timestamp, new Date());
           
           if (isValid) {
             console.log('[useDailyLesson] Using cached lesson');
@@ -232,21 +232,24 @@ export const useDailyLesson = (
           .select('*')
           .in('session_id', sessionIds)
           .order('created_at', { ascending: false })
-          .limit(200);
+          .limit(1001);
 
         if (trialsError) throw trialsError;
+        if (data && data.length >= 1001) throw new Error('Recent task history is incomplete; cannot generate a reliable personalized plan.');
         recentTrials = data || [];
       }
 
-      // Aggregate performance signals
-      const signals = aggregatePerformanceSignals(recentTrials || [], recentSessions || []);
+      // Only scoreable, comparable evidence informs performance adaptation.
+      // Excluded rows are still retained in the audit trail, never counted as failure.
+      const scoredRecentTrials = recentTrials.filter(isComparableScoredEvent);
+      const signals = aggregatePerformanceSignals(scoredRecentTrials, recentSessions || []);
       setPerformanceSignals(signals);
 
       // Check if reassessment is needed
       const { needs, reason } = checkReassessmentNeeded(
         assessmentToUse,
         signals,
-        recentTrials || []
+        scoredRecentTrials
       );
       setNeedsReassessment(needs);
       setReassessmentReason(reason);
@@ -260,7 +263,7 @@ export const useDailyLesson = (
         .gte('calculated_at', sevenDaysAgo.toISOString())
         .order('calculated_at', { ascending: false });
 
-      const formattedLearningRates: LearningRateData[] = (learningRates || []).map(lr => ({
+      const formattedLearningRates: LearningRateData[] = (scoredRecentTrials.length > 0 ? (learningRates || []) : []).map(lr => ({
         domain: lr.domain,
         accuracySlope: lr.accuracy_slope || 0,
         rtSlope: lr.rt_slope || 0,
@@ -307,7 +310,7 @@ export const useDailyLesson = (
           : 999;
 
         const signalCounts: SignalCounts = {
-          trialsLast14Days: recentTrials.length,
+          trialsLast14Days: scoredRecentTrials.length,
           utterancesWithAlignmentLast14Days: utteranceCount || 0,
           assessmentAgeDays,
         };
@@ -465,7 +468,7 @@ export const useDailyLesson = (
           profileId,
           timestamp: Date.now(),
         };
-        sessionStorage.setItem(LESSON_CACHE_KEY, JSON.stringify(cache));
+        sessionStorage.setItem(DAILY_LESSON_CACHE_KEY, JSON.stringify(cache));
       } catch (e) {
         // Ignore cache errors
       }
@@ -508,7 +511,7 @@ export const useDailyLesson = (
     error,
     needsReassessment,
     reassessmentReason,
-    regenerateLesson: buildLessonFromState,
+    regenerateLesson: (freshAssessment?: any) => buildLessonFromState(freshAssessment, true),
   };
 };
 
