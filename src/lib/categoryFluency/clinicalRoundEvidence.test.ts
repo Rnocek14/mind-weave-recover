@@ -78,7 +78,7 @@ describe('category-fluency clinical evidence constraints', () => {
       clinicalProgressionEligible: true,
     });
     expect(classify('spoken', 0, 30)).toMatchObject({
-      trialMode: 'production',
+      trialMode: 'mixed', // incomplete timed probe cannot credit expressive mastery
       clinicalProgressionEligible: false,
       independentSpoken: false,
     });
