@@ -112,8 +112,8 @@ export async function fetchExerciseStruggleData(
   }>();
 
   for (const row of eligible) {
+    if (!row.exercise_slug) continue;
     const slug = toLessonExerciseSlug(row.exercise_slug);
-    if (!slug) continue;
     const entry = slugMap.get(slug) || { scores: [], cueLevels: [], timeouts: 0, total: 0, sessions: new Set() };
     
     // Preserve both supported score scales, without treating every positive
