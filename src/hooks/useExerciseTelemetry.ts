@@ -349,7 +349,10 @@ export const useExerciseTelemetry = (
           // gate). A trial that was logged with a definite correct/incorrect
           // outcome still counts toward score; leave validity_label null so it
           // is distinguishable from a classified attempt.
-          eventData.counts_toward_score = true;
+          // Clinical practice-only attempts (for example typed or mixed
+          // input during a spoken fluency task) are real events, but must
+          // not enter the verified speech-accuracy denominator.
+          eventData.counts_toward_score = tp.clinical_progression_eligible !== false;
         }
 
         // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──
