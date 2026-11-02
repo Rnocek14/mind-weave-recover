@@ -161,6 +161,7 @@ export function useTrialSubmission(opts: Options) {
             trial_mode: input.trialMode ?? null,
             accuracy_score: input.accuracyScore ?? null,
             attempts: input.attempts ?? null,
+            clinical_progression_eligible: input.clinicalProgressionEligible !== false,
             fatigue_signal: input.fatigueSignal ?? null,
             frustration_signal: input.frustrationSignal ?? null,
           },
@@ -222,7 +223,8 @@ export function useTrialSubmission(opts: Options) {
         if (
           opts.progression &&
           summary.routed.exerciseEvents &&
-          validityAllowsProgression
+          validityAllowsProgression &&
+          input.clinicalProgressionEligible !== false
         ) {
           opts.progression.recordTrialOutcome({
             correct: input.isCorrect,
