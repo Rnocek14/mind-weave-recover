@@ -740,6 +740,42 @@ export function ThoughtContinuationGame({
     );
     const signal = scoreResult?.signal;
 
+    if (trainingStage) {
+      // A completed visible, spoken or hint-supported stem is a valid practice
+      // attempt, but never a verified independent real-world communication
+      // outcome. Persist the actual content, support and stage for review.
+      const pending = logPracticeTrial({
+        correct: didSpeak,
+        reactionTimeMs: Math.max(0, speechDuration),
+        cueLevel: 0,
+        trialIndex: promptCount - 1,
+        browserTranscript: answerText,
+        errorType: didSpeak ? undefined : 'unscorable_thought_practice',
+        taskParameters: {
+          trial_mode: 'scaffolded',
+          clinical_progression_eligible: false,
+          independent_spoken_score_eligible: false,
+          clinical_stage_promotion_eligible: false,
+          thought_training_stage: trainingStage.level,
+          thought_practice_stage_source: practiceStageSource,
+          prompt_id: currentPrompt.id,
+          prompt_text: currentPrompt.promptText,
+          prompt_tier: currentPrompt.difficultyTier,
+          input_mode: 'spoken',
+          practice_response_valid: didSpeak,
+          support_used: narrowingLevel > 0 ? 'narrowing_hint' :
+            narrowingTriggerRef.current ? 'gentle_nudge' : 'prompt_context',
+          narrowing_level_used: narrowingLevel,
+          narrowing_trigger: narrowingTriggerRef.current,
+          word_count: wordCount,
+          response_momentum_shadow: flowMetrics.momentumScore,
+          scorer_source: signal?.source ?? 'unavailable',
+          discourse_coherence_shadow: signal?.onTopicScore ?? null,
+        },
+      });
+      onRawEventWrite?.(pending);
+    }
+
     // Mirror the discourse-adaptation decision into adaptation_trial_logs so
     // this game shows up in the same telemetry surface as trial-based games.
     {
@@ -760,6 +796,12 @@ export function ThoughtContinuationGame({
         cueDependency: null,
         successRate: null,
         correct: flowMetrics.didSpeak && flowMetrics.utteranceComplete,
+        ...(trainingStage ? {
+          trialMode: 'scaffolded' as const,
+          signalGranularity: 'graded' as const,
+          dominantAxis: 'content-complexity' as const,
+          archetype: 'open-ended' as const,
+        } : {}),
         reactionTimeMs: latencyToFirstWordMs ?? null,
         trialsAtLevel: null,
         difficultyChange: isChange
@@ -792,6 +834,10 @@ export function ThoughtContinuationGame({
       } else if (errorType === 'surrender' || errorType === 'no_response') {
         feedback = "That's okay — give it a try, even one sentence.";
         continueSamePrompt = true;
+      } else if (trainingStage && didSpeak) {
+        // Stage 1 intentionally accepts a single meaningful completion.
+        // Stage 2–3 attempts are practice without fabricated mastery scores.
+        feedback = "Thanks for continuing that thought.";
       } else if (wordCount < 3) {
         feedback = "Good start — can you add one more sentence?";
         continueSamePrompt = true;
@@ -839,7 +885,7 @@ export function ThoughtContinuationGame({
     }
 
 
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState, trainingStage, practiceStageSource, logPracticeTrial, onRawEventWrite]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
   // effect (which is declared above this callback to avoid hoisting issues).
@@ -931,6 +977,32 @@ export function ThoughtContinuationGame({
       fluencyUnavailableReason: 'discourse_task',
     });
     
+    // Preserve skips as practice participation, never as a clinical score.
+    if (trainingStage && currentPrompt) {
+      const pending = logPracticeTrial({
+        correct: false,
+        reactionTimeMs: 0,
+        cueLevel: 0,
+        trialIndex: promptCount - 1,
+        errorType: 'skipped',
+        taskParameters: {
+          trial_mode: 'scaffolded',
+          clinical_progression_eligible: false,
+          independent_spoken_score_eligible: false,
+          clinical_stage_promotion_eligible: false,
+          thought_training_stage: trainingStage.level,
+          thought_practice_stage_source: practiceStageSource,
+          prompt_id: currentPrompt.id,
+          prompt_text: currentPrompt.promptText,
+          prompt_tier: currentPrompt.difficultyTier,
+          input_mode: 'none',
+          completion_reason: 'skipped',
+          support_used: narrowingLevel > 0 ? 'narrowing_hint' : 'prompt_context',
+        },
+      });
+      onRawEventWrite?.(pending);
+    }
+
     // Update history with skip
     if (currentPrompt) {
       const updatedHistory = updateSessionHistory(
@@ -947,7 +1019,7 @@ export function ThoughtContinuationGame({
     }
     
     moveToNextPrompt();
-  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording]);
+  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording, trainingStage, practiceStageSource, logPracticeTrial, onRawEventWrite, promptCount]);
 
   const handleHintRequest = useCallback(() => {
     if (!currentPrompt) return;
@@ -991,10 +1063,14 @@ export function ThoughtContinuationGame({
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{promptCount} of {PROMPTS_PER_SESSION}</span>
         <div className="flex items-center gap-2">
-          <LevelBadge
-            descriptor={describeLevel(tierToLevel(adaptation.level, { min: 1, max: 5 }))}
-            compact
-          />
+          {trainingStage ? (
+            <span className="text-sm font-medium text-primary">Practice Stage {trainingStage.level}</span>
+          ) : (
+            <LevelBadge
+              descriptor={describeLevel(tierToLevel(adaptation.level, { min: 1, max: 5 }))}
+              compact
+            />
+          )}
           {streak > 0 && (
             <span className="text-primary font-medium">
               🔥 {streak} in a row
@@ -1014,7 +1090,7 @@ export function ThoughtContinuationGame({
       </div>
 
       {/* Visible adaptation cue — shown when difficulty actually shifts */}
-      {adaptation.shiftDirection && (
+      {!trainingStage && adaptation.shiftDirection && (
         <div className="flex justify-center">
           <AdaptationBadge
             direction={adaptation.shiftDirection}
@@ -1040,6 +1116,11 @@ export function ThoughtContinuationGame({
           {/* Entry instruction — shown only on first prompt */}
           {promptCount <= 1 && (
             <p className="text-sm text-center text-muted-foreground">Finish the thought</p>
+          )}
+          {trainingStage && promptCount <= 1 && (
+            <p className="text-sm text-center text-muted-foreground">
+              {trainingStage.instructions}
+            </p>
           )}
           {/* Prompt text */}
           <div className="text-center">
