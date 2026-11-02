@@ -89,7 +89,10 @@ import { ConversationPartnerGame } from './ConversationPartnerGame';
 
 async function begin() {
   fireEvent.click(screen.getByRole('button', { name: /Start Conversation/ }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Press to Talk' })).toBeTruthy());
+  // These assertions exercise the actual mode; unsupported speech must
+  // offer a typing path rather than a nonexistent microphone action.
+  const expected = mocks.isSupported ? 'Press to Talk' : 'Type a reply';
+  await waitFor(() => expect(screen.getByRole('button', { name: expected })).toBeTruthy());
 }
 
 async function answer(text: string) {
