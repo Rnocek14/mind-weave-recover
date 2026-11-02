@@ -34,7 +34,8 @@ describe('8-level About-page safety for newly cataloged games', () => {
 
   it('preserves the existing therapy overview for established games', () => {
     openAbout('photo-naming');
-    expect(screen.getByText('Clinical rungs')).toBeInTheDocument();
+    expect(screen.getByText('Eight clinical practice stages')).toBeInTheDocument();
+    expect(screen.getAllByTestId('clinical-stage')).toHaveLength(8);
     expect(screen.queryByText('Eight proposed practice stages')).toBeNull();
   });
 });
