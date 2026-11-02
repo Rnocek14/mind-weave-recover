@@ -200,8 +200,9 @@ export default function DescribeGuessExercise() {
       stimulusId: result.trialId,
       expectedResponse: result.target ?? null,
       userResponse: result.transcript || null,
-      browserTranscript: result.inputMode === 'spoken'
-        ? (result.browserTranscript ?? result.transcript) : null,
+      // Never manufacture recognized speech from the generic response text.
+      browserTranscript: result.inputMode === 'spoken' && result.browserTranscript?.trim()
+        ? result.browserTranscript : null,
       isCorrect,
       // Word win is the harder of the two; weight accordingly so mastery
       // shadow / adaptation can distinguish full retrieval from
@@ -213,6 +214,8 @@ export default function DescribeGuessExercise() {
       trialMode: evidence.trialMode,
       clinicalProgressionEligible: evidence.independentSpokenScoreEligible,
       errorType: !evidence.validCommunication ? 'unscorable_response'
+        : result.inputMode === 'spoken' && !result.browserTranscript?.trim()
+          ? 'unverified_speech_provenance'
         : result.inputMode === 'typed' ? 'typed_practice'
         : isCorrect ? undefined : 'no_guess',
       taskParameters: {
