@@ -23,6 +23,8 @@ import {
   type RungReadiness,
 } from '@/lib/leveling/clinicalRungs';
 import { CLINICAL_DIMENSIONS, type ClinicalDimensionId } from '@/lib/leveling/clinicalDimensions';
+import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
+import { getCanonicalExercise } from '@/data/canonicalExerciseRegistry';
 
 
 function readinessBadge(r: RungReadiness) {
@@ -80,6 +82,50 @@ export default function GameAboutPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const profile = useMemo(() => getGameClinicalProfile(slug ?? ''), [slug]);
+  const registered = CLINICAL_LADDER_REGISTRY[slug ?? ''];
+
+  // Some catalog entries have newly authored eight-stage designs but no
+  // legacy 1–10 GameClinicalProfile. Do not send patients to a "not found"
+  // page or claim these stages are already working clinical levels.
+  if (!profile && registered?.rows?.length) {
+    const title = getCanonicalExercise(registered.slug)?.title ??
+      (registered.slug === 'functional-scenes' ? 'Command Scenes' : registered.slug);
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/games')} className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to activities
+        </Button>
+        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{registered.purpose}</p>
+        <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+          <p className="text-sm font-medium text-foreground">Eight proposed practice stages</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            These are a planned progression, not eight levels currently used to
+            advance your clinical score. The game still uses its existing
+            difficulty and assistance settings.
+          </p>
+        </div>
+        <ol className="mt-4 space-y-2">
+          {registered.rows.map(row => (
+            <li key={row.level} className="flex items-start gap-3 rounded-xl border border-border p-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                {row.level}
+              </span>
+              <div>
+                <p className="text-sm text-foreground">{row.description}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Stage {row.level} — proposed, not yet an independently tracked clinical level
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <Button asChild variant="outline" className="mt-5">
+          <Link to={`/exercise/${registered.slug}`}>Open current practice</Link>
+        </Button>
+      </main>
+    );
+  }
 
   if (!profile) {
     return (
