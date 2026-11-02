@@ -77,6 +77,10 @@ test('reviewed SQL includes server-side patient boundaries and privileged revoca
   assert.match(sql, /'claim_speech_analysis_jobs'/);
   assert.match(sql, /'submit_speech_analysis_result'/);
   assert.match(sql, /'upsert_worker_heartbeat'/);
+  // Trusted backend/cron calls must not be blocked by an interactive-admin
+  // restriction; anonymous callers must still lack EXECUTE grants.
+  assert.match(sql, /session_user = 'postgres'/);
+  assert.match(sql, /auth\.jwt\(\)->>'role' = 'service_role'/);
   assert.match(sql, /REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION %s TO service_role/);
   assert.doesNotMatch(sql, /END IF;\s*BEGIN\s*(?:CASE|REFRESH|SELECT|UPDATE)/);
