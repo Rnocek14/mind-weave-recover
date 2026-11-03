@@ -67,7 +67,7 @@ import {
   type PhonologicalAwarenessLevelSpec,
 } from './progression/phonologicalAwarenessLevels';
 import { DESCRIBE_GUESS_LEVELS } from './progression/describeGuessLevels';
-import { NARRATIVE_RETELL_CLINICAL_LEVELS } from './progression/narrativeRetellClinicalLevels';
+import { NARRATIVE_RETELL_CLINICAL_LEVELS, type NarrativeRetellClinicalLevelSpec } from './progression/narrativeRetellClinicalLevels';
 import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLevels';
 import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
@@ -171,7 +171,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec | NarrativeRetellClinicalLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
