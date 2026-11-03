@@ -111,6 +111,7 @@ interface PhotoNamingGameProps {
     inputMode?: 'production' | 'recognition' | 'timeout' | 'caregiver' | 'manual';
     productionAttempted?: boolean;
     micTechnicalFailure?: boolean;
+    selectedAnswer?: string;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -2082,6 +2083,7 @@ export const PhotoNamingGame = ({
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
           inputMode,
+          selectedAnswer: inputMode === 'recognition' ? word : undefined,
           productionAttempted: capturedProductionAttempted,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
@@ -2222,6 +2224,7 @@ export const PhotoNamingGame = ({
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
           inputMode,
+          selectedAnswer: inputMode === 'recognition' ? word : undefined,
           productionAttempted: capturedProductionAttempted,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
