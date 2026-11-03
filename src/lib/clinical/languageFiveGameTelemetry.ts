@@ -58,7 +58,10 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
     // progression:null). The marker below only prevents inappropriate
     // downstream reclassification of ambiguous/manual/technical evidence.
     clinicalProgressionEligible: !manual && !result.micTechnicalFailure &&
-      source !== 'unknown' && source !== 'timeout' &&
+      source !== 'unknown' &&
+      // The game already treats a functioning-mic timeout as an attempted
+      // trial on its own progression ladder. Preserve that exact distinction;
+      // only technical absence or unverified production is ineligible.
       !(spoken && !recognized),
     taskParameters: {
       language_game_telemetry_version: LANGUAGE_GAME_TELEMETRY_VERSION,
