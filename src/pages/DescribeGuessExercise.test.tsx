@@ -10,7 +10,12 @@ const mocks = vi.hoisted(() => ({
   recordPivot: vi.fn(),
   acknowledgePivot: vi.fn(),
   navigate: vi.fn(),
-  stage: null as { level: 1 | 2 | 3; itemTier: 1 | 2; initialVisiblePrompts: 0 | 3; label: string } | null,
+  stage: null as { level: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+    itemTier: 1 | 2 | 3; initialVisiblePrompts: 0 | 3; label: string;
+    instruction?: string; hideAutomaticPrompts?: boolean;
+    requiredFeatures?: string[];
+  } | null,
+  profileId: 'synthetic-profile',
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -22,7 +27,7 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'synthetic-user' } }),
 }));
 vi.mock('@/hooks/useProfile', () => ({
-  useProfile: () => ({ activeProfile: { id: 'synthetic-profile' } }),
+  useProfile: () => ({ activeProfile: { id: mocks.profileId } }),
 }));
 vi.mock('@/hooks/useDescribeGuessTrainingStage', () => ({
   useDescribeGuessTrainingStage: () => ({
@@ -90,6 +95,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
   it('passes the selected patient practice stage into the real page rendering path', () => {
     mocks.stage = { level: 2, itemTier: 1, initialVisiblePrompts: 0, label: 'Short descriptions with less help' };
     render(<DescribeGuessExercise />);
+    fireEvent.click(screen.getByRole('button',{name:'Start describing'}));
     expect(screen.getByText('Chosen training stage: 2')).toBeTruthy();
   });
 
@@ -115,6 +121,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
     sessionStorage.clear();
     vi.clearAllMocks();
     mocks.stage = null;
+    mocks.profileId = 'synthetic-profile';
     mocks.nextTrial=trial();
     mocks.submitTrial.mockResolvedValue({ok:true});
     mocks.commitSession.mockResolvedValue({ok:true,errors:[]});
@@ -123,6 +130,7 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
 
   const complete = () => {
     render(<DescribeGuessExercise />);
+    fireEvent.click(screen.getByRole('button',{name:'Start describing'}));
     fireEvent.click(screen.getByRole('button',{name:'Finish synthetic description'}));
   };
 
@@ -141,6 +149,78 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       }),
     }));
     expect(mocks.recordPivot).toHaveBeenCalledWith(expect.objectContaining({wasCorrect:true}));
+  });
+
+  it('offers all eight stage choices before Start and keeps advanced attempts out of independent speech metrics', async () => {
+    mocks.stage = { level:3, itemTier:2, initialVisiblePrompts:0, label:'Prior stage' };
+    mocks.nextTrial = trial({
+      practiceStage:8,practiceGoalObserved:true,practiceMissingFeatures:[],
+      practiceTargetNamed:false,practiceHelpRevealed:false,
+    });
+    render(<DescribeGuessExercise />);
+    fireEvent.click(screen.getByText('Care partner: choose a describing practice stage'));
+    expect(screen.getAllByRole('button',{name:/Stage [1-8]:/})).toHaveLength(8);
+    fireEvent.click(screen.getByRole('button',{name:/Stage 8: Help a new listener/i}));
+    fireEvent.click(screen.getByRole('button',{name:'Start describing'}));
+    expect(screen.getByText('Chosen training stage: 8')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Finish synthetic description'}));
+    await waitFor(()=>expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      clinicalProgressionEligible:false,trialMode:'mixed',supportUsed:'independent',
+      taskParameters:expect.objectContaining({
+        describing_training_stage:8,describing_target_tier:3,
+        stage_strategy_labels_available:0,stage_goal_observed:true,
+        stage_help_revealed:false,stage_goal_scope:'nonclinical_practice_only',
+        independent_spoken_score_eligible:false,
+      }),
+    }));
+    expect(mocks.recordPivot).not.toHaveBeenCalled();
+  });
+
+  it('records a revealed Stage 8 cue as practice support, never clinical advancement', async () => {
+    mocks.stage = {level:8,itemTier:3,initialVisiblePrompts:0,label:'New listener',
+      hideAutomaticPrompts:true,requiredFeatures:['function','appearance','category']};
+    mocks.nextTrial = trial({practiceStage:8,practiceHelpRevealed:true});
+    complete();
+    await waitFor(()=>expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      trialMode:'scaffolded',supportUsed:'semantic_cue',clinicalProgressionEligible:false,
+      taskParameters:expect.objectContaining({
+        stage_help_revealed:true,independent_spoken_score_eligible:false,
+        supported_spoken_practice:true,
+      }),
+    }));
+  });
+
+  it('requires successful raw event writes before committing or celebrating practice', async () => {
+    mocks.submitTrial.mockResolvedValue({ok:false});
+    complete();
+    await waitFor(()=>expect(screen.getByRole('alert')).toBeTruthy());
+    expect(mocks.commitSession).not.toHaveBeenCalled();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+    expect(screen.queryByText('Exercise Complete!')).toBeNull();
+  });
+
+  it('waits for the actual raw event promise instead of racing completion', async () => {
+    let finishWrite!: (result:{ok:boolean})=>void;
+    mocks.submitTrial.mockImplementation(()=>new Promise(resolve=>{finishWrite=resolve;}));
+    complete();
+    expect(mocks.commitSession).not.toHaveBeenCalled();
+    finishWrite({ok:true});
+    await waitFor(()=>expect(mocks.commitSession).toHaveBeenCalledTimes(1));
+    await waitFor(()=>expect(screen.getByText('Exercise Complete!')).toBeTruthy());
+  });
+
+  it('never reuses one patient session\u0027s selected practice stage for another profile', () => {
+    const view=render(<DescribeGuessExercise />);
+    fireEvent.click(screen.getByText('Care partner: choose a describing practice stage'));
+    fireEvent.click(screen.getByRole('button',{name:/Stage 7: Explain without naming/i}));
+    fireEvent.click(screen.getByRole('button',{name:'Start describing'}));
+    expect(screen.getByText('Chosen training stage: 7')).toBeTruthy();
+    mocks.profileId = 'another-synthetic-patient';
+    view.rerender(<DescribeGuessExercise />);
+    expect(screen.getByRole('button',{name:'Start describing'})).toBeTruthy();
+    expect(screen.queryByText('Chosen training stage: 7')).toBeNull();
   });
 
   it('records successful typed answers as practice without browser speech or speech pivot', async () => {
