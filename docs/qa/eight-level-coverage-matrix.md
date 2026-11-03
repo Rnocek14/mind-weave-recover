@@ -91,3 +91,36 @@ branch code, not deployed functionality or clinician-verified outcomes.
 After CI, verify same-commit job results separately. Staging ownership/RLS,
 physical-device audio, live aphasic understanding, clinician review and
 hospital readiness remain outside the synthetic software regression boundary.
+
+
+## November 2, 2026 — Describe & Guess Stage 4–8 practice (draft PR #129)
+
+Another **nonclinical** eight-stage activity follows the ten practice paths in
+stacked PR #128. Describe & Guess now uses the existing photographed target
+bank in actual task-specific practice formats: familiar descriptions with
+visible help (1–2); a more challenging object (3); function and location (4);
+appearance and material (5); three-feature descriptions with on-demand help
+(6); descriptive circumlocution without naming the target (7); and nine
+reserved photographed *new-listener* everyday situations (8). A care partner
+can choose a stage before a large Start button; selection is scoped to the
+current authenticated user, patient profile and session only.
+
+The game's old embedding/keyword guess rules, adaptive scoring and clinical
+promotion framework were **not** changed. Distinct practice-goal observations
+are marked as lexical/keyword evidence, not a validated functional
+communication outcome. Help reveals, actual chip use, input source and
+stage-specific opportunities are explicitly attributed. All staged attempts
+are excluded from independent clinical production scores and automatic
+clinical progression, regardless of a correct guess or word retrieval.
+
+The page also waits for every raw trial write before flushing the session.
+Failed/missing writes show the large-print "Results not saved" state and do
+not trigger a completed lesson. This change is important because an aphasic
+patient cannot recover silently from a false "complete" state.
+
+Stacked draft coverage becomes **11 of 29 playable Stage 1–8 nonclinical
+practice activities; 18 still lack equivalent stage-specific gameplay**.
+This count describes draft branch functionality, not deployment, SLP mastery,
+verified patient records, live ASR, or authenticated RLS performance. The
+separate 13 persisted clinical ladders and their evidence constraints above
+remain unchanged. Read final same-commit CI results before considering merge.
