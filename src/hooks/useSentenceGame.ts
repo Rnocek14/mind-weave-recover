@@ -90,7 +90,7 @@ export const useSentenceGame = (
     // Mark all selected trials as shown for within-session dedup
     allTrials.forEach(t => {
       shownTrialsRef.current.add(t.id);
-      markItemShown(t.id, 'sentence_game');
+      markItemShown('sentence_game', t.id);
     });
     
     setGameState(prev => ({
@@ -118,7 +118,7 @@ export const useSentenceGame = (
       if (fresh.length === 0) return prev;
       fresh.forEach(t => {
         shownTrialsRef.current.add(t.id);
-        markItemShown(t.id, 'sentence_game');
+        markItemShown('sentence_game', t.id);
       });
       const padded = fresh.length < upcomingNeeded
         ? [...fresh, ...prev.trials.slice(prev.currentTrial + 1 + fresh.length)]
