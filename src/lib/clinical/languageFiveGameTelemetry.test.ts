@@ -65,12 +65,12 @@ describe('5 language-game actual task observation contracts',()=>{
     });
     const tap=classifyPhotoNamingObservation({
       inputMode:'recognition',productionAttempted:true,
-      browserTranscript:'apple',cueLevel:1,
+      selectedAnswer:'banana',browserTranscript:'apple',cueLevel:1,
     });
     expect(tap.trialMode).toBe('recognition');
     expect(tap.taskParameters).toMatchObject({
       input_mode:'tap',production_attempted_before_choice:true,
-      speech_score_eligible:false,
+      selected_choice_word:'banana',speech_score_eligible:false,
     });
     expect(getSpeechScoreExclusion('photo_naming',tap.trialMode,tap.taskParameters))
       .toBe('source_explicitly_excluded');
