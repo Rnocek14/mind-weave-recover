@@ -21,6 +21,7 @@ import { useRestoredLessonContext } from "@/hooks/useRestoredLessonContext";
 import { useDynamicTier } from "@/hooks/useDynamicTier";
 import { useProfile } from "@/hooks/useProfile";
 import { useTrialSubmission } from "@/hooks/useTrialSubmission";
+import { describeSentenceConstructionObservation } from "@/lib/clinical/fiveGameObservationTelemetry";
 import {
   useSentenceConstructionProgression,
   mapSentenceConstructionSupport,
@@ -177,6 +178,10 @@ const SentenceConstructionExercise = () => {
     reactionTime: number;
     errorType: string | null;
     grammarFocus: string;
+    trialId: string;
+    inputMode: 'browser_recognized' | 'word_tiles';
+    browserTranscript: string | null;
+    selectedAnswerWords: string[];
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
     hintUsed: boolean;
     difficulty: number;
@@ -202,21 +207,26 @@ const SentenceConstructionExercise = () => {
       sessionId,
       gameId: 'sentence_construction',
       level: data.difficulty ?? level,
-      stimulusId: `sc_trial_${trialIndexRef.current}_${data.grammarFocus}`,
+      stimulusId: data.trialId,
       expectedResponse: null,
-      userResponse: null,
+      userResponse: data.selectedAnswerWords.join(' ') || null,
+      browserTranscript: data.inputMode === 'browser_recognized' ? data.browserTranscript : null,
       isCorrect: data.correct,
       accuracyScore: data.correct ? 1 : 0,
       cueLevel: data.hintUsed ? 1 : 0,
       supportUsed: mapSentenceConstructionSupport(data.hintUsed),
       latencyMs: data.reactionTime,
-      trialMode: 'production',
+      // Speech mapped onto displayed tiles is supported, not independent.
+      // A tile-submission is recognition and must never inflate speech metrics.
+      // Keep existing task correctness/progression; only source is corrected.
+      trialMode: data.inputMode === 'browser_recognized' ? 'scaffolded' : 'recognition',
       errorType: data.correct ? undefined : (data.errorType ?? 'grammar_error'),
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
         unified_route_adaptation_log: true,
         difficulty: data.difficulty,
         grammarFocus: data.grammarFocus,
+        ...describeSentenceConstructionObservation(data),
         trial_source: data.trialSource,
         hint_used: data.hintUsed,
         manual_override: manualDifficulty !== null,
