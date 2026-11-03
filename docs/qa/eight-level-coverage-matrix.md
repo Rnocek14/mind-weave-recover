@@ -124,3 +124,31 @@ This count describes draft branch functionality, not deployment, SLP mastery,
 verified patient records, live ASR, or authenticated RLS performance. The
 separate 13 persisted clinical ladders and their evidence constraints above
 remain unchanged. Read final same-commit CI results before considering merge.
+
+
+## November 2 — integrated candidate: 14/29 *practice-only* staged activities (draft PR #132)
+
+The separately reviewed Describe & Guess and Thought Organization sibling waves
+(#129 and #130), combined with Word Finding and Sentence Game, extend the
+**distinct playable eight-stage practice** list from 10 to **14 of 29**.
+
+These are real runtime-selected activity formats. The newly implemented Word
+Finding stage axis moves from modeled word recognition to lexical retrieval,
+circumlocution and functional requests; Sentence Game moves from agent/action
+recognition and word-tile ordering to meaningful novel sentence formulation.
+Word Finding and Sentence Game each have 24 authored trials (3 per stage),
+which is enough for a prototype practice pass but **not adequate evidence of
+long-term item diversity, independent mastery, or functional generalization**.
+
+**15 activities still lack equivalent eight-stage practice parity.** Several
+are existing clinical-ladder games with partial upper levels; their saved
+clinical progression is unchanged. The staged modes for Word Finding and
+Sentence Game use no automatic correctness judgment on generative speech and
+do not advance clinical levels. All modalities (choice/tiles, typed, browser
+recognized, self-report, skipped) carry explicit evidence provenance.
+
+The 29-game QA runbook on the same branch creates *audit cases*, not additional
+finished gameplay. Every game still requires observed on-device testing,
+isolated authenticated event readback, and discipline-specific clinical review.
+
+This paragraph reports draft candidate behavior, not merged/deployed output.
