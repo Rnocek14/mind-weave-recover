@@ -20,6 +20,8 @@ import { KNOWN_CAVEATS, deriveTierStatusFromSpec } from '@/lib/clinicalIntegrity
 import { PHOTO_NAMING_LEVELS } from '@/lib/progression/photoNamingLevels';
 import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 import { MINIMAL_PAIRS_LEVELS } from '@/lib/progression/minimalPairsLevels';
+import { SENTENCE_CONSTRUCTION_LEVELS } from '@/lib/progression/sentenceConstructionLevels';
+import { NARRATIVE_RETELL_CLINICAL_LEVELS } from '@/lib/progression/narrativeRetellClinicalLevels';
 
 type LevelsMap = Record<number | string, {
   contentSelector?: { implemented?: boolean; description?: string };
@@ -29,6 +31,8 @@ const REGISTRY: Record<string, LevelsMap> = {
   'photo-naming': PHOTO_NAMING_LEVELS as unknown as LevelsMap,
   'fix-sentence': FIX_SENTENCE_LEVELS as unknown as LevelsMap,
   'minimal-pairs': MINIMAL_PAIRS_LEVELS as unknown as LevelsMap,
+  'sentence-construction': SENTENCE_CONSTRUCTION_LEVELS as unknown as LevelsMap,
+  'narrative-retell': NARRATIVE_RETELL_CLINICAL_LEVELS as unknown as LevelsMap,
 };
 
 describe('KNOWN_CAVEATS ↔ level-spec drift', () => {
