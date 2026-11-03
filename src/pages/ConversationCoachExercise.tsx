@@ -10,6 +10,7 @@ import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
 import { ConversationStagePracticeSession } from '@/components/ConversationStagePracticeSession';
+import { resolveLessonConversationNavigation } from '@/lib/conversationPractice/lessonHandoff';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -66,6 +67,7 @@ export default function ConversationCoachExercise() {
   });
   
   const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const lessonBridge = resolveLessonConversationNavigation(location.state, activeProfile?.id, 'conversation-coach');
   const liveScopeRef = useRef(scope);
   liveScopeRef.current = scope;
   const [scopedStarted, setScopedStarted] = useState<{
@@ -264,10 +266,13 @@ export default function ConversationCoachExercise() {
               disabled={!activeProfile?.id||!activeSessionId||isCreatingSession}>
               Start Practice
             </Button>
+            {lessonBridge && <p role="status" className="text-sm text-muted-foreground">
+              {lessonBridge.label}. This is optional scripted practice, not a clinical outcome.
+            </p>}
             <Button size="lg" variant="outline" className="w-full min-h-14"
               onClick={handleStartStructured}
               disabled={!activeProfile?.id||!activeSessionId||isCreatingSession}>
-              Guided coach role-play (8 practice stages)
+              {lessonBridge ? 'Practice this skill with Maya' : 'Guided coach role-play (8 practice stages)'}
             </Button>
             
             <Button 
@@ -302,6 +307,7 @@ export default function ConversationCoachExercise() {
         {structuredActive ? <ConversationStagePracticeSession
           key={scope+':scripted'}
           kind="conversation-coach"
+          initialStage={lessonBridge?.stage}
           userId={user.id} profileId={activeProfile!.id}
           sessionId={activeSessionId!}
           onSaved={handleStructuredSaved} onExit={()=>navigate('/today')}/>
