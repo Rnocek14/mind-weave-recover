@@ -106,7 +106,7 @@ export function getDescribeGuessStageTrials(
     difficulty:engineDifficulty,count:stage.situational?100:count,
   }).filter(t=>t.difficulty===stage.itemTier);
   return (stage.situational
-    ? candidates.filter(t=>Object.hasOwn(SITUATIONS,t.id)) : candidates
+    ? candidates.filter(t=>Object.prototype.hasOwnProperty.call(SITUATIONS,t.id)) : candidates
   ).slice(0,count);
 }
 
