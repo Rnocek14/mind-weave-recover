@@ -19,7 +19,7 @@ const finite = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 export type PhotoNamingResponseSource =
-  | 'production' | 'recognition' | 'caregiver' | 'manual' | 'unknown';
+  | 'production' | 'recognition' | 'caregiver' | 'manual' | 'timeout' | 'unknown';
 
 export interface PhotoNamingObservation {
   inputMode?: PhotoNamingResponseSource;
@@ -30,6 +30,7 @@ export interface PhotoNamingObservation {
   cueLevel?: number;
   cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
   productionAttempted?: boolean;
+  micTechnicalFailure?: boolean;
   browserTranscript?: string;
   whisperTranscript?: string;
   errorType?: string;
@@ -44,15 +45,21 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
     : result.inputMode ?? 'unknown';
   const spoken = source === 'production';
   const tap = source === 'recognition';
-  // Mixed/unknown/manually-confirmed scores are practice observations, not
-  // verified independent speech or unsupervised progression data.
-  const trialMode: 'production' | 'recognition' | 'mixed' =
-    spoken ? 'production' : tap ? 'recognition' : 'mixed';
   const recognized = !!(result.browserTranscript?.trim() || result.whisperTranscript?.trim());
+  // A timeout without a usable microphone is a technical absence, not an
+  // incorrect patient response. A tapped answer is never a spoken response,
+  // even when the patient first attempted to speak and then needed support.
+  const trialMode: 'production' | 'recognition' | 'mixed' =
+    spoken && recognized ? 'production'
+      : tap ? 'recognition' : 'mixed';
   return {
     trialMode,
-    clinicalProgressionEligible: !manual && source !== 'unknown' &&
-      result.errorType !== 'technical_failure',
+    // The Photo Naming game owns its progression state (this page passes
+    // progression:null). The marker below only prevents inappropriate
+    // downstream reclassification of ambiguous/manual/technical evidence.
+    clinicalProgressionEligible: !manual && !result.micTechnicalFailure &&
+      source !== 'unknown' && source !== 'timeout' &&
+      !(spoken && !recognized),
     taskParameters: {
       language_game_telemetry_version: LANGUAGE_GAME_TELEMETRY_VERSION,
       input_mode: spoken
@@ -60,6 +67,9 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
         : tap ? 'tap' : source,
       response_source: source,
       production_attempted_before_choice: result.productionAttempted ?? null,
+      microphone_technical_failure: result.micTechnicalFailure ?? false,
+      completion_reason: source === 'timeout' ? 'timeout'
+        : manual ? 'manually_confirmed' : source === 'unknown' ? 'unknown' : 'answered',
       cue_type_given: result.cueTypeGiven ?? null,
       delivered_cue_level: finite(result.cueLevel),
       human_manual_confirmation: manual,
@@ -69,6 +79,8 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
       service_transcript_available: !!result.whisperTranscript?.trim(),
       independently_verified_naming: false,
       spoken_naming_outcome_human_verified: false,
+      speech_score_eligible: trialMode === 'production' && !manual
+        ? null : false,
     },
   };
 }
@@ -76,11 +88,13 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
 export function describeTwoCluesObservation(result: TwoCluesTrialResult) {
   const skipped = result.completionReason === 'skipped' ||
     !result.spokenWord?.trim();
+  const sourceVerified = !!result.browserTranscript?.trim();
   const supported = (result.cueLevelUsed ?? 0) > 0 ||
     (result.cueTypeUsed ?? 'none') !== 'none';
   return {
-    trialMode: skipped ? 'mixed' as const : supported ? 'scaffolded' as const : 'production' as const,
-    clinicalProgressionEligible: !skipped,
+    trialMode: skipped || !sourceVerified ? 'mixed' as const
+      : supported ? 'scaffolded' as const : 'production' as const,
+    clinicalProgressionEligible: !skipped && sourceVerified,
     taskParameters: {
       language_game_telemetry_version: LANGUAGE_GAME_TELEMETRY_VERSION,
       target_word: result.anchors?.[0] ?? null,
@@ -89,8 +103,12 @@ export function describeTwoCluesObservation(result: TwoCluesTrialResult) {
       clue_diagnosticity_human_assessed: false,
       cue_support_used: result.cueTypeUsed ?? 'none',
       delivered_cue_level: finite(result.cueLevelUsed),
-      response_input_mode: skipped ? 'skipped' : 'browser_recognized_provisional',
+      response_input_mode: skipped ? 'skipped' : sourceVerified
+        ? 'browser_recognized_provisional' : 'unverified_response_source',
       completion_reason: skipped ? 'skipped' : 'answered',
+      browser_recognizer_transcript_available: sourceVerified,
+      browser_recognizer_raw_transcript: sourceVerified ? result.browserTranscript : null,
+      speech_score_eligible: skipped || !sourceVerified ? false : null,
       attempt_number: Number.isFinite(result.attemptNumber) ? result.attemptNumber : null,
       first_attempt_without_delivered_help: !skipped &&
         result.attemptNumber === 1 && !supported,
@@ -149,7 +167,7 @@ export function describeNarrativeRetellObservation(result: NarrativeTrialResult)
 }
 
 export function describeMeaningMatchObservation(result: MeaningMatchTrialResult) {
-  const optionTexts = result.presentedOptions ?? [];
+  const optionTexts = Array.isArray(result.presentedOptions) ? result.presentedOptions : [];
   const validIndex = (index: number) =>
     Number.isInteger(index) && index >= 0 && index < optionTexts.length;
   const selected = validIndex(result.selectedIndex)
