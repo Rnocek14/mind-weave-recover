@@ -44,6 +44,7 @@ const ALL_GAMES: GameInfo[] = [
   { id: 'sentence-construction', emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech', domain: 'Sentence Building' },
   { id: 'fix-sentence', emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking', domain: 'Sentence Building' },
   { id: 'thought-continuation', emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences', difficulty: 'easy', category: 'speech', domain: 'Sentence Building' },
+  { id: 'thought-organization', emoji: '🧠', name: 'Organize Your Thoughts', desc: 'Practice main ideas, details and everyday explanations', difficulty: 'medium', category: 'speech', domain: 'Sentence Building' },
   { id: 'semantic-features', emoji: '🏷️', name: 'Word Features', desc: 'Describe what things are', difficulty: 'medium', category: 'thinking', domain: 'Understanding' },
   { id: 'meaning-match', emoji: '💡', name: 'Meaning Match', desc: 'Match words with meanings', difficulty: 'easy', category: 'thinking', domain: 'Understanding' },
   { id: 'synonym-generator', emoji: '🔄', name: 'Synonym Generator', desc: 'Think of similar words', difficulty: 'medium', category: 'thinking', domain: 'Understanding' },
@@ -86,6 +87,7 @@ const EXERCISE_ROUTES: Record<string, string> = {
   'fix-sentence': '/exercise/fix-sentence',
   'describe-guess': '/exercise/describe-guess',
   'thought-continuation': '/exercise/thought-continuation',
+  'thought-organization': '/exercise/thought-organization',
   'category-fluency': '/exercise/category-fluency',
   'synonym-generator': '/exercise/synonym-generator',
 };
