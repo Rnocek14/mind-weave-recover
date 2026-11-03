@@ -65,6 +65,14 @@ vi.mock('@/components/FunctionalPracticeGame', () => ({
       onTrialComplete(attempt);
       onGameComplete([attempt]);
     }}>Complete typed practice round</button>
+    <button onClick={() => {
+      const attempt: FunctionalPracticeResult = {
+        ...objectiveResult, stage: stage.level, baselineSupport: 'phonemic_cue',
+        supportRevealed: true, supportText: 'Brr... bread.',
+      };
+      onTrialComplete(attempt);
+      onGameComplete([attempt]);
+    }}>Complete phonemic model round</button>
   </div>,
 }));
 import FunctionalPracticeExercise from './FunctionalPracticeExercise';
@@ -123,6 +131,24 @@ describe('patient-owned functional practice evidence', () => {
       }),
     }));
   });
+  it('records exactly delivered full word model rather than falsely labeling it a phonemic-only cue', async () => {
+    const page = render(<FunctionalPracticeExercise kind="word-finding"/>);
+    fireEvent.click(screen.getByText('Care partner: choose a practice stage'));
+    fireEvent.click(screen.getByRole('button', { name: /Stage 2:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start practice' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete phonemic model round' }));
+    await waitFor(() => expect(mocks.submit).toHaveBeenCalledTimes(1));
+    expect(mocks.submit).toHaveBeenCalledWith(expect.objectContaining({
+      supportUsed: 'carrier_or_full_model',
+      taskParameters: expect.objectContaining({
+        practice_baseline_support: 'phonemic_cue',
+        practice_support_revealed: true,
+        practice_help_text: 'Brr... bread.',
+      }),
+    }));
+    page.unmount();
+  });
+
   it('never finishes or reports saved practice when raw event write fails', async () => {
     mocks.submit.mockResolvedValue({ ok: false });
     start();
