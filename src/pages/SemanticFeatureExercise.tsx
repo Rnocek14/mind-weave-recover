@@ -39,6 +39,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeSemanticFeatureObservation } from '@/lib/clinical/fiveGameObservationTelemetry';
 import {
   useSemanticFeaturesProgression,
   mapSemanticFeaturesSupport,
@@ -225,13 +226,16 @@ export default function SemanticFeatureExercise() {
       level: data?.difficulty ?? adaptation.difficultyTier ?? 1,
       stimulusId: data?.word ?? `sfa_trial_${trialIndexRef.current}`,
       expectedResponse: data?.word ?? null,
-      userResponse: null,
+      userResponse: data?.retrievalSelectedWord ?? null,
       isCorrect,
       accuracyScore: isCorrect ? 1 : (data?.retrievalCorrect ? 0.5 : 0),
       cueLevel,
       supportUsed: mapSemanticFeaturesSupport(cueLevel),
       latencyMs: data?.reactionTime ?? null,
-      trialMode: 'production',
+      // This is displayed-option selection + a retrieval CHOICE, not an
+      // independently generated semantic feature or spoken naming trial.
+      // Preserve the game's existing task correctness and progression rule.
+      trialMode: 'recognition',
       errorType: isCorrect ? undefined : 'semantic_error',
       taskParameters: {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
@@ -242,6 +246,7 @@ export default function SemanticFeatureExercise() {
         features_missed: data?.featuresMissed,
         features_incorrect: data?.featuresIncorrect,
         retrieval_correct: data?.retrievalCorrect,
+        ...describeSemanticFeatureObservation(data ?? {}),
         feature_breakdown: data?.featureBreakdown,
         adaptations_active: data?.adaptationsActive,
         clinical_level: progression.startingLevel,

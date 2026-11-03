@@ -15,6 +15,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeCategoryFluencyObservation } from '@/lib/clinical/fiveGameObservationTelemetry';
 import { tierToLevel } from '@/lib/gameLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -201,6 +202,7 @@ export default function CategoryFluencyExercise() {
         independent_spoken: outcome.independentSpoken,
         clinical_progression_eligible: outcome.clinicalProgressionEligible,
         words: result.words,
+        ...describeCategoryFluencyObservation(result),
         difficulty: result.difficulty,
         game_level: typeof result.difficulty === 'number'
           ? tierToLevel(result.difficulty, { min: 1, max: 3 })

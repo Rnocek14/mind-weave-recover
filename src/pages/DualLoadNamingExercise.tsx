@@ -33,6 +33,7 @@ import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeDualLoadNamingObservation } from '@/lib/clinical/fiveGameObservationTelemetry';
 import {
   useDualLoadNamingProgression,
   mapDualLoadNamingSupport,
@@ -194,6 +195,7 @@ export default function DualLoadNamingExercise() {
         naming_accuracy: result.namingAccuracy,
         recall_accuracy: result.recallAccuracy,
         interference_index: result.interferenceIndex,
+        ...describeDualLoadNamingObservation(result),
         naming_input_mode: evidence.namingInputMode,
         recall_input_mode: evidence.recallInputMode,
         scorable_spoken_naming_attempts: evidence.scorableSpokenNamingAttempts,

@@ -30,6 +30,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeMultiStepPlanObservation } from '@/lib/clinical/fiveGameObservationTelemetry';
 import {
   useMultiStepPlanningProgression,
   mapMultiStepPlanningSupport,
@@ -176,6 +177,7 @@ export default function MultiStepPlanExercise() {
         sequence_evidence_available: result.sequenceEvidenceAvailable,
         sequence_matched_steps: result.sequenceMatchedSteps,
         sequence_method: result.sequenceMethod,
+        ...describeMultiStepPlanObservation(result),
         input_mode: result.inputMode,
         completion_reason: result.completionReason,
         response_valid: result.responseValid,
