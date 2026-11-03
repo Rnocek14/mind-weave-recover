@@ -48,6 +48,23 @@ describe('eight real, practice-only functional language formats', () => {
     expect(getFunctionalPracticeTrials(kind, 8, 0)).toEqual([]);
   });
 
+  it.each(KINDS)('%s rotates the six authored items deterministically per session', kind => {
+    const seen = new Set<string>();
+    for (const seed of ['patient-a-session-1', 'patient-a-session-2', 'patient-b-session-3',
+      'today-1', 'today-2', 'tomorrow-3', 'another-5', 'session-8']) {
+      const first = getFunctionalPracticeTrials(kind, 8, 3, seed);
+      const second = getFunctionalPracticeTrials(kind, 8, 3, seed);
+      expect(first).toEqual(second);
+      expect(first).toHaveLength(3);
+      expect(new Set(first.map(item => item.id)).size).toBe(3);
+      expect(first.every(item => item.kind === 'open')).toBe(true);
+      seen.add(first[0].id);
+      const allSix = getFunctionalPracticeTrials(kind, 8, 6, seed);
+      expect(new Set(allSix.map(item => item.id)).size).toBe(6);
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
   it('recognizes a real correct/wrong choice and measures actual tile order', () => {
     const choice = getFunctionalPracticeTrials('word-finding', 1)[0];
     expect(choice.kind).toBe('choice');
