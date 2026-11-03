@@ -265,8 +265,9 @@ export default function QaRunbook() {
                       >Skip</Button>
                       <Input
                         value={current?.note ?? ''}
-                        onChange={(e) => setStep(key, current?.result ?? 'skip', e.target.value)}
-                        placeholder="optional note"
+                        onChange={(e) => { if (current) setStep(key, current.result, e.target.value); }}
+                        placeholder={current ? "optional note" : "Mark Pass, Fail or Skip first"}
+                        disabled={!current}
                         className="flex-1 min-w-[180px]"
                       />
                     </div>
