@@ -65,7 +65,7 @@ describe('useDescribeGuessGame original result provenance', () => {
     });
   });
 
-  it('records actual Stage 4 described features from the selected photo, without mislabeling a typed answer as speech', () => {
+  it('records actual Stage 4 described features from the selected photo, without mislabeling a typed answer as speech', async () => {
     const onTrialComplete=vi.fn();
     const {result}=renderHook(()=>useDescribeGuessGame({
       trialCount:1,trainingStage:getDescribeGuessTrainingStage(4),onTrialComplete,
