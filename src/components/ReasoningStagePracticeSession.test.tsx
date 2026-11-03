@@ -85,7 +85,7 @@ describe('practice-only, patient-owned reasoning session writes',()=>{
       expect(submitted.map(x=>x.trialIndex)).toEqual([0,1,2,3]);
       expect(new Set(submitted.map(x=>x.stimulusId)).size).toBe(4);
       for(const input of submitted){
-        expect(input.gameId).toBe(kind.replace(/-/g,'_'));
+        expect(input.gameId).toBe(kind.replace(/-/g,'_')+'_practice');
         expect(input.profileId).toBe('synthetic-profile-a');
         expect(input.sessionId).toBe('synthetic-session-a');
         expect(input.level).toBe(8);
@@ -93,6 +93,7 @@ describe('practice-only, patient-owned reasoning session writes',()=>{
         expect(input.clinicalProgressionEligible).toBe(false);
         expect(input.taskParameters).toMatchObject({
           reasoning_practice:true,practice_only:true,reasoning_practice_stage:8,
+          reasoning_source_game:kind.replace(/-/g,'_'),
           clinical_progression_eligible:false,clinical_score_eligible:false,
           independent_spoken_score_eligible:false,functional_transfer_verified:false,
         });
