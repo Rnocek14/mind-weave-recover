@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useNarrativeRetellGame } from '@/hooks/useNarrativeRetellGame';
 
 describe('Narrative Retell live hook — pinned clinical content', () => {
@@ -33,8 +33,8 @@ describe('Narrative Retell live hook — pinned clinical content', () => {
     expect(result.current.currentStory?.id).toBe(storyId);
     expect(result.current.currentStory?.keyEvents).toHaveLength(1);
     const fact = result.current.currentStory!.keyEvents[0];
-    let submitted: ReturnType<typeof result.current.submitRetell> = null;
-    act(() => { submitted = result.current.submitRetell(fact, 1000); });
+    act(() => { result.current.submitRetell(fact, 1000); });
+    const submitted = result.current.results[0];
     expect(submitted?.eventsFound).toBeGreaterThanOrEqual(1);
     expect(submitted?.eventsTotal).toBe(1);
     act(() => result.current.nextStory());
@@ -44,8 +44,8 @@ describe('Narrative Retell live hook — pinned clinical content', () => {
 
   it('returns a zero-event result for a skip rather than a successful recall', () => {
     const { result } = renderHook(() => useNarrativeRetellGame(3, 3, 2));
-    let submitted: ReturnType<typeof result.current.submitRetell> = null;
-    act(() => { submitted = result.current.submitRetell('', 1000); });
+    act(() => { result.current.submitRetell('', 1000); });
+    const submitted = result.current.results[0];
     expect(submitted?.skipped).toBe(true);
     expect(submitted?.eventsFound).toBe(0);
     expect(submitted?.eventsTotal).toBe(2);
