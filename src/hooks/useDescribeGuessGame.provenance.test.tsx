@@ -75,9 +75,12 @@ describe('useDescribeGuessGame original result provenance', () => {
       trial.featureKeywords.function?.[0],trial.featureKeywords.location?.[0],
     ].filter(Boolean).join(' ');
     let output: ReturnType<typeof result.current.finalizeTrial>|undefined;
-    act(()=>{
+    await act(async()=>{
       result.current.recordPracticeHelpReveal();
       output=result.current.finalizeTrial(description,guess,false,false,'typed');
+      // Production schedules onTrialComplete in queueMicrotask.
+      // Flush that microtask, not just the synchronous result creation.
+      await Promise.resolve();
     });
     expect(output).toMatchObject({
       inputMode:'typed',browserTranscript:null,practiceStage:4,
