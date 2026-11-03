@@ -36,7 +36,7 @@ vi.mock('@/hooks/useTrialSubmission', () => ({
 const objectiveResult: FunctionalPracticeResult = {
   trialId: 'wf-model-cup', stage: 1, taskKind: 'choice', inputMode: 'choice',
   userResponse: null, correct: true, practiceAccuracy: 1, supportRevealed: false,
-  baselineSupport: 'full_model', clinicalProgressionEligible: false,
+  baselineSupport: 'full_model', supportText: null, clinicalProgressionEligible: false,
   independentSpokenScoreEligible: false,
 };
 vi.mock('@/components/FunctionalPracticeGame', () => ({
