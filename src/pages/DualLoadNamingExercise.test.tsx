@@ -167,6 +167,13 @@ describe('DualLoadNamingExercise true dual-task clinical evidence', () => {
       taskParameters: expect.objectContaining({
         combined_success: true,
         scorable_spoken_naming_attempts: 3,
+        baseline_naming_trial_id: null,
+        overlap_timing_ms: null,
+        measured_matched_baseline: false,
+        independent_interference_cost_verified: false,
+        heuristic_interference_index: 0.1,
+        naming_attempt_count: 3,
+        recall_input_mode: 'typed',
       }),
     }));
     expect(mocks.recordDynamicTier).toHaveBeenCalledWith(expect.objectContaining({ correct: true }));
