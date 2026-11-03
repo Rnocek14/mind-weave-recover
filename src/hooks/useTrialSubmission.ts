@@ -208,7 +208,7 @@ export function useTrialSubmission(opts: Options) {
             frustration_signal: input.frustrationSignal ?? null,
             ...measurementProvenance,
             ...(speechExclusion ? {
-              clinical_score_eligible: false,
+              speech_score_eligible: false,
               measurement_speech_exclusion_reason: speechExclusion,
             } : {}),
           },
