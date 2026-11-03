@@ -135,6 +135,7 @@ export default function NarrativeRetellExercise() {
         response_mode: result.responseMode ?? 'unknown',
         scoring_valid: result.scoringValid === true,
         assistance_used: result.assistanceUsed === true,
+        story_replayed: result.storyReplayed === true,
         duration_ms: result.durationMs,
         events_found: result.eventsFound,
         events_total: result.eventsTotal,
@@ -169,7 +170,8 @@ export default function NarrativeRetellExercise() {
       if (persisted && result.scoringValid === true && result.responseMode === 'spoken') {
         progression.recordTrialOutcome({
           correct: isCorrect,
-          support: result.assistanceUsed ? 'semantic_cue' : 'independent',
+          support: result.storyReplayed ? 'carrier_or_full_model'
+            : result.assistanceUsed ? 'semantic_cue' : 'independent',
         });
       }
     }).catch(err => console.warn('[NarrativeRetell] trial save failed', err));
