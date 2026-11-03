@@ -35,6 +35,7 @@ import { ProgressionRecap } from '@/components/ProgressionRecap';
 import { getFixSentenceLevelSpec } from '@/lib/progression/fixSentenceLevels';
 import type { CommitSessionResult } from '@/lib/trial/types';
 import { buildFixSentenceTaskParameters } from '@/lib/telemetry/fixSentenceTaskParams';
+import { routeFixSentenceEvidence } from '@/lib/fixSentence/evidenceRouting';
 import { recordFixSentenceReviewTargets } from '@/lib/gameReviewHandoff';
 
 const EXERCISE_SLUG = 'fix_sentence';
@@ -136,11 +137,16 @@ export default function FixSentenceExercise() {
     const phonemeMatched = result.phonemeTargets.length > 0 &&
       result.phonemeTargets.some(p => focusSet.has(p));
 
-    const validity = classifyUtteranceValidity({
-      transcript: result.spokenWord,
-      asrConfidence: null,
-      recordingDurationMs: result.reactionTimeMs,
-    });
+    const evidence = routeFixSentenceEvidence(result);
+    // A typed answer or a tapped word can be useful supported practice,
+    // but classifying either as a recorded utterance invents speech evidence.
+    const validity = evidence.browserTranscript
+      ? classifyUtteranceValidity({
+          transcript: evidence.browserTranscript,
+          asrConfidence: null,
+          recordingDurationMs: result.reactionTimeMs,
+        })
+      : undefined;
 
     void submitTrial({
       profileId: activeProfile?.id,
@@ -150,6 +156,7 @@ export default function FixSentenceExercise() {
       stimulusId: result.trialId,
       expectedResponse: result.wrongWord,
       userResponse: result.spokenWord,
+      browserTranscript: evidence.browserTranscript,
       isCorrect: result.isCorrect,
       accuracyScore: result.semanticSimilarity ?? null,
       // cue_level stays 0: choice tiles are a RESPONSE-FORMAT support
@@ -158,10 +165,17 @@ export default function FixSentenceExercise() {
       cueLevel: 0,
       supportUsed: result.support ?? 'open_response',
       latencyMs: result.reactionTimeMs ?? null,
-      trialMode: 'production',
+      trialMode: evidence.trialMode,
+      clinicalProgressionEligible: evidence.clinicalProgressionEligible,
       validity,
       errorType: result.isCorrect ? undefined : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
       taskParameters: buildFixSentenceTaskParameters(result, {
+        // Keep clinical ladder eligibility separate from *verified spoken*
+        // session accuracy. Choice is appropriate L1/L2 receptive evidence,
+        // but it is not independent spoken production.
+        input_mode: evidence.inputMode,
+        clinical_score_eligible: evidence.verifiedSpeechScoreEligible,
+        independent_spoken_score_eligible: evidence.independentSpokenScoreEligible,
         phoneme_matched: phonemeMatched,
         phoneme_targets: result.phonemeTargets,
         ...adaptationTelemetry,
