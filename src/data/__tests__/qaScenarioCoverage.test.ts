@@ -51,7 +51,7 @@ describe('NeuroSpark all-game manual QA audit coverage', () => {
       const byId = Object.fromEntries(scenario.steps.map((step) => [step.id, step]));
       expect(byId.stages.expect).toMatch(/unavailable|incomplete/i);
       expect(byId.evidence.safety).toMatch(/without isolated authenticated read-back/i);
-      expect(byId.speech-if-used.expect).toMatch(/spoken and non-spoken modes remain distinct/i);
+      expect(byId['speech-if-used'].expect).toMatch(/spoken and non-spoken modes remain distinct/i);
       expect(byId.response.safety).toMatch(/not.*clinically verified independent success/i);
       expect(byId.skip.expect).toMatch(/not falsely recorded/i);
     }
