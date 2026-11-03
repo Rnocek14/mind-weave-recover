@@ -538,7 +538,8 @@ export function NarrativeRetellGame({
       (async () => {
         await new Promise(r => setTimeout(r, 300));
         try {
-          await vg.speakTask();
+          if (isMicroRecall) await vg.autoReadText(retellPromptText);
+          else await vg.speakTask();
           voiceController.recordSpoken(retellPromptText);
         } catch {}
         await openMic();
@@ -641,6 +642,7 @@ export function NarrativeRetellGame({
 
       if (result) {
         result.responseMode = useTyping ? 'typed' : 'spoken';
+        result.storyReplayed = replayDuringRetellRef.current;
         result.scoringValid = validation.valid && Boolean(gatedTranscript.trim());
         result.assistanceUsed = replayDuringRetellRef.current || stallPromptIndex >= 0 ||
           supportTelemetryRef.current.maxResolved > 0;
@@ -721,6 +723,7 @@ export function NarrativeRetellGame({
 
     if (result) {
       result.responseMode = 'skip';
+      result.storyReplayed = replayDuringRetellRef.current;
       result.scoringValid = false;
       result.assistanceUsed = replayDuringRetellRef.current || stallPromptIndex >= 0;
       const t = supportTelemetryRef.current;
@@ -1185,14 +1188,20 @@ export function NarrativeRetellGame({
                </div>
 
               <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 space-y-1">
-                <p className="text-sm text-foreground">{buildMayaReflection(lastResult)}</p>
+                <p className="text-sm text-foreground">{isMicroRecall
+                  ? lastResult.eventsFound >= requiredFactCount
+                    ? `You remembered ${requiredFactCount} ${requiredFactCount === 1 ? 'fact' : 'facts'}!`
+                    : lastResult.eventsFound > 0
+                      ? `You remembered ${lastResult.eventsFound} of ${requiredFactCount} facts. Try the other part next time.`
+                      : 'Try remembering one word from the story. You can listen again.'
+                  : buildMayaReflection(lastResult)}</p>
                 <p className="text-xs text-muted-foreground italic">{realLifeLineRef.current}</p>
               </div>
               {validationCoaching && lastResult.eventCoverage === 0 && (
                 <p className="text-sm text-muted-foreground italic">💡 {validationCoaching}</p>
               )}
 
-              <div className="space-y-2">
+              {!isMicroRecall && <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Story structure:</p>
                 <div className="grid grid-cols-3 gap-2">
                   {(['beginning', 'middle', 'end'] as const).map(section => {
@@ -1211,10 +1220,10 @@ export function NarrativeRetellGame({
                     );
                   })}
                 </div>
-              </div>
+              </div>}
 
               <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">What you included:</p>
+                <p className="text-xs font-medium text-muted-foreground">{isMicroRecall ? 'Facts you remembered:' : 'What you included:'}</p>
                 {lastResult.allKeyEvents.map((event, i) => {
                   const matched = lastResult.matchedEvents.some(
                     m => m.toLowerCase() === event.toLowerCase()
@@ -1233,7 +1242,9 @@ export function NarrativeRetellGame({
 
               <div className="bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
                 <p className="text-xs font-medium text-primary mb-0.5">💡 Next step</p>
-                <p className="text-sm text-foreground">{lastResult.nextStepHint}</p>
+                <p className="text-sm text-foreground">{isMicroRecall
+                  ? `Practice remembering ${requiredFactCount} ${requiredFactCount === 1 ? 'thing' : 'things'}. A short answer is okay.`
+                  : lastResult.nextStepHint}</p>
               </div>
 
               {lastResult.transcript && (
