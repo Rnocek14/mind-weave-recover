@@ -87,8 +87,9 @@ describe('Conversation Coach optional structured practice',()=>{
     await waitFor(()=>expect(screen.getByText('Session Complete')).toBeTruthy());
     expect(screen.getByText('Great Practice!')).toBeTruthy();
     expect(mocks.completeSession).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button',{name:'Practice Again'}));
-    expect(screen.getByRole('button',{name:'Start Practice'})).toBeTruthy();
+    expect(screen.queryByRole('button',{name:'Practice Again'})).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Return to Today'}));
+    expect(mocks.navigate).toHaveBeenCalledWith('/today');
   });
 
   it('offers eight-stage roleplay as an explicit alternative to the live AI coach',async()=>{
