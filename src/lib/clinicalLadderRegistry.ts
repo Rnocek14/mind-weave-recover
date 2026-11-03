@@ -399,7 +399,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'Persisted L1–L8 fact-coverage progression. Only successfully logged, valid spoken retells move the ladder. Typed practice and invalid ASR cannot become speech evidence. Uses existing raw telemetry writer, NOT ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/narrative-retell.md',
-      tldr: 'Clinical fact-recall (1, 2, 3, then longer stories) is implemented and persisted; thresholds are unvalidated engineering defaults. Advanced levels do not score validated chronology, causality, or narrative coherence.'
+      tldr: 'Clinical fact-recall (1, 2, 3, then longer stories) is implemented and persisted; thresholds are unvalidated engineering defaults. Advanced levels do not score chronology, causality, or narrative coherence.'
     },
   },
   'category-fluency': {
