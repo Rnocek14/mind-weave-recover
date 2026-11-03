@@ -10,6 +10,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { NARRATIVE_STORIES, NarrativeStory } from '@/data/narrativeRetellStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+import { selectNarrativeContent } from '@/lib/progression/narrativeRetellContentSelector';
 import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 
 /** Build a queue of stories at a given tier, avoiding ones already seen.
@@ -18,13 +19,16 @@ import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
  *    tier 2 → tier 1–3
  *    tier 3 → tier 2–3 (fallback 3 only)
  *  Previously used `tier <= tier+1` which leaked easy stories into hard sessions. */
-function buildStories(tier: number, count: number, excludeIds: Set<string>): NarrativeStory[] {
+function buildStories(tier: number, count: number, excludeIds: Set<string>, clinicalLevel?: number | null): NarrativeStory[] {
   const t = Math.max(1, Math.min(3, tier));
   const lo = Math.max(1, t - 1);
   const hi = Math.min(3, t + 1);
   // Prefer exact-tier matches; fill with adjacent tier(s) if the pool is short.
-  const exact = NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
-  const adjacent = NARRATIVE_STORIES.filter(
+  const clinicalPool = clinicalLevel != null ? selectNarrativeContent(clinicalLevel).stories : null;
+  const exact = clinicalPool
+    ? clinicalPool.filter(s => !excludeIds.has(s.id))
+    : NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
+  const adjacent = clinicalPool ? [] : NARRATIVE_STORIES.filter(
     (s) => s.tier !== t && s.tier >= lo && s.tier <= hi && !excludeIds.has(s.id),
   );
   const pool = [...shuffleArray(exact), ...shuffleArray(adjacent)];
@@ -146,11 +150,11 @@ function generateNextStepHint(breakdown: StructureBreakdown): string {
   return 'Great job covering the whole story! Try adding even more detail next time.';
 }
 
-export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1) {
+export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1, clinicalLevel?: number | null) {
   const seenIdsRef = useRef<Set<string>>(new Set());
 
   const initialStories = useMemo(() => {
-    const built = buildStories(tier, roundCount, seenIdsRef.current);
+    const built = buildStories(tier, roundCount, seenIdsRef.current, clinicalLevel);
     built.forEach((s) => seenIdsRef.current.add(s.id));
     return built;
     // Initial seed only — subsequent tier changes happen via setActiveTier below.
@@ -244,7 +248,10 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
   const setActiveTier = useCallback(
     (newTier: number) => {
       const clamped = Math.max(1, Math.min(3, newTier));
-      if (clamped === activeTier) return;
+      // A persisted clinical level fixes the demand for this entire session.
+      // The in-game adaptation engine can still record responses, but may not
+      // silently replace a one-fact task with a four-event narrative.
+      if (clinicalLevel != null || clamped === activeTier) return;
       setActiveTierState(clamped);
 
       setStories((prev) => {
@@ -257,7 +264,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
         return [...played, ...fresh];
       });
     },
-    [activeTier, currentIndex, roundCount],
+    [activeTier, currentIndex, roundCount, clinicalLevel],
   );
 
   return {
