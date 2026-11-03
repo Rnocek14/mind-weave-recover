@@ -22,6 +22,9 @@ const ENTRY_ROUTES: Array<{ path: string; requiresAuth: boolean }> = [
   { path: '/exercise/photo-naming', requiresAuth: true },
   // The new patient-facing Thought Organization route must never bypass auth.
   { path: '/exercise/thought-organization', requiresAuth: true },
+  // Standalone functional-language practice must use the same auth guard.
+  { path: '/exercise/word-finding', requiresAuth: true },
+  { path: '/exercise/sentence-game', requiresAuth: true },
 ];
 
 test.describe('Exercise entry routes render', () => {
