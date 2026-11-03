@@ -33,7 +33,11 @@ const LABELS: Record<FunctionalPracticeKind, string> = {
 
 function supportFor(result: FunctionalPracticeResult): SupportLevel {
   if (result.baselineSupport === 'full_model') return 'carrier_or_full_model';
-  if (result.baselineSupport === 'phonemic_cue') return 'phonemic_cue';
+  // Stage-two model clues actually reveal the full target, not merely a
+  // phoneme. Record the delivered assistance conservatively.
+  if (result.baselineSupport === 'phonemic_cue') {
+    return result.supportRevealed ? 'carrier_or_full_model' : 'phonemic_cue';
+  }
   if (result.supportRevealed || result.baselineSupport === 'semantic_cue') return 'semantic_cue';
   return result.taskKind === 'open' ? 'open_response' : 'recognition_only';
 }
@@ -127,6 +131,7 @@ export default function FunctionalPracticeExercise({ kind }: Props) {
         practice_answer_correct: attempt.correct,
         practice_accuracy: attempt.practiceAccuracy,
         practice_support_revealed: attempt.supportRevealed,
+        practice_help_text: attempt.supportText,
         practice_baseline_support: attempt.baselineSupport,
         clinical_progression_eligible: false,
         clinical_score_eligible: false,
