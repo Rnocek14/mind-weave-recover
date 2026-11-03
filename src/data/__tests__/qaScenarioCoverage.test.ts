@@ -12,6 +12,7 @@ const REQUIRED_GAME_CHECKS = [
   'speech-if-used',
   'stages',
   'evidence',
+  'measurement-contract',
   'resume',
   'guided-session',
   'accessibility',
@@ -55,6 +56,6 @@ describe('NeuroSpark all-game manual QA audit coverage', () => {
       expect(byId.response.safety).toMatch(/not.*clinically verified independent success/i);
       expect(byId.skip.expect).toMatch(/not falsely recorded/i);
     }
-    expect(QA_RUNBOOK_VERSION).toBe('2.0.0');
+    expect(QA_RUNBOOK_VERSION).toBe('2.1.0');
   });
 });
