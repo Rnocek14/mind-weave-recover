@@ -29,6 +29,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeDescribeGuessObservation } from '@/lib/clinical/languageFiveGameTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -275,6 +276,7 @@ export default function DescribeGuessExercise() {
         : isCorrect ? undefined : 'no_guess',
       taskParameters: {
         trial_id: result.trialId, target: result.target,
+        ...describeDescribeGuessObservation(result),
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
