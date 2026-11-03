@@ -1,7 +1,7 @@
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {ConversationPracticeResult} from './ConversationStagePracticeGame';
-import type {ConversationPracticeScene} from '@/lib/conversationPractice/stages';
+import {getConversationPracticeScenes,type ConversationPracticeScene} from '@/lib/conversationPractice/stages';
 
 const mocks=vi.hoisted(()=>({
   submit:vi.fn(),commit:vi.fn(),
@@ -95,12 +95,18 @@ describe('scripted conversation persistence and scope contract',()=>{
     fireEvent.click(screen.getByRole('button',{name:'Start practice'}));
     fireEvent.click(screen.getByRole('button',{name:'Complete four simulated turns'}));
     await waitFor(()=>expect(mocks.submit).toHaveBeenCalledTimes(4));
+    const selectedTurn=getConversationPracticeScenes(
+      'conversation-coach',1,'synthetic-session-a',
+    )[0].turns[0];
+    expect(selectedTurn.kind).toBe('open');
+    if(selectedTurn.kind!=='open')throw new Error('Modeled coach stage must use an open turn');
+    expect(selectedTurn.model).toMatch(/water|help/i);
     const first=mocks.submit.mock.calls[0][0];
     expect(first).toEqual(expect.objectContaining({
       gameId:'conversation_coach',supportUsed:'carrier_or_full_model',
       cueLevel:3,clinicalProgressionEligible:false,
       taskParameters:expect.objectContaining({
-        practice_model_text:'May I have some water, please?',
+        practice_model_text:selectedTurn.model,
         simulated_partner_script:true,functional_transfer_verified:false,
       }),
     }));
