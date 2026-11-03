@@ -32,6 +32,9 @@ export function useNarrativeRetellProgression({ userId, profileId }: UseNarrativ
   const flushedRef = useRef(false);
 
   useEffect(() => {
+    // Profile changes must never reuse the prior patient's buffered events.
+    trialsRef.current = [];
+    flushedRef.current = false;
     if (!userId || !profileId) {
       setState(defaultProgressionState({
         userId: userId ?? 'offline', profileId: profileId ?? 'offline', exerciseSlug: SLUG,
