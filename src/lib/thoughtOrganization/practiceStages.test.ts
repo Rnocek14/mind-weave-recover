@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import {
   THOUGHT_ORGANIZATION_STAGES,getThoughtOrganizationStage,
   getThoughtOrganizationTrials,evaluateThoughtOrganizationResponse,
-} from './thoughtOrganizationPractice';
+} from './practiceStages';
 
 describe('Thought Organization — eight real practice modes',()=>{
   it('does not invent a clinical level or silently fall back on invalid input',()=>{
