@@ -235,6 +235,43 @@ function hasUsefulValue(value:unknown):boolean {
   return true; // false and 0 are useful, independently observed values.
 }
 
+/**
+ * Speech-accuracy exclusion for events whose source is categorically not a
+ * spoken-production measurement. This does NOT make any remaining transcript
+ * verified or alter a game's longitudinal progression eligibility.
+ *
+ * Assisted spoken responses are left to their task/validity gates; an assisted
+ * utterance is not automatically independent, but may be useful for cue
+ * response analysis. Receptive, motor, practice-only and typed attempts are
+ * never reclassified as speech by their correct-answer flag.
+ */
+export function getSpeechScoreExclusion(
+  rawSlug:string,
+  trialMode: 'production'|'recognition'|'scaffolded'|'exposure'|'mixed'|null|undefined,
+  taskParameters:Record<string,unknown>={},
+):string|null {
+  const canonical=toLessonExerciseSlug(rawSlug);
+  const track=getClinicalGameEvidence(canonical)?.track;
+  if(track==='receptive')return 'receptive_task_not_spoken_production';
+  if(track==='non-linguistic')return 'nonlinguistic_task_not_spoken_production';
+  if(canonical.endsWith('-practice')||taskParameters.practice_only===true)
+    return 'unvalidated_practice_only';
+  if(taskParameters.clinical_score_eligible===false)
+    return 'source_explicitly_excluded';
+  if(taskParameters.clinical_progression_eligible===false)
+    return 'progression_ineligible_practice';
+  if(trialMode==='recognition'||trialMode==='exposure'||trialMode==='mixed')
+    return 'trial_mode_not_spoken_production';
+  const mode=String(
+    taskParameters.input_mode ?? taskParameters.reasoning_input_mode ?? '',
+  ).toLowerCase();
+  if(['tap','tap_recognition','choice','choice_recognition','selection',
+    'typed','text','manual','self_report','skipped','skipped_partial',
+    'unknown','mixed'].includes(mode))
+    return 'input_channel_not_spoken_production';
+  return null; // unknown evidence remains unverified by THIS check
+}
+
 export function getGameMeasurementSpec(rawSlug:string):GameMeasurementSpec|null {
   return GAME_MEASUREMENT_SPECS[toLessonExerciseSlug(rawSlug)] ?? null;
 }
