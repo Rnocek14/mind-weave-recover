@@ -310,8 +310,13 @@ export const useExerciseTelemetry = (
           // game's explicit practice-only exclusion. Otherwise a valid ASR
           // result on an assisted/typed trial enters verified accuracy.
           const explicitlyExcluded = tp.clinical_progression_eligible === false;
-          const countsTowardVerified = gate.shouldScore && !explicitlyExcluded;
-          const countsTowardAsr = gate.shouldCountAsrAccuracy && !explicitlyExcluded;
+          // A recognition choice can contribute to the game's approved L1/L2
+          // receptive progression without becoming an observed spoken trial.
+          // These are distinct axes: never use the clinical ladder flag alone
+          // as the spoken score denominator.
+          const speechScoreExcluded = tp.clinical_score_eligible === false;
+          const countsTowardVerified = gate.shouldScore && !explicitlyExcluded && !speechScoreExcluded;
+          const countsTowardAsr = gate.shouldCountAsrAccuracy && !explicitlyExcluded && !speechScoreExcluded;
           tp.speech_validity = {
             label: gate.label,
             bucket: gate.bucket,
@@ -358,7 +363,7 @@ export const useExerciseTelemetry = (
           // Clinical practice-only attempts (for example typed or mixed
           // input during a spoken fluency task) are real events, but must
           // not enter the verified speech-accuracy denominator.
-          eventData.counts_toward_score = tp.clinical_progression_eligible !== false;
+          eventData.counts_toward_score = tp.clinical_progression_eligible !== false && tp.clinical_score_eligible !== false;
         }
 
         // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──
