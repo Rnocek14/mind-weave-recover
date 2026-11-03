@@ -56,6 +56,9 @@ export interface TrialResult {
   errorType?: string;
   timedOut?: boolean;
   cueWasShown?: boolean;
+  /** Optional per-attempt source; overrides the game's default only for
+   *  telemetry. Supported taps and mixed input must not masquerade as speech. */
+  trialMode?: 'production' | 'recognition' | 'exposure' | 'scaffolded' | 'mixed' | null;
 }
 
 // Configuration options
@@ -473,7 +476,7 @@ export const useInGameAdaptation = (options: InGameAdaptationOptions) => {
             trialsAtLevel: snapshot.trialsAtLevel,
             difficultyChange: snapshot.difficultyChange ?? null,
             escalationBlocked: snapshot.escalationBlocked ?? null,
-            trialMode: defaultTrialMode,
+            trialMode: result.trialMode ?? defaultTrialMode,
           });
         } catch (err) {
           if (import.meta.env.DEV) console.warn('[useInGameAdaptation] autoLog failed', err);

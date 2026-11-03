@@ -18,7 +18,12 @@ import {
   writeFixSentenceSelectorDiagnostics,
 } from '@/lib/progression/fixSentenceContentSelector';
 
+export type FixSentenceInputMode =
+  'browser_recognized' | 'typed' | 'choice' | 'mixed' | 'skipped_partial' | 'unknown';
+
 export interface FixSentenceTrialResult {
+  /** Source of the FINAL repair, not an inference from semantic correctness. */
+  inputMode?: FixSentenceInputMode;
   trialId: string;
   sentence: string;
   wrongWord: string;
@@ -324,6 +329,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     fix: string;
     spoken: string;
     selfCorrected: boolean;
+    inputMode: FixSentenceInputMode;
   } | null>(null);
 
   const currentTrial = trials[currentIndex] ?? null;
@@ -365,7 +371,8 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
      * speaking instead of tapping would quietly look like unsupported
      * production and push someone up the ladder on evidence they never gave.
      */
-    choicesOnScreen: boolean = false
+    choicesOnScreen: boolean = false,
+    inputMode: FixSentenceInputMode = 'unknown',
   ): Promise<FixSentenceTrialResult | null> => {
     if (!currentTrial) return null;
 
@@ -392,6 +399,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     if (second) {
       const baseResult = {
         support: supportUsed,
+        inputMode,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -420,7 +428,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         // re-listens; repeating the corrected sentence completes normally.
         if (matchedErr && matchedFix) {
           playSuccess();
-          phase1RepairRef.current = { errorNum: matchedErr, fix: matchedFix, spoken, selfCorrected };
+          phase1RepairRef.current = { errorNum: matchedErr, fix: matchedFix, spoken, selfCorrected, inputMode };
           setRepairPhase(2);
           // INTERIM — component must not submit this; it prompts for the
           // remaining error and re-listens.
@@ -451,6 +459,10 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
 
       // Phase 2 — the remaining error is the sole target.
       const p1 = phase1RepairRef.current;
+      // A typed first repair followed by a spoken second repair is a
+      // MIXED trial, not independent speech for the entire sentence.
+      const aggregateMode: FixSentenceInputMode =
+        p1?.inputMode === inputMode ? inputMode : 'mixed';
       const target = p1?.errorNum === 1
         ? second
         : { acceptedFixes: currentTrial.acceptedFixes, fixAliases: currentTrial.fixAliases };
@@ -466,6 +478,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
           semanticSimilarity: 1.0,
           phase1Fix: p1.fix,
           phase2Fix: m,
+          inputMode: aggregateMode,
           selfCorrected: selfCorrected || p1.selfCorrected,
         };
       }
@@ -477,6 +490,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         isPartialCredit: false,
         semanticSimilarity: null,
         phase1Fix: p1?.fix ?? null,
+        inputMode: aggregateMode,
       };
     }
 
@@ -486,6 +500,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       playSuccess();
       const result: FixSentenceTrialResult = {
         support: supportUsed,
+        inputMode,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -511,6 +526,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       playError();
       return {
         support: supportUsed,
+        inputMode,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -536,6 +552,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       playSuccess();
       return {
         support: supportUsed,
+        inputMode,
         trialId: currentTrial.id,
         sentence: currentTrial.sentence,
         wrongWord: currentTrial.wrongWord,
@@ -585,6 +602,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
 
     return {
       support: supportUsed,
+        inputMode,
       trialId: currentTrial.id,
       sentence: currentTrial.sentence,
       wrongWord: currentTrial.wrongWord,
@@ -629,6 +647,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       difficulty: currentTrial.difficulty,
       phonemeTargets: currentTrial.phonemeTargets,
       support: clinicalLevel === 1 ? 'highlight_plus_choice' : 'choice_based',
+      inputMode: 'choice',
     };
   }, [currentTrial, currentAttempt, localMatch, clinicalLevel, playSuccess, playError]);
 
@@ -679,6 +698,8 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
         phonemeTargets: abandoning.phonemeTargets,
         phase1Fix: pendingP1.fix,
         phase2Fix: null,
+        inputMode: 'skipped_partial',
+        support: 'open_response',
       };
       setResults(prev => [...prev, partial]);
       setLastResult(partial);

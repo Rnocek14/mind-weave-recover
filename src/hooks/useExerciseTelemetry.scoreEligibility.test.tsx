@@ -106,6 +106,51 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
     });
   });
 
+  it('a supported tapped Fix Sentence answer can remain receptive progression evidence without becoming an ASR success', async () => {
+    const row = await persist({
+      correct:true,
+      browserTranscript:undefined,
+      validity:undefined,
+      taskParameters:{
+        trial_mode:'recognition',
+        input_mode:'choice',
+        clinical_progression_eligible:true,
+        clinical_score_eligible:false,
+      },
+    },'fix_sentence');
+    expect(row).toMatchObject({
+      score:100,counts_toward_score:false,
+      task_parameters:{
+        clinical_progression_eligible:true,clinical_score_eligible:false,
+        trial_mode:'recognition',input_mode:'choice',
+      },
+    });
+    expect(row.browser_transcript).toBeUndefined();
+    expect(reduceAccuracy([{
+      score:row.score,cue_level:row.cue_level,
+      counts_toward_score:row.counts_toward_score,
+      exercise_slug:row.exercise_slug,
+    }])).toMatchObject({asr_accuracy:null,independent_accuracy:null,scored_trials:0});
+  });
+
+  it('even valid recognized speech with on-screen repair options cannot silently count as independent ASR success',async()=>{
+    const row=await persist({
+      correct:true,
+      validity:spokenValidity(),
+      taskParameters:{
+        trial_mode:'scaffolded',input_mode:'browser_recognized',
+        clinical_progression_eligible:true,clinical_score_eligible:false,
+      },
+    },'fix_sentence');
+    expect(row).toMatchObject({
+      score:100,validity_label:'valid_attempt',counts_toward_score:false,
+      task_parameters:{speech_validity:{
+        should_score:false,counts_toward_asr_accuracy:false,
+      }},
+      engagement_flags:{counts_toward_score:false,counts_toward_asr_accuracy:false},
+    });
+  });
+
   it('preserves eligible valid speech in the verified denominator', async () => {
     const raw = await persist({
       validity: spokenValidity(),

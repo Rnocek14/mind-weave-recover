@@ -96,7 +96,8 @@ export function recordFixSentenceReviewTargets(
       result.attemptNumber > 1 || result.isPartialCredit || result.selfCorrected || selected, {
         sessionId,
         sourceGame: "fix_sentence",
-        responseMode: selected ? "selection" : "unknown",
+        responseMode: selected || result.inputMode === 'choice' ? "selection"
+          : result.inputMode === 'typed' ? "text" : "unknown",
       })) accepted += 1;
   }
   return accepted;

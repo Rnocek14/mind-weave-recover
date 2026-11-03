@@ -119,6 +119,41 @@ describe("useFixSentenceGame — L5 two-phase repair", () => {
     expect(hook.result.current.repairPhase).toBe(1);
   });
 
+  it("retains mixed typed-to-spoken provenance across two repairs", async () => {
+    const { hook } = setup();
+    const trial = hook.result.current.currentTrial!;
+    await act(async () => {
+      const first = await hook.result.current.scoreAnswer(
+        trial.acceptedFixes[0], false, false, 'typed',
+      );
+      expect(first?.phaseAdvance).toBe(true);
+      expect(first?.inputMode).toBe('typed');
+    });
+    await act(async () => {
+      const second = await hook.result.current.scoreAnswer(
+        trial.secondError!.acceptedFixes[0], false, false, 'browser_recognized',
+      );
+      expect(second?.isCorrect).toBe(true);
+      expect(second?.inputMode).toBe('mixed');
+    });
+  });
+
+  it("abandoned two-error repair never masquerades as a complete spoken sentence", async () => {
+    const { hook, onTrialComplete } = setup();
+    const trial = hook.result.current.currentTrial!;
+    await act(async () => {
+      const partial = await hook.result.current.scoreAnswer(
+        trial.acceptedFixes[0], false, false, 'typed',
+      );
+      expect(partial?.phaseAdvance).toBe(true);
+    });
+    act(() => hook.result.current.nextTrial());
+    expect(onTrialComplete).toHaveBeenCalledWith(expect.objectContaining({
+      trialId: trial.id, isPartialCredit: true,
+      inputMode: 'skipped_partial', phase2Fix: null,
+    }));
+  });
+
   it("skipping in phase 1 submits nothing (matches single-error skip semantics)", async () => {
     const { hook, onTrialComplete } = setup();
     act(() => {

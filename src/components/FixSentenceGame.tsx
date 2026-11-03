@@ -15,7 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useFixSentenceGame, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
+import { useFixSentenceGame, type FixSentenceInputMode, FixSentenceTrialResult } from '@/hooks/useFixSentenceGame';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech, stopGlobalTTS } from '@/hooks/useTextToSpeech';
@@ -297,6 +297,21 @@ export function FixSentenceGame({
    * answered", which is the thing that actually has to be true only once.
    */
   const trialAnsweredRef = useRef(false);
+  // Track ALL channels used on this same sentence across retries/phases.
+  // A typed attempt followed by speech must not become independent speech.
+  const answerChannelsRef = useRef<{
+    trialId: string;
+    channels: Set<'typed' | 'browser_recognized' | 'choice'>;
+  } | null>(null);
+  const recordAnswerChannel = (
+    trialId: string, channel: 'typed' | 'browser_recognized' | 'choice',
+  ): FixSentenceInputMode => {
+    if (answerChannelsRef.current?.trialId !== trialId) {
+      answerChannelsRef.current = { trialId, channels: new Set() };
+    }
+    answerChannelsRef.current.channels.add(channel);
+    return answerChannelsRef.current.channels.size > 1 ? 'mixed' : channel;
+  };
   /** handleTryAgain is declared below the tap handler that needs it. */
   const handleTryAgainRef = useRef<(() => void) | null>(null);
   /**
@@ -343,8 +358,12 @@ export function FixSentenceGame({
       void speak(word);
       const result = game.scoreChoice(word);
       if (!result) return;
+      result.inputMode = recordAnswerChannel(result.trialId, 'choice');
       setDisplayTranscript(word);
-      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      recordAdaptiveTrial({
+        correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs,
+        trialMode: result.inputMode === 'mixed' ? 'mixed' : 'recognition',
+      });
       engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 1, timestamp: Date.now() });
       game.submitResult(result);
       setShowFeedback(true);
@@ -371,11 +390,19 @@ export function FixSentenceGame({
     }
   }, [game, showFeedback, speak, recordAdaptiveTrial, engagement, isRecording]);
 
-  // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
+  // Typed-input fallback: retain practice feedback, but never route through spoken-adaptation or speech-accuracy metrics.
   const handleTypedSubmit = useCallback(async () => {
     const text = typedAnswer.trim();
-    if (!text || processingRef.current || showFeedback) return;
+    if (!text || processingRef.current || trialAnsweredRef.current || showFeedback) return;
     if (!game.currentTrial) return;
+    // A typed submission owns this attempt; stop the microphone and cancel
+    // pending ASR retries BEFORE waiting on any asynchronous scorer.
+    trialAnsweredRef.current = true;
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (stabilityTimerRef.current) clearTimeout(stabilityTimerRef.current);
+    stopListeningRef.current();
+    setIsListening(false);
+    if (isRecording) cancelRecordingRef.current();
 
     processingRef.current = true;
     setIsProcessing(true);
@@ -384,8 +411,10 @@ export function FixSentenceGame({
 
     try {
       const selfCorrected = !!prevWrongAttempt;
-      const result = await game.scoreAnswer(text, selfCorrected, choiceModeRef.current);
+      const mode = recordAnswerChannel(game.currentTrial.id, 'typed');
+      const result = await game.scoreAnswer(text, selfCorrected, choiceModeRef.current, mode);
       if (!result) {
+        trialAnsweredRef.current = false;
         processingRef.current = false;
         setIsProcessing(false);
         return;
@@ -394,17 +423,7 @@ export function FixSentenceGame({
       // L5 interim: first of two errors repaired. NOT submitted — prompt
       // for the remaining error and let them type again.
       if (result.phaseAdvance) {
-        if (sessionId && userId) {
-          try {
-            await logFinalAnalysis({
-              transcript: text,
-              transcriptSource: 'typed' as any,
-              isCorrect: true,
-              errorType: 'correct',
-              semanticSimilarity: result.semanticSimilarity,
-            });
-          } catch { /* parity log only */ }
-        }
+        // A typed first repair is practice, not a recorded utterance.
         setTwoErrorPrompt(true);
         void speak(TWO_ERROR_PROMPT_TEXT);
         setTypedAnswer('');
@@ -431,25 +450,8 @@ export function FixSentenceGame({
       }
       setTwoErrorPrompt(false);
 
-      // No mic/audio in typed mode — log a text-source utterance for parity.
-      if (sessionId && userId) {
-        try {
-          await logFinalAnalysis({
-            transcript: text,
-            transcriptSource: 'typed' as any,
-            isCorrect: result.isCorrect,
-            errorType: result.isCorrect ? 'correct' : (result.isPartialCredit ? 'incorrect_close' : 'incorrect_fix'),
-            semanticSimilarity: result.semanticSimilarity,
-          });
-        } catch (e) {
-          console.debug('[fix_sentence] typed logFinalAnalysis skipped', e);
-        }
-      }
-
-      // Adaptive engine — same as speech path.
-      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
-      engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
-
+      // The generic game can still show practice feedback, but this must
+      // never be written as a spoken utterance or drive speech adaptation.
       game.submitResult(result);
       setShowFeedback(true);
       setTypedAnswer('');
@@ -459,6 +461,7 @@ export function FixSentenceGame({
         if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
         autoRetryTimerRef.current = setTimeout(() => {
           // Reset for typed retry — don't re-open mic.
+          trialAnsweredRef.current = false;
           setShowFeedback(false);
           lastScoredRef.current = '';
           setDisplayTranscript('');
@@ -757,7 +760,8 @@ export function FixSentenceGame({
         // scoreAnswer still extracts a compact candidate itself for the
         // semantic-embedding fallback.
         const rawFull = rawTranscriptRef.current || finalCandidate;
-        const result = await game.scoreAnswer(rawFull, selfCorrected, choiceModeRef.current);
+        const mode = recordAnswerChannel(game.currentTrial.id, 'browser_recognized');
+        const result = await game.scoreAnswer(rawFull, selfCorrected, choiceModeRef.current, mode);
 
         if (!result) {
           processingRef.current = false;
@@ -843,7 +847,11 @@ export function FixSentenceGame({
         });
 
         // Record for adaptive difficulty
-        recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+        recordAdaptiveTrial({
+          correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs,
+          trialMode: result.inputMode === 'mixed' ? 'mixed'
+            : result.support !== 'open_response' ? 'scaffolded' : 'production',
+        });
         engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
 
         // Submit to game state
