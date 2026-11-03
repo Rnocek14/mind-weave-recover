@@ -19,7 +19,7 @@ const clues=(o:Partial<TwoCluesTrialResult>={}):TwoCluesTrialResult=>({
   reactionTimeMs:1900, attemptNumber:1, cueLevelUsed:0, cueTypeUsed:'none', ...o,
 });
 
-const describe=(o:Partial<DescribeGuessTrialResult>={}):DescribeGuessTrialResult=>({
+const describeTrial=(o:Partial<DescribeGuessTrialResult>={}):DescribeGuessTrialResult=>({
   trialId:'cup-1',target:'cup',transcript:'used for drinking',
   inputMode:'spoken',browserTranscript:'used for drinking',
   meaningWin:true,wordWin:false,strategyWin:true,communicationWin:true,
@@ -148,7 +148,7 @@ describe('5 language-game actual task observation contracts',()=>{
   });
 
   it('Describe & Guess preserves features detected by the app, not clinician-verified discriminative features or a human partner',()=>{
-    const result=describeDescribeGuessObservation(describe());
+    const result=describeDescribeGuessObservation(describeTrial());
     expect(result).toMatchObject({
       target_id:'cup-1',discriminative_features:null,partner_confirmed_guess:null,
       app_inferred_feature_types:['function'],app_inferred_meaning_win:true,
@@ -201,7 +201,7 @@ describe('5 language-game actual task observation contracts',()=>{
   });
 
   it('does not save NaN as pseudo-verified latency or inference confidence',()=>{
-    const result=describeDescribeGuessObservation(describe({
+    const result=describeDescribeGuessObservation(describeTrial({
       guessConfidence:Number.NaN,timeToWordRetrievalMs:Number.POSITIVE_INFINITY,
     }));
     expect(result.app_inferred_guess_confidence).toBeNull();
