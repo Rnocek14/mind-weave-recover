@@ -140,6 +140,26 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(result.participation_trials).toBe(1);
   });
 
+  it('never treats scripted conversation choices, typing, or ASR as independent clinical accuracy',()=>{
+    const result=reduceAccuracy([
+      // Defend against accidental legacy/mislabeled true score flags.
+      {score:100,cue_level:0,counts_toward_score:true,
+        exercise_slug:'conversation_partner'},
+      {score:100,cue_level:0,counts_toward_score:true,
+        exercise_slug:'conversation_coach'},
+      {score:0,cue_level:3,counts_toward_score:false,
+        validity_label:'manual_confirmed',exercise_slug:'conversation_coach'},
+      {score:0,cue_level:0,counts_toward_score:true,
+        exercise_slug:'photo_naming'},
+    ]);
+    expect(result.asr_accuracy).toBe(0);
+    expect(result.independent_accuracy).toBe(0);
+    expect(result.practice_accuracy).toBe(0);
+    expect(result.scored_trials).toBe(1);
+    expect(result.participation_trials).toBe(1);
+    expect(result.manual_confirmed_trials).toBe(0);
+  });
+
   it('excludes unvalidated Abstract Compare coverage from ASR speech scores', () => {
     const result = reduceAccuracy([
       { score: 100, cue_level: 0, counts_toward_score: true, exercise_slug: 'abstract_compare' },
