@@ -263,6 +263,191 @@ const SENTENCE_GAME_BANK: TrialBank = {
   ],
 };
 
+// Second authored group per stage. This is *stimulus variety*, not evidence
+// that six items establish independent clinical level mastery.
+const EXPANDED_BANKS: Readonly<Record<FunctionalPracticeKind, TrialBank>> = {
+  'word-finding': {
+    1: [
+      { id: 'wf-model-plate', kind: 'choice', title: 'A plate', prompt: 'Listen: plate. Choose plate.',
+        clue: 'The model is plate.', options: ['plate', 'car'], correctIndex: 0 },
+      { id: 'wf-model-hat', kind: 'choice', title: 'A hat', prompt: 'Listen: hat. Choose hat.',
+        clue: 'The model is hat.', options: ['pillow', 'hat'], correctIndex: 1 },
+      { id: 'wf-model-chair', kind: 'choice', title: 'A chair', prompt: 'Listen: chair. Choose chair.',
+        clue: 'The model is chair.', options: ['chair', 'spoon'], correctIndex: 0 },
+    ],
+    2: [
+      { id: 'wf-sound-table', kind: 'choice', title: 'Starting sound T',
+        prompt: 'You eat dinner at it. The word starts with the sound T.',
+        clue: 'Ttt... table.', options: ['table', 'spoon'], correctIndex: 0 },
+      { id: 'wf-sound-door', kind: 'choice', title: 'Starting sound D',
+        prompt: 'You open it to enter a room. The word starts with the sound D.',
+        clue: 'Ddd... door.', options: ['coat', 'door'], correctIndex: 1 },
+      { id: 'wf-sound-milk', kind: 'choice', title: 'Starting sound M',
+        prompt: 'A white drink often poured on cereal starts with the sound M.',
+        clue: 'Mmm... milk.', options: ['milk', 'window'], correctIndex: 0 },
+    ],
+    3: [
+      { id: 'wf-meaning-key', kind: 'choice', title: 'Opening a lock',
+        prompt: 'What do you put into a lock to open a door?',
+        clue: 'You may carry it in a pocket.', options: ['key', 'bowl'], correctIndex: 0 },
+      { id: 'wf-meaning-blanket', kind: 'choice', title: 'Keeping warm',
+        prompt: 'What can you put over yourself in bed to keep warm?',
+        clue: 'It is a soft covering.', options: ['shampoo', 'blanket'], correctIndex: 1 },
+      { id: 'wf-meaning-pencil', kind: 'choice', title: 'Writing',
+        prompt: 'What can you use to write and erase on paper?',
+        clue: 'It has graphite inside.', options: ['pencil', 'fork'], correctIndex: 0 },
+    ],
+    4: [
+      { id: 'wf-free-calendar', kind: 'open', title: 'Remembering dates',
+        prompt: 'What do you look at to see the day and month and mark an appointment?',
+        clue: 'It shows a group of dates.', prompts: ['Try the name.', 'You can describe it instead.'] },
+      { id: 'wf-free-mirror', kind: 'open', title: 'Getting ready',
+        prompt: 'What do you look into to see your face when getting ready?',
+        clue: 'It reflects your image.', prompts: ['Try the name yourself.', 'Describe how you use it.'] },
+      { id: 'wf-free-ladder', kind: 'open', title: 'Reaching up',
+        prompt: 'What might you use to reach a high shelf safely with help from someone?',
+        clue: 'It has rungs or steps.', prompts: ['Say the word.', 'A description is okay.'] },
+    ],
+    5: [
+      { id: 'wf-concrete-ladle', kind: 'open', title: 'Serving soup',
+        prompt: 'What deep spoon-shaped kitchen tool is used to serve soup from a pot?',
+        clue: 'It has a long handle.', prompts: ['Find the word.', 'Or explain its shape and purpose.'] },
+      { id: 'wf-concrete-hinge', kind: 'open', title: 'A moving door',
+        prompt: 'What small metal fitting lets a door swing open and closed?',
+        clue: 'It connects the door to the frame.', prompts: ['Try the name.', 'Or describe where it sits.'] },
+      { id: 'wf-concrete-funnel', kind: 'open', title: 'Pouring into a bottle',
+        prompt: 'What cone-shaped tool helps pour liquid into a narrow container?',
+        clue: 'It has a wide opening and narrow end.', prompts: ['Try to retrieve the name.', 'Explain the object if you prefer.'] },
+    ],
+    6: [
+      { id: 'wf-describe-stapler', kind: 'open', title: 'Explain a tool',
+        prompt: 'You need a stapler but cannot remember the word. Describe what it does.',
+        clue: 'It fastens papers together.', prompts: ['What does it do?', 'Where is it used?', 'What does it look like?'] },
+      { id: 'wf-describe-toothbrush', kind: 'open', title: 'Ask for an item',
+        prompt: 'You want a toothbrush but the name is stuck. Describe it to someone.',
+        clue: 'It has bristles and you use it in the bathroom.', prompts: ['What is it for?', 'Where would someone find it?'] },
+      { id: 'wf-describe-receipt', kind: 'open', title: 'At a shop',
+        prompt: 'You need your receipt from a shop. Explain which paper you mean without using the word receipt.',
+        clue: 'It shows what you bought and paid.', prompts: ['Describe what is on it.', 'Say where it comes from.'] },
+    ],
+    7: [
+      { id: 'wf-switch-weather', kind: 'open', title: 'Furniture to weather',
+        prompt: 'Name a piece of furniture. Then switch to something that happens in the weather.',
+        clue: 'Furniture: table. Weather: rain.', prompts: ['First: furniture.', 'Now: weather.'] },
+      { id: 'wf-switch-sport', kind: 'open', title: 'Sports to music',
+        prompt: 'Name something used to play a sport. Then switch to a musical instrument.',
+        clue: 'Sports: ball. Music: piano.', prompts: ['First: sport.', 'Then: music.', 'No timer.'] },
+      { id: 'wf-switch-food', kind: 'open', title: 'Food to transport',
+        prompt: 'Name a food you like. Then switch topics and name a way to travel.',
+        clue: 'Food: soup. Travel: bus.', prompts: ['First: food.', 'Next: travel.'] },
+    ],
+    8: [
+      { id: 'wf-transfer-umbrella', kind: 'open', title: 'A rainy day',
+        prompt: 'You left your umbrella at a friend’s house. Ask them about it without needing the exact word.',
+        clue: 'You can describe what keeps you dry in rain.', prompts: ['What was left behind?', 'What are you asking?'] },
+      { id: 'wf-transfer-cafe', kind: 'open', title: 'Ordering a meal',
+        prompt: 'At a café, the name of the meal you want is stuck. Describe the food clearly to the server.',
+        clue: 'Give its ingredients, temperature or how it is served.', prompts: ['What kind of food?', 'How would you describe it?'] },
+      { id: 'wf-transfer-repair', kind: 'open', title: 'Explaining a repair',
+        prompt: 'A lamp at home has stopped working. Explain what you need help with, using any words that communicate your meaning.',
+        clue: 'Name or describe the light and what changed.', prompts: ['What stopped working?', 'What help do you need?'] },
+    ],
+  },
+  'sentence-game': {
+    1: [
+      { id: 'sg-model-dog', kind: 'choice', title: 'The dog',
+        prompt: 'Listen: The dog chases the ball. Choose that sentence.',
+        clue: 'The dog chases the ball.',
+        options: ['The dog chases the ball.', 'The dog wears shoes.'], correctIndex: 0 },
+      { id: 'sg-model-driver', kind: 'choice', title: 'On the bus',
+        prompt: 'Listen: The driver opens the door. Choose that sentence.',
+        clue: 'The driver opens the door.',
+        options: ['The driver cooks dinner.', 'The driver opens the door.'], correctIndex: 1 },
+      { id: 'sg-model-child', kind: 'choice', title: 'In the garden',
+        prompt: 'Listen: The child plants a seed. Choose that sentence.',
+        clue: 'The child plants a seed.',
+        options: ['The child plants a seed.', 'The child folds laundry.'], correctIndex: 0 },
+    ],
+    2: [
+      { id: 'sg-verb-bakes', kind: 'choice', title: 'In the oven',
+        prompt: 'The baker ... the bread. Choose the action.',
+        clue: 'A baker makes bread.', options: ['bakes', 'swims'], correctIndex: 0 },
+      { id: 'sg-verb-paints', kind: 'choice', title: 'A room',
+        prompt: 'The decorator ... the wall.',
+        clue: 'What does a brush do?', options: ['drinks', 'paints'], correctIndex: 1 },
+      { id: 'sg-verb-washes', kind: 'choice', title: 'After dinner',
+        prompt: 'A person ... the dishes.',
+        clue: 'They clean the plates.', options: ['washes', 'drives'], correctIndex: 0 },
+    ],
+    3: [
+      { id: 'sg-order-mother', kind: 'order', title: 'A phone call',
+        prompt: 'Put these words into a message.',
+        clue: 'Who? Action? Whom?', ordered: ['My mother', 'calls', 'her friend.'] },
+      { id: 'sg-order-driver', kind: 'order', title: 'The bus',
+        prompt: 'Put these words in sentence order.',
+        clue: 'Who? Action? What?', ordered: ['The driver', 'parks', 'the bus.'] },
+      { id: 'sg-order-teacher', kind: 'order', title: 'A lesson',
+        prompt: 'Put these words into one sentence.',
+        clue: 'Person, action, object.', ordered: ['The teacher', 'reads', 'the book.'] },
+    ],
+    4: [
+      { id: 'sg-clause-garden', kind: 'open', title: 'Watering plants',
+        prompt: 'Say one complete sentence about watering a plant.',
+        clue: 'Try: I water...', prompts: ['Who does it?', 'What happens?', 'Make one sentence.'] },
+      { id: 'sg-clause-morning', kind: 'open', title: 'Getting dressed',
+        prompt: 'Tell someone what you put on before going outside.',
+        clue: 'Try I put on...', prompts: ['Who?', 'Action?', 'Clothing item?'] },
+      { id: 'sg-clause-visit', kind: 'open', title: 'A family visit',
+        prompt: 'Say one sentence about visiting a family member.',
+        clue: 'Try I visited...', prompts: ['Who did you visit?', 'When?', 'Use your own words.'] },
+    ],
+    5: [
+      { id: 'sg-event-bakery', kind: 'open', title: 'At the bakery',
+        prompt: 'A shopper bought bread at the bakery in the morning. Describe this event in a sentence.',
+        clue: 'Include where or when.', prompts: ['Who?', 'What did they do?', 'Where or when?'] },
+      { id: 'sg-event-garage', kind: 'open', title: 'A repaired bicycle',
+        prompt: 'A person fixed a bicycle in the garage yesterday. Describe the event.',
+        clue: 'One clear sentence can include where.', prompts: ['Who?', 'Did what?', 'Where?'] },
+      { id: 'sg-event-park', kind: 'open', title: 'At the playground',
+        prompt: 'Two friends met in the park after lunch. Tell someone about the meeting.',
+        clue: 'Say who, what and when.', prompts: ['Who?', 'What?', 'Where or when?'] },
+    ],
+    6: [
+      { id: 'sg-join-garden', kind: 'open', title: 'Planting flowers',
+        prompt: 'I dug a hole. I planted a flower. Combine these events into one sentence.',
+        clue: 'Try then or and.', prompts: ['First action.', 'Second action.', 'Join them.'] },
+      { id: 'sg-join-store', kind: 'open', title: 'A quick errand',
+        prompt: 'We went to the store. We bought milk. Combine the ideas.',
+        clue: 'And or where can connect them.', prompts: ['Where?', 'Why?', 'Join both actions.'] },
+      { id: 'sg-join-cafe', kind: 'open', title: 'Ordering lunch',
+        prompt: 'I looked at the menu. I ordered lunch. Say both in one message.',
+        clue: 'After or then can help.', prompts: ['What happened first?', 'What happened next?'] },
+    ],
+    7: [
+      { id: 'sg-reason-bus', kind: 'open', title: 'Missing the bus',
+        prompt: 'The bus left early. I arrived after it. Explain why I missed the bus using because.',
+        clue: 'I missed the bus because...', prompts: ['What happened?', 'Why?'] },
+      { id: 'sg-time-dinner', kind: 'open', title: 'Time to eat',
+        prompt: 'Dinner was ready. Everyone sat down. Connect the events using when.',
+        clue: 'When dinner was ready...', prompts: ['When?', 'What happened then?'] },
+      { id: 'sg-reason-umbrella', kind: 'open', title: 'Staying dry',
+        prompt: 'Rain started. The walker opened an umbrella. Explain the action using because.',
+        clue: 'The walker opened an umbrella because...', prompts: ['What did the person do?', 'Why?'] },
+    ],
+    8: [
+      { id: 'sg-novel-bus', kind: 'open', title: 'Changing a bus route',
+        prompt: 'Your regular bus route has changed. Ask a transit worker how to reach your destination.',
+        clue: 'Explain the problem and ask one practical question.', prompts: ['What changed?', 'What do you need to know?'] },
+      { id: 'sg-novel-neighbor', kind: 'open', title: 'An unexpected delivery',
+        prompt: 'A package belonging to your neighbor arrived at your home. Explain what happened and suggest a way to give it back.',
+        clue: 'Say what arrived and what you will do.', prompts: ['What is the problem?', 'What do you suggest?'] },
+      { id: 'sg-novel-meeting', kind: 'open', title: 'Arriving later',
+        prompt: 'You are running late for a community meeting. Let the organizer know and explain when you might arrive.',
+        clue: 'A useful message includes the delay and your plan.', prompts: ['What happened?', 'When will you arrive?'] },
+    ],
+  },
+};
+
 const BANKS: Readonly<Record<FunctionalPracticeKind, TrialBank>> = {
   'word-finding': WORD_FINDING_BANK,
   'sentence-game': SENTENCE_GAME_BANK,
@@ -281,9 +466,21 @@ export function getFunctionalPracticeTrials(
   kind: FunctionalPracticeKind,
   level: FunctionalPracticeLevel,
   count = 3,
+  sessionSeed?: string,
 ): FunctionalPracticeTrial[] {
   if (!Number.isSafeInteger(count) || count < 1) return [];
-  return BANKS[kind][level].slice(0, count);
+  const items = [...BANKS[kind][level], ...EXPANDED_BANKS[kind][level]];
+  if (!sessionSeed) return items.slice(0, count);
+  // Stable rotation: same authenticated session sees the same questions after
+  // rerender; different sessions need not always repeat the first three.
+  // This is *not* a memorization-adjusted clinical recency algorithm.
+  let hash = 0;
+  for (const char of sessionSeed + kind + level) {
+    hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
+  }
+  const first = hash % items.length;
+  return Array.from({ length: Math.min(count, items.length) },
+    (_, index) => items[(first + index) % items.length]);
 }
 
 export function evaluateFunctionalPracticeTrial(
