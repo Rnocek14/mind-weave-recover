@@ -39,6 +39,7 @@ function buildStories(tier: number, count: number, excludeIds: Set<string>, clin
   return picked;
 }
 import { scoreExplanation } from '@/lib/explanationScorer';
+import { scoreMicroRecall } from '@/lib/progression/narrativeMicroRecallScorer';
 
 export type SectionStatus = 'covered' | 'partial' | 'missed';
 
@@ -200,6 +201,14 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1,
     // Use explanation scorer to match key events
     const storyText = story.scenes.map(s => s.text).join(' ');
     const score = scoreExplanation(transcript, story.keyEvents, storyText);
+    // A one-word recall must not pass just because an unrelated word is
+    // one or two letters away (general explanation scorer tolerates this).
+    const micro = story.id.startsWith('micro-')
+      ? scoreMicroRecall(transcript, story.keyEvents) : null;
+    const matchedEvents = micro?.matchedEvents ?? score.matchedConcepts;
+    const eventCoverage = micro?.eventCoverage ?? score.coverageRatio;
+    const eventsFound = micro?.eventsFound ?? score.conceptsFound;
+    const eventsTotal = micro?.eventsTotal ?? score.conceptsTotal;
 
     const words = transcript.split(/\s+/).filter(w => w.length > 0);
     const wordCount = words.length;
@@ -207,16 +216,16 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1,
     const meanUtteranceLength = wordCount / sentences;
     const coherenceScore = Math.min(1, sentences / story.expectedClauses);
 
-    const structureBreakdown = computeStructureBreakdown(story, score.matchedConcepts);
+    const structureBreakdown = computeStructureBreakdown(story, matchedEvents);
     const nextStepHint = generateNextStepHint(structureBreakdown);
 
     const result: NarrativeTrialResult = {
       storyId: story.id,
       transcript,
-      eventsFound: score.conceptsFound,
-      eventsTotal: score.conceptsTotal,
-      eventCoverage: score.coverageRatio,
-      matchedEvents: score.matchedConcepts,
+      eventsFound,
+      eventsTotal,
+      eventCoverage,
+      matchedEvents,
       allKeyEvents: story.keyEvents,
       coherenceScore,
       onTopicScore: score.onTopicScore,
@@ -228,7 +237,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1,
       nextStepHint,
       depthTelemetry: {
         taskType: 'narrative_retell',
-        eventCoverage: score.coverageRatio,
+        eventCoverage,
         coherenceScore,
         ciuRate: null,
         meanUtteranceLength,
