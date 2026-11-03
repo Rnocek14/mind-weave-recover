@@ -90,6 +90,30 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
   };
 }
 
+/** Select the answer from its actual input modality. A prior microphone
+ * transcript must NOT replace an actual tapped button response. Manual/
+ * caregiver confirmation is neither speech transcription nor a selected
+ * word. The raw recognizer input is still preserved in source-specific logs. */
+export function resolvePhotoNamingAnswerSnapshot(
+  result: PhotoNamingObservation,
+  trialMode: 'production' | 'recognition' | 'mixed',
+): { userResponse: string | null; browserTranscript: string | null } {
+  if (trialMode === 'recognition') {
+    return {
+      userResponse: result.selectedAnswer?.trim() || null,
+      browserTranscript: null,
+    };
+  }
+  if (trialMode === 'production') {
+    return {
+      userResponse: result.whisperTranscript?.trim() ||
+        result.browserTranscript?.trim() || null,
+      browserTranscript: result.browserTranscript?.trim() || null,
+    };
+  }
+  return { userResponse: null, browserTranscript: null };
+}
+
 export function describeTwoCluesObservation(result: TwoCluesTrialResult) {
   const skipped = result.completionReason === 'skipped' ||
     !result.spokenWord?.trim();
