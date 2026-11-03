@@ -13,7 +13,7 @@ import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { ExerciseLoading } from '@/components/exercise/ExerciseLoading';
 import { ReasoningStagePracticeSession } from '@/components/ReasoningStagePracticeSession';
-import type { ReasoningPracticeKind } from '@/lib/reasoningPractice/stages';
+import {reasoningPracticeEventSlug,type ReasoningPracticeKind} from '@/lib/reasoningPractice/stages';
 
 export default function ReasoningStagePracticeExercise({
   kind,
@@ -21,7 +21,7 @@ export default function ReasoningStagePracticeExercise({
   const navigate=useNavigate();
   const {user,loading:authLoading}=useAuth();
   const {activeProfile,loading:profileLoading}=useProfile();
-  const exerciseSlug=kind.replace(/-/g,'_');
+  const exerciseSlug=reasoningPracticeEventSlug(kind);
   const {activeSessionId,isCreatingSession}=useStandaloneSession(
     user?.id,null,exerciseSlug,
   );
