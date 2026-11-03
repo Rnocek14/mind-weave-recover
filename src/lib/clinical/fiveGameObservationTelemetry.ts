@@ -63,6 +63,8 @@ export interface SemanticFeatureSelectionObservation {
   featuresIncorrect?: number | null;
   retrievalCorrect?: boolean | null;
   retrievalSelectedWord?: string | null;
+  selectedFeatureChoices?: Array<{ text: string; category: string }>;
+  visibleFeatureOptionCount?: number | null;
   featureBreakdown?: Record<string, { hit: number; miss: number }> | null;
 }
 
@@ -83,6 +85,8 @@ export function describeSemanticFeatureObservation(data: SemanticFeatureSelectio
     app_nonmatching_feature_count: incorrect,
     app_unselected_correct_feature_count: missed,
     feature_breakdown: data.featureBreakdown ?? null,
+    selected_feature_options: data.selectedFeatureChoices ?? [],
+    visible_feature_option_count: finite(data.visibleFeatureOptionCount),
     feature_response_mode: 'visual_option_selection',
     retrieval_response_mode: 'choice',
     retrieval_selected_word: data.retrievalSelectedWord ?? null,
