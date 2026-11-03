@@ -616,6 +616,7 @@ describe('useTrialSubmission persistence gate', () => {
         measurement_speech_exclusion_reason:'receptive_task_not_spoken_production',
       });
       expect(typeof row.taskParameters.measurement_primary_metric_id).toBe('string');
+      expect(typeof row.taskParameters.measurement_unit).toBe('string');
       // Not suppressing the underlying receptive trial correctness.
       expect(row.taskParameters.clinical_score_eligible).toBeUndefined();
       expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
