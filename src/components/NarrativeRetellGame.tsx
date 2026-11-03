@@ -363,7 +363,11 @@ export function NarrativeRetellGame({
   // Auto-response mic for Full Coaching: auto-start mic after Maya speaks retell prompt
   const { scheduleAutoListen, cancelAutoListen, isAutoResponseActive } = useAutoResponseMic({
     delayAfterTTS: 1000, // 1s pause after Maya finishes prompt
-    enabled: phase === 'retelling' && !useTyping && !isRetellPlaybackActive,
+    // Keep the auto-listener eligible while playback is guarded. The explicit
+    // cancel in beginRetellPlayback stops pending timers; disabling this hook
+    // here would make its captured scheduleAutoListen callback a no-op when
+    // resumeRetellingAfterPlayback runs before the next render.
+    enabled: phase === 'retelling' && !useTyping,
     isTTSSpeaking: isTTSSpeaking || vg.isSpeaking,
     startListening: () => {
       console.log('[NarrativeRetell] Auto-response: starting mic');
@@ -614,7 +618,8 @@ export function NarrativeRetellGame({
     const recordingResult = useTyping ? null : await stopRecording();
 
     setTimeout(async () => {
-      const transcript = useTyping ? typedText : (collectedTranscript || latestTranscriptRef.current || '');
+      const transcript = useTyping ? typedText
+        : mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript, latestTranscriptRef.current);
       const durationMs = Date.now() - startTimeRef.current;
 
       // Canonical pre-scoring gate: rejects echo-of-Maya (story narration / stall
