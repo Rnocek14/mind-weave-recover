@@ -31,6 +31,7 @@ describe('29 individual research-to-runtime measurement contracts',()=>{
       expect(observation).toMatchObject({
         measurement_contract_version:GAME_MEASUREMENT_SPEC_VERSION,
         measurement_primary_metric_id:measurement.primaryMeasureId,
+        measurement_unit:measurement.unit,
         measurement_evidence_track:clinical.track,
         measurement_validation:'unreviewed_app_observation',
         measurement_field_coverage:'missing',
