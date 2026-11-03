@@ -108,6 +108,22 @@ describe('FunctionalPracticeGame real patient actions', () => {
     act(() => mocks.onResult?.('late transcript'));
     expect(screen.getByRole('button', { name: 'Record my response' }).hasAttribute('disabled')).toBe(true);
   });
+  it('keeps a typed correction authoritative when a late recognizer hypothesis arrives', () => {
+    const trial = vi.fn();
+    render(<FunctionalPracticeGame kind="word-finding" stage={stage('word-finding', 8)}
+      roundCount={1} onTrialComplete={trial} onGameComplete={vi.fn()}/>);
+    fireEvent.click(screen.getByRole('button', { name: 'Try speaking' }));
+    act(() => mocks.onResult?.('unrelated stale transcript'));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your own words' }), {
+      target: { value: 'Could I borrow a charger?' },
+    });
+    act(() => mocks.onResult?.('overwriting late transcript'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record my response' }));
+    expect(trial).toHaveBeenCalledWith(expect.objectContaining({
+      inputMode: 'typed', userResponse: 'Could I borrow a charger?',
+      clinicalProgressionEligible: false, independentSpokenScoreEligible: false,
+    }));
+  });
   it('allows manual attempt reporting without fabricated audio and cancels pending completion on exit', () => {
     const trial = vi.fn();
     const finish = vi.fn();
