@@ -256,7 +256,8 @@ export function getSpeechScoreExclusion(
   if(track==='non-linguistic')return 'nonlinguistic_task_not_spoken_production';
   if(canonical.endsWith('-practice')||taskParameters.practice_only===true)
     return 'unvalidated_practice_only';
-  if(taskParameters.clinical_score_eligible===false)
+  if(taskParameters.clinical_score_eligible===false ||
+     taskParameters.speech_score_eligible===false)
     return 'source_explicitly_excluded';
   if(taskParameters.clinical_progression_eligible===false)
     return 'progression_ineligible_practice';
