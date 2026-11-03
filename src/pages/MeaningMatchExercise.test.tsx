@@ -6,6 +6,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MeaningMatchTrialResult } from '@/hooks/useMeaningMatchGame';
 
 const mocks = vi.hoisted(() => ({
   commitSession: vi.fn(),
@@ -63,13 +64,21 @@ vi.mock('@/lib/progression/meaningMatchDifficultyBridge', () => ({
   }),
 }));
 vi.mock('@/components/MeaningMatchGame', () => ({
-  MeaningMatchGame: ({ onGameComplete }: {
+  MeaningMatchGame: ({ onTrialComplete, onGameComplete }: {
+    onTrialComplete: (result: MeaningMatchTrialResult) => void;
     onGameComplete: (results: { points: number }[]) => Promise<void> | void;
-  }) => (
+  }) => (<>
+    <button onClick={() => onTrialComplete({
+      itemId:'mm-fixture-1',correct:false,
+      selectedIndex:1,correctIndex:2,
+      presentedOptions:['Carry a box','Open the door','Ask for help'],
+      reactionTimeMs:2100,tier:1,type:'literal',
+      usedHint:true,points:0,
+    })}>Submit actual Meaning Match callback</button>
     <button onClick={() => { void onGameComplete([{ points: 5 }]); }}>
       Finish synthetic matching round
     </button>
-  ),
+  </>),
 }));
 vi.mock('@/components/InlineSessionProgress', () => ({ InlineSessionProgress: () => null }));
 vi.mock('@/components/SessionSidePanel', () => ({ SessionSidePanel: () => null }));
@@ -109,4 +118,29 @@ describe('Meaning Match saves and lesson continuation', () => {
     expect(screen.getByText('Arena Complete!')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
+  it('saves the actual selected meaning, correct competitor, hint and nonspoken source', async () => {
+    mocks.submitTrial.mockResolvedValue({ok:true});
+    render(<MeaningMatchExercise />);
+    fireEvent.click(screen.getByRole('button',{name:'Submit actual Meaning Match callback'}));
+    await waitFor(()=>expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
+    expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
+      profileId:'synthetic-profile',sessionId:'synthetic-session',
+      gameId:'meaning_match',
+      trialMode:'recognition',isCorrect:false,
+      stimulusId:'mm-fixture-1',
+      userResponse:'Open the door',
+      expectedResponse:'Ask for help',
+      taskParameters:expect.objectContaining({
+        item_id:'mm-fixture-1',
+        semantic_competitor_selection_index:1,correct_option_index:2,
+        selected_option_text:'Open the door',
+        correct_option_text:'Ask for help',
+        presented_options:['Carry a box','Open the door','Ask for help'],
+        response_input_mode:'tap',used_hint:true,
+        clinical_spoken_production_evidence:false,
+        human_comprehension_adjudication:false,
+      }),
+    }));
+  });
+
 });

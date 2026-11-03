@@ -149,6 +149,11 @@ describe('NarrativeRetellExercise raw event integrity', () => {
         clinical_progression_eligible: true,
         trial_mode: 'production',
         required_event_coverage: 0.6,
+        main_concepts_recalled:null,referent_coherence:null,
+        human_narrative_judgement:false,
+        app_matched_story_events:['dog left','family searched','found dog'],
+        app_matched_story_event_count:2,
+        event_match_method:'automated_lexical_heuristic',
       }),
     }));
     await waitFor(() => expect(mocks.completeSession).toHaveBeenCalledTimes(1));

@@ -30,6 +30,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeMeaningMatchObservation } from '@/lib/clinical/languageFiveGameTelemetry';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -173,8 +174,8 @@ export default function MeaningMatchExercise() {
       gameId: EXERCISE_SLUG,
       level: effectiveDifficulty ?? result.tier ?? difficultyLevel ?? 1,
       stimulusId: result.itemId,
-      expectedResponse: null,
-      userResponse: null,
+      expectedResponse: result.presentedOptions?.[result.correctIndex] ?? null,
+      userResponse: result.presentedOptions?.[result.selectedIndex] ?? null,
       isCorrect: result.correct,
       accuracyScore: result.correct ? 1 : 0,
       cueLevel: result.usedHint ? 1 : 0,
@@ -186,6 +187,7 @@ export default function MeaningMatchExercise() {
         // This page owns the adaptation_trial_logs writer (game is autoLog:false).
         unified_route_adaptation_log: true,
         item_id: result.itemId,
+        ...describeMeaningMatchObservation(result),
         tier: result.tier,
         clinical_stage: result.clinicalStage ?? null,
         type: result.type,

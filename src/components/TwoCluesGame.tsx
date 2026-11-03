@@ -881,7 +881,7 @@ export function TwoCluesGame({
       }
 
       // Pass pre-computed result to game state
-      game.submitAnswer(candidate, result, { level: deliveredCueLevel, type: deliveredCueType });
+      game.submitAnswer(candidate, result, { level: deliveredCueLevel, type: deliveredCueType }, rawTranscript);
 
       // Adaptive difficulty
       const isSuccess = result.tier === 'strong' || result.tier === 'related';

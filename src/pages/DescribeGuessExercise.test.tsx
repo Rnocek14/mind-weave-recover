@@ -144,6 +144,12 @@ describe('DescribeGuessExercise scoring/provenance reader', () => {
       supportUsed:'independent',
       taskParameters:expect.objectContaining({
         input_mode:'spoken',independent_spoken_score_eligible:true,
+        target_id:'synthetic-1',
+        discriminative_features:null,partner_confirmed_guess:null,
+        discriminative_features_human_verified:false,
+        app_inferred_feature_types:['function'],
+        app_inferred_guess_confidence:0.75,
+        model_or_rule_guess_not_human_confirmation:true,
         describing_training_stage:null, describing_target_tier:null,
         clinical_stage_promotion_eligible:false,
       }),

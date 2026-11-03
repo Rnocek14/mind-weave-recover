@@ -14,6 +14,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { describeNarrativeRetellObservation } from '@/lib/clinical/languageFiveGameTelemetry';
 import { useSessionStallWatchdog } from '@/hooks/useSessionStallWatchdog';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -167,6 +168,7 @@ export default function NarrativeRetellExercise() {
         support_used: activeStage ? 'visual_or_stall_prompt' : evidence.support,
         independent_spoken_score_eligible: independentSpokenScoreEligible,
         story_id: result.storyId,
+        ...describeNarrativeRetellObservation(result),
         story_tier: result.storyTier ?? null,
         narrative_training_stage: activeStage?.level ?? null,
         narrative_practice_stage_source: practiceStageSource,

@@ -30,6 +30,7 @@ import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
+import { classifyPhotoNamingObservation, resolvePhotoNamingAnswerSnapshot } from '@/lib/clinical/languageFiveGameTelemetry';
 import { supabase } from '@/integrations/supabase/client';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -502,6 +503,10 @@ function PhotoNamingExerciseInner() {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
+    inputMode?: 'production' | 'recognition' | 'timeout' | 'caregiver' | 'manual';
+    productionAttempted?: boolean;
+    micTechnicalFailure?: boolean;
+    selectedAnswer?: string;
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
@@ -557,6 +562,13 @@ function PhotoNamingExerciseInner() {
         asrVerified: result.asrVerified ?? undefined,
         confirmationMode: result.confirmationMode ?? null,
       });
+      // The emitted response mode comes from the game callback, not the
+      // existence of an ASR guess or the correctness of a selected option.
+      const observation = classifyPhotoNamingObservation({
+        ...result,
+        inputMode: mode === 'caregiver' ? 'caregiver' : result.inputMode,
+      });
+      const answerSnapshot = resolvePhotoNamingAnswerSnapshot(result, observation.trialMode);
       const persistenceResult = await submitTrial({
         profileId: activeProfile?.id,
         sessionId,
@@ -564,15 +576,18 @@ function PhotoNamingExerciseInner() {
         level: typeof result.difficultyLevel === 'number' ? result.difficultyLevel : 1,
         stimulusId: trial.id,
         expectedResponse: trial.target,
-        userResponse: result.whisperTranscript ?? result.browserTranscript ?? null,
-        browserTranscript: result.browserTranscript ?? null,
+        // A tapped word is the response even if an earlier mic transcript
+        // exists. A caregiver/manual confirmation is not a transcript.
+        userResponse: answerSnapshot.userResponse,
+        browserTranscript: answerSnapshot.browserTranscript,
         attemptId: result.attemptId ?? null,
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
         cueLevel: result.cueLevel ?? 0,
         supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
+        trialMode: observation.trialMode,
+        clinicalProgressionEligible: observation.clinicalProgressionEligible,
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
@@ -595,6 +610,7 @@ function PhotoNamingExerciseInner() {
           custom_photo_id: trial.id,           // Useful for per-photo analysis
           is_custom_photo: trial.category === 'personal',
           target_word: trial.target,
+          ...observation.taskParameters,
           encouragement_score: result.encouragementScore,
           effortful_speech: result.effortfulSpeech,
 
