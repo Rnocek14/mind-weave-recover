@@ -241,7 +241,14 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1,
   const submitRetell = useCallback((transcript: string, durationMs: number): NarrativeTrialResult | null => {
     if (!currentStory) return null;
     const result = scoreRetell(transcript, durationMs, currentStory);
-    setResults(prev => [...prev, result]);
+    // "Try this story again" is a replacement attempt for the same stimulus,
+    // NOT an additional story. Keep one result per story so retry cannot
+    // inflate the completed-story count or end-of-session coverage.
+    setResults(prev => {
+      const previousIndex = prev.findIndex(item => item.storyId === result.storyId);
+      if (previousIndex === -1) return [...prev, result];
+      return prev.map((item, index) => index === previousIndex ? result : item);
+    });
     return result;
   }, [currentStory, scoreRetell]);
 
