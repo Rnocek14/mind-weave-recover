@@ -10,7 +10,7 @@ import { Mic, MicOff, Volume2 } from 'lucide-react';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import {
-  evaluateReasoningChoice,
+  evaluateReasoningChoice,orderReasoningChoices,
   type ReasoningPracticeScene,
   type ReasoningPracticeStage,
   type ReasoningPracticeSkill,
@@ -57,6 +57,7 @@ export function ReasoningStagePracticeGame({stage,scenes,onTrialComplete,onGameC
   const scene=scenes[Math.floor(stepIndex/2)];
   const turnIndex=stepIndex%2;
   const task=scene?.steps[turnIndex];
+  const displayChoices=task?.kind==='choice'?orderReasoningChoices(task):[];
   const totalSteps=scenes.length*2;
   const {speak,stop,isSpeaking}=useTextToSpeech();
   const onSpeech=useCallback((text:string)=>{
@@ -83,7 +84,7 @@ export function ReasoningStagePracticeGame({stage,scenes,onTrialComplete,onGameC
     const sceneIntro=turnIndex===0?scene.title+'. '+scene.context+' ':'';
     void speak((stepIndex===0?stage.instruction+' ':'')+sceneIntro+task.question+
       (task.kind==='choice'
-        ?' '+task.options.map((option,i)=>'Option '+String.fromCharCode(65+i)+': '+option).join('. '):''));
+        ?' '+displayChoices.map((choice,i)=>'Option '+String.fromCharCode(65+i)+': '+choice.text).join('. '):''));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[stepIndex,stage.level]);
 
@@ -159,7 +160,7 @@ export function ReasoningStagePracticeGame({stage,scenes,onTrialComplete,onGameC
       <Button size="lg" variant="outline" className="min-h-14 w-full"
         disabled={!!feedback} onClick={()=>play(scene.context+' '+task.question+
           (task.kind==='choice'
-            ?' '+task.options.map((o,i)=>'Option '+String.fromCharCode(65+i)+': '+o).join('. ')
+            ?' '+displayChoices.map((choice,i)=>'Option '+String.fromCharCode(65+i)+': '+choice.text).join('. ')
             :''))}>
         <Volume2 className="mr-2 h-5 w-5"/>Hear again
       </Button>
@@ -170,11 +171,11 @@ export function ReasoningStagePracticeGame({stage,scenes,onTrialComplete,onGameC
           onClick={()=>{setClueRevealed(true);play(task.clue);}}>Need a clue?</Button>:
         <p role="status" className="rounded-lg bg-muted p-4 text-lg">Clue: {task.clue}</p>}
       {task.kind==='choice'?<div className="space-y-3">
-        {task.options.map((option,i)=><Button
+        {displayChoices.map((choice,i)=><Button
           key={task.id+':'+i} size="lg" variant="outline"
           className="min-h-16 h-auto w-full whitespace-normal p-4 text-left justify-start text-lg"
-          onClick={()=>submit({inputMode:'choice',selectedChoice:i,userResponse:option})}>
-          {String.fromCharCode(65+i)}. {option}
+          onClick={()=>submit({inputMode:'choice',selectedChoice:choice.originalIndex,userResponse:choice.text})}>
+          {String.fromCharCode(65+i)}. {choice.text}
         </Button>)}
       </div>:<div className="space-y-3">
         <p className="text-sm text-muted-foreground">
