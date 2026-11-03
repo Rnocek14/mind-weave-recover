@@ -13,7 +13,7 @@ implementation is the named candidate revision, not historical descriptions.
   per-game scenarios. That was **17** named games, not a complete patient library audit.
 - The QA runbook now derives one independent scenario from each canonical entry and
   adds the supplemental activity explicitly. It covers **29/29 audit scenarios** with
-  **12 required checks per activity**. Inclusion is not evidence of passing.
+  **13 required checks per activity**. Inclusion is not evidence of passing.
 - The prior 17 generic scenarios did not verify per-game level 1 versus 8,
   response-input attribution, one-to-one trial write/read-back, or reliable rescue
   from patient failure and loss of microphone. The expanded checks now require these
@@ -60,7 +60,8 @@ were open/draft at the start of this audit; check actual status again before int
 7. **Longitudinal separation**: only clinician-approved, actually implemented
    per-game progression criteria can count toward independent mastery.
    Staged practice and time-on-task are not by themselves evidence of recovery.
-8. **Functional transfer**: where clinically appropriate, use held-out
+8. **Clinical telemetry provenance**: validate each activity's specific primary measurement ID and proposed raw-event fields on an isolated test backend; missing fields are instrumentation gaps, never incorrect patient answers or proof the skill has been measured. This step comes from `src/lib/clinical/gameMeasurementContracts.ts` and does not replace professional rater validation.
+9. **Functional transfer**: where clinically appropriate, use held-out
    prompts and structured, supported daily-life communication to evaluate
    generalization **separately** from trained game performance.
 
