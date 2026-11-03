@@ -52,6 +52,9 @@ describe('ConversationStagePracticeGame production interactions',()=>{
     for(let i=0;i<choices.length;i++){
       fireEvent.click(screen.getByRole('button',{name:choices[i]}));
       expect(onTrial).toHaveBeenCalledTimes(i+1);
+      expect(mocks.speak).toHaveBeenCalledWith(
+        expect.stringContaining('That reply fits this example.'),
+      );
       expect(onTrial).toHaveBeenLastCalledWith(expect.objectContaining({
         stage:1,responseKind:'choice',practiceMatch:true,
         inputMode:'choice',clinicalProgressionEligible:false,
@@ -129,6 +132,7 @@ describe('ConversationStagePracticeGame production interactions',()=>{
     );
     fireEvent.click(screen.getByRole('button',{name:'Skip this turn'}));
     expect(onTrial).toHaveBeenCalledTimes(1);
+    expect(mocks.speak).toHaveBeenCalledWith(expect.stringContaining('Turn skipped.'));
     expect(onTrial).toHaveBeenCalledWith(expect.objectContaining({
       inputMode:'skipped',userResponse:null,practiceMatch:null,
       revealedHelpText:'Explain the conflict and request an option.',
