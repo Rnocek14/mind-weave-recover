@@ -275,17 +275,17 @@ export function SequenceBuilderProbe({
             <span className="text-xs font-mono text-muted-foreground w-5">{i+1}.</span>
             <span className="flex-1 text-sm">{item.text}</span>
             {stage&&<Button variant="ghost" size="icon" disabled={!canInteract}
-              aria-label={\`Hear step: \${item.text}\`}
+              aria-label={`Hear step: ${item.text}`}
               onClick={()=>{setHelpShown(true);onFirstAction?.();void speak(item.text);}}>
               <Volume2 className="w-4 h-4"/>
             </Button>}
             {canInteract&&<div className="flex flex-col gap-0.5">
-              <Button variant="ghost" size="icon" aria-label={\`Move \${item.text} up\`}
+              <Button variant="ghost" size="icon" aria-label={`Move ${item.text} up`}
                 className="h-10 w-10" disabled={i===0}
                 onClick={()=>moveItem(i,'up')}>
                 <ArrowUp className="w-5 h-5"/>
               </Button>
-              <Button variant="ghost" size="icon" aria-label={\`Move \${item.text} down\`}
+              <Button variant="ghost" size="icon" aria-label={`Move ${item.text} down`}
                 className="h-10 w-10" disabled={i===userOrder.length-1}
                 onClick={()=>moveItem(i,'down')}>
                 <ArrowDown className="w-5 h-5"/>
