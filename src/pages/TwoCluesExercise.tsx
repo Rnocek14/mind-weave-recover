@@ -28,6 +28,7 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { describeTwoCluesObservation } from '@/lib/clinical/languageFiveGameTelemetry';
 import { extractAnswerFromTranscript } from '@/lib/speechNormalizer';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
@@ -147,12 +148,16 @@ export default function TwoCluesExercise() {
 
     const isCorrect = result.tier === 'strong' || result.tier === 'related';
 
-    // Record for mid-session pivot
-    pivot.recordTrialResult({
-      wasCorrect: isCorrect,
-      reactionTimeMs: result.reactionTimeMs,
-      cueLevel: result.cueLevelUsed ?? 0,
-    });
+    // A skipped/unverified microphone attempt is not evidence of patient
+    // struggle. Leave its participation record intact without escalating.
+    const observation = describeTwoCluesObservation(result);
+    if (observation.clinicalProgressionEligible) {
+      pivot.recordTrialResult({
+        wasCorrect: isCorrect,
+        reactionTimeMs: result.reactionTimeMs,
+        cueLevel: result.cueLevelUsed ?? 0,
+      });
+    }
 
     // `reachedAnchor` describes match quality, NOT hint use. Use the
     // actual delivered cue type so independent strong answers stay independent.
@@ -166,14 +171,18 @@ export default function TwoCluesExercise() {
       level: bridge.effective ?? adaptation.difficultyTier ?? 1,
       stimulusId: result.puzzleId,
       expectedResponse: Array.isArray(result.anchors) ? result.anchors[0] ?? null : null,
-      userResponse: cleanedAnswer ?? result.spokenWord ?? null,
+      userResponse: cleanedAnswer || result.spokenWord || null,
+      browserTranscript: result.browserTranscript?.trim() || null,
       isCorrect,
       accuracyScore: typeof result.semanticSimilarity === 'number' ? result.semanticSimilarity : (isCorrect ? 1 : 0),
       cueLevel: deliveredCueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
-      trialMode: 'production',
-      errorType: isCorrect ? undefined : (result.tier === 'uncertain' ? 'no_match' : 'semantic_paraphasia'),
+      trialMode: observation.trialMode,
+      clinicalProgressionEligible: observation.clinicalProgressionEligible,
+      errorType: observation.taskParameters.completion_reason === 'skipped' ? 'skipped'
+        : !observation.clinicalProgressionEligible ? 'unverified_speech_provenance'
+        : isCorrect ? undefined : (result.tier === 'uncertain' ? 'no_match' : 'semantic_paraphasia'),
       taskParameters: {
         puzzle_id: result.puzzleId,
         clues: result.clues,
@@ -185,6 +194,7 @@ export default function TwoCluesExercise() {
         clinical_stage: result.clinicalStage ?? null,
         spoken_word_raw: result.spokenWord,
         spoken_word_clean: cleanedAnswer,
+        ...observation.taskParameters,
         matched_word: result.matchedWord,
         coach_response: result.coachResponse,
         semantic_similarity: result.semanticSimilarity,
@@ -197,7 +207,7 @@ export default function TwoCluesExercise() {
       },
     });
 
-    if (pivot.shouldStepDown) {
+    if (observation.clinicalProgressionEligible && pivot.shouldStepDown) {
       console.log('[TwoClues] Mid-session pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
