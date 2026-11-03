@@ -135,8 +135,9 @@ export function describeTwoCluesObservation(result: TwoCluesTrialResult) {
       response_input_mode: skipped ? 'skipped' : sourceVerified
         ? 'browser_recognized_provisional' : 'unverified_response_source',
       completion_reason: skipped ? 'skipped' : 'answered',
+      // Full text already lives in the event's designated browserTranscript
+      // field; never copy sensitive patient speech into arbitrary JSON twice.
       browser_recognizer_transcript_available: sourceVerified,
-      browser_recognizer_raw_transcript: sourceVerified ? result.browserTranscript : null,
       speech_score_eligible: skipped || !sourceVerified ? false : null,
       attempt_number: Number.isFinite(result.attemptNumber) ? result.attemptNumber : null,
       first_attempt_without_delivered_help: !skipped &&
