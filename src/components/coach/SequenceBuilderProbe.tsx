@@ -103,7 +103,7 @@ export function SequenceBuilderProbe({
   const trial=selectedTrials[currentIndex];
   const orderOptions=useMemo(()=>{
     if(stage?.mode!=='choose_between_orders'||!trial)return null;
-    return buildSequenceAlternatives(trial,currentIndex);
+    return buildSequenceAlternatives(trial as SequencePracticeTrial,currentIndex);
   },[stage?.mode,trial,currentIndex]);
 
   const moveItem=(fromIndex:number,direction:'up'|'down')=>{
