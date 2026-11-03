@@ -33,6 +33,9 @@ export interface PlanningTrialResult {
   /** True only when >=2 distinct step positions were actually detected. */
   sequenceEvidenceAvailable: boolean;
   sequenceMatchedSteps: number;
+  /** Matched authored step indices in the order detected in the patient's
+   * transcript. Missing/ambiguous observations remain null. */
+  observedStepOrder: number[] | null;
   sequenceMethod: 'distinctive_tokens_v1';
   /** Real browser recognizer output only; typed input is never fabricated as ASR. */
   browserTranscript: string | null;
@@ -132,6 +135,7 @@ export function useMultiStepPlanningGame(roundCount: number = 3, tier: number = 
       responseValid: evidence.responseValid,
       sequenceEvidenceAvailable: sequence.sequenceEvidenceAvailable,
       sequenceMatchedSteps: sequence.matchedStepCount,
+      observedStepOrder: sequence.sequenceEvidenceAvailable ? [...sequence.matchedStepIndices] : null,
       sequenceMethod: sequence.sequenceMethod,
       browserTranscript: evidence.inputMode === 'spoken' ? (evidence.browserTranscript ?? null) : null,
       depthTelemetry: {
