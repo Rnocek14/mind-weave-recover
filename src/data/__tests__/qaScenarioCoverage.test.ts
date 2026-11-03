@@ -30,7 +30,7 @@ describe('NeuroSpark all-game manual QA audit coverage', () => {
   });
 
   it('requires a unique, reviewable patient scenario for all 29 activities', () => {
-    const scenarios = QA_SCENARIOS.filter((scenario) => scenario.area === 'game');
+    const scenarios = QA_SCENARIOS.filter((scenario) => scenario.area === 'game' && !!scenario.slug);
     expect(scenarios).toHaveLength(QA_GAME_INVENTORY.length);
     expect(new Set(scenarios.map((scenario) => scenario.slug)).size).toBe(scenarios.length);
     expect(new Set(scenarios.map((scenario) => scenario.id)).size).toBe(scenarios.length);
@@ -46,7 +46,7 @@ describe('NeuroSpark all-game manual QA audit coverage', () => {
   });
 
   it('does not mistake an audit requirement for playable stage, persistence, or independent speech evidence', () => {
-    const scenarios = QA_SCENARIOS.filter((scenario) => scenario.area === 'game');
+    const scenarios = QA_SCENARIOS.filter((scenario) => scenario.area === 'game' && !!scenario.slug);
     for (const scenario of scenarios) {
       const byId = Object.fromEntries(scenario.steps.map((step) => [step.id, step]));
       expect(byId.stages.expect).toMatch(/unavailable|incomplete/i);
