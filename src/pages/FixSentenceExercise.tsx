@@ -184,10 +184,6 @@ export default function FixSentenceExercise() {
   }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, adaptation.focusPhonemes]);
 
   const handleGameComplete = useCallback(async (results: FixSentenceTrialResult[]) => {
-    // Feed ONLY matched lexical repairs into optional conversation practice;
-    // morphology and multi-error tasks are not disguised as word naming.
-    // This does not affect validity, accuracy, cue accounting, or progression.
-    recordFixSentenceReviewTargets(results, activeSessionId);
     // Final-trial flush race fix (mirrors PhotoNamingGame): force-flush the
     // auto-wired adaptation_trial_logs buffer BEFORE persisting progression
     // and navigating, so the last trial isn't lost when the component unmounts.
@@ -211,6 +207,10 @@ export default function FixSentenceExercise() {
       setSaveError(true);
       return;
     }
+    // Only offer optional conversation-review prompts from a RAW-SAVED
+    // exercise. Do not claim a repaired word was practiced in a completed
+    // session when its underlying event failed to persist.
+    recordFixSentenceReviewTargets(results, activeSessionId);
 
     const finalize = () => {
       setCompleted(true);
