@@ -61,6 +61,10 @@ interface SentenceConstructionGameProps {
     reactionTime: number;
     errorType: string | null;
     grammarFocus: string;
+    trialId: string;
+    inputMode: 'browser_recognized' | 'word_tiles';
+    browserTranscript: string | null;
+    selectedAnswerWords: string[];
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
     /** True if patient played the model audio (hint) on this trial. */
     hintUsed: boolean;
@@ -351,6 +355,10 @@ export const SentenceConstructionGame = ({
           reactionTime,
           errorType: result.errorAnalysis.errorType,
           grammarFocus: result.trial.grammarFocus,
+          trialId: result.trial.id,
+          inputMode: 'browser_recognized',
+          browserTranscript: spokenSentence,
+          selectedAnswerWords: result.userAnswer,
           trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
           hintUsed,
           difficulty: currentDifficulty,
@@ -392,6 +400,10 @@ export const SentenceConstructionGame = ({
         reactionTime,
         errorType: result.errorAnalysis.errorType,
         grammarFocus: result.trial.grammarFocus,
+        trialId: result.trial.id,
+        inputMode: 'word_tiles',
+        browserTranscript: null,
+        selectedAnswerWords: result.userAnswer,
         trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
         hintUsed,
         difficulty: currentDifficulty,
