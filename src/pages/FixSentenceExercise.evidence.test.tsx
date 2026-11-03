@@ -41,11 +41,17 @@ vi.mock('@/hooks/useTrialSubmission',()=>({useTrialSubmission:()=>({
 })}));
 vi.mock('@/lib/gameReviewHandoff',()=>({recordFixSentenceReviewTargets:mocks.review}));
 vi.mock('@/components/FixSentenceGame',()=>({
-  FixSentenceGame:({onTrialComplete}:{
+  FixSentenceGame:({onTrialComplete,onGameComplete}:{
     onTrialComplete:(result:FixSentenceTrialResult)=>void;
-  })=><button onClick={()=>onTrialComplete(mocks.next as unknown as FixSentenceTrialResult)}>
-    Record synthetic repair
-  </button>,
+    onGameComplete:(results:FixSentenceTrialResult[])=>void;
+  })=><div>
+    <button onClick={()=>onTrialComplete(mocks.next as unknown as FixSentenceTrialResult)}>
+      Record synthetic repair
+    </button>
+    <button onClick={()=>onGameComplete([mocks.next as unknown as FixSentenceTrialResult])}>
+      Complete synthetic repair session
+    </button>
+  </div>,
 }));
 
 import FixSentenceExercise from './FixSentenceExercise';
@@ -130,6 +136,31 @@ describe('Fix Sentence page writes real input provenance to unified trial submis
         independent_spoken_score_eligible:true,
       },
     });
+  });
+
+  it('does not offer a saved conversation follow-up when raw clinical event writes failed',async()=>{
+    mocks.next=trial();
+    mocks.commit.mockResolvedValueOnce({
+      ok:false,errors:['raw clinical event writes failed: synthetic denied insert'],
+    });
+    render(<FixSentenceExercise/>);
+    fireEvent.click(screen.getByRole('button',{name:'Complete synthetic repair session'}));
+    await waitFor(()=>expect(mocks.commit).toHaveBeenCalledTimes(1));
+    expect(mocks.review).not.toHaveBeenCalled();
+    expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
+  it('adds post-game review prompts only after the raw-event commit finishes',async()=>{
+    mocks.next=trial({inputMode:'typed'});
+    let resolveCommit!:(value:{ok:boolean;errors:string[]})=>void;
+    mocks.commit.mockImplementationOnce(()=>new Promise(r=>{resolveCommit=r;}));
+    render(<FixSentenceExercise/>);
+    fireEvent.click(screen.getByRole('button',{name:'Complete synthetic repair session'}));
+    expect(mocks.review).not.toHaveBeenCalled();
+    resolveCommit({ok:true,errors:[]});
+    await waitFor(()=>expect(mocks.review).toHaveBeenCalledTimes(1));
+    expect(mocks.review).toHaveBeenCalledWith([mocks.next],'synthetic-session');
+    expect(mocks.complete).toHaveBeenCalledTimes(1);
   });
 
   it.each(['mixed','skipped_partial','unknown'] as const)(
