@@ -320,6 +320,7 @@ export function NarrativeRetellGame({
     setCollectedTranscript('');
     setStallPromptIndex(-1);
     setMicFailed(false);
+    replayDuringRetellRef.current = false;
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
@@ -343,11 +344,12 @@ export function NarrativeRetellGame({
 
   const handleSpeechResult = useCallback((transcript: string) => {
     if (phase !== 'retelling' || hasProcessedRef.current || !transcript.trim()) return;
-    // Discard audio captured while Maya is speaking (or tail-lock) — TTS bleed.
-    if (voiceController.isMicLocked) return;
+    // Replay must stop speech capture; otherwise Maya's own audio can be
+    // misclassified as a correct one-word answer.
+    if (isRetellPlaybackActive || isTTSSpeaking || vg.isSpeaking || voiceController.isMicLocked) return;
     setCollectedTranscript(transcript);
     latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, transcript);
-  }, [phase]);
+  }, [phase, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking]);
 
   const { isListening, fullTranscript, startListening, stopListening, isSupported, error: speechError } =
     useSpeechRecognition({ onResult: handleSpeechResult, patientMode: true, continuousListening: true, discourseMode: true });
@@ -361,7 +363,7 @@ export function NarrativeRetellGame({
   // Auto-response mic for Full Coaching: auto-start mic after Maya speaks retell prompt
   const { scheduleAutoListen, cancelAutoListen, isAutoResponseActive } = useAutoResponseMic({
     delayAfterTTS: 1000, // 1s pause after Maya finishes prompt
-    enabled: phase === 'retelling' && !useTyping,
+    enabled: phase === 'retelling' && !useTyping && !isRetellPlaybackActive,
     isTTSSpeaking: isTTSSpeaking || vg.isSpeaking,
     startListening: () => {
       console.log('[NarrativeRetell] Auto-response: starting mic');
@@ -425,6 +427,40 @@ export function NarrativeRetellGame({
     ? (requiredFactCount === 1 ? 'Tell me one thing you remember. One word is enough.' : `Tell me ${requiredFactCount} things you remember.`)
     : (vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.');
 
+  const handleReadStoryAgain = useCallback(async () => {
+    if (!currentStory || hasProcessedRef.current) return;
+    const sequenceId = beginRetellPlayback();
+    setStallPromptIndex(-1);
+    lastSpokenStallRef.current = -1;
+    replayDuringRetellRef.current = true;
+    const fullText = currentStory.scenes.map(scene => scene.text).join(' ');
+    try {
+      if (vg.isVoiceLed) await vg.autoReadText(fullText);
+      else await speakTTS(fullText);
+      voiceController.recordSpoken(fullText);
+    } catch (err) {
+      console.warn('[NarrativeRetell] story replay unavailable', err);
+    } finally {
+      retellStartRef.current = Date.now();
+      resumeRetellingAfterPlayback(sequenceId);
+    }
+  }, [currentStory, beginRetellPlayback, resumeRetellingAfterPlayback, vg, speakTTS]);
+
+  const handleRepeatTaskInstructions = useCallback(async () => {
+    if (hasProcessedRef.current) return;
+    const sequenceId = beginRetellPlayback();
+    try {
+      if (isMicroRecall) await vg.autoReadText(retellPromptText);
+      else await vg.speakTask();
+      voiceController.recordSpoken(retellPromptText);
+    } catch (err) {
+      console.warn('[NarrativeRetell] instruction replay unavailable', err);
+    } finally {
+      retellStartRef.current = Date.now();
+      resumeRetellingAfterPlayback(sequenceId);
+    }
+  }, [beginRetellPlayback, resumeRetellingAfterPlayback, isMicroRecall, retellPromptText, vg]);
+
   useEffect(() => {
     return () => {
       handleStopSpeech();
@@ -440,10 +476,11 @@ export function NarrativeRetellGame({
   }, [speechError, phase, useTyping]);
 
   useEffect(() => {
-    if (fullTranscript) {
+    if (fullTranscript && phase === 'retelling' && !isRetellPlaybackActive &&
+      !isTTSSpeaking && !vg.isSpeaking && !voiceController.isMicLocked) {
       latestTranscriptRef.current = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript);
     }
-  }, [fullTranscript]);
+  }, [fullTranscript, phase, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking]);
 
   // Auto-submit after a longer pause so users have enough retell time
   // Stall support: show progressive prompts if user hasn't spoken much
@@ -1115,26 +1152,7 @@ export function NarrativeRetellGame({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={async () => {
-                  if (!currentStory) return;
-                  vg.interrupt();
-                  stopTTS();
-                  // Reset stall progression so Maya doesn't immediately ask
-                  // "how did the story end" after a re-read.
-                  setStallPromptIndex(-1);
-                  lastSpokenStallRef.current = -1;
-                  retellStartRef.current = Date.now();
-                  replayDuringRetellRef.current = true;
-                  const fullText = currentStory.scenes.map(s => s.text).join(' ');
-                  try {
-                    if (vg.isVoiceLed) await vg.autoReadText(fullText);
-                    else await speakTTS(fullText);
-                    voiceController.recordSpoken(fullText);
-                  } catch {}
-                  // Reset retell timing baseline AGAIN after audio so the
-                  // silence/stall timers count from when the user can speak.
-                  retellStartRef.current = Date.now();
-                }}
+                onClick={() => { void handleReadStoryAgain(); }}
               >
                 <Volume2 className="h-4 w-4 mr-1" />
                 Read story again
@@ -1143,10 +1161,7 @@ export function NarrativeRetellGame({
                 variant="outline"
                 size="sm"
                 className="flex-1"
-                onClick={() => {
-                  vg.interrupt();
-                  vg.speakTask();
-                }}
+                onClick={() => { void handleRepeatTaskInstructions(); }}
               >
                 <Volume2 className="h-4 w-4 mr-1" />
                 Repeat instructions
