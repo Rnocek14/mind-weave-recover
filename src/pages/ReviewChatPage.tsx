@@ -8,6 +8,7 @@ import { useKidsMode } from "@/contexts/KidsModeContext";
 import { getTodaysPracticedWords, clearReviewedWords } from "@/lib/reviewQueue";
 import { recordTransferEvent, getCarryoverPriorityWords } from "@/lib/transferLedger";
 import { resolveReviewSessionId } from "@/lib/reviewRouteScope";
+import { getDeviceScope } from "@/lib/deviceStore";
 import {
   startReview,
   onUserUtterance,
@@ -59,7 +60,7 @@ function speakLine(text: string, echoLockRef: { current: number }, kidVoice: boo
   }
 }
 
-export default function ReviewChatPage() {
+function ReviewChatSession({ patientScope }: { patientScope: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { kidsMode } = useKidsMode();
@@ -92,15 +93,21 @@ export default function ReviewChatPage() {
 
   const echoLockRef = useRef(0);
   const stateRef = useRef<ReviewState | null>(null);
+  const activeRef = useRef(true);
   stateRef.current = engineState;
   const silenceTimerRef = useRef<number | null>(null);
 
   const applyTurn = useCallback(
     (turn: { state: ReviewState; mayaLine: string; events: ReviewEvent[] }) => {
+      // Ignore callbacks delivered after unmount or after switching patients.
+      if (!activeRef.current || getDeviceScope() !== patientScope) return;
       // No-op turns (noise, duplicate ASR finals, inert input) must not
       // re-render state — a re-render re-arms the silence timer, and ambient
       // noise would otherwise keep the conversation from ever moving forward.
       if (!turn.mayaLine && turn.events.length === 0) return;
+      // Advance the synchronous source of truth before React commits a render:
+      // multiple ASR finals/rapid button taps must not reuse an old turn.
+      stateRef.current = turn.state;
       setEngineState({ ...turn.state });
       if (turn.mayaLine) {
         setMayaLine(turn.mayaLine);
@@ -137,12 +144,13 @@ export default function ReviewChatPage() {
         window.setTimeout(() => setCelebrating(false), 2500);
       }
     },
-    [kidsMode, reviewSessionId],
+    [kidsMode, patientScope, reviewSessionId],
   );
 
   // ── Speech in ────────────────────────────────────────────────────────────
   const handleSpeech = useCallback(
     (transcript: string) => {
+      if (!activeRef.current || getDeviceScope() !== patientScope) return;
       const s = stateRef.current;
       if (!s || s.phase === "done") return;
       if (Date.now() < echoLockRef.current) return; // Maya's own voice
@@ -152,7 +160,7 @@ export default function ReviewChatPage() {
       const confidence = rec?.transcript === transcript.trim().toLowerCase() ? rec.confidence : null;
       applyTurn(onUserUtterance(s, transcript, alternatives, confidence));
     },
-    [applyTurn],
+    [applyTurn, patientScope],
   );
 
   const {
@@ -178,9 +186,10 @@ export default function ReviewChatPage() {
     (speechError ?? "").toLowerCase().includes("not-allowed");
 
   useEffect(() => {
+    if (!activeRef.current || getDeviceScope() !== patientScope) return;
     if (engineState && engineState.phase !== "done" && !micBlocked && !isListening) startListening();
     if ((!engineState || engineState.phase === "done") && isListening) stopListening();
-  }, [engineState, micBlocked, isListening, startListening, stopListening]);
+  }, [engineState, micBlocked, isListening, startListening, stopListening, patientScope]);
 
   // ── Silence handling (engine-driven forward motion) ──────────────────────
   // The patient's silence window must not start until Maya has FINISHED
@@ -193,7 +202,7 @@ export default function ReviewChatPage() {
     const arm = (delay: number) => {
       silenceTimerRef.current = window.setTimeout(() => {
         const s = stateRef.current;
-        if (!s || s.phase === "done") return;
+        if (!activeRef.current || getDeviceScope() !== patientScope || !s || s.phase === "done") return;
         const sinceLockLifted = Date.now() - echoLockRef.current;
         if (sinceLockLifted < SILENCE_TIMEOUT_MS) {
           arm(SILENCE_TIMEOUT_MS - Math.max(0, sinceLockLifted));
@@ -208,12 +217,15 @@ export default function ReviewChatPage() {
     return () => {
       if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
     };
-  }, [engineState, micBlocked, applyTurn]);
+  }, [engineState, micBlocked, applyTurn, patientScope]);
 
   // ── Start / teardown ─────────────────────────────────────────────────────
   const begin = () => applyTurn(startReview(practiced));
   useEffect(
     () => () => {
+      activeRef.current = false;
+      stateRef.current = null;
+      if (silenceTimerRef.current !== null) window.clearTimeout(silenceTimerRef.current);
       try {
         window.speechSynthesis?.cancel();
       } catch {
@@ -385,4 +397,19 @@ export default function ReviewChatPage() {
       )}
     </div>
   );
+}
+
+
+/** A profile or lesson switch must never reuse another patient\'s review queue,
+ * recognizer callbacks, or in-progress Maya state on a shared device. */
+export default function ReviewChatPage() {
+  const location = useLocation();
+  const [patientScope, setPatientScope] = useState(() => getDeviceScope());
+  useEffect(() => {
+    const onScopeChanged = () => setPatientScope(getDeviceScope());
+    window.addEventListener("device-scope-changed", onScopeChanged);
+    return () => window.removeEventListener("device-scope-changed", onScopeChanged);
+  }, []);
+  const lesson = resolveReviewSessionId(location.search, location.state) ?? "daily";
+  return <ReviewChatSession key={`${patientScope}:${lesson}`} patientScope={patientScope} />;
 }
