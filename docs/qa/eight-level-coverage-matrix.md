@@ -188,3 +188,47 @@ practice formats. The number "16" means draft staged-practice breadth, not
 generalization, or deployment readiness. The 29-game runbook remains a
 required hands-on audit, especially assisted aphasic speech, physical-device
 voice behavior, and isolated signed-in read-back/RLS checks.
+
+
+## November 2 — Fix Sentence + Detective Mind optional practice modes (draft)
+
+The stacked draft adds two distinct, **nonclinical** eight-stage modes, with two
+authored scenarios and two connected activities per stage (32 activities per
+game). These run from the Practice picker, not through the existing clinical
+game route or clinical content selector:
+
+- **Sentence Repair Practice**: L1 obvious category error; L2 functional
+  repairs; L3 close semantic choices; L4 tool–action compatibility; L5 two
+  separate repairs; L6 inflection/agreement; L7 embedded-clause subject
+  tracking; L8 open-ended repair of everyday messages.
+- **Detective Story Practice**: L1 literal facts; L2 sequence; L3 evidence
+  location; L4 inference; L5 fact versus hypothesis; L6 multiple clues;
+  L7 competing explanations; L8 unfamiliar scenarios with an open alternative
+  hypothesis and an evidence-testing prompt.
+
+Each scene has a concrete question, optional cue, authored explanation, and a
+manual example for open-ended responses. Multiple-choice order is stable per
+item but shuffled to avoid answer-letter memorization. Advanced open answers
+can be spoken, typed, self-reported or skipped and are **not automatically
+scored**; choice matches are authored practice feedback, not validated
+comprehension measures. All attempts are submitted using a distinct
+\`fix_sentence_practice\` or \`detective_mind_practice\` event slug with the
+original source game explicitly tagged. The existing clinical game session,
+adaption, progression hooks, content banks, and score thresholds are untouched.
+Every attempt is explicitly excluded from independent spoken accuracy,
+clinical promotion and verified real-world transfer; required raw writes are
+confirmed before a completed practice session is shown.
+
+**Combined practice breadth on this stacked draft: 18/29**, up from 16/29.
+This is only a count of selectable, playable Stage 1–8 *practice formats*.
+Clinical ladders remain **13 persisted**, and Fix Sentence L6 / Detective Mind
+L7 remain the implemented clinical ceilings. The new L7/L8 games are *not* a
+clinical promotion shortcut and do not satisfy the separate requirement for
+SLP-approved content and patient-level outcomes.
+
+Authoring completeness is not validation: each practice level has only four
+attempts from two scenarios. Before hospital use, finish isolated authenticated
+read-back/RLS, production provider/audio behavior with aphasic speech, real
+device accessibility, clinician review, and per-game trial reproducibility.
+The separate 29-game runbook still requires observed results; no deployment
+was authorized by these additions.

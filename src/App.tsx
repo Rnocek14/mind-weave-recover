@@ -84,6 +84,7 @@ const ThoughtContinuationExercise = lazy(() => import("./pages/ThoughtContinuati
 const ThoughtOrganizationExercise = lazy(() => import("./pages/ThoughtOrganizationExercise"));
 const FunctionalPracticeExercise = lazy(() => import("./pages/FunctionalPracticeExercise"));
 const FixSentenceExercise = lazy(() => import("./pages/FixSentenceExercise"));
+const ReasoningStagePracticeExercise = lazy(() => import("./pages/ReasoningStagePracticeExercise"));
 const DescribeGuessExercise = lazy(() => import("./pages/DescribeGuessExercise"));
 const DetectiveMindExercise = lazy(() => import("./pages/DetectiveMindExercise"));
 const MeaningMatchExercise = lazy(() => import("./pages/MeaningMatchExercise"));
@@ -225,6 +226,8 @@ const App = () => (
                     <Route path="/exercise/word-finding" element={<FunctionalPracticeExercise kind="word-finding" />} />
                     <Route path="/exercise/sentence-game" element={<FunctionalPracticeExercise kind="sentence-game" />} />
                     <Route path="/exercise/fix-sentence" element={<FixSentenceExercise />} />
+                    <Route path="/exercise/fix-sentence-practice" element={<ReasoningStagePracticeExercise key="fix-practice" kind="fix-sentence" />} />
+                    <Route path="/exercise/detective-mind-practice" element={<ReasoningStagePracticeExercise key="detective-practice" kind="detective-mind" />} />
                     <Route path="/exercise/describe-guess" element={<DescribeGuessExercise />} />
                     <Route path="/exercise/detective-mind" element={<DetectiveMindExercise />} />
                     <Route path="/exercise/meaning-match" element={<MeaningMatchExercise />} />
