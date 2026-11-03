@@ -31,6 +31,7 @@ export interface PhotoNamingObservation {
   cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
   productionAttempted?: boolean;
   micTechnicalFailure?: boolean;
+  selectedAnswer?: string;
   browserTranscript?: string;
   whisperTranscript?: string;
   errorType?: string;
@@ -69,6 +70,7 @@ export function classifyPhotoNamingObservation(result: PhotoNamingObservation) {
         ? recognized ? 'browser_or_service_recognized' : 'spoken_unverified'
         : tap ? 'tap' : source,
       response_source: source,
+      selected_choice_word: tap ? result.selectedAnswer ?? null : null,
       production_attempted_before_choice: result.productionAttempted ?? null,
       microphone_technical_failure: result.micTechnicalFailure ?? false,
       completion_reason: source === 'timeout' ? 'timeout'
