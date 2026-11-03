@@ -152,3 +152,39 @@ finished gameplay. Every game still requires observed on-device testing,
 isolated authenticated event readback, and discipline-specific clinical review.
 
 This paragraph reports draft candidate behavior, not merged/deployed output.
+
+
+## November 2 — structured conversations: 16/29 nonclinical practice activities (draft)
+
+This branch adds optional **eight-stage scripted conversation rehearsal** for
+Conversation Partner and Conversation Coach, bringing the combined draft stack
+to **16/29 with distinct playable eight-stage nonclinical practice formats**.
+The existing live free-talk and live AI Coach experiences remain available;
+the scripted path is explicitly optional, not substituted for actual
+spontaneous dialogue.
+
+For each game, eight authored stage formats have two different scripted
+scenarios with two connected turns per scenario (four patient attempts per
+selected stage). Stages progress from supported greeting/request rehearsal to
+topic continuation, asking follow-ups, communication repair, and unfamiliar
+situational changes. The patient hears every prompt, can request a clue,
+speak, type, self-report an untranscribed attempt, or skip. Conversation
+scripts **never condition their next turn on the patient's speech**. All open
+turns are ungraded, and recognition choices are explicitly practice-only.
+The app never claims that scripted dialogue proves live conversational
+adequacy or real-world transfer.
+
+The same existing patient/session remains the owner. Each attempt records
+the script turn, scene, delivery of a model or clue, input provenance,
+recognition-only practice match where appropriate, and explicit exclusions
+from independent-spoken scoring and automatic clinical progression. All raw
+write acknowledgments must succeed before a parent-owned lesson can continue.
+A failed write shows the established large-print unsaved warning. The
+previous clinical progression ceilings and score thresholds are unchanged.
+
+**13/29 activities** still do not have equivalent eight-stage playable
+practice formats. The number "16" means draft staged-practice breadth, not
+16 validated clinical ladders, demonstrated language improvement, functional
+generalization, or deployment readiness. The 29-game runbook remains a
+required hands-on audit, especially assisted aphasic speech, physical-device
+voice behavior, and isolated signed-in read-back/RLS checks.

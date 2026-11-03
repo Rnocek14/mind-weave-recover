@@ -9,6 +9,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
+import { ConversationStagePracticeSession } from '@/components/ConversationStagePracticeSession';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -64,8 +65,18 @@ export default function ConversationCoachExercise() {
     cueSensitive: true,
   });
   
-  const [gameStarted, setGameStarted] = useState(false);
-  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const liveScopeRef = useRef(scope);
+  liveScopeRef.current = scope;
+  const [scopedStarted, setScopedStarted] = useState<{
+    scope: string; mode: 'live'|'structured';
+  } | null>(null);
+  const [scopedSummary, setScopedSummary] = useState<{
+    scope: string; value: SessionSummary;
+  } | null>(null);
+  const gameStarted = scopedStarted?.scope === scope;
+  const structuredActive = gameStarted && scopedStarted?.mode === 'structured';
+  const sessionSummary = scopedSummary?.scope === scope ? scopedSummary.value : null;
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
 
@@ -88,12 +99,34 @@ export default function ConversationCoachExercise() {
   }
 
   const handleStart = () => {
-    setGameStarted(true);
-    setSessionSummary(null);
+    if(!user?.id||!activeProfile?.id||!activeSessionId)return;
+    setScopedStarted({scope,mode:'live'});
+    setScopedSummary(null);
+  };
+  const handleStartStructured = () => {
+    if(!user?.id||!activeProfile?.id||!activeSessionId)return;
+    setScopedStarted({scope,mode:'structured'});
+    setScopedSummary(null);
+  };
+  const handleStructuredSaved = async (turnCount:number) => {
+    if(liveScopeRef.current!==scope)return;
+    turnsRef.current=turnCount;
+    await completeSession();
+    if(liveScopeRef.current!==scope)return;
+    if(fromLesson&&!exerciseCompleteSentRef.current){
+      exerciseCompleteSentRef.current=true;
+      window.dispatchEvent(new CustomEvent('exercise-complete',{
+        detail:{exerciseSlug:'conversation-coach',
+          results:{turns:turnCount,practiceOnly:true}},
+      }));
+      navigate(returnTo,{state:{resuming:true},replace:true});
+    }
   };
 
   const handleComplete = (metrics: SessionSummary) => {
-    setSessionSummary(metrics);
+    if(liveScopeRef.current!==scope)return;
+    setScopedSummary({scope,value:metrics});
+    setScopedStarted(null); // Reveal existing completed-conversation summary.
     turnsRef.current = metrics.turnsCompleted;
     void completeSession();
 
@@ -123,12 +156,6 @@ export default function ConversationCoachExercise() {
     } else {
       navigate('/today');
     }
-  };
-
-  const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
-    setTimeout(() => setGameStarted(true), 100);
   };
 
   // Summary screen
@@ -182,14 +209,10 @@ export default function ConversationCoachExercise() {
                   Continue Lesson
                 </Button>
               ) : (
-                <>
-                  <Button size="lg" onClick={handlePlayAgain} className="w-full">
-                    Practice Again
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
-                    Back to Home
-                  </Button>
-                </>
+                <Button size="lg" className="w-full min-h-14"
+                  onClick={() => navigate('/today')}>
+                  Return to Today
+                </Button>
               )}
             </div>
           </div>
@@ -237,8 +260,14 @@ export default function ConversationCoachExercise() {
               </ul>
             </div>
 
-            <Button size="lg" onClick={handleStart} className="w-full">
+            <Button size="lg" onClick={handleStart} className="w-full min-h-14"
+              disabled={!activeProfile?.id||!activeSessionId||isCreatingSession}>
               Start Practice
+            </Button>
+            <Button size="lg" variant="outline" className="w-full min-h-14"
+              onClick={handleStartStructured}
+              disabled={!activeProfile?.id||!activeSessionId||isCreatingSession}>
+              Guided coach role-play (8 practice stages)
             </Button>
             
             <Button 
@@ -270,13 +299,19 @@ export default function ConversationCoachExercise() {
       </header>
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full">
-        <ConversationCoachGame
+        {structuredActive ? <ConversationStagePracticeSession
+          key={scope+':scripted'}
+          kind="conversation-coach"
+          userId={user.id} profileId={activeProfile!.id}
+          sessionId={activeSessionId!}
+          onSaved={handleStructuredSaved} onExit={()=>navigate('/today')}/>
+        : <ConversationCoachGame
           userId={user.id}
           profileId={activeProfile?.id || ''}
           sessionId={activeSessionId}
           onComplete={handleComplete}
           onExit={handleExit}
-        />
+        />}
       </div>
       {fromLesson && <SessionSidePanel />}
     </div>

@@ -72,6 +72,16 @@ vi.mock('@/components/ConversationPartnerGame', async () => {
   };
 });
 
+vi.mock('@/components/ConversationStagePracticeSession',()=>({
+  ConversationStagePracticeSession:({kind,profileId,sessionId,onSaved}:{
+    kind:string;profileId:string;sessionId:string;
+    onSaved:(turns:number)=>Promise<void>;
+  })=><div>
+    <p>Structured {kind} for {profileId} in {sessionId}</p>
+    <button onClick={()=>void onSaved(4)}>Complete synthetic scripted practice</button>
+  </div>,
+}));
+
 import ConversationPartnerExercise from './ConversationPartnerExercise';
 
 describe('Conversation Partner patient-scoped session UI', () => {
@@ -105,12 +115,35 @@ describe('Conversation Partner patient-scoped session UI', () => {
     expect(screen.getByText('Game patient patient-b in session-patient-b')).toBeTruthy();
   });
 
+  it('offers an optional structured role-play without changing the original live entry',async()=>{
+    render(<ConversationPartnerExercise/>);
+    expect(screen.getByRole('button',{name:'Start Conversation'})).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Guided role-play (8 practice stages)'}));
+    expect(screen.getByText('Structured conversation-partner for patient-a in session-patient-a')).toBeTruthy();
+    expect(screen.queryByText(/Game patient patient-a/)).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Complete synthetic scripted practice'}));
+    await waitFor(()=>expect(mocks.completeSession).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not carry structured practice across a patient switch',()=>{
+    const view=render(<ConversationPartnerExercise/>);
+    fireEvent.click(screen.getByRole('button',{name:'Guided role-play (8 practice stages)'}));
+    expect(screen.getByText('Structured conversation-partner for patient-a in session-patient-a')).toBeTruthy();
+    mocks.profileId='patient-b';
+    view.rerender(<ConversationPartnerExercise/>);
+    expect(screen.queryByText('Structured conversation-partner for patient-a in session-patient-a')).toBeNull();
+    expect(screen.getByRole('button',{name:'Guided role-play (8 practice stages)'})).toBeTruthy();
+  });
+
   it('never exposes another patient\'s saved completion summary', async () => {
     const { rerender } = render(<ConversationPartnerExercise />);
     fireEvent.click(screen.getByRole('button', { name: 'Start Conversation' }));
     fireEvent.click(screen.getByRole('button', { name: 'Complete synthetic conversation' }));
     await waitFor(() => expect(screen.getByText('Great conversation!')).toBeTruthy());
     expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button',{name:'Talk Again'})).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Return to Today'}));
+    expect(mocks.navigate).toHaveBeenCalledWith('/today');
     mocks.profileId = 'patient-b';
     rerender(<ConversationPartnerExercise />);
     expect(screen.queryByText('Great conversation!')).toBeNull();
