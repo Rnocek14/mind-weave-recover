@@ -52,6 +52,9 @@ describe('actual nonclinical reasoning practice game',()=>{
         const label=String.fromCharCode(65+position)+'. '+selected.text;
         fireEvent.click(screen.getByRole('button',{name:label}));
         expect(screen.getByText('That choice fits this example.')).toBeTruthy();
+        expect(mocks.speak).toHaveBeenCalledWith(expect.stringContaining(
+          index===3?'Press Finish practice.':'Press Next task.',
+        ));
         expect(onTrial).toHaveBeenCalledTimes(index+1);
         expect(onTrial.mock.calls[index][0]).toMatchObject({
           trialId:task.id,practiceMatch:true,selectedChoice:task.bestChoice,
@@ -79,6 +82,9 @@ describe('actual nonclinical reasoning practice game',()=>{
       trialId:tasks[0].id,inputMode:'typed',userResponse:'Come at two on Tuesday.',
       practiceMatch:null,modelRevealedBeforeAttempt:true,
     });
+    expect(mocks.speak).toHaveBeenCalledWith(expect.stringContaining(
+      'Your attempt was recorded.',
+    ));
     fireEvent.click(screen.getByRole('button',{name:'Next task'}));
     // Second: skipped response retains a unique row, not a wrong clinical score.
     fireEvent.click(screen.getByRole('button',{name:'Skip this task'}));
