@@ -37,7 +37,10 @@ export function describeCategoryFluencyObservation(result: CategoryFluencyResult
     category_id: result.category || null,
     // "verified" here means the game's own category filter accepted these
     // items; it is NOT a human-adjudicated verification of aphasic speech.
-    verified_unique_items: coherentCount ? validUnique.length : null,
+    // Proposed clinically verified item count remains unknown until a
+    // clinician checks the recognized/typed tokens, including paraphasias.
+    verified_unique_items: null,
+    app_valid_unique_items: coherentCount ? validUnique.length : null,
     app_validation_only: true,
     human_word_verification: false,
     valid_item_count_consistent: coherentCount,
