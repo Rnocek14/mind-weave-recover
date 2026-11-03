@@ -141,6 +141,9 @@ describe('Conversation Partner patient-scoped session UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete synthetic conversation' }));
     await waitFor(() => expect(screen.getByText('Great conversation!')).toBeTruthy());
     expect(mocks.completeSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button',{name:'Talk Again'})).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Return to Today'}));
+    expect(mocks.navigate).toHaveBeenCalledWith('/today');
     mocks.profileId = 'patient-b';
     rerender(<ConversationPartnerExercise />);
     expect(screen.queryByText('Great conversation!')).toBeNull();
