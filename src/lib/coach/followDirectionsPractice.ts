@@ -73,8 +73,10 @@ export function buildDirectionPracticeTrials(
   if(!Number.isFinite(requested)||requested<=0)return [];
   const count=Math.min(PATHS.length,Math.floor(requested));
   return Array.from({length:count},(_,i)=>{
-    const indices=PATHS[i].slice((stage.level*3+i)%3).concat(
-      PATHS[i].slice(0,(stage.level*3+i)%3));
+    // Each successive trial begins with a different target, including
+    // one-step stages. Rotating arbitrary prefixes used to repeat targets.
+    const offset=PATHS[i].indexOf(i%DIRECTION_LABELS.length);
+    const indices=PATHS[i].slice(offset).concat(PATHS[i].slice(0,offset));
     const labels=indices.slice(0,stage.stepCount).map(idx=>DIRECTION_LABELS[idx]);
     let text=phrase(labels);
     if(stage.mode==='temporal_relation') {
