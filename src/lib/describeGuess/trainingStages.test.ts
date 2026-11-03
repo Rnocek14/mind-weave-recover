@@ -3,7 +3,7 @@ import { DESCRIBE_GUESS_BANK } from '@/data/describeGuessBank';
 import {
   getDescribeGuessTrainingStage, getDescribeGuessStageTrials,
   getDescribeGuessStagePrompt, assessDescribeGuessPracticeGoal,
-  DESCRIBE_NEW_LISTENER_IDS,
+  DESCRIBE_NEW_LISTENER_IDS, getDescribeGuessVisibleFeatureTypes,
 } from '@/lib/describeGuess/trainingStages';
 
 describe('Describe & Guess: eight actual nonclinical training formats', () => {
@@ -17,6 +17,22 @@ describe('Describe & Guess: eight actual nonclinical training formats', () => {
     expect(new Set(modes.map(m => m.mode)).size).toBe(8);
     expect(new Set(modes.map(m => m.instruction)).size).toBe(8);
     expect(modes[7].situational).toBe(true);
+  });
+
+  it('actually fades and restores exact relevant feature prompts by stage',()=>{
+    const f=(level:number,shown=0,revealed=false)=>
+      getDescribeGuessVisibleFeatureTypes(getDescribeGuessTrainingStage(level),shown,revealed);
+    expect(f(1,3)).toEqual(['function','location','appearance','material','category']);
+    expect(f(2)).toEqual(['function','location']);
+    expect(f(3,1)).toEqual(['function','location','appearance']);
+    expect(f(4)).toEqual(['function','location']);
+    expect(f(5)).toEqual(['appearance','material']);
+    for(const level of [6,7,8]) {
+      expect(f(level,3)).toEqual([]); // cooldown never leaks an unrequested cue
+      expect(f(level,3,true)).toEqual([
+        'function','location','appearance','material','category',
+      ]);
+    }
   });
 
   it('does not fabricate an invalid level or silently clamp it to Stage 1', () => {
