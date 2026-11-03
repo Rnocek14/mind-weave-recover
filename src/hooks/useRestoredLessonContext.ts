@@ -23,6 +23,15 @@ export function useRestoredLessonContext(exerciseSlug: string): RestoredLessonCo
   return useMemo(() => {
     const defaultReturn = '/lesson';
 
+    // A completed lesson's optional conversation follow-up opens a NEW
+    // standalone practice session. Never resurrect a previous lesson session
+    // from sessionStorage (possibly belonging to another patient), even when
+    // its last exercise happened to be the same conversation route.
+    if (location.state && typeof location.state === 'object' &&
+        'lessonConversation' in location.state) {
+      return { fromLesson: false, sessionId: null, adaptations: undefined, returnTo: defaultReturn };
+    }
+
     // If route state exists, prefer it
     const hasRouteState = Boolean(location.state?.fromLesson || location.state?.sessionId);
     if (hasRouteState) {

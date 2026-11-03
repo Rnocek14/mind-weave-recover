@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { ConversationPartnerGame } from '@/components/ConversationPartnerGame';
 import { ConversationStagePracticeSession } from '@/components/ConversationStagePracticeSession';
+import { resolveLessonConversationNavigation } from '@/lib/conversationPractice/lessonHandoff';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -50,6 +51,7 @@ export default function ConversationPartnerExercise() {
     'conversation-partner'
   );
   const scope = JSON.stringify([user?.id ?? null, activeProfile?.id ?? null, activeSessionId ?? null]);
+  const lessonBridge = resolveLessonConversationNavigation(location.state, activeProfile?.id, 'conversation-partner');
   const liveScopeRef = useRef(scope);
   liveScopeRef.current = scope;
   const gameStarted = scopedGame.scope === scope && scopedGame.started;
@@ -292,10 +294,13 @@ export default function ConversationPartnerExercise() {
               >
                 {isCreatingSession ? 'Preparing...' : 'Start Conversation'}
               </Button>
+              {lessonBridge && <p role="status" className="text-sm text-muted-foreground">
+                {lessonBridge.label}. Optional scripted practice; not a clinical outcome.
+              </p>}
               <Button size="lg" variant="outline" className="w-full min-h-14"
                 onClick={handleStartStructured}
                 disabled={isCreatingSession || !activeProfile?.id || !activeSessionId}>
-                Guided role-play (8 practice stages)
+                {lessonBridge ? "Practice this skill with Maya" : "Guided role-play (8 practice stages)"}
               </Button>
             </CardContent>
           </Card>
@@ -323,6 +328,7 @@ export default function ConversationPartnerExercise() {
           {structuredActive ? <ConversationStagePracticeSession
             key={scope+':scripted'}
             kind="conversation-partner"
+            initialStage={lessonBridge?.stage}
             userId={user.id} profileId={activeProfile!.id}
             sessionId={activeSessionId!}
             onSaved={handleStructuredSaved} onExit={()=>navigate('/today')}/>

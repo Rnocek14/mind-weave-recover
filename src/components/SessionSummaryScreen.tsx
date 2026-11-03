@@ -19,6 +19,7 @@ import { getSessionHeadline, humanizeSlug, getFeedbackTone } from "@/lib/perform
 import { getSessionDelightLine } from "@/lib/sessionFeedbackCopy";
 import { saveSessionSignals } from "@/lib/sessionSignalStore";
 import { getTodaysPracticedWords } from "@/lib/reviewQueue";
+import { selectLessonConversationBridge, makeLessonConversationNavigation } from "@/lib/conversationPractice/lessonHandoff";
 import { AboutGameLink } from "@/components/leveling/AboutGameLink";
 import { TodaysPracticeInsights } from "@/components/insights/TodaysPracticeInsights";
 import { ProbeResultsCard } from "@/components/probe/ProbeResultsCard";
@@ -83,6 +84,11 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
   const [exerciseScores, setExerciseScores] = useState<ExerciseScore[]>([]);
   /** What was practiced, regardless of whether any of it could be scored. */
   const [practicedSlugs, setPracticedSlugs] = useState<string[]>([]);
+  // An optional conversational suggestion must come from SAVED game events
+  // owned by the current patient, not a lesson plan or another profile.
+  const [observedBridge, setObservedBridge] = useState<{
+    sessionId: string; profileId: string; gameSlugs: string[];
+  } | null>(null);
   const [attemptedTrials, setAttemptedTrials] = useState(0);
   const [durationSec, setDurationSec] = useState<number | null>(null);
   /** The read failed. Distinct from "nothing to show", and said out loud. */
@@ -112,7 +118,7 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       // which is what a person saw after genuinely doing the work.
       const { data: events, error } = await supabase
         .from("exercise_events")
-        .select("exercise_slug, score, counts_toward_score, validity_label")
+        .select("exercise_slug, score, counts_toward_score, validity_label, profile_id")
         .eq("session_id", sessionId);
 
       // A failed read and an empty session produce the same empty arrays, and
@@ -140,6 +146,16 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
         new Set((events ?? []).map((ev) => ev.exercise_slug).filter(Boolean) as string[]),
       );
       setPracticedSlugs(practiced);
+      // Never infer an exercise-to-coach handoff from scores, the planned
+      // lesson, or a null/mismatched owner. This only suggests MORE practice.
+      setObservedBridge(activeProfileId && sessionId ? {
+        profileId: activeProfileId,
+        sessionId,
+        gameSlugs: (events ?? [])
+          .filter((event) => event.profile_id === activeProfileId)
+          .map((event) => event.exercise_slug)
+          .filter((slug): slug is string => typeof slug === "string" && !!slug),
+      } : null);
       setAttemptedTrials((events ?? []).length);
 
       if (scorable.length > 0) {
@@ -189,6 +205,10 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
       setLoadFailed(true);
     });
   }, [sessionId]);
+
+  const conversationBridge = !loadFailed && !!sessionId && !!activeProfileId &&
+    observedBridge?.sessionId === sessionId && observedBridge?.profileId === activeProfileId
+    ? selectLessonConversationBridge(observedBridge.gameSlugs) : null;
 
   const overallAvg = useMemo(() => {
     if (exerciseScores.length === 0) return null;
@@ -549,6 +569,29 @@ export function SessionSummaryScreen({ lesson, sessionId, sessionFrame, onFinish
               <MessageCircle className="w-5 h-5 mr-2" />
               Practice these words with Maya
             </Button>
+          )}
+
+          {conversationBridge && activeProfileId && (
+            <div className="space-y-1 text-center">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full min-h-14 h-auto py-3 text-base whitespace-normal"
+                onClick={() => navigate(
+                  conversationBridge.kind === "conversation-coach"
+                    ? "/exercise/conversation-coach" : "/exercise/conversation-partner",
+                  { state: {
+                    lessonConversation: makeLessonConversationNavigation(conversationBridge, activeProfileId),
+                  } },
+                )}
+              >
+                <MessageCircle className="w-5 h-5 mr-2 shrink-0" />
+                Try a related conversation with Maya
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {conversationBridge.label}. Optional scripted practice, not a real-world outcome score.
+              </p>
+            </div>
           )}
 
           {isPreset && (

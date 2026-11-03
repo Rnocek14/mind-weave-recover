@@ -4,10 +4,11 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const mocks=vi.hoisted(()=>({
   profileId:'synthetic-profile-a' as string|null,
   navigate:vi.fn(),completeSession:vi.fn(),
+  routeState:{} as Record<string,unknown>,
 }));
 vi.mock('react-router-dom',async(imp)=>{
   const real=await imp<typeof import('react-router-dom')>();
-  return {...real,useNavigate:()=>mocks.navigate,useLocation:()=>({state:{}})};
+  return {...real,useNavigate:()=>mocks.navigate,useLocation:()=>({state:mocks.routeState})};
 });
 vi.mock('@/hooks/useAuth',()=>({
   useAuth:()=>({user:{id:'synthetic-user'},loading:false}),
@@ -53,20 +54,23 @@ vi.mock('@/components/ConversationCoachGame',()=>({
   </div>,
 }));
 vi.mock('@/components/ConversationStagePracticeSession',()=>({
-  ConversationStagePracticeSession:({kind,profileId,sessionId,onSaved}:{
-    kind:string;profileId:string;sessionId:string;
+  ConversationStagePracticeSession:({kind,profileId,sessionId,initialStage,onSaved}:{
+    kind:string;profileId:string;sessionId:string;initialStage?:number;
     onSaved:(count:number)=>Promise<void>;
   })=><div>
     <p>Structured {kind} for {profileId} in {sessionId}</p>
+    {initialStage != null && <p>Recommended Stage {initialStage}</p>}
     <button onClick={()=>void onSaved(4)}>Complete scripted coach practice</button>
   </div>,
 }));
 
 import ConversationCoachExercise from './ConversationCoachExercise';
+import { makeLessonConversationNavigation, selectLessonConversationBridge } from '@/lib/conversationPractice/lessonHandoff';
 
 beforeEach(()=>{
   vi.clearAllMocks();
   mocks.profileId='synthetic-profile-a';
+  mocks.routeState={};
   mocks.completeSession.mockResolvedValue(undefined);
 });
 afterEach(()=>cleanup());
@@ -110,4 +114,34 @@ describe('Conversation Coach optional structured practice',()=>{
     expect(screen.queryByText('Structured conversation-coach for synthetic-profile-a in session-synthetic-profile-a')).toBeNull();
     expect(screen.getByRole('button',{name:'Start Practice'})).toBeTruthy();
   });
+  it('offers Phrase Practice follow-up without silently starting AI or changing scripted scores',()=>{
+    const bridge=selectLessonConversationBridge(['phrase_practice']);
+    if(!bridge)throw new Error('Expected authored Phrase Practice follow-up');
+    mocks.routeState={lessonConversation:makeLessonConversationNavigation(bridge,'synthetic-profile-a')};
+    render(<ConversationCoachExercise/>);
+    expect(screen.getByRole('button',{name:'Start Practice'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Practice this skill with Maya'})).toBeTruthy();
+    expect(screen.queryByText(/Structured conversation-coach/)).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Practice this skill with Maya'}));
+    expect(screen.getByText('Recommended Stage 3')).toBeTruthy();
+    expect(screen.getByText('Structured conversation-coach for synthetic-profile-a in session-synthetic-profile-a')).toBeTruthy();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
+  it('refuses a different patient\'s lesson recommendation and ends old handoff on patient switch',()=>{
+    const bridge=selectLessonConversationBridge(['photo_naming']);
+    if(!bridge)throw new Error('Expected authored naming follow-up');
+    mocks.routeState={lessonConversation:makeLessonConversationNavigation(bridge,'synthetic-profile-a')};
+    const view=render(<ConversationCoachExercise/>);
+    fireEvent.click(screen.getByRole('button',{name:'Practice this skill with Maya'}));
+    expect(screen.getByText('Recommended Stage 5')).toBeTruthy();
+
+    mocks.profileId='synthetic-profile-b';
+    view.rerender(<ConversationCoachExercise/>);
+    expect(screen.queryByText('Recommended Stage 5')).toBeNull();
+    expect(screen.getByRole('button',{name:'Guided coach role-play (8 practice stages)'})).toBeTruthy();
+    expect(screen.queryByRole('button',{name:'Practice this skill with Maya'})).toBeNull();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
 });

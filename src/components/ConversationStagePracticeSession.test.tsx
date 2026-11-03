@@ -159,4 +159,23 @@ describe('scripted conversation persistence and scope contract',()=>{
     await waitFor(()=>expect(screen.getByRole('alert')).toBeTruthy());
     expect(onSaved).not.toHaveBeenCalled();
   });
+  it('preselects a lesson-relevant stage but lets the care partner choose another',async()=>{
+    const onSaved=vi.fn().mockResolvedValue(undefined);
+    render(<ConversationStagePracticeSession {...defaultProps}
+      kind="conversation-coach" initialStage={5}
+      onSaved={onSaved} onExit={vi.fn()}/>);
+    fireEvent.click(screen.getByText("Care partner: choose a practice stage"));
+    const stage5=screen.getByRole('button',{name:/Stage 5:/});
+    expect(stage5.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button',{name:/Stage 7:/}));
+    expect(stage5.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(screen.getByRole('button',{name:'Start practice'}));
+    expect(screen.getByText('Stage 7 is playing')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Complete four simulated turns'}));
+    await waitFor(()=>expect(mocks.submit).toHaveBeenCalledTimes(4));
+    expect(mocks.submit.mock.calls.every(call=>call[0].taskParameters.practice_stage===7)).toBe(true);
+    expect(mocks.submit.mock.calls.every(call=>call[0].clinicalProgressionEligible===false)).toBe(true);
+    await waitFor(()=>expect(onSaved).toHaveBeenCalledWith(4));
+  });
+
 });

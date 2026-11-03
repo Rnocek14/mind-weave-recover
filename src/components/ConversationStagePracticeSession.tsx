@@ -21,6 +21,8 @@ interface Props {
   userId: string;
   profileId: string;
   sessionId: string;
+  /** Optional patient-scoped lesson suggestion, still caregiver-adjustable. */
+  initialStage?: ConversationPracticeLevel;
   onSaved: (turnCount:number)=>Promise<void>;
   onExit: ()=>void;
 }
@@ -31,9 +33,11 @@ function deliveredSupport(result:ConversationPracticeResult):SupportLevel{
 }
 
 export function ConversationStagePracticeSession({
-  kind,userId,profileId,sessionId,onSaved,onExit,
+  kind,userId,profileId,sessionId,initialStage,onSaved,onExit,
 }:Props){
-  const [level,setLevel]=useState<ConversationPracticeLevel>(1);
+  const [level,setLevel]=useState<ConversationPracticeLevel>(
+    initialStage && getConversationPracticeStage(kind,initialStage) ? initialStage : 1,
+  );
   const [started,setStarted]=useState(false);
   const [phase,setPhase]=useState<'playing'|'saving'|'saved'|'failed'>('playing');
   const pendingRef=useRef<Array<Promise<{ok:boolean}>>>([]);
