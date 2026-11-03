@@ -18,6 +18,8 @@ export interface MeaningMatchTrialResult {
   correct: boolean;
   selectedIndex: number;
   correctIndex: number;
+  /** Snapshot the actually presented distractors, not a regenerated bank. */
+  presentedOptions?: string[];
   reactionTimeMs: number;
   tier: number;
   type: string;
@@ -126,6 +128,7 @@ export function useMeaningMatchGame(
       correct,
       selectedIndex,
       correctIndex: currentItem.correctIndex,
+      presentedOptions: [...currentItem.options],
       reactionTimeMs,
       tier: currentItem.tier,
       type: currentItem.type,
