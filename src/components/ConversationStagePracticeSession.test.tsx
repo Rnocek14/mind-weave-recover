@@ -164,6 +164,7 @@ describe('scripted conversation persistence and scope contract',()=>{
     render(<ConversationStagePracticeSession {...defaultProps}
       kind="conversation-coach" initialStage={5}
       onSaved={onSaved} onExit={vi.fn()}/>);
+    fireEvent.click(screen.getByText("Care partner: choose a practice stage"));
     const stage5=screen.getByRole('button',{name:/Stage 5:/});
     expect(stage5.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button',{name:/Stage 7:/}));
