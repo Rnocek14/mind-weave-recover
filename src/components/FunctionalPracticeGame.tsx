@@ -37,17 +37,18 @@ export interface FunctionalPracticeResult {
 interface Props {
   kind: FunctionalPracticeKind;
   stage: FunctionalPracticeStage;
+  sessionSeed?: string;
   roundCount?: number;
   onTrialComplete: (result: FunctionalPracticeResult) => void;
   onGameComplete: (results: FunctionalPracticeResult[]) => void;
 }
 
 export function FunctionalPracticeGame({
-  kind, stage, roundCount = 3, onTrialComplete, onGameComplete,
+  kind, stage, sessionSeed, roundCount = 3, onTrialComplete, onGameComplete,
 }: Props) {
   const trials = useMemo(
-    () => getFunctionalPracticeTrials(kind, stage.level, roundCount),
-    [kind, stage.level, roundCount],
+    () => getFunctionalPracticeTrials(kind, stage.level, roundCount, sessionSeed),
+    [kind, stage.level, roundCount, sessionSeed],
   );
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<FunctionalPracticeResult[]>([]);
