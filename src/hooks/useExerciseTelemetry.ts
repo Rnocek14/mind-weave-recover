@@ -15,6 +15,7 @@ import {
 } from '@/lib/voiceEngine/axisEngine';
 import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 import { persistClinicalAttempt } from '@/lib/clinical/persistClinicalAttempt';
+import { describeGameMeasurementProvenance, getSpeechScoreExclusion } from '@/lib/clinical/gameMeasurementContracts';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -146,7 +147,21 @@ export const useExerciseTelemetry = (
         //    the caller spread buildAdaptationTelemetry() into it. This means
         //    every game using the shared adaptation contract gets the dedicated
         //    column populated without per-game changes.
-        const tp = (trial.taskParameters ?? {}) as Record<string, any>;
+        // Last shared raw writer: direct-logging legacy games receive the
+        // same contract as useTrialSubmission games. Never mutate the source
+        // taskParameters object or infer patient ability from missing fields.
+        const tp = { ...(trial.taskParameters ?? {}) } as Record<string, any>;
+        Object.assign(tp, describeGameMeasurementProvenance(exerciseSlug, tp));
+        const reportedMode = typeof tp.trial_mode === 'string'
+          ? tp.trial_mode as Parameters<typeof getSpeechScoreExclusion>[1]
+          : null;
+        const speechExclusion = getSpeechScoreExclusion(exerciseSlug, reportedMode, tp);
+        if (speechExclusion) {
+          tp.speech_score_eligible = false;
+          if (!tp.measurement_speech_exclusion_reason) {
+            tp.measurement_speech_exclusion_reason = speechExclusion;
+          }
+        }
 
         // 3. Auto-inject canonical 1–10 game_level from the adaptive level
         //    registry. Adaptation hooks (useInGameAdaptation, useAdaptiveDifficulty,
