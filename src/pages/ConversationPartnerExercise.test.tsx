@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   profileId: 'patient-a' as string | null,
   navigate: vi.fn(),
+  routeState: {} as Record<string,unknown>,
   completeSession: vi.fn(),
   unmount: vi.fn(),
 }));
@@ -11,7 +12,7 @@ vi.mock('react-router-dom', async (imp) => {
   const real = await imp<typeof import('react-router-dom')>();
   return { ...real,
     useNavigate: () => mocks.navigate,
-    useLocation: () => ({ state: {} }),
+    useLocation: () => ({ state: mocks.routeState }),
   };
 });
 vi.mock('@/hooks/useAuth', () => ({
@@ -73,21 +74,24 @@ vi.mock('@/components/ConversationPartnerGame', async () => {
 });
 
 vi.mock('@/components/ConversationStagePracticeSession',()=>({
-  ConversationStagePracticeSession:({kind,profileId,sessionId,onSaved}:{
-    kind:string;profileId:string;sessionId:string;
+  ConversationStagePracticeSession:({kind,profileId,sessionId,initialStage,onSaved}:{
+    kind:string;profileId:string;sessionId:string;initialStage?:number;
     onSaved:(turns:number)=>Promise<void>;
   })=><div>
     <p>Structured {kind} for {profileId} in {sessionId}</p>
+    {initialStage != null && <p>Recommended Stage {initialStage}</p>}
     <button onClick={()=>void onSaved(4)}>Complete synthetic scripted practice</button>
   </div>,
 }));
 
 import ConversationPartnerExercise from './ConversationPartnerExercise';
+import { makeLessonConversationNavigation, selectLessonConversationBridge } from '@/lib/conversationPractice/lessonHandoff';
 
 describe('Conversation Partner patient-scoped session UI', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.profileId = 'patient-a';
+    mocks.routeState = {};
     mocks.completeSession.mockResolvedValue(undefined);
   });
   afterEach(() => cleanup());
@@ -149,4 +153,31 @@ describe('Conversation Partner patient-scoped session UI', () => {
     expect(screen.queryByText('Great conversation!')).toBeNull();
     expect(screen.getByRole('button', { name: 'Start Conversation' })).toBeTruthy();
   });
+  it('routes a completed Narrative Retell lesson into optional detail-giving practice',()=>{
+    const bridge=selectLessonConversationBridge(['narrative_retell']);
+    if(!bridge)throw new Error('Expected narrative handoff');
+    mocks.routeState={lessonConversation:makeLessonConversationNavigation(bridge,'patient-a')};
+    render(<ConversationPartnerExercise/>);
+    expect(screen.getByRole('button',{name:'Start Conversation'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Practice this skill with Maya'})).toBeTruthy();
+    expect(screen.queryByText(/Structured conversation-partner/)).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Practice this skill with Maya'}));
+    expect(screen.getByText('Recommended Stage 3')).toBeTruthy();
+    expect(screen.getByText('Structured conversation-partner for patient-a in session-patient-a')).toBeTruthy();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
+  it('does not let an old patient\'s discourse handoff start after a profile switch',()=>{
+    const bridge=selectLessonConversationBridge(['thought_continuation']);
+    if(!bridge)throw new Error('Expected topic maintenance handoff');
+    mocks.routeState={lessonConversation:makeLessonConversationNavigation(bridge,'patient-a')};
+    const view=render(<ConversationPartnerExercise/>);
+    expect(screen.getByRole('button',{name:'Practice this skill with Maya'})).toBeTruthy();
+    mocks.profileId='patient-b';
+    view.rerender(<ConversationPartnerExercise/>);
+    expect(screen.queryByRole('button',{name:'Practice this skill with Maya'})).toBeNull();
+    expect(screen.getByRole('button',{name:'Guided role-play (8 practice stages)'})).toBeTruthy();
+    expect(mocks.completeSession).not.toHaveBeenCalled();
+  });
+
 });
