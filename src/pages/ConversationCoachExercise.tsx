@@ -126,6 +126,7 @@ export default function ConversationCoachExercise() {
   const handleComplete = (metrics: SessionSummary) => {
     if(liveScopeRef.current!==scope)return;
     setScopedSummary({scope,value:metrics});
+    setScopedStarted(null); // Reveal existing completed-conversation summary.
     turnsRef.current = metrics.turnsCompleted;
     void completeSession();
 
