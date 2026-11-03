@@ -86,6 +86,23 @@ export function ConversationStagePracticeGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[step,stage.level]);
 
+  // Read brief feedback aloud so a person who cannot read the screen is
+  // not left trying to interpret a success/skip banner visually.
+  useEffect(()=>{
+    if(!feedback||!turn)return;
+    const feedbackLine=feedback.inputMode==='skipped'
+      ?'Turn skipped.'
+      :feedback.practiceMatch===null
+        ?'Your practice was recorded.'
+        :feedback.practiceMatch?'That reply fits this example.'
+          :turn.kind==='choice'?'Here is another useful reply: '+turn.options[turn.bestChoice]
+            :'Your practice was recorded.';
+    const nextAction=step+1>=scenes.length*2
+      ?' Press Finish practice.' : ' Press Hear the next turn.';
+    void speak(feedbackLine+nextAction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[feedback]);
+
   const play=(text:string)=>{
     micRequestedRef.current=false;
     stopListening();
