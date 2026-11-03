@@ -19,7 +19,7 @@ The patient’s saved Clinical Level (1–8) now selects a **specific syntax coh
 
 ## Clinical rationale
 
-Mapping Therapy (thematic roles), Treatment of Underlying Forms (TUF), and Verb Network Strengthening Treatment (VNeST) motivate structured grammar practice with graded scaffolding. This particular eight-stage order and advancement thresholds are **engineering calibration defaults**, not a validated rank ordering of treatment approaches. In particular, TUF can deliberately train complex forms first, so the hierarchy should not be portrayed as universally optimal.
+Mapping Therapy (thematic roles), Treatment of Underlying Forms (TUF), and Verb Network Strengthening Treatment (VNeST) motivate structured grammar practice with graded scaffolding. This particular eight-stage order and advancement thresholds are **engineering calibration defaults**, not a clinically established ranking of treatment approaches. In particular, TUF can deliberately train complex forms first, so the hierarchy should not be portrayed as universally optimal.
 
 ## Assistance and trial integrity
 
