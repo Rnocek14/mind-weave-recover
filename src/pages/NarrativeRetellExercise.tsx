@@ -194,9 +194,18 @@ export default function NarrativeRetellExercise() {
 
   const handleGameComplete = useCallback(async (results: NarrativeTrialResult[]) => {
     setCompleted(true);
-    await trialWritesRef.current;
-    const progressionSave = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
-    if (!progressionSave.ok) console.warn('[NarrativeRetell] clinical progression not saved', progressionSave.error);
+    try {
+      await trialWritesRef.current;
+      const progressionSave = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+      if (!progressionSave.ok) {
+        const errorDetail = 'error' in progressionSave ? progressionSave.error : 'unknown save error';
+        console.warn('[NarrativeRetell] clinical progression not saved', errorDetail);
+      }
+    } catch (err) {
+      // A database/network exception must not trap an aphasia patient on the
+      // game screen. The clinical row remains unverified, not silently saved.
+      console.warn('[NarrativeRetell] progression commit failed', err);
+    }
     await completeSession();
 
     // Save structured details for reflection engine
