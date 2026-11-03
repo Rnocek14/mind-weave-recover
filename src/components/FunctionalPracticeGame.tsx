@@ -147,6 +147,12 @@ export function FunctionalPracticeGame({
     }, 1600);
   };
 
+  const playSupport = (text: string) => {
+    // Never let Maya's model/clue be captured as the patient's next answer.
+    micRequestedRef.current = false;
+    stopListening();
+    void speak(text);
+  };
   const submitResponse = () => {
     const trimmed = response.trim();
     if (!trimmed) return;
@@ -182,13 +188,13 @@ export function FunctionalPracticeGame({
       <h3 className="text-lg font-semibold">{current.title}</h3>
       <p className="text-xl">{current.prompt}</p>
       <Button variant="outline" className="w-full min-h-14" size="lg"
-        disabled={!!feedback} onClick={() => void speak(current.prompt)}>
+        disabled={!!feedback} onClick={() => playSupport(current.prompt)}>
         <Volume2 className="mr-2 h-5 w-5"/> Hear the question again
       </Button>
     </div>
     {!feedback && <>
       {!help ? <Button variant="outline" size="lg" className="w-full min-h-14"
-        onClick={() => { setHelp(true); void speak(current.clue); }}>
+        onClick={() => { setHelp(true); playSupport(current.clue); }}>
         Need a clue?
       </Button> : <p role="status" className="rounded-lg bg-muted p-4">{current.clue}</p>}
       {current.kind === 'choice' && <div className="space-y-3">
