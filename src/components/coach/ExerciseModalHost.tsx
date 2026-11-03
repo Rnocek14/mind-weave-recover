@@ -130,9 +130,9 @@ export function ExerciseModalHost({
               ))}
             </div>
             {selectedStage != null && <p role="status" className="mt-3 text-sm p-2 rounded-lg bg-muted">
-              {stages[selectedStage-1]?.instruction
-                ?? ('instructions' in stages[selectedStage-1]
-                  ? stages[selectedStage-1].instructions : '')}
+              {activeExercise.slug === 'follow-directions'
+                ? DIRECTION_PRACTICE_STAGES[selectedStage - 1]?.instructions
+                : SEQUENCE_PRACTICE_STAGES[selectedStage - 1]?.instruction}
             </p>}
             {selectedStage != null && <Button variant="ghost"
               className="w-full mt-2" onClick={()=>setStageLaunch({
