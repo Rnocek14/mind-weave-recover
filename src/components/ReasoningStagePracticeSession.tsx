@@ -10,6 +10,7 @@ import { UnverifiedPracticeBanner } from '@/components/exercise/UnverifiedPracti
 import { ReasoningStagePracticeGame, type ReasoningPracticeResult } from './ReasoningStagePracticeGame';
 import {
   REASONING_PRACTICE_STAGES,getReasoningPracticeScenes,getReasoningPracticeStage,
+  reasoningPracticeEventSlug,
   type ReasoningPracticeKind,type ReasoningPracticeLevel,
 } from '@/lib/reasoningPractice/stages';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
@@ -42,7 +43,7 @@ export function ReasoningStagePracticeSession({
   const ownerChanged=ownerRef.current!==scope;
   const {submitTrial,commitSession}=useTrialSubmission({
     userId,profileId,sessionId,
-    exerciseSlug:kind.replace(/-/g,'_'),progression:null,
+    exerciseSlug:reasoningPracticeEventSlug(kind),progression:null,
   });
   const stage=getReasoningPracticeStage(kind,level)!;
   const scenes=useMemo(()=>getReasoningPracticeScenes(kind,level),
@@ -54,7 +55,7 @@ export function ReasoningStagePracticeSession({
     // In all modes the authored example is a PRACTICE observation. Its
     // correctness is never treated as speech recognition or recovery.
     const promised=submitTrial({
-      profileId,sessionId,gameId:kind.replace(/-/g,'_'),
+      profileId,sessionId,gameId:reasoningPracticeEventSlug(kind),
       trialIndex,level:result.stage,stimulusId:result.trialId,
       expectedResponse:null,
       userResponse:result.userResponse,
@@ -70,6 +71,7 @@ export function ReasoningStagePracticeSession({
           result.practiceMatch?'correct_practice_choice':'nonmatching_practice_choice',
       taskParameters:{
         reasoning_practice:true,practice_only:true,
+        reasoning_source_game:kind.replace(/-/g,'_'),
         reasoning_practice_stage:result.stage,
         reasoning_scene_id:result.sceneId,reasoning_scene_title:result.sceneTitle,
         reasoning_step_index:result.stepIndex,reasoning_step_id:result.trialId,
