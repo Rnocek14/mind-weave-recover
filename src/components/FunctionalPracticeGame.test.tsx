@@ -81,7 +81,8 @@ describe('FunctionalPracticeGame real patient actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Record my response' }));
     expect(trial).toHaveBeenCalledWith(expect.objectContaining({
       trialId: 'sg-novel-appointment', correct: null, practiceAccuracy: null,
-      inputMode: 'typed', supportRevealed: true, clinicalProgressionEligible: false,
+      inputMode: 'typed', supportRevealed: true,
+      supportText: 'State the problem and ask for another time.', clinicalProgressionEligible: false,
     }));
   });
   it('keeps synthetic browser recognition separate from confirmed independent speech', () => {
