@@ -158,11 +158,6 @@ export default function ConversationCoachExercise() {
     }
   };
 
-  const handlePlayAgain = () => {
-    setScopedStarted(null);
-    setScopedSummary(null);
-  };
-
   // Summary screen
   if (sessionSummary && !gameStarted) {
     return (
@@ -214,14 +209,10 @@ export default function ConversationCoachExercise() {
                   Continue Lesson
                 </Button>
               ) : (
-                <>
-                  <Button size="lg" onClick={handlePlayAgain} className="w-full">
-                    Practice Again
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={handleExit} className="w-full">
-                    Back to Home
-                  </Button>
-                </>
+                <Button size="lg" className="w-full min-h-14"
+                  onClick={() => navigate('/today')}>
+                  Return to Today
+                </Button>
               )}
             </div>
           </div>
