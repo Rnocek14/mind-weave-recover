@@ -247,6 +247,11 @@ export default function MinimalPairsExercise() {
         selected_word: trialData.selectedWord,
         pair: trialData.pair,
         audio_replay_count: trialData.audioReplayCount,
+        // Auditory discrimination is approved receptive progression evidence,
+        // never independently verified speech accuracy.
+        clinical_score_eligible: false,
+        independent_spoken_score_eligible: false,
+        input_mode: 'tap_recognition',
         echo_attempted: !!trialData.echoAttempted,
         echo_transcript: trialData.echoTranscript ?? null,
         ...adaptationTelemetry,
