@@ -6,7 +6,7 @@ import type { MeaningMatchTrialResult } from '@/hooks/useMeaningMatchGame';
 import { auditGameMeasurementFields, getSpeechScoreExclusion } from './gameMeasurementContracts';
 import {
   LANGUAGE_GAME_TELEMETRY_VERSION,
-  classifyPhotoNamingObservation, describeTwoCluesObservation,
+  classifyPhotoNamingObservation, resolvePhotoNamingAnswerSnapshot, describeTwoCluesObservation,
   describeDescribeGuessObservation, describeNarrativeRetellObservation,
   describeMeaningMatchObservation,
 } from './languageFiveGameTelemetry';
@@ -58,6 +58,9 @@ describe('5 language-game actual task observation contracts',()=>{
       inputMode:'production',browserTranscript:'apple',cueLevel:0,
     });
     expect(spoken.trialMode).toBe('production');
+    expect(resolvePhotoNamingAnswerSnapshot({
+      inputMode:'production',browserTranscript:'apple',whisperTranscript:'apple',
+    },spoken.trialMode)).toEqual({userResponse:'apple',browserTranscript:'apple'});
     expect(spoken.taskParameters).toMatchObject({
       input_mode:'browser_or_service_recognized',
       independently_verified_naming:false,
@@ -68,6 +71,12 @@ describe('5 language-game actual task observation contracts',()=>{
       selectedAnswer:'banana',browserTranscript:'apple',cueLevel:1,
     });
     expect(tap.trialMode).toBe('recognition');
+    expect(resolvePhotoNamingAnswerSnapshot({
+      inputMode:'recognition',selectedAnswer:'banana',
+      browserTranscript:'stale word',whisperTranscript:'wrong engine echo',
+    },tap.trialMode)).toEqual({
+      userResponse:'banana',browserTranscript:null,
+    });
     expect(tap.taskParameters).toMatchObject({
       input_mode:'tap',production_attempted_before_choice:true,
       selected_choice_word:'banana',speech_score_eligible:false,
@@ -79,6 +88,9 @@ describe('5 language-game actual task observation contracts',()=>{
       confirmedBy:'user',confirmationMode:'manual',cueLevel:1,
     });
     expect(manual.trialMode).toBe('mixed');
+    expect(resolvePhotoNamingAnswerSnapshot({
+      inputMode:'manual',selectedAnswer:'apple',browserTranscript:'apple',
+    },manual.trialMode)).toEqual({userResponse:null,browserTranscript:null});
     expect(manual.clinicalProgressionEligible).toBe(false);
     expect(manual.taskParameters.human_manual_confirmation).toBe(true);
     const caregiver=classifyPhotoNamingObservation({
