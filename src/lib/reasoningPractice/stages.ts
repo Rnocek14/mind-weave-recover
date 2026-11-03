@@ -13,6 +13,13 @@
 
 export type ReasoningPracticeKind = 'fix-sentence' | 'detective-mind';
 export type ReasoningPracticeLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+/** Dedicated noncanonical mode slug: never reuse the clinical game's
+ * standalone session mutex, raw events, or mastery/score aggregation bucket. */
+export function reasoningPracticeEventSlug(kind:ReasoningPracticeKind):
+  'fix_sentence_practice' | 'detective_mind_practice' {
+  return kind==='fix-sentence'?'fix_sentence_practice':'detective_mind_practice';
+}
 export type ReasoningPracticeSkill =
   | 'detect_error' | 'select_repair' | 'semantic_repair' | 'functional_repair'
   | 'two_error_repair' | 'morphology' | 'embedded_clause' | 'open_repair'
