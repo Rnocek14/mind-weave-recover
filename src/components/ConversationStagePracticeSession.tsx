@@ -22,6 +22,7 @@ interface Props {
   profileId: string;
   sessionId: string;
   onSaved: (turnCount:number)=>Promise<void>;
+  onExit: ()=>void;
 }
 function deliveredSupport(result:ConversationPracticeResult):SupportLevel{
   if(result.providedModelText)return 'carrier_or_full_model';
@@ -30,7 +31,7 @@ function deliveredSupport(result:ConversationPracticeResult):SupportLevel{
 }
 
 export function ConversationStagePracticeSession({
-  kind,userId,profileId,sessionId,onSaved,
+  kind,userId,profileId,sessionId,onSaved,onExit,
 }:Props){
   const [level,setLevel]=useState<ConversationPracticeLevel>(1);
   const [started,setStarted]=useState(false);
@@ -127,9 +128,7 @@ export function ConversationStagePracticeSession({
   if(phase==='saved')return <div role="status" className="space-y-4 text-center p-8">
     <h2 className="text-2xl font-bold">Practice responses saved</h2>
     <p>The scripted conversation is complete. This is not a clinical score.</p>
-    <Button size="lg" className="min-h-16 w-full" onClick={()=>{
-      window.location.assign('/today');
-    }}>Return to Today</Button>
+    <Button size="lg" className="min-h-16 w-full" onClick={onExit}>Return to Today</Button>
   </div>;
 
   if(!started)return <div className="max-w-xl mx-auto space-y-5 p-4">
