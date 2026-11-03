@@ -217,6 +217,20 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(summary).toMatchObject({
       asr_accuracy:50,scored_trials:2,
       independent_accuracy:0,independent_trials:1,
+      cue_assisted_accuracy:100,cue_assisted_trials:1,
+    });
+  });
+
+  it('treats a delivered semantic cue as assisted even if an old caller wrote cue_level zero',()=>{
+    const summary=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{support_used:'semantic_cue'}},
+      {score:0,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{support_used:'independent'}},
+    ]);
+    expect(summary).toMatchObject({
+      asr_accuracy:50,independent_accuracy:0,
+      cue_assisted_accuracy:100,independent_trials:1,cue_assisted_trials:1,
     });
   });
 
