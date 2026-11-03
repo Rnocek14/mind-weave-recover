@@ -6,6 +6,7 @@ vi.mock('@/hooks/useGameSounds', () => ({
 }));
 
 import { useDescribeGuessGame } from './useDescribeGuessGame';
+import { getDescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
 
 const guess = {
   guessed: true,
@@ -61,6 +62,49 @@ describe('useDescribeGuessGame original result provenance', () => {
     expect(output).toMatchObject({
       inputMode: 'spoken',
       browserTranscript: 'this is something to hold your drink',
+    });
+  });
+
+  it('records actual Stage 4 described features from the selected photo, without mislabeling a typed answer as speech', () => {
+    const onTrialComplete=vi.fn();
+    const {result}=renderHook(()=>useDescribeGuessGame({
+      trialCount:1,trainingStage:getDescribeGuessTrainingStage(4),onTrialComplete,
+    }));
+    const trial=result.current.currentTrial!;
+    const description=[
+      trial.featureKeywords.function?.[0],trial.featureKeywords.location?.[0],
+    ].filter(Boolean).join(' ');
+    let output: ReturnType<typeof result.current.finalizeTrial>|undefined;
+    act(()=>{
+      result.current.recordPracticeHelpReveal();
+      output=result.current.finalizeTrial(description,guess,false,false,'typed');
+    });
+    expect(output).toMatchObject({
+      inputMode:'typed',browserTranscript:null,practiceStage:4,
+      practiceGoalObserved:true,practiceMissingFeatures:[],
+      practiceHelpRevealed:true,
+    });
+    expect(onTrialComplete).toHaveBeenCalledWith(expect.objectContaining({
+      practiceStage:4,practiceGoalObserved:true,
+    }));
+  });
+
+  it('does not award Stage 7 describing-goal credit when the patient says the target name',()=>{
+    const {result}=renderHook(()=>useDescribeGuessGame({
+      trialCount:1,trainingStage:getDescribeGuessTrainingStage(7),
+    }));
+    const trial=result.current.currentTrial!;
+    const description=[
+      trial.featureKeywords.function?.[0],
+      trial.featureKeywords.location?.[0],
+      trial.featureKeywords.category?.[0],
+      trial.target,
+    ].filter(Boolean).join(' ');
+    let output:ReturnType<typeof result.current.finalizeTrial>|undefined;
+    act(()=>{output=result.current.finalizeTrial(description,guess,false,false,'spoken');});
+    expect(output).toMatchObject({
+      practiceStage:7,practiceTargetNamed:true,practiceGoalObserved:false,
+      inputMode:'spoken',browserTranscript:description,
     });
   });
 
