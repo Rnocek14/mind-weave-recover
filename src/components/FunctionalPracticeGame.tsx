@@ -153,7 +153,7 @@ export function FunctionalPracticeGame({
     submit({ inputMode: responseMode, userResponse: trimmed });
   };
   const toggleMic = () => {
-    if (isListening) {
+    if (isListening || micRequestedRef.current) {
       micRequestedRef.current = false;
       stopListening();
       return;
