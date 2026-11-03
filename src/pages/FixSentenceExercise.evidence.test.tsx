@@ -156,6 +156,10 @@ describe('Fix Sentence page writes real input provenance to unified trial submis
     mocks.commit.mockImplementationOnce(()=>new Promise(r=>{resolveCommit=r;}));
     render(<FixSentenceExercise/>);
     fireEvent.click(screen.getByRole('button',{name:'Complete synthetic repair session'}));
+    // The async finalizer awaits its prior flush before asking for commit.
+    // Wait until the pending commit is registered, then prove no review
+    // items leak while that commit remains unresolved.
+    await waitFor(()=>expect(mocks.commit).toHaveBeenCalledTimes(1));
     expect(mocks.review).not.toHaveBeenCalled();
     resolveCommit({ok:true,errors:[]});
     await waitFor(()=>expect(mocks.review).toHaveBeenCalledTimes(1));
