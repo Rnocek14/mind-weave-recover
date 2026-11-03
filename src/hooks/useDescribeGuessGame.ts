@@ -19,7 +19,10 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { DescribeGuessTrial, FeatureType, getDescribeGuessTrials } from '@/data/describeGuessBank';
-import { getDescribeGuessStageTrials, type DescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
+import {
+  getDescribeGuessStageTrials, assessDescribeGuessPracticeGoal,
+  type DescribeGuessTrainingStage,
+} from '@/lib/describeGuess/trainingStages';
 import { matchAnswer } from '@/lib/answerMatcher';
 import { extractCandidatePhrases, getSemanticAnalysisText } from '@/lib/describeGuessAnalysis';
 import { evaluateCoverage, detectSpokenDimensions } from '@/lib/describeGuess/coverageGuess';
@@ -48,6 +51,12 @@ export interface DescribeGuessTrialResult {
   reactionTimeMs: number;
   attemptNumber: number;
   difficulty: number;
+  /** Describing PRACTICE goal only; no clinical promotion inference. */
+  practiceStage?: number;
+  practiceGoalObserved?: boolean;
+  practiceMissingFeatures?: FeatureType[];
+  practiceTargetNamed?: boolean;
+  practiceHelpRevealed?: boolean;
 }
 
 /** Star count from wins */
@@ -93,6 +102,10 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const { playSuccess } = useGameSounds();
   const roundStartTimeRef = useRef<number>(Date.now());
   const pendingTrialRef = useRef<DescribeGuessTrialResult | null>(null);
+  const practiceHelpRevealedRef = useRef(false);
+  const recordPracticeHelpReveal = useCallback(() => {
+    practiceHelpRevealedRef.current = true;
+  }, []);
   const wordRetrievalTimeRef = useRef<number | null>(null);
 
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
@@ -392,6 +405,9 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
 
     if (meaningWin || wordWin) playSuccess();
 
+    const practiceGoal = trainingStage ? assessDescribeGuessPracticeGoal({
+      stage: trainingStage, trial: currentTrial, response: transcript,
+    }) : null;
     const result: DescribeGuessTrialResult = {
       trialId: currentTrial.id,
       target: currentTrial.target,
@@ -410,6 +426,11 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       reactionTimeMs: Date.now() - roundStartTimeRef.current,
       attemptNumber: currentAttempt,
       difficulty: currentTrial.difficulty,
+      practiceStage: trainingStage?.level,
+      practiceGoalObserved: practiceGoal?.goalObserved,
+      practiceMissingFeatures: practiceGoal?.missingFeatures,
+      practiceTargetNamed: practiceGoal?.targetNamed,
+      practiceHelpRevealed: practiceHelpRevealedRef.current,
     };
 
     setResults(prev => [...prev, result]);
@@ -425,7 +446,8 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     });
 
     return result;
-  }, [currentTrial, featureTypesUsed, promptsShown, currentAttempt, detectFeatureKeywords, playSuccess, onTrialComplete]);
+  }, [currentTrial, featureTypesUsed, promptsShown, currentAttempt,
+    detectFeatureKeywords, playSuccess, onTrialComplete, trainingStage]);
 
   /**
    * Advance to next trial
@@ -447,6 +469,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     setFeatureTypesUsed(new Set());
     setFeatureTypesSpoken(new Set());
     setPromptsShown([]);
+    practiceHelpRevealedRef.current = false;
     wordRetrievalTimeRef.current = null;
     roundStartTimeRef.current = Date.now();
   }, [currentIndex, trials.length, onGameComplete]);
@@ -484,6 +507,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     evaluateGuess,
     finalizeTrial,
     recordFeatureChip,
+    recordPracticeHelpReveal,
     recordSpokenFeatures,
     featureTypesSpoken,
     recordWordRetrieval,

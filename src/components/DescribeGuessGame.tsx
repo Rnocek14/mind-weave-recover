@@ -42,7 +42,11 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import type { DescribeGuessTrainingStage } from '@/lib/describeGuess/trainingStages';
+import {
+  getDescribeGuessStagePrompt,
+  getDescribeGuessVisibleFeatureTypes,
+  type DescribeGuessTrainingStage,
+} from '@/lib/describeGuess/trainingStages';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -104,6 +108,7 @@ export function DescribeGuessGame({
   const [typedAnswer, setTypedAnswer] = useState('');
   const speechErrorCountRef = useRef(0);
   const [visiblePrompts, setVisiblePrompts] = useState<number>(trainingStage?.initialVisiblePrompts ?? 0);
+  const [showStageHelp, setShowStageHelp] = useState(false);
   /** Re-runs the transcript mirror once the mic lock clears. See its effect. */
   const [micLockRetryTick, setMicLockRetryTick] = useState(0);
   const micLockRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -378,6 +383,9 @@ export function DescribeGuessGame({
     promptTimersRef.current.forEach(t => clearTimeout(t));
     promptTimersRef.current = [];
     setVisiblePrompts(trainingStage?.initialVisiblePrompts ?? 0);
+    setShowStageHelp(false);
+    // Later practice levels fade automatic questions, but can reveal help.
+    if (trainingStage && trainingStage.level >= 4) return;
 
     PROMPT_COOLDOWNS.forEach((delay, i) => {
       const timer = setTimeout(() => {
@@ -1040,6 +1048,11 @@ export function DescribeGuessGame({
     speak(chip.question);
   }, [game, speak]);
 
+  const revealStageHelp = useCallback(() => {
+    game.recordPracticeHelpReveal();
+    setShowStageHelp(true);
+  }, [game]);
+
   const handleDismissFeedback = useCallback(() => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     feedbackTimerRef.current = null;
@@ -1120,7 +1133,8 @@ export function DescribeGuessGame({
         <div role="status" className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
           <p className="font-semibold">Describing practice • Stage {trainingStage.level}</p>
           <p>{trainingStage.label}</p>
-          <p className="text-xs text-muted-foreground">Supported practice only — not a validated recovery measure.</p>
+          <p className="text-sm font-medium">{getDescribeGuessStagePrompt(trainingStage, game.currentTrial)}</p>
+          <p className="text-xs text-muted-foreground">Describing practice only — not a validated recovery measure.</p>
         </div>
       )}
       {/* Purpose banner — first trial only */}
@@ -1181,16 +1195,11 @@ export function DescribeGuessGame({
       {/* Prompt Chips (appear on cooldown) */}
       {!showFeedback && !awaitingWordAttempt && (
         <div className="flex flex-wrap justify-center gap-1.5 shrink-0">
-          {/* ONE threshold, here in the slice. There used to be three, and they
-              disagreed: the slice and the early return both used
-              visiblePrompts + 2, while the className hid anything with
-              `i >= visiblePrompts`. Two off-by-two apart, so "Made of" and
-              "Kind of" were rendered into the row — taking up width, reserving
-              layout — at opacity-0 and pointer-events-none for every reachable
-              value of visiblePrompts. Two of the five help chips could not be
-              seen or tapped at any point in the game, and "Looks like" only
-              surfaced at 14s instead of 6s. */}
-          {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip) => {
+          {/* Later practice tasks use specific feature prompts; Stage 6–8
+              hide help until requested. These do not define clinical scores. */}
+          {PROMPT_CHIPS.filter(chip => getDescribeGuessVisibleFeatureTypes(
+            trainingStage, visiblePrompts, showStageHelp,
+          ).includes(chip.featureType)).map((chip) => {
             return (
               <Button
                 key={chip.featureType}
@@ -1210,6 +1219,13 @@ export function DescribeGuessGame({
               </Button>
             );
           })}
+          {trainingStage && trainingStage.level >= 4 && !showStageHelp && (
+            <Button type="button" variant="outline" size="lg"
+              className="min-h-12"
+              onClick={revealStageHelp}>
+              Need help? Show describing questions
+            </Button>
+          )}
         </div>
       )}
 
@@ -1272,6 +1288,26 @@ export function DescribeGuessGame({
               )}
             </div>
 
+            {trainingStage && trainingStage.level >= 4 && (
+              <div className="text-sm rounded-lg bg-muted p-2 space-y-1" role="status">
+                <p className="font-medium">Practice-goal clues</p>
+                <p>{game.lastResult.practiceGoalObserved
+                  ? 'The requested feature clues were detected in your description.'
+                  : 'Some requested clues were not detected. Other valid ways to describe this may still work.'}
+                </p>
+                {(game.lastResult.practiceMissingFeatures?.length ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Try adding: {game.lastResult.practiceMissingFeatures?.join(', ')}.
+                  </p>
+                )}
+                {trainingStage.prohibitNaming && game.lastResult.practiceTargetNamed && (
+                  <p className="text-xs">Try describing the object without naming it.</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Keyword observations are not a clinical communication score.
+                </p>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               The word was: <strong className="text-foreground">{game.lastResult.target}</strong>
             </p>
