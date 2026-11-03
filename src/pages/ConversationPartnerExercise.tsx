@@ -168,11 +168,6 @@ export default function ConversationPartnerExercise() {
     }
   };
 
-  const handlePlayAgain = () => {
-    setScopedGame({ scope, started: false, mode: 'live' });
-    setScopedSummary(null);
-  };
-
   // Summary screen
   if (sessionSummary) {
     return (
@@ -228,14 +223,10 @@ export default function ConversationPartnerExercise() {
                     Continue Lesson
                   </Button>
                 ) : (
-                  <>
-                    <Button onClick={handlePlayAgain}>
-                      Talk Again
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate('/today')}>
-                      Done
-                    </Button>
-                  </>
+                  <Button className="min-h-14 w-full"
+                    onClick={() => navigate('/today')}>
+                    Return to Today
+                  </Button>
                 )}
               </div>
             </CardContent>
