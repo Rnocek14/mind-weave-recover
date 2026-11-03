@@ -359,7 +359,7 @@ export const SentenceConstructionGame = ({
         });
       }
     }, 300);
-  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial]);
+  }, [trial, spokenSentence, stopListening, clearAnswer, selectWord, submitAnswer, trialStartTime, onTrialComplete, speak, recordGrammarResult, recordAdaptiveTrial, hintUsed, handleKidsResult]);
 
   useEffect(() => {
     if (spokenSentence && !isListening && !hasProcessedSpeechRef.current) {
