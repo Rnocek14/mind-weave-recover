@@ -151,6 +151,55 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
     });
   });
 
+  it.each(['fix_sentence_practice','detective_mind_practice'])(
+    '%s records a correct practice tile without adding ASR or independent speech accuracy',
+    async slug=>{
+      const raw=await persist({
+        correct:true,browserTranscript:undefined,validity:undefined,
+        taskParameters:{
+          practice_only:true,reasoning_practice:true,
+          reasoning_input_mode:'choice',trial_mode:'recognition',
+          clinical_progression_eligible:false,clinical_score_eligible:false,
+          independent_spoken_score_eligible:false,
+        },
+      },slug);
+      expect(raw).toMatchObject({
+        exercise_slug:slug,score:100,counts_toward_score:false,
+        task_parameters:{
+          practice_only:true,clinical_progression_eligible:false,
+          clinical_score_eligible:false,independent_spoken_score_eligible:false,
+        },
+      });
+      expect(raw.browser_transcript).toBeUndefined();
+      expect(reduceAccuracy([{
+        score:raw.score,cue_level:raw.cue_level,
+        counts_toward_score:raw.counts_toward_score,
+        validity_label:raw.validity_label,exercise_slug:raw.exercise_slug,
+      }])).toMatchObject({
+        accuracy:null,asr_accuracy:null,independent_accuracy:null,scored_trials:0,
+      });
+    },
+  );
+
+  it('an ungraded spoken reasoning hypothesis remains practice even with valid browser text',async()=>{
+    const raw=await persist({
+      correct:false,browserTranscript:'I would check the labels',
+      validity:spokenValidity(),
+      taskParameters:{
+        practice_only:true,reasoning_practice_stage:8,
+        reasoning_input_mode:'browser_recognized',trial_mode:'mixed',
+        clinical_progression_eligible:false,clinical_score_eligible:false,
+        independent_spoken_score_eligible:false,
+      },
+    },'detective_mind_practice');
+    expect(raw).toMatchObject({
+      score:0,validity_label:'valid_attempt',counts_toward_score:false,
+      task_parameters:{
+        speech_validity:{should_score:false,counts_toward_asr_accuracy:false},
+      },
+    });
+  });
+
   it('preserves eligible valid speech in the verified denominator', async () => {
     const raw = await persist({
       validity: spokenValidity(),
