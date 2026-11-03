@@ -18,7 +18,7 @@ import { readMasteryGate } from '@/lib/mastery/readMasteryGate';
 
 const SLUG = 'narrative-retell';
 
-type BufferedTrial = { correct: boolean; support: SupportLevel };
+type BufferedTrial = { correct: boolean; support: SupportLevel; storyId?: string };
 
 export interface UseNarrativeRetellProgressionArgs {
   userId: string | null | undefined;
@@ -30,10 +30,20 @@ export function useNarrativeRetellProgression({ userId, profileId }: UseNarrativ
   const [loaded, setLoaded] = useState(false);
   const trialsRef = useRef<BufferedTrial[]>([]);
   const flushedRef = useRef(false);
+  const seenStoriesRef = useRef<Set<string>>(new Set());
+  // Keep the active identity current even in the render that first sees a
+  // profile switch, before the effect below runs. Old asynchronous callbacks
+  // must never credit one patient's trial to the next patient.
+  const identity = userId && profileId ? `${userId}/${profileId}` : null;
+  const activeIdentityRef = useRef(identity);
+  activeIdentityRef.current = identity;
+  const matchingState = state && state.userId === (userId ?? 'offline')
+    && state.profileId === (profileId ?? 'offline') ? state : null;
 
   useEffect(() => {
     // Profile changes must never reuse the prior patient's buffered events.
     trialsRef.current = [];
+    seenStoriesRef.current.clear();
     flushedRef.current = false;
     if (!userId || !profileId) {
       setState(defaultProgressionState({
@@ -52,16 +62,24 @@ export function useNarrativeRetellProgression({ userId, profileId }: UseNarrativ
   }, [userId, profileId]);
 
   const recordTrialOutcome = useCallback((trial: BufferedTrial) => {
-    trialsRef.current.push(trial);
-  }, []);
+    if (!identity || activeIdentityRef.current !== identity || flushedRef.current) return;
+    // Repeat attempts on the same story help practice, but are not multiple
+    // independent recall opportunities. Only the first saved, valid spoken
+    // attempt for each story can contribute to this clinical session.
+    if (trial.storyId) {
+      if (seenStoriesRef.current.has(trial.storyId)) return;
+      seenStoriesRef.current.add(trial.storyId);
+    }
+    trialsRef.current.push({ correct: trial.correct, support: trial.support });
+  }, [identity]);
 
   const flushAtSessionEnd = useCallback(async ({ sessionId }: { sessionId: string | null }) => {
-    if (flushedRef.current) return { ok: true, skipped: true as const };
+    if (activeIdentityRef.current !== identity || flushedRef.current) return { ok: true, skipped: true as const };
     if (!userId || !profileId || trialsRef.current.length === 0) {
       flushedRef.current = true;
       return { ok: true, skipped: true as const };
     }
-    const prev = state ?? defaultProgressionState({ userId, profileId, exerciseSlug: SLUG });
+    const prev = matchingState ?? defaultProgressionState({ userId, profileId, exerciseSlug: SLUG });
     const trials = trialsRef.current;
     const evidenceMet = evidenceMetForNarrativeRetellLevel(trials, prev.currentLevel);
     const progressDelta = calculateNarrativeRetellProgressDelta(trials, prev.currentLevel);
@@ -89,11 +107,12 @@ export function useNarrativeRetellProgression({ userId, profileId }: UseNarrativ
         evidenceMet, progressDelta,
       },
     };
-  }, [userId, profileId, state]);
+  }, [userId, profileId, identity, matchingState]);
 
   const bufferedTrialCount = useCallback(() => trialsRef.current.length, []);
   return {
-    loaded, state, startingLevel: state?.currentLevel ?? null,
+    loaded: loaded && matchingState != null, state: matchingState,
+    startingLevel: matchingState?.currentLevel ?? null,
     recordTrialOutcome, flushAtSessionEnd, __bufferedTrialCount: bufferedTrialCount,
   };
 }
