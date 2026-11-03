@@ -5,7 +5,7 @@
  * Normalizes results and passes them back to the coach session.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,8 @@ import { StoryRetellProbe } from './StoryRetellProbe';
 import { FollowDirectionsProbe } from './FollowDirectionsProbe';
 import { CategoryFluencyProbe } from './CategoryFluencyProbe';
 import { SequenceBuilderProbe } from './SequenceBuilderProbe';
+import { DIRECTION_PRACTICE_STAGES, type DirectionPracticeLevel } from '@/lib/coach/followDirectionsPractice';
+import { SEQUENCE_PRACTICE_STAGES, type SequencePracticeLevel } from '@/lib/coach/sequenceBuilderPractice';
 
 interface ExerciseModalHostProps {
   activeExercise: ActiveModalExercise | null;
@@ -58,6 +60,22 @@ export function ExerciseModalHost({
   sessionId,
 }: ExerciseModalHostProps) {
   const isMobile = useIsMobile();
+  // Key by the actual launch and patient/session. A previous patient's stage
+  // selection cannot leak into the next modal or mutate persisted progression.
+  const launchScope = [
+    activeExercise?.slug ?? '', activeExercise?.launchedAt ?? '',
+    userId ?? '', sessionId ?? '',
+  ].join(':');
+  const [stageLaunch, setStageLaunch] = useState<{
+    scope:string; level:number|null; started:boolean;
+  }|null>(null);
+  const isStagedProbe = activeExercise?.slug === 'follow-directions'
+    || activeExercise?.slug === 'sequence-builder';
+  const selectedStage = stageLaunch?.scope === launchScope ? stageLaunch.level : null;
+  const stageStarted = stageLaunch?.scope === launchScope && stageLaunch.started;
+  const startStage = () => setStageLaunch({
+    scope:launchScope,level:selectedStage,started:true,
+  });
 
   const handleGameComplete = useCallback((slug: string, rawResult: unknown) => {
     const normalized = normalizeExerciseResult(slug, rawResult);
@@ -82,6 +100,50 @@ export function ExerciseModalHost({
   const config = activeExercise.config;
 
   const renderExercise = () => {
+    if (isStagedProbe && !stageStarted) {
+      const stages = activeExercise.slug === 'follow-directions'
+        ? DIRECTION_PRACTICE_STAGES : SEQUENCE_PRACTICE_STAGES;
+      return (
+        <div className="mx-auto max-w-lg space-y-4 p-2">
+          <h2 className="text-xl font-semibold text-center">Practice with Maya</h2>
+          <p className="text-center text-sm text-muted-foreground">
+            Listen, think and take your time. This is practice, not a clinical recovery score.
+          </p>
+          <details className="rounded-xl border p-3">
+            <summary className="min-h-10 cursor-pointer font-semibold">
+              Care partner: choose a practice stage
+            </summary>
+            <p className="text-sm mt-2 text-muted-foreground">
+              Eight different activities. Stage choice affects only this practice
+              and does not overwrite the patient's saved recovery level.
+            </p>
+            <div className="grid grid-cols-1 gap-2 mt-3">
+              {stages.map(stage => (
+                <Button key={stage.level} variant={selectedStage === stage.level ? 'default':'outline'}
+                  className="w-full h-auto min-h-12 whitespace-normal text-left justify-start p-3"
+                  aria-pressed={selectedStage === stage.level}
+                  onClick={()=>setStageLaunch({
+                    scope:launchScope,level:stage.level,started:false,
+                  })}>
+                  Stage {stage.level}: {'name' in stage ? stage.name : stage.label}
+                </Button>
+              ))}
+            </div>
+            {selectedStage != null && <p role="status" className="mt-3 text-sm p-2 rounded-lg bg-muted">
+              {activeExercise.slug === 'follow-directions'
+                ? DIRECTION_PRACTICE_STAGES[selectedStage - 1]?.instructions
+                : SEQUENCE_PRACTICE_STAGES[selectedStage - 1]?.instruction}
+            </p>}
+            {selectedStage != null && <Button variant="ghost"
+              className="w-full mt-2" onClick={()=>setStageLaunch({
+                scope:launchScope,level:null,started:false,
+              })}>Use regular quick practice instead</Button>}
+          </details>
+          <Button size="lg" className="w-full min-h-16 text-lg"
+            onClick={startStage}>Start practice</Button>
+        </div>
+      );
+    }
     switch (activeExercise.slug) {
       case 'photo-naming':
         return (
@@ -173,6 +235,8 @@ export function ExerciseModalHost({
       case 'follow-directions':
         return (
           <FollowDirectionsProbe
+            key={launchScope}
+            practiceLevel={selectedStage as DirectionPracticeLevel | null}
             totalTrials={config.totalTrials ?? 5}
             difficultyLevel={config.difficultyTier ?? 2}
             onComplete={(results) => {
@@ -193,6 +257,8 @@ export function ExerciseModalHost({
       case 'sequence-builder':
         return (
           <SequenceBuilderProbe
+            key={launchScope}
+            practiceLevel={selectedStage as SequencePracticeLevel | null}
             totalTrials={config.totalTrials ?? 3}
             onComplete={(results) => {
               handleGameComplete('sequence-builder', results);

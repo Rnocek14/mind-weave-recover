@@ -60,3 +60,34 @@
 7. SLP review for each ladder; separate permitted aphasic speech/device evaluation and regulatory/privacy readiness before hospital use.
 
 PR #101 established **design completeness**. Stacked PR #102 adds two distinct L8 content paths and corrects Two Clues cue attribution; neither PR has been merged or deployed. **Nine** other wired games still have incomplete final-stage mechanics, and **16** design-only games still require runtime progression, game-specific evidence, and persistence. No clinical effectiveness or hospital readiness is implied.
+
+
+## November 2, 2026 — nonclinical coach-probe implementation status (PR #128)
+
+The eight-game practice wave in stacked PR #127 is followed by two additional
+**playable, nonclinical** Stage 1–8 modes in the coach's activity modal:
+
+- **Follow Directions:** concrete one-to-four-step listening/touch conditions,
+  reversible written support, replay provenance, before/after and exclusion
+  language, and explicit skip/error handling. These are supported auditory
+  comprehension practices, **not** independent first-listen outcomes or verified
+  clinical promotions.
+- **Sequence Builder:** two-to-four-step routines, supported first-step reveals,
+  new scenario banks, cause-and-effect questions, and two plausible sequence
+  alternatives. Ordering, hints, skipping and causal accuracy remain separate
+  in raw results. These are practice observations, **not** longitudinal
+  discourse mastery.
+
+The modal offers one prominent Start control and a collapsed caregiver stage
+selector; the unselected path retains the original quick-practice behavior.
+This brings the stacked branch to **10/29 activities with actual Stage 1–8
+nonclinical practice formats** (previous eight plus these two). **19 activities
+still lack the equivalent eight-stage practice implementation.** The clinical
+design matrix above is deliberately unchanged: 13 persisted clinical ladders,
+their approved numerical criteria, and outstanding upper-level limitations are
+not converted into clinical evidence by this implementation. This note describes
+branch code, not deployed functionality or clinician-verified outcomes.
+
+After CI, verify same-commit job results separately. Staging ownership/RLS,
+physical-device audio, live aphasic understanding, clinician review and
+hospital readiness remain outside the synthetic software regression boundary.
