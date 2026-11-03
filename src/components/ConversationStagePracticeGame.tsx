@@ -88,6 +88,7 @@ export function ConversationStagePracticeGame({
   const play=(text:string)=>{
     micRequestedRef.current=false;
     stopListening();
+    stop();
     void speak(text);
   };
   const submit=(answer:{
