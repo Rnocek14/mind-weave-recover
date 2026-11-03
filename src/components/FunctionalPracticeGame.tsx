@@ -235,7 +235,14 @@ export function FunctionalPracticeGame({
           <p key={i} className="rounded-lg bg-muted/30 p-3">{i + 1}. {prompt}</p>)}
         <Textarea aria-label="Your own words" placeholder="Your message (optional)"
           rows={3} className="text-base min-h-24" value={response}
-          onChange={event => { setResponse(event.target.value); setResponseMode('typed'); }}/>
+          onChange={event => {
+            // A patient choosing typing owns this answer. Stop the browser
+            // recognizer before a late hypothesis can overwrite the draft.
+            micRequestedRef.current = false;
+            stopListening();
+            setResponse(event.target.value);
+            setResponseMode('typed');
+          }}/>
         {isSupported && <Button variant="outline" size="lg" className="w-full min-h-14"
           disabled={isSpeaking} onClick={toggleMic}>
           {isListening ? <><MicOff className="mr-2 w-5 h-5"/> Stop microphone</>
