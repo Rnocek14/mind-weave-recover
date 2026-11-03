@@ -35,7 +35,7 @@ export interface PlanningTrialResult {
   sequenceMatchedSteps: number;
   /** Matched authored step indices in the order detected in the patient's
    * transcript. Missing/ambiguous observations remain null. */
-  observedStepOrder: number[] | null;
+  observedStepOrder?: number[] | null;
   sequenceMethod: 'distinctive_tokens_v1';
   /** Real browser recognizer output only; typed input is never fabricated as ASR. */
   browserTranscript: string | null;
