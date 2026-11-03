@@ -31,6 +31,9 @@ import { useExerciseTelemetry } from './useExerciseTelemetry';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
 import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
+import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
+import { getClinicalGameEvidence } from '@/lib/clinicalEvidenceRegistry';
+import { getGameMeasurementSpec } from '@/lib/clinical/gameMeasurementContracts';
 
 const spokenValidity = () => classifyUtteranceValidity({
   transcript: 'the cup is used for drinking',
@@ -60,6 +63,31 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
     vi.clearAllMocks();
     mocks.insert.mockResolvedValue({ error: null });
   });
+
+  it.each([...CANONICAL_EXERCISES.map(game=>game.slug),'functional-scenes'])(
+    'final raw writer records the unique proposed measurement contract for %s',
+    async slug=>{
+      const raw=await persist({
+        browserTranscript:undefined,validity:undefined,
+        taskParameters:{synthetic_telemetry_probe:true},
+      },slug);
+      const spec=getGameMeasurementSpec(slug)!;
+      const evidence=getClinicalGameEvidence(slug)!;
+      expect(raw.task_parameters).toMatchObject({
+        measurement_contract_version:'research-2026-11-02-v1',
+        measurement_primary_metric_id:spec.primaryMeasureId,
+        measurement_unit:spec.unit,
+        measurement_evidence_track:evidence.track,
+        measurement_validation:'unreviewed_app_observation',
+        measurement_field_coverage:'missing',
+        measurement_fields_missing:[...spec.proposedTaskFields],
+      });
+      if(evidence.track!=='expressive'){
+        expect(raw.task_parameters.speech_score_eligible).toBe(false);
+        expect(raw.engagement_flags.counts_toward_asr_accuracy).toBe(false);
+      }
+    },
+  );
 
   it('excludes explicit practice-only attempts even with a valid speech verdict', async () => {
     const raw = await persist({
