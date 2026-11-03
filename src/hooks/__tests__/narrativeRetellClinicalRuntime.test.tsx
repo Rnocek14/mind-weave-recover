@@ -42,6 +42,20 @@ describe('Narrative Retell live hook — pinned clinical content', () => {
     expect(result.current.currentIndex).toBe(1);
   });
 
+  it('replaces the result of a retry instead of counting the same story twice', () => {
+    const { result } = renderHook(() => useNarrativeRetellGame(3, 1, 1));
+    const firstId = result.current.currentStory!.id;
+    act(() => { result.current.submitRetell('', 1000); });
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.results[0].skipped).toBe(true);
+    const rememberedWord = result.current.currentStory!.keyEvents[0];
+    act(() => { result.current.submitRetell(rememberedWord, 1200); });
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.results[0].storyId).toBe(firstId);
+    expect(result.current.results[0].skipped).toBe(false);
+    expect(result.current.results[0].eventsFound).toBe(1);
+  });
+
   it('returns a zero-event result for a skip rather than a successful recall', () => {
     const { result } = renderHook(() => useNarrativeRetellGame(3, 3, 2));
     act(() => { result.current.submitRetell('', 1000); });
