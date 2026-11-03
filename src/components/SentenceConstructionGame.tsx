@@ -64,7 +64,7 @@ interface SentenceConstructionGameProps {
     trialSource: 'graded_sentence_bank' | 'standard_sentence_bank';
     /** True if patient played the model audio (hint) on this trial. */
     hintUsed: boolean;
-    /** Engine difficulty (1–10) at the moment the trial fired. */
+    /** Actual sentence bank difficulty of the trial; not the engine's display tier. */
     difficulty: number;
   }) => void;
   onGameComplete?: (finalScore: number, totalTrials: number) => void;
@@ -146,7 +146,7 @@ export const SentenceConstructionGame = ({
     setActiveDifficulty,
     getWeakestGrammarArea,
     getAnswerAsWords
-  } = useSentenceGame(10, difficultyLevel, focusPhonemes);
+  } = useSentenceGame(10, difficultyLevel, focusPhonemes, clinicalLevel);
 
   // In-Game Adaptation: drives mid-session level shifts based on performance.
   // Publishes the canonical 1–10 game_level to the adaptive level registry,
@@ -158,7 +158,6 @@ export const SentenceConstructionGame = ({
   }, [setActiveDifficulty]);
 
   const {
-    currentDifficulty,
     levelDescriptor: scLevelDescriptor,
     recordTrial: recordAdaptiveTrial,
   } = useInGameAdaptation({
@@ -260,13 +259,16 @@ export const SentenceConstructionGame = ({
 
   useEffect(() => {
     setTrialStartTime(Date.now());
-    setHintUsed(false);
+    // A model sentence played before the attempt is support, not independent
+    // production. Later clinical rungs have no automatic model audio.
+    const autoModel = clinicalLevel == null || clinicalLevel <= 2;
+    setHintUsed(Boolean(autoModel && trial?.modelAudio));
     setSpokenSentence(null);
     hasProcessedSpeechRef.current = false;
     trialCompletedRef.current = false;
     stop();
     if (trial?.modelAudio && !completed) {
-      const timer = setTimeout(() => { speak(trial.modelAudio!); }, 300);
+      const timer = autoModel ? setTimeout(() => { speak(trial.modelAudio!); }, 300) : null;
       
       // Stall timer
       if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
@@ -277,7 +279,7 @@ export const SentenceConstructionGame = ({
       }, 12000);
       
       return () => { 
-        clearTimeout(timer); 
+        if (timer) clearTimeout(timer); 
         if (stallTimerSCRef.current) clearTimeout(stallTimerSCRef.current);
       };
     }
@@ -312,11 +314,12 @@ export const SentenceConstructionGame = ({
   }, []);
 
   const submitSpokenSentence = useCallback(() => {
-    if (!trial || !spokenSentence || hasProcessedSpeechRef.current) return;
+    if (!trial || !spokenSentence || hasProcessedSpeechRef.current || trialCompletedRef.current) return;
+    trialCompletedRef.current = true;
     hasProcessedSpeechRef.current = true;
     stopListening();
 
-    const spokenWords = spokenSentence.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const spokenWords = spokenSentence.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
     const usedIndices = new Set<number>();
     const mappedIndices: number[] = [];
 
@@ -335,7 +338,7 @@ export const SentenceConstructionGame = ({
     }
 
     setTimeout(() => {
-      const result = submitAnswer();
+      const result = submitAnswer(spokenWords);
       if (!result) return;
       const reactionTime = Date.now() - trialStartTime;
       if (trial?.modelAudio) speak(trial.modelAudio);
@@ -344,8 +347,7 @@ export const SentenceConstructionGame = ({
       setShowPurpose(false);
       // Feed the adaptive engine — drives mid-session level shifts + telemetry.
       recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
-      if (onTrialComplete && !trialCompletedRef.current) {
-        trialCompletedRef.current = true;
+      if (onTrialComplete) {
         onTrialComplete({
           correct: result.correct,
           reactionTime,
@@ -353,7 +355,7 @@ export const SentenceConstructionGame = ({
           grammarFocus: result.trial.grammarFocus,
           trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
           hintUsed,
-          difficulty: currentDifficulty,
+          difficulty: result.trial.difficulty,
         });
       }
     }, 300);
@@ -376,6 +378,8 @@ export const SentenceConstructionGame = ({
   };
 
   const handleSubmit = () => {
+    if (trialCompletedRef.current) return;
+    trialCompletedRef.current = true;
     const result = submitAnswer();
     if (!result) return;
     const reactionTime = Date.now() - trialStartTime;
@@ -385,8 +389,7 @@ export const SentenceConstructionGame = ({
     setShowPurpose(false);
     // Feed the adaptive engine — drives mid-session level shifts + telemetry.
     recordAdaptiveTrial({ correct: result.correct, reactionTimeMs: reactionTime });
-    if (onTrialComplete && !trialCompletedRef.current) {
-      trialCompletedRef.current = true;
+    if (onTrialComplete) {
       onTrialComplete({
         correct: result.correct,
         reactionTime,
@@ -394,13 +397,13 @@ export const SentenceConstructionGame = ({
         grammarFocus: result.trial.grammarFocus,
         trialSource: result.trial.id.startsWith('graded-') ? 'graded_sentence_bank' : 'standard_sentence_bank',
         hintUsed,
-        difficulty: currentDifficulty,
+        difficulty: result.trial.difficulty,
       });
     }
   };
 
   const handleNext = () => {
-    setShowTiles(false);
+    setShowTiles(kidsMode || (clinicalLevel != null && clinicalLevel <= 2));
     nextTrial(difficultyLevel);
   };
 
