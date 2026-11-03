@@ -10,6 +10,7 @@ import { getKidsMixedSentenceTrials } from "@/data/kidsContent";
 import { useKidsMode } from "@/contexts/KidsModeContext";
 import { shuffleArray } from "@/lib/shuffle";
 import { filterRecentlyShown, markItemShown } from "@/lib/sessionHistory";
+import { getClinicalSentenceTrials } from "@/lib/progression/sentenceConstructionContentSelector";
 
 interface GameState {
   currentTrial: number;
@@ -29,7 +30,8 @@ interface GameState {
 export const useSentenceGame = (
   totalTrials: number = 10,
   difficultyLevel: number = 1,
-  focusPhonemes: string[] = []
+  focusPhonemes: string[] = [],
+  clinicalLevel?: number | null,
 ) => {
   const shownTrialsRef = useRef<Set<string>>(new Set());
 
@@ -38,8 +40,10 @@ export const useSentenceGame = (
   // so callback identities only change when the toggle actually flips.
   const { kidsMode } = useKidsMode();
   const pickMixedTrials = useMemo(
-    () => (kidsMode ? getKidsMixedSentenceTrials : getMixedTrials),
-    [kidsMode]
+    () => kidsMode ? getKidsMixedSentenceTrials
+      : clinicalLevel != null ? (difficulty: number, count: number) => getClinicalSentenceTrials(clinicalLevel, count, difficulty)
+      : getMixedTrials,
+    [kidsMode, clinicalLevel]
   );
 
   const [gameState, setGameState] = useState<GameState>({
@@ -59,7 +63,9 @@ export const useSentenceGame = (
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Get phoneme-targeted graded trials (up to 40% of total)
-    const gradedCount = focusPhonemes.length > 0 ? Math.ceil(totalTrials * 0.4) : 0;
+    // Phoneme-targeted injection can violate the assigned syntax tier.
+    // With persistent clinical progression, use only the grammar cohort.
+    const gradedCount = clinicalLevel == null && focusPhonemes.length > 0 ? Math.ceil(totalTrials * 0.4) : 0;
     const gradedTrials = gradedCount > 0
       ? getAdaptiveGradedTrials(difficultyLevel, focusPhonemes, gradedCount)
       : [];
@@ -95,7 +101,7 @@ export const useSentenceGame = (
       completed: false,
       currentAnswer: []
     }));
-  }, [totalTrials, focusPhonemes.join(','), kidsMode]);
+  }, [totalTrials, focusPhonemes.join(','), kidsMode, clinicalLevel]);
 
   /**
    * Mid-session difficulty shift. Replaces ONLY upcoming (unplayed) trials.
@@ -158,18 +164,21 @@ export const useSentenceGame = (
     }));
   };
 
-  const submitAnswer = () => {
+  const submitAnswer = (spokenAnswer?: string[]) => {
     const trial = getCurrentTrial();
     if (!trial) return null;
 
     // Convert indices to actual words for comparison
-    const answerWords = getAnswerAsWords();
+    // Speech is evaluated from the actual recognized words. Reading the
+    // just-set React tile state here used to score the PREVIOUS answer.
+    const answerWords = spokenAnswer ?? getAnswerAsWords();
     
     // Check correctness - compare arrays
-    const isCorrect = 
+    const normalizeWord = (word: string) => word.toLowerCase().replace(/[^a-z0-9']/g, '');
+    const isCorrect =
       answerWords.length === trial.correctAnswer.length &&
-      trial.correctAnswer.every((word, i) => 
-        word.toLowerCase() === answerWords[i]?.toLowerCase()
+      trial.correctAnswer.every((word, i) =>
+        normalizeWord(word) === normalizeWord(answerWords[i] ?? '')
       );
 
     // Analyze errors
