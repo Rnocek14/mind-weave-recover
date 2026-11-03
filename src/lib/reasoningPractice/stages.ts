@@ -232,6 +232,28 @@ export function getReasoningPracticeScenes(kind:ReasoningPracticeKind,level:Reas
   return REASONING_PRACTICE_SCENES[kind][level]??[];
 }
 
+/**
+ * Stable case-specific display order. The original choices are authored
+ * primarily with index 0 as the example; presenting that order would let
+ * a patient score 100% by choosing A without reading the story.
+ *
+ * The display index is NEVER stored or treated as a scored original index.
+ */
+export function orderReasoningChoices(step:ReasoningChoiceStep):
+  readonly {text:string;originalIndex:number}[]{
+  const order=step.options.map((_,index)=>index);
+  let seed=2166136261;
+  for(const char of step.id){
+    seed=Math.imul(seed^char.charCodeAt(0),16777619)>>>0;
+  }
+  for(let i=order.length-1;i>0;i--){
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    const j=seed%(i+1);
+    [order[i],order[j]]=[order[j],order[i]];
+  }
+  return order.map(originalIndex=>({text:step.options[originalIndex],originalIndex}));
+}
+
 /** A correct tile is only an authored practice-choice match. Open words
  * are never automatically graded as independent sentence repair/reasoning. */
 export function evaluateReasoningChoice(step:ReasoningPracticeStep,choiceIndex:number|null):boolean|null{
