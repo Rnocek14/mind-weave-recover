@@ -86,6 +86,27 @@ export function getDescribeGuessTrainingStage(
   return level != null && Number.isInteger(level) && level>=1 && level<=8
     ? STAGES[level as DescribeTrainingLevel] : null;
 }
+const FEATURE_QUESTIONS:readonly FeatureType[]=[
+  'function','location','appearance','material','category',
+];
+
+/** Mirrors the actual patient chip selector; allows regression tests to
+ * verify that high-stage help is *really* hidden and only revealed by choice. */
+export function getDescribeGuessVisibleFeatureTypes(
+  stage:DescribeGuessTrainingStage|null|undefined,
+  visiblePrompts:number,
+  helpRevealed:boolean,
+):FeatureType[] {
+  if(stage && stage.level>=4) {
+    if(helpRevealed)return [...FEATURE_QUESTIONS];
+    if(stage.hideAutomaticPrompts)return [];
+    return [...stage.requiredFeatures];
+  }
+  const count=Number.isFinite(visiblePrompts)
+    ? Math.max(0,Math.floor(visiblePrompts)):0;
+  return FEATURE_QUESTIONS.slice(0,Math.min(5,count+2));
+}
+
 export function getDescribeGuessStagePrompt(
   stage:DescribeGuessTrainingStage,
   trial:DescribeGuessTrial|null|undefined,
