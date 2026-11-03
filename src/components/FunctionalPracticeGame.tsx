@@ -29,6 +29,8 @@ export interface FunctionalPracticeResult {
   correct: boolean | null;
   practiceAccuracy: number | null;
   supportRevealed: boolean;
+  /** Literal spoken and visible support provided, when requested. */
+  supportText: string | null;
   baselineSupport: FunctionalPracticeStage['support'];
   clinicalProgressionEligible: false;
   independentSpokenScoreEligible: false;
@@ -121,7 +123,8 @@ export function FunctionalPracticeGame({
       trialId: current.id, stage: stage.level, taskKind: current.kind,
       inputMode: answer.inputMode, userResponse: answer.userResponse ?? null,
       correct: verdict.correct, practiceAccuracy: verdict.practiceAccuracy,
-      supportRevealed: help, baselineSupport: stage.support,
+      supportRevealed: help, supportText: help ? current.clue : null,
+      baselineSupport: stage.support,
       clinicalProgressionEligible: false, independentSpokenScoreEligible: false,
     };
     const updated = [...results, result];
