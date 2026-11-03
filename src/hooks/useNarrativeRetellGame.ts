@@ -72,6 +72,12 @@ export interface NarrativeTrialResult {
   wordCount: number;
   /** Was skipped */
   skipped: boolean;
+  /** Whether the response passed the pre-scoring validity gate. */
+  scoringValid?: boolean;
+  /** Typed evidence is not equivalent to a spoken-language outcome. */
+  responseMode?: 'spoken' | 'typed' | 'skip';
+  /** Replay/stall/visual rescue used after initial story presentation. */
+  assistanceUsed?: boolean;
   /** Beginning / Middle / End breakdown with hit/total counts */
   structureBreakdown: StructureBreakdown;
   /** Auto-generated next-step suggestion */
