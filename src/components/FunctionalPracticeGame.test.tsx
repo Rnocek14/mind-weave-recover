@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FunctionalPracticeGame } from './FunctionalPracticeGame';
 import { getFunctionalPracticeStage } from '@/lib/practice/functionalStageContent';
@@ -18,10 +19,13 @@ vi.mock('@/hooks/useTextToSpeech', () => ({
 }));
 vi.mock('@/hooks/useSpeechRecognition', () => ({
   useSpeechRecognition: ({ onResult }: { onResult: (text: string) => void }) => {
+    const [isListening, setListening] = useState(false);
     mocks.onResult = onResult;
     return {
-      isSupported: true, isListening: false,
-      startListening: mocks.micStart, stopListening: mocks.micStop, error: null,
+      isSupported: true, isListening,
+      startListening: () => { mocks.micStart(); setListening(true); },
+      stopListening: () => { mocks.micStop(); setListening(false); },
+      error: null,
     };
   },
 }));
