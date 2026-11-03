@@ -229,6 +229,12 @@ export function normalizeFollowDirectionsResult(raw: unknown): NormalizedExercis
   const total = r.total ?? 5;
   const score = total > 0 ? correct / total : 0;
 
+  const staged = Number.isInteger(r.practiceStage) && r.practiceStage >= 1 && r.practiceStage <= 8;
+  const helpUsed = staged && Array.isArray(r.trials) && r.trials.some(
+    (trial: { supportShown?: boolean; replayCount?: number }) =>
+      !!trial.supportShown || (trial.replayCount ?? 0) > 0,
+  );
+
   return {
     slug: 'follow-directions',
     completed: true,
@@ -239,7 +245,10 @@ export function normalizeFollowDirectionsResult(raw: unknown): NormalizedExercis
     targetDomain: 'comprehension',
     struggleSignal: computeStruggleSignal(score),
     fatigueSignal: 'none',
-    summary: `Followed ${correct} of ${total} directions correctly (max ${r.maxComplexity ?? 1}-step).`,
+    summary: staged
+      ? `Practiced ${correct} of ${total} supported directions at Stage ${r.practiceStage}. Replay, written instructions or visual guides may have helped. Not an independent clinical comprehension score.`
+      : `Followed ${correct} of ${total} directions correctly (max ${r.maxComplexity ?? 1}-step).`,
+    cueLevelUsed: staged ? (helpUsed ? 1 : 0) : undefined,
     raw,
   };
 }
@@ -270,6 +279,11 @@ export function normalizeSequenceBuilderResult(raw: unknown): NormalizedExercise
   const total = r.total ?? 3;
   const score = total > 0 ? correct / total : 0;
 
+  const staged = Number.isInteger(r.practiceStage) && r.practiceStage >= 1 && r.practiceStage <= 8;
+  const helpUsed = staged && Array.isArray(r.trials) && r.trials.some(
+    (trial: { supportShown?: boolean }) => !!trial.supportShown,
+  );
+
   return {
     slug: 'sequence-builder',
     completed: true,
@@ -279,7 +293,10 @@ export function normalizeSequenceBuilderResult(raw: unknown): NormalizedExercise
     targetDomain: 'discourse',
     struggleSignal: computeStruggleSignal(score),
     fatigueSignal: 'none',
-    summary: `Sequenced ${correct} of ${total} stories correctly (${Math.round((r.avgPositionAccuracy ?? 0) * 100)}% position accuracy).`,
+    summary: staged
+      ? `Practiced ${correct} of ${total} sequence tasks at Stage ${r.practiceStage}. Order, cause answers and any first-step hints are separate practice observations, not a clinical mastery score.`
+      : `Sequenced ${correct} of ${total} stories correctly (${Math.round((r.avgPositionAccuracy ?? 0) * 100)}% position accuracy).`,
+    cueLevelUsed: staged ? (helpUsed ? 1 : 0) : undefined,
     raw,
   };
 }
