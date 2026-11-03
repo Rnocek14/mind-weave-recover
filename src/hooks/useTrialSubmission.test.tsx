@@ -609,13 +609,15 @@ describe('useTrialSubmission persistence gate', () => {
       const row=mocks.logExerciseEvent.mock.calls[0][0];
       expect(row.taskParameters).toMatchObject({
         trial_mode:'recognition',
-        clinical_progression_eligible:true,clinical_score_eligible:false,
+        clinical_progression_eligible:true,speech_score_eligible:false,
         measurement_evidence_track:'receptive',
         measurement_contract_version:'research-2026-11-02-v1',
         measurement_validation:'unreviewed_app_observation',
         measurement_speech_exclusion_reason:'receptive_task_not_spoken_production',
       });
       expect(typeof row.taskParameters.measurement_primary_metric_id).toBe('string');
+      // Not suppressing the underlying receptive trial correctness.
+      expect(row.taskParameters.clinical_score_eligible).toBeUndefined();
       expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
     },
   );
@@ -633,7 +635,7 @@ describe('useTrialSubmission persistence gate', () => {
       });});
       const raw=mocks.logExerciseEvent.mock.calls[0][0];
       expect(raw.taskParameters).toMatchObject({
-        clinical_score_eligible:false,
+        speech_score_eligible:false,
         measurement_evidence_track:'non-linguistic',
         measurement_speech_exclusion_reason:'nonlinguistic_task_not_spoken_production',
       });
@@ -656,7 +658,7 @@ describe('useTrialSubmission persistence gate', () => {
     });});
     const raw=mocks.logExerciseEvent.mock.calls[0][0];
     expect(raw.taskParameters).toMatchObject({
-      clinical_progression_eligible:false,clinical_score_eligible:false,
+      clinical_progression_eligible:false,speech_score_eligible:false,
       measurement_evidence_track:'expressive',
       measurement_speech_exclusion_reason:'progression_ineligible_practice',
     });
