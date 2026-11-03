@@ -40,6 +40,7 @@ export default function NarrativeRetellExercise() {
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  const storyScoresRef = useRef<Map<string, number>>(new Map());
   const startTimeRef = useRef(Date.now());
   // Track every raw-event write so the session progression flush cannot race
   // the final story insert. No new writer: preserves existing structured outputs.
@@ -106,8 +107,12 @@ export default function NarrativeRetellExercise() {
   const handleTrialComplete = useCallback((result: NarrativeTrialResult) => {
     if (!activeSessionId && !isOfflineMode) return;
     const points = Math.round(result.eventCoverage * 100);
-    scoreRef.current += points;
-    trialsRef.current += 1;
+    const previousScore = storyScoresRef.current.get(result.storyId);
+    if (previousScore === undefined) trialsRef.current += 1;
+    // Retrying a story replaces its practice score. Do not manufacture an
+    // extra completed story or increase session accuracy by double-counting.
+    scoreRef.current += points - (previousScore ?? 0);
+    storyScoresRef.current.set(result.storyId, points);
 
     // Derive errorType for narrative-retell from coverage and on-topic signals
     const isCorrect = result.scoringValid === true &&
@@ -126,7 +131,6 @@ export default function NarrativeRetellExercise() {
       errorType,
       taskParameters: {
         story_id: result.storyId,
-        story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
         transcript: result.transcript ?? '',
         word_count: result.wordCount,
@@ -170,6 +174,7 @@ export default function NarrativeRetellExercise() {
       if (persisted && result.scoringValid === true && result.responseMode === 'spoken') {
         progression.recordTrialOutcome({
           correct: isCorrect,
+          storyId: result.storyId,
           support: result.storyReplayed ? 'carrier_or_full_model'
             : result.assistanceUsed ? 'semantic_cue' : 'independent',
         });
