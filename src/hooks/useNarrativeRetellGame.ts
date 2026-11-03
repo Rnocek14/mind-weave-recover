@@ -78,6 +78,8 @@ export interface NarrativeTrialResult {
   responseMode?: 'spoken' | 'typed' | 'skip';
   /** Replay/stall/visual rescue used after initial story presentation. */
   assistanceUsed?: boolean;
+  /** Explicit story replay during the recall attempt is full-model support. */
+  storyReplayed?: boolean;
   /** Beginning / Middle / End breakdown with hit/total counts */
   structureBreakdown: StructureBreakdown;
   /** Auto-generated next-step suggestion */
