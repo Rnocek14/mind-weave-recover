@@ -17,7 +17,7 @@ Narrative Retell now loads a saved 1–8 clinical level and pins the story conte
 
 There are **18 adult scenarios × 3 short versions = 54 micro-recall stories** at L1–L3, and the original narrative bank remains available at L4–L8.
 
-**What is actually scored:** lexical/semantic matches to key concepts (main-fact coverage) using the existing `scoreExplanation` proxy. At L1–L3 a single meaningful word can be scored. A two-fact task cannot be passed by correctly recalling only one fact. Story chronology, perspective, coherence, full story grammar, and conversational transfer are **not** clinically measured; these thresholds are not yet validated. The original aspirational macrostructure designs remain in `narrativeRetellLevels.ts`; the review branch has not implemented their specialized scoring.
+**What is actually scored:** levels 1–3 use conservative whole-word matching with a small explicit equivalence table; they do not accept spelling-neighbor matches (e.g., *silk* does not count as *milk*). Levels 4–8 continue using the existing `scoreExplanation` lexical/semantic coverage proxy. All stages require clinical calibration. At L1–L3 a single meaningful word can be scored. A two-fact task cannot be passed by correctly recalling only one fact. Story chronology, perspective, coherence, full story grammar, and conversational transfer are **not** clinically measured; these thresholds are not yet validated. The original aspirational macrostructure designs remain in `narrativeRetellLevels.ts`; the review branch has not implemented their specialized scoring.
 
 ## Clinical rationale
 
@@ -30,6 +30,8 @@ Discourse analysis in aphasia (including work by Ulatowska, Wright and Capilouto
 - The game records whether a response was spoken, typed or skipped, whether the gate passed, and whether help/replay was used.
 - Typed practice remains valid **practice**, but cannot be counted as evidence of **spoken expressive** gains. Skips/invalid ASR/failed raw-event writes do not advance the persistent spoken level.
 - The persisted level is only updated after the end-of-session raw-event writes settle; saved state is scoped by patient profile.
+- Repeating the same story replaces its result in the session tally; only the first successfully stored, scorable spoken attempt per story can contribute to level progress. Repeat attempts remain available for practice and raw-event review.
+- Story and instruction replay stop the microphone during synthetic speech and restart after audio completes. This protects against self-captured TTS in code, but **physical-device behavior remains unverified**.
 - The clinician-facing /games registry labels this a structural ladder, not a diagnosis or proven speech-outcome measure.
 - The shared mastery layer is **not** reclassified: Narrative Retell remains outside `ADOPTED_TRIAL_MODE_SLUGS`; it retains its existing telemetry writer.
 
