@@ -187,6 +187,7 @@ describe('MultiStepPlanExercise clinical result routing', () => {
   });
 
   it('routes only valid spoken ordered plans as independent production', async () => {
+    mocks.nextTrial = trial({ observedStepOrder: [2, 0, 1] });
     complete();
     await waitFor(() => expect(mocks.submitTrial).toHaveBeenCalledTimes(1));
     expect(mocks.submitTrial).toHaveBeenCalledWith(expect.objectContaining({
@@ -196,6 +197,10 @@ describe('MultiStepPlanExercise clinical result routing', () => {
       browserTranscript: 'boil water then pour water and add milk',
       taskParameters: expect.objectContaining({
         sequence_method: 'distinctive_tokens_v1',
+        plan_id: 'synthetic-goal',
+        steps_in_order: [2, 0, 1],
+        constraint_violations: null,
+        step_order_evidence_source: 'distinctive_transcript_tokens_v1',
         sequence_evidence_available: true,
         completion_reason: 'completed',
       }),
