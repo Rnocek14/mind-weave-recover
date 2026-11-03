@@ -219,6 +219,7 @@ export const GAME_MEASUREMENT_SPECS: Readonly<Record<string, GameMeasurementSpec
 export interface GameMeasurementAudit {
   gameSlug: string;
   primaryMeasureId: string;
+  unit: GameMeasurementUnit;
   track: EvidenceTrack;
   observedProposedFields: string[];
   missingProposedFields: string[];
@@ -291,7 +292,7 @@ export function auditGameMeasurementFields(rawSlug:string,taskParameters:Record<
     missingProposedFields.length===0?'fields_observed':
       observedProposedFields.length===0?'missing':'partial';
   return {
-    gameSlug,primaryMeasureId:spec.primaryMeasureId,track:evidence.track,
+    gameSlug,primaryMeasureId:spec.primaryMeasureId,unit:spec.unit,track:evidence.track,
     observedProposedFields,missingProposedFields,fieldCoverage,
   };
 }
@@ -308,6 +309,7 @@ export function describeGameMeasurementProvenance(
   return {
     measurement_contract_version:GAME_MEASUREMENT_SPEC_VERSION,
     measurement_primary_metric_id:audit.primaryMeasureId,
+    measurement_unit:audit.unit,
     measurement_evidence_track:audit.track,
     measurement_field_coverage:audit.fieldCoverage,
     measurement_fields_observed:audit.observedProposedFields,
