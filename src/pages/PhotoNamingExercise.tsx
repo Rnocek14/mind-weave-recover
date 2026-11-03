@@ -506,6 +506,7 @@ function PhotoNamingExerciseInner() {
     inputMode?: 'production' | 'recognition' | 'timeout' | 'caregiver' | 'manual';
     productionAttempted?: boolean;
     micTechnicalFailure?: boolean;
+    selectedAnswer?: string;
   }, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
@@ -574,8 +575,15 @@ function PhotoNamingExerciseInner() {
         level: typeof result.difficultyLevel === 'number' ? result.difficultyLevel : 1,
         stimulusId: trial.id,
         expectedResponse: trial.target,
-        userResponse: result.whisperTranscript ?? result.browserTranscript ?? null,
-        browserTranscript: result.browserTranscript ?? null,
+        // A tapped word is the response even if an earlier mic transcript
+        // exists. A caregiver/manual confirmation is not a transcript.
+        userResponse: observation.trialMode === 'recognition'
+          ? result.selectedAnswer ?? null
+          : observation.trialMode === 'production'
+            ? result.whisperTranscript ?? result.browserTranscript ?? null
+            : null,
+        browserTranscript: observation.trialMode === 'production'
+          ? result.browserTranscript ?? null : null,
         attemptId: result.attemptId ?? null,
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
