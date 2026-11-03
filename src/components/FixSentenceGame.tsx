@@ -360,7 +360,10 @@ export function FixSentenceGame({
       if (!result) return;
       result.inputMode = recordAnswerChannel(result.trialId, 'choice');
       setDisplayTranscript(word);
-      recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+      recordAdaptiveTrial({
+        correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs,
+        trialMode: result.inputMode === 'mixed' ? 'mixed' : 'recognition',
+      });
       engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 1, timestamp: Date.now() });
       game.submitResult(result);
       setShowFeedback(true);
@@ -387,7 +390,7 @@ export function FixSentenceGame({
     }
   }, [game, showFeedback, speak, recordAdaptiveTrial, engagement, isRecording]);
 
-  // Typed-input fallback: bypasses speech/mic/recording and routes through the same scoring + adaptation pipeline.
+  // Typed-input fallback: retain practice feedback, but never route through spoken-adaptation or speech-accuracy metrics.
   const handleTypedSubmit = useCallback(async () => {
     const text = typedAnswer.trim();
     if (!text || processingRef.current || trialAnsweredRef.current || showFeedback) return;
@@ -844,7 +847,11 @@ export function FixSentenceGame({
         });
 
         // Record for adaptive difficulty
-        recordAdaptiveTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs });
+        recordAdaptiveTrial({
+          correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs,
+          trialMode: result.inputMode === 'mixed' ? 'mixed'
+            : result.support !== 'open_response' ? 'scaffolded' : 'production',
+        });
         engagement.recordTrial({ correct: result.isCorrect, reactionTimeMs: result.reactionTimeMs, timeout: false, cueLevel: 0, timestamp: Date.now() });
 
         // Submit to game state
