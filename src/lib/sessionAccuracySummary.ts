@@ -73,6 +73,10 @@ const ACCURACY_EXCLUDED_SLUGS = new Set([
   // Thought Continuation uses a graded discourse/momentum signal, not a
   // validated speech-accuracy measure. Quarantine historical rows too.
   'thought_continuation',
+  // The new Thought Organization tasks include self-reports, typed responses,
+  // and objective tap choices. None are clinical speech-accuracy evidence.
+  // Quarantine even a mis-tagged or old row with counts_toward_score=true.
+  'thought_organization',
   'voice_practice',
   // Visual-memory game results are meaningful practice, not speech-recognition
   // accuracy. Also quarantines legacy rows written without the exclusion flag.
