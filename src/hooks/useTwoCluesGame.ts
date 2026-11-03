@@ -19,6 +19,10 @@ export interface TwoCluesTrialResult {
   clues: string[];
   anchors: string[];
   spokenWord: string;
+  /** Original browser ASR transcript. Cleaned candidate is never itself proof
+   * that speech recognition worked. */
+  browserTranscript?: string | null;
+  completionReason?: 'answered' | 'skipped';
   matchedWord?: string;
   tier: ScoringResult['tier'];
   score: number;
@@ -142,6 +146,7 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
     spokenWord: string,
     precomputedResult?: ScoringResult,
     cueEvidence?: { level: number; type: 'none' | 'semantic' | 'phonemic' | 'full_word' },
+    browserTranscript?: string | null,
   ): ScoringResult => {
     const result: ScoringResult = precomputedResult ?? {
       tier: 'uncertain',
@@ -176,6 +181,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         clues: prev.currentPuzzle.clues,
         anchors: prev.currentPuzzle.anchors,
         spokenWord,
+        browserTranscript: browserTranscript ?? null,
+        completionReason: 'answered',
         matchedWord: result.matchedWord,
         tier: result.tier,
         score: result.score,
@@ -254,6 +261,8 @@ export function useTwoCluesGame(options: UseTwoCluesGameOptions = {}) {
         clues: currentPuzzle.clues,
         anchors: currentPuzzle.anchors,
         spokenWord: '',
+        browserTranscript: null,
+        completionReason: 'skipped',
         tier: 'uncertain',
         score: 0,
         reachedAnchor: false,
