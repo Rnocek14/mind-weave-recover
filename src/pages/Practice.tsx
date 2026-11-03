@@ -269,6 +269,27 @@ export default function Practice() {
           </div>
         </button>
 
+        {/* Optional nonclinical formats: these are modes within two existing
+            games, not additional canonical activities or clinical ladders. */}
+        {!kidsMode && <section className="space-y-3" aria-label="Extra practice formats">
+          <h2 className="text-sm font-semibold">Extra practice formats</h2>
+          <p className="text-sm text-muted-foreground">
+            Four short tasks at a chosen stage. These are practice activities, not clinical scores.
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            <button type="button" onClick={() => navigate('/exercise/fix-sentence-practice')}
+              className="min-h-[72px] touch-manipulation rounded-xl border-2 border-border p-4 text-left hover:border-primary">
+              <span className="block text-base font-semibold">🔧 Sentence Repair Practice</span>
+              <span className="block text-sm text-muted-foreground">Find and repair mistakes, including longer messages</span>
+            </button>
+            <button type="button" onClick={() => navigate('/exercise/detective-mind-practice')}
+              className="min-h-[72px] touch-manipulation rounded-xl border-2 border-border p-4 text-left hover:border-primary">
+              <span className="block text-base font-semibold">🕵️ Detective Story Practice</span>
+              <span className="block text-sm text-muted-foreground">Follow clues, test explanations, and reason about new situations</span>
+            </button>
+          </div>
+        </section>}
+
         {/* All games by domain */}
         {Object.entries(groupedGames).map(([domain, games]) => (
           <div key={domain} className="space-y-2">
