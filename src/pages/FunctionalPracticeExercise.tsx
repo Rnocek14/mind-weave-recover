@@ -245,7 +245,8 @@ export default function FunctionalPracticeExercise({ kind }: Props) {
       </div>}
       {!phase && started && <FunctionalPracticeGame
         key={scope + ':' + level}
-        kind={kind} stage={stage} onTrialComplete={record} onGameComplete={finish}/>}
+        kind={kind} stage={stage} sessionSeed={activeSessionId}
+        onTrialComplete={record} onGameComplete={finish}/>}
     </main>
   </div>;
 }
