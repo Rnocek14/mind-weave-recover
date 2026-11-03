@@ -30,7 +30,7 @@ import { getAudioTrialsForPhonemes, AudioTrial } from '@/data/audioTrialBank';
 import { Card } from '@/components/ui/card';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
-import { classifyPhotoNamingObservation } from '@/lib/clinical/languageFiveGameTelemetry';
+import { classifyPhotoNamingObservation, resolvePhotoNamingAnswerSnapshot } from '@/lib/clinical/languageFiveGameTelemetry';
 import { supabase } from '@/integrations/supabase/client';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -568,6 +568,7 @@ function PhotoNamingExerciseInner() {
         ...result,
         inputMode: mode === 'caregiver' ? 'caregiver' : result.inputMode,
       });
+      const answerSnapshot = resolvePhotoNamingAnswerSnapshot(result, observation.trialMode);
       const persistenceResult = await submitTrial({
         profileId: activeProfile?.id,
         sessionId,
@@ -577,13 +578,8 @@ function PhotoNamingExerciseInner() {
         expectedResponse: trial.target,
         // A tapped word is the response even if an earlier mic transcript
         // exists. A caregiver/manual confirmation is not a transcript.
-        userResponse: observation.trialMode === 'recognition'
-          ? result.selectedAnswer ?? null
-          : observation.trialMode === 'production'
-            ? result.whisperTranscript ?? result.browserTranscript ?? null
-            : null,
-        browserTranscript: observation.trialMode === 'production'
-          ? result.browserTranscript ?? null : null,
+        userResponse: answerSnapshot.userResponse,
+        browserTranscript: answerSnapshot.browserTranscript,
         attemptId: result.attemptId ?? null,
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
