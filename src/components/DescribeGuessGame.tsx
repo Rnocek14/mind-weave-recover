@@ -44,6 +44,7 @@ import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
 import {
   getDescribeGuessStagePrompt,
+  getDescribeGuessVisibleFeatureTypes,
   type DescribeGuessTrainingStage,
 } from '@/lib/describeGuess/trainingStages';
 import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
@@ -1196,14 +1197,9 @@ export function DescribeGuessGame({
         <div className="flex flex-wrap justify-center gap-1.5 shrink-0">
           {/* Later practice tasks use specific feature prompts; Stage 6–8
               hide help until requested. These do not define clinical scores. */}
-          {(trainingStage && trainingStage.level >= 4
-            ? showStageHelp
-              ? PROMPT_CHIPS
-              : trainingStage.hideAutomaticPrompts
-                ? []
-                : PROMPT_CHIPS.filter(chip => trainingStage.requiredFeatures.includes(chip.featureType))
-            : PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length))
-          ).map((chip) => {
+          {PROMPT_CHIPS.filter(chip => getDescribeGuessVisibleFeatureTypes(
+            trainingStage, visiblePrompts, showStageHelp,
+          ).includes(chip.featureType)).map((chip) => {
             return (
               <Button
                 key={chip.featureType}
