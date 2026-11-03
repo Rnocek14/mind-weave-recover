@@ -88,6 +88,23 @@ export function ReasoningStagePracticeGame({stage,scenes,onTrialComplete,onGameC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[stepIndex,stage.level]);
 
+  // Reading difficulty must not turn feedback into a dead end. Once the
+  // patient answers, Maya reads a short explanation and the next action.
+  // It is an authored practice example, NOT recognition/clinical feedback.
+  useEffect(()=>{
+    if(!feedback||!task)return;
+    const outcome=feedback.inputMode==='skipped'?'Task skipped.':
+      feedback.practiceMatch===null?'Your attempt was recorded.':
+      feedback.practiceMatch?'That choice fits this example.':'Here is another example.';
+    const example=task.kind==='choice'
+      ?' Example choice: '+task.options[task.bestChoice]+'.'
+      :' Example response: '+task.modelExample+'.';
+    void speak(outcome+' '+task.explanation+example+
+      (stepIndex+1>=totalSteps?' Press Finish practice.':' Press Next task.'));
+    // Keep speech tied to a completed attempt, never re-read on input typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[feedback?.trialId]);
+
   const play=(text:string)=>{
     micRequestedRef.current=false;stopListening();stop();
     void speak(text);
