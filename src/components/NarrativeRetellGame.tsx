@@ -67,6 +67,8 @@ interface NarrativeRetellGameProps {
   onGameComplete: (results: NarrativeTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  /** Persisted clinical fact-recall level (1–8). */
+  clinicalLevel?: number | null;
   /** Profile-recommended cue type — adapts retelling scaffolding */
   recommendedCueType?: 'semantic' | 'phonemic' | 'full_word' | 'none';
 }
@@ -127,10 +129,11 @@ export function NarrativeRetellGame({
   onGameComplete,
   roundCount = 3,
   tier = 1,
+  clinicalLevel,
   recommendedCueType,
 }: NarrativeRetellGameProps) {
   const { currentStory, currentIndex, totalStories, isComplete, results, submitRetell, nextStory, activeTier, setActiveTier } =
-    useNarrativeRetellGame(roundCount, tier);
+    useNarrativeRetellGame(roundCount, tier, clinicalLevel);
 
   // Visible adaptation cue
   const { direction: shiftDirection, reason: shiftReason, signal: signalShift } = useAdaptationShift();
@@ -174,6 +177,8 @@ export function NarrativeRetellGame({
     },
   });
 
+  const isMicroRecall = clinicalLevel != null && clinicalLevel <= 3;
+  const requiredFactCount = isMicroRecall ? Math.max(1, Math.round(clinicalLevel)) : 0;
   const [phase, setPhase] = useState<Phase>('reading');
   const [lastResult, setLastResult] = useState<NarrativeTrialResult | null>(null);
   const [validationCoaching, setValidationCoaching] = useState<string | null>(null);
@@ -195,6 +200,7 @@ export function NarrativeRetellGame({
   const handleDoneRetellingRef = useRef<() => void>(() => {});
   const autoStartedForIndexRef = useRef<number | null>(null);
   const lastSpokenStallRef = useRef(-1);
+  const replayDuringRetellRef = useRef(false);
   // Visual support telemetry refs (narrative_visual_fading_v1)
   const supportTelemetryRef = useRef<{
     flagEnabled: boolean;
@@ -318,6 +324,7 @@ export function NarrativeRetellGame({
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
     lastSpokenStallRef.current = -1;
+    replayDuringRetellRef.current = false;
     supportTelemetryRef.current = { flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 };
     // autoReadForIndexRef is keyed by index — no reset needed; new index => new read
     setStoryReadComplete(false);
@@ -414,7 +421,9 @@ export function NarrativeRetellGame({
   }, [phase, useTyping, vg.isVoiceLed, isVoiceSequenceCurrent, scheduleAutoListen, startRecording, startListening, awaitMicSafe]);
 
   const visibleTranscript = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript || collectedTranscript);
-  const retellPromptText = vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.';
+  const retellPromptText = isMicroRecall
+    ? (requiredFactCount === 1 ? 'Tell me one thing you remember. One word is enough.' : `Tell me ${requiredFactCount} things you remember.`)
+    : (vg.guidance?.voiceTask ?? 'Now tell the story back in your own words.');
 
   useEffect(() => {
     return () => {
@@ -449,7 +458,7 @@ export function NarrativeRetellGame({
       const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
       const elapsed = Date.now() - retellStartRef.current;
 
-      if (wordCount < 2) {
+      if (wordCount < (isMicroRecall ? 1 : 2)) {
         let newIndex = stallPromptIndex;
         if (elapsed > 22000 && stallPromptIndex < 3) newIndex = 3;
         else if (elapsed > 16000 && stallPromptIndex < 2) newIndex = 2;
@@ -462,8 +471,9 @@ export function NarrativeRetellGame({
           // Speak the stall prompt in Full Coaching mode
           if (vg.isVoiceLed && newIndex > lastSpokenStallRef.current) {
             lastSpokenStallRef.current = newIndex;
-            vg.speakIfVoiceLed(STALL_PROMPTS[newIndex]);
-            voiceController.recordSpoken(STALL_PROMPTS[newIndex]);
+            const prompt = isMicroRecall ? 'Say one thing you remember.' : STALL_PROMPTS[newIndex];
+            vg.speakIfVoiceLed(prompt);
+            voiceController.recordSpoken(prompt);
           }
         }
       }
@@ -475,7 +485,7 @@ export function NarrativeRetellGame({
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       clearInterval(interval);
     };
-  }, [phase, visibleTranscript, stallPromptIndex, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, vg]);
+  }, [phase, visibleTranscript, stallPromptIndex, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, vg, isMicroRecall]);
 
   const handleStartRetelling = useCallback(() => {
     handleStopSpeech();
@@ -574,16 +584,21 @@ export function NarrativeRetellGame({
       // the retell is graded. Typed input bypasses the echo check by skipping the gate.
       let gatedTranscript = transcript;
       let validation;
+      const validationMode = isMicroRecall ? 'naming' as const : 'retell' as const;
       if (useTyping) {
-        validation = validateSpokenResponse({ transcript, expectedMode: 'retell' });
+        validation = validateSpokenResponse({ transcript, expectedMode: validationMode });
       } else {
         const gate = gateResponse({
           transcript,
-          expectedMode: 'retell',
+          expectedMode: validationMode,
           extraSpokenContext: voiceController.getRecentSpoken(),
+          // Bypass echoed-story rejection ONLY for an exact single-word target.
+          expectedAnswers: isMicroRecall && currentStory
+            ? currentStory.keyEvents.filter(fact => fact.toLowerCase() === transcript.trim().toLowerCase().replace(/[.!?]+$/g, ''))
+            : [],
         });
         broadcastGateDecision('narrative_retell', gate, transcript);
-        validation = gate.validation ?? validateSpokenResponse({ transcript, expectedMode: 'retell' });
+        validation = gate.validation ?? validateSpokenResponse({ transcript, expectedMode: validationMode });
         if (!gate.ok) {
           // Soft-reject: zero out transcript so submitRetell scores as no-retell
           // and Maya speaks the gate's coaching line.
@@ -625,6 +640,10 @@ export function NarrativeRetellGame({
       }
 
       if (result) {
+        result.responseMode = useTyping ? 'typed' : 'spoken';
+        result.scoringValid = validation.valid && Boolean(gatedTranscript.trim());
+        result.assistanceUsed = replayDuringRetellRef.current || stallPromptIndex >= 0 ||
+          supportTelemetryRef.current.maxResolved > 0;
         const t = supportTelemetryRef.current;
         result.visualSupport = {
           flagEnabled: t.flagEnabled,
@@ -652,7 +671,7 @@ export function NarrativeRetellGame({
         onTrialComplete(result);
       }
     }, 150);
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText, adaptation]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, collectedTranscript, submitRetell, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, useTyping, typedText, adaptation, isMicroRecall, currentStory, stallPromptIndex]);
 
   // Keep ref in sync on every render so auto-submit timer always calls latest version
   handleDoneRetellingRef.current = () => { void handleDoneRetelling(); };
@@ -664,7 +683,7 @@ export function NarrativeRetellGame({
     const transcript = latestTranscriptRef.current || visibleTranscript;
     const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
 
-    if (wordCount >= RETELL_AUTO_SUBMIT_MIN_WORDS) {
+    if (wordCount >= (isMicroRecall ? 1 : RETELL_AUTO_SUBMIT_MIN_WORDS)) {
       silenceTimerRef.current = setTimeout(() => {
         if (!hasProcessedRef.current) {
           handleDoneRetellingRef.current();
@@ -673,7 +692,7 @@ export function NarrativeRetellGame({
     }
 
     return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
-  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking]);
+  }, [phase, visibleTranscript, isRetellPlaybackActive, isTTSSpeaking, vg.isSpeaking, isMicroRecall]);
 
   const handleSkip = useCallback(async () => {
     if (hasProcessedRef.current) return;
@@ -701,6 +720,9 @@ export function NarrativeRetellGame({
     }
 
     if (result) {
+      result.responseMode = 'skip';
+      result.scoringValid = false;
+      result.assistanceUsed = replayDuringRetellRef.current || stallPromptIndex >= 0;
       const t = supportTelemetryRef.current;
       result.visualSupport = {
         flagEnabled: t.flagEnabled,
@@ -727,7 +749,7 @@ export function NarrativeRetellGame({
       });
       onTrialComplete(result);
     }
-  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation]);
+  }, [clearRetellTimers, cancelAutoListen, stopListening, stopRecording, submitRetell, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, stallPromptIndex]);
 
   const handleContinue = useCallback(() => {
     nextStory();
@@ -838,7 +860,7 @@ export function NarrativeRetellGame({
           <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-2 tall:py-3 text-center">
             <p className="text-base tall:text-lg font-semibold text-foreground">
               {currentIndex === 0
-                ? `📖 Listen to "${currentStory.title}" — then tell it back`
+                ? (isMicroRecall ? `Listen, then remember ${requiredFactCount} ${requiredFactCount === 1 ? 'thing' : 'things'}` : `📖 Listen to "${currentStory.title}" — then tell it back`)
                 : results.length > 0 && results[results.length - 1].eventCoverage >= 0.6
                 ? `📖 Nice retelling. Here's your next story: "${currentStory.title}"`
                 : results.length > 0 && results[results.length - 1].eventCoverage < 0.3
@@ -927,7 +949,7 @@ export function NarrativeRetellGame({
                 from memory is the clinical target. (Replay audio if needed
                 via the "Listen again" path in the reading phase.) */}
             <div className="rounded-lg bg-muted/40 border border-border/50 px-3 py-2 text-xs text-muted-foreground text-center">
-              Tell the story back in your own words.
+              {isMicroRecall ? retellPromptText : 'Tell the story back in your own words.'}
             </div>
 
             {/* Mic failure recovery — persistent, not toast */}
@@ -969,7 +991,7 @@ export function NarrativeRetellGame({
             </div>
 
             {/* Helper text */}
-            <p className="text-xs text-muted-foreground">You can start with what happened first.</p>
+            <p className="text-xs text-muted-foreground">{isMicroRecall ? 'Just a word or a short phrase is okay.' : 'You can start with what happened first.'}</p>
 
             {/* Typing mode */}
             {useTyping && (
@@ -994,7 +1016,7 @@ export function NarrativeRetellGame({
             {/* Stall support prompts */}
             {stallPromptIndex >= 0 && (
               <div className="bg-accent/30 border border-accent/50 rounded-lg px-3 py-2 text-sm text-foreground animate-in fade-in duration-500">
-                {STALL_PROMPTS[stallPromptIndex]}
+                {isMicroRecall ? 'Say one thing you remember.' : STALL_PROMPTS[stallPromptIndex]}
               </div>
             )}
 
@@ -1099,6 +1121,7 @@ export function NarrativeRetellGame({
                   setStallPromptIndex(-1);
                   lastSpokenStallRef.current = -1;
                   retellStartRef.current = Date.now();
+                  replayDuringRetellRef.current = true;
                   const fullText = currentStory.scenes.map(s => s.text).join(' ');
                   try {
                     if (vg.isVoiceLed) await vg.autoReadText(fullText);
