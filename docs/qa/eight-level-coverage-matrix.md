@@ -136,7 +136,7 @@ These are real runtime-selected activity formats. The newly implemented Word
 Finding stage axis moves from modeled word recognition to lexical retrieval,
 circumlocution and functional requests; Sentence Game moves from agent/action
 recognition and word-tile ordering to meaningful novel sentence formulation.
-Word Finding and Sentence Game each have 24 authored trials (3 per stage),
+Word Finding and Sentence Game each have 48 authored trials (6 per stage),
 which is enough for a prototype practice pass but **not adequate evidence of
 long-term item diversity, independent mastery, or functional generalization**.
 
