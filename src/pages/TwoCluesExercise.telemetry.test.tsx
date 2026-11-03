@@ -28,6 +28,7 @@ vi.mock('@/hooks/useRestoredLessonContext',()=>({useRestoredLessonContext:()=>({
 })}));
 vi.mock('@/hooks/useSessionAdaptation',()=>({useSessionAdaptation:()=>({
   difficultyTier:3,recommendedCueType:'semantic',loading:false,
+  focusPhonemes:[],focusWords:[],
 })}));
 vi.mock('@/lib/adaptationTelemetry',()=>({buildAdaptationTelemetry:()=>({})}));
 vi.mock('@/hooks/useTwoCluesProgression',async(original)=>{
