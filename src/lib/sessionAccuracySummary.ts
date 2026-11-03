@@ -126,6 +126,22 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     ) !== null;
   };
 
+  const isIndependentSpokenAttempt=(r:ScoredRow)=>{
+    if((r.cue_level ?? 0)>0)return false;
+    const task=taskOf(r);
+    if(task.independent_spoken_score_eligible===false ||
+       task.trial_mode==='scaffolded')return false;
+    const support=task.support_used;
+    if(typeof support==='string'&&[
+      'semantic_cue','phonemic_cue','carrier_or_full_model',
+      'recognition_only','choice_based','highlight_plus_choice',
+      'after_replay','after_multiple_replays',
+    ].includes(support))return false;
+    // Legacy rows without source metadata retain historical treatment;
+    // they have not been retroactively validated as independent speech.
+    return true;
+  };
+
   // ASR/clinically-verified scored trials — the clean accuracy series.
   // Excludes validity-filtered rows, manual_confirmed (never ASR-verified), and
   // continuously-graded conversation/discourse rows.
@@ -138,11 +154,10 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
 
   const all = scored.map((r) => r.score as number);
   const independent = scored
-    .filter((r) => (r.cue_level ?? 0) === 0 &&
-      taskOf(r).independent_spoken_score_eligible !== false)
+    .filter(isIndependentSpokenAttempt)
     .map((r) => r.score as number);
   const cued = scored
-    .filter((r) => (r.cue_level ?? 0) > 0)
+    .filter((r)=>!isIndependentSpokenAttempt(r))
     .map((r) => r.score as number);
 
   // Practice accuracy = ASR-scored ∪ manual-confirmed.
