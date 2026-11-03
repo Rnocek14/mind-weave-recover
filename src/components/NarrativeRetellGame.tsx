@@ -807,6 +807,10 @@ export function NarrativeRetellGame({
     setTypedText('');
     setStallPromptIndex(-1);
     setMicFailed(false);
+    // A retry starts a new listening opportunity; do not carry stale
+    // support/replay flags over from the previous attempt.
+    replayDuringRetellRef.current = false;
+    supportTelemetryRef.current = { flagEnabled: false, adaptiveLevel: 0, baseline: 0, maxStallReveal: 0, maxResolved: 0, stallCount: 0 };
     hasProcessedRef.current = false;
     latestTranscriptRef.current = '';
     transcriptPrefixRef.current = '';
