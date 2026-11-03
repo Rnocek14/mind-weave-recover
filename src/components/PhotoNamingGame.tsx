@@ -108,6 +108,9 @@ interface PhotoNamingGameProps {
     confirmedBy?: 'user' | 'caregiver';
     confirmationMode?: 'asr' | 'manual' | 'caregiver';
     asrVerified?: boolean;
+    inputMode?: 'production' | 'recognition' | 'timeout' | 'caregiver' | 'manual';
+    productionAttempted?: boolean;
+    micTechnicalFailure?: boolean;
   }, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
@@ -1580,6 +1583,9 @@ export const PhotoNamingGame = ({
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
+      inputMode: 'timeout',
+      productionAttempted: productionAttemptedRef.current,
+      micTechnicalFailure: micWasBroken,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       audioStoragePath: uploadedPath,
@@ -1948,7 +1954,10 @@ export const PhotoNamingGame = ({
     const capturedDifficulty = currentDifficulty;
     const capturedCueLevel = cueLevel;
     const capturedErrorHistory = [...errorHistory];
-    const capturedBrowserTranscript = spokenTranscript ?? lastHeardText ?? pendingTranscriptRef.current ?? undefined;
+    const capturedBrowserTranscript = inputMode === 'production'
+      ? (spokenTranscript ?? lastHeardText ?? pendingTranscriptRef.current ?? undefined)
+      : undefined;
+    const capturedProductionAttempted = productionAttemptedRef.current;
     const capturedAttemptId = pendingAttempt.attemptId ?? undefined;
     
     // Run analysis in background without blocking
@@ -2072,6 +2081,8 @@ export const PhotoNamingGame = ({
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
+          inputMode,
+          productionAttempted: capturedProductionAttempted,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
           errorClassification,
@@ -2210,6 +2221,8 @@ export const PhotoNamingGame = ({
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
+          inputMode,
+          productionAttempted: capturedProductionAttempted,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
           whisperTranscript: undefined,
@@ -2336,6 +2349,8 @@ export const PhotoNamingGame = ({
       correct,
       reactionTimeMs: reactionTime,
       errorType,
+      inputMode: 'caregiver',
+      productionAttempted: productionAttemptedRef.current,
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       encouragementScore: caregiverEncouragementScore,
@@ -2444,6 +2459,8 @@ export const PhotoNamingGame = ({
     onTrialComplete?.({
       correct: true,
       reactionTimeMs: reactionTime,
+      inputMode: 'manual',
+      productionAttempted: productionAttemptedRef.current,
       difficultyLevel: currentDifficulty,
       cueLevel,
       effortfulSpeech: false,
