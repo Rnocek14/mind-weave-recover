@@ -18,6 +18,7 @@ import {
 } from '@/lib/progression/sentenceConstructionLevels';
 import { scoreExplanation } from '@/lib/explanationScorer';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
+import { scoreMicroRecall } from '@/lib/progression/narrativeMicroRecallScorer';
 
 describe('Clinical progression: syntax and fact-recall content', () => {
   it('gives 18 distinct adult micro-stories at each of the 1/2/3-fact rungs', () => {
@@ -62,6 +63,18 @@ describe('Clinical progression: syntax and fact-recall content', () => {
     expect(validateSpokenResponse({ transcript: 'milk', expectedMode: 'naming' }).valid).toBe(true);
     expect(validateSpokenResponse({ transcript: 'um', expectedMode: 'naming' }).valid).toBe(false);
     expect(validateSpokenResponse({ transcript: 'milk', expectedMode: 'retell' }).valid).toBe(false);
+  });
+
+  it('never counts an unrelated spelling-neighbor as one recalled fact', () => {
+    // The general explanation scorer allows edit-distance matches, which is
+    // too permissive when a one-word guess earns the entire recall trial.
+    expect(scoreMicroRecall('silk', ['milk']).eventsFound).toBe(0);
+    expect(scoreMicroRecall('curse', ['nurse']).eventsFound).toBe(0);
+    expect(scoreMicroRecall('milk', ['milk']).eventsFound).toBe(1);
+    expect(scoreMicroRecall('He bought milk.', ['market', 'milk']).eventsFound).toBe(1);
+    expect(scoreMicroRecall('Grocery store, then milk', ['market', 'milk']).eventsFound).toBe(2);
+    expect(scoreMicroRecall('clapped', ['applauded']).eventsFound).toBe(1);
+    expect(scoreMicroRecall('um um', ['milk']).eventsFound).toBe(0);
   });
 
   it('does not award promotion evidence from insufficient or all-incorrect retells', () => {
