@@ -5,7 +5,7 @@ import type {FixSentenceTrialResult} from '@/hooks/useFixSentenceGame';
 const mocks=vi.hoisted(()=>({
   submit:vi.fn(),commit:vi.fn(),complete:vi.fn(),navigate:vi.fn(),
   review:vi.fn(),
-  next:null as null|Record<string,unknown>,
+  next:null as null|FixSentenceTrialResult,
 }));
 vi.mock('react-router-dom',async importOriginal=>{
   const actual=await importOriginal<typeof import('react-router-dom')>();
