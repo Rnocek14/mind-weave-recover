@@ -121,6 +121,25 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(result.scored_trials).toBe(0);
   });
 
+  it('never promotes Thought Organization choice, manual, or open-attempt scores into ASR/independent accuracy',()=>{
+    const result=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,
+        exercise_slug:'thought_organization'},
+      {score:0,cue_level:1,counts_toward_score:false,
+        exercise_slug:'thought_organization'},
+      {score:100,cue_level:0,counts_toward_score:false,
+        validity_label:'manual_confirmed',exercise_slug:'thought_organization'},
+      {score:0,cue_level:0,counts_toward_score:true,
+        exercise_slug:'photo_naming'},
+    ]);
+    expect(result.asr_accuracy).toBe(0);
+    expect(result.independent_accuracy).toBe(0);
+    expect(result.practice_accuracy).toBe(0);
+    expect(result.scored_trials).toBe(1);
+    expect(result.manual_confirmed_trials).toBe(0);
+    expect(result.participation_trials).toBe(1);
+  });
+
   it('excludes unvalidated Abstract Compare coverage from ASR speech scores', () => {
     const result = reduceAccuracy([
       { score: 100, cue_level: 0, counts_toward_score: true, exercise_slug: 'abstract_compare' },
