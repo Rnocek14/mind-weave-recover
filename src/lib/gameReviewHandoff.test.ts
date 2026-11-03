@@ -94,6 +94,15 @@ describe("completed-game to bounded Maya practice handoff", () => {
     });
   });
 
+  it("keeps typing as text practice, not a speech claim in optional review", () => {
+    recordFixSentenceReviewTargets([
+      fixSentence({inputMode:'typed',spokenWord:'soap',matchedFix:'soap'}),
+    ], "lesson-text");
+    expect(getTodaysPracticedWords({sessionId:"lesson-text"})).toMatchObject([
+      {word:"soap",responseMode:"text",sourceGames:["fix_sentence"]},
+    ]);
+  });
+
   it("does not turn grammar, two-error or unrecognized trials into naming prompts", () => {
     recordFixSentenceReviewTargets([
       fixSentence({ trialId: "fsm_1", matchedFix: "walked", spokenWord: "walked" }),
