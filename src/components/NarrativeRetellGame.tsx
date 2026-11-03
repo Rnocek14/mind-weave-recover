@@ -392,7 +392,9 @@ export function NarrativeRetellGame({
     clearRetellTimers();
     cancelAutoListen();
 
-    const snapshot = mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript, fullTranscript);
+    // Recognition exposes both the latest callback text and its cumulative
+    // transcript; concatenating both double-counts the same spoken words.
+    const snapshot = mergeTranscriptSegments(transcriptPrefixRef.current, fullTranscript || collectedTranscript);
     transcriptPrefixRef.current = snapshot;
     latestTranscriptRef.current = snapshot;
     setCollectedTranscript('');
@@ -618,8 +620,10 @@ export function NarrativeRetellGame({
     const recordingResult = useTyping ? null : await stopRecording();
 
     setTimeout(async () => {
+      // latestTranscriptRef already contains the preserved pre-replay prefix
+      // plus the latest recognized words. Never join it a second time.
       const transcript = useTyping ? typedText
-        : mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript, latestTranscriptRef.current);
+        : (latestTranscriptRef.current || mergeTranscriptSegments(transcriptPrefixRef.current, collectedTranscript));
       const durationMs = Date.now() - startTimeRef.current;
 
       // Canonical pre-scoring gate: rejects echo-of-Maya (story narration / stall
