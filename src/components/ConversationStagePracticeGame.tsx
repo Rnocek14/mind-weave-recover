@@ -81,7 +81,8 @@ export function ConversationStagePracticeGame({
     const model=turn.kind==='open'&&turn.model?' First, here is a model: '+turn.model:'';
     const choices=turn.kind==='choice'
       ?' Option A. '+turn.options[0]+'. Option B. '+turn.options[1]+'.':'';
-    void speak(turn.mayaPrompt+model+choices);
+    const intro=step===0?stage.instruction+' ':'';
+    void speak(intro+turn.mayaPrompt+model+choices);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[step,stage.level]);
 
