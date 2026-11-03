@@ -81,7 +81,8 @@ describe('scripted conversation persistence and scope contract',()=>{
       expect(submitted.every(x=>x.taskParameters.adaptive_partner_response===false)).toBe(true);
       expect(submitted.every(x=>x.taskParameters.independent_spoken_score_eligible===false)).toBe(true);
       expect(submitted.every(x=>x.browserTranscript===null)).toBe(true);
-      await waitFor(()=>expect(onSaved).toHaveBeenCalledExactlyOnceWith(4));
+      await waitFor(()=>expect(onSaved).toHaveBeenCalledTimes(1));
+      expect(onSaved).toHaveBeenCalledWith(4);
       expect(mocks.commit).toHaveBeenCalledTimes(1);
       expect(screen.getByText('Practice responses saved')).toBeTruthy();
     },
@@ -135,8 +136,9 @@ describe('scripted conversation persistence and scope contract',()=>{
     expect(mocks.commit).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
     resolve({ok:true});
-    await waitFor(()=>expect(mocks.commit).toHaveBeenCalledExactlyOnceWith());
-    await waitFor(()=>expect(onSaved).toHaveBeenCalledExactlyOnceWith(4));
+    await waitFor(()=>expect(mocks.commit).toHaveBeenCalledTimes(1));
+    await waitFor(()=>expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(onSaved).toHaveBeenCalledWith(4);
   });
 
   it('blocks a completed lesson if unified commit reports missing raw evidence',async()=>{
