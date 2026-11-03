@@ -16,6 +16,10 @@
  *   "got it alone" from "got it with a cue".
  *
  * Rules:
+ *   • Known receptive/nonlinguistic games and clearly non-spoken response
+ *     channels are excluded even for historical rows with stale score flags.
+ *     These are practice observations, not ASR speech accuracy.
+ *   • Legacy unknown-source rows retain historical behaviour until review.
  *   • Only rows that count toward score are included
  *     (counts_toward_score !== false — i.e. validity-filtered attempts and
  *     non-trial telemetry rows with null score are excluded).
@@ -27,6 +31,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getSpeechScoreExclusion } from '@/lib/clinical/gameMeasurementContracts';
 
 export interface SessionAccuracySummary {
   /** ASR/clinically-verified accuracy. Excludes manual_confirmed. */
@@ -53,6 +58,7 @@ interface ScoredRow {
   counts_toward_score: boolean | null;
   validity_label?: string | null;
   exercise_slug?: string | null;
+  task_parameters?: unknown;
 }
 
 /**
@@ -105,8 +111,36 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
     xs.length === 0 ? null : Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10;
 
   const isManual = (r: ScoredRow) => r.validity_label === 'manual_confirmed';
-  const isExcludedSlug = (r: ScoredRow) =>
-    typeof r.exercise_slug === 'string' && ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug);
+  const taskOf = (r: ScoredRow): Record<string,unknown> =>
+    r.task_parameters !== null && typeof r.task_parameters === 'object' &&
+    !Array.isArray(r.task_parameters) ? r.task_parameters as Record<string,unknown> : {};
+  const isExcludedSlug = (r: ScoredRow) => {
+    if (typeof r.exercise_slug !== 'string') return false; // legacy unknown source
+    if (ACCURACY_EXCLUDED_SLUGS.has(r.exercise_slug)) return true;
+    const task=taskOf(r);
+    return getSpeechScoreExclusion(
+      r.exercise_slug,
+      typeof task.trial_mode==='string'
+        ? task.trial_mode as Parameters<typeof getSpeechScoreExclusion>[1] : null,
+      task,
+    ) !== null;
+  };
+
+  const isIndependentSpokenAttempt=(r:ScoredRow)=>{
+    if((r.cue_level ?? 0)>0)return false;
+    const task=taskOf(r);
+    if(task.independent_spoken_score_eligible===false ||
+       task.trial_mode==='scaffolded')return false;
+    const support=task.support_used;
+    if(typeof support==='string'&&[
+      'semantic_cue','phonemic_cue','carrier_or_full_model',
+      'recognition_only','choice_based','highlight_plus_choice',
+      'after_replay','after_multiple_replays',
+    ].includes(support))return false;
+    // Legacy rows without source metadata retain historical treatment;
+    // they have not been retroactively validated as independent speech.
+    return true;
+  };
 
   // ASR/clinically-verified scored trials — the clean accuracy series.
   // Excludes validity-filtered rows, manual_confirmed (never ASR-verified), and
@@ -120,10 +154,10 @@ export function reduceAccuracy(rows: ScoredRow[]): SessionAccuracySummary {
 
   const all = scored.map((r) => r.score as number);
   const independent = scored
-    .filter((r) => (r.cue_level ?? 0) === 0)
+    .filter(isIndependentSpokenAttempt)
     .map((r) => r.score as number);
   const cued = scored
-    .filter((r) => (r.cue_level ?? 0) > 0)
+    .filter((r)=>!isIndependentSpokenAttempt(r))
     .map((r) => r.score as number);
 
   // Practice accuracy = ASR-scored ∪ manual-confirmed.
@@ -153,7 +187,7 @@ export async function computeSessionAccuracySummary(
   try {
     const { data, error } = await supabase
       .from('exercise_events')
-      .select('score, cue_level, counts_toward_score, validity_label, exercise_slug')
+      .select('score, cue_level, counts_toward_score, validity_label, exercise_slug, task_parameters')
       .eq('session_id', sessionId);
     if (error || !data) return { ...EMPTY };
     return reduceAccuracy(data as ScoredRow[]);

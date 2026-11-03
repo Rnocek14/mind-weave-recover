@@ -31,6 +31,9 @@ import { useExerciseTelemetry } from './useExerciseTelemetry';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { reduceAccuracy } from '@/lib/sessionAccuracySummary';
 import { describePhrasePracticeEvidence } from '@/lib/phrasePractice/stageEvidence';
+import { CANONICAL_EXERCISES } from '@/data/canonicalExerciseRegistry';
+import { getClinicalGameEvidence } from '@/lib/clinicalEvidenceRegistry';
+import { getGameMeasurementSpec } from '@/lib/clinical/gameMeasurementContracts';
 
 const spokenValidity = () => classifyUtteranceValidity({
   transcript: 'the cup is used for drinking',
@@ -60,6 +63,31 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
     vi.clearAllMocks();
     mocks.insert.mockResolvedValue({ error: null });
   });
+
+  it.each([...CANONICAL_EXERCISES.map(game=>game.slug),'functional-scenes'])(
+    'final raw writer records the unique proposed measurement contract for %s',
+    async slug=>{
+      const raw=await persist({
+        browserTranscript:undefined,validity:undefined,
+        taskParameters:{synthetic_telemetry_probe:true},
+      },slug);
+      const spec=getGameMeasurementSpec(slug)!;
+      const evidence=getClinicalGameEvidence(slug)!;
+      expect(raw.task_parameters).toMatchObject({
+        measurement_contract_version:'research-2026-11-02-v1',
+        measurement_primary_metric_id:spec.primaryMeasureId,
+        measurement_unit:spec.unit,
+        measurement_evidence_track:evidence.track,
+        measurement_validation:'unreviewed_app_observation',
+        measurement_field_coverage:'missing',
+        measurement_fields_missing:[...spec.proposedTaskFields],
+      });
+      if(evidence.track!=='expressive'){
+        expect(raw.task_parameters.speech_score_eligible).toBe(false);
+        expect(raw.engagement_flags.counts_toward_asr_accuracy).toBe(false);
+      }
+    },
+  );
 
   it('excludes explicit practice-only attempts even with a valid speech verdict', async () => {
     const raw = await persist({
@@ -196,6 +224,56 @@ describe('useExerciseTelemetry verified-score eligibility', () => {
       score:0,validity_label:'valid_attempt',counts_toward_score:false,
       task_parameters:{
         speech_validity:{should_score:false,counts_toward_asr_accuracy:false},
+      },
+    });
+  });
+
+  it('retains receptive Meaning Match task accuracy while keeping it outside ASR statistics',async()=>{
+    const raw=await persist({
+      correct:true,browserTranscript:undefined,validity:undefined,
+      taskParameters:{
+        clinical_progression_eligible:true,
+        trial_mode:'recognition',
+        speech_score_eligible:false,
+        measurement_evidence_track:'receptive',
+      },
+    },'meaning_match');
+    expect(raw).toMatchObject({
+      score:100,counts_toward_score:true,
+      task_parameters:{
+        clinical_progression_eligible:true,
+        speech_score_eligible:false,
+      },
+      engagement_flags:{counts_toward_asr_accuracy:false},
+    });
+    expect(raw.browser_transcript).toBeUndefined();
+    const accuracy=reduceAccuracy([{
+      score:raw.score,cue_level:raw.cue_level,
+      counts_toward_score:raw.counts_toward_score,
+      validity_label:raw.validity_label,exercise_slug:raw.exercise_slug,
+      task_parameters:raw.task_parameters,
+    }]);
+    expect(accuracy.asr_accuracy).toBeNull();
+    expect(accuracy.independent_accuracy).toBeNull();
+    expect(accuracy.scored_trials).toBe(0);
+  });
+
+  it('maintains game-specific score but rejects ASR counting even if an unrelated speech verdict is valid',async()=>{
+    const raw=await persist({
+      correct:true,validity:spokenValidity(),
+      taskParameters:{
+        clinical_progression_eligible:true,
+        speech_score_eligible:false,
+        trial_mode:'recognition',
+      },
+    },'minimal_pairs');
+    expect(raw).toMatchObject({
+      score:100,counts_toward_score:true,
+      task_parameters:{speech_validity:{
+        should_score:true,counts_toward_asr_accuracy:false,
+      }},
+      engagement_flags:{
+        counts_toward_score:true,counts_toward_asr_accuracy:false,
       },
     });
   });

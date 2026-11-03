@@ -12,6 +12,7 @@
  */
 
 import { CANONICAL_EXERCISES } from './canonicalExerciseRegistry';
+import { getGameMeasurementSpec } from '@/lib/clinical/gameMeasurementContracts';
 
 export type QaStep = {
   id: string;
@@ -101,6 +102,12 @@ const gameStepsFor = (slug: string, title: string, intendedSkill: string): QaSte
     action: 'On an explicitly isolated backend, inspect the just-completed raw trial and session output.',
     expect: 'Exactly one correctly owned event per attempt; accurate stimulus, response source, cue, result, trial identity and level; summary agrees with saved events.',
     safety: 'Without isolated authenticated read-back, record Skip/unverified, not Pass. Never use patient or production records for this check.',
+  },
+  {
+    id: 'measurement-contract',
+    action: `On an isolated backend, inspect the game's versioned ${getGameMeasurementSpec(slug)?.primaryMeasureId ?? 'MISSING CONTRACT'} measurement contract and proposed raw fields: ${getGameMeasurementSpec(slug)?.proposedTaskFields.join(', ') ?? 'MISSING CONTRACT'}.`,
+    expect: 'The observed raw payload identifies the intended measure, actual source and assistance; compare each proposed key with the saved value. Missing/unreliable fields are documented instrumentation gaps, not failed patient attempts or completed clinical validation.',
+    safety: 'A telemetry key merely existing is NOT construct validation. Do not mark Pass without inspecting a real isolated-backend write and source-consistent evidence.',
   },
   {
     id: 'resume',
@@ -278,4 +285,4 @@ export const QA_SCENARIOS: QaScenario[] = [
   },
 ];
 
-export const QA_RUNBOOK_VERSION = '2.0.0';
+export const QA_RUNBOOK_VERSION = '2.1.0';

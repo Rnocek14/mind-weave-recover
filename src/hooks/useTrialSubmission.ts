@@ -25,6 +25,7 @@ import { flushMasteryShadow } from '@/lib/mastery/flushMasteryShadow';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { applyValidityGate } from '@/lib/clinical/applyValidityGate';
 import { recordLastTrial } from '@/lib/feedback/lastTrial';
+import { describeGameMeasurementProvenance, getSpeechScoreExclusion } from '@/lib/clinical/gameMeasurementContracts';
 import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import type {
   CommitSessionResult,
@@ -158,6 +159,19 @@ export function useTrialSubmission(opts: Options) {
         cueLevel: input.cueLevel ?? null,
       });
 
+      // Source/construct telemetry is descriptive. A correct tap, typing or
+      // non-linguistic result must not become spoken accuracy just because it
+      // was eligible for the game's own receptive progression.
+      const speechExclusion = getSpeechScoreExclusion(
+        canonicalSlug,input.trialMode,{
+          ...(input.taskParameters ?? {}),
+          clinical_progression_eligible: input.clinicalProgressionEligible !== false,
+        },
+      );
+      const measurementProvenance = describeGameMeasurementProvenance(
+        canonicalSlug,input.taskParameters ?? {},
+      );
+
       // 1) exercise_events (raw clinical record) — always.
       try {
         const rawPersisted = await logExerciseEvent({
@@ -192,6 +206,11 @@ export function useTrialSubmission(opts: Options) {
             clinical_progression_eligible: input.clinicalProgressionEligible !== false,
             fatigue_signal: input.fatigueSignal ?? null,
             frustration_signal: input.frustrationSignal ?? null,
+            ...measurementProvenance,
+            ...(speechExclusion ? {
+              speech_score_eligible: false,
+              measurement_speech_exclusion_reason: speechExclusion,
+            } : {}),
           },
           validity: input.validity ?? undefined,
         } as any);

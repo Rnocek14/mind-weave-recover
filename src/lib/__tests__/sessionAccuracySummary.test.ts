@@ -169,4 +169,80 @@ describe('reduceAccuracy (session summary accuracy fix)', () => {
     expect(result.scored_trials).toBe(1);
   });
 
+  it('quarantines stale scored receptive and motor successes without erasing spoken target errors',()=>{
+    const rows=[
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'minimal_pairs'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'meaning_match'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'detective_mind'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'phonological_awareness'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'reach_tap'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'left_side_hunt'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'follow_directions'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'sequence_builder'},
+      {score:0,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        validity_label:'valid_attempt'},
+    ];
+    const reduced=reduceAccuracy(rows);
+    expect(reduced).toMatchObject({
+      accuracy:0,asr_accuracy:0,independent_accuracy:0,
+      practice_accuracy:0,scored_trials:1,independent_trials:1,
+    });
+  });
+
+  it('excludes legacy Fix Sentence tapped and typed attempts when the task recorded its actual channel',()=>{
+    const summary=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'fix_sentence',
+        task_parameters:{trial_mode:'recognition',input_mode:'choice'}},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'fix_sentence',
+        task_parameters:{trial_mode:'production',input_mode:'typed'}},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'fix_sentence',
+        task_parameters:{trial_mode:'mixed',input_mode:'browser_recognized'}},
+      {score:0,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{trial_mode:'production',input_mode:'browser_recognized'}},
+    ]);
+    expect(summary.asr_accuracy).toBe(0);
+    expect(summary.independent_accuracy).toBe(0);
+    expect(summary.scored_trials).toBe(1);
+  });
+
+  it('keeps a separately marked scaffolded spoken observation out of the independent denominator',()=>{
+    const summary=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{trial_mode:'scaffolded',
+          input_mode:'browser_recognized',independent_spoken_score_eligible:false}},
+      {score:0,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{trial_mode:'production',
+          input_mode:'browser_recognized',independent_spoken_score_eligible:true}},
+    ]);
+    expect(summary).toMatchObject({
+      asr_accuracy:50,scored_trials:2,
+      independent_accuracy:0,independent_trials:1,
+      cue_assisted_accuracy:100,cue_assisted_trials:1,
+    });
+  });
+
+  it('treats a delivered semantic cue as assisted even if an old caller wrote cue_level zero',()=>{
+    const summary=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{support_used:'semantic_cue'}},
+      {score:0,cue_level:0,counts_toward_score:true,exercise_slug:'photo_naming',
+        task_parameters:{support_used:'independent'}},
+    ]);
+    expect(summary).toMatchObject({
+      asr_accuracy:50,independent_accuracy:0,
+      cue_assisted_accuracy:100,independent_trials:1,cue_assisted_trials:1,
+    });
+  });
+
+  it('returns unavailable rather than zero independent speech accuracy for nonspoken-only sessions',()=>{
+    const summary=reduceAccuracy([
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'meaning_match'},
+      {score:0,cue_level:1,counts_toward_score:true,exercise_slug:'minimal_pairs'},
+      {score:100,cue_level:0,counts_toward_score:true,exercise_slug:'reach_tap'},
+    ]);
+    expect(summary.asr_accuracy).toBeNull();
+    expect(summary.independent_accuracy).toBeNull();
+    expect(summary.scored_trials).toBe(0);
+  });
+
 });

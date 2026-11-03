@@ -15,6 +15,7 @@ import {
 } from '@/lib/voiceEngine/axisEngine';
 import { buildCleaningEvents, normalizeASROutput } from '@/lib/speechNormalizer';
 import { persistClinicalAttempt } from '@/lib/clinical/persistClinicalAttempt';
+import { describeGameMeasurementProvenance, getSpeechScoreExclusion } from '@/lib/clinical/gameMeasurementContracts';
 
 export type CueType = 'none' | 'semantic' | 'phonemic' | 'full_word';
 
@@ -146,7 +147,21 @@ export const useExerciseTelemetry = (
         //    the caller spread buildAdaptationTelemetry() into it. This means
         //    every game using the shared adaptation contract gets the dedicated
         //    column populated without per-game changes.
-        const tp = (trial.taskParameters ?? {}) as Record<string, any>;
+        // Last shared raw writer: direct-logging legacy games receive the
+        // same contract as useTrialSubmission games. Never mutate the source
+        // taskParameters object or infer patient ability from missing fields.
+        const tp = { ...(trial.taskParameters ?? {}) } as Record<string, any>;
+        Object.assign(tp, describeGameMeasurementProvenance(exerciseSlug, tp));
+        const reportedMode = typeof tp.trial_mode === 'string'
+          ? tp.trial_mode as Parameters<typeof getSpeechScoreExclusion>[1]
+          : null;
+        const speechExclusion = getSpeechScoreExclusion(exerciseSlug, reportedMode, tp);
+        if (speechExclusion) {
+          tp.speech_score_eligible = false;
+          if (!tp.measurement_speech_exclusion_reason) {
+            tp.measurement_speech_exclusion_reason = speechExclusion;
+          }
+        }
 
         // 3. Auto-inject canonical 1–10 game_level from the adaptive level
         //    registry. Adaptation hooks (useInGameAdaptation, useAdaptiveDifficulty,
@@ -314,8 +329,13 @@ export const useExerciseTelemetry = (
           // receptive progression without becoming an observed spoken trial.
           // These are distinct axes: never use the clinical ladder flag alone
           // as the spoken score denominator.
-          const speechScoreExcluded = tp.clinical_score_eligible === false;
-          const countsTowardVerified = gate.shouldScore && !explicitlyExcluded && !speechScoreExcluded;
+          const taskScoreExcluded = tp.clinical_score_eligible === false;
+          // Receptive or motor practice can retain valid GAME-SPECIFIC task
+          // accuracy without becoming verified SPEECH accuracy. Previously a
+          // single flag controlled both denominators, hiding comprehension
+          // successes when we correctly excluded them from spoken scores.
+          const speechScoreExcluded = taskScoreExcluded || tp.speech_score_eligible === false;
+          const countsTowardVerified = gate.shouldScore && !explicitlyExcluded && !taskScoreExcluded;
           const countsTowardAsr = gate.shouldCountAsrAccuracy && !explicitlyExcluded && !speechScoreExcluded;
           tp.speech_validity = {
             label: gate.label,
@@ -364,6 +384,17 @@ export const useExerciseTelemetry = (
           // input during a spoken fluency task) are real events, but must
           // not enter the verified speech-accuracy denominator.
           eventData.counts_toward_score = tp.clinical_progression_eligible !== false && tp.clinical_score_eligible !== false;
+          // No speech validity classifier exists for a tap. Retain the
+          // objective receptive task score but explicitly quarantine it from
+          // ASR metrics in the event's metadata.
+          if (tp.speech_score_eligible === false || tp.clinical_score_eligible === false) {
+            eventData.engagement_flags = {
+              ...(typeof eventData.engagement_flags === 'object' && eventData.engagement_flags !== null
+                ? eventData.engagement_flags as Record<string, unknown>
+                : {}),
+              counts_toward_asr_accuracy: false,
+            };
+          }
         }
 
         // ── Voice Engine v2 Phase 2: SHADOW axis verdict (spec §1, §2) ──
