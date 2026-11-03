@@ -38,10 +38,12 @@ const DIFFICULTY_LABELS: Record<GameDifficulty, { text: string; className: strin
 
 const ALL_GAMES: GameInfo[] = [
   { id: 'photo-naming', emoji: '🖼️', name: 'Picture Naming', desc: 'Say the word for each picture', difficulty: 'medium', category: 'speech', domain: 'Word Finding' },
+  { id: 'word-finding', emoji: '🔎', name: 'Word Finding', desc: 'Find words or describe them another way', difficulty: 'easy', category: 'speech', domain: 'Word Finding' },
   { id: 'two-clues', emoji: '🔗', name: 'Two Clues', desc: 'Say a word that connects 2 clues', difficulty: 'easy', category: 'speech', domain: 'Word Finding' },
   { id: 'describe-guess', emoji: '🔍', name: 'Describe & Guess', desc: 'Describe a picture so the app can guess', difficulty: 'medium', category: 'speech', domain: 'Word Finding' },
   { id: 'category-fluency', emoji: '🐾', name: 'Category Fluency', desc: 'Name as many as you can in a category', difficulty: 'medium', category: 'speech', domain: 'Word Finding' },
   { id: 'sentence-construction', emoji: '📝', name: 'Build Sentences', desc: 'Put words in order', difficulty: 'challenge', category: 'speech', domain: 'Sentence Building' },
+  { id: 'sentence-game', emoji: '💭', name: 'Sentence Game', desc: 'Build and explain useful everyday sentences', difficulty: 'medium', category: 'speech', domain: 'Sentence Building' },
   { id: 'fix-sentence', emoji: '🔧', name: 'Fix the Sentence', desc: 'Find the wrong word and fix it', difficulty: 'easy', category: 'thinking', domain: 'Sentence Building' },
   { id: 'thought-continuation', emoji: '💬', name: 'Finish the Thought', desc: 'Practice finishing sentences', difficulty: 'easy', category: 'speech', domain: 'Sentence Building' },
   { id: 'thought-organization', emoji: '🧠', name: 'Organize Your Thoughts', desc: 'Practice main ideas, details and everyday explanations', difficulty: 'medium', category: 'speech', domain: 'Sentence Building' },
@@ -66,6 +68,8 @@ const ALL_GAMES: GameInfo[] = [
 
 const EXERCISE_ROUTES: Record<string, string> = {
   'photo-naming': '/exercise/photo-naming',
+  'word-finding': '/exercise/word-finding',
+  'sentence-game': '/exercise/sentence-game',
   'functional-scenes': '/exercise/functional-scenes',
   'reach-tap': '/exercise/reach-tap',
   'left-side-hunt': '/exercise/left-side-hunt',
