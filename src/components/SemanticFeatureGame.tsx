@@ -310,6 +310,11 @@ export const SemanticFeatureGame = ({
       cueLevel: sfaCueLevel,
       featureBreakdown: result.featureBreakdown,
       retrievalCorrect: isRetrievalCorrect,
+      retrievalSelectedWord: word,
+      selectedFeatureChoices: game.currentOptions
+        .filter((option) => game.selectedFeatures.has(option.text))
+        .map((option) => ({ text: option.text, category: option.category })),
+      visibleFeatureOptionCount: game.currentOptions.length,
       // Extra fields for the unified trial submission contract.
       word: trial.word,
       difficulty: currentDifficulty,
