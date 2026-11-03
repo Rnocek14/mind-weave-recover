@@ -590,4 +590,97 @@ describe('useTrialSubmission persistence gate', () => {
       },
     });
   });
+  it.each(['minimal-pairs','meaning-match','detective-mind','phonological-awareness'] as const)(
+    '%s preserves receptive progression but never calls a correct tap independent speech',
+    async slug=>{
+      mocks.logExerciseEvent.mockResolvedValue(true);
+      const p=progression();
+      const {result}=renderHook(()=>useTrialSubmission({
+        userId:'user-1',profileId:'profile-1',sessionId:'session-1',
+        exerciseSlug:slug,progression:p,debug:false,
+      }));
+      await act(async()=>{
+        await result.current.submitTrial({
+          ...input,gameId:slug,trialMode:'recognition',
+          taskParameters:{item_id:'semantic-1',type:'literal',used_hint:false},
+        });
+      });
+      expect(p.recordTrialOutcome).toHaveBeenCalledTimes(1);
+      const row=mocks.logExerciseEvent.mock.calls[0][0];
+      expect(row.taskParameters).toMatchObject({
+        trial_mode:'recognition',
+        clinical_progression_eligible:true,clinical_score_eligible:false,
+        measurement_evidence_track:'receptive',
+        measurement_contract_version:'research-2026-11-02-v1',
+        measurement_validation:'unreviewed_app_observation',
+        measurement_speech_exclusion_reason:'receptive_task_not_spoken_production',
+      });
+      expect(typeof row.taskParameters.measurement_primary_metric_id).toBe('string');
+      expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['reach-tap','left-side-hunt','pattern-match'] as const)(
+    '%s attaches non-linguistic measurement provenance without fabricating an ASR score',
+    async slug=>{
+      mocks.logExerciseEvent.mockResolvedValue(true);
+      const {result}=renderHook(()=>useTrialSubmission({
+        userId:'user-1',profileId:'profile-1',sessionId:'session-1',
+        exerciseSlug:slug,progression:null,debug:false,
+      }));
+      await act(async()=>{await result.current.submitTrial({
+        ...input,gameId:slug,trialMode:'recognition',
+      });});
+      const raw=mocks.logExerciseEvent.mock.calls[0][0];
+      expect(raw.taskParameters).toMatchObject({
+        clinical_score_eligible:false,
+        measurement_evidence_track:'non-linguistic',
+        measurement_speech_exclusion_reason:'nonlinguistic_task_not_spoken_production',
+      });
+      expect(mocks.logExerciseEvent).toHaveBeenCalledTimes(1);
+      expect(mocks.logAdaptationTrial).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('an accurately tagged typed sentence cannot become independent spoken accuracy',async()=>{
+    mocks.logExerciseEvent.mockResolvedValue(true);
+    const p=progression();
+    const {result}=renderHook(()=>useTrialSubmission({
+      userId:'user-1',profileId:'profile-1',sessionId:'session-1',
+      exerciseSlug:'fix-sentence',progression:p,debug:false,
+    }));
+    await act(async()=>{await result.current.submitTrial({
+      ...input,gameId:'fix-sentence',trialMode:'production',
+      clinicalProgressionEligible:false,
+      taskParameters:{input_mode:'typed',error_type:'semantic'},
+    });});
+    const raw=mocks.logExerciseEvent.mock.calls[0][0];
+    expect(raw.taskParameters).toMatchObject({
+      clinical_progression_eligible:false,clinical_score_eligible:false,
+      measurement_evidence_track:'expressive',
+      measurement_speech_exclusion_reason:'progression_ineligible_practice',
+    });
+    expect(p.recordTrialOutcome).not.toHaveBeenCalled();
+  });
+
+  it('never marks a matching contract field as a clinically validated outcome',async()=>{
+    mocks.logExerciseEvent.mockResolvedValue(true);
+    const {result}=renderHook(()=>useTrialSubmission({
+      userId:'user-1',profileId:'profile-1',sessionId:'session-1',
+      exerciseSlug:'meaning-match',progression:null,debug:false,
+    }));
+    await act(async()=>{await result.current.submitTrial({
+      ...input,gameId:'meaning-match',trialMode:'recognition',
+      taskParameters:{item_id:'item-42',type:'literal',used_hint:false},
+    });});
+    const row=mocks.logExerciseEvent.mock.calls[0][0];
+    expect(row.taskParameters).toMatchObject({
+      measurement_field_coverage:'fields_observed',
+      measurement_fields_missing:[],measurement_validation:'unreviewed_app_observation',
+    });
+    expect(row.taskParameters).not.toHaveProperty('clinical_outcome');
+    expect(row.taskParameters).not.toHaveProperty('functional_transfer_verified',true);
+  });
+
+
 });
