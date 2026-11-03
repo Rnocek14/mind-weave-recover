@@ -17,8 +17,8 @@ describe('eight real, practice-only functional language formats', () => {
     const allIds = new Set<string>();
     for (const stage of stages) {
       expect(getFunctionalPracticeStage(kind, stage.level)).toEqual(stage);
-      const tasks = getFunctionalPracticeTrials(kind, stage.level);
-      expect(tasks).toHaveLength(3);
+      const tasks = getFunctionalPracticeTrials(kind, stage.level, 6);
+      expect(tasks).toHaveLength(6);
       for (const task of tasks) {
         expect(allIds.has(task.id), task.id).toBe(false);
         allIds.add(task.id);
@@ -26,7 +26,7 @@ describe('eight real, practice-only functional language formats', () => {
         expect(task.clue.trim()).not.toBe('');
       }
     }
-    expect(allIds.size).toBe(24);
+    expect(allIds.size).toBe(48);
     expect(getFunctionalPracticeStage(kind, 0)).toBeNull();
     expect(getFunctionalPracticeStage(kind, 9)).toBeNull();
     expect(getFunctionalPracticeStage(kind, 1.5)).toBeNull();
