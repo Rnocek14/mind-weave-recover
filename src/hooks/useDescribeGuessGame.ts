@@ -99,7 +99,11 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getDescribeGuessTrials({ difficulty: clinicalLevel != null ? getGradedTaskSpec('describe-guess', clinicalLevel).tier : difficulty, count: trialCount }),
+    () => getDescribeGuessTrials({
+      difficulty: clinicalLevel != null ? undefined : difficulty,
+      clinicalTier: clinicalLevel != null ? getGradedTaskSpec('describe-guess', clinicalLevel).tier : undefined,
+      count: trialCount,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trialCount, clinicalLevel]
   );
