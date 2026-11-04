@@ -116,6 +116,21 @@ export interface TierStatusResult {
  * scattered UI strings. Surface in /games as amber chips on the relevant row.
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
+  'describe-guess': {
+    6: 'Harder bank and two spoken semantic features ship; item frequency and aphasic feature matching need clinician calibration.',
+    7: 'Three spoken feature dimensions ship, but keyword cues do not establish independent circumlocution with novel words.',
+    8: 'Four feature dimensions ship for banked pictures; spontaneous real-world generalization is not scored.',
+  },
+  'abstract-compare': {
+    6: 'Abstract pairs ship with one literal shared-property match; inference and paraphrase detection are not yet calibrated.',
+    7: 'Two abstract shared-property matches ship, but comparison depth and alternative valid metaphors are not measured.',
+    8: 'Three abstract shared-property matches ship; relational reasoning and explanation quality are not established by keyword counts.',
+  },
+  'thought-continuation': {
+    6: 'Reflective prompts ship with an on-topic score, word count and connector proxy; actual cohesion is not measured.',
+    7: 'Problem-solving prompts ship, but word count and linking words do not prove a coherent solution.',
+    8: 'Comparison prompts ship with a comparison-word proxy; conversational coherence and transfer are not measured.',
+  },
   // L6–L8 grammar banks exist, but the task still supplies the words and
   // has not been calibrated against spontaneous sentence production.
   'sentence-construction': {
