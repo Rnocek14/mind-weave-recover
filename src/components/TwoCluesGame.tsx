@@ -899,8 +899,7 @@ export function TwoCluesGame({
       recordAdaptiveTrial({
         correct: isSuccess,
         reactionTimeMs: Date.now() - attemptStartTimeRef.current,
-        errorType: result.tier === 'uncertain' ? 'no_match' :
-                   result.tier === 'creative' ? 'creative_link' : undefined,
+        errorType: result.tier === 'creative' ? 'creative_link' : undefined,
       });
       // Phase 2: feed engagement monitor with the actual cue level used this trial.
       engagement.recordTrial({
@@ -943,8 +942,7 @@ export function TwoCluesGame({
           transcript: rawTranscript,
           transcriptSource: 'browser',
           isCorrect: isSuccess,
-          errorType: result.tier === 'uncertain' ? 'no_match' :
-                     result.tier === 'creative' ? 'creative_link' :
+          errorType: result.tier === 'creative' ? 'creative_link' :
                      result.tier === 'related' ? 'semantic_paraphasia' : undefined,
           semanticSimilarity: result.semanticSimilarity ?? undefined,
           recordingDurationMs,
