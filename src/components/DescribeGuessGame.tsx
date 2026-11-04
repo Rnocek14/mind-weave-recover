@@ -24,6 +24,7 @@ import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useDescribeGuessGame, DescribeGuessTrialResult, getStarCount } from '@/hooks/useDescribeGuessGame';
+import { getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -80,6 +81,8 @@ interface DescribeGuessGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  /** Persistent clinical stage controls both bank tier and response demand. */
+  clinicalLevel?: number | null;
 }
 
 export function DescribeGuessGame({
@@ -89,6 +92,7 @@ export function DescribeGuessGame({
   sessionId,
   userId,
   profileId,
+  clinicalLevel,
 }: DescribeGuessGameProps) {
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -259,6 +263,7 @@ export function DescribeGuessGame({
   const game = useDescribeGuessGame({
     trialCount,
     difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))),
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   });
@@ -668,6 +673,7 @@ export function DescribeGuessGame({
 
       const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
       if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
         logFinalAnalysis({
           transcript: ctx.originalTranscript,
           transcriptSource: 'browser',
@@ -859,6 +865,7 @@ export function DescribeGuessGame({
             if (saidWord) game.recordWordRetrieval();
             const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
             if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
               logFinalAnalysis({
                 transcript: currentTranscript,
                 transcriptSource: 'browser',
@@ -889,6 +896,7 @@ export function DescribeGuessGame({
         await audioPromise; // Ensure audio is done
         const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin);
         if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
           await logFinalAnalysis({
             transcript: currentTranscript,
             transcriptSource: 'browser',
