@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   processUserTurn: vi.fn(),
   addAITurn: vi.fn(),
   reset: vi.fn(),
+  getNudge: vi.fn(() => 'Take your time.'),
   scorer: vi.fn(async () => ({ signal: { onTopicScore: 0.8 } })),
   flushQueue: vi.fn(),
   onSpeechResult: null as null | ((transcript: string) => void),
@@ -63,7 +64,7 @@ vi.mock('@/hooks/useConversationPartner', () => ({
     },
     addAITurn: mocks.addAITurn,
     processUserTurn: mocks.processUserTurn,
-    getNudge: vi.fn(() => 'Take your time.'),
+    getNudge: mocks.getNudge,
     startTurn: vi.fn(), reset: mocks.reset,
   }),
 }));
