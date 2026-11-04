@@ -48,9 +48,9 @@ held for the entire graded exchange.
 **L4–L8 are planned**, not repurposed L3 content. The registry and clinician
 “About” pages should show those entries as planned. No automated promotion
 to L4. Clinical stages are **not** added to global expressive-mastery routing,
-which would require a validated classification model.
+which would require clinical calibration and independent outcome review.
 
-These scores are at most **language-practice proxies**, not a validated
+These scores are at most **language-practice proxies**, not a clinically calibrated
 conversation-independence index or aphasia assessment. LLM on-topic judgments
 and ASR errors can bias the results. Real conversations, sustained topic
 maintenance, successful message transfer, communication repair, unfamiliar
