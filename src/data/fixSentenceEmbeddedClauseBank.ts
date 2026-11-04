@@ -80,7 +80,7 @@ const SEEDS: readonly EmbeddedClauseSeed[] = [
     id: 'fse_10', sentence: 'The package who arrived today is on the porch.',
     wrongWord: 'who', acceptedFixes: ['that', 'which'],
     correctedSentence: 'The package that arrived today is on the porch.',
-    construction: 'relative_object', category: 'home',
+    construction: 'relative_subject', category: 'home',
   },
   {
     id: 'fse_11', sentence: 'The chair whose I bought last week fits well.',
