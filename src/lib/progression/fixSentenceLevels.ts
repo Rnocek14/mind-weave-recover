@@ -86,10 +86,9 @@ export interface FixSentenceLevelSpec {
  *   L7 — Repairs embedded-clause connector errors independently
  *   L8 — Stable functional sentence repair with generalization
  *
- * Until per-level *content* tiers exist beyond the Fix Sentence bank's
- * 3-tier structure, L4–L8 raise the accuracy bar instead of changing the
- * required support tier. That keeps the ladder honest: a session that only
- * succeeds with heavy scaffolding cannot graduate L3+.
+ * L4–L7 ship distinct content, although the engine's 1–10 difficulty
+ * still changes session pace. L8 open-ended repair remains unimplemented.
+ * A session relying on heavy scaffolding cannot graduate L3+.
  */
 export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   1: {
