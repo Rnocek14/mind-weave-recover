@@ -164,14 +164,17 @@ export function MinimalPairsGame({
     return () => clearTimeout(giveUp);
   }, [echoStatus, speech.isListening]);
 
+  // Depend on the stable callback, not the hook's freshly allocated return object.
+  // Otherwise the trial-reset effect below runs on every render and can loop.
+  const { stopListening, startListening, isSupported } = speech;
   const stopEcho = useCallback(() => {
     echoActiveRef.current = false;
     if (echoTimerRef.current) { clearTimeout(echoTimerRef.current); echoTimerRef.current = null; }
-    try { speech.stopListening(); } catch {}
-  }, [speech]);
+    try { stopListening(); } catch {}
+  }, [stopListening]);
 
   const startEcho = useCallback(async () => {
-    if (!speech.isSupported) {
+    if (!isSupported) {
       setEchoStatus('skipped');
       return;
     }
@@ -193,7 +196,7 @@ export function MinimalPairsGame({
     // permission denied — the person needs to be told, not left staring at a
     // label that claims the microphone is on.
     try {
-      speech.startListening();
+      startListening();
     } catch (err) {
       console.warn('[MinimalPairs] echo mic failed to start', err);
       echoActiveRef.current = false;
@@ -212,7 +215,7 @@ export function MinimalPairsGame({
         setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
       }
     }, 7000);
-  }, [speech, stopEcho]);
+  }, [isSupported, startListening, stopEcho]);
 
   const handleEchoSaidIt = useCallback(() => {
     stopEcho();
