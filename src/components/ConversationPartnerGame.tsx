@@ -23,6 +23,7 @@ import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 import { flushVoiceSessionQueue } from '@/lib/voiceController';
+import { completedPartnerSessionMetrics } from '@/lib/conversationPartnerMetrics';
 
 interface ConversationPartnerGameProps {
   userId: string;
@@ -259,7 +260,7 @@ export function ConversationPartnerGame({
     );
 
     // Process turn and get follow-up
-    const { followupText } = await processUserTurn(userTranscript, latencyMs);
+    const { followupText, updatedMetrics } = await processUserTurn(userTranscript, latencyMs);
 
     // User exited mid-processing — don't resume speaking after unmount.
     if (!mountedRef.current) return;
@@ -279,15 +280,7 @@ export function ConversationPartnerGame({
       setPhase('complete');
       
       if (onComplete) {
-        const userAIRatio = metrics.totalAIWords > 0 
-          ? (metrics.totalUserWords / metrics.totalAIWords) * 100 
-          : 100;
-        onComplete({
-          turnsCompleted: metrics.turnsCompleted + 1,
-          avgLatencyMs: metrics.avgLatencyMs,
-          completionRate: metrics.completionRate,
-          userAIRatio
-        });
+        onComplete(completedPartnerSessionMetrics(updatedMetrics, followupText));
       }
     } else {
       setCurrentAIText(followupText);
