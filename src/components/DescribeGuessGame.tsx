@@ -94,6 +94,7 @@ export function DescribeGuessGame({
   profileId,
   clinicalLevel,
 }: DescribeGuessGameProps) {
+  const clinicalSpec = clinicalLevel == null ? null : getGradedTaskSpec('describe-guess', clinicalLevel);
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -1114,6 +1115,11 @@ export function DescribeGuessGame({
         <p className="text-sm font-medium text-foreground">
           🚫 Describe this <strong>without</strong> saying the word!
         </p>
+        {clinicalSpec && (
+          <p className="text-xs text-primary" aria-label="Clinical level task">
+            Level {clinicalSpec.level}: Tell me {clinicalSpec.spokenFeatureTarget} different things about it.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground hidden tall:block">
           Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
