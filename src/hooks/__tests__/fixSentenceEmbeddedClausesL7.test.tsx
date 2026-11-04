@@ -72,8 +72,7 @@ describe('Fix Sentence L7: real adult embedded relative/complement clauses', () 
     expect(FIX_SENTENCE_LEVELS[8].contentSelector?.implemented).toBe(false);
     expect(selectFixSentencePool(8).fallback?.skipped).toBe(true);
     const { result } = mount();
-    expect(result.current.trials).toHaveLength(5);
-    expect(result.current.trials.every(t => t.embeddedClause != null)).toBe(true);
+    expect(result.current.totalTrials).toBe(5);
     expect(result.current.currentTrial?.embeddedClause).toBeDefined();
   });
 
@@ -116,29 +115,37 @@ describe('Fix Sentence L7: real adult embedded relative/complement clauses', () 
     });
   });
 
-  it('a level change cannot borrow baseline trials to replace upcoming L7 sentences', () => {
+  it.each([1, 10])('engine level %i cannot replace upcoming L7 questions with baseline items', engineLevel => {
     const { result } = mount();
-    const firstId = result.current.trials[0].id;
-    const previousIds = new Set(result.current.trials.map(t => t.id));
-    act(() => result.current.setActiveDifficulty(1));
-    expect(result.current.trials).toHaveLength(5);
-    expect(result.current.trials[0].id).toBe(firstId);
-    expect(result.current.trials.every(t => t.embeddedClause != null)).toBe(true);
-    expect(result.current.trials.slice(1).some(t => !previousIds.has(t.id))).toBe(true);
-    act(() => result.current.setActiveDifficulty(10));
-    expect(result.current.trials.every(t => t.embeddedClause != null)).toBe(true);
-    expect(new Set(result.current.trials.map(t => t.id)).size).toBe(5);
+    const firstId = result.current.currentTrial!.id;
+    act(() => result.current.setActiveDifficulty(engineLevel));
+    expect(result.current.currentTrial?.id).toBe(firstId);
+    expect(result.current.totalTrials).toBe(5);
+    const seen = new Set<string>([firstId]);
+    for (let n = 1; n < result.current.totalTrials; n++) {
+      act(() => result.current.nextTrial());
+      const trial = result.current.currentTrial!;
+      expect(trial.embeddedClause, `engine ${engineLevel}, trial ${n}`).toBeDefined();
+      expect(trial.id).toMatch(/^fse_/);
+      seen.add(trial.id);
+    }
+    expect(seen.size).toBe(result.current.totalTrials);
   });
 
-  it.each([4, 5, 6])('in-session adaptation also preserves the real L%i content cohort', (level) => {
+  it.each([4, 5, 6])('in-session adaptation also preserves real L%i clinical cohort', level => {
     const { result } = mount(level);
-    const firstId = result.current.trials[0].id;
     const before = selectFixSentencePool(level);
     expect(before.fallback).toBeNull();
-    act(() => result.current.setActiveDifficulty(1));
     const allowed = new Set(before.pool.map(t => t.id));
-    expect(result.current.trials[0].id).toBe(firstId);
-    expect(result.current.trials.every(t => allowed.has(t.id))).toBe(true);
+    const firstId = result.current.currentTrial!.id;
+    act(() => result.current.setActiveDifficulty(1));
+    expect(result.current.currentTrial?.id).toBe(firstId);
+    for (let n = 0; n < result.current.totalTrials; n++) {
+      expect(allowed.has(result.current.currentTrial!.id), `L${level} trial ${n}`).toBe(true);
+      if (n + 1 < result.current.totalTrials) {
+        act(() => result.current.nextTrial());
+      }
+    }
   });
 
   it('requires six open repairs at L7; assisted choice-only work cannot advance', () => {
