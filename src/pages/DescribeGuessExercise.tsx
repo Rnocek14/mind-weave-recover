@@ -277,7 +277,7 @@ export default function DescribeGuessExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
+  const isReady = !isCreatingSession && !!activeSessionId && !!user?.id && !!activeProfile?.id && progression.loaded;
 
   if (!isReady) {
     return <ExerciseLoading />;
