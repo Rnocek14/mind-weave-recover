@@ -34,6 +34,7 @@ type LevelsMap = Record<number | string, {
 const REGISTRY: Record<string, LevelsMap> = {
   'photo-naming': PHOTO_NAMING_LEVELS as unknown as LevelsMap,
   'conversation-partner': EARLY_PARTNER_STAGES as unknown as LevelsMap,
+  'conversation-coach': EARLY_COACH_LEVELS as unknown as LevelsMap,
   'fix-sentence': FIX_SENTENCE_LEVELS as unknown as LevelsMap,
   'minimal-pairs': MINIMAL_PAIRS_LEVELS as unknown as LevelsMap,
   'sentence-construction': SENTENCE_CONSTRUCTION_LEVELS as unknown as LevelsMap,
