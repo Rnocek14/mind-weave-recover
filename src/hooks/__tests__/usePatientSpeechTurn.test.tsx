@@ -75,10 +75,15 @@ describe('usePatientSpeechTurn — Finish the Thought', () => {
     expect(onSpeechEnd).toHaveBeenCalledTimes(1);
     rerender({ transcript: 'I went outside.', enabled: false });
     act(() => result.current.waitForNewSpeech());
+    expect(result.current.awaitingNewSpeech).toBe(true);
+    // A second manual click must not log the previously captured response.
+    act(() => result.current.finishNow());
+    expect(onSpeechEnd).toHaveBeenCalledTimes(1);
     rerender({ transcript: 'I went outside.', enabled: true });
     act(() => vi.advanceTimersByTime(20_000));
     expect(onSpeechEnd).toHaveBeenCalledTimes(1);
     rerender({ transcript: 'I went outside. To see my neighbor.', enabled: true });
+    expect(result.current.awaitingNewSpeech).toBe(false);
     act(() => vi.advanceTimersByTime(14_000));
     expect(onSpeechEnd).toHaveBeenCalledTimes(2);
     expect(onSpeechEnd).toHaveBeenLastCalledWith('I went outside. To see my neighbor.');
