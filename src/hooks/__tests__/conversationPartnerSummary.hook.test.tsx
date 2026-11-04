@@ -9,7 +9,7 @@ import { useConversationPartner } from '@/hooks/useConversationPartner';
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(async () => ({ data: { followupType: 'wrap_up' }, error: null })),
-  insert: vi.fn(async () => ({ data: null, error: null })),
+  insert: vi.fn(async (_payload: Record<string, unknown>) => ({ data: null, error: null as { message: string } | null })),
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -144,7 +144,7 @@ describe('Conversation Partner graded dialogue — one confirmed raw event per t
   });
 
   it('returns eventSaved false when the backend explicitly rejects the clinical turn', async () => {
-    mocks.insert.mockResolvedValueOnce({ data: null, error: { message: 'synthetic RLS denial' } as never });
+    mocks.insert.mockResolvedValueOnce({ data: null, error: { message: 'synthetic RLS denial' } });
     const { result } = renderHook(() => useConversationPartner({
       userId: 'synthetic-user', profileId: 'synthetic-profile',
       sessionId: 'synthetic-session', maxTurns: 1,
