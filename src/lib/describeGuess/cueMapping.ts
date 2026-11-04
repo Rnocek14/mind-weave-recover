@@ -2,8 +2,8 @@
  * Cue mapping for Describe & Guess.
  *
  * Pure helpers — used by DescribeGuessExercise to derive cue telemetry from
- * the number of feature-prompt chips surfaced to the patient. Extracted so
- * the mapping rule is unit-testable and cannot silently drift.
+ * the number of spoken feature prompts the patient explicitly REQUESTED.
+ * Merely displaying the persistent strategy guide is not a cue.
  *
  * Rule:
  *   0 prompts        → cueLevel 0, cueTypeGiven 'none'
@@ -35,4 +35,13 @@ export function deriveCueTelemetry(
   const cueTypeGiven: CueTypeGiven = cueLevel === 0 ? 'none' : 'semantic';
   const cueWasEffective: boolean | null = cueLevel === 0 ? null : isCorrect;
   return { cueLevel, cueTypeGiven, cueWasEffective };
+}
+
+/**
+ * The Describe & Guess help questions are ALL semantic prompts.
+ * More than one semantic question is not a phonemic cue or a full model,
+ * even if cueLevel 2/3 expresses greater support dependence.
+ */
+export function semanticPromptSupport(cueLevel: number): 'independent' | 'semantic_cue' {
+  return cueLevel > 0 ? 'semantic_cue' : 'independent';
 }
