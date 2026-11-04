@@ -25,6 +25,9 @@ import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { describeLevel, tierToLevel } from '@/lib/gameLevels';
 import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
+import { getGradedTaskSpec, thoughtMeetsClinicalTarget } from '@/lib/progression/gradedTaskLevels';
+import { selectClinicalThoughtPrompt } from '@/lib/progression/gradedThoughtContent';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -81,10 +84,24 @@ const DEV_MODE = import.meta.env.DEV;   // Show debug overlay in dev
 // Props
 // =============================================================================
 
+export interface ThoughtClinicalTrialResult {
+  promptId: string;
+  clinicalLevel: number;
+  transcript: string;
+  correct: boolean;
+  support: SupportLevel;
+  scoringValid: boolean;
+  skipped: boolean;
+  onTopicScore: number | null;
+  reactionTimeMs: number;
+}
+
 interface ThoughtContinuationGameProps {
   userId: string;
   profileId: string;
   sessionId: string | null;
+  clinicalLevel?: number | null;
+  onClinicalTrial?: (result: ThoughtClinicalTrialResult) => void;
   onComplete?: (summary: {
     totalPrompts: number;
     promptsSpoken: number;
@@ -102,9 +119,12 @@ export function ThoughtContinuationGame({
   userId,
   profileId,
   sessionId,
+  clinicalLevel,
+  onClinicalTrial,
   onComplete,
   onExit,
 }: ThoughtContinuationGameProps) {
+  const clinicalSpec = clinicalLevel == null ? null : getGradedTaskSpec('thought-continuation', clinicalLevel);
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -240,13 +260,20 @@ export function ThoughtContinuationGame({
       usedPromptIds,
       adaptation.level,
     );
+    const clinicalPrompt = clinicalLevel == null ? null : selectClinicalThoughtPrompt(clinicalLevel, usedPromptIds);
+    // An isolated clinical selector may not silently widen its content band.
+    if (clinicalLevel != null && !clinicalPrompt) {
+      console.error('[ThoughtGame] no eligible adult prompts for clinical level', clinicalLevel);
+      return;
+    }
+    const chosenPrompt = clinicalPrompt ?? selection.prompt;
 
     console.log('[ThoughtGame] Prompt selected:', {
       strategy: selection.strategy,
       reason: selection.reason,
-      promptTheme: selection.prompt.theme,
-      promptIntent: selection.prompt.intentType,
-      promptTier: selection.prompt.difficultyTier,
+      promptTheme: chosenPrompt.theme,
+      promptIntent: chosenPrompt.intentType,
+      promptTier: chosenPrompt.difficultyTier,
       engineLevel: adaptation.level,
       previousStuckType,
     });
@@ -256,18 +283,18 @@ export function ThoughtContinuationGame({
       userId,
       profileId,
       sessionId,
-      prompt: selection.prompt,
-      selectionReason: selection.reason,
+      prompt: chosenPrompt,
+      selectionReason: clinicalLevel != null ? `Clinical Level ${clinicalLevel}: ${clinicalSpec?.objective ?? 'graded task'}` : selection.reason,
       strategy: selection.strategy,
       previousStuckType,
       sessionHistory,
     });
     
     // Update state
-    setCurrentPrompt(selection.prompt);
-    setUsedPromptIds(prev => [...prev, selection.prompt.id]);
+    setCurrentPrompt(chosenPrompt);
+    setUsedPromptIds(prev => [...prev, chosenPrompt.id]);
     setPromptCount(prev => prev + 1);
-  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level]);
+  }, [previousStuckType, sessionHistory, usedPromptIds, userId, profileId, sessionId, logDecision, adaptation.level, clinicalLevel, clinicalSpec?.objective]);
 
   useEffect(() => {
     if (!currentPrompt && promptCount === 0) {
@@ -785,6 +812,22 @@ export function ThoughtContinuationGame({
     }
     setFeedbackMessage(feedback);
 
+    if (!continueSamePrompt && clinicalLevel != null && onClinicalTrial) {
+      const topicScore = signal?.onTopicScore;
+      const scoringValid = validation.valid && typeof topicScore === 'number' && Number.isFinite(topicScore);
+      onClinicalTrial({
+        promptId: currentPrompt.id,
+        clinicalLevel,
+        transcript: answerText,
+        correct: scoringValid && thoughtMeetsClinicalTarget(answerText, clinicalLevel, topicScore),
+        support: narrowingLevel > 0 ? 'semantic_cue' : 'independent',
+        scoringValid,
+        skipped: false,
+        onTopicScore: scoringValid ? topicScore : null,
+        reactionTimeMs: latencyToFirstWordMs,
+      });
+    }
+
     // Update streak
     if (didSpeak) {
       setStreak(prev => prev + 1);
@@ -814,7 +857,7 @@ export function ThoughtContinuationGame({
     }
 
 
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState, clinicalLevel, onClinicalTrial]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
   // effect (which is declared above this callback to avoid hoisting issues).
@@ -921,8 +964,17 @@ export function ThoughtContinuationGame({
       setPreviousStuckType(stuckResult.stuckType);
     }
     
+    if (currentPrompt && clinicalLevel != null) {
+      onClinicalTrial?.({
+        promptId: currentPrompt.id,
+        clinicalLevel,
+        transcript: '', correct: false,
+        support: narrowingLevel > 0 ? 'semantic_cue' : 'independent',
+        scoringValid: false, skipped: true, onTopicScore: null, reactionTimeMs: 0,
+      });
+    }
     moveToNextPrompt();
-  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording]);
+  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording, clinicalLevel, onClinicalTrial]);
 
   const handleHintRequest = useCallback(() => {
     if (!currentPrompt) return;
@@ -970,6 +1022,7 @@ export function ThoughtContinuationGame({
             descriptor={describeLevel(tierToLevel(adaptation.level, { min: 1, max: 5 }))}
             compact
           />
+          {clinicalSpec && <span className="font-semibold" aria-label="Clinical level">Clinical L{clinicalSpec.level}</span>}
           {streak > 0 && (
             <span className="text-primary font-medium">
               🔥 {streak} in a row
@@ -1021,6 +1074,7 @@ export function ThoughtContinuationGame({
             <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
               {currentPrompt.promptText}
             </p>
+            {clinicalSpec && <p className="text-sm text-primary mt-2" aria-label="Clinical task goal">{clinicalSpec.objective}</p>}
           </div>
 
           {/* Always-listening indicator with encouragement */}
