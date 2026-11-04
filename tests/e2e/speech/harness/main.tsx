@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useMinimalPairsEcho } from '@/hooks/useMinimalPairsEcho';
 import { convertBlobToWavWithDiagnostics } from '@/lib/convertToWav';
 import { PhotoNamingGame } from '@/components/PhotoNamingGame';
 import { ProfileContext, type ProfileContextValue } from '@/contexts/profile-context-value';
@@ -110,11 +111,26 @@ export function GameHarness() {
   </main>;
 }
 
+/** Real MediaRecorder -> WAV conversion -> intercepted Azure assessment. */
+export function MinimalPairsEchoHarness() {
+  const echo = useMinimalPairsEcho(0);
+  return <main>
+    <h1>Minimal Pairs recorded echo integration</h1>
+    <button onClick={() => { void echo.start('cat'); }}>Select cat then practice</button>
+    <button onClick={() => { void echo.finish(); }} disabled={echo.status !== 'listening'}>Done speaking</button>
+    <button onClick={echo.skip}>Skip spoken practice</button>
+    <output data-testid="minimal-echo-state">{echo.status}</output>
+    <pre data-testid="minimal-echo-report">{JSON.stringify({ status: echo.status, analysis: echo.analysis })}</pre>
+  </main>;
+}
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 createRoot(document.getElementById('root')!).render(
   <MemoryRouter><QueryClientProvider client={client}><ProfileContext.Provider value={profile}>
     <CoachingModeProvider><LiveAnalysisProvider>
-      {new URLSearchParams(location.search).get('view') === 'game' ? <GameHarness /> : <RecorderHarness />}
+      {new URLSearchParams(location.search).get('view') === 'game' ? <GameHarness />
+        : new URLSearchParams(location.search).get('view') === 'minimal-echo' ? <MinimalPairsEchoHarness />
+        : <RecorderHarness />}
     </LiveAnalysisProvider></CoachingModeProvider>
   </ProfileContext.Provider></QueryClientProvider></MemoryRouter>,
 );
