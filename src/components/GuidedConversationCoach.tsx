@@ -189,9 +189,8 @@ export function GuidedConversationCoach({
 
   const finish = useCallback(async (didComplete: boolean) => {
     if (!mountedRef.current) return;
-    setPracticeMessage(didComplete
-      ? 'Thank you for practicing your message!'
-      : 'Thank you for practicing. You can try again another time.');
+    if (didComplete) setPracticeMessage(prev => prev || 'Thank you for practicing your message!');
+    else setPracticeMessage('Thank you for practicing. You can try again another time.');
     changePhase('complete');
     const words = heardRef.current.trim().split(/\s+/).filter(Boolean).length;
     const responseLatency = firstWordRef.current != null && speechStartRef.current != null
