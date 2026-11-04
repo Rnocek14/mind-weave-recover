@@ -83,7 +83,7 @@ export interface FixSentenceLevelSpec {
  *   L4 — Repairs function-mismatch errors with light support
  *   L5 — Repairs function-mismatch errors independently
  *   L6 — Independent repair across categories with reduced latency
- *   L7 — Repairs multi-valid / ambiguous sentences independently
+ *   L7 — Repairs embedded-clause connector errors independently
  *   L8 — Stable functional sentence repair with generalization
  *
  * Until per-level *content* tiers exist beyond the Fix Sentence bank's
@@ -162,15 +162,15 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   },
   7: {
     level: 7,
-    description: 'Embedded clauses (NOT implemented — selector skips honestly)',
+    description: 'Embedded relative and complement clauses — repair connector errors'
     targetSupport: 'open_response',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     trialWeight: 2.0,
     contentSelector: {
       tierKey: 'embedded_clauses',
-      description: 'Requires syntactic-structure tags (relative/complement clauses) on bank — NOT yet implemented; selector skips honestly.',
-      implemented: false,
+      description: '24 functional relative/complement-clause connector repairs, locally scored without fuzzy semantic acceptance; SLP review pending.',
+      implemented: true,
     },
   },
   8: {
