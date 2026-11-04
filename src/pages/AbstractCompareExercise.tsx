@@ -175,7 +175,7 @@ export default function AbstractCompareExercise() {
     } else if (!fromLesson) navigate('/today');
   }, [fromLesson, navigate]);
 
-  if (isCreatingSession || !activeSessionId || !progression.loaded) {
+  if (isCreatingSession || !activeSessionId || !user?.id || !activeProfile?.id || !progression.loaded) {
     return <ExerciseLoading />;
   }
 
