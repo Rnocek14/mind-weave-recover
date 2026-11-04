@@ -243,7 +243,10 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     // Universal validation pipeline — rejects empty, filler, instruction echo
     const validation = validateSpokenResponse({
       transcript,
-      expectedMode: 'description',
+      // Early feature-production tasks allow brief one-/two-word features.
+      // Still validate against filler and echo, and only actual identified
+      // feature dimensions can meet the clinical target.
+      expectedMode: clinicalLevel != null && clinicalLevel <= 3 ? 'naming' : 'description',
     });
 
     trackValidation('describe_guess', validation);
@@ -362,7 +365,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     });
 
     return { guessed, confidence, bestWord, bestSimilarity, top3Avg, featureCount, rulesPassed };
-  }, [featureTypesUsed, detectFeatureKeywords]);
+  }, [featureTypesUsed, detectFeatureKeywords, clinicalLevel]);
 
   /**
    * Finalize a trial with full result
