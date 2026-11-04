@@ -159,12 +159,18 @@ export function GuidedConversationCoach({
     firstWordRef.current = null;
     speechStartRef.current = Date.now();
     // Audio capture is best-effort. Transcript confirmation remains mandatory.
-    try { await startRecording(); }
+    let recorded = false;
+    try { recorded = await startRecording(); }
     catch (error) { console.warn('[GuidedCoach] optional audio capture unavailable', error); }
-    if (!mountedRef.current || phaseRef.current !== 'maya_speaking') return;
+    if (!mountedRef.current || phaseRef.current !== 'maya_speaking') {
+      // If the patient exited while the OS permission prompt was open, the
+      // recorder may have started AFTER our unmount cleanup ran.
+      if (recorded) cancelRecording();
+      return;
+    }
     changePhase('listening');
     startListening();
-  }, [isSupported, changePhase, resetTranscript, startListening, startRecording]);
+  }, [isSupported, changePhase, resetTranscript, startListening, startRecording, cancelRecording]);
 
   const finishListening = useCallback(async () => {
     if (phaseRef.current !== 'listening') return;
@@ -291,10 +297,10 @@ export function GuidedConversationCoach({
     } catch (error) {
       console.warn('[GuidedCoach] clinical turn event NOT stored', error);
     }
+    if (!mountedRef.current) return;
     if (eventSaved && scorable) {
       onClinicalTrial?.({ correct: targetMet, support, turnNumber: 1 });
     }
-    if (!mountedRef.current) return;
     setPracticeMessage(!eventSaved
       ? 'We practiced, but your results could not be saved.'
       : !scorable ? 'Thank you. We could not score that answer today.'
