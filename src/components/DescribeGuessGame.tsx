@@ -565,6 +565,11 @@ export function DescribeGuessGame({
   // Cleanup
   useEffect(() => {
     return () => {
+      // Cancel asynchronous TTS/permission handoffs before the underlying
+      // speech hook unmounts. An old promise must not start a microphone or
+      // recorder after the patient exits the exercise.
+      micStartCycleRef.current += 1;
+      currentTrialRef.current = null;
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
