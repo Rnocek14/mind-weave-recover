@@ -199,4 +199,17 @@ describe('DescribeGuessGame — next-trial microphone', () => {
     expect(mic.starts).toHaveBeenCalledTimes(callsForSecond);
     expect(screen.getByText('Listening...')).toBeTruthy();
   });
+
+  it('never arms the microphone after the patient leaves during a pending handoff', async () => {
+    gate.holdNext = true;
+    const { unmount } = render(<DescribeGuessGame trialCount={3} />);
+    await tick(75);
+    expect(gate.resolvers).toHaveLength(1);
+    expect(mic.starts).not.toHaveBeenCalled();
+
+    unmount();
+    await act(async () => { gate.resolvers.shift()?.(); });
+    await tick(500);
+    expect(mic.starts).not.toHaveBeenCalled();
+  });
 });
