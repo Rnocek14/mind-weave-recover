@@ -29,6 +29,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
+import { useGradedTaskProgression } from '@/hooks/useGradedTaskProgression';
+import { describeMeetsClinicalTarget } from '@/lib/progression/gradedTaskLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -59,6 +61,7 @@ export default function DescribeGuessExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+  const clinicalWritesRef = useRef<Promise<void>>(Promise.resolve());
   const completionTimeoutRef = useRef<number | null>(null);
   const hasAdvancedLessonRef = useRef(false);
 
@@ -118,6 +121,11 @@ export default function DescribeGuessExercise() {
     EXERCISE_SLUG
   );
 
+  const progression = useGradedTaskProgression({
+    userId: user?.id, profileId: activeProfile?.id, slug: 'describe-guess',
+  });
+  const clinicalLevel = progression.startingLevel ?? 1;
+
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current,
     totalTrials: trialsRef.current,
@@ -132,9 +140,8 @@ export default function DescribeGuessExercise() {
     getSessionStats,
   });
 
-  // Unified trial submission (lexical axis). No per-game progression hook
-  // yet — progression:null keeps the progression buffer + commit flush as
-  // no-ops; exercise_events + mastery shadow still write.
+  // Raw trial and mastery shadow retain the existing unified writer.
+  // The clinical adapter only buffers successfully acknowledged SPOKEN trials.
   const { submitTrial, commitSession } = useTrialSubmission({
     userId: user?.id,
     profileId: activeProfile?.id,
@@ -189,11 +196,12 @@ export default function DescribeGuessExercise() {
     const { cueLevel, cueTypeGiven } = deriveCueTelemetry(promptCount, isCorrect);
     const supportUsed = cueLevelToLexicalSupport(cueLevel);
 
-    void submitTrial({
+    const clinicalCorrect = describeMeetsClinicalTarget(result, clinicalLevel);
+    const write = submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: result.difficulty ?? adaptation.difficultyTier ?? 1,
+      level: clinicalLevel,
       stimulusId: result.trialId,
       expectedResponse: result.target ?? null,
       userResponse: null,
@@ -211,29 +219,47 @@ export default function DescribeGuessExercise() {
         trial_id: result.trialId, target: result.target,
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
-        feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
+        feature_types_used: result.featureTypesUsed,
+        spoken_feature_types: result.spokenFeatureTypes,
+        clinical_feature_target: clinicalLevel,
+        clinical_target_met: clinicalCorrect,
+        clinical_level: clinicalLevel,
+        response_mode: result.responseMode ?? 'unknown',
+        guess_confidence: result.guessConfidence,
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
         cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
         self_corrected: result.selfCorrected, difficulty: result.difficulty,
         pivot_pending: pivot.hasPending, ...adaptationTelemetry,
       },
-    });
+    }).then(saved => {
+      if (saved.routed.exerciseEvents && progression.verified && result.responseMode === 'spoken') {
+        progression.recordTrialOutcome({
+          correct: clinicalCorrect,
+          support: supportUsed,
+          stimulusId: result.trialId,
+        });
+      }
+    }).catch(err => console.warn('[DescribeGuess] clinical trial not confirmed', err));
+    clinicalWritesRef.current = Promise.all([clinicalWritesRef.current, write]).then(() => {});
     if (pivot.shouldStepDown) { console.log('[DescribeGuess] Pivot: step down', pivot.pivotReason); pivot.acknowledge(); }
-  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptation.difficultyTier, adaptationTelemetry, pivot, clinicalLevel, progression.verified, progression.recordTrialOutcome]);
 
   const handleGameComplete = useCallback(async (results: DescribeGuessTrialResult[]) => {
-    // Unified commit: drains adaptation log buffer + flushes mastery shadow.
+    // Do not race a raw trial save against the session's clinical rollup.
+    await clinicalWritesRef.current;
+    const saved = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+    if (!saved.ok) console.warn('[DescribeGuess] clinical level not stored:', saved.error);
     await commitSession();
     setCompleted(true);
-    completeSession();
+    await completeSession();
 
     if (fromLesson) {
       completionTimeoutRef.current = window.setTimeout(() => {
         resumeLessonFlow(results);
       }, 400);
     }
-  }, [fromLesson, completeSession, commitSession, resumeLessonFlow]);
+  }, [fromLesson, completeSession, commitSession, resumeLessonFlow, activeSessionId, progression.flushAtSessionEnd]);
 
 
   const handleBack = useCallback(() => {
@@ -248,7 +274,7 @@ export default function DescribeGuessExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  const isReady = !isCreatingSession && !!activeSessionId;
+  const isReady = !isCreatingSession && !!activeSessionId && progression.loaded;
 
   if (!isReady) {
     return <ExerciseLoading />;
@@ -287,6 +313,7 @@ export default function DescribeGuessExercise() {
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}
+            clinicalLevel={clinicalLevel}
           />
         )}
       </main>
