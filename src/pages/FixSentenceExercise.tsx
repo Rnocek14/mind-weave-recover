@@ -294,7 +294,7 @@ export default function FixSentenceExercise() {
             <FixSentenceGame
               onTrialComplete={handleTrialComplete}
               onGameComplete={handleGameComplete}
-              trialCount={validationTrialCount}
+              trialCount={progression.startingLevel === 7 ? Math.max(6, validationTrialCount) : validationTrialCount}
               focusPhonemes={adaptation.focusPhonemes}
               sessionId={activeSessionId}
               userId={user?.id}
