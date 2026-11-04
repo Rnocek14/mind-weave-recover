@@ -15,6 +15,7 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useConversationPartnerProgression } from '@/hooks/useConversationPartnerProgression';
+import { EARLY_PARTNER_STAGES } from '@/lib/progression/conversationPartnerClinical';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -49,6 +50,7 @@ export default function ConversationPartnerExercise() {
     userId: user?.id,
     profileId: activeProfile?.id,
   });
+  const practiceStage = EARLY_PARTNER_STAGES[clinicalProgression.level];
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
@@ -236,7 +238,7 @@ export default function ConversationPartnerExercise() {
             </div>
             <h1 className="text-2xl font-bold">Free Talk</h1>
             <p className="text-muted-foreground">
-              Practice having a short conversation. I'll ask simple questions and listen.
+              Clinical Level {practiceStage.level}: {practiceStage.objective}
             </p>
           </div>
 
@@ -254,7 +256,7 @@ export default function ConversationPartnerExercise() {
                 </li>
                 <li className="flex items-start gap-3">
                   <MessageCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <span>We'll go back and forth 3 times</span>
+                  <span>We'll go back and forth {practiceStage.turnCount} {practiceStage.turnCount === 1 ? 'time' : 'times'}</span>
                 </li>
               </ul>
               
@@ -266,9 +268,9 @@ export default function ConversationPartnerExercise() {
                 className="w-full" 
                 size="lg"
                 onClick={handleStart}
-                disabled={isCreatingSession}
+                disabled={isCreatingSession || !clinicalProgression.loaded || !activeProfile?.id}
               >
-                {isCreatingSession ? 'Preparing...' : 'Start Conversation'}
+                {isCreatingSession || !clinicalProgression.loaded ? 'Preparing...' : 'Start Conversation'}
               </Button>
             </CardContent>
           </Card>
