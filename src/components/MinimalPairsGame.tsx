@@ -143,9 +143,11 @@ export function MinimalPairsGame({
 
   // Track trial completions for adaptation
   const trialStartRef = useRef(Date.now());
+  const answerLatencyMsRef = useRef<number | null>(null);
   useEffect(() => {
     if (currentTrial && !showFeedback) {
       trialStartRef.current = Date.now();
+      answerLatencyMsRef.current = null;
     }
   }, [currentTrial, showFeedback]);
 
@@ -245,7 +247,8 @@ export function MinimalPairsGame({
       echoAccuracyScore: echoStatus === 'heard' ? echoAnalysis?.accuracyScore : undefined,
       echoPronunciationScore: echoStatus === 'heard' ? echoAnalysis?.pronunciationScore : undefined,
       echoPronRequestId: echoStatus === 'heard' ? echoAnalysis?.pronRequestId : undefined,
-      reactionTimeMs: Math.max(0, Date.now() - trialStartRef.current),
+      // Measured when the patient tapped, NOT after TTS/recording/Azure.
+      reactionTimeMs: answerLatencyMsRef.current ?? Math.max(0, Date.now() - trialStartRef.current),
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoAnalysis, onTrialComplete]);
 
@@ -447,7 +450,13 @@ export function MinimalPairsGame({
           return (
             <button
               key={index}
-              onClick={() => !showFeedback && selectAnswer(index as 0 | 1)}
+              onClick={() => {
+                if (showFeedback) return;
+                if (answerLatencyMsRef.current === null) {
+                  answerLatencyMsRef.current = Math.max(0, Date.now() - trialStartRef.current);
+                }
+                selectAnswer(index as 0 | 1);
+              }}
               disabled={showFeedback}
               className={cn(
                 "relative rounded-xl overflow-hidden border-3 transition-all duration-200",
