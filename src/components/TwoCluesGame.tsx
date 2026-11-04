@@ -54,6 +54,8 @@ interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
   onGameComplete?: (results: TwoCluesTrialResult[]) => void;
   roundCount?: number;
+  /** Source bank (1–3) selected from persistent clinical level, not engine tier. */
+  bankDifficulty?: 1 | 2 | 3;
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
@@ -118,6 +120,7 @@ export function TwoCluesGame({
   onTrialComplete,
   onGameComplete,
   roundCount = 10,
+  bankDifficulty,
   sessionId,
   userId,
   profileId,
@@ -283,6 +286,7 @@ export function TwoCluesGame({
 
   const game = useTwoCluesGame({
     roundCount,
+    difficulty: bankDifficulty,
     focusPhonemes,
     onTrialComplete,
     onGameComplete,
