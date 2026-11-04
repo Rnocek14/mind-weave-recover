@@ -66,10 +66,8 @@ import {
   PHONOLOGICAL_AWARENESS_LEVELS,
   type PhonologicalAwarenessLevelSpec,
 } from './progression/phonologicalAwarenessLevels';
-import { DESCRIBE_GUESS_LEVELS } from './progression/describeGuessLevels';
+import { DESCRIBE_GUESS_CLINICAL_LEVELS, ABSTRACT_COMPARE_CLINICAL_LEVELS, THOUGHT_CONTINUATION_CLINICAL_LEVELS, type GradedTaskSpec } from './progression/gradedTaskLevels';
 import { NARRATIVE_RETELL_CLINICAL_LEVELS, type NarrativeRetellClinicalLevelSpec } from './progression/narrativeRetellClinicalLevels';
-import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLevels';
-import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
 import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
 import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
@@ -171,7 +169,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec | NarrativeRetellClinicalLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec | NarrativeRetellClinicalLevelSpec | GradedTaskSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
@@ -271,13 +269,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'describe-guess',
     axis: 'lexical',
     purpose: 'Produces features so the system guesses the word.',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('describe-guess', Object.values(DESCRIBE_GUESS_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides discourse adaptation engine + legacy cueLevel 0–3 mapping. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: rowsFromSpec('describe-guess', DESCRIBE_GUESS_CLINICAL_LEVELS),
+    telemetryNote: 'Persistent L1–L8 feature-count practice: separate spoken features from help chips. Only verified, saved spoken attempts affect clinical progression; not routed into expressive mastery.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/describe-guess.md',
-      tldr: 'SFA-style feature production (Boyle & Coelho; Maddy meta-analysis) + PACE communicative-success frame. 3-tier complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+      tldr: 'SFA-style feature production (Boyle & Coelho; Maddy meta-analysis) + PACE communicative-success frame. 3-tier complexity collapse is a clinically motivated design default. Implemented L1–L8 feature-count/content demands. Upper tiers need human calibration; no spontaneous novel-target bank.',
     },
   },
   'semantic-features': {
@@ -341,13 +339,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'abstract-compare',
     axis: 'executive',
     purpose: 'Compares abstract concepts (similarities/differences).',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('abstract-compare', Object.values(ABSTRACT_COMPARE_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: rowsFromSpec('abstract-compare', ABSTRACT_COMPARE_CLINICAL_LEVELS),
+    telemetryNote: 'Persistent L1–L8, exact bank tier and one-to-three shared-property targets; valid spoken attempts only. Keyword coverage is a practice proxy, not dimensional comparison or clinical assessment.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/abstract-compare.md',
-      tldr: 'Similarities/differences subtests (WAIS; BDAE Concept Comparisons) + concept-comparison rehab literature. 4-stage abstraction ladder is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+      tldr: 'Similarities/differences subtests (WAIS; BDAE Concept Comparisons) + concept-comparison rehab literature. Eight implemented comparison demands vary pair complexity and shared-property target. Difference generation / formal relational inference are not scored.',
     },
   },
   'sentence-construction': {
@@ -419,13 +417,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'thought-continuation',
     axis: 'discourse',
     purpose: 'Continues an open-ended thought spontaneously.',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('thought-continuation', Object.values(THOUGHT_CONTINUATION_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: rowsFromSpec('thought-continuation', THOUGHT_CONTINUATION_CLINICAL_LEVELS),
+    telemetryNote: 'Persistent L1–L8 with exact intent/tier prompt banks and graded word/connector targets. Only valid spoken output with available on-topic analysis affects clinical progression.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/thought-continuation.md',
-      tldr: 'Discourse-in-aphasia propositional density + cohesion (Wright & Capilouto; Armstrong; CHAT/CLAN). 4-band complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+      tldr: 'Discourse-in-aphasia propositional density + cohesion (Wright & Capilouto; Armstrong; CHAT/CLAN). Eight implemented prompt demands; word-count/connector checks are practice proxies and do NOT validate discourse coherence or recovery.',
     },
   },
   'conversation-coach': {
