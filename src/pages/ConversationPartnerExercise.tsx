@@ -14,6 +14,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
+import { useConversationPartnerProgression } from '@/hooks/useConversationPartnerProgression';
 
 interface SessionSummary {
   turnsCompleted: number;
@@ -44,6 +45,10 @@ export default function ConversationPartnerExercise() {
     providedSessionId,
     'conversation-partner'
   );
+  const clinicalProgression = useConversationPartnerProgression({
+    userId: user?.id,
+    profileId: activeProfile?.id,
+  });
 
   // Close the session we open (was only ever ended by the stale-session
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
@@ -97,10 +102,12 @@ export default function ConversationPartnerExercise() {
     setGameStarted(true);
   };
 
-  const handleComplete = (summary: SessionSummary) => {
-    setSessionSummary(summary);
+  const handleComplete = async (summary: SessionSummary) => {
     turnsRef.current = summary.turnsCompleted;
-    void completeSession();
+    const saved = await clinicalProgression.flushAtSessionEnd(activeSessionId);
+    if (!saved.ok) console.warn('[ConversationPartner] clinical progress not saved:', saved.error);
+    await completeSession();
+    setSessionSummary(summary);
 
     // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -131,8 +138,8 @@ export default function ConversationPartnerExercise() {
   };
 
   const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
+    // Closed sessions must never be reused for a second clinical attempt.
+    window.location.assign('/exercise/conversation-partner');
   };
 
   // Summary screen
@@ -270,7 +277,10 @@ export default function ConversationPartnerExercise() {
     );
   }
 
-  // Game screen
+  // Game screen — do not mount speech recording for an unverified profile.
+  if (isCreatingSession || !activeSessionId || !activeProfile?.id || !clinicalProgression.loaded) {
+    return <div className="min-h-dvh flex items-center justify-center p-6" role="status">Preparing conversation practice…</div>;
+  }
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <header className="border-b shrink-0">
@@ -290,6 +300,8 @@ export default function ConversationPartnerExercise() {
             userId={user.id}
             profileId={activeProfile?.id || ''}
             sessionId={activeSessionId}
+            clinicalLevel={clinicalProgression.level}
+            onClinicalTrial={clinicalProgression.recordVerifiedTurn}
             onComplete={handleComplete}
             onExit={handleExit}
           />
