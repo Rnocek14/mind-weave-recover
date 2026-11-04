@@ -5,10 +5,10 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
@@ -27,7 +27,6 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
-import { voiceController } from '@/lib/voiceController';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
