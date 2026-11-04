@@ -6,15 +6,11 @@
  * tier the in-session engine starts from. Live session adaptation may still
  * escalate above the floor.
  *
- * Mapping rationale (see docs/clinical-evidence/sentence-construction.md):
- *   Clinical L1 → tier 1   (basic SVO + model)
- *   Clinical L2 → tier 2   (articles, model OK)
- *   Clinical L3 → tier 3   (tense + pronouns, tiles only)
- *   Clinical L4 → tier 4   (prepositions + simple conjunctions)
- *   Clinical L5 → tier 6   (compound sentences)
- *   Clinical L6 → tier 7   (relative clauses — thin bank)
- *   Clinical L7 → tier 8   (passive / complex embedding — thin bank)
- *   Clinical L8 → tier 10  (open complex — aspirational, ceiling clamp blocks)
+ * Clinical level selects the authoritative grammar cohort. This bridge
+ * supplies an engine display/start floor, NOT an unconstrained content selector.
+ * L1→1 SVO, L2→2 expanded SVO, L3→3 agreement, L4→4 tense/word order,
+ * L5→6 coordinating, L6→7 subordinating, L7→8 relatives,
+ * L8→9 multi-clause/passive. Upper content at L8 may use bank 9–10.
  *
  * Soft-regression scaffolding mirrors PhotoNaming/FixSentence/SemanticFeatures.
  *
@@ -29,7 +25,7 @@ const CLINICAL_TO_TIER_FLOOR: Record<number, number> = {
   5: 6,
   6: 7,
   7: 8,
-  8: 10,
+  8: 9,
 };
 
 export const SOFT_REGRESSION_SCAFFOLD_THRESHOLD = 2;

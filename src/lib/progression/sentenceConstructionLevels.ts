@@ -23,15 +23,14 @@
  * In-game mapping:
  *   hintUsed = true  → highlight_plus_choice (clinician played model audio)
  *   hintUsed = false → choice_based          (default tile/speech production)
- * Note: "open_response" is the aspirational L7+ target but is not directly
- * observable from the current game UI (tiles are always present); rungs
- * targeting it stay aspirational until a tile-suppressed mode ships.
+ * All eight shipped stages target accurate CONSTRAINED sentence building.
+ * The voice mode still shows the choice words, so it is NOT coded as
+ * spontaneous open production. That separate clinical skill is deferred.
  *
  * Phase 1 readiness (matches `clinicalRungs.ts` discipline):
  *   L1–L5 → ready (bank covers SVO through compound across difficulty 1–6)
- *   L6–L7 → thin  (relative clauses + passive bank present but sparse)
- *   L8    → aspirational (open spontaneous production has no tile-suppressed
- *           runtime mode; ceiling clamp blocks promotion)
+ *   L6–L8 → thin (subordination, relatives and multi-clause/passive items).
+ * No clinical level claims independent spontaneous sentence formulation.
  *
  * Pure module — no I/O, no React.
  */
@@ -61,13 +60,13 @@ export interface SentenceConstructionLevelSpec {
   contentSelector?: {
     tierKey:
       | 'svo_basic'
-      | 'articles_tense'
-      | 'pronouns_prepositions'
-      | 'conjunctions'
-      | 'compound'
+      | 'expanded_svo'
+      | 'agreement'
+      | 'tense_word_order'
+      | 'coordinating'
+      | 'subordinating'
       | 'relative_clauses'
-      | 'passive_voice'
-      | 'open_complex';
+      | 'multi_clause_passive';
     description: string;
     implemented: boolean;
   };
@@ -76,14 +75,13 @@ export interface SentenceConstructionLevelSpec {
 /**
  * Level ladder (sentence-production independence):
  *   L1 — Basic SVO with model + tiles (highlight_plus_choice OK)
- *   L2 — SVO + articles, model support still acceptable
- *   L3 — Tense + pronouns, tile-based production without model
- *   L4 — Prepositions + simple conjunctions, tiles only
- *   L5 — Compound sentences (and/but/because), tiles only
- *   L6 — Relative clauses (thin bank)
- *   L7 — Passive voice / complex embedding (thin bank)
- *   L8 — Open spontaneous complex production (aspirational; no tile-
- *        suppressed runtime mode yet)
+ *   L2 — Expanded SVO with articles/prepositions, model allowed
+ *   L3 — Subject-verb agreement, no model
+ *   L4 — Complex word order and tense, tiles only
+ *   L5 — Coordinating conjunctions (and/but/or), tiles only
+ *   L6 — Subordinating conjunctions (because/when/although), tiles only
+ *   L7 — Relative clauses (who/that/which), tiles only
+ *   L8 — Multi-clause, conditional and passive sentences, tiles only
  */
 export const SENTENCE_CONSTRUCTION_LEVELS: Record<number, SentenceConstructionLevelSpec> = {
   1: {
@@ -98,84 +96,84 @@ export const SENTENCE_CONSTRUCTION_LEVELS: Record<number, SentenceConstructionLe
   },
   2: {
     level: 2,
-    description: 'SVO + articles — model still OK',
+    description: 'Expanded SVO: articles and prepositions — model allowed',
     targetSupport: 'highlight_plus_choice',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     readiness: 'ready',
     trialWeight: 0.55,
-    contentSelector: { tierKey: 'articles_tense', description: 'SVO with articles + simple tense; bank difficulty 2.', implemented: true },
+    contentSelector: { tierKey: 'expanded_svo', description: 'Expanded SVO, prepositions and articles; bank difficulty 2.', implemented: true },
   },
   3: {
     level: 3,
-    description: 'Tense + pronouns — tiles, no model',
+    description: 'Subject-verb agreement — tiles, no model',
     targetSupport: 'choice_based',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.7,
     readiness: 'ready',
     trialWeight: 0.75,
-    contentSelector: { tierKey: 'articles_tense', description: 'Tense + pronoun substitutions; bank difficulty 3.', implemented: true },
+    contentSelector: { tierKey: 'agreement', description: 'Agreement morphology; bank difficulty 3.', implemented: true },
   },
   4: {
     level: 4,
-    description: 'Prepositions + simple conjunctions — tiles only',
+    description: 'Complex word order and verb tense — tiles only',
     targetSupport: 'choice_based',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     readiness: 'ready',
     trialWeight: 1.0,
-    contentSelector: { tierKey: 'pronouns_prepositions', description: 'Prepositions + simple conjunctions; bank difficulty 4.', implemented: true },
+    contentSelector: { tierKey: 'tense_word_order', description: 'Complex word order and tense; bank difficulties 4–5.', implemented: true },
   },
   5: {
     level: 5,
-    description: 'Compound sentences — independent tile production',
+    description: 'Compound sentences with coordinating conjunctions — tiles only',
     targetSupport: 'choice_based',
     minOnTargetAttempts: 5,
     minOnTargetAccuracy: 0.75,
     readiness: 'ready',
     trialWeight: 1.25,
-    contentSelector: { tierKey: 'compound', description: 'And/but/because joins; bank difficulty 5–6.', implemented: true },
+    contentSelector: { tierKey: 'coordinating', description: 'And/but/or joins; bank difficulty 6.', implemented: true },
   },
   6: {
     level: 6,
-    description: 'Relative clauses — extended embedding',
+    description: 'Subordinating clauses — because/when/although',
     targetSupport: 'choice_based',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     readiness: 'thin',
     trialWeight: 1.7,
     contentSelector: {
-      tierKey: 'relative_clauses',
-      description: 'Relative clauses (who/which/that) at bank difficulty 7; bank is thin — rotation only.',
+      tierKey: 'subordinating',
+      description: 'Subordinating conjunctions at bank difficulty 7.',
       implemented: true,
     },
   },
   7: {
     level: 7,
-    description: 'Passive voice / complex embedding',
+    description: 'Relative clauses — embedded who/that/which',
     targetSupport: 'choice_based',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     readiness: 'thin',
     trialWeight: 2.0,
     contentSelector: {
-      tierKey: 'passive_voice',
-      description: 'Passive / complex embedded clauses at bank difficulty 8; thin bank.',
+      tierKey: 'relative_clauses',
+      description: 'Relative clauses at bank difficulty 8.',
       implemented: true,
     },
   },
   8: {
     level: 8,
-    description: 'Open spontaneous complex production — design-of-record',
-    targetSupport: 'open_response',
+    description: 'Multi-clause and passive constructions — supported tiles',
+    targetSupport: 'choice_based',
     minOnTargetAttempts: 8,
     minOnTargetAccuracy: 0.85,
-    readiness: 'aspirational',
+    readiness: 'thin',
     trialWeight: 2.5,
     contentSelector: {
-      tierKey: 'open_complex',
-      description: 'No tile-suppressed runtime mode exists — ceiling clamp blocks live promotion until open production UI ships.',
-      implemented: false,
+      tierKey: 'multi_clause_passive',
+      description: 'Multi-clause, conditional and passive bank difficulties 9–10. Constrained word choices, NOT spontaneous production.',
+      implemented: true,
     },
   },
 };

@@ -10,6 +10,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { NARRATIVE_STORIES, NarrativeStory } from '@/data/narrativeRetellStimuli';
 import { shuffleArray } from '@/lib/shuffle';
+import { selectNarrativeContent } from '@/lib/progression/narrativeRetellContentSelector';
 import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
 
 /** Build a queue of stories at a given tier, avoiding ones already seen.
@@ -18,13 +19,16 @@ import { orderFreshFirst, markManyUsed } from '@/lib/recency/selectWithRecency';
  *    tier 2 → tier 1–3
  *    tier 3 → tier 2–3 (fallback 3 only)
  *  Previously used `tier <= tier+1` which leaked easy stories into hard sessions. */
-function buildStories(tier: number, count: number, excludeIds: Set<string>): NarrativeStory[] {
+function buildStories(tier: number, count: number, excludeIds: Set<string>, clinicalLevel?: number | null): NarrativeStory[] {
   const t = Math.max(1, Math.min(3, tier));
   const lo = Math.max(1, t - 1);
   const hi = Math.min(3, t + 1);
   // Prefer exact-tier matches; fill with adjacent tier(s) if the pool is short.
-  const exact = NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
-  const adjacent = NARRATIVE_STORIES.filter(
+  const clinicalPool = clinicalLevel != null ? selectNarrativeContent(clinicalLevel).stories : null;
+  const exact = clinicalPool
+    ? clinicalPool.filter(s => !excludeIds.has(s.id))
+    : NARRATIVE_STORIES.filter((s) => s.tier === t && !excludeIds.has(s.id));
+  const adjacent = clinicalPool ? [] : NARRATIVE_STORIES.filter(
     (s) => s.tier !== t && s.tier >= lo && s.tier <= hi && !excludeIds.has(s.id),
   );
   const pool = [...shuffleArray(exact), ...shuffleArray(adjacent)];
@@ -35,6 +39,7 @@ function buildStories(tier: number, count: number, excludeIds: Set<string>): Nar
   return picked;
 }
 import { scoreExplanation } from '@/lib/explanationScorer';
+import { scoreMicroRecall } from '@/lib/progression/narrativeMicroRecallScorer';
 
 export type SectionStatus = 'covered' | 'partial' | 'missed';
 
@@ -68,6 +73,14 @@ export interface NarrativeTrialResult {
   wordCount: number;
   /** Was skipped */
   skipped: boolean;
+  /** Whether the response passed the pre-scoring validity gate. */
+  scoringValid?: boolean;
+  /** Typed evidence is not equivalent to a spoken-language outcome. */
+  responseMode?: 'spoken' | 'typed' | 'skip';
+  /** Replay/stall/visual rescue used after initial story presentation. */
+  assistanceUsed?: boolean;
+  /** Explicit story replay during the recall attempt is full-model support. */
+  storyReplayed?: boolean;
   /** Beginning / Middle / End breakdown with hit/total counts */
   structureBreakdown: StructureBreakdown;
   /** Auto-generated next-step suggestion */
@@ -146,11 +159,11 @@ function generateNextStepHint(breakdown: StructureBreakdown): string {
   return 'Great job covering the whole story! Try adding even more detail next time.';
 }
 
-export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1) {
+export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1, clinicalLevel?: number | null) {
   const seenIdsRef = useRef<Set<string>>(new Set());
 
   const initialStories = useMemo(() => {
-    const built = buildStories(tier, roundCount, seenIdsRef.current);
+    const built = buildStories(tier, roundCount, seenIdsRef.current, clinicalLevel);
     built.forEach((s) => seenIdsRef.current.add(s.id));
     return built;
     // Initial seed only — subsequent tier changes happen via setActiveTier below.
@@ -188,6 +201,14 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     // Use explanation scorer to match key events
     const storyText = story.scenes.map(s => s.text).join(' ');
     const score = scoreExplanation(transcript, story.keyEvents, storyText);
+    // A one-word recall must not pass just because an unrelated word is
+    // one or two letters away (general explanation scorer tolerates this).
+    const micro = story.id.startsWith('micro-')
+      ? scoreMicroRecall(transcript, story.keyEvents) : null;
+    const matchedEvents = micro?.matchedEvents ?? score.matchedConcepts;
+    const eventCoverage = micro?.eventCoverage ?? score.coverageRatio;
+    const eventsFound = micro?.eventsFound ?? score.conceptsFound;
+    const eventsTotal = micro?.eventsTotal ?? score.conceptsTotal;
 
     const words = transcript.split(/\s+/).filter(w => w.length > 0);
     const wordCount = words.length;
@@ -195,16 +216,16 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
     const meanUtteranceLength = wordCount / sentences;
     const coherenceScore = Math.min(1, sentences / story.expectedClauses);
 
-    const structureBreakdown = computeStructureBreakdown(story, score.matchedConcepts);
+    const structureBreakdown = computeStructureBreakdown(story, matchedEvents);
     const nextStepHint = generateNextStepHint(structureBreakdown);
 
     const result: NarrativeTrialResult = {
       storyId: story.id,
       transcript,
-      eventsFound: score.conceptsFound,
-      eventsTotal: score.conceptsTotal,
-      eventCoverage: score.coverageRatio,
-      matchedEvents: score.matchedConcepts,
+      eventsFound,
+      eventsTotal,
+      eventCoverage,
+      matchedEvents,
       allKeyEvents: story.keyEvents,
       coherenceScore,
       onTopicScore: score.onTopicScore,
@@ -216,7 +237,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
       nextStepHint,
       depthTelemetry: {
         taskType: 'narrative_retell',
-        eventCoverage: score.coverageRatio,
+        eventCoverage,
         coherenceScore,
         ciuRate: null,
         meanUtteranceLength,
@@ -229,7 +250,14 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
   const submitRetell = useCallback((transcript: string, durationMs: number): NarrativeTrialResult | null => {
     if (!currentStory) return null;
     const result = scoreRetell(transcript, durationMs, currentStory);
-    setResults(prev => [...prev, result]);
+    // "Try this story again" is a replacement attempt for the same stimulus,
+    // NOT an additional story. Keep one result per story so retry cannot
+    // inflate the completed-story count or end-of-session coverage.
+    setResults(prev => {
+      const previousIndex = prev.findIndex(item => item.storyId === result.storyId);
+      if (previousIndex === -1) return [...prev, result];
+      return prev.map((item, index) => index === previousIndex ? result : item);
+    });
     return result;
   }, [currentStory, scoreRetell]);
 
@@ -244,7 +272,10 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
   const setActiveTier = useCallback(
     (newTier: number) => {
       const clamped = Math.max(1, Math.min(3, newTier));
-      if (clamped === activeTier) return;
+      // A persisted clinical level fixes the demand for this entire session.
+      // The in-game adaptation engine can still record responses, but may not
+      // silently replace a one-fact task with a four-event narrative.
+      if (clinicalLevel != null || clamped === activeTier) return;
       setActiveTierState(clamped);
 
       setStories((prev) => {
@@ -257,7 +288,7 @@ export function useNarrativeRetellGame(roundCount: number = 3, tier: number = 1)
         return [...played, ...fresh];
       });
     },
-    [activeTier, currentIndex, roundCount],
+    [activeTier, currentIndex, roundCount, clinicalLevel],
   );
 
   return {

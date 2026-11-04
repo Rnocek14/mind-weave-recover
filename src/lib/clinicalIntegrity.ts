@@ -116,6 +116,20 @@ export interface TierStatusResult {
  * scattered UI strings. Surface in /games as amber chips on the relevant row.
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
+  // L6–L8 grammar banks exist, but the task still supplies the words and
+  // has not been calibrated against spontaneous sentence production.
+  'sentence-construction': {
+    6: 'Subordinating clauses ship as constrained word ordering. Scoring is exact-order and has not been calibrated for grammatical paraphrases.',
+    7: 'Relative clauses ship as constrained word ordering. This does not establish spontaneous syntactic production.',
+    8: 'Multi-clause and passive constructions ship with word choices visible. Spontaneous complex-sentence production is not implemented.',
+  },
+  'narrative-retell': {
+    4: 'Four-event factual coverage is a lexical-semantic proxy; chronology and narrative structure are not assessed.',
+    5: 'Episodic recall is scored by matched key concepts, not goal/attempt/outcome story grammar.',
+    6: 'Five-event coverage is scored without validated sequencing or causal relations.',
+    7: 'Inferential-story bank is available, but this stage only scores fact coverage, not inference or character perspective.',
+    8: 'Six-event inferential bank is available; independent coherence, causality and conversational transfer are not measured.',
+  },
   'photo-naming': {
     8: 'L8 uses PROBE_WORDS as advanced retrieval review. Probe targets are now reserved out of the photo-naming training pool, so probes are untrained for NEW profiles; profiles that practiced before the reservation carry historical exposure, so results stay labeled advanced review, not untrained-probe evidence. Cross-exercise exposure (e.g. minimal-pairs images) is not excluded. Tracked in pr4-probe-bank-cleanup.',
     7: 'Carrier-phrase mode ships, but the underlying frequency band cannot be enforced when bank metadata is missing.',

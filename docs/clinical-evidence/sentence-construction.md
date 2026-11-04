@@ -1,58 +1,34 @@
-# Sentence Construction — Clinical Evidence
+# Sentence Construction — Clinical Evidence and Implementation
 
-## Status: Structural ladder (Phase 2, Wave 2)
+## Status: Structural eight-level grammar ladder (review branch)
 
-L1–L5 ready. L6–L7 thin. L8 aspirational (open-production runtime mode not yet shipped). Ceiling clamp blocks live promotion past L7.
+The patient’s saved Clinical Level (1–8) now selects a **specific syntax cohort** from the real sentence bank. The separately displayed 1–10 in-game difficulty may adapt within the assigned cohort but cannot silently substitute a different grammar stage.
 
-## Clinical basis
+| Clinical level | Content | Bank difficulty | Runtime mode |
+| --- | --- | --- | --- |
+| 1 | Basic subject–verb–object sentences | 1 | Word tiles + heard model |
+| 2 | Expanded SVO, articles and prepositions | 2 | Word tiles + heard model |
+| 3 | Subject–verb agreement | 3 | Words provided; no automatic model |
+| 4 | Complex word order and verb tense | 4–5 | Words provided |
+| 5 | Coordinating conjunctions (and/but/or) | 6 | Words provided |
+| 6 | Subordinating conjunctions (because/when/although) | 7 | Words provided |
+| 7 | Relative clauses (who/that/which) | 8 | Words provided |
+| 8 | Multi-clause, conditional and passive constructions | 9–10 | Words provided |
 
-Sentence-level production training is supported by multiple aphasia treatment programs:
+**Important limit:** Even when voice is used, the game still exposes its word options. The L8 content is now *implemented for constrained sentence ordering*, not open spontaneous sentence formulation. No clinician-facing output should claim the latter. L6–L8 remain **thin** because the bank and error analysis require clinical review; presence of samples is not evidence of clinical validation.
 
-- **Mapping Therapy** (Schwartz et al.) — explicit thematic-role assignment in sentence frames.
-- **Treatment of Underlying Forms (TUF)** — Thompson and colleagues; training syntactically more complex structures (e.g., object-extracted wh-movement, passives) generalizes to simpler forms ("Complexity Account of Treatment Efficacy", CATE).
-- **VNeST** — Edmonds et al. (2009); verb-centered sentence training that generalizes to lexical retrieval and connected discourse.
+## Clinical rationale
 
-Common to these programs is a **structured complexity progression** — basic SVO → morphology (articles, tense) → embedded structures → passive/complex — paired with **scaffold fading** (model → choice → independent production).
+Mapping Therapy (thematic roles), Treatment of Underlying Forms (TUF), and Verb Network Strengthening Treatment (VNeST) motivate structured grammar practice with graded scaffolding. This particular eight-stage order and advancement thresholds are **engineering calibration defaults**, not a clinically established ranking of treatment approaches. In particular, TUF can deliberately train complex forms first, so the hierarchy should not be portrayed as universally optimal.
 
-## What is calibration, not literature
+## Assistance and trial integrity
 
-- The specific grammar-tier ordering shipped here (SVO → articles → tense → pronouns → prepositions → conjunctions → compound → relative clauses → passive → open) is a **clinically motivated calibration default**, not a head-to-head proven hierarchy. CATE actually predicts benefits from training **more** complex forms first; we sequence canonically by clinical convention and ease of patient onboarding.
-- Per-level accuracy bars (`minOnTargetAccuracy`) and `minOnTargetAttempts` mirror PhotoNaming/FixSentence numerics — tunable, not evidence-based constants.
-- The Clinical Level → engine tier floor mapping (1→1, 5→6, 7→8, 8→10) is a sensible packing default given the bank's 1–10 difficulty spread; revisit when bank content shifts.
+- When a model sentence is automatically read or manually replayed, `hintUsed` is recorded and the attempt uses `highlight_plus_choice` rather than `choice_based`.
+- Higher levels do not automatically read the full answer before patient tries.
+- Recognized speech is scored from the current transcript, not a not-yet-committed tile-state update.
+- Actual sentence-bank difficulty and grammar focus are reported separately from the engine’s in-session difficulty; model support and response mode still need observational validation.
+- The persisted level advances only through the existing shared evidence/mastery rules after session completion. A mocked check does not establish live patient scoring or Supabase durability.
 
-## Support ladder (executive/grammar axis)
+## Clinical and technical checks before rollout
 
-Shared with Fix Sentence:
-
-```
-highlight_plus_choice  <  choice_based  <  open_response
-(model + tiles)            (tiles only)     (spontaneous)
-```
-
-In-game mapping:
-
-- `hintUsed === true` → `highlight_plus_choice` (clinician played the model audio for this trial)
-- `hintUsed === false` → `choice_based` (tile-based production without model)
-
-`open_response` is the **L8 target** but is not directly observable from the current game UI (tiles are always presented). L8 stays aspirational until a tile-suppressed open-production runtime mode ships.
-
-## Mastery routing
-
-- `submitTrial` emits `trialMode: 'production'` on every call.
-- Canonical slug `sentence_construction` IS added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials route into expressive mastery — same path as PhotoNaming / FixSentence / SemanticFeatures / TwoClues / CategoryFluency.
-
-## Readiness
-
-| Level | Readiness | Notes |
-| --- | --- | --- |
-| L1–L5 | ready | Bank covers SVO → compound across difficulty 1–6. |
-| L6 | thin | Relative clauses (bank diff 7) — rotation only. |
-| L7 | thin | Passive / complex embedding (bank diff 8). |
-| L8 | aspirational | No tile-suppressed open-production UI yet. Ceiling clamp blocks live promotion. |
-
-## Out of scope for this ship
-
-- A tile-suppressed open-production runtime mode (would unlock L8).
-- Per-grammar-focus mastery rows (e.g., separate ladders for tense vs. embedding).
-- VNeST-style verb-anchor training as its own ladder.
+SLP reviews content for word frequency, appropriateness, sentence structure and patient accessibility. Perform real-device speech tests (including aphasic speech, background noise and self-captured TTS), isolated authenticated database write/read tests, and a no-regression rehearsal for the complete game/session lifecycle. Do not merge solely on the basis of synthetic unit tests.

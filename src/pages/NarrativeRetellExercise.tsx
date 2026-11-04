@@ -22,6 +22,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
+import { useNarrativeRetellProgression } from '@/hooks/useNarrativeRetellProgression';
+import { storyMeetsNarrativeRecallTarget } from '@/lib/progression/narrativeRetellClinicalLevels';
+import { selectNarrativeContent } from '@/lib/progression/narrativeRetellContentSelector';
 
 const EXERCISE_SLUG = 'narrative_retell';
 
@@ -37,7 +40,11 @@ export default function NarrativeRetellExercise() {
   const completionTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
+  const storyScoresRef = useRef<Map<string, number>>(new Map());
   const startTimeRef = useRef(Date.now());
+  // Track every raw-event write so the session progression flush cannot race
+  // the final story insert. No new writer: preserves existing structured outputs.
+  const trialWritesRef = useRef<Promise<void>>(Promise.resolve());
 
   // Restore lesson context from sessionStorage if route state is lost
   const restoredLessonContext = useMemo(() => {
@@ -74,6 +81,9 @@ export default function NarrativeRetellExercise() {
   });
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const progression = useNarrativeRetellProgression({ userId: user?.id, profileId: activeProfile?.id });
+  const clinicalLevel = progression.startingLevel ?? 1;
+  const recallTarget = selectNarrativeContent(clinicalLevel).minFactsToRecall;
 
   const getSessionStats = useCallback(() => ({
     score: scoreRef.current, totalTrials: trialsRef.current, startTime: startTimeRef.current,
@@ -97,29 +107,39 @@ export default function NarrativeRetellExercise() {
   const handleTrialComplete = useCallback((result: NarrativeTrialResult) => {
     if (!activeSessionId && !isOfflineMode) return;
     const points = Math.round(result.eventCoverage * 100);
-    scoreRef.current += points;
-    trialsRef.current += 1;
+    const previousScore = storyScoresRef.current.get(result.storyId);
+    if (previousScore === undefined) trialsRef.current += 1;
+    // Retrying a story replaces its practice score. Do not manufacture an
+    // extra completed story or increase session accuracy by double-counting.
+    scoreRef.current += points - (previousScore ?? 0);
+    storyScoresRef.current.set(result.storyId, points);
 
     // Derive errorType for narrative-retell from coverage and on-topic signals
-    const isCorrect = result.eventCoverage >= 0.3;
+    const isCorrect = result.scoringValid === true &&
+      storyMeetsNarrativeRecallTarget(result, clinicalLevel);
     let errorType: string | undefined;
     if (!isCorrect) {
-      if (result.wordCount < 5) errorType = 'minimal_output';
+      if (result.wordCount < (clinicalLevel <= 3 ? 1 : 5)) errorType = 'minimal_output';
       else if (result.onTopicScore != null && result.onTopicScore < 0.4) errorType = 'off_topic';
       else if (result.eventCoverage === 0) errorType = 'no_event_coverage';
       else errorType = 'low_event_coverage';
     }
 
-    logTrial({
+    const write = logTrial({
       correct: isCorrect,
       reactionTimeMs: result.durationMs,
       errorType,
       taskParameters: {
         story_id: result.storyId,
-        story_title: result.allKeyEvents ? undefined : undefined, // placeholder for downstream typing
         prompt: result.allKeyEvents?.join(' | ') ?? null,
         transcript: result.transcript ?? '',
         word_count: result.wordCount,
+        clinical_level: clinicalLevel,
+        recall_target_facts: recallTarget,
+        response_mode: result.responseMode ?? 'unknown',
+        scoring_valid: result.scoringValid === true,
+        assistance_used: result.assistanceUsed === true,
+        story_replayed: result.storyReplayed === true,
         duration_ms: result.durationMs,
         events_found: result.eventsFound,
         events_total: result.eventsTotal,
@@ -147,8 +167,21 @@ export default function NarrativeRetellExercise() {
         },
         depth: result.depthTelemetry,
       },
-    });
-  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry]);
+    }).then(persisted => {
+      // Clinical expressive progression: only a successfully saved, valid
+      // SPOKEN attempt is usable evidence. Typed fallback and ASR failure
+      // remain available for practice without misreporting speaking gains.
+      if (persisted && result.scoringValid === true && result.responseMode === 'spoken') {
+        progression.recordTrialOutcome({
+          correct: isCorrect,
+          storyId: result.storyId,
+          support: result.storyReplayed ? 'carrier_or_full_model'
+            : result.assistanceUsed ? 'semantic_cue' : 'independent',
+        });
+      }
+    }).catch(err => console.warn('[NarrativeRetell] trial save failed', err));
+    trialWritesRef.current = Promise.all([trialWritesRef.current, write]).then(() => {});
+  }, [activeSessionId, isOfflineMode, logTrial, trialLimit, adaptationTelemetry, clinicalLevel, recallTarget, progression.recordTrialOutcome]);
 
   const resumeLessonFlow = useCallback(() => {
     if (hasAdvancedLessonRef.current) return;
@@ -164,9 +197,21 @@ export default function NarrativeRetellExercise() {
     return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
   }, []);
 
-  const handleGameComplete = useCallback((results: NarrativeTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: NarrativeTrialResult[]) => {
     setCompleted(true);
-    completeSession();
+    try {
+      await trialWritesRef.current;
+      const progressionSave = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+      if (!progressionSave.ok) {
+        const errorDetail = 'error' in progressionSave ? progressionSave.error : 'unknown save error';
+        console.warn('[NarrativeRetell] clinical progression not saved', errorDetail);
+      }
+    } catch (err) {
+      // A database/network exception must not trap an aphasia patient on the
+      // game screen. The clinical row remains unverified, not silently saved.
+      console.warn('[NarrativeRetell] progression commit failed', err);
+    }
+    await completeSession();
 
     // Save structured details for reflection engine
     if (blockIndex != null && results.length > 0) {
@@ -183,7 +228,7 @@ export default function NarrativeRetellExercise() {
     if (fromLesson) {
       completionTimeoutRef.current = setTimeout(() => resumeLessonFlow(), 400);
     }
-  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex]);
+  }, [fromLesson, completeSession, resumeLessonFlow, blockIndex, progression.flushAtSessionEnd, activeSessionId]);
 
   const handleBack = useCallback(() => navigate(fromLesson ? returnTo : '/dashboard'), [navigate, fromLesson]);
   const handleContinue = useCallback(() => {
@@ -194,7 +239,7 @@ export default function NarrativeRetellExercise() {
     }
   }, [fromLesson, navigate, resumeLessonFlow]);
 
-  if (!isOfflineMode && (isCreatingSession || !activeSessionId)) {
+  if (!progression.loaded || (!isOfflineMode && (isCreatingSession || !activeSessionId))) {
     return <ExerciseLoading />;
   }
 
@@ -219,7 +264,7 @@ export default function NarrativeRetellExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
+          <NarrativeRetellGame userId={user?.id} sessionId={activeSessionId} onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={adaptation.difficultyTier} clinicalLevel={clinicalLevel} recommendedCueType={adaptation.recommendedCueType !== 'none' ? adaptation.recommendedCueType as any : undefined} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

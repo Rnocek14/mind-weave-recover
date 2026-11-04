@@ -67,7 +67,7 @@ import {
   type PhonologicalAwarenessLevelSpec,
 } from './progression/phonologicalAwarenessLevels';
 import { DESCRIBE_GUESS_LEVELS } from './progression/describeGuessLevels';
-import { NARRATIVE_RETELL_LEVELS } from './progression/narrativeRetellLevels';
+import { NARRATIVE_RETELL_CLINICAL_LEVELS, type NarrativeRetellClinicalLevelSpec } from './progression/narrativeRetellClinicalLevels';
 import { THOUGHT_CONTINUATION_LEVELS } from './progression/thoughtContinuationLevels';
 import { ABSTRACT_COMPARE_LEVELS } from './progression/abstractCompareLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
@@ -171,7 +171,7 @@ export interface ClinicalLadderEntry {
   evidenceBasis?: EvidenceBasis;
 }
 
-function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec>(
+function rowsFromSpec<T extends PhotoNamingLevelSpec | FixSentenceLevelSpec | MinimalPairsLevelSpec | SemanticFeaturesLevelSpec | MeaningMatchLevelSpec | TwoCluesLevelSpec | CategoryFluencyLevelSpec | SentenceConstructionLevelSpec | MultiStepPlanningLevelSpec | DetectiveMindLevelSpec | SynonymGeneratorLevelSpec | DualLoadNamingLevelSpec | PhonologicalAwarenessLevelSpec | NarrativeRetellClinicalLevelSpec>(
   slug: string,
   table: Record<number, T>,
 ): LadderRow[] {
@@ -360,7 +360,7 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     telemetryNote: 'highlight_plus_choice (model heard) → choice_based (tiles only). Expressive production — routed into expressive mastery.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/sentence-construction.md',
-      tldr: 'Mapping Therapy / TUF / VNeST support structured grammar-production training with scaffold fading; specific tier ordering and per-level thresholds are clinically motivated calibration defaults. L6–L7 thin; L8 (open production) aspirational — no tile-suppressed runtime mode yet.',
+      tldr: 'Eight grammar-banded levels are wired to real sentence cohorts, from SVO through coordination, subordination, relative clauses and multi-clause/passive constructions. L6–L8 remain clinically thin. All stages are constrained tile/word-choice tasks; spontaneous sentence formulation is NOT implemented.'
     },
   },
   'phonological-awareness': {
@@ -393,13 +393,13 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'narrative-retell',
     axis: 'discourse',
     purpose: 'Retells a heard narrative with key elements intact.',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('narrative-retell', Object.values(NARRATIVE_RETELL_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides discourse adaptation engine. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: rowsFromSpec('narrative-retell', NARRATIVE_RETELL_CLINICAL_LEVELS),
+    telemetryNote: 'Persisted L1–L8 fact-coverage progression. Only successfully logged, valid spoken retells move the ladder. Typed practice and invalid ASR cannot become speech evidence. Uses existing raw telemetry writer, NOT ADOPTED_TRIAL_MODE_SLUGS.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/narrative-retell.md',
-      tldr: 'Story-grammar macrostructure (Ulatowska; Stein & Glenn) + discourse-in-aphasia (Wright & Capilouto) + script training. 4-stage complexity collapse is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+      tldr: 'Clinical fact-recall (1, 2, 3, then longer stories) is implemented and persisted; thresholds are unvalidated engineering defaults. Advanced levels do not score chronology, causality, or narrative coherence.'
     },
   },
   'category-fluency': {

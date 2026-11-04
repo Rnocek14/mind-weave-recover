@@ -16,6 +16,7 @@ import {
 import { PHOTO_NAMING_LEVELS } from '../photoNamingLevels';
 import { FIX_SENTENCE_LEVELS } from '../fixSentenceLevels';
 import { MINIMAL_PAIRS_LEVELS } from '../minimalPairsLevels';
+import { CLINICAL_LADDER_REGISTRY } from '@/lib/clinicalLadderRegistry';
 
 describe('deriveTierStatusFromSpec', () => {
   it('Photo Naming: L1–L6 implemented, L7 partial (carrier caveat), L8 partial (probe overlap)', () => {
@@ -57,7 +58,10 @@ describe('deriveTierStatusFromSpec', () => {
     const slugs = Object.keys(KNOWN_CAVEATS);
     expect(slugs.length).toBeGreaterThan(0);
     for (const slug of slugs) {
-      expect(['photo-naming', 'fix-sentence', 'minimal-pairs']).toContain(slug);
+      // Registry—not a frozen three-game allow-list—is the source of truth.
+      // Every caveat must describe a real shipped clinical game and tier.
+      expect(CLINICAL_LADDER_REGISTRY[slug], `unknown clinical game ${slug}`).toBeDefined();
+      expect(CLINICAL_LADDER_REGISTRY[slug].rows?.length).toBeGreaterThan(0);
     }
   });
 });
