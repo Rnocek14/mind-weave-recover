@@ -69,6 +69,7 @@ import {
 import { DESCRIBE_GUESS_CLINICAL_LEVELS, ABSTRACT_COMPARE_CLINICAL_LEVELS, THOUGHT_CONTINUATION_CLINICAL_LEVELS, type GradedTaskSpec } from './progression/gradedTaskLevels';
 import { NARRATIVE_RETELL_CLINICAL_LEVELS, type NarrativeRetellClinicalLevelSpec } from './progression/narrativeRetellClinicalLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
+import { EARLY_COACH_LEVELS } from './progression/earlyConversationCoach';
 import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
 import { EARLY_PARTNER_STAGES } from './progression/conversationPartnerClinical';
 import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
@@ -431,13 +432,30 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'conversation-coach',
     axis: 'discourse',
     purpose: 'Scaffolded conversational practice with SCA-style coaching.',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('conversation-coach', Object.values(CONVERSATION_COACH_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides Smart Coach / discourse adaptation engine with existing strategy switching + SCA cueing. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: [
+      ...Object.values(EARLY_COACH_LEVELS).map(spec => {
+        const tier = deriveTierStatusFromSpec('conversation-coach', spec.level, spec);
+        return {
+          level: spec.level,
+          description: spec.objective,
+          targetSupport: spec.targetSupport,
+          minOnTargetAttempts: spec.minOnTargetAttempts,
+          minOnTargetAccuracy: spec.minOnTargetAccuracy,
+          readiness: spec.readiness,
+          tierStatus: tier.tierStatus,
+          tierStatusDetail: tier.tierStatusDetail,
+          contentTierLabel: spec.contentSelector.description,
+        };
+      }),
+      ...designOnlyRows('conversation-coach', Object.values(CONVERSATION_COACH_LEVELS)
+        .filter(spec => spec.level >= 4) as DesignOfRecordLevelSpec[]),
+    ],
+    telemetryNote: 'New optional Guided mode: L1 modeled functional request, L2 visible choices and spoken selection, L3 open functional request with optional semantic cue. Confirmed spoken answers require an acknowledged raw event and LLM score for stored clinical progression. The full Smart Coach remains unchanged; L4–L8 are planned. No expressive-mastery adoption.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/conversation-coach.md',
-      tldr: 'SCA (Kagan) + PACE (Davis & Wilcox) + Conversation Therapy (Hopper, Holland). 4-stage independence ladder (scripted → choice-supported → semi-scripted → independent → multi-turn → topic-initiation → repair) is a clinically motivated design default. Design-of-record only — no per-level enforcement.',
+      tldr: 'SCA (Kagan) and PACE (Davis & Wilcox) motivate meaningful modeled/choice/cued communication. L1–L3 are code-wired product heuristics, with partial/uncalibrated scoring; L4–L8 remain planned.',
     },
   },
   'conversation-partner': {
