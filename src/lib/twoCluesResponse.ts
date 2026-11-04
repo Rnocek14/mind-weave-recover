@@ -51,9 +51,19 @@ export function interpretTwoCluesSpeech(
 ): TwoCluesSpeechInterpretation {
   const spokenTokens = tokens(raw);
   const clueTokens = new Set(puzzle.clues.flatMap(tokens));
+  // Browser ASR sometimes turns "holds" into "golds" or "gold".
+  // Scope these variants to the actual clue so "gold" remains an answer
+  // in other puzzles.
+  const clueMishearings = new Set(
+    clueTokens.has('holds') ? ['hold', 'golds', 'gold'] : [],
+  );
+  const explicitlyAnswering = /\b(?:my answer is|the answer is|i (?:think|guess) (?:it'?s|it is)|it's|it is)\b/i.test(raw);
   const clueRehearsal =
+    !explicitlyAnswering &&
     spokenTokens.length > 0 &&
-    spokenTokens.every((word) => clueTokens.has(word) || REHEARSAL_WORDS.has(word));
+    spokenTokens.every((word) =>
+      clueTokens.has(word) || clueMishearings.has(word) || REHEARSAL_WORDS.has(word),
+    );
 
   const preservedAnswers = [
     ...puzzle.anchors,
@@ -63,7 +73,9 @@ export function interpretTwoCluesSpeech(
   ];
   const filteredTranscript = removeClueWords(raw, puzzle.clues, preservedAnswers);
   const remainingTokens = tokens(filteredTranscript);
-  const meaningfulTokens = remainingTokens.filter((word) => !REHEARSAL_WORDS.has(word));
+  const meaningfulTokens = remainingTokens.filter(
+    (word) => !REHEARSAL_WORDS.has(word) && !clueMishearings.has(word),
+  );
 
   if (
     !spokenTokens.length ||
