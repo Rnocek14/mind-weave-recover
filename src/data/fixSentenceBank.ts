@@ -43,6 +43,15 @@ export interface FixSentenceTrial {
     requiredForm: string;
   };
   /**
+   * L7 embedded-clause cohort (clinical ladder). A relative-clause pronoun
+   * or complement-clause connector must be repaired with an explicitly
+   * accepted word. No semantic/phonetic fallback for grammar contrasts.
+   */
+  embeddedClause?: {
+    construction: 'relative_subject' | 'relative_object' | 'complement_clause';
+    correctedSentence: string;
+  };
+  /**
    * L5 two-error cohort (clinical ladder). When present the sentence
    * contains a SECOND independent error; the primary fields above describe
    * error 1. Legacy single-error consumers ignore this field safely — the
