@@ -150,13 +150,19 @@ export function DescribeGuessGame({
     if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
 
     const tryStart = (attempt: number) => {
-      if (cycle !== micStartCycleRef.current || showFeedbackRef.current || useTypingRef.current) {
+      if (cycle !== micStartCycleRef.current) return;
+      if (showFeedbackRef.current || useTypingRef.current) {
         setMicOpening(false);
         return;
       }
 
       if (voiceController.isMicLocked) {
-        micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt), 450);
+        if (attempt >= attempts) {
+          setMicOpening(false);
+          scheduleMicRecoveryCheck();
+          return;
+        }
+        micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), 450);
         return;
       }
       startListeningRef.current();
@@ -433,6 +439,7 @@ export function DescribeGuessGame({
     setGuessMessage(null);
     setAwaitingWordAttempt(false);
     setWordSaidRedirect(false);
+    wordAttemptContextRef.current = null;
     wordSaidRedirectFiredRef.current = false;
     wordRetrievalRecordedRef.current = false;
     setDisplayTranscript('');
@@ -610,8 +617,10 @@ export function DescribeGuessGame({
       const redirectMsg = `That's the word! Now try describing "${trial.target}" without saying it — what does it look like, what is it used for?`;
       setGuessMessage(redirectMsg);
 
+      const redirectTrialId = trial.id;
       speak(redirectMsg).then(async () => {
-        micStartCycleRef.current += 1;
+        if (currentTrialRef.current?.id !== redirectTrialId || showFeedbackRef.current || useTypingRef.current) return;
+        const redirectCycle = ++micStartCycleRef.current;
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
@@ -622,11 +631,13 @@ export function DescribeGuessGame({
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedbackRef.current) {
-          setMicOpening(false);
-          return;
-        }
-        startMicWithRetries(micStartCycleRef.current);
+        if (!isCurrentDescribeGuessMicRequest({ trialId: redirectTrialId, cycle: redirectCycle }, {
+          trialId: currentTrialRef.current?.id,
+          cycle: micStartCycleRef.current,
+          hasFeedback: showFeedbackRef.current,
+          isTyping: useTypingRef.current,
+        })) return;
+        startMicWithRetries(redirectCycle);
       });
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, speak, startMicWithRetries]);
@@ -830,8 +841,10 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
 
         // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
+        const wordTrialId = trial.id;
         speak(`Say ${trial.target}.`).then(async () => {
-          micStartCycleRef.current += 1;
+          if (currentTrialRef.current?.id !== wordTrialId || !wordAttemptContextRef.current) return;
+          const wordCycle = ++micStartCycleRef.current;
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
           setMicOpening(true);
@@ -840,11 +853,13 @@ export function DescribeGuessGame({
           // Tight handoff — the prompt is only 2 words, so open the mic
           // almost immediately. Don't wait on voice-state arbitration here.
           await awaitMicSafe(250);
-          if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
-            setMicOpening(false);
-            return;
-          }
-          startMicWithRetries(micStartCycleRef.current);
+          if (!isCurrentDescribeGuessMicRequest({ trialId: wordTrialId, cycle: wordCycle }, {
+            trialId: currentTrialRef.current?.id,
+            cycle: micStartCycleRef.current,
+            hasFeedback: showFeedbackRef.current,
+            isTyping: useTypingRef.current,
+          }) || !wordAttemptContextRef.current) return;
+          startMicWithRetries(wordCycle);
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
@@ -1232,13 +1247,11 @@ export function DescribeGuessGame({
           isSupported
         }
         onRetry={() => {
-          micStartCycleRef.current += 1;
+          const retryCycle = ++micStartCycleRef.current;
           setMicOpening(true);
           setMicRecoveryReady(false);
           resetTranscript();
-          setTimeout(() => {
-            startMicWithRetries(micStartCycleRef.current);
-          }, 350);
+          setTimeout(() => startMicWithRetries(retryCycle), 350);
         }}
         compact
       />
@@ -1304,12 +1317,10 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
-                  micStartCycleRef.current += 1;
+                  const retryCycle = ++micStartCycleRef.current;
                   setMicOpening(true);
                   setMicRecoveryReady(false);
-                  setTimeout(() => {
-                    startMicWithRetries(micStartCycleRef.current);
-                  }, 350);
+                  setTimeout(() => startMicWithRetries(retryCycle), 350);
                 }}
                 className="h-9"
               >
