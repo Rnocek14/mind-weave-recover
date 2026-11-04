@@ -820,14 +820,19 @@ export function ThoughtContinuationGame({
     }
     setFeedbackMessage(feedback);
 
-    if (!continueSamePrompt && clinicalLevel != null && onClinicalTrial) {
+    // Record the FIRST valid spoken attempt even when Maya invites another
+    // try on this SAME prompt. The progression hook deduplicates by promptId;
+    // otherwise a patient who struggles repeatedly and eventually succeeds
+    // would appear to have perfect first-attempt accuracy.
+    if (clinicalLevel != null && onClinicalTrial) {
       const topicScore = signal?.onTopicScore;
       const scoringValid = validation.valid && typeof topicScore === 'number' && Number.isFinite(topicScore);
       onClinicalTrial({
         promptId: currentPrompt.id,
         clinicalLevel,
         transcript: answerText,
-        correct: scoringValid && thoughtMeetsClinicalTarget(answerText, clinicalLevel, topicScore),
+        correct: scoringValid && !['off_topic', 'surrender', 'no_response'].includes(signal?.errorType ?? '') &&
+          thoughtMeetsClinicalTarget(answerText, clinicalLevel, topicScore),
         support: narrowingLevel > 0 ? 'semantic_cue' : 'independent',
         scoringValid,
         skipped: false,
