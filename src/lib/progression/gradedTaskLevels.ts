@@ -32,6 +32,7 @@ export interface GradedTaskSpec {
   minResponseWords?: number;
   thoughtIntent?: string[];
   connectorRequired?: boolean;
+  comparisonRequired?: boolean;
 }
 
 function stage(level: number, tier: ClinicalContentTier, objective: string,
@@ -91,7 +92,7 @@ export const THOUGHT_CONTINUATION_CLINICAL_LEVELS: Record<number, GradedTaskSpec
   7: stage(7, 3, 'Explain how to solve a hypothetical problem', 'independent',
     { minResponseWords: 10, thoughtIntent: ['solve_problem'], connectorRequired: true }),
   8: stage(8, 3, 'Compare alternatives in an extended reflective answer', 'independent',
-    { minResponseWords: 12, thoughtIntent: ['compare_contrast'] }),
+    { minResponseWords: 12, thoughtIntent: ['compare_contrast'], comparisonRequired: true }),
 };
 
 export const GRADED_TASK_LEVELS: Record<GradedTaskSlug, Record<number, GradedTaskSpec>> = {
@@ -159,5 +160,7 @@ export function thoughtMeetsClinicalTarget(
   const words = transcript.trim().split(/\s+/).filter(Boolean);
   if (words.length < (spec.minResponseWords ?? 1)) return false;
   if (spec.connectorRequired && !/\b(because|when|then|if|since|so|but|after|before|therefore)\b/i.test(transcript)) return false;
+  // Still only a measurable practice proxy, not semantic comparison analysis.
+  if (spec.comparisonRequired && !/\b(both|like|unlike|similar|different|whereas|compared|however|while|than|but)\b/i.test(transcript)) return false;
   return true;
 }
