@@ -95,6 +95,8 @@ describe('Clinical eight-stage tasks: real bank and scoring contracts', () => {
     expect(thoughtMeetsClinicalTarget('because it seemed safer to stay inside', 4, 0.7)).toBe(true);
     expect(thoughtMeetsClinicalTarget('I like being outside', 4, 0.7)).toBe(false);
     expect(thoughtMeetsClinicalTarget('This is a long response but it does not compare two things at all', 8, undefined)).toBe(false);
+    expect(thoughtMeetsClinicalTarget('I went to the store yesterday and bought some milk and bread for breakfast', 8, 0.8)).toBe(false);
+    expect(thoughtMeetsClinicalTarget('Both the train and bus take people places, but a bus uses roads instead of tracks', 8, 0.8)).toBe(true);
   });
 
   it('never promotes from only cued trials at an independent-only rung', () => {
