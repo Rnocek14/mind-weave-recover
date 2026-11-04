@@ -162,7 +162,7 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   },
   7: {
     level: 7,
-    description: 'Embedded relative and complement clauses — repair connector errors'
+    description: 'Embedded relative and complement clauses — repair connector errors',
     targetSupport: 'open_response',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
