@@ -1,40 +1,26 @@
-# Conversation Coach — Clinical Evidence
+# Conversation Coach — graded early functional communication
 
-## Status: Design-of-record (Phase 2, Wave 4)
+## Current branch status: Structural, L1–L3 playable; L4–L8 planned
 
-Published clinical design only. Runtime continues to ride the existing Smart Coach / discourse adaptation engine with its strategy switching and SCA cueing. No progression hook, no difficulty bridge, no mastery routing, no per-level mastery enforcement.
+There are now two patient-facing paths within Conversation Coach:
 
-## Clinical basis
+1. **Guided clinical practice**, which selects a real functional communication task using a saved patient-specific level. It does **not** activate the large Smart Coach's drill/pop-up/strategy-switching pipeline.
+2. **Full Conversation Coach**, which preserves the original integrated Smart Coach interaction but is **not** treated as evidence of completed eight-stage clinical progression.
 
-Conversation Coach is a didactic conversational-therapy frame. The ladder draws on:
+| Level | Implemented task | Patient support | Stored clinical-practice evidence |
+| --- | --- | --- | --- |
+| L1 | One practical modeled message (“I need water,” “Please help me”). Patient speaks after hearing it. A single meaningful word may convey the request. | Visible and spoken model; model use logged as `carrier_or_full_model` | A confirmed spoken transcript with an accepted raw event and qualifying LLM on-topic assessment |
+| L2 | Patient sees options for an adult functional choice and **speaks** the choice. A tap alone never completes therapy. | Choice-supported, `choice_based` | One separately confirmed, spoken choice; a tap is only assistance |
+| L3 | Patient makes an open functional request on a familiar situation. | No default model or choices; an optional semantic clue is logged as `semantic_cue`. Independent evidence needs no clue. | Confirmed independent spoken request; a cued attempt is practice credit, not independent mastery |
 
-- **Supported Conversation for Adults with Aphasia (SCA)** — Kagan; Kagan, Black, Duchan, Simmons-Mackie & Square — IN / OUT / VERIFY scaffolding pattern.
-- **PACE — Promoting Aphasic Communicative Effectiveness** — Davis & Wilcox — communicative success as the criterion, with graded message-transfer demands.
-- **Conversation Therapy** — Hopper, Holland — turn-by-turn scaffolded practice in functional conversational contexts.
-- **Aphasia-friendly conversation training** — Simmons-Mackie partner-training meta-analyses for the general principle that communicative independence is the long-arc target.
+Five adult functional situations ship: asking for water or other drink, a break, a ride, help, or food. The patient sees one large main action at each stage. Maya reads the task; the microphone opens only after Maya finishes. A clue stops the microphone before TTS. After a patient speaks, the **recognized transcript must be confirmed** or retried before evaluation, reducing but not removing ASR mis-scoring.
 
-The ladder advances on communicative independence: scripted exchanges with full models → choice-supported turns under SCA → semantic-cue-then-open → independent on-topic turns → multi-turn topic maintenance → topic initiation → conversational repair.
+Clinical state is loaded through the existing patient/profile-exercise row and saved only after the raw event is acknowledged. The scorer's local fallback can continue practice but cannot establish a progress milestone. The progression adapter caps advancement at **L3**, and a failed saved-level read cannot overwrite historical progress. The existing expressive mastery allowlist stays unchanged.
 
-## What is calibration, not literature
+## Evidence and clinical limits
 
-- The 4-stage independence ladder is a **clinically motivated design default**. Specific stages (e.g., "topic initiation" before "repair") reflect a sensible clinical ordering, not a head-to-head proven hierarchy.
-- "Topic maintenance", "topic shift", and "repair" credit at L5–L7 would require scoring infrastructure that does not yet exist at runtime.
-- Per-level accuracy bars / attempts are intentionally **not** specified.
+Supported Conversation for Adults with Aphasia (Kagan), Promoting Aphasic Communicative Effectiveness (Davis & Wilcox), and conversation therapy/communication-partner training motivate functional messages with progressively less help. The task sequence and four-session weight are provisional **product defaults**, not clinically calibrated therapy dosage or performance standards.
 
-## Mastery routing
+The current application does not establish a verified aphasic-ASR accuracy estimate, functional message transfer in the patient's daily environment, spontaneous word retrieval, multi-turn topic maintenance, communication repair or clinical improvement. LLM on-topic scores are practice proxies. Higher stages—independent multi-turn topics, patient-led topic shift, repair, and cross-context conversation—remain **L4–L8 planned** rather than silently reusing L3 content.
 
-- `submitTrial` is **not** wired through `useTrialSubmission`.
-- Slug `conversation_coach` is **NOT** added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials continue to flow through the Smart Coach / discourse adaptation engine only.
-
-## Readiness
-
-| Level | Readiness | Notes |
-| --- | --- | --- |
-| L1–L8 | aspirational | No runtime ladder enforcement — design-of-record only. |
-
-## Out of scope for this ship
-
-- Turn-level scoring of topic maintenance, topic initiation, and repair.
-- Per-level mastery enforcement and promotion into `ADOPTED_TRIAL_MODE_SLUGS`.
-- Any change to the existing Smart Coach strategy-switching / SCA cueing runtime.
+The guided mode logs text/audio availability as observed; optional audio recording or upload failure does not falsely produce an audio asset reference. Clinician review, representative aphasic-speech calibration, physical device audio lifecycle tests, isolated authenticated write/read and RLS validation remain prerequisites for any patient or hospital release. Public browser tests use controlled services, not a live clinical backend.
