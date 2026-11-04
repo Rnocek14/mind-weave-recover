@@ -368,27 +368,32 @@ export function ConversationPartnerGame({
   const handleHearHelp = useCallback(async () => {
     if (!stage || (phase !== 'ready' && phase !== 'listening') || !currentAIText ||
         turnSubmittingRef.current) return;
-    if (phase === 'listening') {
-      // Discard and restart the current attempt before any coach TTS.
-      stopListening();
-      await stopRecording();
-      resetAttempt();
-      turnCountRef.current = Math.max(0, turnCountRef.current - 1);
-      setUserTranscript('');
-    }
-    helpUsedRef.current = true;
-    setHelpUsed(true);
-    const turnIndex = Math.min(currentTurn, 2);
-    const cue = stage.level === 1
-      ? `You could say ${scenario.choices.join(', or ')}. Choose what you like.`
-      : scenario.semanticHelp[turnIndex];
+    // Claim the turn synchronously BEFORE awaiting audio shutdown so a rapid
+    // Done or Help tap cannot submit the abandoned patient attempt.
+    turnSubmittingRef.current = true;
     setPhase('ai_speaking');
     try {
+      if (phase === 'listening') {
+        // Discard and restart the current attempt before any coach TTS.
+        stopListening();
+        await stopRecording();
+        resetAttempt();
+        turnCountRef.current = Math.max(0, turnCountRef.current - 1);
+        setUserTranscript('');
+      }
+      helpUsedRef.current = true;
+      setHelpUsed(true);
+      const turnIndex = Math.min(currentTurn, 2);
+      const cue = stage.level === 1
+        ? `You could say ${scenario.choices.join(', or ')}. Choose what you like.`
+        : scenario.semanticHelp[turnIndex];
       await speak(cue, { voiceId: MAYA_VOICE_ID });
     } catch (error) {
       console.warn('[ConversationPartner] cue audio unavailable', error);
+    } finally {
+      turnSubmittingRef.current = false;
+      if (mountedRef.current) setPhase('ready');
     }
-    if (mountedRef.current) setPhase('ready');
   }, [stage, phase, currentAIText, stopListening, stopRecording, resetAttempt,
       currentTurn, scenario, speak]);
 
