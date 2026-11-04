@@ -138,6 +138,8 @@ export function ThoughtContinuationGame({
   // The shared patient turn hook owns auto-completion timing.
   const processUtteranceRef = useRef<() => void>(() => {});
   const latestTranscriptRef = useRef<string>('');
+  const lastTranscriptActivityAtRef = useRef<number | null>(null);
+  const timedTranscriptRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
   const isListeningRef = useRef<boolean>(false);
   // Gate the trial-start effect so it only runs ONCE per promptCount.
@@ -291,7 +293,13 @@ export function ThoughtContinuationGame({
     if (currentText && currentText.trim().length > 0) {
       latestTranscriptRef.current = currentText;
       setTranscript(currentText);
-      
+      // Record the latest ASR activity, not the later auto-finalization clock.
+      // The patient may have spent 9+ seconds quietly searching for a word.
+      if (currentText !== timedTranscriptRef.current) {
+        timedTranscriptRef.current = currentText;
+        lastTranscriptActivityAtRef.current = Date.now();
+      }
+
       // Record latency to first word
       if (latencyToFirstWordRef.current === null && latencyStartRef.current) {
         latencyToFirstWordRef.current = Date.now() - latencyStartRef.current;
@@ -318,6 +326,8 @@ export function ThoughtContinuationGame({
   const clearAnswerState = useCallback(() => {
     setTranscript('');
     latestTranscriptRef.current = '';
+    timedTranscriptRef.current = '';
+    lastTranscriptActivityAtRef.current = null;
     hasCommittedRef.current = false;
     resetSpeechTranscript();
     resetTurn();
@@ -497,8 +507,12 @@ export function ThoughtContinuationGame({
       silenceTimerRef.current = null;
     }
     
-    const speechDuration = speechStartTimeRef.current 
-      ? Date.now() - speechStartTimeRef.current 
+    // This is an ASR-activity-span proxy, NOT an acoustic fluency or speaking
+    // duration measurement. Submitting 9-15 seconds after speech stops must
+    // not add fabricated speaking time to clinical/adaptation observations.
+    const speechDuration = speechStartTimeRef.current !== null &&
+      lastTranscriptActivityAtRef.current !== null
+      ? Math.max(0, lastTranscriptActivityAtRef.current - speechStartTimeRef.current)
       : 0;
     
     // Upload audio for clinical persistence
@@ -618,7 +632,9 @@ export function ThoughtContinuationGame({
       narrowingTrigger: flowMetrics.narrowingTrigger,
       promptIntentType: currentPrompt.intentType,
       promptTheme: currentPrompt.theme,
-      recordingDurationMs: speechDuration,
+      // True audio capture length (which may include the protected pause),
+      // not the shorter ASR-activity-span proxy used above.
+      recordingDurationMs: recordingResult?.duration,
       audioStoragePath: audioStoragePath || undefined,
       stuckType,
       fluencyAvailable: false,
