@@ -138,4 +138,27 @@ describe('Minimal Pairs picture click to spoken production', () => {
       echoAccuracyScore: undefined, echoPronunciationScore: undefined,
     }));
   });
+  it('measures picture reaction time at the tap, not when delayed Azure assessment completes', async () => {
+    let now = 1000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      const { unmount } = render(<MinimalPairsGame totalTrials={1} onTrialComplete={dependencies.onTrialComplete} />);
+      now = 1700;
+      fireEvent.click(screen.getByRole('button', { name: 'Option 1' }));
+      await screen.findByText(/Listening — say/);
+      // Speech processing finishes much later; it must not inflate the
+      // patient's recorded picture-discrimination response latency.
+      now = 12000;
+      fireEvent.click(screen.getByRole('button', { name: /Done speaking/i }));
+      await waitFor(() => expect(dependencies.onTrialComplete).toHaveBeenCalledOnce());
+      expect(dependencies.onTrialComplete).toHaveBeenCalledWith(expect.objectContaining({
+        isCorrect: true, reactionTimeMs: 700,
+        echoAnalysisStatus: 'analyzed',
+      }));
+      unmount();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
 });
