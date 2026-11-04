@@ -9,6 +9,7 @@ import {
   interpretTwoCluesSpeech,
 } from '@/lib/twoCluesResponse';
 import { scoreAnswer } from '@/lib/twoCluesScorer';
+import { twoCluesBankDifficultyForClinicalLevel } from '@/lib/progression/twoCluesDifficultyBridge';
 
 // A fixture for the real reported "holds" + "water" ambiguity. The item is
 // excluded from new sessions pending content review, but previously presented
@@ -86,5 +87,21 @@ describe('Two Clues: content-quality quarantine', () => {
     expect(getPuzzles({ difficulty: 1 }).length).toBeGreaterThan(0);
     expect(getPuzzles({ difficulty: 2 }).length).toBeGreaterThan(0);
     expect(getPuzzles({ difficulty: 3 }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Two Clues: clinical content tier is respected by the bank', () => {
+  it.each([
+    [1, 1], [2, 1], [3, 2], [4, 2], [5, 3], [6, 3], [7, 3], [8, 3],
+  ])('clinical level %i selects bank difficulty %i', (level, bank) => {
+    expect(twoCluesBankDifficultyForClinicalLevel(level)).toBe(bank);
+    const puzzles = getPuzzles({ difficulty: twoCluesBankDifficultyForClinicalLevel(level) });
+    expect(puzzles.length).toBeGreaterThan(0);
+    expect(puzzles.every((puzzle) => puzzle.difficulty === bank)).toBe(true);
+  });
+
+  it('defaults to easier material when no verified clinical level exists', () => {
+    expect(twoCluesBankDifficultyForClinicalLevel(null)).toBe(1);
+    expect(twoCluesBankDifficultyForClinicalLevel(Number.NaN)).toBe(1);
   });
 });
