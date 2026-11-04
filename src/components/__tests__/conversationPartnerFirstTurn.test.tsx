@@ -262,7 +262,7 @@ describe('Conversation Partner — graded patient-facing L1–L3', () => {
     });
     expect(mocks.processUserTurn.mock.calls[0][2].scriptedFollowupText).toBe('Thank you for talking with me.');
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-    expect(screen.getAllByRole('button', { name: /press to talk/i })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /press to talk/i })).toHaveLength(0);
   });
 
   it('L2 keeps the second question on topic and records an independent spoken answer', async () => {
