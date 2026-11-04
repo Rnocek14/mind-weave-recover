@@ -1020,6 +1020,15 @@ export function DescribeGuessGame({
     speak(chip.question);
   }, [game, speak]);
 
+  const handleMicRetry = useCallback(() => {
+    const cycle = ++micStartCycleRef.current;
+    setMicRecoveryReady(false);
+    setMicOpening(true);
+    // Call recognition.start() synchronously from this tap when possible.
+    // Delaying a user-triggered retry can break permission-gated mobile audio.
+    startMicWithRetries(cycle);
+  }, [startMicWithRetries]);
+
   const handleDismissFeedback = useCallback(() => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     feedbackTimerRef.current = null;
@@ -1246,13 +1255,7 @@ export function DescribeGuessGame({
           micRecoveryReady &&
           isSupported
         }
-        onRetry={() => {
-          const retryCycle = ++micStartCycleRef.current;
-          setMicOpening(true);
-          setMicRecoveryReady(false);
-          resetTranscript();
-          setTimeout(() => startMicWithRetries(retryCycle), 350);
-        }}
+        onRetry={handleMicRetry}
         compact
       />
 
@@ -1317,10 +1320,7 @@ export function DescribeGuessGame({
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
-                  const retryCycle = ++micStartCycleRef.current;
-                  setMicOpening(true);
-                  setMicRecoveryReady(false);
-                  setTimeout(() => startMicWithRetries(retryCycle), 350);
+                  handleMicRetry();
                 }}
                 className="h-9"
               >
@@ -1342,15 +1342,28 @@ export function DescribeGuessGame({
               </Button>
             )}
 
-            {/* Mic status pill — visual only, not interactive */}
+            {/* Real gesture-based recovery when mobile auto-start is blocked.
+                This must remain large and tappable, not a decorative status pill. */}
             {!useTyping && (
-              <div className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
-                {isListening || micOpening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-                {isListening ? 'Listening...' : micOpening ? 'Opening mic...' : 'Mic off'}
-              </div>
+              isListening || micOpening ? (
+                <div className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+                  isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-primary/10 text-primary'
+                )}>
+                  <Mic className="h-3.5 w-3.5 animate-pulse" />
+                  {isListening ? 'Listening...' : 'Opening mic...'}
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleMicRetry}
+                  variant="default"
+                  className="min-h-11 px-4 text-base"
+                  aria-label="Tap to start speaking"
+                >
+                  <Mic className="h-5 w-5 mr-2" /> Tap to speak
+                </Button>
+              )
             )}
 
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">
