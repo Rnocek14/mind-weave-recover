@@ -9,6 +9,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { FixSentenceTrial, getFixSentenceTrials } from '@/data/fixSentenceBank';
 import { getSemanticSimilarity, hasLexicalOverlap } from '@/lib/semanticSimilarity';
+import { shuffleArray } from '@/lib/shuffle';
 import { extractAnswerFromTranscript, areHomophones } from '@/lib/speechNormalizer';
 import { phoneticSimilarity } from '@/lib/answerMatcher';
 import { useGameSounds } from '@/hooks/useGameSounds';
@@ -296,20 +297,41 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
     setTrials(prev => {
       const upcomingNeeded = prev.length - (currentIndex + 1);
       if (upcomingNeeded <= 0) return prev;
+      const played = prev.slice(0, currentIndex + 1);
+      const playedIds = new Set(played.map(t => t.id));
+
+      if (typeof clinicalLevel === 'number' && clinicalLevel >= 4) {
+        // Engine adaptation is allowed to change pace/support, but must not
+        // replace a *clinical grammar* cohort with baseline questions.
+        // A fallback is not mastery evidence for an unimplemented rung.
+        const selected = selectFixSentencePool(clinicalLevel);
+        if (selected.fallback?.skipped) return prev;
+        const recent = new Set(recency.getRecent(tierForRecency));
+        const available = selected.pool.filter(t => !playedIds.has(t.id));
+        const fresh = shuffleArray(available.filter(t => !recent.has(t.id)));
+        const older = shuffleArray(available.filter(t => recent.has(t.id)));
+        const replacement = [...fresh, ...older].slice(0, upcomingNeeded);
+        if (!replacement.length) return prev;
+        const padded = replacement.length < upcomingNeeded
+          ? [...replacement, ...prev.slice(currentIndex + 1 + replacement.length)]
+          : replacement;
+        return [...played, ...padded];
+      }
+
       const fresh = getFixSentenceTrials({
         difficulty: newLevel,
         count: upcomingNeeded * 3,
         focusPhonemes,
         recentIds: recency.getRecent(newLevel),
-      }).filter(t => !prev.slice(0, currentIndex + 1).some(p => p.id === t.id))
+      }).filter(t => !playedIds.has(t.id))
         .slice(0, upcomingNeeded);
       if (fresh.length === 0) return prev;
       const padded = fresh.length < upcomingNeeded
         ? [...fresh, ...prev.slice(currentIndex + 1 + fresh.length)]
         : fresh;
-      return [...prev.slice(0, currentIndex + 1), ...padded];
+      return [...played, ...padded];
     });
-  }, [currentIndex, focusPhonemes]);
+  }, [currentIndex, focusPhonemes, clinicalLevel, recency, tierForRecency]);
   const [results, setResults] = useState<FixSentenceTrialResult[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [lastResult, setLastResult] = useState<FixSentenceTrialResult | null>(null);
@@ -345,7 +367,7 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
    */
   const localMatch = useCallback((spoken: string, trial: FixSentenceTrial): string | null => {
     return matchSpokenFix(spoken, trial.acceptedFixes, trial.fixAliases, trial.sentence, {
-      pluralTolerance: !trial.morphology,
+      pluralTolerance: !trial.morphology && !trial.embeddedClause,
     });
   }, []);
 
@@ -503,11 +525,11 @@ export function useFixSentenceGame(options: UseFixSentenceGameOptions = {}) {
       return result;
     }
 
-    // 2) Morphology trials (L6): NO semantic fallback. ASR and embeddings
-    // both treat base and inflected forms as equivalent — the exact
-    // contrast under treatment — so anything short of an exact/alias
-    // match is wrong (docs/fix-sentence-morphology-spec.md §3.3).
-    if (currentTrial.morphology) {
+    // 2) L6 morphology AND L7 embedded connectors are strict grammar
+    // contrasts. Fuzzy/phonetic/embedding matches can turn a genuinely
+    // incorrect function word into false success or false level-up.
+    // Exact accepted fixes and whole-sentence token matches still work.
+    if (currentTrial.morphology || currentTrial.embeddedClause) {
       playError();
       return {
         support: supportUsed,
