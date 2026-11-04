@@ -1317,6 +1317,7 @@ export function DescribeGuessGame({
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  useTypingRef.current = false;
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
@@ -1331,6 +1332,7 @@ export function DescribeGuessGame({
                 variant={speechError ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
+                  useTypingRef.current = true;
                   setUseTyping(true);
                   try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
                   if (speechIsListening) stopListening();
