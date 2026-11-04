@@ -9,12 +9,10 @@
  *     `exercise_events` and the mastery shadow.
  *   - `adaptation_trial_logs` continues to be written from
  *     `DescribeGuessGame`'s own `useInGameAdaptation(autoLog:true)`.
- *   - SupportLevel mapping (lexical axis, ordinal to `cueLevel`):
- *       0 prompts → `independent`
- *       1 prompt  → `semantic_cue`
- *       2 prompts → `phonemic_cue`
- *       3 prompts → `carrier_or_full_model`
- *     `cueLevel` itself is already derived by `deriveCueTelemetry()`.
+ *   - SupportLevel: 0 requested spoken prompts = independent;
+ *     any requested feature-question prompt = semantic_cue.
+ *     CueLevel 1–3 still records how many semantic questions were requested,
+ *     without mislabeling them as phonemic cues or a full model.
  *   - No per-game progression hook yet — `progression: null`.
  */
 
@@ -32,20 +30,10 @@ import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
-import { deriveCueTelemetry } from '@/lib/describeGuess/cueMapping';
-import type { SupportLevel } from '@/lib/progression/clinicalProgression';
+import { deriveCueTelemetry, semanticPromptSupport } from '@/lib/describeGuess/cueMapping';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
-
-/** Ordinal cueLevel (0..3) → lexical-axis SupportLevel. */
-function cueLevelToLexicalSupport(cueLevel: number): SupportLevel {
-  if (cueLevel <= 0) return 'independent';
-  if (cueLevel === 1) return 'semantic_cue';
-  if (cueLevel === 2) return 'phonemic_cue';
-  return 'carrier_or_full_model';
-}
-
 
 const EXERCISE_SLUG = 'describe_guess';
 
@@ -181,13 +169,12 @@ export default function DescribeGuessExercise() {
     const isCorrect = result.meaningWin || result.wordWin;
     pivot.recordTrialResult({ wasCorrect: isCorrect, reactionTimeMs: result.reactionTimeMs });
 
-    // Cue telemetry — chips tapped (and feature-type prompts surfaced) are
-    // semantic scaffolds. Map count → 0..3 cue level so adaptation, mastery
-    // shadow, and cue-independence analytics see real support usage instead
-    // of "always unaided".
+    // Only requested SPOKEN questions count as semantic support. The always-
+    // visible written questions don't count; multiple semantic prompts
+    // must never be misrepresented as phonemic cues or full models.
     const promptCount = result.promptsShown?.length ?? 0;
     const { cueLevel, cueTypeGiven } = deriveCueTelemetry(promptCount, isCorrect);
-    const supportUsed = cueLevelToLexicalSupport(cueLevel);
+    const supportUsed = semanticPromptSupport(cueLevel);
 
     void submitTrial({
       profileId: activeProfile?.id,
