@@ -411,6 +411,10 @@ export function AbstractCompareGame({
     }
   }, [stopListening, stopRecording, submitAnswer, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
+  const feedbackGoalMet = Boolean(lastResult && (clinicalSpec
+    ? lastResult.clinicalMet && lastResult.scoringValid
+    : lastResult.coverageRatio >= 0.6));
+
   if (!currentItem || isComplete) {
     const avgCoverage = results.length > 0 ? results.reduce((s, r) => s + r.coverageRatio, 0) / results.length : 0;
     return (
@@ -533,17 +537,19 @@ export function AbstractCompareGame({
           delayMs={3000}
         >
           <Card className={cn("border-2 w-full",
-            lastResult.coverageRatio >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
+            feedbackGoalMet ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.coverageRatio >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{lastResult.coverageRatio >= 0.6 ? '🧠' : lastResult.coverageRatio >= 0.3 ? '👍' : '💡'}</span>
+                <span className="text-lg">{feedbackGoalMet ? '🧠' : lastResult.coverageRatio >= 0.3 ? '👍' : '💡'}</span>
                 <span className="font-bold text-sm">
-                  {lastResult.coverageRatio >= 0.6 ? 'Excellent thinking!' : lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
+                  {feedbackGoalMet ? (clinicalSpec ? 'Level goal met!' : 'Excellent thinking!') : lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
                 </span>
-                <span className="ml-auto text-xs text-muted-foreground">{lastResult.conceptCount}/{lastResult.conceptsTotal} shared properties</span>
+                <span className="ml-auto text-xs text-muted-foreground">{clinicalSpec
+                  ? `${lastResult.conceptCount}/${clinicalSpec.commonPropertyTarget} target similarities`
+                  : `${lastResult.conceptCount}/${lastResult.conceptsTotal} shared properties`}</span>
               </div>
               {lastResult.transcript && (
                 <div className="bg-muted/30 rounded-lg p-2">
