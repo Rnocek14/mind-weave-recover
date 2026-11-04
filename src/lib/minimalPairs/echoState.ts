@@ -15,9 +15,9 @@
  * So the label is derived, never asserted: it may only say "listening" when the
  * recogniser reports that it is.
  */
-export type EchoStatus = 'idle' | 'arming' | 'listening' | 'heard' | 'skipped' | 'unavailable';
+export type EchoStatus = 'idle' | 'arming' | 'listening' | 'analyzing' | 'heard' | 'skipped' | 'unavailable' | 'analysis-unavailable';
 
-export type EchoLabel = 'get-ready' | 'one-moment' | 'listening' | 'heard' | 'moving-on' | 'mic-failed';
+export type EchoLabel = 'get-ready' | 'one-moment' | 'listening' | 'analyzing' | 'heard' | 'moving-on' | 'mic-failed' | 'analysis-unavailable';
 
 export function echoLabelFor(status: EchoStatus, recogniserIsListening: boolean): EchoLabel {
   switch (status) {
@@ -28,12 +28,16 @@ export function echoLabelFor(status: EchoStatus, recogniserIsListening: boolean)
     case 'listening':
       // The load-bearing line. Status alone is not evidence of a microphone.
       return recogniserIsListening ? 'listening' : 'one-moment';
+    case 'analyzing':
+      return 'analyzing';
     case 'heard':
       return 'heard';
     case 'skipped':
       return 'moving-on';
     case 'unavailable':
       return 'mic-failed';
+    case 'analysis-unavailable':
+      return 'analysis-unavailable';
   }
 }
 
@@ -45,5 +49,5 @@ export function echoLabelFor(status: EchoStatus, recogniserIsListening: boolean)
  * they cannot complete is worse than moving on.
  */
 export function echoIsDone(status: EchoStatus): boolean {
-  return status === 'heard' || status === 'skipped' || status === 'unavailable';
+  return status === 'heard' || status === 'skipped' || status === 'unavailable' || status === 'analysis-unavailable';
 }

@@ -34,7 +34,7 @@ describe('the label may not claim a microphone it does not have', () => {
   });
 
   it('is total — every status has a label', () => {
-    const all: EchoStatus[] = ['idle', 'arming', 'listening', 'heard', 'skipped', 'unavailable'];
+    const all: EchoStatus[] = ['idle', 'arming', 'listening', 'analyzing', 'heard', 'skipped', 'unavailable', 'analysis-unavailable'];
     for (const s of all) {
       for (const live of [true, false]) {
         expect(echoLabelFor(s, live), `${s}/${live}`).toBeTruthy();
@@ -48,6 +48,7 @@ describe('a microphone that never opened must not strand the round', () => {
     // Not something the person can resolve by trying harder. Parking the round
     // on a step they cannot complete is worse than moving on.
     expect(echoIsDone('unavailable')).toBe(true);
+    expect(echoIsDone('analysis-unavailable')).toBe(true);
     expect(echoIsDone('skipped')).toBe(true);
     expect(echoIsDone('heard')).toBe(true);
   });
@@ -56,5 +57,6 @@ describe('a microphone that never opened must not strand the round', () => {
     expect(echoIsDone('idle')).toBe(false);
     expect(echoIsDone('arming')).toBe(false);
     expect(echoIsDone('listening')).toBe(false);
+    expect(echoIsDone('analyzing')).toBe(false);
   });
 });

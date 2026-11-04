@@ -5,16 +5,16 @@
  * User hears a word and must select the matching image.
  */
 
-import { useEffect, useRef, useMemo, useCallback, useState } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { echoLabelFor, echoIsDone, type EchoStatus } from '@/lib/minimalPairs/echoState';
+import { useMinimalPairsEcho } from '@/hooks/useMinimalPairsEcho';
+import { echoLabelFor, echoIsDone } from '@/lib/minimalPairs/echoState';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy, Mic } from 'lucide-react';
 import { StructuredFeedbackSummary } from '@/components/StructuredFeedbackSummary';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,6 @@ import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadg
 import { AdaptationNarrationCard } from '@/components/AdaptationNarrationCard';
 import { mapEngineLevelToMinimalPairsTier } from '@/data/minimalPairsBank';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
-import { voiceController } from '@/lib/voiceController';
 
 interface MinimalPairsGameProps {
   difficulty?: number;
@@ -54,6 +53,10 @@ interface MinimalPairsGameProps {
     audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
+    echoAnalysisStatus?: 'analyzed' | 'unavailable' | 'mic_unavailable' | 'skipped' | 'not_requested';
+    echoAccuracyScore?: number;
+    echoPronunciationScore?: number;
+    echoPronRequestId?: string;
     /** Real measured response latency (ms) from trial display to answer. */
     reactionTimeMs: number;
   }) => void;
@@ -127,121 +130,24 @@ export function MinimalPairsGame({
 
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
 
-  // ============ Optional 'Say it' echo phase ============
-  // Exposure, NOT evaluation. Never marks user wrong, never blocks progression.
-
-  const [echoStatus, setEchoStatus] = useState<EchoStatus>('idle');
-  const [echoTranscript, setEchoTranscript] = useState('');
-  const echoActiveRef = useRef(false);
-  const echoTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const speech = useSpeechRecognition({
-    onResult: (t) => {
-      if (!echoActiveRef.current) return;
-      setEchoTranscript(t);
-      setEchoStatus('heard');
-    },
-    continuousListening: false,
-    enabled: true,
-  });
-
-  /**
-   * 'arming' becomes 'listening' only when the recogniser actually reports it,
-   * and becomes 'unavailable' if it never does.
-   *
-   * The old label was set optimistically and any refusal was swallowed, so the
-   * screen could say "Listening…" at someone while nothing was listening. In
-   * this game that is the whole interaction: they are being asked to say a
-   * word, and the only signal that it landed is that label.
-   */
-  useEffect(() => {
-    if (echoStatus !== 'arming') return;
-    if (speech.isListening) { setEchoStatus('listening'); return; }
-    const giveUp = setTimeout(() => {
-      setEchoStatus((s) => (s === 'arming' ? 'unavailable' : s));
-      echoActiveRef.current = false;
-    }, 2500);
-    return () => clearTimeout(giveUp);
-  }, [echoStatus, speech.isListening]);
-
-  // Depend on the stable callback, not the hook's freshly allocated return object.
-  // Otherwise the trial-reset effect below runs on every render and can loop.
-  const { stopListening, startListening, isSupported } = speech;
-  const stopEcho = useCallback(() => {
-    echoActiveRef.current = false;
-    if (echoTimerRef.current) { clearTimeout(echoTimerRef.current); echoTimerRef.current = null; }
-    try { stopListening(); } catch {}
-  }, [stopListening]);
-
-  const startEcho = useCallback(async () => {
-    if (!isSupported) {
-      setEchoStatus('skipped');
-      return;
-    }
-    echoActiveRef.current = true;
-    // NOT 'listening' yet — the mic is not open until startListening has
-    // actually succeeded, and this label is the only thing telling the person
-    // whether to speak. Saying "Listening…" over a dead mic is how you get
-    // someone with aphasia to say the word three times into nothing and
-    // conclude the app is broken. 'arming' shows an honest in-between.
-    setEchoStatus('arming');
-    setEchoTranscript('');
-    // Sync-Wait: target was just spoken in the feedback effect. Wait for the
-    // VoiceController tail-lock to clear (~400ms after TTS ends) instead of a
-    // fixed sleep — opens the mic as early as the protocol allows without
-    // capturing the audio tail. Bounded so a stuck flag can't hang the echo.
-    await voiceController.awaitMicSafe(1500);
-    if (!echoActiveRef.current) return;
-    // Don't swallow this. If the recogniser refuses — no instance, cooldown,
-    // permission denied — the person needs to be told, not left staring at a
-    // label that claims the microphone is on.
-    try {
-      startListening();
-    } catch (err) {
-      console.warn('[MinimalPairs] echo mic failed to start', err);
-      echoActiveRef.current = false;
-      setEchoStatus('unavailable');
-      return;
-    }
-    // Auto-stop window — exposure, not evaluation. 7s: aphasic speech onset
-    // is slow, and the previous 4s window closed on patients mid-attempt.
-    // Guard on the ref, not `echoStatus`: this closure captured 'idle' (the
-    // only state startEcho can be invoked from), so a state check here is
-    // always false and the auto-stop never fired — a silent echo then hung
-    // until the 12s fallback instead of moving on.
-    echoTimerRef.current = setTimeout(() => {
-      if (echoActiveRef.current) {
-        stopEcho();
-        setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
-      }
-    }, 7000);
-  }, [isSupported, startListening, stopEcho]);
-
-  const handleEchoSaidIt = useCallback(() => {
-    stopEcho();
-    setEchoStatus('heard');
-  }, [stopEcho]);
-
-  const handleEchoSkip = useCallback(() => {
-    stopEcho();
-    setEchoStatus('skipped');
-  }, [stopEcho]);
-
-  // Reset echo on each new trial
-  useEffect(() => {
-    stopEcho();
-    setEchoStatus('idle');
-    setEchoTranscript('');
-  }, [trialIndex, stopEcho]);
-
-  useEffect(() => () => stopEcho(), [stopEcho]);
-
+  // Optional spoken repetition is a separate, provider-measured observation.
+  // Never use its score as the picture-discrimination result or for adaptation.
+  const {
+    status: echoStatus,
+    analysis: echoAnalysis,
+    start: startEcho,
+    finish: finishEcho,
+    skip: skipEcho,
+    isSupported: echoMicSupported,
+  } = useMinimalPairsEcho(trialIndex);
 
   // Track trial completions for adaptation
   const trialStartRef = useRef(Date.now());
+  const answerLatencyMsRef = useRef<number | null>(null);
   useEffect(() => {
     if (currentTrial && !showFeedback) {
       trialStartRef.current = Date.now();
+      answerLatencyMsRef.current = null;
     }
   }, [currentTrial, showFeedback]);
 
@@ -331,11 +237,20 @@ export function MinimalPairsGame({
       isCorrect: state.isCorrect ?? false,
       pair: { word1: currentTrial.pair.word1, word2: currentTrial.pair.word2 },
       audioReplayCount: audioReplayCountRef.current,
-      echoAttempted: echoStatus === 'heard',
-      echoTranscript: echoStatus === 'heard' ? echoTranscript : undefined,
-      reactionTimeMs: Math.max(0, Date.now() - trialStartRef.current),
+      echoAttempted: echoStatus === 'heard' || echoStatus === 'analysis-unavailable',
+      echoTranscript: echoStatus === 'heard' ? echoAnalysis?.transcript : undefined,
+      echoAnalysisStatus: echoStatus === 'heard'
+        ? 'analyzed' : echoStatus === 'analysis-unavailable'
+        ? 'unavailable' : echoStatus === 'unavailable'
+        ? 'mic_unavailable' : echoStatus === 'skipped'
+        ? 'skipped' : 'not_requested',
+      echoAccuracyScore: echoStatus === 'heard' ? echoAnalysis?.accuracyScore : undefined,
+      echoPronunciationScore: echoStatus === 'heard' ? echoAnalysis?.pronunciationScore : undefined,
+      echoPronRequestId: echoStatus === 'heard' ? echoAnalysis?.pronRequestId : undefined,
+      // Measured when the patient tapped, NOT after TTS/recording/Azure.
+      reactionTimeMs: answerLatencyMsRef.current ?? Math.max(0, Date.now() - trialStartRef.current),
     });
-  }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoTranscript, onTrialComplete]);
+  }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoAnalysis, onTrialComplete]);
 
   // Auto-advance after selection — aphasia-friendly pacing.
   // Incorrect: 5s so the patient can actually read the contrast info.
@@ -347,13 +262,19 @@ export function MinimalPairsGame({
         const t = setTimeout(() => { nextTrial(); }, 3500);
         return () => clearTimeout(t);
       }
-      // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
-      const fallback = setTimeout(() => { nextTrial(); }, 12000);
+      // Stage-specific safety net, not a single deadline starting at picture
+      // selection: long Maya audio + aphasic onset + an Azure response can exceed
+      // that deadline even when every stage succeeds.
+      const fallbackMs = echoStatus === 'idle' ? 15000
+        : echoStatus === 'arming' ? 9000
+        : echoStatus === 'listening' ? 10000
+        : 13000; // analyzing; hook also has its own bounded provider timeout
+      const fallback = setTimeout(() => { skipEcho(); }, fallbackMs);
       return () => clearTimeout(fallback);
     }
     const t = setTimeout(() => { nextTrial(); }, 5000);
     return () => clearTimeout(t);
-  }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial]);
+  }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial, skipEcho]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
   // First time, spell the step out loud — "select then say" is a two-step
@@ -375,11 +296,10 @@ export function MinimalPairsGame({
         }
       } catch {}
       if (cancelled) return;
-      startEcho();
+      void startEcho(currentTrial!.targetWord);
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showFeedback, isComplete, state.isCorrect, trialIndex]);
+  }, [showFeedback, isComplete, state.isCorrect, trialIndex, currentTrial, speak, startEcho]);
 
   
   if (!currentTrial && !isComplete) {
@@ -530,7 +450,13 @@ export function MinimalPairsGame({
           return (
             <button
               key={index}
-              onClick={() => !showFeedback && selectAnswer(index as 0 | 1)}
+              onClick={() => {
+                if (showFeedback) return;
+                if (answerLatencyMsRef.current === null) {
+                  answerLatencyMsRef.current = Math.max(0, Date.now() - trialStartRef.current);
+                }
+                selectAnswer(index as 0 | 1);
+              }}
               disabled={showFeedback}
               className={cn(
                 "relative rounded-xl overflow-hidden border-3 transition-all duration-200",
@@ -583,53 +509,60 @@ export function MinimalPairsGame({
         })}
       </div>
       
-      {/* Optional 'Say it' echo — exposure only, never penalized */}
+      {/* Optional production practice: independent of picture-discrimination scoring. */}
       {showFeedback && state.isCorrect && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm">
-              {/* 'idle' = mic NOT open yet (Maya is re-speaking the word first).
-                  Say "get ready" so the patient doesn't speak into a dead mic. */}
-              {/* Derived, never asserted — see echoState.echoLabelFor. */}
-              {(() => {
-                switch (echoLabelFor(echoStatus, speech.isListening)) {
-                  case 'get-ready':
-                    return <>Get ready to say: <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>;
-                  case 'one-moment':
-                    return <>One moment…</>;
-                  case 'listening':
-                    return <>Listening… say <span className="font-bold text-primary">"{currentTrial.targetWord}"</span></>;
-                  case 'mic-failed':
-                    return <span className="text-muted-foreground">The microphone didn't open — tap Skip to carry on.</span>;
-                  default:
-                    return null;
-                }
-              })()}
-              {echoStatus === 'heard' && (
-                <>Nice — that sounded close.{echoTranscript ? <span className="text-muted-foreground"> ({echoTranscript})</span> : null}</>
+            <div className="min-w-0 space-y-1" aria-live="polite">
+              {echoLabelFor(echoStatus, echoStatus === 'listening') === 'get-ready' && (
+                <p className="text-sm">Get ready to say: <strong className="text-primary">"{currentTrial.targetWord}"</strong></p>
               )}
-              {echoStatus === 'skipped' && <span className="text-muted-foreground">No problem — moving on.</span>}
-            </p>
+              {echoLabelFor(echoStatus, echoStatus === 'listening') === 'one-moment' && (
+                <p className="text-sm">Preparing microphone…</p>
+              )}
+              {echoStatus === 'listening' && (
+                <p className="text-sm font-medium">Listening — say <strong className="text-primary">"{currentTrial.targetWord}"</strong></p>
+              )}
+              {echoStatus === 'analyzing' && (
+                <p className="text-sm">Analyzing your recorded speech…</p>
+              )}
+              {echoStatus === 'heard' && echoAnalysis && (
+                <>
+                  <p className="text-sm font-medium">Pronunciation estimate: {Math.round(echoAnalysis.accuracyScore)} / 100</p>
+                  {echoAnalysis.transcript.trim() && (
+                    <p className="text-xs text-muted-foreground">Recognized speech: "{echoAnalysis.transcript}"</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">Speech estimate only — the picture answer is scored separately.</p>
+                </>
+              )}
+              {echoStatus === 'unavailable' && (
+                <p className="text-sm text-muted-foreground">The microphone couldn't record this attempt. Moving on without a speech score.</p>
+              )}
+              {echoStatus === 'analysis-unavailable' && (
+                <p className="text-sm text-muted-foreground">Speech analysis was unavailable. Your spoken attempt is not marked wrong.</p>
+              )}
+              {echoStatus === 'skipped' && (
+                <p className="text-sm text-muted-foreground">No problem — moving on without a speech score.</p>
+              )}
+            </div>
             <div className="flex items-center gap-1 shrink-0">
-              {echoStatus === 'listening' || echoStatus === 'arming' ? (
-                <Button onClick={handleEchoSaidIt} size="sm" variant="secondary" className="gap-1">
-                  <Mic className="w-3.5 h-3.5" /> I said it
+              {echoStatus === 'listening' && (
+                <Button onClick={() => { void finishEcho(); }} size="sm" variant="secondary" className="gap-1">
+                  <Mic className="w-3.5 h-3.5" /> Done speaking
                 </Button>
-              ) : echoStatus === 'idle' ? (
-                <Button onClick={startEcho} size="sm" variant="secondary" className="gap-1" disabled={!speech.isSupported}>
+              )}
+              {echoStatus === 'idle' && (
+                <Button onClick={() => { void startEcho(currentTrial.targetWord); }} size="sm" variant="secondary" className="gap-1" disabled={!echoMicSupported}>
                   <Mic className="w-3.5 h-3.5" /> Say it
                 </Button>
-              ) : null}
-              {(echoStatus === 'idle' || echoStatus === 'arming' || echoStatus === 'listening' || echoStatus === 'unavailable') && (
-                <Button onClick={handleEchoSkip} variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+              )}
+              {['idle', 'arming', 'listening', 'analyzing'].includes(echoStatus) && (
+                <Button onClick={skipEcho} variant="ghost" size="sm" className="gap-1 text-muted-foreground">
                   Skip <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               )}
             </div>
           </div>
-          {!speech.isSupported && echoStatus === 'idle' && (
-            <p className="text-xs text-muted-foreground mt-1">Mic not available — tap Skip to continue.</p>
-          )}
         </div>
       )}
 
@@ -646,7 +579,10 @@ export function MinimalPairsGame({
               {currentTrial.pair.contrastDescription}
             </p>
           </div>
-          <Button onClick={nextTrial} variant="ghost" size="sm" className="gap-1 shrink-0 ml-3 text-muted-foreground">
+          <Button onClick={() => {
+            if (state.isCorrect && !echoIsDone(echoStatus)) skipEcho();
+            else nextTrial();
+          }} variant="ghost" size="sm" className="gap-1 shrink-0 ml-3 text-muted-foreground">
             Skip
             <ArrowRight className="w-3.5 h-3.5" />
           </Button>

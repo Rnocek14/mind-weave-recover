@@ -211,6 +211,10 @@ export default function MinimalPairsExercise() {
     audioReplayCount: number;
     echoAttempted?: boolean;
     echoTranscript?: string;
+    echoAnalysisStatus?: 'analyzed' | 'unavailable' | 'mic_unavailable' | 'skipped' | 'not_requested';
+    echoAccuracyScore?: number;
+    echoPronunciationScore?: number;
+    echoPronRequestId?: string;
     reactionTimeMs: number;
   }) => {
     const supportUsed = mapMinimalPairsSupport({
@@ -242,6 +246,12 @@ export default function MinimalPairsExercise() {
         audio_replay_count: trialData.audioReplayCount,
         echo_attempted: !!trialData.echoAttempted,
         echo_transcript: trialData.echoTranscript ?? null,
+        // Distinct provider-derived speech evidence, never the score used for
+        // auditory discrimination or clinical level progression.
+        echo_analysis_status: trialData.echoAnalysisStatus ?? 'not_requested',
+        echo_accuracy_score: trialData.echoAccuracyScore ?? null,
+        echo_pronunciation_score: trialData.echoPronunciationScore ?? null,
+        echo_pron_request_id: trialData.echoPronRequestId ?? null,
         ...adaptationTelemetry,
       },
     });
