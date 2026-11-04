@@ -70,6 +70,7 @@ import { DESCRIBE_GUESS_CLINICAL_LEVELS, ABSTRACT_COMPARE_CLINICAL_LEVELS, THOUG
 import { NARRATIVE_RETELL_CLINICAL_LEVELS, type NarrativeRetellClinicalLevelSpec } from './progression/narrativeRetellClinicalLevels';
 import { CONVERSATION_COACH_LEVELS } from './progression/conversationCoachLevels';
 import { CONVERSATION_PARTNER_LEVELS } from './progression/conversationPartnerLevels';
+import { EARLY_PARTNER_STAGES } from './progression/conversationPartnerClinical';
 import type { DesignOfRecordLevelSpec } from './progression/_shared/designOfRecord';
 import type { SupportLevel } from './progression/clinicalProgression';
 import { deriveTierStatusFromSpec, type TierStatus } from './clinicalIntegrity';
@@ -443,13 +444,30 @@ export const CLINICAL_LADDER_REGISTRY: Record<string, ClinicalLadderEntry> = {
     slug: 'conversation-partner',
     axis: 'discourse',
     purpose: 'Ecologically valid dyadic conversation with a partner persona.',
-    status: 'design-only',
+    status: 'structural',
     track: 'expressive',
-    rows: designOnlyRows('conversation-partner', Object.values(CONVERSATION_PARTNER_LEVELS) as DesignOfRecordLevelSpec[]),
-    telemetryNote: 'Runtime rides conversation-partner agent loop with existing strategy switching. NOT routed into expressive mastery; not in ADOPTED_TRIAL_MODE_SLUGS.',
+    rows: [
+      ...Object.values(EARLY_PARTNER_STAGES).map(stage => {
+        const tier = deriveTierStatusFromSpec('conversation-partner', stage.level, stage);
+        return {
+          level: stage.level,
+          description: stage.objective,
+          targetSupport: stage.targetSupport,
+          minOnTargetAttempts: stage.minOnTargetAttempts,
+          minOnTargetAccuracy: stage.minOnTargetAccuracy,
+          readiness: stage.readiness,
+          tierStatus: tier.tierStatus,
+          tierStatusDetail: tier.tierStatusDetail,
+          contentTierLabel: stage.contentSelector.description,
+        };
+      }),
+      ...designOnlyRows('conversation-partner', Object.values(CONVERSATION_PARTNER_LEVELS)
+        .filter(spec => spec.level >= 4) as DesignOfRecordLevelSpec[]),
+    ],
+    telemetryNote: 'L1–L3 use scripted practical scenarios, one-/two-/three-turn demands, audible scaffold and verified persisted practice evidence. L4–L8 remain unimplemented; no expressive mastery adoption. LLM judging is a practice proxy, not validated clinical measurement.',
     evidenceBasis: {
       docPath: 'docs/clinical-evidence/conversation-partner.md',
-      tldr: 'SCA + Communication Partner Training meta-analyses (Simmons-Mackie et al.) + PACE + LPAA. Partner-load progression (predictable → naturalistic → unfamiliar → multi-party) is a clinically motivated design default mapped onto the existing partner-agent runtime. Design-of-record only — no per-level enforcement.',
+      tldr: 'Supported conversation (Kagan), PACE and CPT motivate functional exchanges. L1–L3 are provisional implemented product stages; L4–L8 remain planned. The one-word, cued, and independent progression thresholds await clinical calibration.',
     },
   },
   'synonym-generator': {
