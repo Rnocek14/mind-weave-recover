@@ -29,6 +29,15 @@ vi.mock('@/lib/progression/clinicalProgression', async (importOriginal) => {
           resolveLoad = res;
         }),
     ),
+    // Sentence Construction uses the checked reader: a rejected/RLS read
+    // must not be confused with a genuinely new patient row.
+    loadProgressionStateChecked: vi.fn(
+      () => new Promise((resolve) => {
+        resolveLoad = (state: unknown) => resolve({
+          state, verified: true, source: 'stored',
+        });
+      }),
+    ),
     saveProgressionState: vi.fn(async () => ({ ok: true })),
   };
 });

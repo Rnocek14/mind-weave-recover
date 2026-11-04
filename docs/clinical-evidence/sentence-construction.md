@@ -29,6 +29,14 @@ Mapping Therapy (thematic roles), Treatment of Underlying Forms (TUF), and Verb 
 - Actual sentence-bank difficulty and grammar focus are reported separately from the engine’s in-session difficulty; model support and response mode still need observational validation.
 - The persisted level advances only through the existing shared evidence/mastery rules after session completion. A mocked check does not establish live patient scoring or Supabase durability.
 
+## Saved progression safety
+
+The patient-specific progression hook now uses `loadProgressionStateChecked`. A real database read returning no row is a **new Level 1 profile**, but a failed/RLS-rejected read is **not** equivalent to a new profile. Patients can still practice the basic syntax level when a read fails or no profile exists; those unverified attempts cannot write a replacement `clinical_progression_state` row. This prevents a transient connection problem from resetting a learner with established progress.
+
+Clinical trials and the subsequent session flush are scoped to the current user/profile identity. Switching patients discards pending progression trials and hides the previous patient's displayed level. Repeated session completion cannot duplicate a successful progression flush. A failed save retains its buffered evidence for a retry. These are application-level protections; database conflict prevention, row ownership, verified transaction durability and account access still require isolated authenticated tests. The protected read does not change grammar targets, advancement thresholds, or cue weighting.
+
+The bank integrity regression now checks that each constrained syntax stimulus has all the tiles required to assemble its canonical answer, including repeated words, and that its documented advanced grammar cohorts are actually present. This is a content-structure check, **not** a speech-language pathologist's judgment of clinical appropriateness.
+
 ## Clinical and technical checks before rollout
 
 SLP reviews content for word frequency, appropriateness, sentence structure and patient accessibility. Perform real-device speech tests (including aphasic speech, background noise and self-captured TTS), isolated authenticated database write/read tests, and a no-regression rehearsal for the complete game/session lifecycle. Do not merge solely on the basis of synthetic unit tests.

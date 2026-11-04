@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   applySessionToState,
   defaultProgressionState,
-  loadProgressionState,
+  loadProgressionStateChecked,
   saveProgressionState,
   type ClinicalProgressionState,
   type SupportLevel,
@@ -50,133 +50,172 @@ export function useSentenceConstructionProgression({
   userId,
   profileId,
 }: UseSentenceConstructionProgressionArgs) {
+  const identity = userId && profileId
+    ? `${userId}/${profileId}/${SENTENCE_CONSTRUCTION_SLUG}`
+    : null;
+  // Synchronous ref protects against stale callbacks before useEffect runs
+  // when a caregiver or clinician switches the active patient.
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  const loadedIdentityRef = useRef<string | null>(null);
   const [state, setState] = useState<ClinicalProgressionState | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [loadStatus, setLoadStatus] = useState<'loading' | 'verified' | 'unverified'>('loading');
   const trialsRef = useRef<BufferedTrial[]>([]);
   const flushedRef = useRef(false);
+  const flushingRef = useRef(false);
 
   useEffect(() => {
-    // Ids missing (profile fetch failed/slow, or offline): fall back to the
-    // default Level 1 state immediately instead of leaving the exercise stuck
-    // on "Loading your progression…" forever — an aphasia patient cannot
-    // troubleshoot a frozen spinner. When the ids arrive this effect re-runs
-    // and loads the real persisted state (same pattern as Detective Mind /
-    // Photo Naming). Flush already no-ops without ids, so nothing mis-persists.
-    if (!userId || !profileId) {
+    let cancelled = false;
+    trialsRef.current = [];
+    flushedRef.current = false;
+    flushingRef.current = false;
+    loadedIdentityRef.current = null;
+    setLoadStatus('loading');
+
+    if (!identity || !userId || !profileId) {
+      // A missing active profile cannot block the exercise indefinitely.
+      // Default L1 is practice only: never save or overwrite a real patient.
       setState(defaultProgressionState({
         userId: userId ?? 'offline',
         profileId: profileId ?? 'offline',
         exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
       }));
-      setLoaded(true);
-      return;
+      setLoadStatus('unverified');
+      return () => { cancelled = true; };
     }
-    let cancelled = false;
-    void (async () => {
-      const loadedState = await loadProgressionState({
-        userId,
-        profileId,
-        exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
-      });
-      if (cancelled) return;
-      setState(loadedState);
-      setLoaded(true);
-      if (import.meta.env.DEV) {
-        console.debug('[SentenceConstructionProgression] loaded', {
-          currentLevel: loadedState.currentLevel,
-          progressPct: loadedState.progressPct,
-          supportBaseline: loadedState.supportBaseline,
-        });
-      }
-    })();
+
+    void loadProgressionStateChecked({
+      userId,
+      profileId,
+      exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
+    }).then(
+      result => {
+        if (cancelled || identityRef.current !== identity) return;
+        loadedIdentityRef.current = identity;
+        setState(result.state);
+        setLoadStatus(result.verified ? 'verified' : 'unverified');
+        if (!result.verified) {
+          console.warn(
+            '[SentenceConstructionProgression] saved level not verified; L1 practice only:',
+            result.error,
+          );
+        }
+      },
+      error => {
+        if (cancelled || identityRef.current !== identity) return;
+        loadedIdentityRef.current = identity;
+        setState(defaultProgressionState({
+          userId, profileId, exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
+        }));
+        setLoadStatus('unverified');
+        console.warn('[SentenceConstructionProgression] saved level unavailable; practice only', error);
+      },
+    );
     return () => { cancelled = true; };
-  }, [userId, profileId]);
+  }, [identity, userId, profileId]);
+
+  // Never expose the previous patient's level during a profile switch.
+  const matching = state &&
+    state.userId === (userId ?? 'offline') &&
+    state.profileId === (profileId ?? 'offline') &&
+    state.exerciseSlug === SENTENCE_CONSTRUCTION_SLUG ? state : null;
+  const loaded = !!matching && loadStatus !== 'loading' &&
+    (!identity || loadedIdentityRef.current === identity);
+  const verified = loaded && loadStatus === 'verified' && !!identity;
 
   const recordTrialOutcome = useCallback((trial: BufferedTrial) => {
+    // Raw exercise events remain available during L1 fallback practice, but
+    // failed/ambiguous reads must NEVER grant patient-level progress.
+    if (!verified || !identity || identityRef.current !== identity ||
+        loadedIdentityRef.current !== identity || flushedRef.current || flushingRef.current) return;
     trialsRef.current.push(trial);
-  }, []);
+  }, [verified, identity]);
 
   const flushAtSessionEnd = useCallback(
     async (params: { sessionId: string | null }) => {
-      if (flushedRef.current) return { ok: true, skipped: true as const };
-      const trials = trialsRef.current;
-      if (!userId || !profileId || trials.length === 0) {
-        flushedRef.current = true;
+      if (!verified || !identity || !matching || !params.sessionId ||
+          identityRef.current !== identity || loadedIdentityRef.current !== identity) {
+        return { ok: false, skipped: true as const, error: 'saved clinical level unverified; practice only' };
+      }
+      if (flushedRef.current || flushingRef.current || matching.lastSessionId === params.sessionId) {
+        return { ok: true, skipped: true as const };
+      }
+      const trials = [...trialsRef.current];
+      if (trials.length === 0) {
         return { ok: true, skipped: true as const };
       }
 
-      const prev =
-        state ??
-        defaultProgressionState({
-          userId,
-          profileId,
+      flushingRef.current = true;
+      try {
+        const prev = matching;
+        const level = prev.currentLevel;
+        const levelSpec = getSentenceConstructionLevelSpec(level);
+        const evidenceMet = evidenceMetForSentenceConstructionLevel(trials, level);
+        const progressDelta = calculateSentenceConstructionProgressDelta(trials, level);
+
+        const gate = await readMasteryGate({
+          profileId: prev.profileId,
           exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
+          difficulty: level,
         });
+        if (identityRef.current !== identity || loadedIdentityRef.current !== identity) {
+          return { ok: false, error: 'patient changed while clinical level was being saved' };
+        }
 
-      const level = prev.currentLevel;
-      const levelSpec = getSentenceConstructionLevelSpec(level);
-      const evidenceMet = evidenceMetForSentenceConstructionLevel(trials, level);
-      const progressDelta = calculateSentenceConstructionProgressDelta(trials, level);
+        const next = applySessionToState(
+          { ...prev, lastSessionId: params.sessionId },
+          {
+            trials,
+            evidenceMet,
+            progressDelta,
+            masteryVerdict: gate.verdict,
+            maxImplementedLevel: highestImplementedSentenceConstructionLevel(),
+          },
+        );
 
-      const gate = await readMasteryGate({
-        profileId,
-        exerciseSlug: SENTENCE_CONSTRUCTION_SLUG,
-        difficulty: prev.currentLevel,
-      });
-
-      const next = applySessionToState(
-        { ...prev, lastSessionId: params.sessionId ?? prev.lastSessionId },
-        {
-          trials,
-          evidenceMet,
-          progressDelta,
-          masteryVerdict: gate.verdict,
-          maxImplementedLevel: highestImplementedSentenceConstructionLevel(),
-        },
-      );
-
-      if (import.meta.env.DEV) {
-        console.log('[SentenceConstructionProgression] flush diagnostic', {
-          totalTrials: trials.length,
-          level,
-          levelSpec: {
-            description: levelSpec.description,
+        if (import.meta.env.DEV) {
+          console.debug('[SentenceConstructionProgression] flush diagnostic', {
+            sessionId: params.sessionId,
+            totalTrials: trials.length,
+            level,
             targetSupport: levelSpec.targetSupport,
             minOnTargetAttempts: levelSpec.minOnTargetAttempts,
-            minOnTargetAccuracy: levelSpec.minOnTargetAccuracy,
-          },
-          progressDelta: Number(progressDelta.toFixed(3)),
-          evidenceMet,
-          prev: { level: prev.currentLevel, pct: prev.progressPct, supportBaseline: prev.supportBaseline },
-          next: { level: next.currentLevel, pct: next.progressPct, supportBaseline: next.supportBaseline },
-        });
-      }
+            progressDelta: Number(progressDelta.toFixed(3)),
+            evidenceMet,
+          });
+        }
 
-      const result = await saveProgressionState(next);
-      const snapshot = {
-        prev: { level: prev.currentLevel, progressPct: prev.progressPct },
-        next: { level: next.currentLevel, progressPct: next.progressPct },
-        leveledUp: next.currentLevel > prev.currentLevel,
-        evidenceMet,
-        progressDelta,
-      };
-      if (result.ok) {
-        setState(next);
-        flushedRef.current = true;
-      } else {
-        console.warn('[SentenceConstructionProgression] persist failed:', result.error);
+        const result = await saveProgressionState(next);
+        const snapshot = {
+          prev: { level: prev.currentLevel, progressPct: prev.progressPct },
+          next: { level: next.currentLevel, progressPct: next.progressPct },
+          leveledUp: next.currentLevel > prev.currentLevel,
+          evidenceMet,
+          progressDelta,
+        };
+        if (result.ok && identityRef.current === identity) {
+          setState(next);
+          flushedRef.current = true;
+        } else if (!result.ok) {
+          console.warn('[SentenceConstructionProgression] persist failed:', result.error);
+        }
+        return { ...result, snapshot };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : 'clinical progress not saved' };
+      } finally {
+        flushingRef.current = false;
       }
-      return { ...result, snapshot };
     },
-    [userId, profileId, state],
+    [verified, identity, matching],
   );
 
   const bufferedTrialCount = useCallback(() => trialsRef.current.length, []);
 
   return {
-    state,
+    state: matching,
     loaded,
-    startingLevel: state?.currentLevel ?? null,
+    verified,
+    startingLevel: loaded ? matching?.currentLevel ?? null : null,
     recordTrialOutcome,
     flushAtSessionEnd,
     __bufferedTrialCount: bufferedTrialCount,
