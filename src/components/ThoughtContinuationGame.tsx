@@ -788,7 +788,15 @@ export function ThoughtContinuationGame({
     let continueSamePrompt = false;
     if (signal && didSpeak) {
       const { errorType, onTopicScore, successScore } = signal;
-      if (errorType === 'off_topic' || onTopicScore < 0.25) {
+      const clinicalGoalMet = clinicalLevel != null && validation.valid &&
+        errorType !== 'off_topic' && errorType !== 'surrender' && errorType !== 'no_response' &&
+        thoughtMeetsClinicalTarget(answerText, clinicalLevel, onTopicScore);
+      // A genuine on-topic one-word reply satisfies L1. Do not demand a
+      // three-word sentence or another complete clause from a severely
+      // aphasic person whose current practice goal is just one relevant word.
+      if (clinicalGoalMet) {
+        feedback = clinicalLevel <= 2 ? 'You shared your idea!' : 'Good work on this thought.';
+      } else if (errorType === 'off_topic' || onTopicScore < 0.25) {
         feedback = `Interesting — try to bring it back to: "${currentPrompt.promptText}"`;
         continueSamePrompt = true;
       } else if (errorType === 'surrender' || errorType === 'no_response') {
