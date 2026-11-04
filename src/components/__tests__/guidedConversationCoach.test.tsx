@@ -245,6 +245,19 @@ describe('Guided Conversation Coach — actual patient-facing voice flow', () =>
     expect(onClinicalTrial).not.toHaveBeenCalled();
   });
 
+  it('exit while microphone permission is pending cancels late recorder startup', async () => {
+    const permission = deferred<boolean>();
+    mocks.startRecording.mockImplementationOnce(() => permission.promise);
+    const view = mount(1);
+    fireEvent.click(screen.getByRole('button', { name: /hear maya$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    expect(mocks.startRecording).toHaveBeenCalledTimes(1);
+    view.unmount();
+    await act(async () => permission.resolve(true));
+    expect(mocks.cancelRecording).toHaveBeenCalled();
+    expect(mocks.startListening).not.toHaveBeenCalled();
+  });
+
   it('unmount during Maya speech shuts down both audio systems without opening the mic', async () => {
     const opening = deferred<void>();
     mocks.speak.mockImplementationOnce(() => opening.promise);
