@@ -270,7 +270,7 @@ export function GuidedConversationCoach({
         inputs: {
           prompt: question, transcript: response,
           word_count: wordCount, task_goal: spec.taskGoal,
-          clinical_level: level, response_mode: 'spoken',
+          clinical_level: level, profile_id: profileId, response_mode: 'spoken',
           transcript_confirmed: true, support_used: support,
           selected_choice: selectedChoice,
           audio_storage_path: audioStoragePath,
