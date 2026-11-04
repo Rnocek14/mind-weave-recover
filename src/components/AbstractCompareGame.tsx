@@ -11,6 +11,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAbstractCompareGame, AbstractCompareTrialResult } from '@/hooks/useAbstractCompareGame';
+import { getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
@@ -52,6 +53,7 @@ interface AbstractCompareGameProps {
   onGameComplete: (results: AbstractCompareTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  clinicalLevel?: number | null;
   /** Auto-start mic on first trial (from lesson flow) */
   autoStart?: boolean;
 }
@@ -62,10 +64,12 @@ export function AbstractCompareGame({
   userId,
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
+  clinicalLevel,
   autoStart = false,
 }: AbstractCompareGameProps) {
+  const clinicalSpec = clinicalLevel == null ? null : getGradedTaskSpec('abstract-compare', clinicalLevel);
   const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem } =
-    useAbstractCompareGame(roundCount, tier);
+    useAbstractCompareGame(roundCount, tier, clinicalLevel);
 
   const { mode } = useCoachingMode();
   const vg = useVoiceGuidance('abstract-compare');
@@ -306,7 +310,10 @@ export function AbstractCompareGame({
     
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
-      const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
+      const validation = validateSpokenResponse({
+        transcript,
+        expectedMode: clinicalSpec?.commonPropertyTarget === 1 ? 'naming' : 'semantic_compare',
+      });
       trackValidation('abstract_compare', validation);
       logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
@@ -348,11 +355,13 @@ export function AbstractCompareGame({
       }
       
       if (result) {
+        result.responseMode = useTyping ? 'typed' : 'spoken';
+        result.scoringValid = validation.valid && Boolean(transcript.trim());
         setLastResult(result);
         setPhase('scored');
         onTrialComplete(result);
         // Feed adaptive engine: ≥0.6 coverage = "success", <0.3 = clear miss
-        const correctForAdaptation = result.coverageRatio >= 0.6;
+        const correctForAdaptation = clinicalSpec != null ? (result.clinicalMet === true && result.scoringValid === true) : result.coverageRatio >= 0.6;
         adaptation.recordTrial({
           correct: correctForAdaptation,
           reactionTimeMs: durationMs,
@@ -367,7 +376,7 @@ export function AbstractCompareGame({
         });
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya, clinicalSpec, useTyping]);
 
   // Keep ref to handleDone for typing-fallback path
   useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
@@ -395,8 +404,16 @@ export function AbstractCompareGame({
       resetAttempt();
     }
     
-    if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
+    if (result) {
+      result.responseMode = 'skip';
+      result.scoringValid = false;
+      setLastResult(result); setPhase('scored'); onTrialComplete(result);
+    }
   }, [stopListening, stopRecording, submitAnswer, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
+
+  const feedbackGoalMet = Boolean(lastResult && (clinicalSpec
+    ? lastResult.clinicalMet && lastResult.scoringValid
+    : lastResult.coverageRatio >= 0.6));
 
   if (!currentItem || isComplete) {
     const avgCoverage = results.length > 0 ? results.reduce((s, r) => s + r.coverageRatio, 0) / results.length : 0;
@@ -437,7 +454,7 @@ export function AbstractCompareGame({
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-2">
-          <p className="text-sm text-muted-foreground">How are these two things similar?</p>
+          <p className="text-sm text-muted-foreground">{clinicalSpec ? clinicalSpec.objective : 'How are these two things similar?'}</p>
           <div className="flex items-center justify-center gap-4 py-4">
             <span className="text-2xl font-bold text-primary">{currentItem.wordA}</span>
             <span className="text-muted-foreground text-lg">&</span>
@@ -520,17 +537,19 @@ export function AbstractCompareGame({
           delayMs={3000}
         >
           <Card className={cn("border-2 w-full",
-            lastResult.coverageRatio >= 0.6 ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
+            feedbackGoalMet ? "border-green-500 bg-green-50 dark:bg-green-950/20" :
             lastResult.coverageRatio >= 0.3 ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" :
             "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
           )}>
             <CardContent className="pt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{lastResult.coverageRatio >= 0.6 ? '🧠' : lastResult.coverageRatio >= 0.3 ? '👍' : '💡'}</span>
+                <span className="text-lg">{feedbackGoalMet ? '🧠' : lastResult.coverageRatio >= 0.3 ? '👍' : '💡'}</span>
                 <span className="font-bold text-sm">
-                  {lastResult.coverageRatio >= 0.6 ? 'Excellent thinking!' : lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
+                  {feedbackGoalMet ? (clinicalSpec ? 'Level goal met!' : 'Excellent thinking!') : lastResult.coverageRatio >= 0.3 ? 'Good connections!' : 'Keep exploring!'}
                 </span>
-                <span className="ml-auto text-xs text-muted-foreground">{lastResult.conceptCount}/{lastResult.conceptsTotal} shared properties</span>
+                <span className="ml-auto text-xs text-muted-foreground">{clinicalSpec
+                  ? `${lastResult.conceptCount}/${clinicalSpec.commonPropertyTarget} target similarities`
+                  : `${lastResult.conceptCount}/${lastResult.conceptsTotal} shared properties`}</span>
               </div>
               {lastResult.transcript && (
                 <div className="bg-muted/30 rounded-lg p-2">

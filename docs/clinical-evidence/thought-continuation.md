@@ -1,39 +1,24 @@
-# Thought Continuation — Clinical Evidence
+# Finish the Thought — Eight Clinical Practice Stages
 
-## Status: Design-of-record (Phase 2, Wave 4)
+## Status: Structural, L1–L8 playable (clinical review required)
 
-Published clinical design only. Runtime continues to ride the existing discourse adaptation engine. No progression hook, no difficulty bridge, no mastery routing, no per-level mastery enforcement.
+Saved progression selects an exact prompt *tier and intent*, not the arbitrary 1–10 in-game discourse level. L1 allows a relevant word; later stages require a longer reply, a reason, a conditional solution, or a comparison.
 
-## Clinical basis
-
-Open-ended thought continuation targets **propositional density** and **discourse cohesion**:
-
-- **Discourse-in-aphasia frameworks** — Wright & Capilouto; Armstrong — propositional density and cohesion as primary outcome dimensions.
-- **MacWhinney CHAT / CLAN discourse analysis** tradition — clause-by-clause coherence and connective use as scoring targets.
-- **Cognitive-communication rehab** — Sohlberg & Mateer — graded reflective tasks for executive-discourse integration after brain injury.
-
-The ladder advances on cohesion class: single on-topic proposition → multi-proposition coherent → multi-proposition with causal/temporal linking → reflective / hypothetical extension on novel prompts.
-
-## What is calibration, not literature
-
-- The 4-band complexity collapse (concrete → everyday → reflective → abstract/hypothetical) is a **clinically motivated design default** against the current `thoughtPromptBank`.
-- "Coherence", "connective use", and "reason-giving" credit at L4–L6 would require scoring infrastructure that does not yet exist at runtime.
-- Per-level accuracy bars / attempts are intentionally **not** specified.
-
-## Mastery routing
-
-- `submitTrial` is **not** wired through `useTrialSubmission`.
-- Slug `thought_continuation` is **NOT** added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials continue to flow through the discourse adaptation engine only.
-
-## Readiness
-
-| Level | Readiness | Notes |
+| Level | Prompt type | Practice demand |
 | --- | --- | --- |
-| L1–L8 | aspirational | No runtime ladder enforcement — design-of-record only. |
+| 1 | Recent familiar event | One meaningful, on-topic word |
+| 2 | Familiar event or preference | At least three words |
+| 3 | Everyday narrative | At least four words |
+| 4 | Everyday explanation | At least five words plus a linking word |
+| 5 | Feeling or opinion | At least six words |
+| 6 | Reflective explanation | At least eight words plus a linking word |
+| 7 | Hypothetical problem | At least ten words plus a linking word |
+| 8 | Comparison/contrast | At least twelve words |
 
-## Out of scope for this ship
+The existing thought-completion game keeps its supportive no-wrong-answer UX and adaptive nudges. The *separate clinical milestone* only receives a saved trial after raw telemetry persistence and a valid on-topic signal. No on-topic score means no progression evidence. An assistive narrowing hint reduces independence credit.
 
-- Propositional-density / cohesion scoring at runtime.
-- Novel-prompt bank for L8 and sustained-turn scoring.
-- Per-level mastery enforcement and promotion into `ADOPTED_TRIAL_MODE_SLUGS`.
+## Clinical basis and limits
+
+Discourse-in-aphasia, cohesion/propositional-density work (Wright & Capilouto; Armstrong), and cognitive-communication therapy motivate graded conversational extension. **Word count, presence of a connector and an automated on-topic estimate are practice proxies, not measured proposition counts or verified cohesion.** Higher levels are thin and need clinician review, aphasic-ASR assessment, longitudinal sensitivity checks and real-world transfer studies. This game does not claim to measure coherent causal reasoning merely because a patient uses “because.”
+
+A failed saved-level read becomes L1 *practice only* without changing saved progress.

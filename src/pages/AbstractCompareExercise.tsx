@@ -21,6 +21,8 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { useDynamicTier } from '@/hooks/useDynamicTier';
+import { useGradedTaskProgression } from '@/hooks/useGradedTaskProgression';
+import { getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { tierToLevel } from '@/lib/gameLevels';
 
 const EXERCISE_SLUG = 'abstract_compare';
@@ -35,6 +37,7 @@ export default function AbstractCompareExercise() {
   const scoreRef = useRef(0);
   const trialsRef = useRef(0);
   const startTimeRef = useRef(Date.now());
+  const trialWritesRef = useRef<Promise<void>>(Promise.resolve());
 
   const restored = useRestoredLessonContext(EXERCISE_SLUG);
   const { fromLesson, returnTo } = restored;
@@ -43,6 +46,11 @@ export default function AbstractCompareExercise() {
   const trialLimit = Number(location.state?.trialLimit) || 4;
 
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const progression = useGradedTaskProgression({
+    userId: user?.id, profileId: activeProfile?.id, slug: 'abstract-compare',
+  });
+  const clinicalLevel = progression.startingLevel ?? 1;
+  const clinicalSpec = getGradedTaskSpec('abstract-compare', clinicalLevel);
 
   // Shared adaptation contract (session-static seed)
   const adaptation = useSessionAdaptation({
@@ -82,7 +90,9 @@ export default function AbstractCompareExercise() {
     scoreRef.current += Math.round(result.coverageRatio * 100);
     trialsRef.current += 1;
 
-    const wasCorrect = result.coverageRatio >= 0.3;
+    const wasCorrect = result.clinicalLevel != null
+      ? result.clinicalMet === true && result.scoringValid === true
+      : result.coverageRatio >= 0.3;
 
     pivot.recordTrialResult({
       wasCorrect,
@@ -96,13 +106,19 @@ export default function AbstractCompareExercise() {
       errorType: wasCorrect ? undefined : 'low_coverage',
     });
 
-    logTrial({
+    const write = logTrial({
       correct: wasCorrect,
       reactionTimeMs: result.durationMs,
       taskParameters: {
         item_id: result.itemId, word_a: result.wordA, word_b: result.wordB,
         abstraction_level: result.abstractionLevel, trial_limit: trialLimit,
         tier: dynamicTier.currentTier,
+        clinical_level: clinicalLevel,
+        clinical_objective: clinicalSpec.objective,
+        clinical_target_properties: clinicalSpec.commonPropertyTarget,
+        clinical_target_met: result.clinicalMet ?? false,
+        response_mode: result.responseMode ?? 'unknown',
+        scoring_valid: result.scoringValid === true,
         // Universal 1–10 GameLevel for analytics + UI consistency
         game_level: tierToLevel(dynamicTier.currentTier, { min: 1, max: 3 }),
         ...adaptationTelemetry,
@@ -117,12 +133,22 @@ export default function AbstractCompareExercise() {
         },
         depth: result.depthTelemetry,
       },
-    });
-  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot]);
+    }).then(persisted => {
+      if (persisted && progression.verified && result.responseMode === 'spoken' && result.scoringValid === true) {
+        progression.recordTrialOutcome({
+          correct: wasCorrect, support: 'independent', stimulusId: result.itemId,
+        });
+      }
+    }).catch(error => console.warn('[AbstractCompare] clinical trial not confirmed', error));
+    trialWritesRef.current = Promise.all([trialWritesRef.current, write]).then(() => {});
+  }, [activeSessionId, logTrial, trialLimit, adaptationTelemetry, dynamicTier, pivot, clinicalLevel, clinicalSpec, progression.verified, progression.recordTrialOutcome]);
 
-  const handleGameComplete = useCallback((results: AbstractCompareTrialResult[]) => {
+  const handleGameComplete = useCallback(async (results: AbstractCompareTrialResult[]) => {
+    await trialWritesRef.current;
+    const saved = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+    if (!saved.ok) console.warn('[AbstractCompare] clinical level not stored:', saved.error);
     setCompleted(true);
-    completeSession();
+    await completeSession();
     if (fromLesson && !exerciseCompleteSentRef.current) {
       exerciseCompleteSentRef.current = true;
       setTimeout(() => {
@@ -130,7 +156,7 @@ export default function AbstractCompareExercise() {
         navigate(returnTo, { state: { resuming: true }, replace: true });
       }, 400);
     }
-  }, [fromLesson, completeSession]);
+  }, [fromLesson, completeSession, progression.flushAtSessionEnd, activeSessionId]);
 
   const handleBack = useCallback(() => {
     if (fromLesson) {
@@ -149,7 +175,7 @@ export default function AbstractCompareExercise() {
     } else if (!fromLesson) navigate('/today');
   }, [fromLesson, navigate]);
 
-  if (isCreatingSession || !activeSessionId) {
+  if (isCreatingSession || !activeSessionId || !user?.id || !activeProfile?.id || !progression.loaded) {
     return <ExerciseLoading />;
   }
 
@@ -174,7 +200,7 @@ export default function AbstractCompareExercise() {
             {!fromLesson && <Button onClick={handleContinue} size="lg">Continue</Button>}
           </div>
         ) : (
-          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
+          <AbstractCompareGame onTrialComplete={handleTrialComplete} onGameComplete={handleGameComplete} roundCount={trialLimit} tier={dynamicTier.currentTier} clinicalLevel={clinicalLevel} userId={user?.id} sessionId={activeSessionId} autoStart={fromLesson} />
         )}
       </main>
       {fromLesson && <SessionSidePanel />}

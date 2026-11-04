@@ -9,7 +9,10 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { ThoughtContinuationGame } from '@/components/ThoughtContinuationGame';
+import { ThoughtContinuationGame, type ThoughtClinicalTrialResult } from '@/components/ThoughtContinuationGame';
+import { useGradedTaskProgression } from '@/hooks/useGradedTaskProgression';
+import { useExerciseTelemetry } from '@/hooks/useExerciseTelemetry';
+import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, MessageSquare, TrendingUp, CheckCircle2, Sparkles } from 'lucide-react';
@@ -43,6 +46,44 @@ export default function ThoughtContinuationExercise() {
   // sweeper). Parent-owned lesson sessions are auto-detected and left alone.
   const sessionStartRef = useRef(Date.now());
   const promptsRef = useRef(0);
+  const trialWritesRef = useRef<Promise<void>>(Promise.resolve());
+  const progression = useGradedTaskProgression({
+    userId: user?.id, profileId: activeProfile?.id, slug: 'thought-continuation',
+  });
+  const clinicalLevel = progression.startingLevel ?? 1;
+  const { logTrial } = useExerciseTelemetry(activeSessionId, normalizeExerciseSlug(EXERCISE_SLUG));
+  const handleClinicalTrial = useCallback((result: ThoughtClinicalTrialResult) => {
+    if (!activeSessionId) return;
+    const write = logTrial({
+      correct: result.correct,
+      reactionTimeMs: result.reactionTimeMs,
+      cueLevel: result.support === 'independent' ? 0 : 1,
+      errorType: result.skipped ? 'skipped' : result.scoringValid ? (result.correct ? 'correct' : 'below_clinical_task_target') : 'unscorable',
+      taskParameters: {
+        clinical_level: result.clinicalLevel,
+        prompt_id: result.promptId,
+        response_mode: result.skipped ? 'skip' : 'spoken',
+        scoring_valid: result.scoringValid,
+        skipped: result.skipped,
+        support_used: result.support,
+      },
+      trialOutputs: {
+        clinicalPractice: {
+          metTarget: result.correct,
+          onTopicScore: result.onTopicScore,
+          transcriptAvailable: Boolean(result.transcript),
+        },
+      },
+    }).then(saved => {
+      if (saved && progression.verified && result.scoringValid && !result.skipped) {
+        progression.recordTrialOutcome({
+          correct: result.correct, support: result.support, stimulusId: result.promptId,
+        });
+      }
+    }).catch(error => console.warn('[ThoughtContinuation] trial not confirmed', error));
+    trialWritesRef.current = Promise.all([trialWritesRef.current, write]).then(() => {});
+  }, [activeSessionId, logTrial, progression.verified, progression.recordTrialOutcome]);
+
   const getSessionStats = useCallback(() => ({
     score: 0, // open-ended discourse task — prompts spoken are the dose signal
     totalTrials: promptsRef.current,
@@ -78,7 +119,7 @@ export default function ThoughtContinuationExercise() {
     setGameStarted(true);
   };
 
-  const handleComplete = (summary: {
+  const handleComplete = async (summary: {
     totalPrompts: number;
     promptsSpoken: number;
     avgMomentumScore: number;
@@ -87,7 +128,10 @@ export default function ThoughtContinuationExercise() {
     setSessionSummary(summary);
     setGameStarted(false);
     promptsRef.current = summary.promptsSpoken;
-    void completeSession();
+    await trialWritesRef.current;
+    const saved = await progression.flushAtSessionEnd({ sessionId: activeSessionId });
+    if (!saved.ok) console.warn('[ThoughtContinuation] clinical level not stored:', saved.error);
+    await completeSession();
 
     // Auto-return to lesson flow
     if (fromLesson && !exerciseCompleteSentRef.current) {
@@ -122,8 +166,8 @@ export default function ThoughtContinuationExercise() {
   }, [fromLesson, navigate]);
 
   const handlePlayAgain = () => {
-    setSessionSummary(null);
-    setGameStarted(true);
+    // A new attempt must start a new session and reload its persisted level.
+    window.location.assign('/exercise/thought-continuation');
   };
 
   // Not logged in
@@ -208,6 +252,9 @@ export default function ThoughtContinuationExercise() {
 
   // Game in progress
   if (gameStarted) {
+    if (isCreatingSession || !activeSessionId || !progression.loaded) {
+      return <div className="min-h-dvh flex items-center justify-center p-6">Loading clinical practice…</div>;
+    }
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4">
@@ -227,6 +274,8 @@ export default function ThoughtContinuationExercise() {
             userId={user.id}
             profileId={activeProfile.id}
             sessionId={activeSessionId}
+            clinicalLevel={clinicalLevel}
+            onClinicalTrial={handleClinicalTrial}
             onComplete={handleComplete}
             onExit={handleExit}
           />

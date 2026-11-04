@@ -407,6 +407,52 @@ export async function loadProgressionState(params: {
 }
 
 /**
+ * Opt-in verified read for clinically graded games.
+ * Network/RLS/query errors are NOT equivalent to an empty profile. On error
+ * the game may offer safe L1 practice, but MUST NOT overwrite a prior level.
+ * Keep the legacy loadProgressionState behavior for unrelated games.
+ */
+export interface VerifiedProgressionLoad {
+  state: ClinicalProgressionState;
+  verified: boolean;
+  source: 'stored' | 'new' | 'unverified';
+  error?: string;
+}
+
+export async function loadProgressionStateChecked(params: {
+  userId: string;
+  profileId: string;
+  exerciseSlug: string;
+}): Promise<VerifiedProgressionLoad> {
+  const fallback = defaultProgressionState(params);
+  try {
+    const { data, error } = await (supabase as any)
+      .from('clinical_progression_state')
+      .select('*')
+      .eq('profile_id', params.profileId)
+      .eq('exercise_slug', params.exerciseSlug)
+      .maybeSingle();
+    if (error) return {
+      state: fallback, verified: false, source: 'unverified',
+      error: error.message || 'clinical progression read failed',
+    };
+    if (!data) return { state: fallback, verified: true, source: 'new' };
+    const row = data as DbRow;
+    if (row.user_id !== params.userId || row.profile_id !== params.profileId ||
+        row.exercise_slug !== params.exerciseSlug ||
+        !Number.isFinite(Number(row.current_level)) ||
+        !Number.isFinite(Number(row.progress_pct))) {
+      return { state: fallback, verified: false, source: 'unverified',
+        error: 'saved clinical level identity or numeric fields invalid' };
+    }
+    return { state: fromRow(row), verified: true, source: 'stored' };
+  } catch (cause) {
+    return { state: fallback, verified: false, source: 'unverified',
+      error: cause instanceof Error ? cause.message : 'clinical progression unavailable' };
+  }
+}
+
+/**
  * Upsert progression state at session end.
  *
  * Also appends an immutable row to `progression_events` capturing the

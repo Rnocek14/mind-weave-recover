@@ -22,6 +22,8 @@ import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 import { MINIMAL_PAIRS_LEVELS } from '@/lib/progression/minimalPairsLevels';
 import { SENTENCE_CONSTRUCTION_LEVELS } from '@/lib/progression/sentenceConstructionLevels';
 import { NARRATIVE_RETELL_CLINICAL_LEVELS } from '@/lib/progression/narrativeRetellClinicalLevels';
+import { DESCRIBE_GUESS_CLINICAL_LEVELS, ABSTRACT_COMPARE_CLINICAL_LEVELS,
+  THOUGHT_CONTINUATION_CLINICAL_LEVELS } from '@/lib/progression/gradedTaskLevels';
 
 type LevelsMap = Record<number | string, {
   contentSelector?: { implemented?: boolean; description?: string };
@@ -33,6 +35,9 @@ const REGISTRY: Record<string, LevelsMap> = {
   'minimal-pairs': MINIMAL_PAIRS_LEVELS as unknown as LevelsMap,
   'sentence-construction': SENTENCE_CONSTRUCTION_LEVELS as unknown as LevelsMap,
   'narrative-retell': NARRATIVE_RETELL_CLINICAL_LEVELS as unknown as LevelsMap,
+  'describe-guess': DESCRIBE_GUESS_CLINICAL_LEVELS as unknown as LevelsMap,
+  'abstract-compare': ABSTRACT_COMPARE_CLINICAL_LEVELS as unknown as LevelsMap,
+  'thought-continuation': THOUGHT_CONTINUATION_CLINICAL_LEVELS as unknown as LevelsMap,
 };
 
 describe('KNOWN_CAVEATS ↔ level-spec drift', () => {

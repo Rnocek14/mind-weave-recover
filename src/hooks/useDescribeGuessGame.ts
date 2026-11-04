@@ -27,6 +27,7 @@ import { extractAnswerFromTranscript, getContentWordCount } from '@/lib/speechNo
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
 import { useGameSounds } from '@/hooks/useGameSounds';
+import { getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 
 export interface DescribeGuessTrialResult {
   trialId: string;
@@ -37,6 +38,10 @@ export interface DescribeGuessTrialResult {
   strategyWin: boolean;     // Used 2+ feature types
   communicationWin: boolean; // Produced meaningful speech
   featureTypesUsed: FeatureType[];
+  /** Features the patient SAID, excluding help chips. */
+  spokenFeatureTypes: FeatureType[];
+  /** Recording input mode is populated by the owning game component. */
+  responseMode?: 'spoken' | 'typed' | 'skip';
   guessConfidence: number;
   promptsShown: string[];
   timeToWordRetrievalMs: number | null;
@@ -72,6 +77,7 @@ interface GuessResult {
 interface UseDescribeGuessGameOptions {
   trialCount?: number;
   difficulty?: number;
+  clinicalLevel?: number | null;
   onTrialComplete?: (result: DescribeGuessTrialResult) => void;
   onGameComplete?: (results: DescribeGuessTrialResult[]) => void;
 }
@@ -80,6 +86,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const {
     trialCount = 8,
     difficulty = 2,
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   } = options;
@@ -92,9 +99,13 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   // CRITICAL: difficulty is intentionally NOT a dep below — mid-session
   // changes must NOT reset score/progress. Use setActiveDifficulty().
   const initialTrials = useMemo(
-    () => getDescribeGuessTrials({ difficulty, count: trialCount }),
+    () => getDescribeGuessTrials({
+      difficulty: clinicalLevel != null ? undefined : difficulty,
+      clinicalTier: clinicalLevel != null ? getGradedTaskSpec('describe-guess', clinicalLevel).tier : undefined,
+      count: trialCount,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trialCount]
+    [trialCount, clinicalLevel]
   );
 
   const [trials, setTrials] = useState(initialTrials);
@@ -121,6 +132,8 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
    * Preserves currentIndex, results, attempt history.
    */
   const setActiveDifficulty = useCallback((newLevel: number) => {
+    // Persisted syntax/feature demand cannot be bypassed by an in-game tier swap.
+    if (clinicalLevel != null) return;
     setTrials(prev => {
       const upcomingNeeded = prev.length - (currentIndex + 1);
       if (upcomingNeeded <= 0) return prev;
@@ -134,7 +147,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
         : fresh;
       return [...prev.slice(0, currentIndex + 1), ...padded];
     });
-  }, [currentIndex]);
+  }, [currentIndex, clinicalLevel]);
 
   /**
    * Check if user said the target word directly (local match)
@@ -230,7 +243,10 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     // Universal validation pipeline — rejects empty, filler, instruction echo
     const validation = validateSpokenResponse({
       transcript,
-      expectedMode: 'description',
+      // Early feature-production tasks allow brief one-/two-word features.
+      // Still validate against filler and echo, and only actual identified
+      // feature dimensions can meet the clinical target.
+      expectedMode: clinicalLevel != null && clinicalLevel <= 3 ? 'naming' : 'description',
     });
 
     trackValidation('describe_guess', validation);
@@ -349,7 +365,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     });
 
     return { guessed, confidence, bestWord, bestSimilarity, top3Avg, featureCount, rulesPassed };
-  }, [featureTypesUsed, detectFeatureKeywords]);
+  }, [featureTypesUsed, detectFeatureKeywords, clinicalLevel]);
 
   /**
    * Finalize a trial with full result
@@ -392,6 +408,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
       strategyWin,
       communicationWin,
       featureTypesUsed: allFeatures,
+      spokenFeatureTypes: spokenFeatures,
       guessConfidence: guessResult.confidence,
       promptsShown: [...promptsShown],
       timeToWordRetrievalMs: wordRetrievalTimeRef.current,

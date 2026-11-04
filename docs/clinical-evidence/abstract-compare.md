@@ -1,39 +1,24 @@
-# Abstract Compare — Clinical Evidence
+# Abstract Comparison — Eight Clinical Practice Stages
 
-## Status: Design-of-record (Phase 2, Wave 4)
+## Status: Structural, L1–L8 playable (clinical review required)
 
-Published clinical design only. Runtime continues to ride the existing discourse adaptation engine. No progression hook, no difficulty bridge, no mastery routing, no per-level mastery enforcement.
+Saved clinical levels pin actual pair content and the number of matched **shared properties** expected. The in-session adaptation engine cannot substitute neighboring tiers after a clinical stage is chosen.
 
-## Clinical basis
-
-Similarities-and-differences tasks are core to abstract-reasoning assessment in both neuropsychology and aphasiology:
-
-- **WAIS Similarities subtest** — Wechsler — categorical and abstract concept comparison.
-- **BDAE Auditory Comprehension of Concept Comparisons** — Goodglass, Kaplan, Barresi — graded similarity judgments for aphasia.
-- **Concept-comparison literature** in cognitive-communication rehab — Marini, Andreetta — for the use of superordinate-naming and relational-similarity credit as separable signals.
-
-The ladder advances on conceptual abstraction: same-category concrete pairs → cross-category with superordinate naming → mixed concrete/abstract with relational similarity → abstract pairs with multi-dimensional comparison.
-
-## What is calibration, not literature
-
-- The 4-stage abstraction ladder is a **clinically motivated design default** against the existing `abstractCompareStimuli` bank.
-- "Dimensionality" credit (number of shared dimensions surfaced) at L6–L7 would require scoring infrastructure that does not yet exist at runtime.
-- Per-level accuracy bars / attempts are intentionally **not** specified.
-
-## Mastery routing
-
-- `submitTrial` is **not** wired through `useTrialSubmission`.
-- Slug `abstract_compare` is **NOT** added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials continue to flow through the discourse adaptation engine only.
-
-## Readiness
-
-| Level | Readiness | Notes |
+| Level | Bank | Shared properties required |
 | --- | --- | --- |
-| L1–L8 | aspirational | No runtime ladder enforcement — design-of-record only. |
+| 1 | Familiar concrete pairs | 1 |
+| 2 | Familiar concrete pairs | 2 |
+| 3 | Mixed/cross-category pairs | 1 |
+| 4 | Mixed/cross-category pairs | 2 |
+| 5 | Mixed/cross-category pairs | 3 |
+| 6 | Abstract/metaphorical pairs | 1 |
+| 7 | Abstract/metaphorical pairs | 2 |
+| 8 | Abstract/metaphorical pairs | 3 |
 
-## Out of scope for this ship
+The patient sees the relevant target demand in the prompt; feedback reports the concept count. The new clinical mode uses conservative whole-word and explicit alternative matching for shared-property evidence, rather than accepting a vague coverage percentage to advance.
 
-- Dimensionality / relational-similarity scoring at runtime.
-- Novel-pair bank for L8.
-- Per-level mastery enforcement and promotion into `ADOPTED_TRIAL_MODE_SLUGS`.
+## Clinical basis and limits
+
+The WAIS Similarities tradition, BDAE concept comparisons and cognitive-communication rehabilitation motivate increasing abstraction. These are **practice objectives**, not diagnostic tests. Differences, novel-pair generalization, multidimensional relational reasoning and discourse coherence are NOT scored by this implementation; upper stages are thin pending SLP item and answer-set review.
+
+Typed answers and unscorable transcripts may contribute to practice but not persisted **spoken** expressive progress. No patient level is saved if the initial read was unverified.

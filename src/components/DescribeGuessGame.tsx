@@ -24,6 +24,7 @@ import { classifySpeechState } from '@/lib/speechStateClassifier';
 import { TIMING_PROFILES, getProfileMultiplier } from '@/lib/speechTimingProfiles';
 import { SpeechNudge } from '@/components/SpeechNudge';
 import { useDescribeGuessGame, DescribeGuessTrialResult, getStarCount } from '@/hooks/useDescribeGuessGame';
+import { describeMeetsClinicalTarget, getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -80,6 +81,8 @@ interface DescribeGuessGameProps {
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
+  /** Persistent clinical stage controls both bank tier and response demand. */
+  clinicalLevel?: number | null;
 }
 
 export function DescribeGuessGame({
@@ -89,7 +92,9 @@ export function DescribeGuessGame({
   sessionId,
   userId,
   profileId,
+  clinicalLevel,
 }: DescribeGuessGameProps) {
+  const clinicalSpec = clinicalLevel == null ? null : getGradedTaskSpec('describe-guess', clinicalLevel);
   const [isListening, setIsListening] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -259,6 +264,7 @@ export function DescribeGuessGame({
   const game = useDescribeGuessGame({
     trialCount,
     difficulty: Math.min(3, Math.max(1, Math.ceil(currentDifficulty / 3.5))),
+    clinicalLevel,
     onTrialComplete,
     onGameComplete,
   });
@@ -384,11 +390,13 @@ export function DescribeGuessGame({
     // Skip duplicate validation — the hook's evaluateGuess already validates.
     // Only check minimum content words and listening duration here.
     const contentWords = getContentWordCount(text);
-    if (contentWords < MIN_SPEECH_CONTENT_WORDS) return false;
+    // At L1 a single meaningful feature is the explicit therapy target.
+    const minimum = clinicalLevel === 1 ? 1 : MIN_SPEECH_CONTENT_WORDS;
+    if (contentWords < minimum) return false;
     const listeningDuration = Date.now() - listeningStartRef.current;
     if (listeningDuration < MIN_LISTENING_DURATION_MS) return false;
     return true;
-  }, []);
+  }, [clinicalLevel]);
 
   // Voice guidance: speak intro on first trial
   useEffect(() => {
@@ -668,6 +676,7 @@ export function DescribeGuessGame({
 
       const finalResult = game.finalizeTrial(ctx.originalTranscript, ctx.guessResult, true);
       if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
         logFinalAnalysis({
           transcript: ctx.originalTranscript,
           transcriptSource: 'browser',
@@ -749,7 +758,7 @@ export function DescribeGuessGame({
     const gate = gateResponse({
       transcript: currentTranscript,
       promptText: 'Describe what you see without saying the word',
-      expectedMode: 'description',
+      expectedMode: clinicalLevel != null && clinicalLevel <= 3 ? 'naming' : 'description',
       // Feed the visible chip prompts so "what do you use it for?" parroting
       // is caught even though it was a button label, not a Maya utterance.
       extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
@@ -859,6 +868,7 @@ export function DescribeGuessGame({
             if (saidWord) game.recordWordRetrieval();
             const finalResult = game.finalizeTrial(currentTranscript, guessResult, saidWord);
             if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
               logFinalAnalysis({
                 transcript: currentTranscript,
                 transcriptSource: 'browser',
@@ -889,6 +899,7 @@ export function DescribeGuessGame({
         await audioPromise; // Ensure audio is done
         const finalResult = game.finalizeTrial(currentTranscript, guessResult, wordWin);
         if (finalResult) {
+        finalResult.responseMode = useTypingRef.current ? 'typed' : 'spoken';
           await logFinalAnalysis({
             transcript: currentTranscript,
             transcriptSource: 'browser',
@@ -921,7 +932,7 @@ export function DescribeGuessGame({
     }
   }, [game, stopListening, isRecording, stopRecording, uploadRecording, sessionId, userId,
       analyzePronunciation, speak, logFinalAnalysis, recordAdaptiveTrial, resetAttempt, hasSubstantialSpeech,
-      startListening, speechIsListening, wordSaidRedirect]);
+      startListening, speechIsListening, wordSaidRedirect, clinicalLevel]);
 
   // Keep ref in sync so pre-declaration useEffects can call runEvaluation
   useEffect(() => { runEvaluationRef.current = runEvaluation; }, [runEvaluation]);
@@ -1106,6 +1117,11 @@ export function DescribeGuessGame({
         <p className="text-sm font-medium text-foreground">
           🚫 Describe this <strong>without</strong> saying the word!
         </p>
+        {clinicalSpec && (
+          <p className="text-xs text-primary" aria-label="Clinical level task">
+            Level {clinicalSpec.level}: Tell me {clinicalSpec.spokenFeatureTarget} different things about it.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground hidden tall:block">
           Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
         </p>
@@ -1198,6 +1214,9 @@ export function DescribeGuessGame({
       {showFeedback && game.lastResult && (
         <Card className="border-2 border-primary/50 bg-primary/5 shrink-0">
           <CardContent className="py-3 text-center space-y-2">
+            {clinicalLevel != null && describeMeetsClinicalTarget(game.lastResult, clinicalLevel) && (
+              <p className="text-sm font-semibold text-primary">You described {game.lastResult.spokenFeatureTypes.length} different things. Level goal met!</p>
+            )}
             <div className="flex justify-center gap-1">
               {Array.from({ length: getStarCount(game.lastResult) }, (_, i) => (
                 <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
