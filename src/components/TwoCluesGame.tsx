@@ -24,7 +24,7 @@ import { getContentWordCount } from '@/lib/speechNormalizer';
 import { interpretTwoCluesSpeech, TWO_CLUES_SCORING_DEBOUNCE_MS } from '@/lib/twoCluesResponse';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
