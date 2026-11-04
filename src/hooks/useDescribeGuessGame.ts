@@ -104,12 +104,12 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   const [lastResult, setLastResult] = useState<DescribeGuessTrialResult | null>(null);
   const [currentAttempt, setCurrentAttempt] = useState(1);
   
-  // Feature tracking (deterministic via chip taps)
+  // Feature tracking records what the patient spoke, not the buttons tapped.
   const [featureTypesUsed, setFeatureTypesUsed] = useState<Set<FeatureType>>(new Set());
   /**
-   * Dimensions the person actually SPOKE about, as distinct from chips they
-   * tapped for help. featureTypesUsed is the union and still drives the UI
-   * check-marks; scoring reads this one.
+   * Dimensions the patient actually spoke about. These drive the checkmarks
+   * and the strategy score. Visual support and requested spoken hints are
+   * tracked separately under promptsShown.
    */
   const [featureTypesSpoken, setFeatureTypesSpoken] = useState<Set<FeatureType>>(new Set());
   const [promptsShown, setPromptsShown] = useState<string[]>([]);
@@ -182,19 +182,17 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
   /**
    * Record that user tapped a feature prompt chip
    */
-  const recordFeatureChip = useCallback((featureType: FeatureType, promptText: string) => {
-    // Deliberately does NOT touch featureTypesSpoken: tapping a help chip is
-    // asking for a cue, not describing. The Strategy star used to be earned by
-    // pressing two buttons and saying nothing.
-    setFeatureTypesUsed(prev => new Set([...prev, featureType]));
+  const recordFeatureChip = useCallback((_featureType: FeatureType, promptText: string) => {
+    // A requested spoken question is a cue, not a produced description.
+    // Counting tapped chips as features previously let two taps inflate
+    // guess confidence and even the Word Retrieval star.
     setPromptsShown(prev => prev.includes(promptText) ? prev : [...prev, promptText]);
   }, []);
 
   /**
-   * Live check-off: mark feature types the patient has COVERED IN SPEECH so
-   * the chips light up as they describe ("where you find it" → Where ✓).
-   * Deliberately does NOT touch promptsShown — that list feeds cue-level
-   * telemetry and spoken coverage is independent production, not a cue.
+   * Mark feature types the person actually said so the corresponding
+   * visible questions receive a checkmark. Reading or requesting a question
+   * must never earn an independently spoken dimension.
    */
   const recordSpokenFeatures = useCallback((transcript: string) => {
     if (!currentTrial || !transcript) return;
@@ -465,6 +463,7 @@ export function useDescribeGuessGame(options: UseDescribeGuessGameOptions = {}) 
     lastResult,
     currentAttempt,
     featureTypesUsed,
+    promptsShown,
     progress,
     meaningWins,
     wordWins,
