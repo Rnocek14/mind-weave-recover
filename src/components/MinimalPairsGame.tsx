@@ -132,6 +132,7 @@ export function MinimalPairsGame({
 
   const [echoStatus, setEchoStatus] = useState<EchoStatus>('idle');
   const [echoTranscript, setEchoTranscript] = useState('');
+  const [echoMicStartAttempted, setEchoMicStartAttempted] = useState(false);
   const echoActiveRef = useRef(false);
   const echoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -155,14 +156,14 @@ export function MinimalPairsGame({
    * word, and the only signal that it landed is that label.
    */
   useEffect(() => {
-    if (echoStatus !== 'arming') return;
+    if (echoStatus !== 'arming' || !echoMicStartAttempted) return;
     if (speech.isListening) { setEchoStatus('listening'); return; }
     const giveUp = setTimeout(() => {
       setEchoStatus((s) => (s === 'arming' ? 'unavailable' : s));
       echoActiveRef.current = false;
-    }, 2500);
+    }, 3500);
     return () => clearTimeout(giveUp);
-  }, [echoStatus, speech.isListening]);
+  }, [echoStatus, echoMicStartAttempted, speech.isListening]);
 
   // Depend on the stable callback, not the hook's freshly allocated return object.
   // Otherwise the trial-reset effect below runs on every render and can loop.
@@ -185,6 +186,7 @@ export function MinimalPairsGame({
     // someone with aphasia to say the word three times into nothing and
     // conclude the app is broken. 'arming' shows an honest in-between.
     setEchoStatus('arming');
+    setEchoMicStartAttempted(false);
     setEchoTranscript('');
     // Sync-Wait: target was just spoken in the feedback effect. Wait for the
     // VoiceController tail-lock to clear (~400ms after TTS ends) instead of a
@@ -195,6 +197,7 @@ export function MinimalPairsGame({
     // Don't swallow this. If the recogniser refuses — no instance, cooldown,
     // permission denied — the person needs to be told, not left staring at a
     // label that claims the microphone is on.
+    setEchoMicStartAttempted(true);
     try {
       startListening();
     } catch (err) {
@@ -212,7 +215,7 @@ export function MinimalPairsGame({
     echoTimerRef.current = setTimeout(() => {
       if (echoActiveRef.current) {
         stopEcho();
-        setEchoStatus((s) => (s === 'listening' ? 'skipped' : s));
+        setEchoStatus((s) => (s === 'listening' || s === 'arming' ? 'skipped' : s));
       }
     }, 7000);
   }, [isSupported, startListening, stopEcho]);
@@ -231,10 +234,17 @@ export function MinimalPairsGame({
   useEffect(() => {
     stopEcho();
     setEchoStatus('idle');
+    setEchoMicStartAttempted(false);
     setEchoTranscript('');
   }, [trialIndex, stopEcho]);
 
   useEffect(() => () => stopEcho(), [stopEcho]);
+
+  // A recognized utterance completes the echo immediately; do not keep the mic
+  // open through the rest of the seven-second practice window.
+  useEffect(() => {
+    if (echoStatus === 'heard' || echoStatus === 'unavailable') stopEcho();
+  }, [echoStatus, stopEcho]);
 
 
   // Track trial completions for adaptation
