@@ -228,6 +228,7 @@ export function ThoughtContinuationGame({
     cancelTimer: cancelCompletionTimer,
     waitForNewSpeech,
     waitingForCompletion,
+    awaitingNewSpeech,
   } = usePatientSpeechTurn({
     task: 'thought_continuation',
     transcript,
@@ -1030,9 +1031,11 @@ export function ThoughtContinuationGame({
             </div>
             {phase !== 'processing' && phase !== 'celebrated' && (
               <p className="text-sm text-muted-foreground text-center">
-                {waitingForCompletion
-                  ? "Still listening — finish your thought, or tap I'm Done Speaking."
-                  : "Take your time. You can pause and keep talking."}
+                {awaitingNewSpeech
+                  ? "Take your time. Say more when you're ready."
+                  : waitingForCompletion
+                    ? "Still listening — finish your thought, or tap I'm Done Speaking."
+                    : "Take your time. You can pause and keep talking."}
               </p>
             )}
           </div>
@@ -1062,7 +1065,7 @@ export function ThoughtContinuationGame({
 
       {/* Manual completion remains available as soon as words are heard;
           do not force an aphasic speaker into a short countdown. */}
-      {phase !== 'processing' && phase !== 'celebrated' && transcript.trim() && (
+      {phase !== 'processing' && phase !== 'celebrated' && !awaitingNewSpeech && transcript.trim() && (
         <div className="flex justify-center" aria-live="polite">
           <Button
             variant="default"
