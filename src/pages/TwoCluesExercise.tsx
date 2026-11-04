@@ -34,7 +34,7 @@ import {
   useTwoCluesProgression,
   mapTwoCluesSupport,
 } from '@/hooks/useTwoCluesProgression';
-import { resolveEffectiveTwoCluesInitialDifficulty } from '@/lib/progression/twoCluesDifficultyBridge';
+import { resolveEffectiveTwoCluesInitialDifficulty, twoCluesBankDifficultyForClinicalLevel } from '@/lib/progression/twoCluesDifficultyBridge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home } from 'lucide-react';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
@@ -102,6 +102,7 @@ export default function TwoCluesExercise() {
     userId: user?.id,
     profileId: activeProfile?.id,
   });
+  const bankDifficulty = twoCluesBankDifficultyForClinicalLevel(progression.startingLevel);
   const bridge = resolveEffectiveTwoCluesInitialDifficulty({
     sessionAdaptationDifficulty: adaptation.difficultyTier,
     clinicalLevel: progression.startingLevel,
@@ -297,6 +298,7 @@ export default function TwoCluesExercise() {
             onTrialComplete={handleTrialComplete}
             onGameComplete={handleGameComplete}
             roundCount={10}
+            bankDifficulty={bankDifficulty}
             sessionId={activeSessionId}
             userId={user?.id}
             profileId={activeProfile?.id}

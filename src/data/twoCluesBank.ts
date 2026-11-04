@@ -1242,6 +1242,19 @@ const expansionPuzzles: TwoCluesPuzzle[] = [
   },
 ];
 
+/**
+ * Provisional content hold, pending review by a speech-language pathologist.
+ * "holds/water" supports many equally valid containers; "keeps/secret(s)"
+ * has multiple defensible answers and is too abstract for unscaffolded
+ * word retrieval. Keep source entries for audit, but exclude from new rounds.
+ * Do not silently penalize patients on these ambiguous puzzles.
+ */
+export const TWO_CLUES_HELD_FOR_REVIEW = new Set([
+  'tc-mid-12',
+  'tc-hard-t3-1',
+  'tc-exp-10',
+]);
+
 export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
   ...expansionPuzzles,
   ...animalsPuzzles,
@@ -1258,7 +1271,7 @@ export const TWO_CLUES_PUZZLES: TwoCluesPuzzle[] = [
   ...musicPuzzles,
   ...hardPuzzles,
   ...midPuzzles,
-];
+].filter((puzzle) => !TWO_CLUES_HELD_FOR_REVIEW.has(puzzle.id));
 
 export const PUZZLE_CATEGORIES = ['animals', 'kitchen', 'weather', 'sports', 'home', 'people', 'clothing', 'nature', 'food', 'transport', 'body', 'music'] as const;
 export type PuzzleCategory = typeof PUZZLE_CATEGORIES[number];

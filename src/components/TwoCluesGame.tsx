@@ -2,12 +2,13 @@
  * Two Clues Word Association Game - Main Game Component
  * 
  * Key design decisions for stroke survivors:
- * - 3s debounce after last speech event before scoring (waits for full utterance)
+ * - Extended speech pause after recognition; clue repetition is rehearsal, not an answer
  * - Scoring via handleSpeechResult callback (Photo Naming pattern), not useEffect on transcript
  * - Patient mode listening: unlimited restarts, no auto-end on silence
  * - Processing guard with 10s failsafe to prevent mic deadlock
  * - All exit paths use try/finally with local shouldHoldProcessing flag
  * - 2s cooldown after scoring to prevent re-scoring loops
+ * - Unverified transcription never becomes a wrong trial automatically
  * - Pre-computed result passed to submitAnswer (no double-scoring)
  */
 
@@ -19,10 +20,11 @@ import { Badge } from '@/components/ui/badge';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTwoCluesGame, TwoCluesTrialResult } from '@/hooks/useTwoCluesGame';
 import { getTierColor, getTierBgColor, getTierEmoji, getTierMessage, scoreAnswer, ScoringResult } from '@/lib/twoCluesScorer';
-import { extractAnswerFromTranscript, getContentWordCount, removeClueWords } from '@/lib/speechNormalizer';
+import { getContentWordCount } from '@/lib/speechNormalizer';
+import { interpretTwoCluesSpeech, TWO_CLUES_SCORING_DEBOUNCE_MS } from '@/lib/twoCluesResponse';
 import { validateSpokenResponse } from '@/lib/evaluation/responseValidation';
 import { trackValidation, logValidationDetail } from '@/lib/evaluation/validationTelemetry';
-import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
+import { resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useInGameAdaptation } from '@/hooks/useInGameAdaptation';
@@ -42,17 +44,18 @@ import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 
 // ── Constants ──────────────────────────────────────────────────────────
-const SCORING_DEBOUNCE_MS = 1500;
 const SCORING_COOLDOWN_MS = 2000;
 const PROCESSING_FAILSAFE_MS = 10000;
 const AUTO_ADVANCE_DELAY_MS = 2000;
-const STALL_TIMER_DELAY_MS = 7000; // 7s before auto-cue (matches Photo Naming)
+const STALL_TIMER_DELAY_MS = 12000; // Product default; avoid rushing word retrieval
 const CONSECUTIVE_ERROR_THRESHOLD = 3; // Errors before auto-cue
 
 interface TwoCluesGameProps {
   onTrialComplete?: (result: TwoCluesTrialResult) => void;
   onGameComplete?: (results: TwoCluesTrialResult[]) => void;
   roundCount?: number;
+  /** Source bank (1–3) selected from persistent clinical level, not engine tier. */
+  bankDifficulty?: 1 | 2 | 3;
   sessionId?: string | null;
   userId?: string;
   profileId?: string;
@@ -117,6 +120,7 @@ export function TwoCluesGame({
   onTrialComplete,
   onGameComplete,
   roundCount = 10,
+  bankDifficulty,
   sessionId,
   userId,
   profileId,
@@ -129,6 +133,7 @@ export function TwoCluesGame({
   const [isProcessing, setIsProcessing] = useState(false);
   const [displayTranscript, setDisplayTranscript] = useState('');
   const [filteredDisplay, setFilteredDisplay] = useState('');
+  const [unverifiedAnswer, setUnverifiedAnswer] = useState('');
   const [scoringPhase, setScoringPhase] = useState<'idle' | 'checking' | 'scoring'>('idle');
   const [showThinkingHint, setShowThinkingHint] = useState(false);
   const [validationHint, setValidationHint] = useState<string | null>(null);
@@ -148,6 +153,7 @@ export function TwoCluesGame({
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScoredCandidateRef = useRef<string>('');
   const rawTranscriptRef = useRef<string>('');
+  const speechVersionRef = useRef(0);
   const finalizingRef = useRef(false);
   const processingRef = useRef(false);
   const processingSetAtRef = useRef<number>(0);
@@ -280,6 +286,7 @@ export function TwoCluesGame({
 
   const game = useTwoCluesGame({
     roundCount,
+    difficulty: bankDifficulty,
     focusPhonemes,
     onTrialComplete,
     onGameComplete,
@@ -297,39 +304,31 @@ export function TwoCluesGame({
   const processStableTranscriptRef = useRef<(t: string) => void>(() => {});
   
   const handleSpeechResult = useCallback((result: string) => {
-    console.log('[TwoClues] Speech result (will debounce):', result);
+    if (showFeedbackRef.current || !currentPuzzleRef.current) return;
 
-    // Update raw transcript immediately
+    // Discourse mode returns all final segments spoken during the attempt.
+    // A patient may say "holds ... water ... cup" across several segments.
+    speechVersionRef.current += 1;
     rawTranscriptRef.current = result;
     setDisplayTranscript(result);
+    setUnverifiedAnswer('');
     logBrowserTranscript(result);
 
-    // Update filtered display
-    if (currentPuzzleRef.current) {
-      const p = currentPuzzleRef.current;
-      // Preserve anchors + every alias so morphological strips
-      // (e.g. "teaches" → "teach") never delete the answer itself.
-      const preserve = [
-        ...p.anchors,
-        ...Object.values(p.anchorAliases ?? {}).flat(),
-        ...p.cluster,
-        ...Object.values(p.clusterAliases ?? {}).flat(),
-      ];
-      const withoutClues = removeClueWords(result, p.clues, preserve);
-      const answer = extractAnswerFromTranscript(withoutClues);
-      setFilteredDisplay(answer);
-    }
+    const interpretation = interpretTwoCluesSpeech(result, currentPuzzleRef.current);
+    setFilteredDisplay(interpretation.candidate);
 
-    // Clear existing debounce timer — every new speech event resets the clock
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
+      debounceTimeoutRef.current = null;
     }
+    // Repeating or mispronouncing the clue is thinking aloud, not a wrong answer.
+    if (interpretation.thinkingAloud) return;
 
-    // Only score after SCORING_DEBOUNCE_MS of silence (no new speech events)
+    // Pause long enough for self-correction; reset on every new speech segment.
     debounceTimeoutRef.current = setTimeout(() => {
       debounceTimeoutRef.current = null;
       processStableTranscriptRef.current(result);
-    }, SCORING_DEBOUNCE_MS);
+    }, TWO_CLUES_SCORING_DEBOUNCE_MS);
   }, [logBrowserTranscript]);
 
   // Use PATIENT MODE: unlimited restarts, no auto-end on silence
@@ -344,6 +343,7 @@ export function TwoCluesGame({
     autoStart: false,
     continuousListening: true,
     patientMode: true, // Unlimited restarts, no restart cap
+    discourseMode: true, // Accumulate final speech segments across pauses
   });
 
   useEffect(() => { stopListeningRef.current = stopListening; }, [stopListening]);
@@ -401,6 +401,8 @@ export function TwoCluesGame({
     rawTranscriptRef.current = '';
     setDisplayTranscript('');
     setFilteredDisplay('');
+    setUnverifiedAnswer('');
+    speechVersionRef.current += 1;
     setScoringPhase('idle');
     setProcessingGuard(false);
     attemptStartTimeRef.current = Date.now();
@@ -457,6 +459,8 @@ export function TwoCluesGame({
   const clearTranscriptState = useCallback(() => {
     setDisplayTranscript('');
     setFilteredDisplay('');
+    setUnverifiedAnswer('');
+    speechVersionRef.current += 1;
     lastScoredCandidateRef.current = '';
     rawTranscriptRef.current = '';
     setScoringPhase('idle');
@@ -664,6 +668,8 @@ export function TwoCluesGame({
     // Safety net: ensure last puzzle's heard text/answer never lingers on screen.
     setDisplayTranscript('');
     setFilteredDisplay('');
+    setUnverifiedAnswer('');
+    speechVersionRef.current += 1;
     rawTranscriptRef.current = '';
     lastScoredCandidateRef.current = '';
   }, [game.currentIndex]);
@@ -750,16 +756,13 @@ export function TwoCluesGame({
     const currentPuzzle = currentPuzzleRef.current;
     if (!currentPuzzle) return;
 
-    // Re-extract from the latest raw transcript
+    // Interpret all final speech segments together, without grading the clues
+    // when the patient repeats them to remember the task.
     const latestRaw = rawTranscriptRef.current;
-    const preserveAnswerTokens = [
-      ...currentPuzzle.anchors,
-      ...Object.values(currentPuzzle.anchorAliases ?? {}).flat(),
-      ...currentPuzzle.cluster,
-      ...Object.values(currentPuzzle.clusterAliases ?? {}).flat(),
-    ];
-    const latestWithoutClues = removeClueWords(latestRaw, currentPuzzle.clues, preserveAnswerTokens);
-    const candidate = extractAnswerFromTranscript(latestWithoutClues);
+    const transcriptVersion = speechVersionRef.current;
+    const { candidate, filteredTranscript: latestWithoutClues, thinkingAloud } =
+      interpretTwoCluesSpeech(latestRaw, currentPuzzle);
+    if (thinkingAloud || !candidate) return;
 
     // GUARD: Already processing or showing feedback
     if (processingRef.current) {
@@ -778,10 +781,9 @@ export function TwoCluesGame({
     trackValidation('two_clues', validation);
     logValidationDetail('two_clues', latestWithoutClues, validation);
     if (!validation.valid || candidate.length < 2) {
-      console.log('[TwoClues] processStableTranscript blocked -', validation.rejectionReason || 'too short', JSON.stringify(candidate));
-      if (validation.rejectionReason) {
-        speakMayaCoaching(validation.rejectionReason, speak, { exerciseKey: 'two_clues' }).then(line => setValidationHint(line));
-      }
+      // An unclear fragment is not a patient error. Keep listening instead
+      // of talking over them with an instruction-echo or "wrong" prompt.
+      console.log('[TwoClues] Awaiting clearer speech', validation.rejectionReason || 'too short');
       return;
     }
     setValidationHint(null);
@@ -832,6 +834,25 @@ export function TwoCluesGame({
         result = await scoreAnswer(candidate, currentPuzzle);
       }
 
+      // Ignore stale async results after the patient says more or advances.
+      if (speechVersionRef.current !== transcriptVersion ||
+          currentPuzzleRef.current?.id !== currentPuzzle.id) {
+        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = setTimeout(() => {
+          debounceTimeoutRef.current = null;
+          processStableTranscriptRef.current(rawTranscriptRef.current);
+        }, TWO_CLUES_SCORING_DEBOUNCE_MS);
+        return;
+      }
+
+      // Embedding similarity cannot prove a word fits BOTH clues.
+      // Unverified speech must not be logged as an incorrect clinical trial.
+      if (result.tier === 'uncertain') {
+        setUnverifiedAnswer(candidate);
+        return;
+      }
+
+      setUnverifiedAnswer('');
       // Mark scored
       lastScoredCandidateRef.current = candidate;
       lastScoredAtRef.current = Date.now();
@@ -878,8 +899,7 @@ export function TwoCluesGame({
       recordAdaptiveTrial({
         correct: isSuccess,
         reactionTimeMs: Date.now() - attemptStartTimeRef.current,
-        errorType: result.tier === 'uncertain' ? 'no_match' :
-                   result.tier === 'creative' ? 'creative_link' : undefined,
+        errorType: result.tier === 'creative' ? 'creative_link' : undefined,
       });
       // Phase 2: feed engagement monitor with the actual cue level used this trial.
       engagement.recordTrial({
@@ -916,14 +936,13 @@ export function TwoCluesGame({
 
       // Log utterance
       if (sessionId && currentAttemptId) {
-        const contentWordCount = getContentWordCount(rawTranscript);
+        const contentWordCount = getContentWordCount(candidate); // Clue rehearsal is not answer content
 
         await logFinalAnalysis({
           transcript: rawTranscript,
           transcriptSource: 'browser',
           isCorrect: isSuccess,
-          errorType: result.tier === 'uncertain' ? 'no_match' :
-                     result.tier === 'creative' ? 'creative_link' :
+          errorType: result.tier === 'creative' ? 'creative_link' :
                      result.tier === 'related' ? 'semantic_paraphasia' : undefined,
           semanticSimilarity: result.semanticSimilarity ?? undefined,
           recordingDurationMs,
@@ -961,6 +980,7 @@ export function TwoCluesGame({
       // Show feedback
       const message = getTierMessage(result.tier, result.matchedWord);
       setFeedbackMessage(result.coachResponse || message);
+      showFeedbackRef.current = true;
       setShowFeedback(true);
       clearTranscriptState();
 
@@ -1250,7 +1270,7 @@ export function TwoCluesGame({
                       <span className="text-sm">"</span>
                       {filteredDisplay && (
                         <span className="block mt-1 text-sm text-muted-foreground">
-                          Answer: <span className="font-bold text-foreground">{filteredDisplay}</span>
+                          Possible answer: <span className="font-bold text-foreground">{filteredDisplay}</span>
                         </span>
                       )}
                     </>
@@ -1258,6 +1278,12 @@ export function TwoCluesGame({
                     <span className="text-muted-foreground animate-pulse">Listening...</span>
                   )}
                 </p>
+                {unverifiedAnswer && !isProcessing && !showFeedback && (
+                  <p className="text-sm text-muted-foreground">
+                    I heard “{unverifiedAnswer},” but could not verify it. Nothing
+                    has been marked wrong. Keep talking when you're ready.
+                  </p>
+                )}
                 {showThinkingHint && !filteredDisplay && (
                   <p className="text-base text-muted-foreground italic animate-in fade-in duration-500">
                     Take your time. What connects these clues?
