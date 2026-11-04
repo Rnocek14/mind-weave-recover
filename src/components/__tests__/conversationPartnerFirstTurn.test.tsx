@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   addAITurn: vi.fn(),
   reset: vi.fn(),
   getNudge: vi.fn(() => 'Take your time.'),
-  scorer: vi.fn(async () => ({ signal: {
+  scorer: vi.fn(async (_input: { taskGoal?: string; transcript?: string; scaffoldUsed?: boolean }, _record?: unknown) => ({ signal: {
     source: 'llm', onTopicScore: 0.9, targetAchievementScore: 0.8,
     confidence: 0.9, errorType: 'fluent_correct',
   } })),
@@ -256,7 +256,7 @@ describe('Conversation Partner — graded patient-facing L1–L3', () => {
     expect(onClinicalTrial).toHaveBeenCalledWith({
       turnNumber: 1, correct: true, support: 'choice_based',
     });
-    expect(mocks.scorer.mock.calls[0][0]).toMatchObject({
+    expect(mocks.scorer.mock.calls[0]?.[0]).toMatchObject({
       taskGoal: expect.stringMatching(/one relevant word/i),
       transcript: 'water', scaffoldUsed: true,
     });
