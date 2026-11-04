@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
   QA_SCENARIOS,
+  QA_GAME_INVENTORY,
   QA_RUNBOOK_VERSION,
   type QaScenario,
 } from '@/data/qaScenarios';
@@ -37,19 +38,28 @@ export default function QaRunbook() {
   const [role, setRole] = useState<string>('patient');
   const [device, setDevice] = useState<string>('');
   const [areaFilter, setAreaFilter] = useState<QaScenario['area'] | 'all'>('all');
+  const [gameFilter, setGameFilter] = useState<string>('all');
   const [results, setResults] = useState<ResultMap>({});
   const [persisting, setPersisting] = useState(false);
 
-  const scenarios = useMemo(
-    () => (areaFilter === 'all' ? QA_SCENARIOS : QA_SCENARIOS.filter((s) => s.area === areaFilter)),
-    [areaFilter],
-  );
+  const scenarios = useMemo(() => QA_SCENARIOS.filter((scenario) => {
+    if (areaFilter !== 'all' && scenario.area !== areaFilter) return false;
+    if (areaFilter === 'game' && gameFilter !== 'all') return scenario.slug === gameFilter;
+    return true;
+  }), [areaFilter, gameFilter]);
 
+  // Counts must describe the visible subset, not previously tested games.
+  const visibleKeys = new Set(scenarios.flatMap((scenario) =>
+    scenario.steps.map((step) => `${scenario.id}::${step.id}`),
+  ));
+  const visibleResults = Object.entries(results)
+    .filter(([key]) => visibleKeys.has(key))
+    .map(([, result]) => result);
   const totalSteps = scenarios.reduce((n, s) => n + s.steps.length, 0);
-  const completed = Object.keys(results).length;
-  const passed = Object.values(results).filter((r) => r.result === 'pass').length;
-  const failed = Object.values(results).filter((r) => r.result === 'fail').length;
-  const skipped = Object.values(results).filter((r) => r.result === 'skip').length;
+  const completed = visibleResults.length;
+  const passed = visibleResults.filter((r) => r.result === 'pass').length;
+  const failed = visibleResults.filter((r) => r.result === 'fail').length;
+  const skipped = visibleResults.filter((r) => r.result === 'skip').length;
 
   const setStep = (key: string, result: StepResult, note?: string) => {
     setResults((prev) => ({ ...prev, [key]: { result, note } }));
@@ -139,6 +149,10 @@ export default function QaRunbook() {
           Results persist to <code>qa_runs</code> and can be exported as Markdown.
         </p>
         <p className="text-xs text-muted-foreground">
+          Game audits: {QA_GAME_INVENTORY.length} activities (28 canonical + Functional Command Scenes).
+          Review every activity separately; inclusion in this checklist does not establish that it works.
+        </p>
+        <p className="text-xs text-muted-foreground">
           Companion to <Link to="/dev/leveling-contract" className="underline">/dev/leveling-contract</Link>{' '}
           (per-game contract registry) and the Vitest suite (`bunx vitest run`).
         </p>
@@ -148,7 +162,7 @@ export default function QaRunbook() {
         <CardHeader>
           <CardTitle className="text-lg">Run context</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-muted-foreground">Role under test</label>
             <Select value={role} onValueChange={setRole}>
@@ -167,7 +181,7 @@ export default function QaRunbook() {
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Area</label>
-            <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as typeof areaFilter)}>
+            <Select value={areaFilter} onValueChange={(v) => { setAreaFilter(v as typeof areaFilter); setGameFilter('all'); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">all</SelectItem>
@@ -175,6 +189,20 @@ export default function QaRunbook() {
               </SelectContent>
             </Select>
           </div>
+          {areaFilter === 'game' && (
+            <div>
+              <label className="text-xs text-muted-foreground">Game under test</label>
+              <Select value={gameFilter} onValueChange={setGameFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All {QA_GAME_INVENTORY.length} games</SelectItem>
+                  {QA_GAME_INVENTORY.map(({ slug, title }) => (
+                    <SelectItem key={slug} value={slug}>{title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -189,7 +217,7 @@ export default function QaRunbook() {
           <Badge variant="secondary">{skipped} skip</Badge>
           <div className="ml-auto flex gap-2">
             <Button variant="outline" onClick={downloadMarkdown}>Download .md</Button>
-            <Button onClick={persistAll} disabled={persisting || completed === 0}>
+            <Button onClick={persistAll} disabled={persisting || Object.keys(results).length === 0}>
               {persisting ? 'Saving…' : 'Save run'}
             </Button>
           </div>
@@ -237,8 +265,9 @@ export default function QaRunbook() {
                       >Skip</Button>
                       <Input
                         value={current?.note ?? ''}
-                        onChange={(e) => setStep(key, current?.result ?? 'skip', e.target.value)}
-                        placeholder="optional note"
+                        onChange={(e) => { if (current) setStep(key, current.result, e.target.value); }}
+                        placeholder={current ? "optional note" : "Mark Pass, Fail or Skip first"}
+                        disabled={!current}
                         className="flex-1 min-w-[180px]"
                       />
                     </div>

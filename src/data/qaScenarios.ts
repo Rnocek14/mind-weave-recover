@@ -11,6 +11,8 @@
  * - `expect` describes the pass condition in plain language.
  */
 
+import { CANONICAL_EXERCISES } from './canonicalExerciseRegistry';
+
 export type QaStep = {
   id: string;
   action: string;
@@ -29,36 +31,92 @@ export type QaScenario = {
   steps: QaStep[];
 };
 
-const gameStepsFor = (slug: string, title: string): QaStep[] => [
-  { id: 'enter', action: `Open /exercise/${slug}`, expect: `${title} loads, instruction banner visible.` },
-  { id: 'first-trial', action: 'Complete first trial as expected', expect: 'Trial is scored, structured feedback summary appears.' },
-  { id: 'wrong-trial', action: 'Deliberately fail one trial', expect: 'No celebratory copy, no emoji on failure; supportive feedback only.', safety: 'Never celebrate failures.' },
-  { id: 'silence', action: 'For speech games: stay silent through 3 prompts', expect: 'Multi-input fallback offers choice chips or typing.' },
-  { id: 'round-advance', action: 'Finish a round', expect: '3-second auto-advance fires; next trial preloads cleanly.' },
-  { id: 'summary', action: 'Reach the session summary screen', expect: 'Summary shows 4 integrated reflection parts; no dead state.' },
+/**
+ * Patient audit inventory: every canonical game plus the separately routed
+ * Functional Command Scenes activity. A scenario means "needs testing",
+ * never "implemented", "passing", or "clinically validated".
+ *
+ * Derive canonical entries so adding a registered game cannot silently miss
+ * the manual audit. The supplemental route is explicitly represented.
+ */
+export const QA_GAME_INVENTORY = [
+  ...CANONICAL_EXERCISES.map(({ slug, title, clinicalRationale }) => ({
+    slug,
+    title,
+    intendedSkill: clinicalRationale,
+  })),
+  {
+    slug: 'functional-scenes',
+    title: 'Functional Command Scenes',
+    intendedSkill: 'Understanding and responding to everyday functional commands.',
+  },
 ];
 
-const WIRED_GAMES: { slug: string; title: string }[] = [
-  { slug: 'photo-naming', title: 'Photo Naming' },
-  { slug: 'fix-sentence', title: 'Fix the Sentence' },
-  { slug: 'minimal-pairs', title: 'Minimal Pairs' },
-  { slug: 'meaning-match', title: 'Meaning Match' },
-  { slug: 'two-clues', title: 'Two Clues' },
-  { slug: 'semantic-features', title: 'Semantic Features' },
-  { slug: 'detective-mind', title: 'Detective Mind' },
-  { slug: 'multi-step-plan', title: 'Multi-Step Plan' },
-  { slug: 'pattern-match', title: 'Pattern Match' },
-  { slug: 'sentence-construction', title: 'Sentence Construction' },
-  { slug: 'phonological-awareness', title: 'Phonological Awareness' },
-  { slug: 'dual-load-naming', title: 'Dual-Load Naming' },
-  { slug: 'category-fluency', title: 'Category Fluency' },
-  { slug: 'synonym-generator', title: 'Synonym Generator' },
-];
-
-const ASPIRATIONAL_GAMES: { slug: string; title: string }[] = [
-  { slug: 'describe-guess', title: 'Describe & Guess' },
-  { slug: 'narrative-retell', title: 'Narrative Retell' },
-  { slug: 'abstract-compare', title: 'Abstract Compare' },
+const gameStepsFor = (slug: string, title: string, intendedSkill: string): QaStep[] => [
+  {
+    id: 'enter',
+    action: `Find ${title} in the patient Practice library and open /exercise/${slug}.`,
+    expect: 'The intended game loads with adult-appropriate guidance, not an unrelated fallback or a generic placeholder.',
+    safety: 'Missing route or placeholder content is an incomplete game, not a passing test.',
+  },
+  {
+    id: 'purpose',
+    action: `Verify the activity actually exercises this stated target: ${intendedSkill}`,
+    expect: 'The patient is told what to do and why; task demands correspond to the named skill, not an arbitrary score.',
+  },
+  {
+    id: 'start',
+    action: 'Start a fresh game with reading support as needed.',
+    expect: 'A clear first action and short spoken/visual instructions permit independent entry; no dead-end or unexpected microphone activation.',
+  },
+  {
+    id: 'response',
+    action: 'Complete an independently attempted trial and a clearly wrong or related-answer trial.',
+    expect: 'Feedback corresponds to the actual answer; valid alternatives and uncertain recognition are not automatically labeled wrong, and open responses are not given invented objective accuracy.',
+    safety: 'Do not present heuristic or self-reported participation as clinically verified independent success.',
+  },
+  {
+    id: 'support',
+    action: 'Request a clue, repeat the audio, or reveal/model an answer where supported.',
+    expect: 'The requested support works and its type is recorded; assisted answers cannot be counted as independent attempts.',
+  },
+  {
+    id: 'skip',
+    action: 'Skip a trial or remain silent/no-response, then continue.',
+    expect: 'The patient can proceed without troubleshooting; skipped/unscorable trials are not falsely recorded as successful or as independently measured failure.',
+  },
+  {
+    id: 'speech-if-used',
+    action: 'If the game uses speech, deny the microphone, interrupt playback, and test typing/choice/manual fallback; otherwise mark this step Skip with a note.',
+    expect: 'No dead end, TTS echo, duplicate submission, invented transcript, or falsely independent spoken score. Spoken and non-spoken modes remain distinct.',
+  },
+  {
+    id: 'stages',
+    action: 'Exercise the lowest and highest claimed practice stages (1 and 8), checking actual stimulus and task differences.',
+    expect: 'Both stages really run with distinct appropriate difficulty. If Stage 8 is merely documented or unavailable, record Fail/blocked; do not call the game complete.',
+    safety: 'A practice stage, a clinical mastery level and a generic difficulty chip are different measures.',
+  },
+  {
+    id: 'evidence',
+    action: 'On an explicitly isolated backend, inspect the just-completed raw trial and session output.',
+    expect: 'Exactly one correctly owned event per attempt; accurate stimulus, response source, cue, result, trial identity and level; summary agrees with saved events.',
+    safety: 'Without isolated authenticated read-back, record Skip/unverified, not Pass. Never use patient or production records for this check.',
+  },
+  {
+    id: 'resume',
+    action: 'Exit partway through a trial, reload or return, and try a rapid double-tap at completion.',
+    expect: 'No post-exit microphone/audio, duplicate result or surprise level-up; saved progress/exit is handled predictably.',
+  },
+  {
+    id: 'guided-session',
+    action: 'Use the game inside a guided session and observe the return to Maya/next exercise.',
+    expect: 'Start, feedback, transition and exit remain usable; the coach does not take over the microphone or reuse a previous answer.',
+  },
+  {
+    id: 'accessibility',
+    action: 'Use a phone-width screen, large text/zoom, slow responses and one-handed input.',
+    expect: 'Instructions, large controls, help, Skip and Pause/Exit remain reachable; no essential action relies on reading speed or a short timer.',
+  },
 ];
 
 export const QA_SCENARIOS: QaScenario[] = [
@@ -123,28 +181,15 @@ export const QA_SCENARIOS: QaScenario[] = [
     ],
   },
 
-  // === All wired games ===
-  ...WIRED_GAMES.map<QaScenario>(({ slug, title }) => ({
+  // === Every clinical/practice game (29 patient-facing activities) ===
+  // Inclusion creates an audit task, not a claim that Stage 8 or scoring works.
+  ...QA_GAME_INVENTORY.map<QaScenario>(({ slug, title, intendedSkill }) => ({
     id: `game-${slug}`,
-    title: `Game: ${title}`,
+    title: `Game audit: ${title}`,
     role: 'patient',
     area: 'game',
     slug,
-    steps: gameStepsFor(slug, title),
-  })),
-
-  // === Aspirational games (ride discourse engine only) ===
-  ...ASPIRATIONAL_GAMES.map<QaScenario>(({ slug, title }) => ({
-    id: `game-${slug}`,
-    title: `Game (aspirational, no progression): ${title}`,
-    role: 'patient',
-    area: 'game',
-    slug,
-    steps: [
-      { id: 'enter', action: `Open /exercise/${slug}`, expect: `${title} loads and runs to summary without crashing.` },
-      { id: 'no-level-up', action: 'Complete several trials successfully', expect: 'No level-up banner appears (intentional — not wired to progression).' },
-      { id: 'no-mastery-contamination', action: 'Check /dev/mastery-shadow after session', expect: 'No new rows for this slug in mastery shadow.' },
-    ],
+    steps: gameStepsFor(slug, title, intendedSkill),
   })),
 
   // === Between-game / session pacing (post-UX1.1 timing bumps) ===
@@ -233,4 +278,4 @@ export const QA_SCENARIOS: QaScenario[] = [
   },
 ];
 
-export const QA_RUNBOOK_VERSION = '1.0.0';
+export const QA_RUNBOOK_VERSION = '2.0.0';

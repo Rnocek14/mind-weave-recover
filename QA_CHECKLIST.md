@@ -12,6 +12,21 @@
 > branch protection require separate confirmation. Do not claim every game is
 > tested from aggregate test counts.
 
+## All-game manual audit (29 activities)
+
+The admin-only `/dev/qa-runbook` now derives 28 canonical game audit scenarios
+from `canonicalExerciseRegistry.ts` and explicitly includes separately routed
+Functional Command Scenes as the 29th. Filter `Area: game` and select one
+activity at a time. The twelve checks per game cover actual entry/content,
+response and assistance provenance, real Stage 1 and 8 tasks, exit/re-entry,
+guided-session behavior, accessibility, and **isolated** trial persistence.
+
+**An audit step is not a passed test:** record observed pass/fail/skip with notes.
+Unavailable game routes, missing stage content, blocked backend read-back, or
+unverified physical-device speech must never be marked Pass. See
+[the 29-game audit plan](docs/qa/all-29-game-audit-plan-20261102.md) and
+[completion epic #103](https://github.com/Rnocek14/mind-weave-recover/issues/103).
+
 ## Full QA workflow
 
 1. **Automated**
