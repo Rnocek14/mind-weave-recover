@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import { KNOWN_CAVEATS, deriveTierStatusFromSpec } from '@/lib/clinicalIntegrity';
 import { EARLY_PARTNER_STAGES } from '@/lib/progression/conversationPartnerClinical';
+import { EARLY_COACH_LEVELS } from '@/lib/progression/earlyConversationCoach';
 import { PHOTO_NAMING_LEVELS } from '@/lib/progression/photoNamingLevels';
 import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 import { MINIMAL_PAIRS_LEVELS } from '@/lib/progression/minimalPairsLevels';
