@@ -10,6 +10,7 @@ import {
   parseFollowupType
 } from '@/lib/conversationFollowups';
 import { StuckType, classifyStuckType } from '@/lib/stuckTypeClassifier';
+import { afterPartnerPatientTurn, type ConversationPartnerMetrics } from '@/lib/conversationPartnerMetrics';
 
 interface ConversationTurn {
   role: 'ai' | 'user';
@@ -20,14 +21,6 @@ interface ConversationTurn {
   stuckType?: StuckType;
 }
 
-interface ConversationMetrics {
-  totalUserWords: number;
-  totalAIWords: number;
-  avgLatencyMs: number;
-  turnsCompleted: number;
-  nudgesGiven: number;
-  completionRate: number; // % of turns where user spoke meaningfully
-}
 
 interface UseConversationPartnerProps {
   userId: string;
@@ -45,7 +38,7 @@ export function useConversationPartner({
   const [conversationHistory, setConversationHistory] = useState<ConversationTurn[]>([]);
   const [currentTurn, setCurrentTurn] = useState(0);
   const [isLoadingFollowup, setIsLoadingFollowup] = useState(false);
-  const [metrics, setMetrics] = useState<ConversationMetrics>({
+  const [metrics, setMetrics] = useState<ConversationPartnerMetrics>({
     totalUserWords: 0,
     totalAIWords: 0,
     avgLatencyMs: 0,
@@ -92,7 +85,7 @@ export function useConversationPartner({
   const processUserTurn = useCallback(async (
     transcript: string,
     latencyToFirstWordMs: number | null
-  ): Promise<{ followupType: FollowupType; followupText: string }> => {
+  ): Promise<{ followupType: FollowupType; followupText: string; updatedMetrics: ConversationPartnerMetrics }> => {
     setIsLoadingFollowup(true);
 
     try {
@@ -133,15 +126,16 @@ export function useConversationPartner({
       const newTurnNumber = currentTurn + 1;
       setCurrentTurn(newTurnNumber);
 
-      setMetrics(prev => ({
-        ...prev,
-        totalUserWords: prev.totalUserWords + userWords,
-        turnsCompleted: newTurnNumber,
-        avgLatencyMs: latenciesRef.current.length > 0
-          ? latenciesRef.current.reduce((a, b) => a + b, 0) / latenciesRef.current.length
-          : 0,
-        completionRate: (meaningfulTurnsRef.current / Math.max(newTurnNumber, 1)) * 100
-      }));
+      const metricInput = {
+        words: userWords,
+        turnNumber: newTurnNumber,
+        measuredLatencies: [...latenciesRef.current],
+        repliesWithTwoWords: meaningfulTurnsRef.current,
+      };
+      // A returned snapshot includes THIS patient turn. The React state
+      // snapshot captured by the caller is a render behind until re-render.
+      const updatedMetrics = afterPartnerPatientTurn(metrics, metricInput);
+      setMetrics(prev => afterPartnerPatientTurn(prev, metricInput));
 
       // Get follow-up type from GPT (or fallback to rules)
       let followupType: FollowupType;
@@ -180,11 +174,11 @@ export function useConversationPartner({
         await logConversationTurn(sessionId, userTurn, followupType, stuckResult.stuckType);
       }
 
-      return { followupType, followupText };
+      return { followupType, followupText, updatedMetrics };
     } finally {
       setIsLoadingFollowup(false);
     }
-  }, [currentTurn, maxTurns, conversationHistory, sessionId]);
+  }, [currentTurn, maxTurns, conversationHistory, sessionId, metrics]);
 
   /**
    * Get a nudge for silence
