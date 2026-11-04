@@ -28,6 +28,7 @@ export function usePatientSpeechTurn({
   onSpeechEnd,
 }: UsePatientSpeechTurnOptions) {
   const [waitingForCompletion, setWaitingForCompletion] = useState(false);
+  const [awaitingNewSpeech, setAwaitingNewSpeech] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef(createPatientPauseHistory());
   const latestTextRef = useRef('');
@@ -50,7 +51,7 @@ export function usePatientSpeechTurn({
     cancelTimer();
     if (hasSubmittedRef.current) return;
     const answer = latestTextRef.current.trim();
-    if (!answer) return;
+    if (!answer || ignoreUntilNewSpeechRef.current !== null) return;
     hasSubmittedRef.current = true;
     setWaitingForCompletion(false);
     onSpeechEndRef.current(answer);
@@ -60,6 +61,7 @@ export function usePatientSpeechTurn({
     cancelTimer();
     hasSubmittedRef.current = false;
     ignoreUntilNewSpeechRef.current = null;
+    setAwaitingNewSpeech(false);
     latestTextRef.current = '';
     lastScheduledTextRef.current = '';
     historyRef.current = resetPatientPauseHistory(historyRef.current);
@@ -71,6 +73,7 @@ export function usePatientSpeechTurn({
     cancelTimer();
     hasSubmittedRef.current = false;
     ignoreUntilNewSpeechRef.current = latestTextRef.current;
+    setAwaitingNewSpeech(true);
     setWaitingForCompletion(false);
   }, [cancelTimer]);
 
@@ -87,6 +90,7 @@ export function usePatientSpeechTurn({
         return;
       }
       ignoreUntilNewSpeechRef.current = null;
+      setAwaitingNewSpeech(false);
     }
 
     if (text !== latestTextRef.current) {
@@ -119,5 +123,5 @@ export function usePatientSpeechTurn({
 
   useEffect(() => () => cancelTimer(), [cancelTimer]);
 
-  return { finishNow, resetTurn, waitForNewSpeech, cancelTimer, waitingForCompletion };
+  return { finishNow, resetTurn, waitForNewSpeech, cancelTimer, waitingForCompletion, awaitingNewSpeech };
 }
