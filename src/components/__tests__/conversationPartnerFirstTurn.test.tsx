@@ -21,7 +21,10 @@ const mocks = vi.hoisted(() => ({
   addAITurn: vi.fn(),
   reset: vi.fn(),
   getNudge: vi.fn(() => 'Take your time.'),
-  scorer: vi.fn(async () => ({ signal: { onTopicScore: 0.8 } })),
+  scorer: vi.fn(async (_input: { taskGoal?: string; transcript?: string; scaffoldUsed?: boolean }, _record?: unknown) => ({ signal: {
+    source: 'llm', onTopicScore: 0.9, targetAchievementScore: 0.8,
+    confidence: 0.9, errorType: 'fluent_correct',
+  } })),
   flushQueue: vi.fn(),
   onSpeechResult: null as null | ((transcript: string) => void),
   currentTurn: 0,
@@ -56,8 +59,8 @@ vi.mock('@/hooks/useAudioRecorder', () => ({
   }),
 }));
 vi.mock('@/hooks/useConversationPartner', () => ({
-  useConversationPartner: () => ({
-    conversationHistory: [], currentTurn: mocks.currentTurn, maxTurns: 3,
+  useConversationPartner: (options: { maxTurns: number }) => ({
+    conversationHistory: [], currentTurn: mocks.currentTurn, maxTurns: options.maxTurns,
     isLoadingFollowup: false, isComplete: false,
     metrics: {
       totalUserWords: 0, totalAIWords: 10, turnsCompleted: 0,
@@ -96,6 +99,7 @@ function defer<T>(): Deferred<T> {
 }
 
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0); // stable adult drink-request scenario
   vi.clearAllMocks();
   mocks.onSpeechResult = null;
   mocks.currentTurn = 0;
@@ -103,15 +107,19 @@ beforeEach(() => {
   mocks.processUserTurn.mockResolvedValue({ followupText: 'What about lunch?', updatedMetrics: { totalUserWords: 3, totalAIWords: 7, avgLatencyMs: 900, turnsCompleted: 1, nudgesGiven: 0, completionRate: 100 } });
 });
 
-afterEach(() => { cleanup(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-function mount(onComplete?: React.ComponentProps<typeof ConversationPartnerGame>['onComplete']) {
+function mount(
+  onComplete?: React.ComponentProps<typeof ConversationPartnerGame>['onComplete'],
+  options: Partial<Pick<React.ComponentProps<typeof ConversationPartnerGame>, 'clinicalLevel'|'onClinicalTrial'>> = {},
+) {
   return render(
     <ConversationPartnerGame
       userId="synthetic-user"
       profileId="synthetic-profile"
       sessionId="synthetic-session"
       onComplete={onComplete}
+      {...options}
     />,
   );
 }
@@ -217,5 +225,116 @@ describe('Conversation Partner — first patient turn', () => {
     expect(mocks.flushQueue).toHaveBeenCalled();
     expect(mocks.addAITurn).not.toHaveBeenCalled();
     expect(mocks.startListening).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('Conversation Partner — graded patient-facing L1–L3', () => {
+  it('L1 offers audible choices before the mic, accepts one spoken word, and completes ONE turn', async () => {
+    const onClinicalTrial = vi.fn();
+    const onComplete = vi.fn();
+    mocks.processUserTurn.mockImplementation(async (_utterance, _latency, options) => {
+      mocks.currentTurn += 1;
+      return {
+        followupText: options.scriptedFollowupText,
+        updatedMetrics: { totalUserWords: 1, totalAIWords: 5, avgLatencyMs: 1000,
+          turnsCompleted: 1, nudgesGiven: 0, completionRate: 0 },
+        eventSaved: true,
+      };
+    });
+    mount(onComplete, { clinicalLevel: 1, onClinicalTrial });
+    expect(screen.getByLabelText(/clinical conversation goal/i)).toHaveTextContent('Clinical Level 1');
+    fireEvent.click(screen.getByRole('button', { name: /start conversation/i }));
+    expect(mocks.speak).toHaveBeenCalledWith('What would you like to drink?', expect.anything());
+    const help = await screen.findByRole('button', { name: /hear choices/i });
+    fireEvent.click(help);
+    await waitFor(() => expect(mocks.speak).toHaveBeenCalledWith(expect.stringMatching(/water.*coffee.*tea/i), expect.anything()));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('water'));
+    fireEvent.click(screen.getByRole('button', { name: /done talking/i }));
+    await waitFor(() => expect(onClinicalTrial).toHaveBeenCalledTimes(1));
+    expect(onClinicalTrial).toHaveBeenCalledWith({
+      turnNumber: 1, correct: true, support: 'choice_based',
+    });
+    expect(mocks.scorer.mock.calls[0]?.[0]).toMatchObject({
+      taskGoal: expect.stringMatching(/one relevant word/i),
+      transcript: 'water', scaffoldUsed: true,
+    });
+    expect(mocks.processUserTurn.mock.calls[0][2].scriptedFollowupText).toBe('Thank you for talking with me.');
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(screen.queryAllByRole('button', { name: /press to talk/i })).toHaveLength(0);
+  });
+
+  it('L2 keeps the second question on topic and records an independent spoken answer', async () => {
+    const onClinicalTrial = vi.fn();
+    mocks.processUserTurn.mockImplementation(async (_u, _latency, options) => {
+      mocks.currentTurn += 1;
+      return {
+        followupText: options.scriptedFollowupText,
+        updatedMetrics: { totalUserWords: mocks.currentTurn, totalAIWords: 8,
+          avgLatencyMs: 700, turnsCompleted: mocks.currentTurn,
+          nudgesGiven: 0, completionRate: 0 },
+        eventSaved: true,
+      };
+    });
+    mount(undefined, { clinicalLevel: 2, onClinicalTrial });
+    expect(screen.getByLabelText(/clinical conversation goal/i)).toHaveTextContent('Clinical Level 2');
+    fireEvent.click(screen.getByRole('button', { name: /start conversation/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('coffee'));
+    fireEvent.click(screen.getByRole('button', { name: /done talking/i }));
+    await screen.findByRole('button', { name: /press to talk/i });
+    expect(mocks.processUserTurn.mock.calls[0][2].scriptedFollowupText).toBe('Would you like it hot or cold?');
+    expect(onClinicalTrial).toHaveBeenCalledWith({ turnNumber: 1, correct: true, support: 'independent' });
+    expect(screen.getByText('Would you like it hot or cold?')).toBeInTheDocument();
+  });
+
+  it('L3 help during recording stops mic and recording before Maya speaks, with no false trial', async () => {
+    const onClinicalTrial = vi.fn();
+    mount(undefined, { clinicalLevel: 3, onClinicalTrial });
+    fireEvent.click(screen.getByRole('button', { name: /start conversation/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('cof'));
+    const priorSpeak = mocks.speak.mock.calls.length;
+    const recording = defer<null>();
+    mocks.stopRecording.mockImplementationOnce(() => recording.promise);
+    fireEvent.click(screen.getByRole('button', { name: /hear a clue/i }));
+    expect(mocks.stopListening).toHaveBeenCalled();
+    expect(mocks.stopRecording).toHaveBeenCalled();
+    // The voice clue MUST wait for the microphone recording to stop.
+    expect(mocks.speak).toHaveBeenCalledTimes(priorSpeak);
+    expect(screen.queryByRole('button', { name: /done talking/i })).toBeNull();
+    await act(async () => recording.resolve(null));
+    await waitFor(() => expect(mocks.speak.mock.calls.length).toBeGreaterThan(priorSpeak));
+    expect(onClinicalTrial).not.toHaveBeenCalled();
+    expect(mocks.processUserTurn).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/clinical conversation goal/i)).toHaveTextContent('Maya helped with this answer');
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('coffee'));
+    fireEvent.click(screen.getByRole('button', { name: /done talking/i }));
+    await waitFor(() => expect(mocks.processUserTurn).toHaveBeenCalledTimes(1));
+    // This is PRACTICE, but not independent mastery credit at Level 3.
+    expect(mocks.scorer.mock.calls[0][0].scaffoldUsed).toBe(true);
+  });
+
+  it('does NOT credit a scoring fallback or unsaved turn, even if the word looks correct', async () => {
+    const onClinicalTrial = vi.fn();
+    mocks.scorer.mockResolvedValueOnce({ signal: {
+      source: 'fallback', onTopicScore: 0.9, targetAchievementScore: 0.8,
+      confidence: 0.8, errorType: 'fluent_correct',
+    } });
+    mocks.processUserTurn.mockResolvedValueOnce({
+      followupText: 'Thank you for talking with me.',
+      updatedMetrics: { totalUserWords: 1, totalAIWords: 5, avgLatencyMs: 900,
+        turnsCompleted: 1, nudgesGiven: 0, completionRate: 0 },
+      eventSaved: false,
+    });
+    mount(undefined, { clinicalLevel: 1, onClinicalTrial });
+    fireEvent.click(screen.getByRole('button', { name: /start conversation/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('water'));
+    fireEvent.click(screen.getByRole('button', { name: /done talking/i }));
+    await waitFor(() => expect(mocks.processUserTurn).toHaveBeenCalledTimes(1));
+    expect(onClinicalTrial).not.toHaveBeenCalled();
   });
 });

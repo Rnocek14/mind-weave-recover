@@ -11,6 +11,8 @@ import {
 } from '@/lib/conversationFollowups';
 import { StuckType, classifyStuckType } from '@/lib/stuckTypeClassifier';
 import { afterPartnerPatientTurn, type ConversationPartnerMetrics } from '@/lib/conversationPartnerMetrics';
+import type { ClinicalSignal } from '@/lib/discourseSignalScorerCore';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 
 interface ConversationTurn {
   role: 'ai' | 'user';
@@ -21,6 +23,20 @@ interface ConversationTurn {
   stuckType?: StuckType;
 }
 
+
+/** Optional graded-practice metadata, never a validated language-recovery score. */
+export interface PartnerClinicalTurnContext {
+  level: 1 | 2 | 3;
+  support: SupportLevel;
+  signal: ClinicalSignal;
+  meetsTarget: boolean;
+}
+
+export interface PartnerProcessOptions {
+  /** Levels 1–3 use a stable, topic-continuous script instead of an LLM follow-up. */
+  scriptedFollowupText?: string;
+  clinical?: PartnerClinicalTurnContext;
+}
 
 interface UseConversationPartnerProps {
   userId: string;
@@ -84,8 +100,9 @@ export function useConversationPartner({
    */
   const processUserTurn = useCallback(async (
     transcript: string,
-    latencyToFirstWordMs: number | null
-  ): Promise<{ followupType: FollowupType; followupText: string; updatedMetrics: ConversationPartnerMetrics }> => {
+    latencyToFirstWordMs: number | null,
+    options?: PartnerProcessOptions,
+  ): Promise<{ followupType: FollowupType; followupText: string; updatedMetrics: ConversationPartnerMetrics; eventSaved: boolean }> => {
     setIsLoadingFollowup(true);
 
     try {
@@ -141,6 +158,10 @@ export function useConversationPartner({
       let followupType: FollowupType;
 
       try {
+        // Graded L1–L3 dialogues must not drift into unrelated questions.
+        if (options?.scriptedFollowupText !== undefined) {
+          followupType = newTurnNumber >= maxTurns ? 'wrap_up' : 'tell_more';
+        } else {
         const { data, error } = await supabase.functions.invoke('conversation-partner', {
           body: {
             userTranscript: transcript,
@@ -161,20 +182,23 @@ export function useConversationPartner({
         } else {
           followupType = data?.followupType || 'tell_more';
         }
+        }
       } catch (err) {
         console.warn('Failed to call conversation-partner, using fallback:', err);
         followupType = selectFollowupByRule(stuckResult.stuckType, newTurnNumber, maxTurns);
       }
 
       // Get the actual line to speak
-      const followupText = getFollowupLine(followupType);
+      const followupText = options?.scriptedFollowupText ?? getFollowupLine(followupType);
 
       // Log to database if we have a session
-      if (sessionId) {
-        await logConversationTurn(sessionId, userTurn, followupType, stuckResult.stuckType);
-      }
+      // Progression can only use a turn if the full turn event was actually
+      // accepted by the backend; no optimistic credit for a rejected insert.
+      const eventSaved = sessionId
+        ? await logConversationTurn(sessionId, userTurn, followupType, stuckResult.stuckType, newTurnNumber, options?.clinical)
+        : false;
 
-      return { followupType, followupText, updatedMetrics };
+      return { followupType, followupText, updatedMetrics, eventSaved };
     } finally {
       setIsLoadingFollowup(false);
     }
@@ -240,37 +264,61 @@ async function logConversationTurn(
   sessionId: string,
   userTurn: ConversationTurn,
   followupType: FollowupType,
-  stuckType: StuckType
-) {
+  stuckType: StuckType,
+  turnNumber: number,
+  clinical?: PartnerClinicalTurnContext,
+): Promise<boolean> {
   try {
     const meaningful = (userTurn.wordCount || 0) >= 2;
-    const isCorrect = meaningful;
-    const resolvedErrorType: string = isCorrect
-      ? 'correct'
-      : ((userTurn.wordCount || 0) === 0 ? 'no_response' : 'minimal_response');
+    const clinicalSignal = clinical?.signal;
+    // In early clinical stages, unknown / fallback scoring must not be
+    // represented as clinical success. Ordinary Free Talk keeps its prior
+    // participation convention when no clinical stage is active.
+    const clinicalScorable = clinicalSignal?.source === 'llm';
+    const isCorrect = clinical ? clinicalScorable && clinical.meetsTarget : meaningful;
+    const resolvedErrorType = clinical
+      ? !clinicalScorable ? 'unscorable' : isCorrect ? 'correct' : (clinicalSignal?.errorType ?? 'below_clinical_target')
+      : meaningful ? 'correct' : (userTurn.wordCount || 0) === 0 ? 'no_response' : 'minimal_response';
 
-    await supabase.from('exercise_events').insert({
+    const { error } = await supabase.from('exercise_events').insert({
       session_id: sessionId,
       exercise_slug: normalizeExerciseSlug('conversation-partner'),
-      round: 1,
-      score: isCorrect ? 100 : 0, // 0–100 scale (canonical exercise_events.score)
+      round: turnNumber,
+      score: clinical && !clinicalScorable ? null : isCorrect ? 100 : 0, // Practice proxy only
       reaction_time_ms: userTurn.latencyMs,
       error_type: resolvedErrorType,
       inputs: {
         user_text: userTurn.text,
         word_count: userTurn.wordCount,
         error_type: resolvedErrorType,
+        clinical_level: clinical?.level ?? null,
+        response_mode: 'spoken',
+        support_used: clinical?.support ?? null,
       },
       outputs: {
         followup_type: followupType,
-        stuck_type: stuckType
+        stuck_type: stuckType,
+        clinical_practice: clinical ? {
+          level: clinical.level,
+          target_met: isCorrect,
+          scoring_valid: clinicalScorable,
+          scorer_source: clinicalSignal?.source ?? 'unavailable',
+          support_used: clinical.support,
+          on_topic_score: clinicalSignal?.onTopicScore ?? null,
+        } : null,
       },
       engagement_flags: {
         did_speak: (userTurn.wordCount || 0) > 0,
         meaningful_response: meaningful
       }
     });
+    if (error) {
+      console.warn('[ConversationPartner] turn-event write failed:', error.message);
+      return false;
+    }
+    return true;
   } catch (err) {
-    console.error('Failed to log conversation turn:', err);
+    console.warn('[ConversationPartner] turn-event write threw:', err);
+    return false;
   }
 }

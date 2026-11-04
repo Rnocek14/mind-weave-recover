@@ -116,6 +116,11 @@ export interface TierStatusResult {
  * scattered UI strings. Surface in /games as amber chips on the relevant row.
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
+  'conversation-partner': {
+    1: 'One spoken on-topic word can be credited from LLM practice scoring. Aphasic speech recognition, semantic appropriateness and generalization require clinician review.',
+    2: 'Two related questions with optional audible help ship. Topic continuation is fixed by the script; semantic conversational competence is not independently validated.',
+    3: 'Three familiar-topic turns and independent-cue logging ship. Scripted topic maintenance and LLM on-topic judgments are not validated functional conversation measures.',
+  },
   'describe-guess': {
     6: 'Harder bank and two spoken semantic features ship; item frequency and aphasic feature matching need clinician calibration.',
     7: 'Three spoken feature dimensions ship, but keyword cues do not establish independent circumlocution with novel words.',
