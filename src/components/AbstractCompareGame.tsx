@@ -11,6 +11,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useAbstractCompareGame, AbstractCompareTrialResult } from '@/hooks/useAbstractCompareGame';
+import { getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { classifySpeechState } from '@/lib/speechStateClassifier';
@@ -52,6 +53,7 @@ interface AbstractCompareGameProps {
   onGameComplete: (results: AbstractCompareTrialResult[]) => void;
   roundCount?: number;
   tier?: number;
+  clinicalLevel?: number | null;
   /** Auto-start mic on first trial (from lesson flow) */
   autoStart?: boolean;
 }
@@ -62,10 +64,12 @@ export function AbstractCompareGame({
   userId,
   sessionId,
   onTrialComplete, onGameComplete, roundCount = 4, tier = 1,
+  clinicalLevel,
   autoStart = false,
 }: AbstractCompareGameProps) {
+  const clinicalSpec = clinicalLevel == null ? null : getGradedTaskSpec('abstract-compare', clinicalLevel);
   const { currentItem, currentIndex, totalItems, isComplete, results, activeTier, setActiveTier, submitAnswer, nextItem } =
-    useAbstractCompareGame(roundCount, tier);
+    useAbstractCompareGame(roundCount, tier, clinicalLevel);
 
   const { mode } = useCoachingMode();
   const vg = useVoiceGuidance('abstract-compare');
@@ -306,7 +310,10 @@ export function AbstractCompareGame({
     
     setTimeout(async () => {
       const transcript = collectedTranscript || latestTranscriptRef.current || '';
-      const validation = validateSpokenResponse({ transcript, expectedMode: 'semantic_compare' });
+      const validation = validateSpokenResponse({
+        transcript,
+        expectedMode: clinicalSpec?.commonPropertyTarget === 1 ? 'naming' : 'semantic_compare',
+      });
       trackValidation('abstract_compare', validation);
       logValidationDetail('abstract_compare', transcript, validation);
       const durationMs = Date.now() - startTimeRef.current;
@@ -348,11 +355,13 @@ export function AbstractCompareGame({
       }
       
       if (result) {
+        result.responseMode = useTyping ? 'typed' : 'spoken';
+        result.scoringValid = validation.valid && Boolean(transcript.trim());
         setLastResult(result);
         setPhase('scored');
         onTrialComplete(result);
         // Feed adaptive engine: ≥0.6 coverage = "success", <0.3 = clear miss
-        const correctForAdaptation = result.coverageRatio >= 0.6;
+        const correctForAdaptation = clinicalSpec != null ? (result.clinicalMet === true && result.scoringValid === true) : result.coverageRatio >= 0.6;
         adaptation.recordTrial({
           correct: correctForAdaptation,
           reactionTimeMs: durationMs,
@@ -367,7 +376,7 @@ export function AbstractCompareGame({
         });
       }
     }, 150);
-  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya]);
+  }, [stopListening, stopRecording, collectedTranscript, submitAnswer, onTrialComplete, uploadRecording, userId, sessionId, currentIndex, currentAttemptId, logFinalAnalysis, resetAttempt, adaptation, engagement, speakMaya, clinicalSpec, useTyping]);
 
   // Keep ref to handleDone for typing-fallback path
   useEffect(() => { handleDoneRef.current = handleDone; }, [handleDone]);
@@ -395,7 +404,11 @@ export function AbstractCompareGame({
       resetAttempt();
     }
     
-    if (result) { setLastResult(result); setPhase('scored'); onTrialComplete(result); }
+    if (result) {
+      result.responseMode = 'skip';
+      result.scoringValid = false;
+      setLastResult(result); setPhase('scored'); onTrialComplete(result);
+    }
   }, [stopListening, stopRecording, submitAnswer, onTrialComplete, currentAttemptId, logFinalAnalysis, resetAttempt]);
 
   if (!currentItem || isComplete) {
@@ -437,7 +450,7 @@ export function AbstractCompareGame({
 
       <Card className="border-2 border-primary/30 bg-primary/5">
         <CardContent className="pt-6 text-center space-y-2">
-          <p className="text-sm text-muted-foreground">How are these two things similar?</p>
+          <p className="text-sm text-muted-foreground">{clinicalSpec ? clinicalSpec.objective : 'How are these two things similar?'}</p>
           <div className="flex items-center justify-center gap-4 py-4">
             <span className="text-2xl font-bold text-primary">{currentItem.wordA}</span>
             <span className="text-muted-foreground text-lg">&</span>
