@@ -41,7 +41,9 @@ ranking.
 | L5–L8 accuracy bar | 75–85% | Approximates 80%-criterion convention in sentence-treatment single-subject designs. |
 | `trialWeight` per level | 0.4 → 2.5 | Calibration default. Not derived from the literature. |
 | L5 two-error tier | Live (`FIX_SENTENCE_TWO_ERROR_BANK` + two-phase repair loop) | See `docs/fix-sentence-two-error-spec.md`; stimuli pending SLP review. |
-| L6–L8 content tiers | Tier stubs only (see PR4 in `.lovable/plan.md`) | Bank work deferred; cards will mark these "pending" until stimuli land. |
+| L6 mixed morphology | Live tagged inflection bank; strict-form scoring | Stimuli require SLP review; scores are constrained practice evidence. |
+| L7 embedded clauses | 24 adult functional relative/complement-clause connector repairs; strict lexical scoring | Partial tier pending SLP evaluation. The task is one-word correction, not free complex-sentence generation. |
+| L8 open-ended repair | Not implemented | Keeps the clinical ceiling at L7 until an open-ended scoring/validation path exists. |
 
 ## What we deliberately do not claim
 
@@ -50,3 +52,15 @@ ranking.
 - That a single accuracy band defines mastery for any individual patient.
 - That fading scaffolds in this exact sequence generalizes to spontaneous
   speech without supplementary intervention.
+
+
+## Level 7 implementation (draft review branch)
+
+A dedicated cohort of 24 practical embedded-clause sentences now targets **relative-pronoun and complement-clause connector repair**. Examples of the task form include replacing *which* with *who* in “The nurse which called me …” or *which* with *that* in “I hope which the appointment starts on time.” The patient can speak the replacement word or a corrected sentence; the screen still presents the source sentence. This is **not** spontaneous independent generation of complex syntax.
+
+- The L7 clinical selector loads only explicitly tagged embedded-clause stimuli. Levels 4–6 retain their own distinct content. In-session 1–10 difficulty changes replace upcoming items **within the saved clinical syntax cohort** rather than swapping in unrelated baseline items.
+- L7 connector scoring uses approved exact replacements without phonetic, plural, or embedding-based near-matches. This deliberately sacrifices some recognition flexibility to avoid false success on the grammatical contrast. Real aphasic-speech recognition accuracy is not established.
+- The existing progression threshold is **six independent on-target attempts**, so a standard L7 session now offers at least six questions. It does not lower the evidence requirement just to make the level advance.
+- L7 remains **partially implemented** in clinical-facing surfaces due to unreviewed stimuli and uncalibrated scoring. L8 continues to display as **planned**, with no automatic progression beyond L7.
+
+Clinical review is needed for item grammaticality, dialectal alternatives, potentially acceptable patient responses, motor-speech/ASR ambiguity, fatigue and therapy appropriateness. An authenticated isolated backend and representative real-device aphasic-speech test are also required before patient release.
