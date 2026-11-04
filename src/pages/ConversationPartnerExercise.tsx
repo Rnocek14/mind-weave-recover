@@ -166,7 +166,7 @@ export default function ConversationPartnerExercise() {
                   <div className="text-3xl font-bold text-primary">
                     {Math.round(sessionSummary.completionRate)}%
                   </div>
-                  <div className="text-sm text-muted-foreground">completion</div>
+                  <div className="text-sm text-muted-foreground">2+ word replies</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-primary">
@@ -180,7 +180,7 @@ export default function ConversationPartnerExercise() {
                   <div className="text-3xl font-bold text-primary">
                     {Math.round(sessionSummary.userAIRatio)}%
                   </div>
-                  <div className="text-sm text-muted-foreground">your talk time</div>
+                  <div className="text-sm text-muted-foreground">your/Maya word ratio</div>
                 </div>
               </div>
 
