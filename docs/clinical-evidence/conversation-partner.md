@@ -1,41 +1,72 @@
-# Conversation Partner — Clinical Evidence
+# Conversation Partner — clinical progression evidence and limits
 
-## Status: Design-of-record (Phase 2, Wave 4)
+## Current implementation (draft PR): L1–L3 playable; L4–L8 planned
 
-Published clinical design only. Runtime continues to ride the existing conversation-partner agent loop with its strategy switching. No progression hook, no difficulty bridge, no mastery routing, no per-level mastery enforcement.
+The first three levels now control **actual conversation content, how many related
+turns the patient makes, support offered, and a separate per-patient saved
+practice level**. The existing generic 1–5 in-session discourse-adaptation
+indicator is separate from clinical levels.
 
-## Clinical basis
+| Level | Real task | Support | Measurable evidence |
+| --- | --- | --- | --- |
+| **1** | Choose a drink, food, outing or activity; answer **one familiar question**. One relevant word suffices. | Large audible “Hear choices” button; patient then **speaks** their own choice | One saved, LLM-scored on-topic spoken turn, with any choice use labeled `choice_based` |
+| **2** | Answer **two related questions** about one functional topic, e.g., choice of meal + when to eat | Optional spoken semantic cue before or during an attempt (microphone stops before TTS); cue use labeled `semantic_cue` | Two distinct, saved and individually LLM-scored on-topic spoken turns |
+| **3** | Answer **three related questions** within one practical topic without default cues | Help is still available, but an assisted turn will not qualify as **independent** progression evidence | Three distinct, saved, on-topic, independent spoken turns |
 
-Conversation Partner reframes the dyad as the unit of intervention rather than the patient alone:
+An accessible short-answer path is intentionally supported at all early stages.
+One relevant word at L1 should **not** be rejected because it is not a sentence.
+A preprogrammed follow-up stays on the current subject rather than changing to
+an unrelated AI topic. The game does not require a typed answer, and a visible
+choice prompt or spoken example alone does not count as a patient-spoken answer.
 
-- **Supported Conversation for Adults with Aphasia (SCA)** — Kagan — partner is trained to acknowledge competence and reveal it.
-- **Communication Partner Training (CPT) meta-analyses** — Simmons-Mackie, Raymer, Cherney — partner-skill outcomes for unfamiliar partners; ecological validity of multi-partner practice.
-- **PACE** — Davis & Wilcox — naturalistic message-transfer with partner negotiation.
-- **Life-Participation Approach to Aphasia (LPAA)** — Chapey et al. — functional, real-world communication across partners and contexts as the long-arc target.
+Four adult functional contexts are currently banked: choosing a drink, planning
+a meal, planning an outing, and making an afternoon plan. The same topic is
+held for the entire graded exchange.
 
-Compared to **Conversation Coach** (didactic scaffolding inside a coaching frame), Conversation Partner targets **ecologically valid exchanges** with a partner persona that behaves more like a real interlocutor. The ladder advances on partner-load: familiar topic with highly predictable partner → naturalistic partner with minimal repair → patient-led topic shifts → unfamiliar partner with register adaptation → multi-party / cross-context exchanges.
+## Persistence and progression integrity
 
-## What is calibration, not literature
+- Load via `loadProgressionStateChecked` scoped to `user_id`,
+  `profile_id` and `conversation-partner`. An unverified load offers
+  practice but **cannot overwrite saved state**.
+- The existing raw turn logger writes the graded task, support level, source,
+  and on-topic signal to `exercise_events` and verifies an accepted insert.
+  The scorer's separate event write is turned **off only in graded mode** to
+  avoid two contradictory records per turn.
+- LLM-scored, saved turns (including low-quality scored attempts) enter a
+  unique-per-turn session buffer; local fallback/shortcircuit scores,
+  unsaved turns, and repeated submissions cannot earn clinical credit.
+- Session-end rollup uses the existing 1–8 progression state but **caps the
+  implemented ceiling at L3**. It requires all stage turns to be present and
+  on target before positive progress. A failed save does not optimistically
+  show advancement. Session and patient identity are checked.
+- The nominal four-successful-session progress weight is a **product calibration
+  default**, not research establishing an appropriate rehabilitation dose.
+  Scoring assists less than independently produced speech.
 
-- The partner-load progression (predictable → naturalistic → unfamiliar → multi-party) is a **clinically motivated design default** mapped onto the existing conversation-partner agent.
-- "Register adaptation", "multi-party", and "context-shift" credit at L7–L8 would require runtime infrastructure (multiple partner personas, multi-party simulation, register scoring) that does not yet exist.
-- Per-level accuracy bars / attempts are intentionally **not** specified.
+## Not implemented / not demonstrated
 
-## Mastery routing
+**L4–L8 are planned**, not repurposed L3 content. The registry and clinician
+“About” pages should show those entries as planned. No automated promotion
+to L4. Clinical stages are **not** added to global expressive-mastery routing,
+which would require a validated classification model.
 
-- `submitTrial` is **not** wired through `useTrialSubmission`.
-- Slug `conversation_partner` is **NOT** added to `ADOPTED_TRIAL_MODE_SLUGS`.
-- Trials continue to flow through the conversation-partner agent / discourse adaptation engine only.
+These scores are at most **language-practice proxies**, not a validated
+conversation-independence index or aphasia assessment. LLM on-topic judgments
+and ASR errors can bias the results. Real conversations, sustained topic
+maintenance, successful message transfer, communication repair, unfamiliar
+partners, multi-party interactions, generalization, and clinical improvement
+are not demonstrated. These require SLP content/threshold review, audio trials
+with aphasic speakers, device testing and real-world functional measures.
 
-## Readiness
+## Clinical rationale
 
-| Level | Readiness | Notes |
-| --- | --- | --- |
-| L1–L8 | aspirational | No runtime ladder enforcement — design-of-record only. |
+Supported Conversation for Adults with Aphasia (SCA; Kagan), Promoting Aphasic
+Communicative Effectiveness (PACE; Davis & Wilcox), communication-partner
+training work (Simmons-Mackie et al.), and the Life Participation Approach to
+Aphasia motivate patient-led, meaningful choices and gradually reduced
+assistance. The exact stage ordering, topics, cue credit and advancement
+weights are product design decisions, not calibrated clinical standards.
 
-## Out of scope for this ship
-
-- Multiple partner personas with distinct registers.
-- Multi-party simulation and context-shift scoring.
-- Per-level mastery enforcement and promotion into `ADOPTED_TRIAL_MODE_SLUGS`.
-- Any change to the existing conversation-partner agent runtime.
+No production backend writes or live-patient tests are performed in this PR.
+The required isolated authenticated persistence and RLS validation remain
+separate release prerequisites.
