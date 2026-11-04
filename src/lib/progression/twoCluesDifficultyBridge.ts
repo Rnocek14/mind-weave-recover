@@ -10,6 +10,8 @@
  * Pure module — no I/O, no React.
  */
 
+import { getTwoCluesLevelSpec } from './twoCluesLevels';
+
 const CLINICAL_TO_TIER_FLOOR: Record<number, number> = {
   1: 1,
   2: 2,
@@ -53,4 +55,34 @@ export function resolveEffectiveTwoCluesInitialDifficulty(args: {
   const base = Math.max(1, Math.min(10, Math.round(args.sessionAdaptationDifficulty || 1)));
   const effective = Math.max(base, clinicalFloor);
   return { effective, clinicalFloor, raised: effective > base, softRegressionScaffold };
+}
+
+/**
+ * Select the ACTUAL 1–3 puzzle bank from the saved 1–8 clinical level.
+ * This is separate from the 1–10 adaptation engine. Previously TwoCluesGame
+ * never passed any bank difficulty, so L1 could randomly see L7 abstract
+ * prompts such as "keeps / secret". Follow the existing clinical content
+ * selector rather than adding time pressure or changing the mastery ladder.
+ */
+export function twoCluesBankDifficultyForClinicalLevel(
+  level: number | null | undefined,
+): 1 | 2 | 3 {
+  const normalizedLevel = typeof level === 'number' && Number.isFinite(level)
+    ? Math.max(1, Math.min(8, Math.round(level)))
+    : 1;
+  switch (getTwoCluesLevelSpec(normalizedLevel).contentSelector?.tierKey) {
+    case 'high_freq_concrete':
+      return 1;
+    case 'concrete_general':
+    case 'mixed_semantic':
+      return 2;
+    case 'abstract_introduced':
+    case 'low_freq_concrete':
+    case 'abstract_pressure':
+    case 'figurative':
+      return 3;
+    default:
+      // Unknown future spec should never force abstract material on a patient.
+      return 1;
+  }
 }
