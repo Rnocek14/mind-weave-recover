@@ -139,7 +139,7 @@ export function buildEarlyCoachPrompt(level: EarlyCoachLevel, scenario: EarlyCoa
     return `${scenario.situation} You can say: "${scenario.modeledMessage}" Now you try.`;
   }
   if (level === 2) {
-    return `${scenario.situation} ${scenario.choiceQuestion} Choose one answer, then tell me.`;
+    return `${scenario.situation} ${scenario.choiceQuestion} Your choices are ${scenario.choices.join(', or ')}. Choose one, then tell me.`;
   }
   return `${scenario.situation} ${scenario.openQuestion}`;
 }
