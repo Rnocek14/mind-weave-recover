@@ -55,6 +55,9 @@ export function ConversationPartnerGame({
   const firstWordTimeRef = useRef<number | null>(null);
   const turnCountRef = useRef(0);
   const mountedRef = useRef(true);
+  // Synchronous guards survive rapid taps before React re-renders.
+  const conversationStartedRef = useRef(false);
+  const turnSubmittingRef = useRef(false);
 
   const { speak, stop: stopTTS, isLoading: ttsLoading } = useTextToSpeech();
   
@@ -137,6 +140,8 @@ export function ConversationPartnerGame({
 
   // Start conversation with opener
   const startConversation = useCallback(async () => {
+    if (conversationStartedRef.current || phase !== 'ready') return;
+    conversationStartedRef.current = true;
     const opener = getRandomOpener();
     setCurrentAIText(opener);
     setPhase('ai_speaking');
@@ -147,13 +152,15 @@ export function ConversationPartnerGame({
       console.warn('TTS failed, continuing without voice:', err);
     }
     
+    if (!mountedRef.current) return;
     addAITurn(opener);
     setPhase('ready');
-  }, [speak, addAITurn]);
+  }, [speak, addAITurn, phase]);
 
   // Handle press-to-talk start
   const handleStartTalking = useCallback(() => {
-    if (phase !== 'ready' && phase !== 'ai_speaking') return;
+    // The mic must not open over Maya's voice or before the first prompt.
+    if (phase !== 'ready' || !currentAIText || turnSubmittingRef.current) return;
     
     setUserTranscript('');
     firstWordTimeRef.current = null;
@@ -178,12 +185,13 @@ export function ConversationPartnerGame({
     if (silenceTimer) {
       clearTimeout(silenceTimer);
     }
-  }, [phase, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId]);
+  }, [phase, currentAIText, startListening, silenceTimer, startAttempt, startRecording, userId, sessionId]);
 
   // Handle done talking
   const handleDoneTalking = useCallback(async () => {
-    if (phase !== 'listening') return;
-
+    if (phase !== 'listening' || turnSubmittingRef.current) return;
+    turnSubmittingRef.current = true;
+    try {
     stopListening();
     setPhase('processing');
     
@@ -266,6 +274,7 @@ export function ConversationPartnerGame({
         console.warn('TTS failed:', err);
       }
       
+      if (!mountedRef.current) return;
       addAITurn(followupText);
       setPhase('complete');
       
@@ -290,8 +299,15 @@ export function ConversationPartnerGame({
         console.warn('TTS failed:', err);
       }
       
+      if (!mountedRef.current) return;
       addAITurn(followupText);
       setPhase('ready');
+    }
+    } catch (error) {
+      console.warn('[ConversationPartner] turn did not finish; ready to try again', error);
+      if (mountedRef.current) setPhase('ready');
+    } finally {
+      turnSubmittingRef.current = false;
     }
   }, [
     phase, stopListening, silenceTimer, userTranscript, currentAIText,
@@ -387,7 +403,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn === 0 && (
+          {phase === 'ready' && !currentAIText && (
             <div className="text-center py-8">
               <Button
                 size="lg"
@@ -408,7 +424,7 @@ export function ConversationPartnerGame({
             </div>
           )}
 
-          {phase === 'ready' && currentTurn > 0 && (
+          {phase === 'ready' && !!currentAIText && (
             <div className="text-center py-4">
               <Button
                 size="lg"
@@ -427,14 +443,7 @@ export function ConversationPartnerGame({
                 <Volume2 className="w-5 h-5 animate-pulse" />
                 <span>Listening to response...</span>
               </div>
-              <Button
-                size="lg"
-                onClick={handleStartTalking}
-                className="gap-2 min-w-[200px] mt-4"
-              >
-                <Mic className="w-5 h-5" />
-                Press to Talk
-              </Button>
+              <p className="text-sm text-muted-foreground mt-3">Press to Talk will appear when Maya finishes.</p>
             </div>
           )}
 
@@ -487,6 +496,8 @@ export function ConversationPartnerGame({
                   setCurrentAIText('');
                   setUserTranscript('');
                   turnCountRef.current = 0;
+                  conversationStartedRef.current = false;
+                  turnSubmittingRef.current = false;
                 }}>
                   Talk Again
                 </Button>
