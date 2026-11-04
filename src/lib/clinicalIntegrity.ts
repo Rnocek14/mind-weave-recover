@@ -116,6 +116,11 @@ export interface TierStatusResult {
  * scattered UI strings. Surface in /games as amber chips on the relevant row.
  */
 export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
+  'conversation-coach': {
+    1: 'L1 uses a modeled adult functional request and confirmed spoken transcript; LLM on-topic scoring and modeled imitation remain uncalibrated for aphasic speech.',
+    2: 'L2 uses visible choices and a spoken response; tapping choices earns no credit. Recognition errors and LLM semantic adjudication still require clinical review.',
+    3: 'L3 open functional requests and optional semantic cues ship; modeled/assisted practice is not independent generalization, and scoring remains uncalibrated.',
+  },
   'conversation-partner': {
     1: 'One spoken on-topic word can be credited from LLM practice scoring. Aphasic speech recognition, semantic appropriateness and generalization require clinician review.',
     2: 'Two related questions with optional audible help ship. Topic continuation is fixed by the script; semantic conversational competence is not independently validated.',

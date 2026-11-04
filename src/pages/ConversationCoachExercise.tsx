@@ -9,6 +9,9 @@ import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
 import { ConversationCoachGame } from '@/components/ConversationCoachGame';
+import { GuidedConversationCoach } from '@/components/GuidedConversationCoach';
+import { useConversationCoachProgression } from '@/hooks/useConversationCoachProgression';
+import { EARLY_COACH_LEVELS } from '@/lib/progression/earlyConversationCoach';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
 import { useStandaloneSession } from '@/hooks/useStandaloneSession';
@@ -35,6 +38,8 @@ export default function ConversationCoachExercise() {
   const exerciseCompleteSentRef = useRef(false);
   
   const { activeSessionId, isCreatingSession } = useStandaloneSession(user?.id, providedSessionId, EXERCISE_SLUG);
+  const clinicalProgression = useConversationCoachProgression({ userId: user?.id, profileId: activeProfile?.id });
+  const earlyStage = EARLY_COACH_LEVELS[clinicalProgression.level];
 
   // Close the session we open. Without this, standalone conversation sessions
   // were only ever ended by the stale-session sweeper (ended_reason
@@ -65,6 +70,8 @@ export default function ConversationCoachExercise() {
   });
   
   const [gameStarted, setGameStarted] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<'guided'|'full'>('guided');
+  const guidedCompleteRef = useRef(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const pivot = useExerciseMidSessionPivot({ exerciseSlug: EXERCISE_SLUG, domainSlug: 'discourse_organization', fromLesson });
@@ -88,8 +95,35 @@ export default function ConversationCoachExercise() {
   }
 
   const handleStart = () => {
+    if (!clinicalProgression.loaded || !activeProfile?.id || !activeSessionId) return;
+    setPracticeMode('guided');
     setGameStarted(true);
     setSessionSummary(null);
+  };
+
+  const handleFullStart = () => {
+    if (!activeProfile?.id || !activeSessionId) return;
+    setPracticeMode('full');
+    setGameStarted(true);
+    setSessionSummary(null);
+  };
+
+  const handleGuidedComplete = async (metrics: SessionSummary) => {
+    if (guidedCompleteRef.current) return;
+    guidedCompleteRef.current = true;
+    turnsRef.current = metrics.turnsCompleted;
+    const saved = await clinicalProgression.flushAtSessionEnd(activeSessionId);
+    if (!saved.ok) console.warn('[ConversationCoach] guided level not persisted:', saved.error);
+    await completeSession();
+    setGameStarted(false); // Show the standalone completion screen.
+    setSessionSummary(metrics);
+    if (fromLesson && !exerciseCompleteSentRef.current) {
+      exerciseCompleteSentRef.current = true;
+      window.dispatchEvent(new CustomEvent('exercise-complete', {
+        detail: { exerciseSlug: 'conversation-coach', results: metrics },
+      }));
+      navigate(returnTo, { state: { resuming: true }, replace: true });
+    }
   };
 
   const handleComplete = (metrics: SessionSummary) => {
@@ -126,9 +160,8 @@ export default function ConversationCoachExercise() {
   };
 
   const handlePlayAgain = () => {
-    setGameStarted(false);
-    setSessionSummary(null);
-    setTimeout(() => setGameStarted(true), 100);
+    // A completed clinical session must not be reused for another attempt.
+    window.location.assign('/exercise/conversation-coach');
   };
 
   // Summary screen
@@ -162,9 +195,9 @@ export default function ConversationCoachExercise() {
               </div>
               <div className="bg-muted rounded-xl p-4">
                 <div className="text-3xl font-bold text-primary">
-                  {Math.round(sessionSummary.userAIRatio)}%
+                  {sessionSummary.userAIRatio > 0 ? `${Math.round(sessionSummary.userAIRatio)}%` : '—'}
                 </div>
-                <div className="text-sm text-muted-foreground">you talked</div>
+                <div className="text-sm text-muted-foreground">your/Maya word ratio</div>
               </div>
               <div className="bg-muted rounded-xl p-4">
                 <div className="text-3xl font-bold text-primary">
@@ -216,11 +249,9 @@ export default function ConversationCoachExercise() {
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                 <Sparkles className="w-10 h-10 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold">Smart Conversation Practice</h2>
+              <h2 className="text-2xl font-bold">Conversation Coach</h2>
               <p className="text-muted-foreground">
-                Have a natural conversation with a patient listener. 
-                I'll gently help if you get stuck—with quick exercises 
-                that get you back on track.
+                Clinical Level {earlyStage.level}: {earlyStage.objective}
               </p>
             </div>
 
@@ -230,15 +261,20 @@ export default function ConversationCoachExercise() {
                 <span className="text-sm font-medium">How it works</span>
               </div>
               <ul className="text-sm text-muted-foreground space-y-1 ml-6">
-                <li>• We'll chat about everyday topics</li>
-                <li>• If you get stuck, I'll offer a quick exercise</li>
-                <li>• Exercises help you find words naturally</li>
-                <li>• Then we continue our conversation</li>
+                <li>• Maya will read one practical speaking task</li>
+                <li>• You can hear a model or ask for help</li>
+                <li>• Say your answer and confirm what Maya heard</li>
+                <li>• Your saved level changes only with reliable evidence</li>
               </ul>
             </div>
 
-            <Button size="lg" onClick={handleStart} className="w-full">
-              Start Practice
+            <Button size="lg" onClick={handleStart} className="w-full"
+              disabled={isCreatingSession || !activeSessionId || !activeProfile?.id || !clinicalProgression.loaded}>
+              {!clinicalProgression.loaded || isCreatingSession ? 'Preparing…' : `Start Guided Level ${earlyStage.level}`}
+            </Button>
+            <Button variant="outline" size="lg" onClick={handleFullStart} className="w-full"
+              disabled={isCreatingSession || !activeSessionId || !activeProfile?.id}>
+              Open Full Conversation Coach
             </Button>
             
             <Button 
@@ -270,13 +306,25 @@ export default function ConversationCoachExercise() {
       </header>
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full">
-        <ConversationCoachGame
-          userId={user.id}
-          profileId={activeProfile?.id || ''}
-          sessionId={activeSessionId}
-          onComplete={handleComplete}
-          onExit={handleExit}
-        />
+        {practiceMode === 'guided' && activeSessionId && activeProfile?.id && clinicalProgression.loaded
+          ? <GuidedConversationCoach
+              userId={user.id}
+              profileId={activeProfile.id}
+              sessionId={activeSessionId}
+              level={clinicalProgression.level}
+              onClinicalTrial={clinicalProgression.recordVerifiedTurn}
+              onComplete={handleGuidedComplete}
+            />
+          : practiceMode === 'full'
+          ? <ConversationCoachGame
+              userId={user.id}
+              profileId={activeProfile?.id || ''}
+              sessionId={activeSessionId}
+              onComplete={handleComplete}
+              onExit={handleExit}
+            />
+          : <div role="status" className="text-center py-8">Preparing guided practice…</div>
+        }
       </div>
       {fromLesson && <SessionSidePanel />}
     </div>
