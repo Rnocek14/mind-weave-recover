@@ -148,16 +148,29 @@ export function DescribeGuessGame({
   const [micOpening, setMicOpening] = useState(false);
   const [micRecoveryReady, setMicRecoveryReady] = useState(false);
   const scheduleMicRecoveryCheck = useCallback(() => {
+    // Keep trying without trapping the patient on an endless "Opening mic..."
+    // status. Every retry belongs to one trial, never the next picture.
+    const cycle = micStartCycleRef.current;
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
-    micAutoRetryTimerRef.current = setTimeout(() => {
-      // Never reopen the mic while Maya is still speaking (or in her tail-lock),
-      // otherwise her voice gets captured as the user's answer.
-      if (voiceController.isMicLocked) { scheduleMicRecoveryCheck(); return; }
-      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) startListeningRef.current();
-    }, 650);
+
+    const retry = () => {
+      if (cycle !== micStartCycleRef.current || showFeedbackRef.current || useTypingRef.current) return;
+      // Speech playback and session pause own the microphone until the
+      // voice-controller lock clears. Retry automatically rather than ask a
+      // patient with aphasia to troubleshoot the browser.
+      if (!isListeningRef.current) {
+        if (!voiceController.isMicLocked) startListeningRef.current();
+        micAutoRetryTimerRef.current = setTimeout(retry, 2000);
+      }
+    };
+    micAutoRetryTimerRef.current = setTimeout(retry, 650);
     micRecoveryTimerRef.current = setTimeout(() => {
-      if (!isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) setMicRecoveryReady(true);
+      if (cycle === micStartCycleRef.current &&
+          !isListeningRef.current && !showFeedbackRef.current && !useTypingRef.current) {
+        setMicOpening(false);
+        setMicRecoveryReady(true);
+      }
     }, 2500);
   }, []);
 
@@ -169,10 +182,24 @@ export function DescribeGuessGame({
         setMicOpening(false);
         return;
       }
+      if (isListeningRef.current) {
+        setMicOpening(false);
+        return;
+      }
+
+      // Never start a fresh recognizer over Maya's voice, even when TTS takes
+      // longer than awaitMicSafe's watchdog. A pause also holds this lock.
+      if (voiceController.isMicLocked) {
+        micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt), 400);
+        return;
+      }
 
       startListeningRef.current();
 
-      if (isListeningRef.current || attempt >= attempts) {
+      if (attempt >= attempts) {
+        // The recognition start call may never fire onstart on mobile Safari.
+        // Do not hide the recovery UI behind a permanently true micOpening.
+        setMicOpening(false);
         scheduleMicRecoveryCheck();
         return;
       }
@@ -454,6 +481,8 @@ export function DescribeGuessGame({
     processingRef.current = false;
     setMicRecoveryReady(false);
     micStartCycleRef.current += 1;
+    const trialMicCycle = micStartCycleRef.current;
+    const trialId = game.currentTrial.id;
     if (micRecoveryTimerRef.current) {
       clearTimeout(micRecoveryTimerRef.current);
       micRecoveryTimerRef.current = null;
@@ -498,6 +527,9 @@ export function DescribeGuessGame({
       // Hard-stop any in-flight recognition from the previous trial so it
       // can't keep appending Maya's next instruction into fullTranscript.
       try { stopListening(); } catch { /* noop */ }
+      // Clear the previous trial's reflected state immediately. Waiting for a
+      // late recognition.onend can make the new cycle think it is already live.
+      isListeningRef.current = false;
       setIsListening(false);
       setMicOpening(true);
       void (async () => {
@@ -506,8 +538,12 @@ export function DescribeGuessGame({
         await new Promise((r) => setTimeout(r, 50));
         await awaitMicSafe(8000);
         // Bail out if the trial advanced or feedback opened during the wait
-        if (!currentTrialRef.current || showFeedbackRef.current) {
-          setMicOpening(false);
+        if (trialMicCycle !== micStartCycleRef.current ||
+            currentTrialRef.current?.id !== trialId ||
+            showFeedbackRef.current || useTypingRef.current) {
+          // A delayed TTS/mic-lock promise from the old picture must not open
+          // the microphone or clear the description for a newer picture.
+          if (trialMicCycle === micStartCycleRef.current) setMicOpening(false);
           return;
         }
         // Final clear right before opening the mic — guarantees the first
@@ -515,7 +551,7 @@ export function DescribeGuessGame({
         resetTranscript();
         setDisplayTranscript('');
         rawTranscriptRef.current = '';
-        startMicWithRetries(micStartCycleRef.current);
+        startMicWithRetries(trialMicCycle);
         if (isRecordingSupported) startRecording();
       })();
     } else {
@@ -529,6 +565,11 @@ export function DescribeGuessGame({
   // Cleanup
   useEffect(() => {
     return () => {
+      // Cancel asynchronous TTS/permission handoffs before the underlying
+      // speech hook unmounts. An old promise must not start a microphone or
+      // recorder after the patient exits the exercise.
+      micStartCycleRef.current += 1;
+      currentTrialRef.current = null;
       if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       if (autoRetryTimerRef.current) clearTimeout(autoRetryTimerRef.current);
