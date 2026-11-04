@@ -9,6 +9,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ABSTRACT_COMPARE_ITEMS, AbstractCompareItem } from '@/data/abstractCompareStimuli';
 import { shuffleArray } from '@/lib/shuffle';
 import { scoreExplanation } from '@/lib/explanationScorer';
+import { scoreMicroRecall } from '@/lib/progression/narrativeMicroRecallScorer';
+import { getGradedTaskSpec, abstractMeetsClinicalTarget } from '@/lib/progression/gradedTaskLevels';
 
 export interface AbstractCompareTrialResult {
   itemId: string;
@@ -22,6 +24,11 @@ export interface AbstractCompareTrialResult {
   abstractionLevel: string;
   durationMs: number;
   skipped: boolean;
+  clinicalLevel?: number;
+  clinicalTargetCount?: number;
+  clinicalMet?: boolean;
+  responseMode?: 'spoken' | 'typed' | 'skip';
+  scoringValid?: boolean;
   depthTelemetry: {
     taskType: 'abstract_compare';
     abstractionLevel: number;
@@ -36,19 +43,22 @@ const ABSTRACTION_NUMERIC: Record<string, number> = {
   abstract: 1.0,
 };
 
-function buildCompareItems(tier: number, roundCount: number, exclude: Set<string>): AbstractCompareItem[] {
+function buildCompareItems(tier: number, roundCount: number, exclude: Set<string>, clinicalLevel?: number | null): AbstractCompareItem[] {
   const t = Math.max(1, Math.min(3, tier));
-  const pool = ABSTRACT_COMPARE_ITEMS.filter(i => i.tier <= Math.min(t + 1, 3) && i.tier >= Math.max(t - 1, 1));
+  const pool = ABSTRACT_COMPARE_ITEMS.filter(i => clinicalLevel != null
+    ? i.tier === getGradedTaskSpec('abstract-compare', clinicalLevel).tier
+    : i.tier <= Math.min(t + 1, 3) && i.tier >= Math.max(t - 1, 1));
   const fresh = pool.filter(i => !exclude.has(i.id));
   const finalPool = fresh.length >= roundCount ? fresh : pool;
   return shuffleArray(finalPool).slice(0, roundCount);
 }
 
-export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1) {
-  const [activeTier, setActiveTierState] = useState<number>(tier);
+export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1, clinicalLevel?: number | null) {
+  const effectiveTier = clinicalLevel == null ? tier : getGradedTaskSpec('abstract-compare', clinicalLevel).tier;
+  const [activeTier, setActiveTierState] = useState<number>(effectiveTier);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const [items, setItems] = useState<AbstractCompareItem[]>(() =>
-    buildCompareItems(tier, roundCount, new Set())
+    buildCompareItems(effectiveTier, roundCount, new Set(), clinicalLevel)
   );
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -57,13 +67,14 @@ export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1)
   // Reset when external tier or round count changes
   useEffect(() => {
     seenIdsRef.current = new Set();
-    setActiveTierState(tier);
-    setItems(buildCompareItems(tier, roundCount, seenIdsRef.current));
+    setActiveTierState(effectiveTier);
+    setItems(buildCompareItems(effectiveTier, roundCount, seenIdsRef.current, clinicalLevel));
     setCurrentIndex(0);
-  }, [tier, roundCount]);
+  }, [effectiveTier, roundCount, clinicalLevel]);
 
   /** Mid-session adaptation: swap upcoming pairs to new tier */
   const setActiveTier = useCallback((newTier: number) => {
+    if (clinicalLevel != null) return;
     const t = Math.max(1, Math.min(3, newTier));
     setActiveTierState(prev => {
       if (prev === t) return prev;
@@ -77,7 +88,7 @@ export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1)
       });
       return t;
     });
-  }, [currentIndex, roundCount]);
+  }, [currentIndex, roundCount, clinicalLevel]);
 
   const currentItem: AbstractCompareItem | null = items[currentIndex] ?? null;
   const isComplete = currentIndex >= items.length;
@@ -87,30 +98,37 @@ export function useAbstractCompareGame(roundCount: number = 4, tier: number = 1)
 
     const correctContext = `${currentItem.wordA} and ${currentItem.wordB} are similar`;
     const score = scoreExplanation(transcript, currentItem.keyProperties, correctContext);
+    const clinicalScore = clinicalLevel == null ? null : scoreMicroRecall(transcript, currentItem.keyProperties);
+    const conceptCount = clinicalScore?.eventsFound ?? score.conceptsFound;
+    const conceptsTotal = clinicalScore?.eventsTotal ?? score.conceptsTotal;
+    const coverageRatio = clinicalScore?.eventCoverage ?? score.coverageRatio;
 
     const result: AbstractCompareTrialResult = {
       itemId: currentItem.id,
       wordA: currentItem.wordA,
       wordB: currentItem.wordB,
       transcript,
-      conceptCount: score.conceptsFound,
-      conceptsTotal: score.conceptsTotal,
-      coverageRatio: score.coverageRatio,
+      conceptCount,
+      conceptsTotal,
+      coverageRatio,
       onTopicScore: score.onTopicScore,
       abstractionLevel: currentItem.abstractionLevel,
       durationMs,
-      skipped: !transcript || transcript.trim().length < 3,
+      skipped: !transcript || transcript.trim().length < 2,
+      clinicalLevel: clinicalLevel ?? undefined,
+      clinicalTargetCount: clinicalLevel != null ? getGradedTaskSpec('abstract-compare', clinicalLevel).commonPropertyTarget : undefined,
+      clinicalMet: clinicalLevel != null ? abstractMeetsClinicalTarget({ conceptCount, skipped: !transcript || transcript.trim().length < 2 }, clinicalLevel) : undefined,
       depthTelemetry: {
         taskType: 'abstract_compare',
         abstractionLevel: ABSTRACTION_NUMERIC[currentItem.abstractionLevel] ?? 0.5,
-        conceptCount: score.conceptsFound,
-        coverageRatio: score.coverageRatio,
+        conceptCount,
+        coverageRatio,
       },
     };
 
     setResults(prev => [...prev, result]);
     return result;
-  }, [currentItem]);
+  }, [currentItem, clinicalLevel]);
 
   const nextItem = useCallback(() => {
     setCurrentIndex(prev => prev + 1);
