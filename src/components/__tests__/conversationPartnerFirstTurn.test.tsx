@@ -99,6 +99,7 @@ function defer<T>(): Deferred<T> {
 }
 
 beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0); // stable adult drink-request scenario
   vi.clearAllMocks();
   mocks.onSpeechResult = null;
   mocks.currentTurn = 0;
@@ -106,7 +107,7 @@ beforeEach(() => {
   mocks.processUserTurn.mockResolvedValue({ followupText: 'What about lunch?', updatedMetrics: { totalUserWords: 3, totalAIWords: 7, avgLatencyMs: 900, turnsCompleted: 1, nudgesGiven: 0, completionRate: 100 } });
 });
 
-afterEach(() => { cleanup(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function mount(
   onComplete?: React.ComponentProps<typeof ConversationPartnerGame>['onComplete'],
