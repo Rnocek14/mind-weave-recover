@@ -32,15 +32,15 @@ describe('deriveTierStatusFromSpec', () => {
     }
   });
 
-  it('Fix Sentence: L1–L6 implemented (L5 two-error + L6 morphology live), L7–L8 planned', () => {
+  it('Fix Sentence: L1–L6 implemented, L7 partial pending SLP review, L8 planned', () => {
     for (let lvl = 1; lvl <= 6; lvl++) {
       expect(deriveTierStatusFromSpec('fix-sentence', lvl, FIX_SENTENCE_LEVELS[lvl]).tierStatus)
         .toBe('implemented');
     }
-    for (let lvl = 7; lvl <= 8; lvl++) {
-      expect(deriveTierStatusFromSpec('fix-sentence', lvl, FIX_SENTENCE_LEVELS[lvl]).tierStatus)
-        .toBe('planned');
-    }
+    expect(deriveTierStatusFromSpec('fix-sentence', 7, FIX_SENTENCE_LEVELS[7]).tierStatus)
+      .toBe('partially-implemented');
+    expect(deriveTierStatusFromSpec('fix-sentence', 8, FIX_SENTENCE_LEVELS[8]).tierStatus)
+      .toBe('planned');
   });
 
   it('Minimal Pairs: L1–L6 implemented, L7–L8 planned', () => {

@@ -83,13 +83,12 @@ export interface FixSentenceLevelSpec {
  *   L4 — Repairs function-mismatch errors with light support
  *   L5 — Repairs function-mismatch errors independently
  *   L6 — Independent repair across categories with reduced latency
- *   L7 — Repairs multi-valid / ambiguous sentences independently
+ *   L7 — Repairs embedded-clause connector errors independently
  *   L8 — Stable functional sentence repair with generalization
  *
- * Until per-level *content* tiers exist beyond the Fix Sentence bank's
- * 3-tier structure, L4–L8 raise the accuracy bar instead of changing the
- * required support tier. That keeps the ladder honest: a session that only
- * succeeds with heavy scaffolding cannot graduate L3+.
+ * L4–L7 ship distinct content, although the engine's 1–10 difficulty
+ * still changes session pace. L8 open-ended repair remains unimplemented.
+ * A session relying on heavy scaffolding cannot graduate L3+.
  */
 export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   1: {
@@ -162,15 +161,15 @@ export const FIX_SENTENCE_LEVELS: Record<number, FixSentenceLevelSpec> = {
   },
   7: {
     level: 7,
-    description: 'Embedded clauses (NOT implemented — selector skips honestly)',
+    description: 'Embedded relative and complement clauses — repair connector errors',
     targetSupport: 'open_response',
     minOnTargetAttempts: 6,
     minOnTargetAccuracy: 0.8,
     trialWeight: 2.0,
     contentSelector: {
       tierKey: 'embedded_clauses',
-      description: 'Requires syntactic-structure tags (relative/complement clauses) on bank — NOT yet implemented; selector skips honestly.',
-      implemented: false,
+      description: '24 functional relative/complement-clause connector repairs, locally scored without fuzzy semantic acceptance; SLP review pending.',
+      implemented: true,
     },
   },
   8: {

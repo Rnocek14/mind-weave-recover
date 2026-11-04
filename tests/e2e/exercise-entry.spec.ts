@@ -32,11 +32,17 @@ test.describe('Exercise entry routes render', () => {
       expect(resp?.ok()).toBeTruthy();
       await page.waitForLoadState('networkidle');
 
-      const landed = new URL(page.url()).pathname;
       if (requiresAuth) {
-        // The guard firing IS the pass condition for a signed-out visitor.
-        expect(landed, `${path} should send a signed-out visitor to /auth`).toBe('/auth');
+        // RequireAuth shows a loading state until Supabase getSession resolves.
+        // networkidle measures requests, NOT whether this React async guard
+        // has committed its redirect. Poll the real final browser URL; never
+        // accept a permanent exercise-route stay or a transient loading shell.
+        await expect.poll(
+          () => new URL(page.url()).pathname,
+          { message: `${path} must redirect signed-out visitors to /auth` },
+        ).toBe('/auth');
       } else {
+        const landed = new URL(page.url()).pathname;
         expect(landed, `${path} is public and must not bounce`).not.toBe('/auth');
       }
       // Body present.

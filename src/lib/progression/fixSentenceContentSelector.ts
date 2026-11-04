@@ -16,10 +16,9 @@
  *   L6      mixed morphology — LIVE. Served from
  *           FIX_SENTENCE_MORPHOLOGY_BANK behind MORPHOLOGY_GAME_READY;
  *           scoring disables the semantic fallback for tagged trials.
- *   L7      embedded clauses — NOT IMPLEMENTED. A small number of items
- *           are multi-clause *coordinated*, but no items are marked as
- *           true embedded (relative / complement) clauses, and there is
- *           no syntactic tag to filter on. Skipped honestly.
+ *   L7      embedded relative/complement clauses — LIVE. Tagged single-
+ *           connector repairs from a separate clinical practice bank; exact
+ *           lexical matching (no broad semantic or phonetic credit).
  *   L8      open-ended repair — NOT IMPLEMENTED. Today every trial scores
  *           against a closed `acceptedFixes` set; an open-ended repair
  *           tier requires an LLM-graded judge (or expanded fix banks).
@@ -34,6 +33,7 @@
  */
 
 import type { FixSentenceTrial } from '@/data/fixSentenceBank';
+import { FIX_SENTENCE_EMBEDDED_CLAUSE_BANK } from '@/data/fixSentenceEmbeddedClauseBank';
 import {
   FIX_SENTENCE_BANK,
   FIX_SENTENCE_TWO_ERROR_BANK,
@@ -64,6 +64,13 @@ export function selectTwoErrorCandidates(): FixSentenceTrial[] {
  * with a closed fix set.
  */
 export const MORPHOLOGY_GAME_READY = true;
+
+/** L7 is a locally scored one-word grammar-repair task, NOT open composition. */
+export const EMBEDDED_CLAUSE_GAME_READY = true;
+
+export function selectEmbeddedClauseCandidates(): FixSentenceTrial[] {
+  return FIX_SENTENCE_EMBEDDED_CLAUSE_BANK.filter(t => t.embeddedClause != null);
+}
 
 /** The L6 candidate pool — exported so tests pin the cohort's integrity. */
 export function selectMorphologyCandidates(): FixSentenceTrial[] {
@@ -265,12 +272,25 @@ export function selectFixSentencePool(
     });
   }
 
-  // L7 — embedded clauses. NOT IMPLEMENTED.
+  // L7 — embedded relative/complement-clause connector repair.
   if (tier === 'L7') {
+    const candidates = EMBEDDED_CLAUSE_GAME_READY ? selectEmbeddedClauseCandidates() : [];
+    if (candidates.length >= MIN_TIER_POOL_SIZE) {
+      return {
+        tier,
+        pool: candidates.map(t => ({ ...t, __selectorTier: tier })),
+        reason: 'embedded_clauses',
+        fallback: null,
+        diagnostics: {
+          totalCandidates: candidates.length,
+          poolSize: candidates.length,
+          errorTypeCounts: countErrorTypes(candidates),
+        },
+      };
+    }
     return baselineResult(tier, bank, {
       reason: 'embedded_clause_tier_not_implemented',
-      detail:
-        'No syntactic-structure tag on the bank. A few items are multi-clause coordinated, none are marked as true embedded (relative/complement) clauses. Selector skips honestly.',
+      detail: 'The dedicated embedded-clause practice cohort is unavailable or too small. Do not treat fallback trials as Level 7 evidence.',
       skipped: true,
     });
   }

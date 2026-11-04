@@ -7,8 +7,8 @@
  *   - L4 falls back honestly when the candidate pool is too small
  *   - L5 serves the two-error cohort (two-phase repair loop shipped)
  *   - L6 serves the morphology cohort (tagged bank + scoring guard shipped)
- *   - L7 / L8 are flagged NOT IMPLEMENTED — selector returns a
- *     `skipped: true` fallback rather than silently downgrading
+ *   - L7 serves a dedicated tagged embedded-clause cohort
+ *   - L8 remains flagged NOT IMPLEMENTED and skips honestly
  *   - level spec contentSelector.implemented mirrors the selector behaviour
  */
 import { describe, it, expect } from 'vitest';
@@ -100,8 +100,18 @@ describe('selectFixSentencePool', () => {
     }
   });
 
+  it('L7 selects tagged embedded relative/complement clauses, never baseline items', () => {
+    const r = selectFixSentencePool(7);
+    expect(r.fallback).toBeNull();
+    expect(r.tier).toBe('L7');
+    expect(r.reason).toBe('embedded_clauses');
+    expect(r.pool.length).toBeGreaterThanOrEqual(20);
+    expect(r.pool.every(t => t.embeddedClause != null)).toBe(true);
+    expect(new Set(r.pool.map(t => t.id)).size).toBe(r.pool.length);
+    expect(new Set(r.pool.map(t => t.embeddedClause?.construction)).size).toBeGreaterThanOrEqual(3);
+  });
+
   it.each([
-    [7, 'embedded_clause_tier_not_implemented'],
     [8, 'open_ended_repair_not_implemented'],
   ] as const)('L%i is flagged NOT implemented and skips honestly', (lvl, reason) => {
     const r = selectFixSentencePool(lvl);
@@ -118,10 +128,10 @@ describe('selectFixSentencePool', () => {
       const r = selectFixSentencePool(lvl);
       const specImplemented = spec.contentSelector?.implemented ?? true;
       const runtimeImplemented = !(r.fallback?.skipped ?? false);
-      // L1–L6 implemented (L4–L6 when their pools suffice); L7–L8 planned-only.
+      // L1–L7 have real cohorts; L8 alone remains planned.
       if (runtimeImplemented) {
         expect(specImplemented).toBe(true);
-      } else if (lvl >= 7) {
+      } else if (lvl >= 8) {
         expect(specImplemented).toBe(false);
       }
     }

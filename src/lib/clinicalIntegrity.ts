@@ -143,6 +143,9 @@ export const KNOWN_CAVEATS: Record<string, Record<number, string>> = {
   },
   // L6–L8 grammar banks exist, but the task still supplies the words and
   // has not been calibrated against spontaneous sentence production.
+  'fix-sentence': {
+    7: 'Embedded connector repair uses constrained one-word alternatives with strict matching. These practice stimuli are not SLP-calibrated and do not establish independent complex-sentence production.',
+  },
   'sentence-construction': {
     6: 'Subordinating clauses ship as constrained word ordering. Scoring is exact-order and has not been calibrated for grammatical paraphrases.',
     7: 'Relative clauses ship as constrained word ordering. This does not establish spontaneous syntactic production.',
