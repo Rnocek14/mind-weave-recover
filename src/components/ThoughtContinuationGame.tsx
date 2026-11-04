@@ -28,6 +28,7 @@ import { useDiscourseAdaptation } from '@/hooks/useDiscourseAdaptation';
 import { useDiscourseSignalScorer } from '@/hooks/useDiscourseSignalScorer';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { usePatientSpeechTurn } from '@/hooks/usePatientSpeechTurn';
 import { useUtteranceLogger } from '@/hooks/useUtteranceLogger';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -69,11 +70,8 @@ const SILENCE_NUDGE_DELAY_MS = 20000;   // 20 seconds before first gentle nudge
 const SILENCE_NARROW_DELAY_MS = 45000;  // 45 seconds before narrowing hint
 const MIN_SPEECH_FOR_COMPLETE_MS = 500; // Reduced - any speech counts
 
-// === Auto-advance after speech (consistent with PhotoNaming / D&G rhythm) ===
-// 2.0s of silence after the user's last detected word commits the answer.
-const AUTO_ADVANCE_AFTER_LAST_WORD_MS = 2000;
-// 1.0s of silence after speech reveals the optional manual "Done" override.
-const BUTTON_REVEAL_AFTER_SILENCE_MS = 1000;
+// Turn completion is handled by usePatientSpeechTurn. Clinical silence windows
+// are engineering defaults and require real-patient calibration.
 
 const DEV_MODE = import.meta.env.DEV;   // Show debug overlay in dev
 
@@ -130,9 +128,6 @@ export function ThoughtContinuationGame({
   const [lastStuckType, setLastStuckType] = useState<StuckType | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
-  // Auto-advance UX state
-  const [showDoneButton, setShowDoneButton] = useState(false);
-
   // Refs
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const speechStartTimeRef = useRef<number | null>(null);
@@ -140,11 +135,11 @@ export function ThoughtContinuationGame({
   const latencyToFirstWordRef = useRef<number | null>(null);
   const narrowingTriggerRef = useRef<'auto_silence' | 'user_request' | null>(null);
 
-  // Auto-advance refs (cleared per trial)
-  const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const buttonRevealTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTranscriptValueRef = useRef<string>('');
+  // The shared patient turn hook owns auto-completion timing.
+  const processUtteranceRef = useRef<() => void>(() => {});
   const latestTranscriptRef = useRef<string>('');
+  const lastTranscriptActivityAtRef = useRef<number | null>(null);
+  const timedTranscriptRef = useRef<string>('');
   const hasCommittedRef = useRef<boolean>(false);
   const isListeningRef = useRef<boolean>(false);
   // Gate the trial-start effect so it only runs ONCE per promptCount.
@@ -227,6 +222,20 @@ export function ThoughtContinuationGame({
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  const {
+    finishNow: finishSpeaking,
+    resetTurn,
+    cancelTimer: cancelCompletionTimer,
+    waitForNewSpeech,
+    waitingForCompletion,
+    awaitingNewSpeech,
+  } = usePatientSpeechTurn({
+    task: 'thought_continuation',
+    transcript,
+    enabled: Boolean(currentPrompt) && (phase === 'idle' || phase === 'listening'),
+    onSpeechEnd: () => processUtteranceRef.current(),
+  });
+
   // ---------------------------------------------------------------------------
   // Select first/next prompt using adaptive selector
   // ---------------------------------------------------------------------------
@@ -285,7 +294,13 @@ export function ThoughtContinuationGame({
     if (currentText && currentText.trim().length > 0) {
       latestTranscriptRef.current = currentText;
       setTranscript(currentText);
-      
+      // Record the latest ASR activity, not the later auto-finalization clock.
+      // The patient may have spent 9+ seconds quietly searching for a word.
+      if (currentText !== timedTranscriptRef.current) {
+        timedTranscriptRef.current = currentText;
+        lastTranscriptActivityAtRef.current = Date.now();
+      }
+
       // Record latency to first word
       if (latencyToFirstWordRef.current === null && latencyStartRef.current) {
         latencyToFirstWordRef.current = Date.now() - latencyStartRef.current;
@@ -311,57 +326,17 @@ export function ThoughtContinuationGame({
 
   const clearAnswerState = useCallback(() => {
     setTranscript('');
-    setShowDoneButton(false);
-    lastTranscriptValueRef.current = '';
     latestTranscriptRef.current = '';
+    timedTranscriptRef.current = '';
+    lastTranscriptActivityAtRef.current = null;
     hasCommittedRef.current = false;
     resetSpeechTranscript();
-    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
-    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
-  }, [resetSpeechTranscript]);
+    resetTurn();
+  }, [resetSpeechTranscript, resetTurn]);
 
-  // ---------------------------------------------------------------------------
-  // Auto-advance after speech (2s silence after last word) + button reveal
-  // (1s silence after speech). Mirrors PhotoNaming/D&G rhythm so the system
-  // feels consistent across games.
-  // ---------------------------------------------------------------------------
-  const processUtteranceRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    // Only arm the auto-advance loop while we're actively listening for an answer.
-    if (phase !== 'idle' && phase !== 'listening') return;
-    if (hasCommittedRef.current) return;
-
-    const trimmed = transcript.trim();
-    if (!trimmed) return;
-
-    // Restart timers ONLY when transcript actually changed (new word(s) heard).
-    if (trimmed === lastTranscriptValueRef.current) return;
-    lastTranscriptValueRef.current = trimmed;
-
-    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
-    if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
-
-    setShowDoneButton(false);
-
-    buttonRevealTimerRef.current = setTimeout(() => {
-      if (!hasCommittedRef.current) setShowDoneButton(true);
-    }, BUTTON_REVEAL_AFTER_SILENCE_MS);
-
-    autoAdvanceTimerRef.current = setTimeout(() => {
-      if (hasCommittedRef.current) return;
-      hasCommittedRef.current = true;
-      processUtteranceRef.current?.();
-    }, AUTO_ADVANCE_AFTER_LAST_WORD_MS);
-  }, [transcript, phase]);
-
-  // Clean up auto-advance timers on unmount
-  useEffect(() => {
-    return () => {
-      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
-      if (buttonRevealTimerRef.current) clearTimeout(buttonRevealTimerRef.current);
-    };
-  }, []);
+  // Completion is patient-paced; a new transcript updates the shared silence
+  // clock and any explicit unfinished thought remains unscored until continued
+  // or the patient taps "I'm Done Speaking".
 
   // ---------------------------------------------------------------------------
   // Silence detection for auto-nudges
@@ -477,11 +452,10 @@ export function ThoughtContinuationGame({
   const processUtterance = useCallback(async () => {
     if (!currentPrompt) return;
 
-    // Cancel any pending auto-advance / button-reveal timers — we're committing now.
-    if (autoAdvanceTimerRef.current) { clearTimeout(autoAdvanceTimerRef.current); autoAdvanceTimerRef.current = null; }
-    if (buttonRevealTimerRef.current) { clearTimeout(buttonRevealTimerRef.current); buttonRevealTimerRef.current = null; }
+    // An automatic timeout, double tap, or late mic event may only process once.
+    if (hasCommittedRef.current) return;
     hasCommittedRef.current = true;
-    setShowDoneButton(false);
+    cancelCompletionTimer();
     const answerText = (latestTranscriptRef.current || transcript).trim();
 
     // ─── MANDATORY PRE-SCORING GATE ──────────────────────────────────────────
@@ -534,8 +508,12 @@ export function ThoughtContinuationGame({
       silenceTimerRef.current = null;
     }
     
-    const speechDuration = speechStartTimeRef.current 
-      ? Date.now() - speechStartTimeRef.current 
+    // This is an ASR-activity-span proxy, NOT an acoustic fluency or speaking
+    // duration measurement. Submitting 9-15 seconds after speech stops must
+    // not add fabricated speaking time to clinical/adaptation observations.
+    const speechDuration = speechStartTimeRef.current !== null &&
+      lastTranscriptActivityAtRef.current !== null
+      ? Math.max(0, lastTranscriptActivityAtRef.current - speechStartTimeRef.current)
       : 0;
     
     // Upload audio for clinical persistence
@@ -655,7 +633,9 @@ export function ThoughtContinuationGame({
       narrowingTrigger: flowMetrics.narrowingTrigger,
       promptIntentType: currentPrompt.intentType,
       promptTheme: currentPrompt.theme,
-      recordingDurationMs: speechDuration,
+      // True audio capture length (which may include the protected pause),
+      // not the shorter ASR-activity-span proxy used above.
+      recordingDurationMs: recordingResult?.duration,
       audioStoragePath: audioStoragePath || undefined,
       stuckType,
       fluencyAvailable: false,
@@ -798,10 +778,11 @@ export function ThoughtContinuationGame({
       setTimeout(async () => {
         if (!currentPrompt) return;
         hasCommittedRef.current = false;
-        setShowDoneButton(false);
+        waitForNewSpeech();
         setFeedbackMessage(null);
         setPhase('idle');
-        // Keep latestTranscriptRef + transcript intact (discourse accumulation).
+        // Preserve the preceding words for context, but never re-score them
+        // until NEW speech arrives after this continuation request.
         await awaitMicSafe(3000);
         void startRecording();
         startListening();
@@ -814,7 +795,7 @@ export function ThoughtContinuationGame({
     }
 
 
-  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState]);
+  }, [currentPrompt, transcript, narrowingLevel, sessionHistory, logFinalAnalysis, logCurrentOutcome, stopListening, stopRecording, uploadRecording, sessionId, userId, promptCount, scorer, adaptation, awaitMicSafe, startListening, clearAnswerState, cancelCompletionTimer, waitForNewSpeech]);
 
   // Keep the ref pointing at the latest processUtterance for the auto-advance
   // effect (which is declared above this callback to avoid hoisting issues).
@@ -823,9 +804,8 @@ export function ThoughtContinuationGame({
   }, [processUtterance]);
 
   // ---------------------------------------------------------------------------
-  // Auto-cutoff is now handled by the 2s post-last-word silence timer above.
-  // The "Done Speaking" button below is an OPTIONAL manual override that only
-  // appears after 1s of post-speech silence.
+  // Auto-completion waits through an individualized patient window.
+  // The prominent Done button is available immediately after speech is heard.
   // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
@@ -873,6 +853,9 @@ export function ThoughtContinuationGame({
   }, [promptCount, sessionResults, resetAttempt, onComplete, selectAndSetNextPrompt, stopTTS, vg, clearAnswerState]);
 
   const handleSkipPrompt = useCallback(async () => {
+    // A pending completion must never score the skipped prompt later.
+    hasCommittedRef.current = true;
+    cancelCompletionTimer();
     // Stop mic + recording to prevent leaks
     stopListening();
     await stopRecording();
@@ -922,7 +905,7 @@ export function ThoughtContinuationGame({
     }
     
     moveToNextPrompt();
-  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording]);
+  }, [narrowingLevel, currentPrompt, sessionHistory, logFinalAnalysis, moveToNextPrompt, stopListening, stopRecording, cancelCompletionTimer]);
 
   const handleHintRequest = useCallback(() => {
     if (!currentPrompt) return;
@@ -1047,8 +1030,12 @@ export function ThoughtContinuationGame({
               )}
             </div>
             {phase !== 'processing' && phase !== 'celebrated' && (
-              <p className="text-sm text-muted-foreground">
-                Take your time...
+              <p className="text-sm text-muted-foreground text-center">
+                {awaitingNewSpeech
+                  ? "Take your time. Say more when you're ready."
+                  : waitingForCompletion
+                    ? "Still listening — finish your thought, or tap I'm Done Speaking."
+                    : "Take your time. You can pause and keep talking."}
               </p>
             )}
           </div>
@@ -1076,21 +1063,18 @@ export function ThoughtContinuationGame({
         </CardContent>
       </Card>
 
-      {/* Optional manual override — hidden until 1s of post-speech silence,
-          and primary auto-advance kicks in at 2s. Tap commits immediately. */}
-      {phase !== 'processing' && phase !== 'celebrated' && showDoneButton && transcript.trim() && (
-        <div
-          className="flex justify-center animate-in fade-in duration-300"
-          aria-live="polite"
-        >
+      {/* Manual completion remains available as soon as words are heard;
+          do not force an aphasic speaker into a short countdown. */}
+      {phase !== 'processing' && phase !== 'celebrated' && !awaitingNewSpeech && transcript.trim() && (
+        <div className="flex justify-center" aria-live="polite">
           <Button
-            variant="secondary"
-            size="sm"
-            onClick={processUtterance}
-            className="gap-2"
+            variant="default"
+            size="lg"
+            onClick={finishSpeaking}
+            className="gap-3 min-h-14 w-full sm:w-auto px-10 text-lg"
           >
-            <Check className="w-4 h-4" />
-            Done
+            <Check className="w-6 h-6" />
+            I'm Done Speaking
           </Button>
         </div>
       )}
