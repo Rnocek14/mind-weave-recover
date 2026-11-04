@@ -17,6 +17,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { KNOWN_CAVEATS, deriveTierStatusFromSpec } from '@/lib/clinicalIntegrity';
+import { EARLY_PARTNER_STAGES } from '@/lib/progression/conversationPartnerClinical';
 import { PHOTO_NAMING_LEVELS } from '@/lib/progression/photoNamingLevels';
 import { FIX_SENTENCE_LEVELS } from '@/lib/progression/fixSentenceLevels';
 import { MINIMAL_PAIRS_LEVELS } from '@/lib/progression/minimalPairsLevels';
@@ -31,6 +32,7 @@ type LevelsMap = Record<number | string, {
 
 const REGISTRY: Record<string, LevelsMap> = {
   'photo-naming': PHOTO_NAMING_LEVELS as unknown as LevelsMap,
+  'conversation-partner': EARLY_PARTNER_STAGES as unknown as LevelsMap,
   'fix-sentence': FIX_SENTENCE_LEVELS as unknown as LevelsMap,
   'minimal-pairs': MINIMAL_PAIRS_LEVELS as unknown as LevelsMap,
   'sentence-construction': SENTENCE_CONSTRUCTION_LEVELS as unknown as LevelsMap,
