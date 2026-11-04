@@ -24,11 +24,18 @@ import { AdaptationBadge } from '@/components/AdaptationBadge';
 import { cn } from '@/lib/utils';
 import { flushVoiceSessionQueue } from '@/lib/voiceController';
 import { completedPartnerSessionMetrics } from '@/lib/conversationPartnerMetrics';
+import {
+  EARLY_PARTNER_STAGES, chooseEarlyPartnerScenario, earlyPartnerTurnOnTarget,
+  isEarlyPartnerLevel, type EarlyPartnerTrial,
+} from '@/lib/progression/conversationPartnerClinical';
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
 
 interface ConversationPartnerGameProps {
   userId: string;
   profileId: string;
   sessionId: string | null;
+  clinicalLevel?: number | null;
+  onClinicalTrial?: (trial: EarlyPartnerTrial) => void;
   onComplete?: (metrics: {
     turnsCompleted: number;
     avgLatencyMs: number;
@@ -44,9 +51,17 @@ export function ConversationPartnerGame({
   userId,
   profileId,
   sessionId,
+  clinicalLevel,
+  onClinicalTrial,
   onComplete,
   onExit
 }: ConversationPartnerGameProps) {
+  const stage = clinicalLevel != null && isEarlyPartnerLevel(clinicalLevel)
+    ? EARLY_PARTNER_STAGES[clinicalLevel] : null;
+  const scenarioRef = useRef(chooseEarlyPartnerScenario());
+  const scenario = scenarioRef.current;
+  const [helpUsed, setHelpUsed] = useState(false);
+  const helpUsedRef = useRef(false);
   const [phase, setPhase] = useState<Phase>('ready');
   const [currentAIText, setCurrentAIText] = useState<string>('');
   const [userTranscript, setUserTranscript] = useState<string>('');
@@ -92,7 +107,7 @@ export function ConversationPartnerGame({
     userId,
     profileId,
     sessionId,
-    maxTurns: 3
+    maxTurns: stage?.turnCount ?? 3,
   });
 
   // Discourse Adaptation Bridge — turns conversational signals into
@@ -104,6 +119,7 @@ export function ConversationPartnerGame({
   const scorer = useDiscourseSignalScorer({
     sessionId,
     exerciseSlug: 'conversation_partner',
+    logToDatabase: !stage,
   });
 
   const handleSpeechResult = useCallback((transcript: string) => {
@@ -143,7 +159,7 @@ export function ConversationPartnerGame({
   const startConversation = useCallback(async () => {
     if (conversationStartedRef.current || phase !== 'ready') return;
     conversationStartedRef.current = true;
-    const opener = getRandomOpener();
+    const opener = stage ? scenario.opener : getRandomOpener();
     setCurrentAIText(opener);
     setPhase('ai_speaking');
     
@@ -156,7 +172,7 @@ export function ConversationPartnerGame({
     if (!mountedRef.current) return;
     addAITurn(opener);
     setPhase('ready');
-  }, [speak, addAITurn, phase]);
+  }, [speak, addAITurn, phase, stage, scenario]);
 
   // Handle press-to-talk start
   const handleStartTalking = useCallback(() => {
@@ -242,10 +258,13 @@ export function ConversationPartnerGame({
       resetAttempt();
     }
 
-    // Score this turn with the LLM-first clinical scorer.
-    // Falls back to local heuristics on timeout/failure. Logs to DB.
+    // Stage-level clinical practice uses a real task goal. Local fallback
+    // scores may keep play moving but cannot count as progression evidence.
     const userWordCount = userTranscript.trim().split(/\s+/).filter(Boolean).length;
-    await scorer.scoreAndRecord(
+    const supportUsed: SupportLevel = helpUsedRef.current
+      ? stage?.level === 1 ? 'choice_based' : 'semantic_cue'
+      : 'independent';
+    const scoreResult = await scorer.scoreAndRecord(
       {
         exerciseSlug: 'conversation_partner',
         promptText: currentAIText,
@@ -253,14 +272,32 @@ export function ConversationPartnerGame({
         wordCount: userWordCount,
         latencyToFirstWordMs: latencyMs,
         durationMs: durationMs,
-        scaffoldUsed: false,
+        scaffoldUsed: helpUsedRef.current,
+        taskGoal: stage?.taskGoal,
         turnNumber: currentTurn + 1,
       },
       adaptation.recordTurn,
     );
 
     // Process turn and get follow-up
-    const { followupText, updatedMetrics } = await processUserTurn(userTranscript, latencyMs);
+    const clinicalCorrect = stage ? earlyPartnerTurnOnTarget(userTranscript, scoreResult.signal) : false;
+    const scriptedFollowupText = stage
+      ? currentTurn + 1 >= maxTurns ? 'Thank you for talking with me.' : scenario.followups[currentTurn]
+      : undefined;
+    const { followupText, updatedMetrics, eventSaved } = await processUserTurn(userTranscript, latencyMs,
+      stage ? {
+        scriptedFollowupText,
+        clinical: {
+          level: stage.level, support: supportUsed, signal: scoreResult.signal,
+          meetsTarget: clinicalCorrect,
+        },
+      } : undefined,
+    );
+    if (stage && eventSaved && scoreResult.signal.source === 'llm') {
+      onClinicalTrial?.({ turnNumber: currentTurn + 1, correct: clinicalCorrect, support: supportUsed });
+    }
+    helpUsedRef.current = false;
+    setHelpUsed(false);
 
     // User exited mid-processing — don't resume speaking after unmount.
     if (!mountedRef.current) return;
@@ -307,11 +344,12 @@ export function ConversationPartnerGame({
     processUserTurn, currentTurn, maxTurns, speak,
     addAITurn, onComplete, metrics, stopRecording, uploadRecording,
     userId, sessionId, currentAttemptId, logFinalAnalysis, resetAttempt,
-    scorer, adaptation,
+    scorer, adaptation, stage, scenario, onClinicalTrial,
   ]);
 
-  // Start silence timer when listening begins
+  // Graded practice never speaks Maya's silence nudge over an active mic.
   useEffect(() => {
+    if (stage) return;
     if (phase === 'listening') {
       const timer = setTimeout(async () => {
         const nudge = getNudge(8000);
@@ -325,7 +363,34 @@ export function ConversationPartnerGame({
       setSilenceTimer(timer);
       return () => clearTimeout(timer);
     }
-  }, [phase, getNudge, speak]);
+  }, [phase, getNudge, speak, stage]);
+
+  const handleHearHelp = useCallback(async () => {
+    if (!stage || (phase !== 'ready' && phase !== 'listening') || !currentAIText ||
+        turnSubmittingRef.current) return;
+    if (phase === 'listening') {
+      // Discard and restart the current attempt before any coach TTS.
+      stopListening();
+      await stopRecording();
+      resetAttempt();
+      turnCountRef.current = Math.max(0, turnCountRef.current - 1);
+      setUserTranscript('');
+    }
+    helpUsedRef.current = true;
+    setHelpUsed(true);
+    const turnIndex = Math.min(currentTurn, 2);
+    const cue = stage.level === 1
+      ? `You could say ${scenario.choices.join(', or ')}. Choose what you like.`
+      : scenario.semanticHelp[turnIndex];
+    setPhase('ai_speaking');
+    try {
+      await speak(cue, { voiceId: MAYA_VOICE_ID });
+    } catch (error) {
+      console.warn('[ConversationPartner] cue audio unavailable', error);
+    }
+    if (mountedRef.current) setPhase('ready');
+  }, [stage, phase, currentAIText, stopListening, stopRecording, resetAttempt,
+      currentTurn, scenario, speak]);
 
   // Progress dots
   const progressDots = Array.from({ length: maxTurns }, (_, i) => (
@@ -354,6 +419,11 @@ export function ConversationPartnerGame({
 
   return (
     <div className="space-y-6">
+      {stage && <div className="text-center space-y-1" aria-label="Clinical conversation goal">
+        <p className="font-semibold">Clinical Level {stage.level} · {scenario.title}</p>
+        <p className="text-sm text-muted-foreground">{stage.objective}</p>
+        {helpUsed && <p className="text-xs text-muted-foreground">Maya helped with this answer.</p>}
+      </div>}
       <div className="flex justify-center gap-2">
         {progressDots}
       </div>
@@ -418,7 +488,7 @@ export function ConversationPartnerGame({
           )}
 
           {phase === 'ready' && !!currentAIText && (
-            <div className="text-center py-4">
+            <div className="text-center py-4 space-y-3">
               <Button
                 size="lg"
                 onClick={handleStartTalking}
@@ -427,6 +497,10 @@ export function ConversationPartnerGame({
                 <Mic className="w-5 h-5" />
                 Press to Talk
               </Button>
+              {stage && <Button size="lg" variant="outline" onClick={handleHearHelp}>
+                <Volume2 className="w-5 h-5 mr-2" />
+                {stage.level === 1 ? 'Hear choices' : 'Hear a clue'}
+              </Button>}
             </div>
           )}
 
@@ -451,6 +525,10 @@ export function ConversationPartnerGame({
                 <MicOff className="w-5 h-5" />
                 Done Talking
               </Button>
+              {stage && <Button size="lg" variant="outline" onClick={handleHearHelp} className="mt-3">
+                <Volume2 className="w-5 h-5 mr-2" />
+                {stage.level === 1 ? 'Hear choices' : 'Hear a clue'}
+              </Button>}
               <p className="text-sm text-muted-foreground mt-2">
                 Take your time. Press when you're finished.
               </p>
@@ -491,6 +569,8 @@ export function ConversationPartnerGame({
                   turnCountRef.current = 0;
                   conversationStartedRef.current = false;
                   turnSubmittingRef.current = false;
+                  helpUsedRef.current = false;
+                  setHelpUsed(false);
                 }}>
                   Talk Again
                 </Button>
