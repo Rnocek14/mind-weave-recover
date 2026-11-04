@@ -1047,6 +1047,8 @@ export function markDescribeGuessTrialsShown(ids: string[]) {
 export function getDescribeGuessTrials(options?: {
   /** Tier 1..3 OR engine level 1..10. Both accepted; engine levels collapse to a tier. */
   difficulty?: number;
+  /** Exact clinical content tier; never borrow from another tier. */
+  clinicalTier?: 1 | 2 | 3;
   count?: number;
 }): DescribeGuessTrial[] {
   const validPhotoIds = new Set(PHOTO_BANK.map(p => p.id));
@@ -1065,12 +1067,13 @@ export function getDescribeGuessTrials(options?: {
     });
 
   let pool: DescribeGuessTrial[];
-  if (options?.difficulty != null) {
-    const targetTier = toDescribeGuessTier(options.difficulty);
+  if (options?.difficulty != null || options?.clinicalTier != null) {
+    const targetTier = options?.clinicalTier ?? toDescribeGuessTier(options!.difficulty!);
     const exact = all.filter(t => t.difficulty === targetTier);
     const requested = options.count ?? exact.length;
 
-    if (exact.length >= requested) {
+    if (exact.length >= requested || options?.clinicalTier != null) {
+      // Never silently turn an abstract stage into easy household items.
       pool = exact;
     } else {
       const neighbors: number[] =
