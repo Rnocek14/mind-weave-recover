@@ -199,6 +199,10 @@ export default function DescribeGuessExercise() {
         meaning_win: result.meaningWin, word_win: result.wordWin,
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed, guess_confidence: result.guessConfidence,
+        // Baseline on-screen questions are visible for every attempt. Preserve
+        // this context so "0 requested cues" is not mistaken for no scaffold.
+        baseline_strategy_guide_visible: true,
+        baseline_strategy_guide_mode: 'persistent_written_questions',
         prompts_shown: result.promptsShown, prompts_shown_count: promptCount,
         cue_type_given: cueTypeGiven,
         time_to_word_retrieval_ms: result.timeToWordRetrievalMs,
