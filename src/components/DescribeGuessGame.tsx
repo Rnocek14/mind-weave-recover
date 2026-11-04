@@ -42,7 +42,9 @@ import { trackValidation, logValidationDetail } from '@/lib/evaluation/validatio
 import { speakMayaCoaching, resetCoachingState } from '@/lib/evaluation/mayaCoachingResponses';
 import { PHOTO_BANK } from '@/data/photoBank';
 import { FeatureType } from '@/data/describeGuessBank';
-import { Mic, MicOff, SkipForward, Volume2, Star, Wrench, Eye, MapPin, Box, Tag, Check, Keyboard } from 'lucide-react';
+import { DescribeGuessPromptGuide, DESCRIBE_GUESS_PROMPTS, type DescribeGuessPrompt } from '@/components/DescribeGuessPromptGuide';
+import { isCurrentDescribeGuessMicRequest } from '@/lib/describeGuess/micRequest';
+import { Mic, MicOff, SkipForward, Star, Check, Keyboard } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { ExercisePurposeBanner } from '@/components/ExercisePurposeBanner';
@@ -53,25 +55,9 @@ import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import { AdaptationBadge, useAdaptationShift } from '@/components/AdaptationBadge';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 
-const PROMPT_COOLDOWNS = [6000, 10000, 14000]; // ms before each prompt appears
 // Speech timing now driven by TIMING_PROFILES.discourse
 const MIN_SPEECH_CONTENT_WORDS = 2; // Minimum content words to trigger evaluation
 const MIN_LISTENING_DURATION_MS = 2000; // At least 2s of mic time before evaluating
-
-interface PromptChip {
-  featureType: FeatureType;
-  label: string;
-  question: string;
-  icon: React.ReactNode;
-}
-
-const PROMPT_CHIPS: PromptChip[] = [
-  { featureType: 'function', label: 'Use', question: 'What do you use it for?', icon: <Wrench className="h-3.5 w-3.5" /> },
-  { featureType: 'location', label: 'Where', question: 'Where do you see it?', icon: <MapPin className="h-3.5 w-3.5" /> },
-  { featureType: 'appearance', label: 'Looks like', question: 'What does it look like?', icon: <Eye className="h-3.5 w-3.5" /> },
-  { featureType: 'material', label: 'Made of', question: 'What is it made of?', icon: <Box className="h-3.5 w-3.5" /> },
-  { featureType: 'category', label: 'Kind of', question: 'What kind of thing is it?', icon: <Tag className="h-3.5 w-3.5" /> },
-];
 
 interface DescribeGuessGameProps {
   onTrialComplete?: (result: DescribeGuessTrialResult) => void;
@@ -100,7 +86,7 @@ export function DescribeGuessGame({
   );
   const [typedAnswer, setTypedAnswer] = useState('');
   const speechErrorCountRef = useRef(0);
-  const [visiblePrompts, setVisiblePrompts] = useState<number>(0);
+  const [activePrompt, setActivePrompt] = useState<FeatureType>('function');
   /** Re-runs the transcript mirror once the mic lock clears. See its effect. */
   const [micLockRetryTick, setMicLockRetryTick] = useState(0);
   const micLockRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,7 +100,6 @@ export function DescribeGuessGame({
   const wordRetrievalRecordedRef = useRef(false);
 
   const debounceTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const promptTimersRef = useRef<NodeJS.Timeout[]>([]);
   const rawTranscriptRef = useRef<string>('');
   const processingRef = useRef(false);
   const evaluatedRef = useRef(false);
@@ -165,20 +150,39 @@ export function DescribeGuessGame({
     if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
 
     const tryStart = (attempt: number) => {
-      if (cycle !== micStartCycleRef.current || showFeedbackRef.current || useTypingRef.current) {
+      if (cycle !== micStartCycleRef.current) return;
+      if (showFeedbackRef.current || useTypingRef.current) {
         setMicOpening(false);
         return;
       }
 
+      if (voiceController.isMicLocked) {
+        if (attempt >= attempts) {
+          setMicOpening(false);
+          scheduleMicRecoveryCheck();
+          return;
+        }
+        micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), 450);
+        return;
+      }
       startListeningRef.current();
 
-      if (isListeningRef.current || attempt >= attempts) {
+      if (isListeningRef.current) {
+        setMicOpening(false);
+        setMicRecoveryReady(false);
+        return;
+      }
+
+      // The recognition hook may be STOPPING/STARTING. Its queued restart
+      // needs time to finish; hammering start() in a tight loop can cancel
+      // the pending transition and leave the next card permanently "Mic off".
+      if (attempt >= attempts) {
+        setMicOpening(false);
         scheduleMicRecoveryCheck();
         return;
       }
 
-      const delay = attempt === 1 ? 150 : attempt === 2 ? 400 : attempt === 3 ? 800 : 1200;
-      micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), delay);
+      micStartRetryTimerRef.current = setTimeout(() => tryStart(attempt + 1), 1200);
     };
 
     setMicOpening(true);
@@ -359,20 +363,6 @@ export function DescribeGuessGame({
     runEvaluationRef.current();
   }, [typedAnswer]);
 
-  // Start prompt cooldown timers when trial begins
-  const startPromptTimers = useCallback(() => {
-    promptTimersRef.current.forEach(t => clearTimeout(t));
-    promptTimersRef.current = [];
-    setVisiblePrompts(0);
-
-    PROMPT_COOLDOWNS.forEach((delay, i) => {
-      const timer = setTimeout(() => {
-        setVisiblePrompts(prev => Math.max(prev, i + 1));
-      }, delay);
-      promptTimersRef.current.push(timer);
-    });
-  }, []);
-
   /**
    * Check if transcript has enough substance to evaluate.
    * Prevents false positives from empty/filler-only speech.
@@ -443,10 +433,13 @@ export function DescribeGuessGame({
 
     game.startRound();
     evaluatedRef.current = false;
+    showFeedbackRef.current = false;
     setShowFeedback(false);
+    setActivePrompt('function');
     setGuessMessage(null);
     setAwaitingWordAttempt(false);
     setWordSaidRedirect(false);
+    wordAttemptContextRef.current = null;
     wordSaidRedirectFiredRef.current = false;
     wordRetrievalRecordedRef.current = false;
     setDisplayTranscript('');
@@ -454,6 +447,7 @@ export function DescribeGuessGame({
     processingRef.current = false;
     setMicRecoveryReady(false);
     micStartCycleRef.current += 1;
+    const micRequest = { trialId: game.currentTrial.id, cycle: micStartCycleRef.current };
     if (micRecoveryTimerRef.current) {
       clearTimeout(micRecoveryTimerRef.current);
       micRecoveryTimerRef.current = null;
@@ -498,31 +492,43 @@ export function DescribeGuessGame({
       // Hard-stop any in-flight recognition from the previous trial so it
       // can't keep appending Maya's next instruction into fullTranscript.
       try { stopListening(); } catch { /* noop */ }
+      isListeningRef.current = false;
       setIsListening(false);
       setMicOpening(true);
       void (async () => {
         // Tiny yield so the intro-TTS effect has a chance to flip
         // voiceController.isSpeaking=true before we poll it.
         await new Promise((r) => setTimeout(r, 50));
-        await awaitMicSafe(8000);
-        // Bail out if the trial advanced or feedback opened during the wait
-        if (!currentTrialRef.current || showFeedbackRef.current) {
-          setMicOpening(false);
+        try {
+          await awaitMicSafe(8000);
+        } catch {
+          // Still surface the existing retry/typing recovery, not a dead mic.
+          if (micRequest.cycle === micStartCycleRef.current) {
+            setMicOpening(false);
+            scheduleMicRecoveryCheck();
+          }
           return;
         }
-        // Final clear right before opening the mic — guarantees the first
-        // visible "Heard:" text is the patient's actual answer.
+        // An older item's TTS wait must never arm the next item's microphone.
+        if (!isCurrentDescribeGuessMicRequest(micRequest, {
+          trialId: currentTrialRef.current?.id,
+          cycle: micStartCycleRef.current,
+          hasFeedback: showFeedbackRef.current,
+          isTyping: useTypingRef.current,
+        })) {
+          return;
+        }
+        // Clear TTS bleed before opening; don't capture speech while Maya talks.
         resetTranscript();
         setDisplayTranscript('');
         rawTranscriptRef.current = '';
-        startMicWithRetries(micStartCycleRef.current);
+        startMicWithRetries(micRequest.cycle);
         if (isRecordingSupported) startRecording();
       })();
     } else {
       setTypedAnswer('');
     }
 
-    startPromptTimers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.currentTrial?.id, game.isComplete]);
 
@@ -535,7 +541,6 @@ export function DescribeGuessGame({
       if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
       if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
       if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
-      promptTimersRef.current.forEach(t => clearTimeout(t));
       cancelRecordingRef.current();
       stopListeningRef.current();
     };
@@ -612,8 +617,10 @@ export function DescribeGuessGame({
       const redirectMsg = `That's the word! Now try describing "${trial.target}" without saying it — what does it look like, what is it used for?`;
       setGuessMessage(redirectMsg);
 
+      const redirectTrialId = trial.id;
       speak(redirectMsg).then(async () => {
-        micStartCycleRef.current += 1;
+        if (currentTrialRef.current?.id !== redirectTrialId || showFeedbackRef.current || useTypingRef.current) return;
+        const redirectCycle = ++micStartCycleRef.current;
         // Reset transcript so their description attempt is clean
         rawTranscriptRef.current = '';
         setDisplayTranscript('');
@@ -624,11 +631,13 @@ export function DescribeGuessGame({
 
         // Resume listening — Sync-Wait via VoiceController
         await awaitMicSafe(5000);
-        if (!currentTrialRef.current || showFeedbackRef.current) {
-          setMicOpening(false);
-          return;
-        }
-        startMicWithRetries(micStartCycleRef.current);
+        if (!isCurrentDescribeGuessMicRequest({ trialId: redirectTrialId, cycle: redirectCycle }, {
+          trialId: currentTrialRef.current?.id,
+          cycle: micStartCycleRef.current,
+          hasFeedback: showFeedbackRef.current,
+          isTyping: useTypingRef.current,
+        })) return;
+        startMicWithRetries(redirectCycle);
       });
     }
   }, [fullTranscript, transcript, game, awaitingWordAttempt, stopListening, speak, startMicWithRetries]);
@@ -676,7 +685,7 @@ export function DescribeGuessGame({
           semanticSimilarity: ctx.guessResult.confidence,
         });
         recordAdaptiveTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs });
-        engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
+        engagement.recordTrial({ correct: true, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: game.promptsShown.length, timestamp: Date.now() });
       }
       wordAttemptContextRef.current = null;
       setShowFeedback(true);
@@ -752,7 +761,7 @@ export function DescribeGuessGame({
       expectedMode: 'description',
       // Feed the visible chip prompts so "what do you use it for?" parroting
       // is caught even though it was a button label, not a Maya utterance.
-      extraSpokenContext: PROMPT_CHIPS.map(c => c.question),
+      extraSpokenContext: DESCRIBE_GUESS_PROMPTS.map(c => c.question),
     });
 
     broadcastGateDecision('describe_guess', gate, currentTranscript);
@@ -832,8 +841,10 @@ export function DescribeGuessGame({
         setDisplayTranscript('');
 
         // Speak with mic off, then re-enable mic after TTS finishes (+tail-lock).
+        const wordTrialId = trial.id;
         speak(`Say ${trial.target}.`).then(async () => {
-          micStartCycleRef.current += 1;
+          if (currentTrialRef.current?.id !== wordTrialId || !wordAttemptContextRef.current) return;
+          const wordCycle = ++micStartCycleRef.current;
           // Reset transcript again in case speech recognition fired during TTS
           rawTranscriptRef.current = '';
           setMicOpening(true);
@@ -842,11 +853,13 @@ export function DescribeGuessGame({
           // Tight handoff — the prompt is only 2 words, so open the mic
           // almost immediately. Don't wait on voice-state arbitration here.
           await awaitMicSafe(250);
-          if (!awaitingWordAttempt && !wordAttemptContextRef.current) {
-            setMicOpening(false);
-            return;
-          }
-          startMicWithRetries(micStartCycleRef.current);
+          if (!isCurrentDescribeGuessMicRequest({ trialId: wordTrialId, cycle: wordCycle }, {
+            trialId: currentTrialRef.current?.id,
+            cycle: micStartCycleRef.current,
+            hasFeedback: showFeedbackRef.current,
+            isTyping: useTypingRef.current,
+          }) || !wordAttemptContextRef.current) return;
+          startMicWithRetries(wordCycle);
 
           // Start the word-attempt timer AFTER TTS finishes
           const wordAttemptStart = Date.now();
@@ -873,7 +886,7 @@ export function DescribeGuessGame({
                 } : {}),
               });
               recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
-              engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
+              engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: game.promptsShown.length, timestamp: Date.now() });
             }
             setShowFeedback(true);
             setAwaitingWordAttempt(false);
@@ -903,7 +916,7 @@ export function DescribeGuessGame({
             } : {}),
           });
           recordAdaptiveTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs });
-          engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: visiblePrompts, timestamp: Date.now() });
+          engagement.recordTrial({ correct: finalResult.meaningWin || finalResult.wordWin, reactionTimeMs: finalResult.reactionTimeMs, timeout: false, cueLevel: game.promptsShown.length, timestamp: Date.now() });
         }
         setShowFeedback(true);
 
@@ -1000,10 +1013,21 @@ export function DescribeGuessGame({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isListening, showFeedback, fullTranscript]);
 
-  const handleChipTap = useCallback((chip: PromptChip) => {
+  const handleChipTap = useCallback((chip: DescribeGuessPrompt) => {
+    setActivePrompt(chip.featureType);
+    // A tap requests a SPOKEN cue. Merely seeing a question is not assistance.
     game.recordFeatureChip(chip.featureType, chip.question);
     speak(chip.question);
   }, [game, speak]);
+
+  const handleMicRetry = useCallback(() => {
+    const cycle = ++micStartCycleRef.current;
+    setMicRecoveryReady(false);
+    setMicOpening(true);
+    // Call recognition.start() synchronously from this tap when possible.
+    // Delaying a user-triggered retry can break permission-gated mobile audio.
+    startMicWithRetries(cycle);
+  }, [startMicWithRetries]);
 
   const handleDismissFeedback = useCallback(() => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -1016,7 +1040,6 @@ export function DescribeGuessGame({
   const handleSkip = useCallback(() => {
     if (debounceTimeoutRef.current) clearInterval(debounceTimeoutRef.current);
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    promptTimersRef.current.forEach(t => clearTimeout(t));
     if (micRecoveryTimerRef.current) clearTimeout(micRecoveryTimerRef.current);
     if (micAutoRetryTimerRef.current) clearTimeout(micAutoRetryTimerRef.current);
     if (micStartRetryTimerRef.current) clearTimeout(micStartRetryTimerRef.current);
@@ -1080,7 +1103,7 @@ export function DescribeGuessGame({
   }
 
   return (
-    <div className="max-w-2xl mx-auto h-full flex flex-col gap-2">
+    <div className="max-w-2xl mx-auto h-full min-h-0 overflow-y-auto flex flex-col gap-2 pb-4">
       {/* Purpose banner — first trial only */}
       {game.currentIndex === 0 && !showFeedback && (
         <ExercisePurposeBanner exerciseSlug="describe-guess" />
@@ -1100,29 +1123,26 @@ export function DescribeGuessGame({
         <Progress value={game.progress} className="h-1.5" />
       </div>
 
-      {/* Instruction — clear Taboo-style. Subtitle only on tall screens;
-          the chips below carry the same guidance interactively. */}
+      {/* Instruction stays short; the large question guide below is persistent. */}
       <div className="text-center shrink-0 space-y-1">
-        <p className="text-sm font-medium text-foreground">
-          🚫 Describe this <strong>without</strong> saying the word!
+        <p className="text-base font-semibold text-foreground">
+          Describe this without saying its name.
         </p>
-        <p className="text-xs text-muted-foreground hidden tall:block">
-          Tell me what it looks like, where you find it, or what it's used for — I'll try to guess.
-        </p>
+        <p className="text-sm text-muted-foreground">Maya will try to guess what you mean.</p>
       </div>
 
       {/* Image Card — fills available space. Hard-block render if no image resolves. */}
-      <Card className="border-2 overflow-hidden flex-1 min-h-0">
-        <CardContent className="p-0 h-full">
+      <Card className="border-2 overflow-hidden shrink-0">
+        <CardContent className="p-0">
           {currentImage ? (
-            <div className="h-full flex items-center justify-center bg-muted/30">
+            <div className="flex items-center justify-center bg-muted/30">
               {/* Viewport-HEIGHT cap: an uncapped square photo fills the fold
                   (phones AND laptops — wide but short) and pushes the chips +
                   mic/typing controls off-screen. Tall screens get more. */}
               <img
                 src={currentImage}
                 alt="Describe this"
-                className="max-h-[34vh] tall:max-h-[45vh] max-w-full object-contain"
+                className="max-h-[24vh] tall:max-h-[32vh] max-w-full object-contain"
               />
             </div>
           ) : (
@@ -1136,39 +1156,13 @@ export function DescribeGuessGame({
         </CardContent>
       </Card>
 
-      {/* Prompt Chips (appear on cooldown) */}
+      {/* Always visible: seeing the guide does not change scoring or cue telemetry. */}
       {!showFeedback && !awaitingWordAttempt && (
-        <div className="flex flex-wrap justify-center gap-1.5 shrink-0">
-          {/* ONE threshold, here in the slice. There used to be three, and they
-              disagreed: the slice and the early return both used
-              visiblePrompts + 2, while the className hid anything with
-              `i >= visiblePrompts`. Two off-by-two apart, so "Made of" and
-              "Kind of" were rendered into the row — taking up width, reserving
-              layout — at opacity-0 and pointer-events-none for every reachable
-              value of visiblePrompts. Two of the five help chips could not be
-              seen or tapped at any point in the game, and "Looks like" only
-              surfaced at 14s instead of 6s. */}
-          {PROMPT_CHIPS.slice(0, Math.min(visiblePrompts + 2, PROMPT_CHIPS.length)).map((chip) => {
-            return (
-              <Button
-                key={chip.featureType}
-                variant={game.featureTypesUsed.has(chip.featureType) ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => handleChipTap(chip)}
-                className={cn(
-                  'transition-all text-xs h-8',
-                  game.featureTypesUsed.has(chip.featureType) && 'ring-2 ring-primary/50',
-                )}
-              >
-                {/* Covered (tapped OR spoken) → explicit check-off */}
-                {game.featureTypesUsed.has(chip.featureType)
-                  ? <Check className="h-3.5 w-3.5" />
-                  : chip.icon}
-                <span className="ml-1">{chip.label}</span>
-              </Button>
-            );
-          })}
-        </div>
+        <DescribeGuessPromptGuide
+          activeFeature={activePrompt}
+          spokenFeatures={game.featureTypesSpoken}
+          onRequest={handleChipTap}
+        />
       )}
 
       {/* Transcript */}
@@ -1261,15 +1255,7 @@ export function DescribeGuessGame({
           micRecoveryReady &&
           isSupported
         }
-        onRetry={() => {
-          micStartCycleRef.current += 1;
-          setMicOpening(true);
-          setMicRecoveryReady(false);
-          resetTranscript();
-          setTimeout(() => {
-            startMicWithRetries(micStartCycleRef.current);
-          }, 350);
-        }}
+        onRetry={handleMicRetry}
         compact
       />
 
@@ -1296,7 +1282,7 @@ export function DescribeGuessGame({
       )}
 
       {/* Controls */}
-      <div className="flex justify-center gap-3 shrink-0 pb-1 flex-wrap">
+      <div className="sticky bottom-0 z-10 flex justify-center gap-3 shrink-0 flex-wrap rounded-xl border-t bg-background/95 px-2 py-2 shadow-sm">
         {isEvaluating ? (
           <Badge variant="secondary" className="text-sm px-3 py-1.5 animate-pulse">
             🤔 Guessing...
@@ -1331,15 +1317,11 @@ export function DescribeGuessGame({
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  useTypingRef.current = false;
                   setUseTyping(false);
                   try { sessionStorage.setItem('preferTypingInput', 'false'); } catch { /* noop */ }
                   speechErrorCountRef.current = 0;
-                  micStartCycleRef.current += 1;
-                  setMicOpening(true);
-                  setMicRecoveryReady(false);
-                  setTimeout(() => {
-                    startMicWithRetries(micStartCycleRef.current);
-                  }, 350);
+                  handleMicRetry();
                 }}
                 className="h-9"
               >
@@ -1350,6 +1332,7 @@ export function DescribeGuessGame({
                 variant={speechError ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
+                  useTypingRef.current = true;
                   setUseTyping(true);
                   try { sessionStorage.setItem('preferTypingInput', 'true'); } catch { /* noop */ }
                   if (speechIsListening) stopListening();
@@ -1361,15 +1344,28 @@ export function DescribeGuessGame({
               </Button>
             )}
 
-            {/* Mic status pill — visual only, not interactive */}
+            {/* Real gesture-based recovery when mobile auto-start is blocked.
+                This must remain large and tappable, not a decorative status pill. */}
             {!useTyping && (
-              <div className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
-                isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : micOpening ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-              )}>
-                {isListening || micOpening ? <Mic className="h-3.5 w-3.5 animate-pulse" /> : <MicOff className="h-3.5 w-3.5" />}
-                {isListening ? 'Listening...' : micOpening ? 'Opening mic...' : 'Mic off'}
-              </div>
+              isListening || micOpening ? (
+                <div className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs',
+                  isListening ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-primary/10 text-primary'
+                )}>
+                  <Mic className="h-3.5 w-3.5 animate-pulse" />
+                  {isListening ? 'Listening...' : 'Opening mic...'}
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleMicRetry}
+                  variant="default"
+                  className="min-h-11 px-4 text-base"
+                  aria-label="Tap to start speaking"
+                >
+                  <Mic className="h-5 w-5 mr-2" /> Tap to speak
+                </Button>
+              )
             )}
 
             <Button variant="ghost" size="sm" onClick={handleSkip} className="h-9">

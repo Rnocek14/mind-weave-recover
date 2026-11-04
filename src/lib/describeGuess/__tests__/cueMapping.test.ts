@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveCueTelemetry } from '../cueMapping';
+import { deriveCueTelemetry, semanticPromptSupport } from '../cueMapping';
 
 describe('deriveCueTelemetry', () => {
   it('0 prompts → cueLevel 0, cueTypeGiven none, cueWasEffective null', () => {
@@ -42,5 +42,14 @@ describe('deriveCueTelemetry', () => {
   it('handles negative or fractional prompt counts defensively', () => {
     expect(deriveCueTelemetry(-1, true).cueLevel).toBe(0);
     expect(deriveCueTelemetry(1.7, true).cueLevel).toBe(1);
+  });
+});
+
+describe('Describe & Guess lexical support labels', () => {
+  it('does not claim phonemic cues or full models when only semantic questions were read', () => {
+    expect(semanticPromptSupport(0)).toBe('independent');
+    expect(semanticPromptSupport(1)).toBe('semantic_cue');
+    expect(semanticPromptSupport(2)).toBe('semantic_cue');
+    expect(semanticPromptSupport(3)).toBe('semantic_cue');
   });
 });
