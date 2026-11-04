@@ -296,10 +296,16 @@ describe('Conversation Partner — graded patient-facing L1–L3', () => {
     fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
     act(() => mocks.onSpeechResult?.('cof'));
     const priorSpeak = mocks.speak.mock.calls.length;
+    const recording = defer<null>();
+    mocks.stopRecording.mockImplementationOnce(() => recording.promise);
     fireEvent.click(screen.getByRole('button', { name: /hear a clue/i }));
-    await waitFor(() => expect(mocks.speak.mock.calls.length).toBeGreaterThan(priorSpeak));
     expect(mocks.stopListening).toHaveBeenCalled();
     expect(mocks.stopRecording).toHaveBeenCalled();
+    // The voice clue MUST wait for the microphone recording to stop.
+    expect(mocks.speak).toHaveBeenCalledTimes(priorSpeak);
+    expect(screen.queryByRole('button', { name: /done talking/i })).toBeNull();
+    await act(async () => recording.resolve(null));
+    await waitFor(() => expect(mocks.speak.mock.calls.length).toBeGreaterThan(priorSpeak));
     expect(onClinicalTrial).not.toHaveBeenCalled();
     expect(mocks.processUserTurn).not.toHaveBeenCalled();
     expect(screen.getByLabelText(/clinical conversation goal/i)).toHaveTextContent('Maya helped with this answer');
