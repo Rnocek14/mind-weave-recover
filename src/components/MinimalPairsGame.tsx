@@ -260,10 +260,14 @@ export function MinimalPairsGame({
         const t = setTimeout(() => { nextTrial(); }, 3500);
         return () => clearTimeout(t);
       }
-      // Safety net: if the say-it step never resolves (e.g. no mic), don't hang.
-      // Transition through a terminal echo state so the tap trial is logged
-      // before moving on, even when recording or Azure is stalled.
-      const fallback = setTimeout(() => { skipEcho(); }, 22000);
+      // Stage-specific safety net, not a single deadline starting at picture
+      // selection: long Maya audio + aphasic onset + an Azure response can exceed
+      // that deadline even when every stage succeeds.
+      const fallbackMs = echoStatus === 'idle' ? 15000
+        : echoStatus === 'arming' ? 9000
+        : echoStatus === 'listening' ? 10000
+        : 13000; // analyzing; hook also has its own bounded provider timeout
+      const fallback = setTimeout(() => { skipEcho(); }, fallbackMs);
       return () => clearTimeout(fallback);
     }
     const t = setTimeout(() => { nextTrial(); }, 5000);
