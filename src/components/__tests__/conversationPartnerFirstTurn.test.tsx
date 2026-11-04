@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   scorer: vi.fn(async () => ({ signal: { onTopicScore: 0.8 } })),
   flushQueue: vi.fn(),
   onSpeechResult: null as null | ((transcript: string) => void),
+  currentTurn: 0,
 }));
 
 vi.mock('@/hooks/useTextToSpeech', () => ({
@@ -56,7 +57,7 @@ vi.mock('@/hooks/useAudioRecorder', () => ({
 }));
 vi.mock('@/hooks/useConversationPartner', () => ({
   useConversationPartner: () => ({
-    conversationHistory: [], currentTurn: 0, maxTurns: 3,
+    conversationHistory: [], currentTurn: mocks.currentTurn, maxTurns: 3,
     isLoadingFollowup: false, isComplete: false,
     metrics: {
       totalUserWords: 0, totalAIWords: 10, turnsCompleted: 0,
@@ -97,18 +98,20 @@ function defer<T>(): Deferred<T> {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.onSpeechResult = null;
+  mocks.currentTurn = 0;
   mocks.speak.mockResolvedValue(undefined);
-  mocks.processUserTurn.mockResolvedValue({ followupText: 'What about lunch?' });
+  mocks.processUserTurn.mockResolvedValue({ followupText: 'What about lunch?', updatedMetrics: { totalUserWords: 3, totalAIWords: 7, avgLatencyMs: 900, turnsCompleted: 1, nudgesGiven: 0, completionRate: 100 } });
 });
 
 afterEach(() => { cleanup(); });
 
-function mount() {
+function mount(onComplete?: React.ComponentProps<typeof ConversationPartnerGame>['onComplete']) {
   return render(
     <ConversationPartnerGame
       userId="synthetic-user"
       profileId="synthetic-profile"
       sessionId="synthetic-session"
+      onComplete={onComplete}
     />,
   );
 }
@@ -172,6 +175,34 @@ describe('Conversation Partner — first patient turn', () => {
     await screen.findByRole('button', { name: /press to talk/i });
     expect(mocks.speak).toHaveBeenCalledTimes(2);
     expect(mocks.addAITurn).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes the complete final response metrics to the session page (not stale word counts)', async () => {
+    mocks.currentTurn = 2;
+    const onComplete = vi.fn();
+    mocks.processUserTurn.mockResolvedValueOnce({
+      followupText: 'Nice talking with you',
+      updatedMetrics: {
+        totalUserWords: 7,
+        totalAIWords: 10,
+        avgLatencyMs: 1200,
+        turnsCompleted: 3,
+        nudgesGiven: 0,
+        completionRate: 200 / 3,
+      },
+    });
+    mount(onComplete);
+    fireEvent.click(screen.getByRole('button', { name: /start conversation/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /press to talk/i }));
+    act(() => mocks.onSpeechResult?.('toast and eggs'));
+    fireEvent.click(screen.getByRole('button', { name: /done talking/i }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+      turnsCompleted: 3,
+      avgLatencyMs: 1200,
+      completionRate: 200 / 3,
+      userAIRatio: 50, // 7 user words / (10 earlier + 4 closing words)
+    }));
   });
 
   it('unmount during opener cancels the speech pipeline and never opens a mic afterward', async () => {
