@@ -30,7 +30,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { useGradedTaskProgression } from '@/hooks/useGradedTaskProgression';
-import { describeMeetsClinicalTarget } from '@/lib/progression/gradedTaskLevels';
+import { describeMeetsClinicalTarget, getGradedTaskSpec } from '@/lib/progression/gradedTaskLevels';
 import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useExerciseMidSessionPivot } from '@/hooks/useExerciseMidSessionPivot';
@@ -205,6 +205,7 @@ export default function DescribeGuessExercise() {
       stimulusId: result.trialId,
       expectedResponse: result.target ?? null,
       userResponse: null,
+      browserTranscript: result.responseMode === 'spoken' ? result.transcript : null,
       isCorrect,
       // Word win is the harder of the two; weight accordingly so mastery
       // shadow / adaptation can distinguish full retrieval from
@@ -213,7 +214,8 @@ export default function DescribeGuessExercise() {
       cueLevel,
       supportUsed,
       latencyMs: result.reactionTimeMs ?? null,
-      trialMode: 'production',
+      // Typing is usable practice, not a spoken expressive mastery trial.
+      trialMode: result.responseMode === 'typed' ? 'exposure' : 'production',
       errorType: isCorrect ? undefined : 'no_guess',
       taskParameters: {
         trial_id: result.trialId, target: result.target,
@@ -221,8 +223,9 @@ export default function DescribeGuessExercise() {
         strategy_win: result.strategyWin, communication_win: result.communicationWin,
         feature_types_used: result.featureTypesUsed,
         spoken_feature_types: result.spokenFeatureTypes,
-        clinical_feature_target: clinicalLevel,
+        clinical_feature_target: getGradedTaskSpec('describe-guess', clinicalLevel).spokenFeatureTarget,
         clinical_target_met: clinicalCorrect,
+        clinical_evidence_eligible: result.responseMode === 'spoken' && progression.verified,
         clinical_level: clinicalLevel,
         response_mode: result.responseMode ?? 'unknown',
         guess_confidence: result.guessConfidence,
