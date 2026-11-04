@@ -162,7 +162,10 @@ export function GuidedConversationCoach({
     let recorded = false;
     try { recorded = await startRecording(); }
     catch (error) { console.warn('[GuidedCoach] optional audio capture unavailable', error); }
-    if (!mountedRef.current || phaseRef.current !== 'maya_speaking') {
+    // Read phase through a fresh closure: changePhase() updates the ref
+    // synchronously, but TypeScript cannot see that mutation across an await.
+    const stillPreparing = () => phaseRef.current === 'maya_speaking';
+    if (!mountedRef.current || !stillPreparing()) {
       // If the patient exited while the OS permission prompt was open, the
       // recorder may have started AFTER our unmount cleanup ran.
       if (recorded) cancelRecording();
