@@ -29,6 +29,14 @@ const TIMING: Record<PatientSpeechTask, TurnTiming> = {
   narrative_retell: { baseMs: 12_000, incompleteMs: 14_000, maxMs: 18_000 },
 };
 
+/**
+ * An explicit trailing connector/filler is a reason to keep listening,
+ * not to automatically mark the response wrong or unfinished.
+ */
+export function isExplicitlyUnfinishedSpeech(transcript: string): boolean {
+  return detectUtteranceComplete(transcript).reasons.includes('Trailing off pattern detected');
+}
+
 /** At most six in-session, observed *between-speech* pauses. No patient ID/data is stored. */
 export interface PatientPauseHistory {
   lastTranscript: string;
