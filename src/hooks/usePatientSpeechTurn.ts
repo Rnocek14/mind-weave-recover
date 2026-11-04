@@ -33,6 +33,7 @@ export function usePatientSpeechTurn({
   const latestTextRef = useRef('');
   const lastScheduledTextRef = useRef('');
   const hasSubmittedRef = useRef(false);
+  const ignoreUntilNewSpeechRef = useRef<string | null>(null);
   const onSpeechEndRef = useRef(onSpeechEnd);
   const enabledRef = useRef(enabled);
   onSpeechEndRef.current = onSpeechEnd;
@@ -58,9 +59,18 @@ export function usePatientSpeechTurn({
   const resetTurn = useCallback(() => {
     cancelTimer();
     hasSubmittedRef.current = false;
+    ignoreUntilNewSpeechRef.current = null;
     latestTextRef.current = '';
     lastScheduledTextRef.current = '';
     historyRef.current = resetPatientPauseHistory(historyRef.current);
+    setWaitingForCompletion(false);
+  }, [cancelTimer]);
+
+  /** After feedback on a short answer, wait for genuinely new speech. */
+  const waitForNewSpeech = useCallback(() => {
+    cancelTimer();
+    hasSubmittedRef.current = false;
+    ignoreUntilNewSpeechRef.current = latestTextRef.current;
     setWaitingForCompletion(false);
   }, [cancelTimer]);
 
@@ -69,6 +79,14 @@ export function usePatientSpeechTurn({
     if (!enabled || !text || hasSubmittedRef.current) {
       cancelTimer();
       return;
+    }
+
+    if (ignoreUntilNewSpeechRef.current !== null) {
+      if (text === ignoreUntilNewSpeechRef.current) {
+        cancelTimer();
+        return;
+      }
+      ignoreUntilNewSpeechRef.current = null;
     }
 
     if (text !== latestTextRef.current) {
@@ -101,5 +119,5 @@ export function usePatientSpeechTurn({
 
   useEffect(() => () => cancelTimer(), [cancelTimer]);
 
-  return { finishNow, resetTurn, cancelTimer, waitingForCompletion };
+  return { finishNow, resetTurn, waitForNewSpeech, cancelTimer, waitingForCompletion };
 }
