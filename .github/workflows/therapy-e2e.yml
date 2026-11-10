@@ -39,6 +39,10 @@ jobs:
       E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
       E2E_SUPABASE_PROJECT_REF: ${{ vars.E2E_SUPABASE_PROJECT_REF }}
+      # Protected environment variables; never infer disposable data from its name.
+      NEUROSPARK_STAGING_DATA_ATTESTED_REF: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_REF }}
+      NEUROSPARK_STAGING_DATA_ATTESTED_AT: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_AT }}
+      NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +56,8 @@ jobs:
           mkdir -p qa-evidence
           git rev-parse HEAD > qa-evidence/candidate-revision.txt
           node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
+      - name: Require current reviewed synthetic-only data attestation before any test traffic
+        run: node scripts/hospital-staging-attestation.mjs --check
       - name: Validate configured staging prerequisites
         run: bun run test:speech:services:check-env
       - name: Install locked dependencies
@@ -88,6 +94,10 @@ jobs:
       E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
       E2E_SUPABASE_PROJECT_REF: ${{ vars.E2E_SUPABASE_PROJECT_REF }}
+      # Protected environment variables; never infer disposable data from its name.
+      NEUROSPARK_STAGING_DATA_ATTESTED_REF: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_REF }}
+      NEUROSPARK_STAGING_DATA_ATTESTED_AT: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_AT }}
+      NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE: ${{ vars.NEUROSPARK_STAGING_DATA_ATTESTED_SCOPE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,6 +111,8 @@ jobs:
           mkdir -p qa-evidence
           git rev-parse HEAD > qa-evidence/candidate-revision.txt
           node scripts/staging-runner-config.mjs --github-env > qa-evidence/staging-config.json
+      - name: Require current reviewed synthetic-only data attestation before any test traffic
+        run: node scripts/hospital-staging-attestation.mjs --check
       - name: Validate configured staging prerequisites
         run: bun run test:e2e:check-env
       - name: Install locked dependencies

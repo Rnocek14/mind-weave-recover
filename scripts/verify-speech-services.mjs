@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveE2EEnvironment } from './e2e-environment.mjs';
+import { requireHospitalStagingAttestation } from './hospital-staging-attestation.mjs';
 
 const MANIFEST_URL = new URL('../tests/e2e/speech/fixtures/manifest.json', import.meta.url);
 const FIXTURE_IDS = ['clear-answer', 'hesitant-answer'];
@@ -263,7 +264,26 @@ export async function verifySpeechServices({
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const mode = process.argv.length === 3 && process.argv[2] === '--run' ? 'run'
     : process.argv.length === 3 && process.argv[2] === '--check-env' ? 'check-env' : 'invalid';
-  const report = await verifySpeechServices({ mode });
+  // Direct CLI invocation must enforce the same attestation as the hosted
+  // workflow. A check-env call is offline and remains safe without approval.
+  let report;
+  if (mode === 'run') {
+    try {
+      requireHospitalStagingAttestation();
+    } catch (error) {
+      report = {
+        mode, status: 'blocked', prerequisites: 'failed',
+        authentication: 'not_run', cleanup: 'not_run',
+        planned: PLANNED, executed: 0, passed: 0, failed: 0,
+        notRun: PLANNED, checks: [],
+        failure: {
+          phase: 'staging_data_attestation',
+          reason: error instanceof Error ? error.message : 'Staging data is unreviewed',
+        },
+      };
+    }
+  }
+  if (!report) report = await verifySpeechServices({ mode });
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   process.exitCode = report.status === 'passed' || (mode === 'check-env' && report.prerequisites === 'passed') ? 0 : 1;
 }
