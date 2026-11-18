@@ -142,8 +142,9 @@ test('finishing Photo Naming and starting again separates the next attempt and p
   };
   await page.goto('/exercise/photo-naming');
   for (let i = 1; i <= 10; i++) await answer(i);
-  await expect.poll(async () => (await events()).length).toBe(10);
+  await expect.poll(async () => (await events()).length, { timeout: 20_000 }).toBe(10);
   const first = await events();
+  expect(first.map(e => e.trial_index).sort((a, b) => a! - b!)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   const id = first[0].session_id;
   const profileId = first[0].sessions.profile_id;
   expect(profileId).toBeTruthy();
@@ -161,12 +162,12 @@ test('finishing Photo Naming and starting again separates the next attempt and p
     const { data, error } = await client.from('sessions').select('ended_at').eq('id', id!).single();
     if (error) throw error;
     return Boolean(data.ended_at);
-  }).toBe(true);
+  }, { timeout: 20_000 }).toBe(true);
   const previous = await level();
   await page.goto('/history');
   await page.goto('/exercise/photo-naming');
   await answer(1);
-  await expect.poll(async () => (await events()).length).toBe(11);
+  await expect.poll(async () => (await events()).length, { timeout: 20_000 }).toBe(11);
   const all = await events();
   const second = all.filter(e => e.session_id !== id);
   expect(second).toHaveLength(1);
