@@ -2,7 +2,7 @@
  * C3 Validation: Prove clinical_signal logging end-to-end.
  *
  * Mirrors useDiscourseSignalScorer.scoreAndRecord + scoreDiscourseTurn exactly:
- *   1. Authenticate as demo.admin@gmail.com (real RLS path).
+ *   1. Sign in anonymously on the approved synthetic staging project.
  *   2. Create a session row.
  *   3. For each aphasia turn: shortCircuit → edge fn → calibration post-processing → insert.
  *   4. Re-query and confirm every required field is present.
@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { configureStagingRunner } from "./staging-runner-config.mjs";
 import {
   shortCircuit,
   localFallbackScore,
@@ -26,13 +27,6 @@ import {
   computeSuccessScoreCalibrated,
   resolveAdaptation,
 } from "../src/lib/scorerCalibration";
-
-const SUPABASE_URL = "https://wjedbpjaiqdxhmjzkcxo.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA";
-
-const EMAIL = "demo.admin@gmail.com";
-const PASSWORD = "Tomford8*";
 
 interface Turn {
   label: string;
@@ -85,13 +79,13 @@ const CORE_FIELDS = [
 const LLM_FIELDS = ["model", "llm_latency_ms", "promptVersion"];
 
 async function main() {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { variables } = configureStagingRunner(process.env);
+  const supabase = createClient(variables.E2E_SUPABASE_URL, variables.E2E_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   console.log("→ Signing in as", EMAIL);
-  const { data: auth, error: authErr } = await supabase.auth.signInWithPassword({
-    email: EMAIL,
-    password: PASSWORD,
-  });
+  const { data: auth, error: authErr } = await supabase.auth.signInAnonymously();
   if (authErr || !auth.user) {
     console.error("✗ Auth failed:", authErr?.message);
     process.exit(1);

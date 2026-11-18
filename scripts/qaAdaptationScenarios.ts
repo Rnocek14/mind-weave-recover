@@ -18,6 +18,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { configureStagingRunner } from "./staging-runner-config.mjs";
 import {
   shortCircuit,
   localFallbackScore,
@@ -41,13 +42,6 @@ import {
 } from "../src/lib/discourseAdaptation";
 import { getDescribeGuessTrials } from "../src/data/describeGuessBank";
 import { readFileSync } from "node:fs";
-
-const SUPABASE_URL = "https://wjedbpjaiqdxhmjzkcxo.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqZWRicGphaXFkeGhtanprY3hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjgyNjcsImV4cCI6MjA3ODU0NDI2N30.tXfA1zdAqvCsZGKNlfn8OC48fhS4olS88kou0zyR7OA";
-
-const EMAIL = "demo.admin@gmail.com";
-const PASSWORD = "Tomford8*";
 
 // ---------- Scenario definitions ----------
 
@@ -505,7 +499,10 @@ function checkShortInputFastPath() {
 // ---------- Main ----------
 
 async function main() {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { variables } = configureStagingRunner(process.env);
+  const supabase = createClient(variables.E2E_SUPABASE_URL, variables.E2E_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   console.log("\n┌─────────────────────────────────────────────────────────┐");
   console.log("│ ADAPTATION QUALITY QA — 3 SCENARIOS                     │");
@@ -539,9 +536,7 @@ async function main() {
 
   // Auth + session
   console.log("\n━━━ Auth + session setup ━━━");
-  const { data: auth, error: authErr } = await supabase.auth.signInWithPassword({
-    email: EMAIL, password: PASSWORD,
-  });
+  const { data: auth, error: authErr } = await supabase.auth.signInAnonymously();
   if (authErr || !auth.user) { console.error("✗ auth:", authErr?.message); process.exit(1); }
   const { data: profiles } = await supabase.from("profiles").select("id").eq("user_id", auth.user.id);
   const profileId = profiles?.[0]?.id;

@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { RotateCcw, Pause, Play } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
+import { voiceController } from '@/lib/voiceController';
+import { scheduleSessionTimer } from '@/lib/sessionTimer';
+
 const AUTO_ADVANCE_MS = 5000;
 
 interface RoundDoneAutoAdvanceProps {
@@ -34,20 +37,20 @@ export function RoundDoneAutoAdvance({
 
   useEffect(() => {
     if (paused || advancedRef.current) return;
-    let last = Date.now();
-    const interval = setInterval(() => {
-      const now = Date.now();
+    let last = voiceController.activeTimeMs;
+    const cancel = scheduleSessionTimer(() => {
+      const now = voiceController.activeTimeMs;
       elapsedRef.current += now - last;
       last = now;
       const pct = Math.min((elapsedRef.current / delayMs) * 100, 100);
       setProgress(pct);
       if (elapsedRef.current >= delayMs && !advancedRef.current) {
         advancedRef.current = true;
-        clearInterval(interval);
+        cancel();
         onAdvance();
       }
-    }, 50);
-    return () => clearInterval(interval);
+    }, 50, true);
+    return cancel;
   }, [delayMs, onAdvance, paused]);
 
   const handleManualAdvance = () => {

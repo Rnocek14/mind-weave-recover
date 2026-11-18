@@ -9,6 +9,7 @@ import { useAdaptationTrialLogger } from '@/hooks/useAdaptationTrialLogger';
 import { LevelBadge } from '@/components/exercise/LevelBadge';
 import { narrateAdaptation, classifyReason } from '@/lib/adaptationNarrator';
 import { getCapabilityDifficultyBounds, type DifficultyBounds } from '@/lib/difficultyBounds';
+import { scheduleSessionTimer } from '@/lib/sessionTimer';
 import { TrialTimer } from '@/components/TrialTimer';
 import { getCueText, selectOptimalCue } from '@/lib/cueGenerator';
 import { selectOptimalCue as selectPersonalizedCue } from '@/lib/cueSelector';
@@ -66,13 +67,20 @@ import {
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
+import type { SupportLevel } from '@/lib/progression/clinicalProgression';
+
+export type PhotoNamingTrialEvidence = {
+  trialMode: 'production' | 'recognition' | 'scaffolded';
+  supportUsed: SupportLevel;
+};
+
 interface PhotoNamingGameProps {
   totalTrials?: number;
   initialDifficulty?: number;
   customTrials?: any[];
   assistMode?: boolean;
   sessionId?: string | null;
-  onTrialComplete?: (result: {
+  onTrialComplete?: (result: PhotoNamingTrialEvidence & {
     correct: boolean;
     reactionTimeMs: number;
     errorType?: string;
@@ -159,6 +167,8 @@ export const PhotoNamingGame = ({
   useImagePreloader(state.currentTrial?.imageUrl, nextTrialData?.imageUrl);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const advanceTimerRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { advanceTimerRef.current?.(); }, []);
   const [trialStartTime, setTrialStartTime] = useState<number>(Date.now());
   const [sessionStartTime] = useState<number>(Date.now()); // For session duration tracking
   const micStartTimeRef = useRef<number>(0); // For latency measurement
@@ -281,7 +291,7 @@ export const PhotoNamingGame = ({
   const attemptStartedTrialRef = useRef<number | null>(null);
   const recordingStartedTrialRef = useRef<number | null>(null);
   const processingResultRef = useRef(false); // Track if we're processing a result (prevents abandoned race)
-  const stallTimerRef = useRef<NodeJS.Timeout | null>(null); // Stall detection timer
+  const stallTimerRef = useRef<(() => void) | null>(null); // Stall detection timer
   const autoCueShownThisTrialRef = useRef(false); // Prevent auto-cue spam per trial
   const cueVisibleRef = useRef(false); // Track if cue should stay visible this trial (sticky cues)
   /**
@@ -513,7 +523,7 @@ export const PhotoNamingGame = ({
       logAdaptationTrial({
         trialIndex: snap.trialIndex,
         difficulty: snap.difficulty,
-        cueLevel: showCueRef.current ? 1 : 0,
+        cueLevel,
         cueDependency: snap.cueDependency,
         successRate: snap.successRate,
         correct: snap.correct,
@@ -566,7 +576,7 @@ export const PhotoNamingGame = ({
   useEffect(() => {
     return () => {
       if (stallTimerRef.current) {
-        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current();
         stallTimerRef.current = null;
       }
       // Also clear debounce timer on trial change to prevent stale scoring
@@ -1102,7 +1112,7 @@ export const PhotoNamingGame = ({
   useEffect(() => {
     if (transcript && stallTimerRef.current) {
       console.log('🎤 Speech activity detected - resetting stall timer');
-      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current();
       stallTimerRef.current = null;
     }
   }, [transcript]);
@@ -1209,12 +1219,12 @@ export const PhotoNamingGame = ({
     setRetryPrompt(null);
 
     if (stallTimerRef.current) {
-      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current();
       stallTimerRef.current = null;
     }
 
     if (autoHintsEnabled && !isPlayingChoicesRef.current) {
-      stallTimerRef.current = setTimeout(() => {
+      stallTimerRef.current = scheduleSessionTimer(() => {
         const isIdle = !showFeedbackRef.current &&
                        !selectedAnswerRef.current &&
                        !timedOutRef.current &&
@@ -1230,7 +1240,7 @@ export const PhotoNamingGame = ({
 
     return () => {
       if (stallTimerRef.current) {
-        clearTimeout(stallTimerRef.current);
+        stallTimerRef.current();
         stallTimerRef.current = null;
       }
     };
@@ -1412,13 +1422,10 @@ export const PhotoNamingGame = ({
       const flushResult = await progression.flushAtSessionEnd({ sessionId: activeSessionId ?? null });
       const snapshot = (flushResult as { snapshot?: typeof recap & { evidenceMet: boolean } }).snapshot;
 
-      const finalize = async () => {
-        // Wait for session close before notifying the parent, which may unmount
-        // this game immediately. Otherwise the lifecycle hook can race the
-        // parent navigation and leave an incomplete session summary.
-        await completeSession();
-        onGameComplete(state.score);
-      };
+      // The recap can stay on screen or be closed with the browser Back button.
+      // Close the finished practice before presenting it so the next visit gets a new session.
+      await completeSession();
+      const finalize = () => onGameComplete(state.score);
 
       // Kids Mode: hold navigation behind the star-reward overlay (same
       // deferred-finalize pattern as the recap below). The overlay's
@@ -1475,7 +1482,7 @@ export const PhotoNamingGame = ({
     
     // Clear stall timer on timeout
     if (stallTimerRef.current) {
-      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current();
       stallTimerRef.current = null;
     }
     setStallDetected(false);
@@ -1579,6 +1586,8 @@ export const PhotoNamingGame = ({
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
+      trialMode: 'production',
+      supportUsed: mapPhotoNamingSupport({ inputMode: 'production', cueLevel }),
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       audioStoragePath: uploadedPath,
@@ -1623,7 +1632,8 @@ export const PhotoNamingGame = ({
     });
 
     // Auto-advance after 2 seconds
-    setTimeout(() => {
+    advanceTimerRef.current?.();
+    advanceTimerRef.current = scheduleSessionTimer(() => {
       setShowFeedback(false);
       setFeedbackData(null);
       processingResultRef.current = false; // Allow abandoned logging again
@@ -1821,14 +1831,12 @@ export const PhotoNamingGame = ({
     const capturedResponseLatency = micStartTimeRef.current > 0
       ? Date.now() - micStartTimeRef.current : undefined;
 
-    // Stamp trial mode for granular telemetry (production = spoken, recognition = tap).
-    currentTrialModeRef.current = inputMode;
     // RACE CONDITION FIX: Mark that we're processing a result BEFORE any async work
     processingResultRef.current = true;
     
     // Clear stall timer when user answers
     if (stallTimerRef.current) {
-      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current();
       stallTimerRef.current = null;
     }
     setStallDetected(false);
@@ -1863,6 +1871,9 @@ export const PhotoNamingGame = ({
             cueLevel,
           })
         : mapPhotoNamingSupport({ inputMode, cueLevel });
+    const trialMode = inputMode === 'recognition' && supportLevel !== 'recognition_only'
+      ? 'scaffolded' : inputMode;
+    currentTrialModeRef.current = trialMode;
     progression.recordTrialOutcome({
       correct: isCorrectAnswer,
       support: supportLevel,
@@ -1926,7 +1937,8 @@ export const PhotoNamingGame = ({
     setCueState(null);
 
     // Auto-advance after 1.2 seconds (faster since feedback is instant)
-    setTimeout(() => {
+    advanceTimerRef.current?.();
+    advanceTimerRef.current = scheduleSessionTimer(() => {
       setShowFeedback(false);
       setFeedbackData(null);
       processingResultRef.current = false;
@@ -2066,6 +2078,8 @@ export const PhotoNamingGame = ({
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
+          trialMode,
+          supportUsed: supportLevel,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
           errorClassification,
@@ -2196,6 +2210,8 @@ export const PhotoNamingGame = ({
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
+          trialMode,
+          supportUsed: supportLevel,
           difficultyLevel: capturedDifficulty,
           cueLevel: capturedCueLevel,
           whisperTranscript: undefined,
@@ -2322,6 +2338,8 @@ export const PhotoNamingGame = ({
       correct,
       reactionTimeMs: reactionTime,
       errorType,
+      trialMode: 'scaffolded',
+      supportUsed: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
       difficultyLevel: currentDifficulty,
       cueLevel: cueLevel,
       encouragementScore: caregiverEncouragementScore,
@@ -2377,7 +2395,8 @@ export const PhotoNamingGame = ({
       cueTrigger: cueState?.trigger, // FIX: Was missing
     });
 
-    setTimeout(() => {
+    advanceTimerRef.current?.();
+    advanceTimerRef.current = scheduleSessionTimer(() => {
       setShowFeedback(false);
       setFeedbackData(null);
       resetAttempt(); // Reset for next trial
@@ -2429,6 +2448,8 @@ export const PhotoNamingGame = ({
 
     onTrialComplete?.({
       correct: true,
+      trialMode: 'scaffolded',
+      supportUsed: mapPhotoNamingSupport({ inputMode: 'production', cueLevel: Math.max(1, cueLevel) }),
       reactionTimeMs: reactionTime,
       difficultyLevel: currentDifficulty,
       cueLevel,
@@ -2455,7 +2476,8 @@ export const PhotoNamingGame = ({
       recordingDurationMs: duration,
     });
 
-    setTimeout(() => {
+    advanceTimerRef.current?.();
+    advanceTimerRef.current = scheduleSessionTimer(() => {
       setShowFeedback(false);
       setFeedbackData(null);
       resetAttempt();

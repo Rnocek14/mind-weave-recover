@@ -30,6 +30,8 @@ class VoiceControllerImpl {
   private _isSpeaking = false;
   private _tailLockUntil = 0;
   private _sessionPaused = false;
+  private pauseStartedAt = 0;
+  private totalPausedMs = 0;
   private listeners = new Set<Listener>();
   private pauseListeners = new Set<(paused: boolean) => void>();
   private audioStoppers = new Set<() => void>();
@@ -70,6 +72,9 @@ class VoiceControllerImpl {
    */
   setSessionPaused(paused: boolean) {
     if (this._sessionPaused === paused) return;
+    const now = performance.now();
+    if (paused) this.pauseStartedAt = now;
+    else this.totalPausedMs += now - this.pauseStartedAt;
     this._sessionPaused = paused;
     this.pauseListeners.forEach((l) => {
       try { l(paused); } catch (e) { console.warn('[VoiceController] pause listener error', e); }
@@ -94,6 +99,11 @@ class VoiceControllerImpl {
 
   get isSessionPaused(): boolean {
     return this._sessionPaused;
+  }
+
+  /** Monotonic time for exercise timers and durations, excluding the patient’s breaks. */
+  get activeTimeMs(): number {
+    return (this._sessionPaused ? this.pauseStartedAt : performance.now()) - this.totalPausedMs;
   }
 
   /** True if paused, speaking, OR within the post-speech tail lock. */

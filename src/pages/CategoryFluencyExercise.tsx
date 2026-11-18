@@ -146,16 +146,16 @@ export default function CategoryFluencyExercise() {
       else errorType = 'low_fluency';
     }
 
-    // CategoryFluency does not currently surface a sub-prompt scaffold per
-    // round; treat all rounds as `independent` for support until a
-    // sub-prompt feature ships. Keeps support mapping honest.
-    const supportUsed = mapCategoryFluencySupport(false);
+    // A requested new set of category examples is observed semantic support.
+    // The separate cue-intensity field is reserved for a system-issued cue ladder.
+    const supportUsed = mapCategoryFluencySupport(result.exampleRequests > 0);
 
     void submitTrial({
       profileId: activeProfile?.id,
       sessionId: activeSessionId,
       gameId: EXERCISE_SLUG,
-      level: effectiveTier ?? result.difficulty ?? 1,
+      level: result.difficulty,
+      trialIndex: trialsRef.current,
       stimulusId: result.category ?? `cf_round_${trialsRef.current}`,
       expectedResponse: null,
       userResponse: Array.isArray(result.words) ? result.words.join(', ') : null,
@@ -171,6 +171,7 @@ export default function CategoryFluencyExercise() {
         unified_route_adaptation_log: true,
         category: result.category,
         unique_words: result.uniqueWordCount,
+        example_requests: result.exampleRequests,
         words_per_second: Math.round(result.wordsPerSecond * 100) / 100,
         time_limit: result.timeLimitSec,
         words: result.words,
@@ -191,7 +192,7 @@ export default function CategoryFluencyExercise() {
       console.log('[CategoryFluency] Pivot: step down', pivot.pivotReason);
       pivot.acknowledge();
     }
-  }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor, effectiveTier]);
+  }, [activeSessionId, activeProfile?.id, submitTrial, adaptationTelemetry, pivot, progression.startingLevel, bridge.clinicalFloor]);
 
   const handleGameComplete = useCallback(async (results: CategoryFluencyResult[]) => {
     // Unified commit: flushes mastery shadow + per-game progression ladder.
