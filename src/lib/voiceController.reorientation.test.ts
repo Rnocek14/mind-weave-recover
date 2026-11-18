@@ -16,6 +16,37 @@ describe('mic safety during pause reorientation', () => {
     expect(voiceController.isMicLocked).toBe(true);
   });
 
+  it('does not notify a listening game to resume until orientation is complete', () => {
+    const events: boolean[] = [];
+    const unsubscribe = voiceController.subscribeSessionPaused((paused) => events.push(paused));
+    try {
+      voiceController.setSessionPaused(true);
+      voiceController.setReorienting(true);
+      voiceController.setSessionPaused(false);
+      expect(events).toEqual([true]);
+      expect(voiceController.isMicLocked).toBe(true);
+      voiceController.setReorienting(false);
+      expect(events).toEqual([true, false]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('cancels a deferred resume if another pause begins', () => {
+    const events: boolean[] = [];
+    const unsubscribe = voiceController.subscribeSessionPaused((paused) => events.push(paused));
+    try {
+      voiceController.setSessionPaused(true);
+      voiceController.setReorienting(true);
+      voiceController.setSessionPaused(false);
+      voiceController.setSessionPaused(true);
+      voiceController.setReorienting(false);
+      expect(events).toEqual([true, true]);
+    } finally {
+      unsubscribe();
+    }
+  });
+
   it('does not allow awaitMicSafe to time out while reorienting', async () => {
     voiceController.setReorienting(true);
     let resolved = false;
