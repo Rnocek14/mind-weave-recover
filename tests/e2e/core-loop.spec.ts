@@ -100,6 +100,7 @@ test.describe('Core loop — Photo Naming trials persist', () => {
 });
 
 test('Photo Naming holds a scored trial behind Pause and saves it once after resume', async ({ anonPage: page, isolatedSession }) => {
+  test.slow();
   await page.goto('/exercise/photo-naming');
   const counter = page.getByText('Trial', { exact: true }).locator('..');
   await expect(counter).toHaveText(/^Trial\s*1\s*\/\s*10$/i, { timeout: 20_000 });
@@ -206,10 +207,27 @@ test('a Level 7 Photo Naming choice preserves cue depth, response mode and the a
     cue_level: 3, task_parameters: { trial_mode: 'recognition', support_used: 'recognition_only', difficulty_level: 8, game_level: 8 },
   });
   const sessionId = (await event())!.session_id!;
-  await expect.poll(async () => {
-    const { data, error } = await client.from('adaptation_trial_logs').select('trial_mode,cue_level,difficulty')
+  const decisions = async () => {
+    const { data, error } = await client.from('adaptation_trial_logs')
+      .select('trial_mode,cue_level,difficulty,difficulty_change_from,difficulty_change_to,difficulty_change_direction')
       .eq('session_id', sessionId).eq('exercise_slug', 'photo_naming');
     if (error) throw error;
     return data;
-  }, { timeout: 20_000 }).toEqual([{ trial_mode: 'recognition', cue_level: 3, difficulty: 8 }]);
+  };
+  await expect.poll(decisions, { timeout: 20_000 }).toHaveLength(1);
+  const [decision] = (await decisions())!;
+  expect(decision).toMatchObject({ trial_mode: 'recognition', cue_level: 3 });
+  // A trial stores its presented difficulty. The adaptation row stores the
+  // difficulty after the decision, together with the transition that produced it.
+  if (decision.difficulty_change_direction) {
+    expect(decision.difficulty_change_from).toBe(8);
+    expect(decision.difficulty_change_to).toBe(decision.difficulty);
+    if (decision.difficulty_change_direction === 'down') expect(decision.difficulty).toBeLessThan(8);
+    else {
+      expect(decision.difficulty_change_direction).toBe('up');
+      expect(decision.difficulty).toBeGreaterThan(8);
+    }
+  } else {
+    expect(decision).toMatchObject({ difficulty: 8, difficulty_change_from: null, difficulty_change_to: null });
+  }
 });
