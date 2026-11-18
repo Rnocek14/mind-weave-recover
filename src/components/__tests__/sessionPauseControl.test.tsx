@@ -20,6 +20,11 @@ import { SessionPauseControl } from '@/components/SessionPauseControl';
 import { voiceController } from '@/lib/voiceController';
 
 const stopAllVoiceMock = vi.fn();
+const speakMock = vi.fn().mockResolvedValue(undefined);
+const stopMock = vi.fn();
+vi.mock('@/hooks/useTextToSpeech', () => ({
+  useTextToSpeech: () => ({ speak: speakMock, stop: stopMock, isSpeaking: false, isLoading: false }),
+}));
 vi.mock('@/lib/voiceControllerStop', () => ({
   stopAllVoice: () => stopAllVoiceMock(),
 }));
@@ -33,9 +38,17 @@ const renderAt = (path: string) =>
 
 beforeEach(() => {
   stopAllVoiceMock.mockClear();
+  speakMock.mockClear();
+  stopMock.mockClear();
+  voiceController.setSessionPaused(false);
+  voiceController.setReorienting(false);
   voiceController.notifySpeakingChanged(false);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  voiceController.setSessionPaused(false);
+  voiceController.setReorienting(false);
+});
 
 describe('SessionPauseControl — silencing Maya', () => {
   it('stops the real voice pipeline when paused', () => {
@@ -82,7 +95,24 @@ describe('SessionPauseControl — behavior that must survive the fix', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /resume/i }));
     expect(screen.queryByRole('dialog', { name: /session paused/i })).toBeNull();
+    expect(screen.getByRole('dialog', { name: /game reminder/i })).toBeTruthy();
+    expect(screen.queryByLabelText(/pause session/i)).toBeNull();
+    expect(voiceController.isMicLocked).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: /continue game/i }));
+    expect(screen.queryByRole('dialog', { name: /game reminder/i })).toBeNull();
     expect(screen.getByLabelText(/pause session/i)).toBeTruthy();
+  });
+
+  it('reads the current game reminder and permits repeating it', () => {
+    renderAt('/exercise/describe-guess');
+    fireEvent.click(screen.getByLabelText(/pause session/i));
+    fireEvent.click(screen.getByRole('button', { name: /resume/i }));
+    expect(speakMock).toHaveBeenCalledWith(expect.stringContaining('Describe and Guess'), { mode: 'natural' });
+    expect(screen.getByText(/what it is used for/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /hear instructions again/i }));
+    expect(speakMock).toHaveBeenCalledTimes(2);
+    expect(voiceController.isMicLocked).toBe(true);
   });
 
   it('does not stop the voice merely by rendering', () => {

@@ -28,6 +28,8 @@ import { TEXT_SCALES, getStoredTextScale, setTextScale, type TextScale } from '@
 import { cn } from '@/lib/utils';
 import { stopAllVoice } from '@/lib/voiceControllerStop';
 import { voiceController } from '@/lib/voiceController';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { getPauseReorientation, type PauseReorientation } from '@/lib/pauseReorientation';
 
 export function SessionPauseControl() {
   const location = useLocation();
@@ -35,6 +37,11 @@ export function SessionPauseControl() {
   const { profile } = useUiProfile();
   const { variant } = profile;
   const [isPaused, setIsPaused] = useState(false);
+  const [resumeGuide, setResumeGuide] = useState<PauseReorientation | null>(null);
+  const guideRef = useRef<PauseReorientation | null>(null);
+  const pausedDurationRef = useRef(0);
+  const guideGenerationRef = useRef(0);
+  const { speak, stop, isSpeaking, isLoading } = useTextToSpeech();
   const pauseStartRef = useRef<number | null>(null);
   const [textScale, setTextScaleState] = useState<TextScale>(() => getStoredTextScale());
 
@@ -54,6 +61,10 @@ export function SessionPauseControl() {
 
   // ── Pause side effects: stop mic + TTS centrally ────────────────
   const enterPause = useCallback(() => {
+    guideGenerationRef.current += 1;
+    guideRef.current = null;
+    setResumeGuide(null);
+    voiceController.setReorienting(false);
     pauseStartRef.current = Date.now();
     setIsPaused(true);
     console.log('[SessionPause] Paused');
@@ -89,20 +100,57 @@ export function SessionPauseControl() {
     window.dispatchEvent(new CustomEvent('session-pause'));
   }, []);
 
+  // On resume, keep the mic locked until the patient has heard the reminder
+  // and explicitly indicates readiness. No trial is submitted or restarted.
   const exitPause = useCallback(() => {
     const durMs = pauseStartRef.current ? Date.now() - pauseStartRef.current : 0;
+    pausedDurationRef.current = durMs;
     pauseStartRef.current = null;
+    const guide = getPauseReorientation(currentSlug, durMs);
+    const generation = ++guideGenerationRef.current;
+    guideRef.current = guide;
+    setResumeGuide(guide);
     setIsPaused(false);
-    // Release the hold before announcing the resume, so a listener that opens
-    // the mic isn't told to wait by a flag we are about to clear anyway.
+    voiceController.setReorienting(true);
     voiceController.setSessionPaused(false);
-    console.log('[SessionPause] Resumed after', Math.round(durMs / 1000), 's');
-    window.dispatchEvent(new CustomEvent('session-resume', { detail: { pausedMs: durMs } }));
-  }, []);
+    // Once the pause flag is lifted, Maya can speak; the separate mic hold
+    // prevents the recognizer hearing this reminder as a patient response.
+    void speak(guide.text, { mode: 'natural' }).catch((error) => {
+      if (guideGenerationRef.current === generation) {
+        console.warn('[SessionPause] Reorientation audio unavailable:', error);
+      }
+    });
+  }, [currentSlug, speak]);
+
+  const finishReorientation = useCallback(() => {
+    if (!guideRef.current) return;
+    ++guideGenerationRef.current;
+    stop();
+    guideRef.current = null;
+    setResumeGuide(null);
+    voiceController.setReorienting(false);
+    console.log('[SessionPause] Resumed after', Math.round(pausedDurationRef.current / 1000), 's');
+    window.dispatchEvent(new CustomEvent('session-resume', {
+      detail: { pausedMs: pausedDurationRef.current, reoriented: true },
+    }));
+  }, [stop]);
+
+  const repeatReorientation = useCallback(() => {
+    if (!guideRef.current) return;
+    stop();
+    void speak(guideRef.current.text, { mode: 'natural' }).catch((error) => {
+      console.warn('[SessionPause] Could not replay orientation:', error);
+    });
+  }, [speak, stop]);
 
   const handleEndEarly = useCallback(() => {
     console.log('[SessionPause] User ended session from pause overlay');
     setIsPaused(false);
+    ++guideGenerationRef.current;
+    setResumeGuide(null);
+    guideRef.current = null;
+    stop();
+    voiceController.setReorienting(false);
     pauseStartRef.current = null;
     // Leaving the session is also leaving the pause. Without this the flag
     // stays set on a global singleton and the NEXT exercise opens with its
@@ -114,11 +162,20 @@ export function SessionPauseControl() {
       sessionStorage.removeItem('lessonFlowState');
     } catch {}
     navigate('/today', { replace: true });
-  }, [navigate]);
+  }, [navigate, stop]);
 
   // Auto-clear pause if user navigates away (route change).
   useEffect(() => {
-    if (isPaused) exitPause();
+    if (isPaused || resumeGuide) {
+      ++guideGenerationRef.current;
+      stop();
+      setIsPaused(false);
+      setResumeGuide(null);
+      guideRef.current = null;
+      pauseStartRef.current = null;
+      voiceController.setSessionPaused(false);
+      voiceController.setReorienting(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
@@ -143,7 +200,7 @@ export function SessionPauseControl() {
   return (
     <>
       {/* Always-visible pause button (top-right). Hidden while overlay is up. */}
-      {!isPaused && (
+      {!isPaused && !resumeGuide && (
         <button
           type="button"
           onClick={enterPause}
@@ -161,6 +218,24 @@ export function SessionPauseControl() {
         >
           <Pause className={variantClass(variant, { base: 'w-4 h-4', simplified: 'w-6 h-6' })} />
         </button>
+      )}
+
+      {/* The held microphone stays locked until the patient chooses to proceed. */}
+      {resumeGuide && (
+        <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-md flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label="Game reminder">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center"><Play className="w-7 h-7 text-primary" /></div>
+            <h2 className="text-2xl font-semibold">Welcome back</h2>
+            <p className="text-lg font-medium">{resumeGuide.name}</p>
+            <p className="text-lg leading-relaxed">{resumeGuide.text}</p>
+            <p className="text-sm text-muted-foreground">Your question and progress are saved. Take your time.</p>
+            <div className="flex flex-col gap-3">
+              <Button size="lg" className="w-full h-14 text-lg" onClick={finishReorientation}>Continue game</Button>
+              <Button size="lg" className="w-full" variant="outline" onClick={repeatReorientation}>{isSpeaking || isLoading ? 'Start reminder again' : 'Hear instructions again'}</Button>
+              <Button size="lg" variant="ghost" onClick={handleEndEarly}>End session early</Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Full-screen pause overlay — blocks all input to exercise underneath. */}
@@ -246,7 +321,7 @@ export function SessionPauseControl() {
             {/* Keyboard tip is desktop-oriented detail; hidden in minimal. */}
             {!isMinimal(variant) && (
               <p className="text-xs text-muted-foreground/60">
-                Tip: press Esc to resume
+                Tip: press Esc for the game reminder
               </p>
             )}
 
