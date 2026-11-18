@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PrivacySettings() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [consentVersion, setConsentVersion] = useState<number>(1);
@@ -24,12 +24,13 @@ export default function PrivacySettings() {
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       navigate("/auth");
       return;
     }
     loadSettings();
-  }, [user, navigate]);
+  }, [authLoading, user, navigate]);
 
   const loadSettings = async () => {
     if (!user) return;

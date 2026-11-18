@@ -106,6 +106,7 @@ test('Photo Naming holds a scored trial behind Pause and saves it once after res
   const label = await page.locator('button[aria-label^="Hear "]').first().getAttribute('aria-label');
   await page.clock.install();
   await page.getByRole('button', { name: label!.slice(5), exact: true }).click();
+  await expect(page.getByText(/^(You found the word!|The word is ".+"\.)$/)).toBeVisible();
   await page.getByRole('button', { name: 'Pause session', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Session paused' })).toBeVisible();
   await page.clock.runFor(3_000);

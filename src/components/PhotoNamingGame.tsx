@@ -200,6 +200,7 @@ export const PhotoNamingGame = ({
     errorType?: string;
     semanticSimilarity?: number;
     phonemeAccuracy?: number;
+    choiceFeedback?: string;
   } | null>(null);
   // NOTE: currentDifficulty and consecutiveErrors now managed by useInGameAdaptation hook
   // BUT we keep local timedOut state for UI control
@@ -1885,8 +1886,11 @@ export const PhotoNamingGame = ({
     
     // Show feedback IMMEDIATELY (before any async work)
     setFeedbackData({ 
-      correct: isCorrectAnswer, 
+      correct: isCorrectAnswer,
       errorType: isCorrectAnswer ? 'correct' : 'semantic_related',
+      choiceFeedback: inputMode === 'recognition'
+        ? (isCorrectAnswer ? 'You found the word!' : 'The word is "' + state.currentTrial.target + '".')
+        : undefined,
     });
     setShowFeedback(true);
     setProcessingAnswer(false);
@@ -2907,13 +2911,13 @@ export const PhotoNamingGame = ({
             <p className="text-sm sm:text-base font-medium text-foreground text-left">
               {kidsMode && feedbackData.correct
                 ? kidsPraise
-                : state.currentTrial && generateGentleFeedback(
+                : feedbackData.choiceFeedback ?? (state.currentTrial && generateGentleFeedback(
                     feedbackData.errorType as any,
                     state.currentTrial.target,
                     selectedAnswer || undefined,
                     feedbackData.semanticSimilarity,
                     feedbackData.phonemeAccuracy
-                  )}
+                  ))}
             </p>
           </div>
         </div>
