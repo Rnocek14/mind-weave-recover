@@ -30,6 +30,7 @@ class VoiceControllerImpl {
   private _isSpeaking = false;
   private _tailLockUntil = 0;
   private _sessionPaused = false;
+  private _reorienting = false;
   private listeners = new Set<Listener>();
   private pauseListeners = new Set<(paused: boolean) => void>();
   private audioStoppers = new Set<() => void>();
@@ -92,13 +93,18 @@ class VoiceControllerImpl {
     return () => { this.pauseListeners.delete(listener); };
   }
 
+  /** Keep the mic closed while Maya restores context after a pause. */
+  setReorienting(reorienting: boolean) {
+    this._reorienting = reorienting;
+  }
+
   get isSessionPaused(): boolean {
     return this._sessionPaused;
   }
 
   /** True if paused, speaking, OR within the post-speech tail lock. */
   get isMicLocked(): boolean {
-    return this._sessionPaused || this._isSpeaking || Date.now() < this._tailLockUntil;
+    return this._sessionPaused || this._reorienting || this._isSpeaking || Date.now() < this._tailLockUntil;
   }
 
   /**
@@ -108,7 +114,7 @@ class VoiceControllerImpl {
   async awaitMicSafe(timeoutMs = 8000): Promise<boolean> {
     let start = Date.now();
     while (this.isMicLocked) {
-      if (this._sessionPaused) {
+      if (this._sessionPaused || this._reorienting) {
         // The timeout exists so a stuck tail lock can't hang a game forever.
         // A pause is not stuck — it is someone who stepped away, and it can
         // legitimately last an hour. Don't run the clock during it, and never
