@@ -31,6 +31,7 @@ class VoiceControllerImpl {
   private _tailLockUntil = 0;
   private _sessionPaused = false;
   private _reorienting = false;
+  private _resumeAfterOrientation = false;
   private listeners = new Set<Listener>();
   private pauseListeners = new Set<(paused: boolean) => void>();
   private audioStoppers = new Set<() => void>();
@@ -72,6 +73,14 @@ class VoiceControllerImpl {
   setSessionPaused(paused: boolean) {
     if (this._sessionPaused === paused) return;
     this._sessionPaused = paused;
+    // Games listen to this notification to reopen SpeechRecognition directly,
+    // bypassing awaitMicSafe. During an orientation, defer the notification
+    // until the reminder is finished; TTS itself needs the pause flag cleared.
+    if (!paused && this._reorienting) {
+      this._resumeAfterOrientation = true;
+      return;
+    }
+    if (paused) this._resumeAfterOrientation = false;
     this.pauseListeners.forEach((l) => {
       try { l(paused); } catch (e) { console.warn('[VoiceController] pause listener error', e); }
     });
@@ -95,7 +104,15 @@ class VoiceControllerImpl {
 
   /** Keep the mic closed while Maya restores context after a pause. */
   setReorienting(reorienting: boolean) {
+    if (this._reorienting === reorienting) return;
     this._reorienting = reorienting;
+    if (!reorienting && this._resumeAfterOrientation) {
+      this._resumeAfterOrientation = false;
+      // Replay the suppressed resume only after the mic lock has been lifted.
+      this.pauseListeners.forEach((l) => {
+        try { l(false); } catch (e) { console.warn('[VoiceController] pause listener error', e); }
+      });
+    }
   }
 
   get isSessionPaused(): boolean {
