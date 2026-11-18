@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { scheduleSessionTimer } from '@/lib/sessionTimer';
+import { voiceController } from '@/lib/voiceController';
 import { Clock } from 'lucide-react';
 
 interface TrialTimerProps {
@@ -11,24 +13,25 @@ interface TrialTimerProps {
 export const TrialTimer = ({ duration, onTimeout, isActive }: TrialTimerProps) => {
   const [timeLeft, setTimeLeft] = useState(duration);
 
+  const latestTimeout = useRef(onTimeout);
+  useEffect(() => { latestTimeout.current = onTimeout; }, [onTimeout]);
+
   useEffect(() => {
     if (!isActive) return;
 
     setTimeLeft(duration);
 
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0.1) {
-          clearInterval(interval);
-          onTimeout();
-          return 0;
-        }
-        return prev - 0.1;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [duration, onTimeout, isActive]);
+    const deadline = voiceController.activeTimeMs + duration * 1000;
+    const cancel = scheduleSessionTimer(() => {
+      const remaining = Math.max(0, (deadline - voiceController.activeTimeMs) / 1000);
+      setTimeLeft(remaining);
+      if (remaining === 0) {
+        cancel();
+        latestTimeout.current();
+      }
+    }, 100, true);
+    return cancel;
+  }, [duration, isActive]);
 
   const progress = (timeLeft / duration) * 100;
   const isUrgent = timeLeft < duration * 0.3; // Last 30% is urgent

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
@@ -6,34 +7,53 @@ import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 /** sessionStorage mutex preventing duplicate standalone session creation
  *  during React 18 double-invoked effects or mobile re-hydration races. */
 const STANDALONE_MUTEX_KEY = 'standaloneSessionMutex';
-const STANDALONE_MUTEX_TTL_MS = 30_000;
+const pending = new Map<string, Promise<string | null>>();
 
 interface MutexEntry {
   exerciseSlug: string;
-  createdAt: number;
-  sessionId?: string;
+  sessionId: string;
+  userId?: string;
+  profileId?: string;
+  mode?: string;
+}
+function readMutex(): MutexEntry | null {
+  try { return JSON.parse(sessionStorage.getItem(STANDALONE_MUTEX_KEY) ?? 'null'); }
+  catch { return null; }
+}
+export function clearStandaloneSessionMutex(sessionId: string) {
+  try {
+    if (readMutex()?.sessionId === sessionId) sessionStorage.removeItem(STANDALONE_MUTEX_KEY);
+  } catch { /* Storage can be disabled. */ }
 }
 
-function readMutex(): MutexEntry | null {
+async function acquireSession(userId: string, profileId: string, exerciseSlug: string, mode: string) {
+  const cached = readMutex();
+  if (cached?.sessionId && cached.exerciseSlug === exerciseSlug &&
+      (!cached.userId || cached.userId === userId) && (!cached.profileId || cached.profileId === profileId) &&
+      (!cached.mode || cached.mode === mode)) {
+    // Older clients cached only an ID and slug. An open, owned database row is
+    // the authority even when an earlier build or interrupted finish left the ID behind.
+    const { data, error } = await supabase.from('sessions').select('id')
+      .eq('id', cached.sessionId).eq('user_id', userId).eq('profile_id', profileId)
+      .is('ended_at', null).maybeSingle();
+    if (error) throw error;
+    if (data) return data.id;
+    clearStandaloneSessionMutex(cached.sessionId);
+  }
+  const session = await startSession(userId, { blocks: [{ exercise: exerciseSlug, duration: 10 }] }, { profileId });
+  if (!session?.id) return null;
   try {
-    const raw = sessionStorage.getItem(STANDALONE_MUTEX_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as MutexEntry;
-    if (!parsed?.createdAt) return null;
-    if (!parsed.sessionId && Date.now() - parsed.createdAt > STANDALONE_MUTEX_TTL_MS) {
-      sessionStorage.removeItem(STANDALONE_MUTEX_KEY);
-      return null;
-    }
-    return parsed;
-  } catch { return null; }
+    sessionStorage.setItem(STANDALONE_MUTEX_KEY, JSON.stringify({ userId, profileId, exerciseSlug, mode, sessionId: session.id }));
+  } catch { /* The current mount still owns the session. */ }
+  try {
+    const { error } = await supabase.from('sessions').update({ summary: { mode } })
+      .eq('id', session.id).is('ended_at', null);
+    if (error) console.warn('[useStandaloneSession] could not stamp session mode', error.message);
+  } catch (error) {
+    console.warn('[useStandaloneSession] could not stamp session mode', error);
+  }
+  return session.id as string;
 }
-function writeMutex(entry: MutexEntry) {
-  try { sessionStorage.setItem(STANDALONE_MUTEX_KEY, JSON.stringify(entry)); } catch { /* ignore */ }
-}
-function clearStandaloneSessionMutex() {
-  try { sessionStorage.removeItem(STANDALONE_MUTEX_KEY); } catch { /* ignore */ }
-}
-export { clearStandaloneSessionMutex };
 
 interface UseStandaloneSessionOptions {
   /**
@@ -66,12 +86,11 @@ export const useStandaloneSession = (
   // Single normalization at the write boundary — every downstream read
   // (sessions.plan.blocks[].exercise, mutex, logs) gets the canonical slug.
   const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
-  const [localSessionId, setLocalSessionId] = useState<string | null>(null);
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
-  const inFlightRef = useRef(false); // synchronous guard against double-invoked effects
   const { activeProfile } = useProfile();
-
+  const profileId = activeProfile?.id;
   const { disabled = false, mode = 'standalone' } = options;
+  const key = JSON.stringify([userId, profileId, exerciseSlug, mode]);
+  const [resolved, setResolved] = useState<{ key: string; id: string | null } | null>(null);
 
   // Defensive: detect an in-flight lesson/coach session for THIS exercise only.
   // Stale state from a different exercise must not block standalone launch.
@@ -99,97 +118,24 @@ export const useStandaloneSession = (
     return false;
   };
 
-  const activeSessionId = providedSessionId || localSessionId;
+  const ownedByParent = hasOwnedSessionContext();
+  const shouldAcquire = Boolean(userId && profileId && !providedSessionId && !disabled && !ownedByParent);
+  const activeSessionId = providedSessionId || (shouldAcquire && resolved?.key === key ? resolved.id : null);
+  const isCreatingSession = shouldAcquire && resolved?.key !== key;
 
   useEffect(() => {
-    if (providedSessionId || localSessionId || isCreatingSession) return;
-    if (inFlightRef.current) return;
-    if (!userId || !activeProfile?.id) return;
-    if (disabled) {
-      console.log('[useStandaloneSession] skipped: disabled by caller (lesson/coach flow)', { exerciseSlug });
-      return;
+    if (!shouldAcquire || !userId || !profileId) return;
+    let current = true;
+    let acquisition = pending.get(key);
+    if (!acquisition) {
+      acquisition = acquireSession(userId, profileId, exerciseSlug, mode)
+        .catch(error => { console.warn('[useStandaloneSession] acquisition failed', error); return null; })
+        .finally(() => { pending.delete(key); });
+      pending.set(key, acquisition);
     }
-    if (hasOwnedSessionContext()) {
-      console.log('[useStandaloneSession] skipped: active lesson/coach context owns this exercise', { exerciseSlug });
-      return;
-    }
-
-    // sessionStorage mutex — survives React 18 double-effect AND remounts
-    const existingMutex = readMutex();
-    if (existingMutex) {
-      if (existingMutex.exerciseSlug !== exerciseSlug) {
-        clearStandaloneSessionMutex();
-      } else if (existingMutex.sessionId) {
-        console.log('[useStandaloneSession] reusing session from mutex:', existingMutex.sessionId);
-        setLocalSessionId(existingMutex.sessionId);
-        return;
-      } else {
-        // Acquisition in flight elsewhere — wait, then check again
-        console.log('[useStandaloneSession] mutex held by concurrent acquisition, waiting…');
-        const waitId = setTimeout(() => {
-          const refreshed = readMutex();
-          if (refreshed?.sessionId && !localSessionId) setLocalSessionId(refreshed.sessionId);
-        }, 250);
-        return () => clearTimeout(waitId);
-      }
-    }
-
-    // Acquire mutex BEFORE async work
-    inFlightRef.current = true;
-    writeMutex({ exerciseSlug, createdAt: Date.now() });
-    setIsCreatingSession(true);
-    console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id, 'mode:', mode);
-
-    startSession(
-      userId,
-      { blocks: [{ exercise: exerciseSlug, duration: 10 }] },
-      { profileId: activeProfile.id }
-    )
-      .then(async (session) => {
-        if (!session?.id) {
-          console.warn('⚠️ [useStandaloneSession] startSession returned no session');
-          clearStandaloneSessionMutex();
-          return;
-        }
-        setLocalSessionId(session.id);
-        writeMutex({ exerciseSlug, createdAt: Date.now(), sessionId: session.id });
-
-        try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          await supabase
-            .from('sessions')
-            .update({ summary: { mode } as any })
-            .eq('id', session.id)
-            .is('ended_at', null);
-        } catch (err) {
-          console.warn('[useStandaloneSession] failed to stamp summary.mode:', err);
-        }
-
-        console.log('✅ [useStandaloneSession] Session created:', {
-          sessionId: session.id, profileId: activeProfile?.id, exerciseSlug, mode,
-        });
-      })
-      .catch((error) => {
-        console.error('❌ [useStandaloneSession] Failed to create session:', { error, exerciseSlug });
-        clearStandaloneSessionMutex();
-      })
-      .finally(() => {
-        setIsCreatingSession(false);
-        inFlightRef.current = false;
-      });
-  }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug, disabled, mode]);
-
-  // On unmount, if we created the session, leave the mutex in place briefly
-  // so a remount within the same exercise reuses it; the TTL will clean it up.
-  useEffect(() => {
-    return () => {
-      const current = readMutex();
-      // Only clear if mutex belongs to us AND no sessionId resolved (acquisition aborted)
-      if (current && current.exerciseSlug === exerciseSlug && !current.sessionId) {
-        clearStandaloneSessionMutex();
-      }
-    };
-  }, [exerciseSlug]);
+    void acquisition.then(id => { if (current) setResolved({ key, id }); });
+    return () => { current = false; };
+  }, [shouldAcquire, userId, profileId, exerciseSlug, mode, key]);
 
   return {
     activeSessionId,

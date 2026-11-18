@@ -32,7 +32,7 @@ import { useTrialSubmission } from '@/hooks/useTrialSubmission';
 import { classifyUtteranceValidity } from '@/lib/clinical/classifyUtteranceValidity';
 import { supabase } from '@/integrations/supabase/client';
 import { CANONICAL_SLUGS } from '@/lib/exerciseSlugNormalizer';
-import { useStandaloneSession } from '@/hooks/useStandaloneSession';
+import { clearStandaloneSessionMutex, useStandaloneSession } from '@/hooks/useStandaloneSession';
 import { toast } from 'sonner';
 import { InlineSessionProgress } from '@/components/InlineSessionProgress';
 import { SessionSidePanel } from '@/components/SessionSidePanel';
@@ -40,6 +40,8 @@ import { LiveAnalysisProvider, useLiveAnalysis } from '@/contexts/LiveAnalysisCo
 import { LiveAnalysisPanel } from '@/components/LiveAnalysisPanel';
 import { photoNamingLiveSnapshot } from '@/lib/speech/photoNamingLiveSnapshot';
 import type { RecentTrialData } from '@/lib/midSessionPivot';
+import type { PhotoNamingTrialEvidence } from '@/components/PhotoNamingGame';
+
 type PhotoSource = 'stock' | 'custom' | 'mixed';
 
 // Extended trial type that supports both photo and audio-only trials
@@ -96,8 +98,8 @@ const audioToMixedTrial = (audio: AudioTrial): MixedTrial => ({
 
 function PhotoNamingExerciseInner() {
   const { setLiveSnapshot, appendAuditEvent, setDecisionChain } = useLiveAnalysis();
-  const { user } = useAuth();
-  const { activeProfile } = useProfile();
+  const { user, loading: authLoading } = useAuth();
+  const { activeProfile, loading: profileLoading } = useProfile();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -259,7 +261,7 @@ function PhotoNamingExerciseInner() {
   }, [sessionId, adaptation.difficultyTier]);
 
   useEffect(() => {
-    if (customPhotosLoading) return;
+    if (customPhotosLoading || !progression.loaded || adaptation.loading || authLoading || (user && profileLoading)) return;
     if (trialsFrozenRef.current) {
       console.log('[PhotoNaming] trial list already frozen for this round; ignoring late data update');
       return;
@@ -466,9 +468,9 @@ function PhotoNamingExerciseInner() {
     setTrials(selectedTrials);
     trialsFrozenRef.current = true;
     setGameKey(prev => prev + 1);
-  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode]);
+  }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode, progression.loaded, adaptation.loading, authLoading, user, profileLoading]);
 
-  const handleTrialComplete = async (result: {
+  const handleTrialComplete = async (result: PhotoNamingTrialEvidence & {
     correct: boolean;
     reactionTimeMs: number;
     errorType?: string;
@@ -570,10 +572,10 @@ function PhotoNamingExerciseInner() {
         trialIndex: typeof result.trialIndex === 'number' ? result.trialIndex : null,
         isCorrect: result.correct,
         cueLevel: result.cueLevel ?? 0,
-        supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
+        supportUsed: result.supportUsed,
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
-        validity,
+        trialMode: result.trialMode,
+        validity: result.trialMode === 'recognition' ? null : validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
         whisperTranscript: result.whisperTranscript,
@@ -586,6 +588,7 @@ function PhotoNamingExerciseInner() {
         cueWasEffective: result.cueWasEffective,
         timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
         taskParameters: {
+          ...adaptationTelemetry,
           // Condition tags for experimental analysis
           photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
           interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
@@ -599,8 +602,8 @@ function PhotoNamingExerciseInner() {
           effortful_speech: result.effortfulSpeech,
 
           // Phase 1B — manual-confirmation provenance (queryable on exercise_events).
-          confirmation_mode: result.confirmationMode ?? (result.manualConfirmed ? 'manual' : 'asr'),
-          confirmed_by: result.confirmedBy ?? (result.manualConfirmed ? 'user' : 'asr'),
+          confirmation_mode: result.confirmationMode ?? (result.trialMode === 'production' ? 'asr' : null),
+          confirmed_by: result.confirmedBy ?? (result.trialMode === 'production' ? 'asr' : null),
           manual_confirmed: result.manualConfirmed ?? false,
           asr_verified: result.asrVerified ?? false,
 
@@ -613,8 +616,6 @@ function PhotoNamingExerciseInner() {
           utterance_analysis: result.utteranceAnalysis,
           shadow_event: result.shadowEvent,
 
-          // Shared adaptation contract telemetry
-          ...adaptationTelemetry,
         },
       });
 
@@ -788,11 +789,12 @@ function PhotoNamingExerciseInner() {
           ...accuracySummaryToSummaryFields(acc),
         };
       }
-      await supabase
+      const { error } = await supabase
         .from('sessions')
         .update(updatePayload)
         .eq('id', sessionId)
         .is('ended_at', null);
+      if (!error && !fromLesson) clearStandaloneSessionMutex(sessionId);
     }
 
     
@@ -852,10 +854,13 @@ function PhotoNamingExerciseInner() {
   // progression has resolved. Otherwise `initialDifficulty` is captured at
   // mount with `clinicalLevel: null`, collapsing the engine floor to 1 and
   // running the patient an entire session below their stored level.
-  if (customPhotosLoading || !progression.loaded || adaptation.loading) {
+  // A managed patient must have a writable session before the first answer.
+  // Keep the existing untracked practice fallback for a resolved profile-less user.
+  const awaitingSession = authLoading || (user && profileLoading) || (user && activeProfile && !sessionId);
+  if (awaitingSession || customPhotosLoading || !progression.loaded || adaptation.loading) {
     return (
       <ExerciseLoadGate
-        loadingLabel={customPhotosLoading ? 'Loading photos...' : 'Loading your progress...'}
+        loadingLabel={awaitingSession ? 'Preparing your session...' : customPhotosLoading ? 'Loading photos...' : 'Loading your progress...'}
       />
     );
   }

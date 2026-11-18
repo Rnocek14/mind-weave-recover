@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { voiceController } from '@/lib/voiceController';
 import { MinimalPairsGame } from '@/components/MinimalPairsGame';
 
 const dependencies = vi.hoisted(() => ({
@@ -45,13 +46,11 @@ vi.mock('@/hooks/useAudioRecorder', () => ({
 vi.mock('@/hooks/usePronunciationAnalysis', () => ({
   usePronunciationAnalysis: () => ({ analyzePronunciation: dependencies.analyzePronunciation }),
 }));
-vi.mock('@/lib/voiceController', () => ({
-  voiceController: {
-    awaitMicSafe: dependencies.awaitMicSafe,
-    get isSessionPaused() { return false; },
-    subscribeSessionPaused: () => () => {},
-  },
-}));
+vi.mock('@/lib/voiceController', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/voiceController')>();
+  vi.spyOn(actual.voiceController, 'awaitMicSafe').mockImplementation(dependencies.awaitMicSafe);
+  return actual;
+});
 vi.mock('@/hooks/useInGameAdaptation', () => ({
   useInGameAdaptation: () => ({
     levelDescriptor: null, recentSuccessRate: null,
@@ -104,6 +103,26 @@ beforeEach(() => {
 });
 
 describe('Minimal Pairs picture click to spoken production', () => {
+  it('keeps the incorrect-answer feedback visible during a session pause and advances once after resume', async () => {
+    vi.useFakeTimers();
+    dependencies.getMinimalPairTrialsForLevel.mockReturnValue([trial, trial]);
+    const { unmount } = render(<MinimalPairsGame totalTrials={2} onTrialComplete={dependencies.onTrialComplete} />);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Option 2' }));
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      act(() => voiceController.setSessionPaused(true));
+      await act(() => vi.advanceTimersByTimeAsync(30000));
+      expect(screen.getByText('1 / 2')).toBeVisible();
+      act(() => voiceController.setSessionPaused(false));
+      await act(() => vi.advanceTimersByTimeAsync(3900));
+      expect(screen.getByText('1 / 2')).toBeVisible();
+      await act(() => vi.advanceTimersByTimeAsync(100));
+      expect(screen.getByText('2 / 2')).toBeVisible();
+      expect(dependencies.onTrialComplete).toHaveBeenCalledTimes(1);
+    } finally {
+      unmount(); voiceController.setSessionPaused(false); vi.useRealTimers();
+    }
+  });
   it('records real speech, invokes pronunciation assessment and reports both observations without changing discrimination correctness', async () => {
     render(<MinimalPairsGame totalTrials={1} onTrialComplete={dependencies.onTrialComplete} />);
     fireEvent.click(screen.getByRole('button', { name: 'Option 1' }));
@@ -140,7 +159,7 @@ describe('Minimal Pairs picture click to spoken production', () => {
   });
   it('measures picture reaction time at the tap, not when delayed Azure assessment completes', async () => {
     let now = 1000;
-    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     try {
       const { unmount } = render(<MinimalPairsGame totalTrials={1} onTrialComplete={dependencies.onTrialComplete} />);
       now = 1700;

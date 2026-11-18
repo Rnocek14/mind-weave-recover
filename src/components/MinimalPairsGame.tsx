@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useMinimalPairsGame } from '@/hooks/useMinimalPairsGame';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import { voiceController } from '@/lib/voiceController';
+import { scheduleSessionTimer } from '@/lib/sessionTimer';
 import { useMinimalPairsEcho } from '@/hooks/useMinimalPairsEcho';
 import { echoLabelFor, echoIsDone } from '@/lib/minimalPairs/echoState';
 import { Check, X, Volume2, ArrowRight, RotateCcw, Trophy, Mic } from 'lucide-react';
@@ -125,8 +127,6 @@ export function MinimalPairsGame({
     }
   }, [vg.shouldAutoSpeak]);
 
-  // Stall timer for voice reminder
-  const stallTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { currentTrial, trialIndex, score, correctCount, incorrectCount, showFeedback, isComplete } = state;
 
@@ -142,11 +142,11 @@ export function MinimalPairsGame({
   } = useMinimalPairsEcho(trialIndex);
 
   // Track trial completions for adaptation
-  const trialStartRef = useRef(Date.now());
+  const trialStartRef = useRef(voiceController.activeTimeMs);
   const answerLatencyMsRef = useRef<number | null>(null);
   useEffect(() => {
     if (currentTrial && !showFeedback) {
-      trialStartRef.current = Date.now();
+      trialStartRef.current = voiceController.activeTimeMs;
       answerLatencyMsRef.current = null;
     }
   }, [currentTrial, showFeedback]);
@@ -157,12 +157,12 @@ export function MinimalPairsGame({
       lastReportedTrialRef.current = trialIndex;
       adaptation.recordTrial({
         correct: state.isCorrect === true,
-        reactionTimeMs: Date.now() - trialStartRef.current,
+        reactionTimeMs: Math.round(voiceController.activeTimeMs - trialStartRef.current),
       });
       // MinimalPairs: target word is auto-spoken — treat as cueLevel 1 (audio support).
       engagement.recordTrial({
         correct: state.isCorrect === true,
-        reactionTimeMs: Date.now() - trialStartRef.current,
+        reactionTimeMs: Math.round(voiceController.activeTimeMs - trialStartRef.current),
         cueLevel: 1,
         timeout: false,
         timestamp: Date.now(),
@@ -181,13 +181,12 @@ export function MinimalPairsGame({
   useEffect(() => {
     if (currentTrial && !showFeedback) {
       audioReplayCountRef.current = 0;
-      const timer = setTimeout(() => {
+      const stopTargetPlayback = scheduleSessionTimer(() => {
         speak(currentTrial.targetWord);
       }, 500);
 
       // Start stall timer
-      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-      stallTimerRef.current = setTimeout(() => {
+      const stopReminder = scheduleSessionTimer(() => {
         if (!showFeedback) {
           // Actually replay the target word so "listen one more time" is truthful,
           // then give the spoken reminder to tap an answer.
@@ -197,8 +196,8 @@ export function MinimalPairsGame({
       }, 10000);
 
       return () => {
-        clearTimeout(timer);
-        if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+        stopTargetPlayback();
+        stopReminder();
       };
     }
   }, [currentTrial, showFeedback, speak]);
@@ -248,7 +247,7 @@ export function MinimalPairsGame({
       echoPronunciationScore: echoStatus === 'heard' ? echoAnalysis?.pronunciationScore : undefined,
       echoPronRequestId: echoStatus === 'heard' ? echoAnalysis?.pronRequestId : undefined,
       // Measured when the patient tapped, NOT after TTS/recording/Azure.
-      reactionTimeMs: answerLatencyMsRef.current ?? Math.max(0, Date.now() - trialStartRef.current),
+      reactionTimeMs: answerLatencyMsRef.current ?? Math.max(0, Math.round(voiceController.activeTimeMs - trialStartRef.current)),
     });
   }, [showFeedback, currentTrial, trialIndex, state.selectedIndex, state.isCorrect, echoStatus, echoAnalysis, onTrialComplete]);
 
@@ -259,8 +258,7 @@ export function MinimalPairsGame({
     if (!showFeedback || isComplete) return;
     if (state.isCorrect) {
       if (echoIsDone(echoStatus)) {
-        const t = setTimeout(() => { nextTrial(); }, 3500);
-        return () => clearTimeout(t);
+        return scheduleSessionTimer(nextTrial, 3500);
       }
       // Stage-specific safety net, not a single deadline starting at picture
       // selection: long Maya audio + aphasic onset + an Azure response can exceed
@@ -269,11 +267,9 @@ export function MinimalPairsGame({
         : echoStatus === 'arming' ? 9000
         : echoStatus === 'listening' ? 10000
         : 13000; // analyzing; hook also has its own bounded provider timeout
-      const fallback = setTimeout(() => { skipEcho(); }, fallbackMs);
-      return () => clearTimeout(fallback);
+      return scheduleSessionTimer(skipEcho, fallbackMs);
     }
-    const t = setTimeout(() => { nextTrial(); }, 5000);
-    return () => clearTimeout(t);
+    return scheduleSessionTimer(nextTrial, 5000);
   }, [showFeedback, isComplete, state.isCorrect, echoStatus, trialIndex, nextTrial, skipEcho]);
 
   // Auto-prompt 'Say it' after correct answer (Sync-Wait: starts mic with delay)
@@ -453,7 +449,7 @@ export function MinimalPairsGame({
               onClick={() => {
                 if (showFeedback) return;
                 if (answerLatencyMsRef.current === null) {
-                  answerLatencyMsRef.current = Math.max(0, Date.now() - trialStartRef.current);
+                  answerLatencyMsRef.current = Math.max(0, Math.round(voiceController.activeTimeMs - trialStartRef.current));
                 }
                 selectAnswer(index as 0 | 1);
               }}

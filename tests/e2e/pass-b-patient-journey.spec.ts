@@ -23,6 +23,11 @@ test.describe('Pass B — authenticated patient routes (anon session)', () => {
       level: 1, name: /^Good (morning|afternoon|evening)(?:,|$)/,
     })).toBeVisible();
     await expect(anonPage.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
+    await anonPage.goto('/settings/privacy');
+    await expect(anonPage.getByRole('heading', { name: 'Privacy & Consent' })).toBeVisible();
+    await anonPage.reload();
+    await expect(anonPage.getByRole('heading', { name: 'Privacy & Consent' })).toBeVisible();
+    await expect(anonPage).toHaveURL(/\/settings\/privacy$/);
   });
 
   // Patient exercise routes used by the stroke-archetype walkthrough.

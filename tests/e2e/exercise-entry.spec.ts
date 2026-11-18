@@ -32,12 +32,11 @@ test.describe('Exercise entry routes render', () => {
       expect(resp?.ok()).toBeTruthy();
       await page.waitForLoadState('networkidle');
 
-      const landed = new URL(page.url()).pathname;
       if (requiresAuth) {
         // The guard firing IS the pass condition for a signed-out visitor.
-        expect(landed, `${path} should send a signed-out visitor to /auth`).toBe('/auth');
+        await expect(page, `${path} should send a signed-out visitor to /auth`).toHaveURL(/\/auth$/);
       } else {
-        expect(landed, `${path} is public and must not bounce`).not.toBe('/auth');
+        expect(new URL(page.url()).pathname, `${path} is public and must not bounce`).not.toBe('/auth');
       }
       // Body present.
       await expect(page.locator('body')).toBeVisible();

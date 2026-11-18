@@ -228,7 +228,7 @@ export const useSessionLifecycle = ({
         } else {
           console.log(`[SessionLifecycle] Session ${isOwnedByParent ? 'sub-exercise recorded' : 'ended successfully'}: ${reason}`);
           // Release standalone-session mutex once the session is closed
-          if (!isOwnedByParent) clearStandaloneSessionMutex();
+          if (!isOwnedByParent) clearStandaloneSessionMutex(sid);
 
           
           // Auto-populate speech dose into recovery spine

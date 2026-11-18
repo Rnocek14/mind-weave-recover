@@ -37,6 +37,8 @@ import { pickExamples, pickIdeasForNextTime } from '@/data/categoryExamplePools'
 import { useMayaExerciseFrame } from '@/hooks/useMayaExerciseFrame';
 import { useVoiceGuidance } from '@/hooks/useVoiceGuidance';
 import type { DifficultyBounds } from '@/lib/difficultyBounds';
+import { voiceController } from '@/lib/voiceController';
+import { scheduleSessionTimer } from '@/lib/sessionTimer';
 import { pickEncouragement } from '@/lib/feedbackPolicy';
 
 // Categories ordered by difficulty
@@ -132,6 +134,7 @@ export interface CategoryFluencyResult {
   category: string;
   words: string[];
   uniqueWordCount: number;
+  exampleRequests: number;
   wordsPerSecond: number;
   durationSec: number;
   timeLimitSec: number;
@@ -250,12 +253,18 @@ export function CategoryFluencyGame({
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const startTimeRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<() => void>();
+  const pendingStartRef = useRef<() => void>();
+  const countdownGeneration = useRef(0);
   const wordsRef = useRef<Array<{ text: string; status: WordValidation }>>([]);
   const timerExpiredRef = useRef(false);
 
   useEffect(() => { wordsRef.current = words; }, [words]);
-  useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
+  useEffect(() => () => {
+    countdownGeneration.current++;
+    timerRef.current?.();
+    pendingStartRef.current?.();
+  }, []);
 
   // === Speech Recognition ===
   const processedRef = useRef(new Set<string>());
@@ -367,7 +376,7 @@ export function CategoryFluencyGame({
   }, [speechError, showTextInput]);
 
   const finishRound = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current?.();
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
     // Nothing the segmenter is still holding may be lost at the buzzer — it is
     // the LAST thing they said, which in a timed task is the one they fought
@@ -375,7 +384,8 @@ export function CategoryFluencyGame({
     commitTail();
     stopListening();
 
-    const durationSec = (Date.now() - startTimeRef.current) / 1000;
+    pendingStartRef.current?.();
+    const durationSec = (voiceController.activeTimeMs - startTimeRef.current) / 1000;
     const seen = new Set<string>();
     const validWords: string[] = [];
     for (const entry of wordsRef.current) {
@@ -398,7 +408,7 @@ export function CategoryFluencyGame({
 
     // Feed adaptive engine
     const prevDiff = currentDifficulty;
-    adaptation.recordTrial({
+    const adjustment = adaptation.recordTrial({
       correct: wasSuccessful,
       reactionTimeMs: Math.round(durationSec * 1000),
       cueWasShown: true,
@@ -413,7 +423,7 @@ export function CategoryFluencyGame({
       timestamp: Date.now(),
     });
 
-    const newLevel = adaptation.currentDifficulty;
+    const newLevel = adjustment.newDifficulty;
     const shift = newLevel > prevDiff ? 'up' : newLevel < prevDiff ? 'down' : null;
     setDifficultyShift(shift);
 
@@ -421,6 +431,7 @@ export function CategoryFluencyGame({
       category: config.category,
       words: validWords,
       uniqueWordCount: validWords.length,
+      exampleRequests: exampleSwapCountRef.current,
       wordsPerSecond: durationSec > 0 ? validWords.length / durationSec : 0,
       durationSec: Math.round(durationSec),
       timeLimitSec: totalTime,
@@ -460,52 +471,10 @@ export function CategoryFluencyGame({
     }
   }, [timeLeft, phase, finishRound]);
 
-  const startRound = useCallback(() => {
-    vg.interrupt(); // Stop any active speech
-    const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
-    usedCategoriesRef.current.add(cat.category);
-    rememberCategory(cat.category);
-    setConfig(cat);
-    setWords([]);
-    setCurrentInput('');
-    setExampleChips(pickExamples(cat.category, 3));
-    setExampleSwapCount(0);
-    exampleSwapCountRef.current = 0;
-    setPhase('active');
-    setDifficultyShift(null);
-    processedRef.current.clear();
-    // The transcript cursor is per-round too. Without this the next round
-    // starts already "past" everything the last one said and commits nothing.
-    tokensRef.current = [];
-    consumedTokensRef.current = 0;
-    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-    wordsRef.current = [];
-    const newTime = getTimerForDifficulty(currentDifficulty);
-    setTotalTime(newTime);
-    setTimeLeft(newTime);
-    startTimeRef.current = Date.now();
-    timerExpiredRef.current = false;
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          timerExpiredRef.current = true;
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    if (speechSupported) {
-      setTimeout(() => startListening(), 300);
-    } else {
-      setShowTextInput(true);
-    }
-  }, [currentDifficulty, speechSupported, startListening, vg]);
-
   /** Begin the countdown → then auto-start the round */
   const beginCountdown = useCallback(async () => {
+    const generation = ++countdownGeneration.current;
+    timerRef.current?.();
     const cat = pickCategory(currentDifficulty, usedCategoriesRef.current);
     // Pre-set config so the category label shows during countdown
     usedCategoriesRef.current.add(cat.category);
@@ -524,18 +493,19 @@ export function CategoryFluencyGame({
       }
     }
 
+    if (generation !== countdownGeneration.current) return;
     setCountdown(3);
     let count = 3;
-    const interval = setInterval(() => {
+    timerRef.current = scheduleSessionTimer(() => {
       count -= 1;
       if (count <= 0) {
-        clearInterval(interval);
+        timerRef.current?.();
         setCountdown(null);
         startRoundWithConfig(cat);
       } else {
         setCountdown(count);
       }
-    }, 800);
+    }, 800, true);
   }, [currentDifficulty, vg]);
 
   // Keep ref updated so the auto-start timeout always calls the latest version
@@ -561,22 +531,22 @@ export function CategoryFluencyGame({
     const newTime = getTimerForDifficulty(currentDifficulty);
     setTotalTime(newTime);
     setTimeLeft(newTime);
-    startTimeRef.current = Date.now();
+    startTimeRef.current = voiceController.activeTimeMs;
     timerExpiredRef.current = false;
 
-    timerRef.current = setInterval(() => {
+    timerRef.current = scheduleSessionTimer(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          clearInterval(timerRef.current!);
+          timerRef.current?.();
           timerExpiredRef.current = true;
           return 0;
         }
         return prev - 1;
       });
-    }, 1000);
+    }, 1000, true);
 
     if (speechSupported) {
-      setTimeout(() => startListening(), 300);
+      pendingStartRef.current = scheduleSessionTimer(() => startListening(), 300);
     } else {
       setShowTextInput(true);
     }
@@ -590,8 +560,8 @@ export function CategoryFluencyGame({
   useEffect(() => {
     if (!hasStartedRef.current && phase === 'ready' && currentRound === 0 && vg.isVoiceLed) {
       hasStartedRef.current = true;
-      const delay = setTimeout(() => beginCountdownRef.current(), 400);
-      return () => { clearTimeout(delay); hasStartedRef.current = false; };
+      const cancel = scheduleSessionTimer(() => beginCountdownRef.current(), 400);
+      return () => { cancel(); hasStartedRef.current = false; };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentRound, vg.isVoiceLed]);
@@ -602,7 +572,7 @@ export function CategoryFluencyGame({
     setCurrentInput('');
     const preferTyping = sessionStorage.getItem('preferTypingInput') === 'true';
     setShowTextInput(preferTyping);
-    setTimeout(() => beginCountdown(), 300);
+    pendingStartRef.current = scheduleSessionTimer(() => beginCountdown(), 300);
   }, [beginCountdown]);
 
   const addWord = useCallback(() => {
