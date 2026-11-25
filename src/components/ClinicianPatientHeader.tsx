@@ -129,14 +129,14 @@ export function ClinicianPatientHeader() {
   const { timeline, lastActiveDate, isLoading: snapshotLoading, flags } = useWeeklyRecoverySnapshot(profileId, 14);
   const sessionStats = useWeeklySessionStats(profileId);
   const alertSessionStats = useMemo(() => {
-    if (sessionStats.isLoading) return undefined;
+    if (sessionStats.isLoading || sessionStats.readError) return undefined;
     return {
       recentAvgAccuracy: sessionStats.avgAccuracy,
       priorAvgAccuracy: sessionStats.priorAvgAccuracy,
       accuracySlope: sessionStats.accuracySlope,
       recentTrialCount: sessionStats.trialCount,
       recentSessionCount: sessionStats.sessionCount,
-      priorTrialCount: sessionStats.trialCount, // approximation — prior count not separately tracked yet
+      priorTrialCount: sessionStats.priorTrialCount,
     };
   }, [sessionStats]);
   const { alerts, unacknowledgedCount } = useRecoveryAlerts(profileId, timeline, alertSessionStats);

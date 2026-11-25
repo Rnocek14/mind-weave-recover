@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCohortAnalytics } from "@/hooks/useCohortAnalytics";
-import { ArrowLeft, Download, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw } from "lucide-react";
 import { GameEffectivenessSection } from "@/components/cohort/GameEffectivenessSection";
 import { CueEffectivenessSection } from "@/components/cohort/CueEffectivenessSection";
 import { RetentionCarryoverSection } from "@/components/cohort/RetentionCarryoverSection";
@@ -16,56 +16,43 @@ import { PlateauAnalysisSection } from "@/components/cohort/PlateauAnalysisSecti
 import { FunctionalImpactSection } from "@/components/cohort/FunctionalImpactSection";
 import { AdaptationEffectivenessSection } from "@/components/cohort/AdaptationEffectivenessSection";
 import { DataReadinessAccordion } from "@/components/cohort/DataReadinessAccordion";
-import { DataSufficiencyBar } from "@/components/cohort/DataSufficiencyBar";
+import type { CohortDimension } from "@/lib/clinical/pairedGamePractice";
+import { DataSufficiencyBar, coverageFields } from "@/components/cohort/DataSufficiencyBar";
 
 export default function CohortResearchAnalytics() {
   const navigate = useNavigate();
+  const [dimension, setDimension] = useState<CohortDimension>("stroke_mechanism_tag");
   const {
     phenotypeDistributions,
-    gameEffectiveness,
+    gamePractice,
     cueEffectiveness,
     retentionByCohort,
     retentionByExercise,
     plateauData,
     functionalTrends,
-    functionalImpact,
     adaptationEffectiveness,
     isLoading,
     error,
     refetch,
-    generateExport,
-  } = useCohortAnalytics();
+    coverage,
+  } = useCohortAnalytics(dimension);
 
-  const [exporting, setExporting] = useState(false);
+  const totals = coverage && {
+    ...coverage,
+    retentionWordCount: retentionByCohort.reduce((n, row) => n + row.totalWords, 0),
+    functionalCheckinCount: functionalTrends.reduce((n, day) => n + day.count, 0),
+  };
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const rows = await generateExport();
-      if (!rows.length) return;
-      // De-identify: research exports must NOT carry patient names or the raw
-      // profile UUID (a stable, re-identifiable key). Emit a deterministic
-      // pseudonymous subject code instead.
-      const pseudonym = (id: string) => {
-        let h = 0;
-        for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-        return "S" + Math.abs(h).toString(36).toUpperCase().padStart(6, "0");
-      };
-      const headers = ["Subject", "Aphasia Type", "Laterality", "Chronicity", "Stroke Mechanism", "Sessions", "Trials", "Avg Accuracy %", "Retention Rate %", "Adaptations", "Functional Score %"];
-      const csvRows = rows.map((r) =>
-        [pseudonym(r.profileId), r.aphasiaType || "", r.laterality || "", r.chronicity || "", r.strokeMechanism || "", r.sessionCount, r.trialCount, r.avgAccuracy ?? "", r.retentionRate ?? "", r.adaptationCount, r.latestFunctionalScore ?? ""].join(",")
-      );
-      const csv = [headers.join(","), ...csvRows].join("\n");
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cohort-export-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = () => {
+    if (!totals || error) return;
+    const fields = coverageFields(totals);
+    const csv = [fields.map(([name]) => name).join(","), fields.map(([,n]) => n).join(",")].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cohort-coverage-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   if (isLoading) {
@@ -83,23 +70,23 @@ export default function CohortResearchAnalytics() {
     <div className="min-h-dvh bg-background py-8 px-4">
       <div className="container mx-auto max-w-6xl space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" aria-label="Go back" onClick={() => navigate(-1)} className="shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Cohort Research Analytics</h1>
-              <p className="text-sm text-muted-foreground">Discover what works for whom — cross-patient clinical intelligence</p>
+              <p className="text-sm text-muted-foreground">Review recorded practice across patient profiles.</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={refetch} className="gap-1">
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
-            <Button size="sm" onClick={handleExport} disabled={exporting} className="gap-1">
-              {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-              Export CSV
+            <Button size="sm" onClick={handleExport} disabled={!!error || !totals} className="gap-1">
+              <Download className="w-3 h-3" />
+              Export coverage CSV
             </Button>
           </div>
         </div>
@@ -111,16 +98,12 @@ export default function CohortResearchAnalytics() {
         )}
 
         {/* Data Sufficiency Indicator */}
-        <DataSufficiencyBar
-          patientCount={phenotypeDistributions[0]?.counts.reduce((s, c) => s + c.count, 0) || 0}
-          sessionCount={gameEffectiveness.reduce((s, r) => s + r.trialCount, 0)}
-          trialCount={gameEffectiveness.reduce((s, r) => s + r.trialCount, 0)}
-          retentionWordCount={retentionByCohort.reduce((s, r) => s + r.totalWords, 0)}
-          functionalCheckinCount={functionalTrends.reduce((s, f) => s + f.count, 0)}
-        />
-
-        {/* 1. Game Effectiveness */}
-        <GameEffectivenessSection data={gameEffectiveness} />
+        {totals && !error && <>
+        <DataSufficiencyBar {...totals} />
+        <p className="text-xs text-muted-foreground">The coverage CSV contains program totals. For subject-level study extracts, <a className="underline" href="/admin/research-export">open Research Export</a>.</p>
+        <GameEffectivenessSection rows={gamePractice} dimension={dimension} onDimension={setDimension} />
+        <FunctionalImpactSection trends={functionalTrends} />
+        <details className="space-y-4 rounded-lg border p-4"><summary className="cursor-pointer font-medium">Supporting practice measures</summary>
 
         {/* 2. Cue Effectiveness */}
         <CueEffectivenessSection data={cueEffectiveness} />
@@ -131,9 +114,6 @@ export default function CohortResearchAnalytics() {
         {/* 4. Plateau / Regression */}
         <PlateauAnalysisSection data={plateauData} />
 
-        {/* 5. Functional Impact */}
-        <FunctionalImpactSection trends={functionalTrends} impact={functionalImpact} />
-
         {/* 6. Adaptation Effectiveness */}
         <AdaptationEffectivenessSection data={adaptationEffectiveness} />
 
@@ -143,6 +123,8 @@ export default function CohortResearchAnalytics() {
           retentionByCohort={retentionByCohort}
           functionalTrends={functionalTrends}
         />
+        </details>
+        </>}
       </div>
     </div>
   );

@@ -30,11 +30,13 @@ function timelineHash(timeline: SnapshotDay[]): string {
 export function useRecoveryAlerts(
   profileId: string | undefined,
   timeline: SnapshotDay[],
-  sessionStats?: SessionAccuracyStats
+  sessionStats?: SessionAccuracyStats,
+  detectOnRead = true,
 ) {
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<RecoveryAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
   const lastHashRef = useRef<string>("");
   const hash = useMemo(() => timelineHash(timeline), [timeline]);
 
@@ -45,6 +47,7 @@ export function useRecoveryAlerts(
       return;
     }
 
+    setReadError(false);
     try {
       const { data, error } = await (supabase as any)
         .from("recovery_alerts")
@@ -56,6 +59,8 @@ export function useRecoveryAlerts(
       if (error) throw error;
       setAlerts(data || []);
     } catch (err) {
+      setReadError(true);
+      setAlerts([]);
       console.error("[useRecoveryAlerts] fetch error:", err);
     } finally {
       setIsLoading(false);
@@ -64,7 +69,7 @@ export function useRecoveryAlerts(
 
   // Run detection + upsert when timeline changes
   useEffect(() => {
-    if (!user?.id || !profileId || timeline.length === 0) return;
+    if (!detectOnRead || !user?.id || !profileId || timeline.length === 0) return;
 
     // Write throttle: skip if timeline hasn't materially changed
     if (hash === lastHashRef.current) return;
@@ -121,7 +126,7 @@ export function useRecoveryAlerts(
     };
 
     runDetection();
-  }, [user?.id, profileId, hash]);
+  }, [user?.id, profileId, hash, detectOnRead]);
 
   // Acknowledge an alert (clinician saw it)
   const acknowledgeAlert = useCallback(
@@ -182,5 +187,5 @@ export function useRecoveryAlerts(
     [alerts]
   );
 
-  return { alerts, isLoading, acknowledgeAlert, resolveAlert, unacknowledgedCount, refetch: fetchAlerts };
+  return { alerts, isLoading, readError, acknowledgeAlert, resolveAlert, unacknowledgedCount, refetch: fetchAlerts };
 }

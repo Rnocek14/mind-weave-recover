@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,13 +10,23 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { RecordingPermission } from "@/components/clinician/RecordingPermission";
+import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 
 export default function PrivacySettings() {
-  const { user } = useAuth();
+  const { activeProfile, loading } = useProfile();
+  const { user, loading: authLoading } = useAuth();
+  if (loading || authLoading) return <p role="status" className="p-6">Loading privacy settings…</p>;
+  return <ProfilePrivacySettings key={activeProfile?.id ?? "none"} user={user} profileId={activeProfile?.user_id === user?.id ? activeProfile?.id : undefined}
+    patientName={activeProfile?.profile_kind === "patient" ? activeProfile.profile_name : undefined} />;
+}
+
+function ProfilePrivacySettings({ user, profileId, patientName }: { user: User | null; profileId?: string; patientName?: string }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [consentVersion, setConsentVersion] = useState<number>(1);
+  const [savedPreferences, setSavedPreferences] = useState<Record<string, any>>({});
   const [allowAnalytics, setAllowAnalytics] = useState<boolean>(true);
   const [allowASR, setAllowASR] = useState<boolean>(false);
   const [voicePreference, setVoicePreference] = useState<'male' | 'female' | 'neutral'>('neutral');
@@ -32,17 +43,18 @@ export default function PrivacySettings() {
   }, [user, navigate]);
 
   const loadSettings = async () => {
-    if (!user) return;
+    if (!user || !profileId) { setLoading(false); return; }
 
     try {
       const { data } = await supabase
         .from("profiles")
         .select("consent_version, accessibility_prefs")
-        .eq("user_id", user.id)
+        .eq("id", profileId!).eq("user_id", user.id)
         .single();
       
       setConsentVersion(data?.consent_version ?? 1);
       const prefs = data?.accessibility_prefs as any;
+      setSavedPreferences(prefs && typeof prefs === "object" && !Array.isArray(prefs) ? prefs : {});
       setAllowAnalytics(Boolean(prefs?.allowAnalytics ?? true));
       setAllowASR(Boolean(prefs?.allowASR ?? false));
       setVoicePreference(prefs?.voicePreference ?? 'neutral');
@@ -54,7 +66,7 @@ export default function PrivacySettings() {
   };
 
   const save = async () => {
-    if (!user) return;
+    if (!user || !profileId) return;
 
     setSaving(true);
     try {
@@ -63,12 +75,13 @@ export default function PrivacySettings() {
         .update({
           consent_version: consentVersion,
           accessibility_prefs: {
+            ...savedPreferences,
             allowAnalytics,
             allowASR,
             voicePreference
           }
         })
-        .eq("user_id", user.id);
+        .eq("id", profileId!).eq("user_id", user.id);
 
       if (error) throw error;
 
@@ -193,6 +206,7 @@ export default function PrivacySettings() {
       <div className="container mx-auto max-w-2xl">
         <BackButton className="mb-6" />
 
+        {profileId && patientName && <RecordingPermission profileId={profileId} name={patientName} />}
         <Card className="p-6 shadow-card">
           <div className="flex items-center gap-3 mb-6">
             <Shield className="w-6 h-6 text-primary" />

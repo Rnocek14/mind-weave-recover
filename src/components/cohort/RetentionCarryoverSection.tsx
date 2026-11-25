@@ -18,9 +18,9 @@ export function RetentionCarryoverSection({ byCohort, byExercise }: Props) {
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Brain className="w-4 h-4 text-primary" />
-            Retention / Carryover by Cohort
+            Trained-item practice history
           </CardTitle>
-          <CardDescription className="text-xs">What actually sticks?</CardDescription>
+          <CardDescription className="text-xs">Repeated practice on recorded items.</CardDescription>
         </CardHeader>
         <CardContent className="pb-3">
           <p className="text-xs text-muted-foreground">No retention snapshot data yet. Data populates as sessions complete.</p>
@@ -42,9 +42,9 @@ export function RetentionCarryoverSection({ byCohort, byExercise }: Props) {
       <CardHeader className="pb-2 pt-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Brain className="w-4 h-4 text-primary" />
-          Retention / Carryover by Cohort
+          Trained-item practice history
         </CardTitle>
-        <CardDescription className="text-xs">Retained (score ≥4) vs. weak (2-3) vs. lost (&lt;2) words by aphasia type.</CardDescription>
+        <CardDescription className="text-xs">Counts by best recorded score and repeat exposure. Single-session items remain in the middle group.</CardDescription>
       </CardHeader>
       <CardContent className="pb-3 space-y-4">
         {cohortChart.length > 0 && (
@@ -55,9 +55,9 @@ export function RetentionCarryoverSection({ byCohort, byExercise }: Props) {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="retained" stackId="a" fill="hsl(var(--chart-2))" name="Retained" />
-              <Bar dataKey="weak" stackId="a" fill="hsl(var(--chart-4))" name="Weak" />
-              <Bar dataKey="lost" stackId="a" fill="hsl(var(--destructive))" name="Lost" />
+              <Bar dataKey="retained" stackId="a" fill="hsl(var(--chart-2))" name="Repeated, best ≥4" />
+              <Bar dataKey="weak" stackId="a" fill="hsl(var(--chart-4))" name="Middle or single session" />
+              <Bar dataKey="lost" stackId="a" fill="hsl(var(--destructive))" name="Repeated, best <2" />
             </BarChart>
           </ResponsiveContainer>
         )}

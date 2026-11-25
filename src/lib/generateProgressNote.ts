@@ -82,7 +82,7 @@ export function generateProgressNote(input: ProgressNoteInput): ProgressNote {
       const absD = Math.abs(delta);
       if (absD >= 1) {
         sentences.push(
-          `Average accuracy ${direction} from ${Math.round(priorAvgAccuracy)}% to ${accStr} (${delta > 0 ? "+" : ""}${delta}%).`
+          `Average accuracy ${direction} from ${Math.round(priorAvgAccuracy)}% to ${accStr} (${delta > 0 ? "+" : ""}${delta} percentage points).`
         );
       } else {
         sentences.push(`Average accuracy remained stable at ${accStr}.`);
@@ -106,11 +106,11 @@ export function generateProgressNote(input: ProgressNoteInput): ProgressNote {
   // 4. Practice frequency
   const recent7 = timeline.slice(-7);
   const speechActiveDays = recent7.filter((d) => d.speechMinutes > 0).length;
-  const target = prescribedDays ?? 5;
+  const target = prescribedDays;
   if (speechActiveDays > 0) {
-    const met = speechActiveDays >= target;
+    const met = target !== null && speechActiveDays >= target;
     sentences.push(
-      `Speech practice logged on ${speechActiveDays}/7 days${met ? " (meeting target)." : ` (target: ${target}/7 days).`}`
+      `Speech dose logged on ${speechActiveDays}/7 days${target === null ? "." : met ? " (meeting target)." : ` (target: ${target}/7 days).`}`
     );
   }
 

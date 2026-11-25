@@ -28,6 +28,7 @@ import type { FunctionalGoal } from "@/hooks/useFunctionalGoals";
 
 interface ProvisionalProfileCardProps {
   userId: string;
+  readOnly?: boolean;
   clinicalProfile: Record<string, any> | null;
   goals?: FunctionalGoal[];
   /** Called after a successful confirm so the parent can refetch the profile. */
@@ -50,6 +51,7 @@ export function ProvisionalProfileCard({
   clinicalProfile,
   goals = [],
   onConfirmed,
+  readOnly = false,
 }: ProvisionalProfileCardProps) {
   const { createVersion, isLoading } = useClinicalProfileVersions(userId);
   const [confirmed, setConfirmed] = useState(false);
@@ -117,7 +119,7 @@ export function ProvisionalProfileCard({
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           Generated from the patient's onboarding answers to avoid default settings.
-          Review and confirm, edit, or supersede — your profile remains the source of truth.
+          {readOnly ? "Review these patient-reported details alongside the clinical record." : "Review the details before confirming this profile."}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -214,7 +216,7 @@ export function ProvisionalProfileCard({
           </div>
         )}
 
-        {/* Actions */}
+        {!readOnly && <>
         <div className="flex flex-wrap gap-2 pt-1">
           <Button
             size="sm"
@@ -238,6 +240,7 @@ export function ProvisionalProfileCard({
           Confirming marks this as clinician-authored with high confidence. To change details,
           use Edit / Supersede — clinician-authored profiles always override onboarding data.
         </p>
+        </>}
       </CardContent>
     </Card>
   );

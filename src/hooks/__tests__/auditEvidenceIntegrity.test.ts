@@ -34,15 +34,18 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('audit: weekly score eligibility and profile isolation', () => {
   function configureWeekly() {
+    const date = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString();
+    const sessions = [{ id:'prior', ended_at:date(10), duration_sec:180 }, { id:'recent', ended_at:date(1), duration_sec:120 }];
+    const events = sessions.flatMap(s => [
+      { session_id:s.id, score:1, validity_label:'valid_attempt', counts_toward_score:true },
+      { session_id:s.id, score:0, validity_label:'valid_attempt', counts_toward_score:true },
+      { session_id:s.id, score:0, validity_label:'background_noise', counts_toward_score:false },
+      { session_id:s.id, score:1, validity_label:'manual_confirmed', counts_toward_score:false },
+      { session_id:s.id, profile_id:'sibling', score:0, validity_label:'valid_attempt', counts_toward_score:true },
+    ]).map((e,i) => ({ ...e, id:String(i) }));
     backend.from.mockImplementation((table: string) => {
-      if (table === 'sessions') return query(ok([{ id: 'session-a' }]));
-      if (table === 'learning_rates') return query(ok([]));
-      return query(ok([
-        { score: 1, validity_label: 'valid_attempt', counts_toward_score: true },
-        { score: 0, validity_label: 'valid_attempt', counts_toward_score: true },
-        { score: 0, validity_label: 'background_noise', counts_toward_score: false },
-        { score: 1, validity_label: 'manual_confirmed', counts_toward_score: false },
-      ]));
+      const page = query(ok(table === 'sessions' ? sessions : table === 'exercise_events' ? events : []));
+      return Object.assign(page, { gt: () => query(ok([])) });
     });
   }
 
@@ -53,6 +56,9 @@ describe('audit: weekly score eligibility and profile isolation', () => {
     expect(result.current.trialCount).toBe(2);
     expect(result.current.avgAccuracy).toBe(50);
     expect(result.current.priorAvgAccuracy).toBe(50);
+    expect(result.current.priorTrialCount).toBe(2);
+    expect(result.current.minutes).toBe(2);
+    expect(result.current.days).toHaveLength(1);
   });
 
   it('does not display the last patient metrics after the profile is cleared', async () => {

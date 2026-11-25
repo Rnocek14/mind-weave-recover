@@ -3,24 +3,20 @@
  * Queries across patients using phenotype columns, exercise events, retention snapshots,
  * cue data, adaptation events, and functional check-ins.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+
+import { cohortPractice, readCohortProfiles, readCohortSessions, readCohortEvents } from "@/lib/clinical/cohortPractice";
+import { readAllById } from "@/lib/clinical/readAllById";
+import { pairedGamePractice, type CohortDimension } from "@/lib/clinical/pairedGamePractice";
+import { isComparableScoredEvent } from "@/lib/clinical/metricsPresentation";
+import { hasDeliveredCue } from "@/lib/clinical/scoredEvidence";
 
 // ── Types ──
 
 export interface PhenotypeDistribution {
   field: string;
   counts: { value: string; count: number }[];
-}
-
-export interface GameEffectivenessRow {
-  exerciseSlug: string;
-  phenotypeField: string;
-  phenotypeValue: string;
-  avgScore: number;
-  trialCount: number;
-  patientCount: number;
-  improvementSlope: number | null;
 }
 
 export interface CueEffectivenessRow {
@@ -67,19 +63,11 @@ export interface PlateauRow {
 
 export interface FunctionalTrend {
   checkinDate: string;
-  avgCommunication: number;
-  avgParticipation: number;
-  avgIndependence: number;
-  avgBurden: number;
+  avgCommunication: number | null;
+  avgParticipation: number | null;
+  avgIndependence: number | null;
+  avgBurden: number | null;
   count: number;
-}
-
-export interface FunctionalImpactRow {
-  phenotypeValue: string;
-  avgInAppAccuracy: number;
-  avgFunctionalScore: number;
-  gap: number;
-  patientCount: number;
 }
 
 export interface AdaptationEffectivenessRow {
@@ -88,21 +76,6 @@ export interface AdaptationEffectivenessRow {
   phenotypeValue: string;
   patientCount: number;
   avgConfidence: string;
-}
-
-export interface CohortExportRow {
-  profileId: string;
-  profileName: string;
-  aphasiaType: string | null;
-  laterality: string | null;
-  chronicity: string | null;
-  strokeMechanism: string | null;
-  sessionCount: number;
-  trialCount: number;
-  avgAccuracy: number | null;
-  retentionRate: number | null;
-  adaptationCount: number;
-  latestFunctionalScore: number | null;
 }
 
 // ── Helper ──
@@ -130,32 +103,59 @@ type ProfileRow = {
 
 // ── Hook ──
 
-export function useCohortAnalytics() {
+export function useCohortAnalytics(dimension: CohortDimension) {
   const [phenotypeDistributions, setPhenotypeDistributions] = useState<PhenotypeDistribution[]>([]);
-  const [gameEffectiveness, setGameEffectiveness] = useState<GameEffectivenessRow[]>([]);
+  const [practice, setPractice] = useState<{
+    profiles: Awaited<ReturnType<typeof readCohortProfiles>>;
+    events: Awaited<ReturnType<typeof readCohortEvents>>;
+    sessions: Map<string, string>;
+  } | null>(null);
+  const gamePractice = useMemo(() => practice
+    ? pairedGamePractice(practice.profiles, practice.events, practice.sessions, dimension) : [], [practice, dimension]);
   const [cueEffectiveness, setCueEffectiveness] = useState<CueEffectivenessRow[]>([]);
   const [retentionByCohort, setRetentionByCohort] = useState<RetentionCohortRow[]>([]);
   const [retentionByExercise, setRetentionByExercise] = useState<RetentionByExercise[]>([]);
   const [retentionByCue, setRetentionByCue] = useState<RetentionByCue[]>([]);
   const [plateauData, setPlateauData] = useState<PlateauRow[]>([]);
   const [functionalTrends, setFunctionalTrends] = useState<FunctionalTrend[]>([]);
-  const [functionalImpact, setFunctionalImpact] = useState<FunctionalImpactRow[]>([]);
   const [adaptationEffectiveness, setAdaptationEffectiveness] = useState<AdaptationEffectivenessRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestId = useRef(0);
+  const [coverage, setCoverage] = useState<ReturnType<typeof cohortPractice>["counts"] | null>(null);
   const fetchData = useCallback(async () => {
+    const request = ++requestId.current;
     setIsLoading(true);
     setError(null);
     try {
-      // ─── Shared: profiles ───
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, profile_name, aphasia_type, stroke_mechanism_tag, laterality, primary_territory, chronicity_tag");
-
-      if (!profiles) throw new Error("Failed to load profiles");
-
-      const profileMap = new Map<string, ProfileRow>(profiles.map((p) => [p.id, p]));
+      const [profiles, sessions, events, allRetention, allCheckins, allAdaptations] = await Promise.all([
+        readCohortProfiles(), readCohortSessions(), readCohortEvents(),
+        readAllById(after => {
+          let q = supabase.from("retention_snapshots").select("id, profile_id, word, best_score, last_score, session_count, topic").order("id").limit(500);
+          if (after) q = q.gt("id", after);
+          return q;
+        }),
+        readAllById(after => {
+          let q = supabase.from("functional_checkins").select("id, checkin_date, communication_of_needs, conversational_participation, independence_level, caregiver_burden, profile_id").order("id").limit(500);
+          if (after) q = q.gt("id", after);
+          return q;
+        }),
+        readAllById(after => {
+          let q = supabase.from("adaptation_events").select("id, adaptation_type, confidence, profile_id").order("id").limit(500);
+          if (after) q = q.gt("id", after);
+          return q;
+        }),
+      ]);
+      if (request !== requestId.current) return;
+      const profileMap = new Map<string, ProfileRow>(profiles.map(p => [p.id, p]));
+      const { counts, sessionProfileMap, eventList } = cohortPractice(profiles, sessions, events);
+      setCoverage(counts);
+      const inCohort = (row: { profile_id: string | null }) => !!row.profile_id && profileMap.has(row.profile_id);
+      const retentionData = allRetention.filter(inCohort);
+      const checkins = allCheckins.filter(inCohort).sort((a, b) => a.checkin_date.localeCompare(b.checkin_date) || a.id.localeCompare(b.id));
+      const adaptations = allAdaptations.filter(inCohort);
+      setPractice({ profiles, events: eventList, sessions: sessionProfileMap });
 
       // ─── 1. Phenotype distributions ───
       const fields = ["aphasia_type", "stroke_mechanism_tag", "laterality", "primary_territory", "chronicity_tag"] as const;
@@ -174,77 +174,11 @@ export function useCohortAnalytics() {
       });
       setPhenotypeDistributions(distributions);
 
-      // ─── Shared: sessions → profile mapping ───
-      const { data: sessions } = await supabase
-        .from("sessions")
-        .select("id, profile_id, started_at");
-
-      const sessionProfileMap = new Map<string, string>();
-      const profileSessionIds = new Map<string, string[]>();
-      if (sessions) {
-        for (const s of sessions) {
-          if (s.profile_id) {
-            sessionProfileMap.set(s.id, s.profile_id);
-            if (!profileSessionIds.has(s.profile_id)) profileSessionIds.set(s.profile_id, []);
-            profileSessionIds.get(s.profile_id)!.push(s.id);
-          }
-        }
-      }
-
-      // ─── Shared: exercise events (limited to 5000) ───
-      const { data: events } = await supabase
-        .from("exercise_events")
-        .select("session_id, exercise_slug, score, cue_type_given, cue_was_effective, reaction_time_ms, created_at, trial_index")
-        .order("created_at", { ascending: true })
-        .limit(5000);
-
-      const eventList = events || [];
-
-      // ─── 2. Game Effectiveness by Cohort ───
-      {
-        const gameMap = new Map<string, { scores: number[]; patients: Set<string>; timestamps: number[] }>();
-        for (const e of eventList) {
-          if (!e.exercise_slug || e.score == null) continue;
-          const profileId = sessionProfileMap.get(e.session_id);
-          if (!profileId) continue;
-          const profile = profileMap.get(profileId);
-          const aphasiaType = profile?.aphasia_type || "unknown";
-          const key = `${e.exercise_slug}||${aphasiaType}`;
-          if (!gameMap.has(key)) gameMap.set(key, { scores: [], patients: new Set(), timestamps: [] });
-          const g = gameMap.get(key)!;
-          g.scores.push(e.score);
-          g.patients.add(profileId);
-          g.timestamps.push(new Date(e.created_at || 0).getTime());
-        }
-
-        const gameRows: GameEffectivenessRow[] = Array.from(gameMap.entries())
-          .filter(([, g]) => g.scores.length >= 3)
-          .map(([key, g]) => {
-            const [exerciseSlug, phenotypeValue] = key.split("||");
-            // Simple improvement slope: compare first third vs last third
-            const third = Math.max(1, Math.floor(g.scores.length / 3));
-            const firstThird = avg(g.scores.slice(0, third));
-            const lastThird = avg(g.scores.slice(-third));
-            return {
-              exerciseSlug,
-              phenotypeField: "aphasia_type",
-              phenotypeValue,
-              avgScore: avg(g.scores),
-              trialCount: g.scores.length,
-              patientCount: g.patients.size,
-              improvementSlope: Math.round((lastThird - firstThird) * 10) / 10,
-            };
-          })
-          .sort((a, b) => (b.improvementSlope ?? 0) - (a.improvementSlope ?? 0));
-
-        setGameEffectiveness(gameRows);
-      }
-
       // ─── 3. Cue Effectiveness by Cohort ───
       {
         const cueMap = new Map<string, { successes: number; total: number; patients: Set<string> }>();
         for (const e of eventList) {
-          if (!e.cue_type_given) continue;
+          if (!hasDeliveredCue(e.cue_type_given) || typeof e.cue_was_effective !== "boolean" || !isComparableScoredEvent(e)) continue;
           const profileId = sessionProfileMap.get(e.session_id);
           if (!profileId) continue;
           const profile = profileMap.get(profileId);
@@ -276,10 +210,6 @@ export function useCohortAnalytics() {
       }
 
       // ─── 4. Retention / Carryover by Cohort ───
-      const { data: retentionData } = await supabase
-        .from("retention_snapshots")
-        .select("profile_id, word, best_score, last_score, session_count, topic");
-
       {
         const retMap = new Map<string, { retained: number; weak: number; lost: number; patients: Set<string>; total: number }>();
         const retByExMap = new Map<string, { retained: number; total: number }>();
@@ -342,12 +272,13 @@ export function useCohortAnalytics() {
       // ─── 5. Plateau / Regression ───
       {
         // Group events by profile, compute accuracy over sessions
+        const sessionDates = new Map(sessions.map(s => [s.id, s.started_at]));
         const profileAccuracyOverTime = new Map<string, { sessionAccuracies: number[]; fatigueFlags: number; lowAdherence: boolean }>();
         const profileSessionScores = new Map<string, Map<string, number[]>>();
 
         for (const e of eventList) {
           const profileId = sessionProfileMap.get(e.session_id);
-          if (!profileId || e.score == null) continue;
+          if (!profileId || e.score == null || !isComparableScoredEvent(e)) continue;
           if (!profileSessionScores.has(profileId)) profileSessionScores.set(profileId, new Map());
           const pss = profileSessionScores.get(profileId)!;
           if (!pss.has(e.session_id)) pss.set(e.session_id, []);
@@ -355,7 +286,8 @@ export function useCohortAnalytics() {
         }
 
         for (const [profileId, sessMap] of profileSessionScores) {
-          const sessionAccuracies = Array.from(sessMap.values()).map((scores) => {
+          const sessionAccuracies = Array.from(sessMap.entries()).sort(([a], [b]) =>
+            (sessionDates.get(a) ?? "").localeCompare(sessionDates.get(b) ?? "") || a.localeCompare(b)).map(([,scores]) => {
             const correct = scores.filter((s) => s > 0).length;
             return Math.round((correct / scores.length) * 100);
           });
@@ -371,6 +303,7 @@ export function useCohortAnalytics() {
         const plateauByType = new Map<string, { plateauCount: number; total: number; patients: Set<string> }>();
 
         for (const [profileId, data] of profileAccuracyOverTime) {
+          if (data.sessionAccuracies.length < 3) continue;
           const profile = profileMap.get(profileId);
           const aphasiaType = profile?.aphasia_type || "unknown";
           if (!plateauByType.has(aphasiaType)) plateauByType.set(aphasiaType, { plateauCount: 0, total: 0, patients: new Set() });
@@ -402,17 +335,13 @@ export function useCohortAnalytics() {
       }
 
       // ─── 6. Functional Trends ───
-      const { data: checkins } = await supabase
-        .from("functional_checkins")
-        .select("checkin_date, communication_of_needs, conversational_participation, independence_level, caregiver_burden, profile_id")
-        .order("checkin_date", { ascending: true });
-
       if (checkins) {
-        const byDate = new Map<string, { comm: number[]; part: number[]; ind: number[]; bur: number[] }>();
+        const byDate = new Map<string, { reports: number; comm: number[]; part: number[]; ind: number[]; bur: number[] }>();
         for (const c of checkins) {
           const date = c.checkin_date;
-          if (!byDate.has(date)) byDate.set(date, { comm: [], part: [], ind: [], bur: [] });
+          if (!byDate.has(date)) byDate.set(date, { reports: 0, comm: [], part: [], ind: [], bur: [] });
           const d = byDate.get(date)!;
+          d.reports++;
           if (c.communication_of_needs != null) d.comm.push(c.communication_of_needs);
           if (c.conversational_participation != null) d.part.push(c.conversational_participation);
           if (c.independence_level != null) d.ind.push(c.independence_level);
@@ -421,67 +350,17 @@ export function useCohortAnalytics() {
         setFunctionalTrends(
           Array.from(byDate.entries()).map(([date, d]) => ({
             checkinDate: date,
-            avgCommunication: avg(d.comm),
-            avgParticipation: avg(d.part),
-            avgIndependence: avg(d.ind),
-            avgBurden: avg(d.bur),
-            count: d.comm.length,
+            avgCommunication: d.comm.length ? avg(d.comm) : null,
+            avgParticipation: d.part.length ? avg(d.part) : null,
+            avgIndependence: d.ind.length ? avg(d.ind) : null,
+            avgBurden: d.bur.length ? avg(d.bur) : null,
+            count: d.reports,
           }))
         );
 
-        // Functional impact: compare in-app accuracy to functional scores by phenotype
-        const profileFunctionalScores = new Map<string, number>();
-        for (const c of checkins) {
-          if (!c.profile_id) continue;
-          const scores = [c.communication_of_needs, c.conversational_participation, c.independence_level].filter((s): s is number => s != null);
-          if (scores.length > 0) {
-            profileFunctionalScores.set(c.profile_id, avg(scores));
-          }
-        }
-
-        const impactByType = new Map<string, { inAppScores: number[]; functionalScores: number[]; patients: Set<string> }>();
-        for (const [profileId, funcScore] of profileFunctionalScores) {
-          const profile = profileMap.get(profileId);
-          const aphasiaType = profile?.aphasia_type || "unknown";
-          if (!impactByType.has(aphasiaType)) impactByType.set(aphasiaType, { inAppScores: [], functionalScores: [], patients: new Set() });
-          const g = impactByType.get(aphasiaType)!;
-          g.functionalScores.push(funcScore);
-          g.patients.add(profileId);
-
-          // Get in-app accuracy for this profile
-          const profileEvents = eventList.filter(e => {
-            const pid = sessionProfileMap.get(e.session_id);
-            return pid === profileId && e.score != null;
-          });
-          if (profileEvents.length > 0) {
-            const correct = profileEvents.filter(e => (e.score ?? 0) > 0).length;
-            g.inAppScores.push(Math.round((correct / profileEvents.length) * 100));
-          }
-        }
-
-        setFunctionalImpact(
-          Array.from(impactByType.entries())
-            .filter(([, g]) => g.functionalScores.length > 0 && g.inAppScores.length > 0)
-            .map(([phenotypeValue, g]) => {
-              const avgInApp = avg(g.inAppScores);
-              const avgFunc = avg(g.functionalScores.map(s => s * 20)); // scale 1-5 to 0-100
-              return {
-                phenotypeValue,
-                avgInAppAccuracy: avgInApp,
-                avgFunctionalScore: avgFunc,
-                gap: Math.round(avgInApp - avgFunc),
-                patientCount: g.patients.size,
-              };
-            })
-        );
       }
 
       // ─── 7. Adaptation Effectiveness ───
-      const { data: adaptations } = await supabase
-        .from("adaptation_events")
-        .select("adaptation_type, confidence, profile_id")
-        .limit(2000);
-
       if (adaptations) {
         const adaptMap = new Map<string, { count: number; patients: Set<string>; confidences: string[] }>();
         for (const a of adaptations) {
@@ -515,89 +394,34 @@ export function useCohortAnalytics() {
         );
       }
     } catch (err) {
+      if (request !== requestId.current) return;
+      setCoverage(null);
+      setPractice(null);
       console.error("[CohortAnalytics] Error:", err);
       setError("Failed to load cohort analytics data");
     } finally {
-      setIsLoading(false);
+      if (request === requestId.current) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchData();
+    return () => { requestId.current++; };
   }, [fetchData]);
-
-  // CSV export
-  const generateExport = useCallback(async (): Promise<CohortExportRow[]> => {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, profile_name, aphasia_type, laterality, chronicity_tag, stroke_mechanism_tag");
-
-    if (!profiles) return [];
-    const rows: CohortExportRow[] = [];
-
-    for (const p of profiles) {
-      const { count: sessionCount } = await supabase
-        .from("sessions")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", p.id);
-
-      const { data: sessionIds } = await supabase.from("sessions").select("id").eq("profile_id", p.id);
-      const sids = sessionIds?.map(s => s.id) || [];
-
-      const { data: events } = sids.length > 0
-        ? await supabase.from("exercise_events").select("score").in("session_id", sids)
-        : { data: [] };
-
-      const { count: adaptationCount } = await supabase
-        .from("adaptation_events")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", p.id);
-
-      const { data: latestCheckin } = await supabase
-        .from("functional_checkins")
-        .select("communication_of_needs, conversational_participation, independence_level, caregiver_burden")
-        .eq("profile_id", p.id)
-        .order("checkin_date", { ascending: false })
-        .limit(1);
-
-      const scores = (events || []).map(e => e.score).filter((s): s is number => s != null);
-      const avgAcc = scores.length > 0 ? Math.round(scores.filter(s => s > 0).length / scores.length * 100) : null;
-
-      const fc = latestCheckin?.[0];
-      const functionalAvg = fc ? Math.round(((fc.communication_of_needs || 0) + (fc.conversational_participation || 0) + (fc.independence_level || 0) + (fc.caregiver_burden || 0)) / 4 * 20) : null;
-
-      rows.push({
-        profileId: p.id,
-        profileName: p.profile_name,
-        aphasiaType: p.aphasia_type,
-        laterality: p.laterality,
-        chronicity: p.chronicity_tag,
-        strokeMechanism: p.stroke_mechanism_tag,
-        sessionCount: sessionCount || 0,
-        trialCount: (events || []).length,
-        avgAccuracy: avgAcc,
-        retentionRate: null,
-        adaptationCount: adaptationCount || 0,
-        latestFunctionalScore: functionalAvg,
-      });
-    }
-    return rows;
-  }, []);
 
   return {
     phenotypeDistributions,
-    gameEffectiveness,
+    gamePractice,
     cueEffectiveness,
     retentionByCohort,
     retentionByExercise,
     retentionByCue,
     plateauData,
     functionalTrends,
-    functionalImpact,
     adaptationEffectiveness,
     isLoading,
     error,
     refetch: fetchData,
-    generateExport,
+    coverage,
   };
 }

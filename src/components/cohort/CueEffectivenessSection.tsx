@@ -15,12 +15,12 @@ export function CueEffectivenessSection({ data }: Props) {
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Volume2 className="w-4 h-4 text-primary" />
-            Cue Effectiveness by Cohort
+            Recorded cue response
           </CardTitle>
-          <CardDescription className="text-xs">Which cue type works best for which profile?</CardDescription>
+          <CardDescription className="text-xs">Observed responses after a logged cue, grouped by aphasia type.</CardDescription>
         </CardHeader>
         <CardContent className="pb-3">
-          <p className="text-xs text-muted-foreground">Not enough cue data yet. Needs ≥3 cued trials per type per phenotype.</p>
+          <p className="text-xs text-muted-foreground">Each group needs three eligible cued attempts with known outcomes.</p>
         </CardContent>
       </Card>
     );
@@ -46,9 +46,9 @@ export function CueEffectivenessSection({ data }: Props) {
       <CardHeader className="pb-2 pt-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Volume2 className="w-4 h-4 text-primary" />
-          Cue Effectiveness by Cohort
+          Recorded cue response
         </CardTitle>
-        <CardDescription className="text-xs">Immediate success rate by cue type. Higher = more effective.</CardDescription>
+        <CardDescription className="text-xs">Share of eligible cued attempts with a recorded positive cue outcome.</CardDescription>
       </CardHeader>
       <CardContent className="pb-3 space-y-3">
         <ResponsiveContainer width="100%" height={200}>

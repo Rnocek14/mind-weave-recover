@@ -90,15 +90,17 @@ function cueLabel(level: number): string {
  * Load word-level transfer history from previous sessions.
  * Queries exercise_events with subtype transfer_check.
  */
-export async function loadWordHistory(userId: string, limit = 50): Promise<WordHistory[]> {
+export async function loadWordHistory(userId: string, limit = 50, profileId?: string): Promise<WordHistory[]> {
   try {
     // Get sessions for this user first
-    const { data: sessions } = await supabase
+    let sessionQuery = supabase
       .from('sessions')
       .select('id')
       .eq('user_id', userId)
       .order('started_at', { ascending: false })
       .limit(20);
+    if (profileId) sessionQuery = sessionQuery.eq('profile_id', profileId);
+    const { data: sessions } = await sessionQuery;
 
     if (!sessions?.length) return [];
 
