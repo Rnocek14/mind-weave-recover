@@ -6,7 +6,8 @@ const people = ["a", "b", "c", "d"].map(id => ({ id, stroke_mechanism_tag: "isch
 const sessions = new Map(people.map(p => [p.id, p.id]));
 function event(id: string, day: number, score: number, level = 4, mode = "production") {
   return { session_id: id, created_at: new Date(now + (day - 31) * 86400000).toISOString(),
-    exercise_slug: "photo_naming", score, task_parameters: { unified_trial_v1: true, game_level: level, trial_mode: mode } };
+    exercise_slug: "photo_naming", score, task_parameters: { unified_trial_v1: true, game_level: level,
+      trial_mode: mode, trial_mode_source: "response_input" } };
 }
 const compute = (events: ReturnType<typeof event>[]) => pairedGamePractice(people, events, sessions, "stroke_mechanism_tag", now);
 describe("paired game practice", () => {
@@ -32,5 +33,14 @@ describe("paired game practice", () => {
       { ...base, task_parameters:{ ...base.task_parameters, manual_confirmed:true } },
       { ...base, task_parameters:{ ...base.task_parameters, unified_trial_v1:false } }];
     expect(compute(cases)[0]).toMatchObject({ recorded:1, baseline:0, paired:0, median:null });
+  });
+  it("keeps historical Photo Naming defaults out of comparisons and preserves evidence from other games", () => {
+    const rows = [event("a", 1, 0), event("a", 22, 100)].map(e => ({
+      ...e, task_parameters: { unified_trial_v1: true, game_level: 4, trial_mode: "production" },
+    }));
+    const all = [...rows, ...rows.map(e => ({ ...e, exercise_slug: "fix_sentence" }))];
+    const summary = pairedGamePractice(people, all, sessions, "stroke_mechanism_tag", now);
+    expect(summary.find(row => row.game === "photo_naming")).toMatchObject({ recorded: 1, baseline: 0, paired: 0 });
+    expect(summary.find(row => row.game === "fix_sentence")).toMatchObject({ recorded: 1, baseline: 1, paired: 1 });
   });
 });

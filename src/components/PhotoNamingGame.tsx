@@ -66,48 +66,51 @@ import {
 } from '@/hooks/usePhotoNamingProgression';
 import { AboutGameLink } from '@/components/leveling/AboutGameLink';
 
+export interface PhotoNamingTrialResult {
+  responseMode: 'production' | 'recognition' | 'scaffolded' | null;
+  correct: boolean;
+  reactionTimeMs: number;
+  errorType?: string;
+  difficultyLevel: number;
+  cueLevel: number;
+  errorClassification?: ErrorClassificationResult;
+  audioStoragePath?: string;
+  recordingDurationMs?: number;
+  audioMimeType?: string;
+  whisperTranscript?: string;
+  whisperConfidence?: number;
+  browserTranscript?: string;
+  attemptId?: string;
+  trialIndex?: number;
+  acousticMetrics?: any;
+  encouragementScore?: number;
+  effortfulSpeech?: boolean;
+  utteranceAnalysis?: UtteranceAnalysis;
+  shadowEvent?: any;
+  cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
+  cueWasEffective?: boolean | null;
+  timeToSuccessAfterCueMs?: number | null;
+  // Adaptation state for Live Analysis
+  latencyMs?: number;
+  consecutiveErrors?: number;
+  frustrationLevel?: string;
+  recentSuccessRate?: number;
+  trialCount?: number;
+  // Phase 1B — manual-confirmation metadata. Set when the trial outcome was
+  // confirmed by a human (caregiver/patient) rather than ASR-verified.
+  manualConfirmed?: boolean;
+  confirmedBy?: 'user' | 'caregiver';
+  confirmationMode?: 'asr' | 'manual' | 'caregiver';
+  asrVerified?: boolean;
+}
+
 interface PhotoNamingGameProps {
   totalTrials?: number;
   initialDifficulty?: number;
   customTrials?: any[];
   assistMode?: boolean;
   sessionId?: string | null;
-  onTrialComplete?: (result: {
-    correct: boolean;
-    reactionTimeMs: number;
-    errorType?: string;
-    difficultyLevel: number;
-    cueLevel: number;
-    errorClassification?: ErrorClassificationResult;
-    audioStoragePath?: string;
-    recordingDurationMs?: number;
-    audioMimeType?: string;
-    whisperTranscript?: string;
-    whisperConfidence?: number;
-    browserTranscript?: string;
-    attemptId?: string;
-    trialIndex?: number;
-    acousticMetrics?: any;
-    encouragementScore?: number;
-    effortfulSpeech?: boolean;
-    utteranceAnalysis?: UtteranceAnalysis;
-    shadowEvent?: any;
-    cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
-    cueWasEffective?: boolean | null;
-    timeToSuccessAfterCueMs?: number | null;
-    // Adaptation state for Live Analysis
-    latencyMs?: number;
-    consecutiveErrors?: number;
-    frustrationLevel?: string;
-    recentSuccessRate?: number;
-    trialCount?: number;
-    // Phase 1B — manual-confirmation metadata. Set when the trial outcome was
-    // confirmed by a human (caregiver/patient) rather than ASR-verified.
-    manualConfirmed?: boolean;
-    confirmedBy?: 'user' | 'caregiver';
-    confirmationMode?: 'asr' | 'manual' | 'caregiver';
-    asrVerified?: boolean;
-  }, trial: any) => void;
+  onTrialComplete?: (result: PhotoNamingTrialResult, trial: any) => void;
   onGameComplete?: (finalScore: number) => void;
   onDifficultyChange?: (newLevel: number, reason: string) => void;
 }
@@ -1576,6 +1579,7 @@ export const PhotoNamingGame = ({
     ) : false;
     
     onTrialComplete?.({
+      responseMode: null,
       correct: false,
       reactionTimeMs: reactionTime,
       errorType: 'timeout',
@@ -2063,6 +2067,7 @@ export const PhotoNamingGame = ({
 
         // Log telemetry with unified analysis
         onTrialComplete?.({
+          responseMode: inputMode,
           correct,
           reactionTimeMs: reactionTime,
           errorType: errorClassification.errorType,
@@ -2193,6 +2198,7 @@ export const PhotoNamingGame = ({
 
         // Fallback: still emit minimal trial telemetry so Live Analysis panel updates
         onTrialComplete?.({
+          responseMode: inputMode,
           correct: isCorrectAnswer,
           reactionTimeMs: reactionTime,
           errorType: isCorrectAnswer ? 'correct' : 'analysis_unavailable',
@@ -2319,6 +2325,7 @@ export const PhotoNamingGame = ({
     const caregiverEncouragementScore = correct ? 100 : (responseType === 'tried' ? 50 : (responseType === 'looked' ? 25 : 0));
     
     onTrialComplete?.({
+      responseMode: 'scaffolded',
       correct,
       reactionTimeMs: reactionTime,
       errorType,
@@ -2428,6 +2435,7 @@ export const PhotoNamingGame = ({
     // confirmation must not feed adaptation or progression thresholds.
 
     onTrialComplete?.({
+      responseMode: null,
       correct: true,
       reactionTimeMs: reactionTime,
       difficultyLevel: currentDifficulty,

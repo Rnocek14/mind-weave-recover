@@ -46,6 +46,7 @@ export function GameEffectivenessSection({ rows, dimension, onDimension }: Props
         <div className="mt-2 space-y-2 text-sm text-muted-foreground">
           <p>The first eligible attempt for each person and game starts the clock. Days 1–7 and 22–28 use UTC calendar dates. Both windows must be complete. Rows with more paired patients appear first. Expand a paired count to see who could contribute.</p>
           <p>Eligible attempts use the unified trial record, a binary task score, a recorded game level and response mode. Explicitly excluded, manually confirmed and caregiver-assisted attempts do not qualify. A credited answer can include cueing.</p>
+          <p>Photo Naming distinguishes a spoken answer from a tapped choice. Older Photo Naming records with an unverified response mode count toward coverage only. Other games use the mode recorded by the exercise.</p>
           <p>Within each person, matching game levels, response modes and recorded interaction settings get equal weight. The median and middle 50% use one change per person and require at least two pairs. Values are percentage points (pp).</p>
           <p>Groups use the current profile. Differences in item familiarity, cueing, other therapy and who returned can affect the result. A treatment-effect comparison requires a defined comparator and outcome.</p>
         </div>

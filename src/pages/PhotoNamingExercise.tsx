@@ -9,7 +9,7 @@ import { useSessionAdaptation } from '@/hooks/useSessionAdaptation';
 import { useMidSessionPivot } from '@/hooks/useMidSessionPivot';
 import { buildAdaptationTelemetry } from '@/lib/adaptationTelemetry';
 import { useRestoredLessonContext } from '@/hooks/useRestoredLessonContext';
-import { PhotoNamingGame } from '@/components/PhotoNamingGame';
+import { PhotoNamingGame, type PhotoNamingTrialResult } from '@/components/PhotoNamingGame';
 import { usePhotoNamingProgression } from '@/hooks/usePhotoNamingProgression';
 import { ExerciseLoadGate } from '@/components/ExerciseLoadGate';
 import {
@@ -206,6 +206,7 @@ function PhotoNamingExerciseInner() {
     user?.id,
     fromLesson ? lessonSessionId ?? null : null,
     CANONICAL_SLUGS.PHOTO_NAMING,
+    { disabled: fromLesson },
   );
   const sessionId = activeSessionId;
 
@@ -468,41 +469,7 @@ function PhotoNamingExerciseInner() {
     setGameKey(prev => prev + 1);
   }, [photoSource, usableCustomPhotos, customPhotosLoading, targetedWords.join(','), lessonFocusPhonemes?.join(','), initialDifficulty, kidsMode]);
 
-  const handleTrialComplete = async (result: {
-    correct: boolean;
-    reactionTimeMs: number;
-    errorType?: string;
-    difficultyLevel: number;
-    cueLevel: number;
-    errorClassification?: any;
-    audioStoragePath?: string;
-    recordingDurationMs?: number;
-    audioMimeType?: string;
-    whisperTranscript?: string;
-    whisperConfidence?: number;
-    browserTranscript?: string;
-    attemptId?: string;
-    trialIndex?: number;
-    acousticMetrics?: any;
-    encouragementScore?: number;
-    effortfulSpeech?: boolean;
-    utteranceAnalysis?: any;
-    shadowEvent?: any;
-    cueTypeGiven?: 'none' | 'semantic' | 'phonemic' | 'full_word';
-    cueWasEffective?: boolean | null;
-    timeToSuccessAfterCueMs?: number | null;
-    // Adaptation state for Live Analysis
-    latencyMs?: number;
-    consecutiveErrors?: number;
-    frustrationLevel?: string;
-    recentSuccessRate?: number;
-    trialCount?: number;
-    // Phase 1B — manual-confirmation metadata
-    manualConfirmed?: boolean;
-    confirmedBy?: 'user' | 'caregiver';
-    confirmationMode?: 'asr' | 'manual' | 'caregiver';
-    asrVerified?: boolean;
-  }, trial: PhotoTrial) => {
+  const handleTrialComplete = async (result: PhotoNamingTrialResult, trial: PhotoTrial) => {
     // Track recent accuracies for Live Analysis dots
     setRecentAccuracies(prev => {
       const next = [...prev, result.correct ? 1 : 0];
@@ -572,7 +539,7 @@ function PhotoNamingExerciseInner() {
         cueLevel: result.cueLevel ?? 0,
         supportUsed: result.cueLevel && result.cueLevel >= 2 ? 'phonemic_cue' : (result.cueLevel === 1 ? 'semantic_cue' : 'independent'),
         latencyMs: result.reactionTimeMs ?? null,
-        trialMode: 'production',
+        trialMode: result.responseMode,
         validity,
         errorType: result.errorType,
         errorClassification: result.errorClassification,
@@ -587,6 +554,7 @@ function PhotoNamingExerciseInner() {
         timeToSuccessAfterCueMs: result.timeToSuccessAfterCueMs,
         taskParameters: {
           // Condition tags for experimental analysis
+          trial_mode_source: result.responseMode ? 'response_input' : null,
           photo_source: photoSource,           // 'stock' | 'custom' | 'mixed'
           interaction_mode: interactionMode,   // 'independent' | 'caregiver_assisted'
           difficulty_level: result.difficultyLevel,
@@ -847,6 +815,11 @@ function PhotoNamingExerciseInner() {
       navigate('/today');
     }
   };
+
+  // The first answer needs the same session and attempt identity as later trials.
+  if (!sessionId) {
+    return <ExerciseLoadGate loadingLabel="Starting your practice..." backTo={fromLesson ? returnTo : '/today'} />;
+  }
 
   // Phase 3 load-gate: do not render the game until persistent clinical
   // progression has resolved. Otherwise `initialDifficulty` is captured at

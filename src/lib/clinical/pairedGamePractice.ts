@@ -20,12 +20,14 @@ export type GamePracticeRow = {
 
 const dayNumber = (ms: number) => Math.floor(ms / 86_400_000);
 
-function observation(event: Event, today: number): Observation | null {
+function observation(event: Event, game: string, today: number): Observation | null {
   const task = event.task_parameters;
   if (!task || typeof task !== "object" || Array.isArray(task)) return null;
   const t = task as Record<string, unknown>;
   const level = t.game_level;
   const mode = t.trial_mode;
+  // Earlier Photo Naming records wrote "production" even for a tapped choice.
+  if (game === "photo_naming" && t.trial_mode_source !== "response_input") return null;
   if (t.unified_trial_v1 !== true || !isComparableScoredEvent(event) ||
       (event.score !== 0 && event.score !== 100) || t.manual_confirmed === true ||
       t.confirmation_mode === "manual" || t.interaction_mode === "caregiver_assisted" ||
@@ -74,7 +76,7 @@ export function pairedGamePractice(
     const key = JSON.stringify([game, group]);
     const cell = cells.get(key) ?? { game, group, people: new Map<string, Observation[]>() };
     const records = cell.people.get(id) ?? [];
-    const valid = observation(e, today);
+    const valid = observation(e, game, today);
     if (valid) records.push(valid);
     cell.people.set(id, records);
     cells.set(key, cell);
