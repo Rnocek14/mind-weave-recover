@@ -25,7 +25,7 @@ export function formatEhrSummary({
   const lines: string[] = [];
 
   // Header
-  lines.push("WEEKLY RECOVERY SNAPSHOT (Last 14 days)");
+  lines.push(`WEEKLY RECOVERY SNAPSHOT (Last ${timeline.length} days)`);
   lines.push(`Generated: ${localYYYYMMDD()} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`);
   lines.push(`Last active: ${formatLastActive(lastActiveDate)}`);
   lines.push("");
@@ -33,7 +33,7 @@ export function formatEhrSummary({
   // Engagement score
   if (engagement) {
     const b = engagement.breakdown;
-    lines.push(`Engagement Score (14d): ${engagement.score}/100 (${engagement.band})`);
+    lines.push(`Engagement Score (${engagement.breakdown.daysTotal}d): ${engagement.score}/100 (${engagement.band})`);
     lines.push(`- Active days: ${b.activeDays}/${b.daysTotal}`);
     lines.push(`- Dose days (≥10 min): ${b.doseDays}/${b.daysTotal}`);
     lines.push(`- Readiness check-ins: ${b.readinessDays}/${b.daysTotal}`);
@@ -58,7 +58,7 @@ export function formatEhrSummary({
       ? avg(fatigueDays.map((d) => d.fatigueRating!))
       : null;
 
-  lines.push("Last 7 days (avg/day):");
+  lines.push("Last 7 days (avg/day): recorded dose");
   lines.push(
     `- Speech dose: ${avgSpeech.toFixed(0)} min/day (${speechActiveDays}/7 days active)`
   );

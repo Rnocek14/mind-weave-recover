@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
@@ -40,12 +40,15 @@ export function useWeeklyRecoverySnapshot(
   startDate.setDate(startDate.getDate() - (days - 1));
   const start = localYYYYMMDD(startDate);
 
+  const latest = useRef(0);
   const fetchSnapshot = useCallback(async () => {
+    const request = ++latest.current;
     if (!user?.id || !profileId) {
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
     setError(null);
 
     try {
@@ -70,6 +73,7 @@ export function useWeeklyRecoverySnapshot(
           .lte("metric_date", today),
       ]);
 
+      if (request !== latest.current) return;
       // Check for query errors
       if (readinessRes.error) {
         console.error("[WeeklyRecoverySnapshot] readiness query failed:", readinessRes.error);
@@ -99,16 +103,18 @@ export function useWeeklyRecoverySnapshot(
       setTimeline(result.timeline);
       setPhysicalMeta(result.physicalMeta);
     } catch (err) {
+      if (request !== latest.current) return;
       console.error("[useWeeklyRecoverySnapshot] fetch error:", err);
       setError("Failed to load recovery snapshot");
       setTimeline([]);
     } finally {
-      setIsLoading(false);
+      if (request === latest.current) setIsLoading(false);
     }
   }, [user?.id, profileId, start, today, days]);
 
   useEffect(() => {
-    fetchSnapshot();
+    void fetchSnapshot();
+    return () => { latest.current++; };
   }, [fetchSnapshot]);
   // Computed flags
   const flags = useMemo<RecoveryFlag[]>(() => {

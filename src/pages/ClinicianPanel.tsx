@@ -24,11 +24,11 @@ import {
   Stethoscope, Users, AlertTriangle, Clock, X, RefreshCw,
   Brain, ExternalLink, ClipboardList
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { localYYYYMMDD } from "@/lib/localDate";
 
 export default function ClinicianPanel() {
-  const { patients, isLoading, error, lastUpdatedAt, refetch } = useClinicianCaseload();
+  const { patients, isLoading, error, lastUpdatedAt, refetch, isAdmin } = useClinicianCaseload();
   const navigate = useNavigate();
 
   // Filter/sort state
@@ -107,10 +107,10 @@ export default function ClinicianPanel() {
 
     const issueCounts: Record<string, number> = {};
     for (const p of patients) {
-      if (p.trend === "down") issueCounts["Declining"] = (issueCounts["Declining"] || 0) + 1;
+      if (p.trend === "down") issueCounts["Lower practice scores"] = (issueCounts["Lower practice scores"] || 0) + 1;
       if (p.criticalAlertCount > 0) issueCounts["Critical alerts"] = (issueCounts["Critical alerts"] || 0) + 1;
       if (!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000)))
-        issueCounts["Low adherence"] = (issueCounts["Low adherence"] || 0) + 1;
+        issueCounts["Practice gap"] = (issueCounts["Practice gap"] || 0) + 1;
     }
     const topIssue = Object.entries(issueCounts).sort((a, b) => b[1] - a[1])[0];
 
@@ -132,7 +132,7 @@ export default function ClinicianPanel() {
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-6">
       <DashboardTour role="clinician" ready={!isLoading} />
       {/* Header */}
-      <div data-tour="cl-header" className="flex items-center justify-between">
+      <div data-tour="cl-header" className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Stethoscope className="w-5 h-5 text-primary" />
           <h1 className="text-xl font-bold">Clinician Dashboard</h1>
@@ -184,7 +184,7 @@ export default function ClinicianPanel() {
                 if (p.criticalAlertCount > 0) reasons.push(`${p.criticalAlertCount} critical alert${p.criticalAlertCount > 1 ? "s" : ""}`);
                 if (p.trend === "down") reasons.push("declining accuracy");
                 if (!p.lastActiveDate || p.lastActiveDate <= localYYYYMMDD(new Date(Date.now() - 3 * 86400000)))
-                  reasons.push("inactive ≥3d");
+                  reasons.push("practice gap ≥3d");
                 if (p.activeAlertCount > 0 && p.criticalAlertCount === 0) reasons.push(`${p.activeAlertCount} alert${p.activeAlertCount > 1 ? "s" : ""}`);
 
                 return (
@@ -213,23 +213,23 @@ export default function ClinicianPanel() {
       {!isLoading && patients.length > 0 && (
         <div data-tour="cl-cohort" className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Accuracy</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Mean practice score</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAccuracy != null ? `${cohortSnapshot.avgAccuracy}%` : "—"}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg Adherence</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Mean active days</div>
             <div className="text-lg font-bold">{cohortSnapshot.avgAdherence != null ? `${cohortSnapshot.avgAdherence}d/wk` : "—"}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">Top Issue</div>
+            <div className="text-xs text-muted-foreground uppercase tracking-wider">Most frequent signal</div>
             <div className="text-sm font-medium mt-0.5">{cohortSnapshot.topIssue}</div>
           </Card>
-          <Card className="p-3 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => navigate("/admin/cohort-research")}>
+          {isAdmin && <Link to="/admin/cohort-research" className="rounded-lg border bg-card p-3 hover:border-primary/40 focus-visible:ring-2">
             <div className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1">
               Research <ExternalLink className="w-2.5 h-2.5" />
             </div>
             <div className="text-sm font-medium mt-0.5 text-primary">Cohort Analytics →</div>
-          </Card>
+          </Link>}
         </div>
       )}
 

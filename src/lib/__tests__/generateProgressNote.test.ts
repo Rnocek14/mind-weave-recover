@@ -45,6 +45,14 @@ describe("generateProgressNote", () => {
     expect(result.headline).toBe("No data this week");
   });
 
+  it("reports observed speech dose without a presumed prescription", () => {
+    const result = generateProgressNote({ timeline:makeTimeline(7,{speechMinutes:5}), flags:[], alerts:[],
+      lastActiveDate:null, engagement:null, accuracySlope:null,trialCount:2,sessionCount:1,
+      avgAccuracy:null,priorAvgAccuracy:null,prescribedDays:null });
+    expect(result.narrative).toContain("Speech dose logged on 7/7 days.");
+    expect(result.narrative).not.toMatch(/meeting target|target: 5/);
+  });
+
   it("reports accuracy improvement correctly", () => {
     const result = generateProgressNote({
       timeline: makeTimeline(14, { hasAnySignal: true, speechMinutes: 10, totalMinutes: 15 }),

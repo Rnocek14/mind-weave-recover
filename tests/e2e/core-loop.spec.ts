@@ -9,7 +9,7 @@ test.describe('Core loop — Photo Naming trials persist', () => {
     const readEvents = async () => {
       const { data, error } = await client
         .from('exercise_events')
-        .select('id, session_id, exercise_slug, trial_index, attempt_id, reaction_time_ms, sessions!inner(user_id)')
+        .select('id, profile_id, session_id, exercise_slug, trial_index, attempt_id, reaction_time_ms, task_parameters, sessions!inner(user_id, profile_id)')
         .eq('sessions.user_id', session.user.id)
         .eq('exercise_slug', 'photo_naming')
         .order('trial_index');
@@ -27,13 +27,34 @@ test.describe('Core loop — Photo Naming trials persist', () => {
       return data ?? [];
     };
     // Every test receives a new anonymous user, so old data cannot make it pass.
+    const { data: patient, error: profileError } = await client.from('profiles').select('id')
+      .eq('user_id', session.user.id).eq('profile_kind', 'patient').single();
+    if (profileError || !patient) throw new Error('Cannot verify the fresh patient profile');
     expect(await readEvents()).toHaveLength(0);
     expect(await readUtterances()).toHaveLength(0);
-    await page.goto('/exercise/photo-naming');
-    await expect(page).toHaveURL(/\/exercise\/photo-naming/);
-
     const startButton = page.getByRole('button', { name: /^(start|begin|let'?s go)/i }).first();
     const hearChoice = page.locator('button[aria-label^="Hear "]').first();
+    // Hold the real insert while the page loads, then forward it unchanged.
+    // A fast answer must never be accepted before there is a session to own it.
+    let releaseSession!: () => void;
+    const sessionHeld = new Promise<void>((resolve) => { releaseSession = resolve; });
+    await page.route('**/rest/v1/sessions*', async (route) => {
+      if (route.request().method() === 'POST') await sessionHeld;
+      await route.fallback();
+    });
+    try {
+      await Promise.all([
+        page.waitForRequest((request) => request.method() === 'POST' &&
+          new URL(request.url()).pathname === '/rest/v1/sessions'),
+        page.goto('/exercise/photo-naming'),
+      ]);
+      await expect(page).toHaveURL(/\/exercise\/photo-naming/);
+      await expect(page.getByText('Starting your practice...', { exact: true })).toBeVisible();
+      await expect(startButton).toHaveCount(0);
+      await expect(hearChoice).toHaveCount(0);
+    } finally {
+      releaseSession();
+    }
     await expect(startButton.or(hearChoice).first()).toBeVisible({ timeout: 20_000 });
     if (await startButton.isVisible()) await startButton.click();
 
@@ -74,7 +95,9 @@ test.describe('Core loop — Photo Naming trials persist', () => {
       expect(event.attempt_id).toBeTruthy();
       expect(event.session_id).toBeTruthy();
       expect(event.exercise_slug).toBe('photo_naming');
-      expect(event.sessions.user_id).toBe(session.user.id);
+      expect(event.profile_id).toBe(patient.id);
+      expect(event.sessions).toMatchObject({ user_id: session.user.id, profile_id: patient.id });
+      expect(event.task_parameters).toMatchObject({ trial_mode: 'recognition', trial_mode_source: 'response_input' });
       expect(Number.isFinite(event.reaction_time_ms)).toBe(true);
       expect(event.reaction_time_ms).toBeGreaterThanOrEqual(0);
       // Independent contract: both real writes must retain the same captured

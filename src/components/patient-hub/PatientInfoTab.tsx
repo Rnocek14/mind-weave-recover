@@ -17,7 +17,6 @@ import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
 import { RecoveryAlertsPanel } from "@/components/RecoveryAlertsPanel";
 import { ProfileSummaryCard } from "@/components/clinician/ProfileSummaryCard";
 import { ProvisionalProfileCard } from "@/components/clinician/ProvisionalProfileCard";
-import { UiVariantClinicianPicker } from "@/components/leveling/UiVariantClinicianPicker";
 import { FunctionalCheckinForm } from "./FunctionalCheckinForm";
 import type { SnapshotDay } from "@/hooks/useWeeklyRecoverySnapshot";
 
@@ -46,7 +45,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
   const { activeOverrides } = useClinicianOverrides(profileId);
   const { flags: redFlags, isLoading: redFlagsLoading } = useRedFlagDetection(userId, {}, profileId);
 
-  const { alerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline);
+  const { alerts, acknowledgeAlert, resolveAlert } = useRecoveryAlerts(profileId, timeline, undefined, false);
 
   const clinicalProfile = activeProfile?.clinical_profile as Record<string, any> | null;
   const strokeDate = activeProfile?.stroke_date ?? null;
@@ -99,7 +98,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
       )}
 
       {/* Provisional onboarding profile — clinician confirm/edit/supersede */}
-      <ProvisionalProfileCard
+      <ProvisionalProfileCard readOnly
         userId={userId}
         clinicalProfile={clinicalProfile}
         goals={goals}
@@ -114,7 +113,7 @@ export function PatientInfoTab({ userId, profileId, timeline = [] }: PatientInfo
         speechLabel={speechLabel}
       />
 
-      <UiVariantClinicianPicker userId={userId} />
+
 
       {/* Functional Goals */}
       <Card>

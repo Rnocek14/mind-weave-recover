@@ -101,7 +101,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
   );
   const { summary: adaptationSummary, isLoading: adaptLoading } = useAdaptationProof(userId, windowSize);
   const { learningRates, isLoading: lrLoading } = useLearningRate(userId, { profileId });
-  const { score: recoveryScore, breakdown, confidence, loading: rsLoading } = useRecoveryScore(userId, profileId);
+  const { score: recoveryScore, breakdown, confidence, loading: rsLoading } = useRecoveryScore(userId, profileId, { persistSnapshot:false });
   const { currentScore: cueScore, trend: cueTrend, loading: cueLoading } = useCueIndependence(userId, { profileId });
   const { mastered, emerging, struggling, loading: wmLoading } = useWordMastery(userId);
   const { currentScore: errorScore, trend: errorTrend, loading: eqLoading } = useErrorQualityScore(userId);
@@ -125,7 +125,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
 
   useEffect(() => {
     if (!userId) return;
-    loadWordHistory(userId, 100).then((history) => {
+    loadWordHistory(userId, 100, profileId).then((history) => {
       const retained = getRetainedWords(history);
       const hint = getRetentionDifficultyHint(history);
       const totalTracked = history.filter(w => w.sessionCount >= 2).length;
@@ -136,7 +136,7 @@ export function SpeechProfileTab({ userId, profileId, windowSize }: SpeechProfil
         totalTracked,
       });
     });
-  }, [userId]);
+  }, [userId, profileId]);
 
   const freshness = useMemo(
     () => evaluateProfileFreshness(speechProfile?.updated_at),

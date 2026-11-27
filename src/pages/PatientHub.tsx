@@ -13,7 +13,7 @@
  *
  * Sticky documentation bar (Copy Note / EHR / Print) is preserved.
  */
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -35,11 +35,13 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useProfile } from "@/hooks/useProfile";
+import { ProfileContext, type Profile } from "@/contexts/profile-context-value";
+import { useQuery } from "@tanstack/react-query";
 import { useWeeklyRecoverySnapshot } from "@/hooks/useWeeklyRecoverySnapshot";
-import { useWeeklySessionTimeline } from "@/hooks/useWeeklySessionTimeline";
+import { comparablePracticeDelta } from "@/lib/clinical/clinicianReviewPolicy";
 import { useWeeklySessionStats } from "@/hooks/useWeeklySessionStats";
 import { useRecoveryAlerts } from "@/hooks/useRecoveryAlerts";
-import { calculateStreak } from "@/hooks/useStreakCalculation";
+
 import { formatEhrSummary } from "@/lib/formatEhrSummary";
 import { generateProgressNote } from "@/lib/generateProgressNote";
 import { computeEngagementScore } from "@/lib/computeEngagementScore";
@@ -51,7 +53,6 @@ import { SpeechProfileTab } from "@/components/patient-hub/SpeechProfileTab";
 import { PatientInfoTab } from "@/components/patient-hub/PatientInfoTab";
 import { IntelligenceTab } from "@/components/patient-hub/IntelligenceTab";
 import { ProfileCompletenessBanner } from "@/components/patient-hub/ProfileCompletenessBanner";
-import { RecoveryProfileSection } from "@/components/leveling/RecoveryProfileSection";
 
 import { ClinicianStatusCard } from "@/components/patient-hub/glance/ClinicianStatusCard";
 import { ClinicianPracticeCard } from "@/components/patient-hub/glance/ClinicianPracticeCard";
@@ -64,101 +65,108 @@ type WindowSize = 7 | 14 | 30;
 export default function PatientHub() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const requested = searchParams.get("profile");
   const { user } = useAuth();
-  const { isAdmin } = useUserPermissions(user?.id);
-  const { activeProfile } = useProfile();
+  const permissions = useUserPermissions(user?.id);
+  const viewer = useProfile();
+  const selection = useQuery({
+    queryKey: ["clinician-review-profile", user?.id, requested, permissions.isAdmin],
+    enabled: !!requested && !!user?.id && !permissions.isLoading,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    queryFn: async () => {
+      if (!permissions.isAdmin) {
+        const assignment = await supabase.rpc("is_assigned_clinician", {
+          _clinician_id: user!.id, _profile_id: requested!,
+        });
+        if (assignment.error) throw assignment.error;
+        if (!assignment.data) return null;
+      }
+      const { data, error } = await supabase.from("profiles").select("*")
+        .eq("id", requested!).eq("profile_kind", "patient").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const subject = requested ? selection.data : null;
+  const pending = permissions.isLoading || (!!requested && selection.isPending);
+  if (pending) return <div className="container max-w-3xl mx-auto p-6" role="status">Opening patient record…</div>;
+  if (selection.isError || !subject?.user_id || subject.profile_kind !== "patient") {
+    return <div className="container max-w-3xl mx-auto p-6 space-y-4">
+      <h1 className="text-xl font-semibold">{selection.isError ? "Patient record unavailable" : "Choose a patient"}</h1>
+      <p>{selection.isError ? "The patient lookup failed. Try opening the record again." :
+        requested !== null ? "This patient is not available to your caseload." : "Open a patient from your caseload to review their practice."}</p>
+      {selection.isError && <Button variant="outline" onClick={() => selection.refetch()}>Retry lookup</Button>}
+      <Button onClick={() => navigate("/clinician/dashboard")}>Back to caseload</Button>
+    </div>;
+  }
+  // Read-side hooks in the hub must see the subject even when siblings share an account.
+  // The signed-in actor remains in AuthContext for permissions, attribution and writes.
+  return <ProfileContext.Provider value={{ ...viewer, activeProfile: subject, allProfiles: [subject] }}>
+    <SelectedPatientHub key={subject.id} subject={subject} patientUserId={subject.user_id} isAdmin={permissions.isAdmin} />
+  </ProfileContext.Provider>;
+}
 
-  // A clinician opens a patient via /clinician/review?profile=<id>. When that
-  // param is present we render THAT patient (RLS + is_assigned_clinician gate
-  // which rows are readable), not the clinician's own active profile. Previously
-  // this page always read the viewer's own activeProfile, so "open patient"
-  // showed the clinician's own (empty) data because switch_active_profile cannot
-  // activate another account's profile.
-  const targetProfileId = searchParams.get("profile");
-  const [patientProfile, setPatientProfile] = useState<any | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!targetProfileId) {
-      setPatientProfile(null);
-      return;
-    }
-    (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", targetProfileId)
-        .maybeSingle();
-      if (!cancelled) setPatientProfile(data ?? null);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [targetProfileId]);
-
-  // The subject of this hub: the opened patient (clinician view) or the viewer's
-  // own profile (self view).
-  const subject = targetProfileId ? patientProfile : activeProfile;
-  const profileId = subject?.id;
-  const patientUserId = subject?.user_id || (targetProfileId ? "" : user?.id) || "";
+function SelectedPatientHub({ subject, patientUserId, isAdmin }: {
+  subject: Profile; patientUserId: string; isAdmin: boolean;
+}) {
+  const navigate = useNavigate();
+  const profileId = subject.id;
 
   const [windowSize, setWindowSize] = useState<WindowSize>(7);
   // Tab values: "overview" (sessions + intel), "review" (session review + speech), "plan" (patient info)
   const [activeTab, setActiveTab] = useState("overview");
   const [detailOpen, setDetailOpen] = useState(false);
-  const [streak, setStreak] = useState(0);
+  const [retry, setRetry] = useState(0);
 
-  const { timeline, flags, lastActiveDate, isLoading: snapshotLoading } =
+  const { timeline, flags, lastActiveDate, error: snapshotError, refetch: refetchSnapshot, isLoading: snapshotLoading } =
     useWeeklyRecoverySnapshot(profileId, windowSize);
-  const { isLoading: timelineLoading } = useWeeklySessionTimeline(profileId, windowSize);
-  const sessionStats = useWeeklySessionStats(profileId);
+
+  const sessionStats = useWeeklySessionStats(profileId, retry);
 
   const alertSessionStats = useMemo(() => {
-    if (sessionStats.isLoading) return undefined;
+    if (sessionStats.isLoading || sessionStats.readError) return undefined;
     return {
       recentAvgAccuracy: sessionStats.avgAccuracy,
       priorAvgAccuracy: sessionStats.priorAvgAccuracy,
       accuracySlope: sessionStats.accuracySlope,
       recentTrialCount: sessionStats.trialCount,
       recentSessionCount: sessionStats.sessionCount,
-      priorTrialCount: sessionStats.trialCount,
+      priorTrialCount: sessionStats.priorTrialCount,
     };
   }, [sessionStats]);
-  const { alerts, unacknowledgedCount } = useRecoveryAlerts(
+  const { alerts, unacknowledgedCount, readError: alertsError, isLoading: alertsLoading, refetch: refetchAlerts } = useRecoveryAlerts(
     profileId,
     timeline,
-    alertSessionStats,
+    alertSessionStats, false,
   );
 
-  const isLoading = snapshotLoading || timelineLoading || sessionStats.isLoading;
-
-  useEffect(() => {
-    if (user?.id) calculateStreak(user.id).then(setStreak);
-  }, [user?.id]);
-
-  // Engagement + flag breakdown for the cards
-  const recent7 = timeline.slice(-7);
-  const activeDays = recent7.filter((d) => d.hasAnySignal).length;
-  const redFlagCount = (flags || []).filter((f: any) => f.severity === "red").length;
-  const orangeFlagCount = (flags || []).filter((f: any) => f.severity === "orange").length;
+  const isLoading = snapshotLoading || sessionStats.isLoading || alertsLoading;
+  const unavailable = !!snapshotError || sessionStats.readError || alertsError;
+  const activeDays = sessionStats.days.length;
+  const lastPracticeDate = sessionStats.days.at(-1) ?? null;
+  const pendingAlerts = alerts.filter(a => !a.acknowledged_at);
+  const redFlagCount = pendingAlerts.filter(a => a.severity === "critical").length;
+  const orangeFlagCount = pendingAlerts.length - redFlagCount;
   const engagement = useMemo(
     () => (timeline.length > 0 ? computeEngagementScore(timeline) : null),
     [timeline]
   );
 
   const lastActiveLabel = useMemo(() => {
-    if (!lastActiveDate) return null;
-    const d = new Date(lastActiveDate);
+    if (!lastPracticeDate) return null;
+    const d = new Date(lastPracticeDate + "T12:00:00");
     const today = new Date(); today.setHours(0,0,0,0);
     const diff = Math.round((today.getTime() - d.setHours(0,0,0,0)) / 86_400_000);
     if (diff === 0) return "today";
     if (diff === 1) return "yesterday";
     if (diff < 7) return `${diff}d ago`;
-    return new Date(lastActiveDate).toLocaleDateString();
-  }, [lastActiveDate]);
+    return d.toLocaleDateString();
+  }, [lastPracticeDate]);
 
   const progressNote = useMemo(() => {
-    if (isLoading) return null;
+    if (isLoading || unavailable) return null;
     return generateProgressNote({
       timeline, flags: flags || [], alerts, lastActiveDate, engagement,
       accuracySlope: sessionStats.accuracySlope,
@@ -169,7 +177,7 @@ export default function PatientHub() {
       prescribedDays: null,
       profileName: subject?.profile_name || undefined,
     });
-  }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, isLoading, subject]);
+  }, [timeline, flags, alerts, lastActiveDate, engagement, sessionStats, isLoading, unavailable, subject]);
 
   const handleCopyEHR = useCallback(() => {
     const s = formatEhrSummary({ timeline, flags: flags || [], alerts, lastActiveDate, engagement });
@@ -183,16 +191,11 @@ export default function PatientHub() {
     toast.success("Progress note copied");
   }, [progressNote]);
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto max-w-3xl px-4 py-6 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    );
-  }
+  const openDetail = (tab: string) => {
+    setActiveTab(tab);
+    setDetailOpen(true);
+    requestAnimationFrame(() => document.getElementById("clinical-detail")?.scrollIntoView({ block: "start" }));
+  };
 
   const patientName = subject?.profile_name || "Patient";
 
@@ -200,13 +203,13 @@ export default function PatientHub() {
     <div className="container mx-auto max-w-3xl px-4 py-6 pb-24 space-y-4 print:py-0">
       <DashboardTour tourId="patient-hub" ready={!!subject} />
       {/* Header */}
-      <div data-tour="ph-header" className="flex items-center justify-between print:hidden">
+      <div data-tour="ph-header" className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" aria-label="Back to dashboard" onClick={() => navigate("/clinician/dashboard")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold flex items-center gap-2 text-foreground">
+            <h1 className="text-xl font-semibold flex items-center gap-2 text-foreground">
               <Stethoscope className="h-4 w-4 text-primary shrink-0" />
               <span className="truncate">{patientName}</span>
             </h1>
@@ -238,60 +241,41 @@ export default function PatientHub() {
         </div>
       </div>
 
-      <ProfileCompletenessBanner
-        profile={subject}
-        onEditProfile={() => {
-          setDetailOpen(true);
-          setActiveTab("plan");
-          requestAnimationFrame(() =>
-            document.getElementById("plan-recovery")?.scrollIntoView({ behavior: "smooth", block: "start" })
-          );
-        }}
-      />
-
-      {/* === The five Glance Cards === */}
+      <nav aria-label="Patient review" className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={() => openDetail("review")}>Review attempts</Button>
+        <Button variant="outline" size="sm" onClick={() => openDetail("plan")}>Open patient plan</Button>
+      </nav>
       <div data-tour="ph-status">
-        <ClinicianStatusCard
-          patientName={patientName}
-          redFlagCount={redFlagCount}
-          orangeFlagCount={orangeFlagCount}
-          unacknowledgedAlerts={unacknowledgedCount}
-          accuracySlope={sessionStats.accuracySlope}
-          activeDays={activeDays}
-          lastActiveDate={lastActiveLabel}
-        />
+        {isLoading ? <div role="status" className="text-sm text-muted-foreground">Loading weekly review…</div> :
+          unavailable ? <Card className="p-4" role="alert">Weekly review unavailable.
+            <Button size="sm" variant="link" onClick={() => { setRetry(n => n + 1); void refetchSnapshot(); void refetchAlerts(); }}>Retry weekly review</Button>
+          </Card> : <ClinicianStatusCard patientName={patientName} redFlagCount={redFlagCount} orangeFlagCount={orangeFlagCount}
+            unacknowledgedAlerts={unacknowledgedCount} accuracySlope={sessionStats.accuracySlope} activeDays={activeDays}
+            lastActiveDate={lastActiveLabel} scoredRecent={sessionStats.trialCount} scoredPrior={sessionStats.priorTrialCount}
+            practiceDeltaPp={comparablePracticeDelta(sessionStats.avgAccuracy, sessionStats.priorAvgAccuracy, sessionStats.trialCount, sessionStats.priorTrialCount)} />}
       </div>
-
+      <div data-tour="ph-levels"><ClinicianLevelsCard userId={patientUserId} profileId={profileId} /></div>
       <div data-tour="ph-practice">
-        <ClinicianPracticeCard
-          timeline={timeline as any}
-          trialCount={sessionStats.trialCount}
-          sessionCount={sessionStats.sessionCount}
-          streak={streak}
-        />
+        {sessionStats.isLoading ? <Skeleton aria-label="Loading practice" className="h-24" /> : sessionStats.readError ?
+          <p role="alert">Practice totals unavailable. <Button variant="link" size="sm" onClick={() => setRetry(n => n + 1)}>Retry practice totals</Button></p> :
+          <ClinicianPracticeCard days={sessionStats.days} recorded={sessionStats.recordedEventCount} minutes={sessionStats.minutes}
+            trialCount={sessionStats.trialCount} sessionCount={sessionStats.sessionCount} />}
       </div>
 
       <div data-tour="ph-listen">
-        <ClinicianListenCard userId={user?.id || ""} profileId={profileId} />
+        <ClinicianListenCard userId={patientUserId} profileId={profileId} />
       </div>
 
       <div data-tour="ph-progress">
         <ClinicianProgressCard
-          userId={user?.id || ""}
+          userId={patientUserId}
           profileId={profileId}
-          accuracySlope={sessionStats.accuracySlope}
-          recentTrials={sessionStats.trialCount}
-          priorTrials={sessionStats.trialCount /* prior unavailable from this hook */}
         />
       </div>
 
-      <div data-tour="ph-levels">
-        <ClinicianLevelsCard userId={user?.id || ""} profileId={profileId} />
-      </div>
-
-
+      <ProfileCompletenessBanner profile={subject} onEditProfile={() => openDetail("plan")} />
       {/* === One drawer: everything deeper === */}
-      <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
+      <Collapsible id="clinical-detail" open={detailOpen} onOpenChange={setDetailOpen}>
         <CollapsibleTrigger data-tour="ph-detail" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-3 min-h-[44px] border-t border-border mt-2 print:hidden">
           <span className="font-medium">Clinical Detail</span>
           <ChevronDown className="w-4 h-4" />
@@ -333,7 +317,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Sessions</h3>
                     <span className="text-[11px] text-muted-foreground">Recent activity & accuracy</span>
                   </div>
-                  <SessionsTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} timeline={timeline} />
+                  <SessionsTab userId={patientUserId} profileId={profileId} windowSize={windowSize} timeline={timeline} />
                 </section>
 
                 <section id="overview-intel" className="scroll-mt-4 border-t border-border pt-5">
@@ -342,7 +326,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Intelligence</h3>
                     <span className="text-[11px] text-muted-foreground">Learning rate, cohort, predictions</span>
                   </div>
-                  <IntelligenceTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <IntelligenceTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -375,7 +359,7 @@ export default function PatientHub() {
                     <h3 className="text-sm font-semibold text-foreground">Speech Profile</h3>
                     <span className="text-[11px] text-muted-foreground">Phoneme patterns & fade trajectory</span>
                   </div>
-                  <SpeechProfileTab userId={user?.id || ""} profileId={profileId} windowSize={windowSize} />
+                  <SpeechProfileTab userId={patientUserId} profileId={profileId} windowSize={windowSize} />
                 </section>
               </TabsContent>
 
@@ -386,7 +370,7 @@ export default function PatientHub() {
                 </p>
 
                 <section id="plan-recovery" className="scroll-mt-4">
-                  <RecoveryProfileSection userId={patientUserId} />
+                  <ClinicianLevelsCard userId={patientUserId} profileId={profileId} />
                 </section>
 
                 <section id="plan-info" className="scroll-mt-4 border-t border-border pt-5">
@@ -414,7 +398,7 @@ export default function PatientHub() {
               <ClipboardList className="w-3.5 h-3.5" />
               Copy Note
             </Button>
-            <Button size="sm" variant="outline" onClick={handleCopyEHR} className="gap-1.5 h-8">
+            <Button size="sm" variant="outline" onClick={handleCopyEHR} disabled={isLoading || unavailable} className="gap-1.5 h-8">
               <Copy className="w-3.5 h-3.5" />
               Copy EHR
             </Button>

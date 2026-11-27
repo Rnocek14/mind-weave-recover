@@ -15,12 +15,12 @@ export function PlateauAnalysisSection({ data }: Props) {
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingDown className="w-4 h-4 text-primary" />
-            Plateau / Regression Analysis
+            Recent sessions with similar scores
           </CardTitle>
-          <CardDescription className="text-xs">Which groups plateau earliest?</CardDescription>
+          <CardDescription className="text-xs">Practice scores across three completed observations.</CardDescription>
         </CardHeader>
         <CardContent className="pb-3">
-          <p className="text-xs text-muted-foreground">Need ≥3 sessions per profile to detect plateaus.</p>
+          <p className="text-xs text-muted-foreground">At least three scored sessions are needed.</p>
         </CardContent>
       </Card>
     );
@@ -37,9 +37,9 @@ export function PlateauAnalysisSection({ data }: Props) {
       <CardHeader className="pb-2 pt-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <TrendingDown className="w-4 h-4 text-primary" />
-          Plateau / Regression Analysis
+          Recent sessions with similar scores
         </CardTitle>
-        <CardDescription className="text-xs">Plateau rate by aphasia type. Plateau = last 3 sessions within 5% range with no improvement.</CardDescription>
+        <CardDescription className="text-xs">Share of eligible profiles whose last three session credit rates stayed within five percentage points and ended at or below the first.</CardDescription>
       </CardHeader>
       <CardContent className="pb-3 space-y-3">
         <ResponsiveContainer width="100%" height={200}>
@@ -48,24 +48,10 @@ export function PlateauAnalysisSection({ data }: Props) {
             <XAxis dataKey="group" tick={{ fontSize: 10 }} />
             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
             <Tooltip formatter={(v: number) => `${v}%`} />
-            <Bar dataKey="plateauRate" fill="hsl(var(--chart-4))" name="Plateau Rate %" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="plateauRate" fill="hsl(var(--chart-4))" name="Similar scores (%)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
 
-        {data.filter(r => r.predictors.length > 0).length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Plateau Predictors Detected</p>
-            <div className="flex flex-wrap gap-1.5">
-              {data.filter(r => r.predictors.length > 0).flatMap((r, i) =>
-                r.predictors.map((pred, j) => (
-                  <Badge key={`${i}-${j}`} variant="destructive" className="text-xs">
-                    {r.phenotypeValue}: {pred}
-                  </Badge>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

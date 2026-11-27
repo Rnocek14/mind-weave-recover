@@ -15,7 +15,7 @@ export function AdaptationEffectivenessSection({ data }: Props) {
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-primary" />
-            Adaptation Effectiveness
+            Recorded adaptation decisions
           </CardTitle>
           <CardDescription className="text-xs">Which adaptations help most by cohort?</CardDescription>
         </CardHeader>
@@ -48,9 +48,9 @@ export function AdaptationEffectivenessSection({ data }: Props) {
       <CardHeader className="pb-2 pt-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-primary" />
-          Adaptation Effectiveness
+          Recorded adaptation decisions
         </CardTitle>
-        <CardDescription className="text-xs">Most fired adaptation strategies and their cohort distribution.</CardDescription>
+        <CardDescription className="text-xs">Recorded adjustments by type and patient group.</CardDescription>
       </CardHeader>
       <CardContent className="pb-3 space-y-3">
         <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 30)}>

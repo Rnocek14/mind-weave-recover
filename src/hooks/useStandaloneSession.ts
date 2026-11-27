@@ -1,200 +1,128 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { startSession } from '@/lib/sessionTracking';
 import { useProfile } from '@/hooks/useProfile';
 import { normalizeExerciseSlug } from '@/lib/exerciseSlugNormalizer';
 
-/** sessionStorage mutex preventing duplicate standalone session creation
- *  during React 18 double-invoked effects or mobile re-hydration races. */
 const STANDALONE_MUTEX_KEY = 'standaloneSessionMutex';
-const STANDALONE_MUTEX_TTL_MS = 30_000;
+const pendingSessions = new Map<string, Promise<string>>();
 
-interface MutexEntry {
-  exerciseSlug: string;
-  createdAt: number;
-  sessionId?: string;
+interface SessionSlot {
+  scope: string;
+  sessionId: string | null;
 }
 
-function readMutex(): MutexEntry | null {
+function readSlot(): SessionSlot | null {
   try {
     const raw = sessionStorage.getItem(STANDALONE_MUTEX_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as MutexEntry;
-    if (!parsed?.createdAt) return null;
-    if (!parsed.sessionId && Date.now() - parsed.createdAt > STANDALONE_MUTEX_TTL_MS) {
-      sessionStorage.removeItem(STANDALONE_MUTEX_KEY);
-      return null;
-    }
-    return parsed;
+    const slot = JSON.parse(raw);
+    return typeof slot?.scope === 'string' &&
+      (typeof slot.sessionId === 'string' || slot.sessionId === null) ? slot : null;
   } catch { return null; }
 }
-function writeMutex(entry: MutexEntry) {
-  try { sessionStorage.setItem(STANDALONE_MUTEX_KEY, JSON.stringify(entry)); } catch { /* ignore */ }
+
+function writeSlot(slot: SessionSlot) {
+  try { sessionStorage.setItem(STANDALONE_MUTEX_KEY, JSON.stringify(slot)); } catch { /* storage unavailable */ }
 }
-function clearStandaloneSessionMutex() {
-  try { sessionStorage.removeItem(STANDALONE_MUTEX_KEY); } catch { /* ignore */ }
+
+export function clearStandaloneSessionMutex(sessionId?: string) {
+  if (sessionId && readSlot()?.sessionId !== sessionId) return;
+  try { sessionStorage.removeItem(STANDALONE_MUTEX_KEY); } catch { /* storage unavailable */ }
 }
-export { clearStandaloneSessionMutex };
 
 interface UseStandaloneSessionOptions {
-  /**
-   * If true, the hook will NOT create a session even when providedSessionId is null.
-   * Use this when the exercise is part of a lesson/coaching flow that owns its own
-   * session lifecycle but route state may temporarily be missing (e.g. on remount).
-   */
+  /** Lesson and coach flows own session creation, even while their ID is loading. */
   disabled?: boolean;
-  /**
-   * Mode to stamp on the created session's plan/summary. Defaults to 'standalone'.
-   */
   mode?: 'standalone' | 'lesson' | 'smart_coach';
 }
 
-/**
- * Hook to auto-create a session for standalone game usage.
- *
- * IMPORTANT: To prevent duplicate sessions during lesson/coach flow, this hook
- *  - skips creation if `providedSessionId` is set, AND
- *  - skips creation if `disabled` is true (caller signals lesson context), AND
- *  - skips creation if `lessonFlowState` or `smartCoachState` exist in sessionStorage
- *    (defensive guard for race conditions where route state hasn't propagated yet).
- */
+function hasOwnedSessionContext(exerciseSlug: string): boolean {
+  try {
+    const lessonRaw = sessionStorage.getItem('lessonFlowState');
+    if (lessonRaw) {
+      const lesson = JSON.parse(lessonRaw);
+      const block = lesson.lesson?.blocks?.[lesson.currentBlockIndex];
+      if (lesson.sessionId && block?.exerciseId && normalizeExerciseSlug(block.exerciseId) === exerciseSlug) return true;
+    }
+    const coachRaw = sessionStorage.getItem('smartCoachState');
+    if (coachRaw) {
+      const coach = JSON.parse(coachRaw);
+      const game = coach.returningFromGame === 1 ? coach.plan?.game1 :
+        coach.returningFromGame === 2 ? coach.plan?.game2 : null;
+      if (coach.sessionId && game?.exerciseSlug && normalizeExerciseSlug(game.exerciseSlug) === exerciseSlug) return true;
+    }
+  } catch { /* no usable parent session */ }
+  return false;
+}
+
+async function stampSessionMode(sessionId: string, mode: NonNullable<UseStandaloneSessionOptions['mode']>) {
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { error } = await supabase.from('sessions').update({ summary: { mode } })
+      .eq('id', sessionId).is('ended_at', null);
+    if (error) console.warn('[useStandaloneSession] Failed to save session mode:', error);
+  } catch (error) {
+    console.warn('[useStandaloneSession] Failed to save session mode:', error);
+  }
+}
+
+function acquireSession(scope: string, userId: string, profileId: string, exerciseSlug: string,
+  mode: NonNullable<UseStandaloneSessionOptions['mode']>) {
+  const cached = readSlot();
+  if (cached?.scope === scope && cached.sessionId) return Promise.resolve(cached.sessionId);
+
+  writeSlot({ scope, sessionId: null });
+  const inFlight = pendingSessions.get(scope);
+  if (inFlight) return inFlight;
+
+  const request = startSession(userId, { blocks: [{ exercise: exerciseSlug, duration: 10 }] }, { profileId })
+    .then(session => {
+      if (!session?.id) throw new Error('Session creation returned no ID');
+      // A slower request for the previous patient must not replace the current slot.
+      if (readSlot()?.scope === scope) writeSlot({ scope, sessionId: session.id });
+      void stampSessionMode(session.id, mode);
+      return session.id as string;
+    })
+    .finally(() => { pendingSessions.delete(scope); });
+
+  pendingSessions.set(scope, request);
+  return request;
+}
+
 export const useStandaloneSession = (
   userId: string | undefined,
   providedSessionId: string | null | undefined,
   rawExerciseSlug: string,
-  options: UseStandaloneSessionOptions = {}
+  { disabled = false, mode = 'standalone' }: UseStandaloneSessionOptions = {},
 ) => {
-  // Single normalization at the write boundary — every downstream read
-  // (sessions.plan.blocks[].exercise, mutex, logs) gets the canonical slug.
   const exerciseSlug = normalizeExerciseSlug(rawExerciseSlug);
-  const [localSessionId, setLocalSessionId] = useState<string | null>(null);
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
-  const inFlightRef = useRef(false); // synchronous guard against double-invoked effects
   const { activeProfile } = useProfile();
-
-  const { disabled = false, mode = 'standalone' } = options;
-
-  // Defensive: detect an in-flight lesson/coach session for THIS exercise only.
-  // Stale state from a different exercise must not block standalone launch.
-  const hasOwnedSessionContext = (): boolean => {
-    try {
-      const lessonRaw = sessionStorage.getItem('lessonFlowState');
-      if (lessonRaw) {
-        const parsed = JSON.parse(lessonRaw);
-        const savedIndex = typeof parsed?.currentBlockIndex === 'number' ? parsed.currentBlockIndex : -1;
-        const savedExercise = parsed?.lesson?.blocks?.[savedIndex]?.exerciseId;
-        if (parsed?.sessionId && savedExercise && normalizeExerciseSlug(savedExercise) === exerciseSlug) return true;
-      }
-      const coachRaw = sessionStorage.getItem('smartCoachState');
-      if (coachRaw) {
-        const parsed = JSON.parse(coachRaw);
-        const slot = parsed?.returningFromGame;
-        const savedExercise = slot === 1
-          ? parsed?.plan?.game1?.exerciseSlug
-          : slot === 2
-            ? parsed?.plan?.game2?.exerciseSlug
-            : null;
-        if (parsed?.sessionId && savedExercise && normalizeExerciseSlug(savedExercise) === exerciseSlug) return true;
-      }
-    } catch { /* ignore */ }
-    return false;
-  };
-
-  const activeSessionId = providedSessionId || localSessionId;
+  // The previous account's profile may still be mounted while auth switches.
+  const profileId = userId && activeProfile?.user_id === userId ? activeProfile.id : undefined;
+  const scope = userId && profileId ? JSON.stringify([userId, profileId, exerciseSlug]) : null;
+  const [local, setLocal] = useState<(SessionSlot & { creating: boolean }) | null>(null);
 
   useEffect(() => {
-    if (providedSessionId || localSessionId || isCreatingSession) return;
-    if (inFlightRef.current) return;
-    if (!userId || !activeProfile?.id) return;
-    if (disabled) {
-      console.log('[useStandaloneSession] skipped: disabled by caller (lesson/coach flow)', { exerciseSlug });
-      return;
-    }
-    if (hasOwnedSessionContext()) {
-      console.log('[useStandaloneSession] skipped: active lesson/coach context owns this exercise', { exerciseSlug });
-      return;
-    }
+    if (providedSessionId || disabled || !scope || !userId || !profileId || hasOwnedSessionContext(exerciseSlug)) return;
+    let current = true;
+    setLocal({ scope, sessionId: null, creating: true });
+    acquireSession(scope, userId, profileId, exerciseSlug, mode).then(
+      sessionId => {
+        if (current) setLocal({ scope, sessionId, creating: false });
+      },
+      error => {
+        console.error('[useStandaloneSession] Could not open practice:', error);
+        if (current) setLocal({ scope, sessionId: null, creating: false });
+      },
+    );
+    return () => { current = false; };
+  }, [providedSessionId, disabled, scope, userId, profileId, exerciseSlug, mode]);
 
-    // sessionStorage mutex — survives React 18 double-effect AND remounts
-    const existingMutex = readMutex();
-    if (existingMutex) {
-      if (existingMutex.exerciseSlug !== exerciseSlug) {
-        clearStandaloneSessionMutex();
-      } else if (existingMutex.sessionId) {
-        console.log('[useStandaloneSession] reusing session from mutex:', existingMutex.sessionId);
-        setLocalSessionId(existingMutex.sessionId);
-        return;
-      } else {
-        // Acquisition in flight elsewhere — wait, then check again
-        console.log('[useStandaloneSession] mutex held by concurrent acquisition, waiting…');
-        const waitId = setTimeout(() => {
-          const refreshed = readMutex();
-          if (refreshed?.sessionId && !localSessionId) setLocalSessionId(refreshed.sessionId);
-        }, 250);
-        return () => clearTimeout(waitId);
-      }
-    }
-
-    // Acquire mutex BEFORE async work
-    inFlightRef.current = true;
-    writeMutex({ exerciseSlug, createdAt: Date.now() });
-    setIsCreatingSession(true);
-    console.log('📝 Creating standalone session for', exerciseSlug, 'profile:', activeProfile.id, 'mode:', mode);
-
-    startSession(
-      userId,
-      { blocks: [{ exercise: exerciseSlug, duration: 10 }] },
-      { profileId: activeProfile.id }
-    )
-      .then(async (session) => {
-        if (!session?.id) {
-          console.warn('⚠️ [useStandaloneSession] startSession returned no session');
-          clearStandaloneSessionMutex();
-          return;
-        }
-        setLocalSessionId(session.id);
-        writeMutex({ exerciseSlug, createdAt: Date.now(), sessionId: session.id });
-
-        try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          await supabase
-            .from('sessions')
-            .update({ summary: { mode } as any })
-            .eq('id', session.id)
-            .is('ended_at', null);
-        } catch (err) {
-          console.warn('[useStandaloneSession] failed to stamp summary.mode:', err);
-        }
-
-        console.log('✅ [useStandaloneSession] Session created:', {
-          sessionId: session.id, profileId: activeProfile?.id, exerciseSlug, mode,
-        });
-      })
-      .catch((error) => {
-        console.error('❌ [useStandaloneSession] Failed to create session:', { error, exerciseSlug });
-        clearStandaloneSessionMutex();
-      })
-      .finally(() => {
-        setIsCreatingSession(false);
-        inFlightRef.current = false;
-      });
-  }, [providedSessionId, userId, activeProfile?.id, localSessionId, isCreatingSession, exerciseSlug, disabled, mode]);
-
-  // On unmount, if we created the session, leave the mutex in place briefly
-  // so a remount within the same exercise reuses it; the TTL will clean it up.
-  useEffect(() => {
-    return () => {
-      const current = readMutex();
-      // Only clear if mutex belongs to us AND no sessionId resolved (acquisition aborted)
-      if (current && current.exerciseSlug === exerciseSlug && !current.sessionId) {
-        clearStandaloneSessionMutex();
-      }
-    };
-  }, [exerciseSlug]);
-
+  const ownSession = !disabled && local?.scope === scope ? local : null;
   return {
-    activeSessionId,
-    isCreatingSession,
+    activeSessionId: providedSessionId || ownSession?.sessionId || null,
+    isCreatingSession: !providedSessionId && !!ownSession?.creating,
     isStandaloneMode: !providedSessionId && !disabled,
-    profileId: activeProfile?.id,
+    profileId,
   };
 };

@@ -909,6 +909,18 @@ export type Database = {
         }
         Relationships: []
       }
+      clinician_recording_permissions: {
+        Row: { profile_id: string; granted_at: string }
+        Insert: { profile_id: string; granted_at?: string }
+        Update: { profile_id?: string; granted_at?: string }
+        Relationships: [{
+          foreignKeyName: "clinician_recording_permissions_profile_id_fkey"
+          columns: ["profile_id"]
+          isOneToOne: true
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        }]
+      }
       clinician_assignments: {
         Row: {
           assigned_at: string

@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { readAllById } from "@/lib/clinical/readAllById";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { useAuth } from "@/hooks/useAuth";
 import { localYYYYMMDD } from "@/lib/localDate";
+import { isComparableScoredEvent } from "@/lib/clinical/metricsPresentation";
 
 export interface CaseloadPatient {
   profileId: string;
@@ -20,7 +23,7 @@ export interface CaseloadPatient {
   // 7-day aggregates
   trials7d: number;
   priorTrials7d: number;
-  adherenceDays7d: number; // 0–7
+  adherenceDays7d: number; // Observed days of practice, NOT prescribed adherence
   avgAccuracy7d: number | null;
   accuracyDelta7d: number | null; // vs prior 7d — null if insufficient trials
 
@@ -44,63 +47,65 @@ function deriveAphasiaLabel(cp: Record<string, any> | null): string | null {
   return null;
 }
 
-/**
- * Sprint 2 caseload hook — Mode A (temporary linking).
- * 
- * Fetches profiles the current user can see via RLS.
- * Admins see all profiles; regular users see only their own.
- * Sprint 3 will swap to clinician_patient_links.
- */
 export function useClinicianCaseload() {
   const { user } = useAuth();
+  const role = useUserPermissions(user?.id);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [patients, setPatients] = useState<CaseloadPatient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const loadingRef = useRef(false);
+  const requestId = useRef(0);
+  const viewerKey = user?.id && !role.isLoading ? `${user.id}|${role.isAdmin}` : null;
 
   const load = useCallback(async () => {
-    if (!user?.id || loadingRef.current) return;
-    loadingRef.current = true;
+    const request = ++requestId.current;
+    if (!viewerKey || !user?.id) return;
     setIsLoading(true);
     setError(null);
-
     try {
-      // Step 1: Get all accessible profiles (RLS-filtered)
-      const { data: profiles, error: profileErr } = await supabase
-        .from("profiles")
-        .select("id, user_id, profile_name, stroke_date, clinical_profile, is_active, aphasia_type, laterality, chronicity_tag, stroke_mechanism_tag")
-        .eq("is_active", true)
-        .order("profile_name");
-
-        if (profileErr) throw profileErr;
-        if (!profiles || profiles.length === 0) {
-          setPatients([]);
-          setIsLoading(false);
-          return;
-        }
+      const assigned = role.isAdmin ? null : await readAllById(after => {
+        let q = supabase.from("clinician_assignments").select("id, profile_id")
+          .eq("clinician_id", user.id).is("revoked_at", null).order("id").limit(500);
+        if (after) q = q.gt("id",after);
+        return q;
+      });
+      const ids = assigned === null ? null : new Set(assigned.map(a => a.profile_id));
+      const visible = await readAllById(after => {
+        let q = supabase.from("profiles")
+          .select("id, user_id, profile_name, stroke_date, clinical_profile, aphasia_type, laterality, chronicity_tag, stroke_mechanism_tag")
+          .eq("profile_kind","patient").order("id").limit(500);
+        if (after) q = q.gt("id", after);
+        return q;
+      });
+      if (request !== requestId.current) return;
+      const profiles = visible.filter(p => ids === null || ids.has(p.id)).sort((a,b) => a.profile_name.localeCompare(b.profile_name));
+      if (!profiles.length) { setPatients([]); setLastUpdatedAt(new Date()); return; }
 
         const profileIds = profiles.map(p => p.id);
 
         // Use timezone-safe date boundaries
         const now = new Date();
         const sevenAgoDate = new Date(now);
-        sevenAgoDate.setDate(sevenAgoDate.getDate() - 7);
+        sevenAgoDate.setHours(0,0,0,0);
+        sevenAgoDate.setDate(sevenAgoDate.getDate() - 6);
         const fourteenAgoDate = new Date(now);
-        fourteenAgoDate.setDate(fourteenAgoDate.getDate() - 14);
+        fourteenAgoDate.setHours(0,0,0,0);
+        fourteenAgoDate.setDate(fourteenAgoDate.getDate() - 13);
 
-        const todayStr = localYYYYMMDD(now);
         const sevenAgoStr = localYYYYMMDD(sevenAgoDate);
         const fourteenAgoStr = localYYYYMMDD(fourteenAgoDate);
 
         // Step 2: Batch fetch 14d sessions for all profiles
-        const { data: sessions14d } = await supabase
-          .from("sessions")
-          .select("id, profile_id, ended_at, duration_sec")
-          .in("profile_id", profileIds)
-          .not("ended_at", "is", null)
-          .gte("ended_at", fourteenAgoDate.toISOString())
-          .gte("duration_sec", 60);
+        const patientSet = new Set(profileIds);
+        const periodSessions = await readAllById(after => {
+          let q = supabase.from("sessions").select("id, profile_id, ended_at, duration_sec")
+            .gte("ended_at", fourteenAgoDate.toISOString()).lte("ended_at",now.toISOString())
+            .gte("duration_sec",60).order("id").limit(500);
+          if (after) q = q.gt("id",after);
+          return q;
+        });
+        const sessions14d = periodSessions.filter(s => s.profile_id && patientSet.has(s.profile_id));
 
         // Group sessions by profile + window using date string comparison
         const sessionsByProfile = new Map<string, { recent: any[]; prior: any[] }>();
@@ -120,7 +125,8 @@ export function useClinicianCaseload() {
         }
 
         // Step 3: Batch fetch events for all sessions
-        const allSessionIds = (sessions14d || []).map(s => s.id);
+        const sessionOwner = new Map(sessions14d.map(s => [s.id,s.profile_id]));
+        const allSessionIds = [...sessionOwner.keys()];
         const eventsBySession = new Map<string, number[]>();
 
         if (allSessionIds.length > 0) {
@@ -129,29 +135,33 @@ export function useClinicianCaseload() {
             chunks.push(allSessionIds.slice(i, i + 100));
           }
           for (const chunk of chunks) {
-            const { data: events } = await supabase
-              .from("exercise_events")
-              .select("session_id, score")
-              .in("session_id", chunk)
-              .not("score", "is", null);
+            const events = await readAllById(after => {
+              let q = supabase.from("exercise_events")
+                .select("id, session_id, profile_id, score, exercise_slug, counts_toward_score, validity_label, clinician_validity_override, task_parameters, engagement_flags")
+                .in("session_id",chunk).order("id").limit(500);
+              if (after) q = q.gt("id",after);
+              return q;
+            });
 
-            for (const e of events || []) {
-              if (!eventsBySession.has(e.session_id)) {
-                eventsBySession.set(e.session_id, []);
-              }
-              const s = e.score!;
-              const normalized = s <= 1 ? s * 100 : s;
-              eventsBySession.get(e.session_id)!.push(Math.max(0, Math.min(100, normalized)));
+            for (const event of events) {
+              // Identical read-side validity rules to the patient-specific
+              // review. Never restore invalid caregiver/noise/assisted samples
+              // by averaging raw scores in the caseload.
+              if ((event.profile_id && event.profile_id !== sessionOwner.get(event.session_id)) || !isComparableScoredEvent(event)) continue;
+              const scores = eventsBySession.get(event.session_id) ?? [];
+              const score = event.score!;
+              scores.push(score <= 1 ? score * 100 : score);
+              eventsBySession.set(event.session_id, scores);
             }
           }
         }
 
         // Step 4: Batch fetch unresolved alerts
-        const { data: alertsRaw } = await (supabase as any)
-          .from("recovery_alerts")
-          .select("profile_id, severity")
-          .in("profile_id", profileIds)
-          .is("resolved_at", null);
+        const alertsRaw = await readAllById(after => {
+          let q = supabase.from("recovery_alerts").select("id,profile_id,severity").is("resolved_at",null).order("id").limit(500);
+          if (after) q = q.gt("id",after);
+          return q;
+        });
 
         const alertsByProfile = new Map<string, { total: number; critical: number }>();
         for (const a of alertsRaw || []) {
@@ -164,17 +174,17 @@ export function useClinicianCaseload() {
         }
 
         // Step 5: Batch fetch dose_logs for adherence + last active (dose side)
-        const { data: doseLogs } = await supabase
-          .from("dose_logs")
-          .select("profile_id, log_date")
-          .in("profile_id", profileIds)
-          .gte("log_date", fourteenAgoStr)
-          .order("log_date", { ascending: false });
+        const doseLogs = await readAllById(after => {
+          let q = supabase.from("dose_logs").select("id,profile_id,log_date").gt("dose_value",0)
+            .gte("log_date",fourteenAgoStr).lte("log_date",localYYYYMMDD(now)).order("id").limit(500);
+          if (after) q = q.gt("id",after);
+          return q;
+        });
 
         const lastDoseDateByProfile = new Map<string, string>();
         const activeDaysByProfile = new Map<string, Set<string>>();
         for (const d of doseLogs || []) {
-          if (!lastDoseDateByProfile.has(d.profile_id)) {
+          if (d.log_date > (lastDoseDateByProfile.get(d.profile_id) ?? "")) {
             lastDoseDateByProfile.set(d.profile_id, d.log_date);
           }
           // Count unique active days in last 7 using string comparison
@@ -195,6 +205,10 @@ export function useClinicianCaseload() {
         // Compare with latest session ended_at (converted to local date)
         for (const s of sessions14d || []) {
           const sessionDateStr = localYYYYMMDD(new Date(s.ended_at!));
+          if (sessionDateStr >= sevenAgoStr) {
+            const days = activeDaysByProfile.get(s.profile_id) ?? new Set<string>();
+            days.add(sessionDateStr); activeDaysByProfile.set(s.profile_id, days);
+          }
           const existing = lastActiveDateByProfile.get(s.profile_id);
           if (!existing || sessionDateStr > existing) {
             lastActiveDateByProfile.set(s.profile_id, sessionDateStr);
@@ -262,20 +276,26 @@ export function useClinicianCaseload() {
           };
         });
 
+        if (request !== requestId.current) return;
         setPatients(result);
         setLastUpdatedAt(new Date());
       } catch (err) {
+        if (request !== requestId.current) return;
         console.error("[useClinicianCaseload] error:", err);
-        setError("Failed to load caseload");
+        // Never leave prior/potentially wrong patients on screen after an
+        // incomplete load. A missing response is not a clean zero.
+        setPatients([]);
+        setError("Caseload evidence could not be loaded reliably");
       } finally {
-        setIsLoading(false);
-        loadingRef.current = false;
+        if (request === requestId.current) { setIsLoading(false); setLoadedFor(viewerKey); }
       }
-  }, [user?.id]);
+  }, [user?.id, role.isAdmin, viewerKey]);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => { requestId.current++; };
   }, [load]);
 
-  return { patients, isLoading, error, lastUpdatedAt, refetch: load };
+  return { isAdmin:role.isAdmin, patients: loadedFor === viewerKey ? patients : [], isLoading: !viewerKey || loadedFor !== viewerKey || isLoading,
+    error: loadedFor === viewerKey ? error : null, lastUpdatedAt: loadedFor === viewerKey ? lastUpdatedAt : null, refetch: load };
 }

@@ -16,6 +16,13 @@ interface NavItem {
 
 const NAV_SECTIONS: { heading: string; items: NavItem[] }[] = [
   {
+    heading: "Clinical program",
+    items: [
+      { title: "Patient caseload", description: "Review practice gaps, alerts and individual patient evidence", href: "/clinician/dashboard", icon: ClipboardCheck },
+      { title: "Cohort research", description: "Compare practice within patients by game, stroke mechanism and aphasia type", href: "/admin/cohort-research", icon: BarChart3 },
+    ],
+  },
+  {
     heading: "People",
     items: [
       {

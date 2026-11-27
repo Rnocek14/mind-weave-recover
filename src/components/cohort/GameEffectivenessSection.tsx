@@ -1,80 +1,56 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Gamepad2 } from "lucide-react";
-import type { GameEffectivenessRow } from "@/hooks/useCohortAnalytics";
+import { cohortDimensions, type CohortDimension, type GamePracticeRow } from "@/lib/clinical/pairedGamePractice";
+import { getGameClinicalProfile } from "@/lib/leveling/clinicalRungs";
+import { toProgressionSlug } from "@/lib/exerciseSlugNormalizer";
 
-interface Props {
-  data: GameEffectivenessRow[];
-}
+type Props = { rows: GamePracticeRow[]; dimension: CohortDimension; onDimension: (d: CohortDimension) => void };
+const pp = (n: number) => `${n > 0 ? "+" : ""}${n}`;
 
-export function GameEffectivenessSection({ data }: Props) {
-  if (data.length === 0) {
-    return (
-      <Card>
-        <CardHeader className="pb-2 pt-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Gamepad2 className="w-4 h-4 text-primary" />
-            Game Effectiveness by Cohort
-          </CardTitle>
-          <CardDescription className="text-xs">Which exercises help which patient profiles most?</CardDescription>
-        </CardHeader>
-        <CardContent className="pb-3">
-          <p className="text-xs text-muted-foreground">Not enough trial data yet. Needs ≥3 trials per exercise per phenotype.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Group by exercise, show top 10
-  const exerciseMap = new Map<string, GameEffectivenessRow[]>();
-  for (const row of data) {
-    if (!exerciseMap.has(row.exerciseSlug)) exerciseMap.set(row.exerciseSlug, []);
-    exerciseMap.get(row.exerciseSlug)!.push(row);
-  }
-
-  const chartData = Array.from(exerciseMap.entries())
-    .slice(0, 10)
-    .map(([slug, rows]) => ({
-      exercise: slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-      avgScore: Math.round(rows.reduce((s, r) => s + r.avgScore, 0) / rows.length * 10) / 10,
-      improvement: Math.round(rows.reduce((s, r) => s + (r.improvementSlope ?? 0), 0) / rows.length * 10) / 10,
-      trials: rows.reduce((s, r) => s + r.trialCount, 0),
-      patients: new Set(rows.flatMap(r => Array(r.patientCount).fill(0))).size || rows.reduce((s, r) => s + r.patientCount, 0),
-    }))
-    .sort((a, b) => b.improvement - a.improvement);
-
-  return (
-    <Card>
-      <CardHeader className="pb-2 pt-3">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Gamepad2 className="w-4 h-4 text-primary" />
-          Game Effectiveness by Cohort
-        </CardTitle>
-        <CardDescription className="text-xs">Which exercises show the best improvement? Sorted by improvement slope.</CardDescription>
-      </CardHeader>
-      <CardContent className="pb-3 space-y-3">
-        <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 35)}>
-          <BarChart data={chartData} layout="vertical" margin={{ left: 100 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" />
-            <YAxis type="category" dataKey="exercise" tick={{ fontSize: 10 }} width={95} />
-            <Tooltip formatter={(v: number, name: string) => [name === "improvement" ? `${v > 0 ? "+" : ""}${v}` : v, name === "improvement" ? "Improvement" : "Avg Score"]} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="avgScore" fill="hsl(var(--primary))" name="Avg Score" radius={[0, 4, 4, 0]} />
-            <Bar dataKey="improvement" fill="hsl(var(--chart-2))" name="Improvement" radius={[0, 4, 4, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-
-        {/* By phenotype detail */}
-        <div className="flex flex-wrap gap-1.5">
-          {data.slice(0, 12).map((r, i) => (
-            <Badge key={i} variant="outline" className="text-xs">
-              {r.exerciseSlug}: {r.phenotypeValue} → {r.improvementSlope != null && r.improvementSlope > 0 ? "+" : ""}{r.improvementSlope ?? "?"} ({r.trialCount} trials)
-            </Badge>
-          ))}
+export function GameEffectivenessSection({ rows, dimension, onDimension }: Props) {
+  return <Card>
+    <CardHeader className="gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1">
+        <CardTitle className="flex items-center gap-2 text-lg"><Gamepad2 aria-hidden="true" className="h-5 w-5 text-primary" />Practice change by game</CardTitle>
+        <CardDescription>How did recorded task credit change between the first and fourth weeks for the same people?</CardDescription>
+      </div>
+      <label className="flex shrink-0 flex-col gap-1 text-xs font-medium">Group patients by
+        <select className="rounded-md border bg-background px-2 py-2 text-sm" value={dimension} onChange={e => onDimension(e.target.value as CohortDimension)}>
+          {Object.entries(cohortDimensions).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+        </select>
+      </label>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {rows.length ? <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <caption className="sr-only">Task credit by game and current documented {cohortDimensions[dimension].toLowerCase()}</caption>
+          <thead className="border-y bg-muted/40 text-xs text-muted-foreground"><tr>
+            {["Game", cohortDimensions[dimension], "Recorded", "Baseline", "Paired", "Median change", "Middle 50%"].map(h =>
+              <th key={h} scope="col" className="whitespace-nowrap px-2 py-2 font-medium">{h}</th>)}
+          </tr></thead>
+          <tbody>{rows.map(r => <tr key={JSON.stringify([r.game,r.group])} className="border-b">
+            <th scope="row" className="px-2 py-3 font-medium">{getGameClinicalProfile(toProgressionSlug(r.game))?.title ?? r.game.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase())}</th>
+            <td className="px-2 capitalize">{r.group.replace(/_/g," ")}</td>
+            <td className="px-2 tabular-nums">{r.recorded}</td><td className="px-2 tabular-nums">{r.baseline}</td>
+            <td className="px-2"><details><summary className="cursor-pointer tabular-nums" aria-label={`Coverage for ${r.game}, ${r.group}: ${r.paired} paired`}>{r.paired}</summary>
+              <dl className="min-w-36 py-2 text-xs text-muted-foreground">
+                {([["No eligible baseline",r.recorded-r.baseline],["Week 4 still open",r.pending],["No eligible follow-up",r.absent],["No matching condition",r.unmatched]] as const)
+                  .map(([label,n]) => <div key={label} className="flex justify-between gap-2"><dt>{label}</dt><dd>{n}</dd></div>)}
+              </dl></details></td>
+            <td className="whitespace-nowrap px-2 font-semibold tabular-nums">{r.median === null ? "Too few pairs" : `${pp(r.median)} pp`}</td>
+            <td className="whitespace-nowrap px-2 text-muted-foreground">{r.q1 === null || r.q3 === null ? "—" : `${pp(r.q1)} to ${pp(r.q3)} pp`}</td>
+          </tr>)}</tbody>
+        </table>
+      </div> : <p className="text-sm text-muted-foreground">No game attempts have been recorded for these profiles.</p>}
+      <details className="text-sm"><summary className="cursor-pointer font-medium">How this comparison works</summary>
+        <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+          <p>The first eligible attempt for each person and game starts the clock. Days 1–7 and 22–28 use UTC calendar dates. Both windows must be complete. Rows with more paired patients appear first. Expand a paired count to see who could contribute.</p>
+          <p>Eligible attempts use the unified trial record, a binary task score, a recorded game level and response mode. Explicitly excluded, manually confirmed and caregiver-assisted attempts do not qualify. A credited answer can include cueing.</p>
+          <p>Photo Naming distinguishes a spoken answer from a tapped choice. Older Photo Naming records with an unverified response mode count toward coverage only. Other games use the mode recorded by the exercise.</p>
+          <p>Within each person, matching game levels, response modes and recorded interaction settings get equal weight. The median and middle 50% use one change per person and require at least two pairs. Values are percentage points (pp).</p>
+          <p>Groups use the current profile. Differences in item familiarity, cueing, other therapy and who returned can affect the result. A treatment-effect comparison requires a defined comparator and outcome.</p>
         </div>
-      </CardContent>
-    </Card>
-  );
+      </details>
+    </CardContent>
+  </Card>;
 }
